@@ -9,7 +9,8 @@
 
 import { workspace } from "@synnaxlabs/client";
 
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 
 export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
   Sync.useListener({
@@ -26,3 +27,23 @@ export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): vo
       onDelete(args.changed);
     }),
   });
+
+export interface RetrieveParams extends Flux.Params {
+  key: workspace.Key;
+}
+
+export const retrieve = Flux.createRetrieve<RetrieveParams, workspace.Workspace>({
+  name: "Workspace",
+  retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
+});
+
+export interface ListParams extends Flux.Params {
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, workspace.Key, workspace.Workspace>({
+  name: "Workspace",
+  retrieve: async ({ client, params }) => await client.workspaces.retrieve(params),
+  retrieveByKey: async ({ client, key }) => await client.workspaces.retrieve(key),
+});

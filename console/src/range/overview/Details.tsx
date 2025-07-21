@@ -35,7 +35,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.useParent(rangeKey);
+  const res = Ranger.retrieveParent.useDirect({ params: { key: rangeKey } });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
@@ -80,8 +80,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   });
   const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
-    false,
-    form,
+    {
+      ctx: form,
+    },
   );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
@@ -206,9 +207,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           <Form.Field<string[]> required={false} path="labels">
             {({ variant: _, ...p }) => (
               <Label.SelectMultiple
-                entryRenderKey="name"
-                dropdownVariant="floating"
                 zIndex={100}
+                variant="floating"
                 location="bottom"
                 style={{ width: "fit-content" }}
                 {...p}

@@ -9,8 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
@@ -44,6 +43,7 @@ const retrieveReqZ = z.object({
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
@@ -56,7 +56,7 @@ const emptyResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
-export class Client implements AsyncTermSearcher<string, Key, Workspace> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
@@ -108,15 +108,22 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
 
   async retrieve(key: Key): Promise<Workspace>;
   async retrieve(keys: Key[]): Promise<Workspace[]>;
-  async retrieve(keys: Params): Promise<Workspace | Workspace[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(req: RetrieveRequest): Promise<Workspace[]>;
+  async retrieve(keys: Params | RetrieveRequest): Promise<Workspace | Workspace[]> {
+    let req: RetrieveRequest;
+    const isMany: boolean = typeof keys !== "string";
+    if (typeof keys === "string" || Array.isArray(keys))
+      req = { keys: array.toArray(keys) };
+    else req = keys;
+    console.log(req);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      req,
       retrieveReqZ,
       retrieveResZ,
     );
+    console.log(res, isMany);
     return isMany ? res.workspaces : res.workspaces[0];
   }
 

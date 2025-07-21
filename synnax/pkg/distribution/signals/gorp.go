@@ -110,7 +110,7 @@ func GorpPublisherConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, d
 	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
-		SetDataType:    dt,
+		SetDataType:    telem.JSONT,
 		MarshalDelete: func(k K) (b []byte, err error) {
 			b = make([]byte, dt.Density())
 			telem.MarshalF[K](dt)(b, k)

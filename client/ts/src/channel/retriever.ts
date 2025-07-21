@@ -11,10 +11,9 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { DataType } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
-  channelZ,
   type Key,
   type KeyOrName,
   type Keys,
@@ -24,6 +23,7 @@ import {
   type Names,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
 import {
@@ -46,12 +46,13 @@ const reqZ = z.object({
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional(),
 });
-interface Request extends z.input<typeof reqZ> {}
+export interface RetrieveRequest extends z.input<typeof reqZ> {}
 
-export interface RetrieveOptions extends Omit<Request, "keys" | "names" | "search"> {}
+export interface RetrieveOptions
+  extends Omit<RetrieveRequest, "keys" | "names" | "search"> {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-const resZ = z.object({ channels: nullableArrayZ(channelZ) });
+const resZ = z.object({ channels: nullableArrayZ(payloadZ) });
 
 export const analyzeParams = (
   channels: Params,
@@ -66,9 +67,8 @@ export const analyzeParams = (
 };
 
 export interface Retriever {
-  retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
-  search: (term: string, opts?: RetrieveOptions) => Promise<Payload[]>;
-  page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload[]>;
+  retrieve: ((channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>) &
+    ((request: RetrieveRequest) => Promise<Payload[]>);
 }
 
 export class ClusterRetriever implements Retriever {
@@ -79,11 +79,12 @@ export class ClusterRetriever implements Retriever {
     this.client = client;
   }
 
-  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
-    return await this.execute({ search: term, ...options });
-  }
-
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+  async retrieve(
+    channels: Params | RetrieveRequest,
+    options?: RetrieveOptions,
+  ): Promise<Payload[]> {
+    if (!Array.isArray(channels) && typeof channels === "object")
+      return await this.execute(channels);
     const res = analyzeParams(channels);
     const { variant } = res;
     let { normalized } = res;
@@ -93,11 +94,7 @@ export class ClusterRetriever implements Retriever {
     return await this.execute({ [variant]: normalized, ...options });
   }
 
-  async page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]> {
-    return await this.execute({ offset, limit, ...options });
-  }
-
-  private async execute(request: Request): Promise<Payload[]> {
+  private async execute(request: RetrieveRequest): Promise<Payload[]> {
     const [res, err] = await this.client.send(
       ClusterRetriever.ENDPOINT,
       request,
@@ -120,15 +117,12 @@ export class CacheRetriever implements Retriever {
     this.wrapped = wrapped;
   }
 
-  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
-    return await this.wrapped.search(term, options);
-  }
-
-  async page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit, options);
-  }
-
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+  async retrieve(
+    channels: Params | RetrieveRequest,
+    options?: RetrieveOptions,
+  ): Promise<Payload[]> {
+    if (!Array.isArray(channels) && typeof channels === "object")
+      return await this.wrapped.retrieve(channels);
     const { normalized } = analyzeParams(channels);
     const results: Payload[] = [];
     const toFetch: KeysOrNames = [];
@@ -226,19 +220,9 @@ export class DebouncedBatchRetriever implements Retriever {
     }, deb);
   }
 
-  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
-    return await this.wrapped.search(term, options);
-  }
-
-  async page(
-    offset: number,
-    limit: number,
-    options?: RetrieveOptions,
-  ): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit, options);
-  }
-
-  async retrieve(channels: Params): Promise<Payload[]> {
+  async retrieve(channels: Params | RetrieveRequest): Promise<Payload[]> {
+    if (!Array.isArray(channels) && typeof channels === "object")
+      return await this.wrapped.retrieve(channels);
     const { normalized, variant } = analyzeParams(channels);
     // Bypass on name fetches for now.
     if (variant === "names") return await this.wrapped.retrieve(normalized);

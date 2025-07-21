@@ -9,7 +9,6 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -18,10 +17,9 @@ import {
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
-  channelZ,
   type Key,
   type KeyOrName,
   type Name,
@@ -29,6 +27,7 @@ import {
   ONTOLOGY_TYPE,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import {
   analyzeParams,
@@ -37,6 +36,7 @@ import {
   DebouncedBatchRetriever,
   type RetrieveOptions,
   type Retriever,
+  type RetrieveRequest,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
@@ -156,7 +156,7 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return channelZ.parse({
+    return payloadZ.parse({
       key: this.key,
       name: this.name,
       dataType: this.dataType.valueOf(),
@@ -216,7 +216,7 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * cluster. This class should not be instantiated directly, and instead should be used
  * through the `channels` property of an {@link Synnax} client.
  */
-export class Client implements AsyncTermSearcher<string, Key, Channel> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
@@ -318,7 +318,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   /**
    * Retrieves a channel from the database using the given key or name.
    *
-   * @param channel - The key or name of the channel to retrieve.
+   * @param params - The key or name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
    * type.
@@ -337,13 +337,13 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+  async retrieve(params: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
 
   /**
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    *
-   * @param channels - The keys or the names of the channels to retrieve. Note that
+   * @param params - The keys or the names of the channels to retrieve. Note that
    * this method does not support mixing keys and names in the same call.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
@@ -351,7 +351,9 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
+  async retrieve(params: Params, options?: RetrieveOptions): Promise<Channel[]>;
+
+  async retrieve(params: RetrieveRequest): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -361,25 +363,24 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(
-    channels: Params,
+    params: Params | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    const isSingle = !Array.isArray(channels);
-    const res = this.sugar(await this.retriever.retrieve(channels, options));
-    checkForMultipleOrNoResults("channel", channels, res, isSingle);
-    return isSingle ? res[0] : res;
-  }
+    if (typeof params === "object" && !Array.isArray(params))
+      return this.sugar(await this.retriever.retrieve(params));
 
-  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term, options));
+    const isSingle = !Array.isArray(params);
+    const res = this.sugar(await this.retriever.retrieve(params, options));
+    checkForMultipleOrNoResults("channel", params as Params, res, isSingle);
+    return isSingle ? res[0] : res;
   }
 
   /***
    * Deletes channels from the database using the given keys or names.
-   * @param channels - The keys or names of the channels to delete.
+   * @param params - The keys or names of the channels to delete.
    */
-  async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
+  async delete(params: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(params);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });
@@ -389,26 +390,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async rename(keys: Key[], names: string[]): Promise<void>;
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
     return await this.writer.rename(array.toArray(keys), array.toArray(names));
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Channel> {
-    return {
-      type: this.type,
-      search: async (term: string) => await this.search(term, options),
-      retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
-      page: async (offset: number, limit: number) =>
-        await this.page(offset, limit, options),
-    };
-  }
-
-  async page(
-    offset: number,
-    limit: number,
-    options?: Omit<RetrieveOptions, "limit" | "offset">,
-  ): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit, options));
   }
 
   createDebouncedBatchRetriever(deb: number = 10): Retriever {

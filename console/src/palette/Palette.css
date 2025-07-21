@@ -26,10 +26,11 @@
 
 .console-palette__content {
     width: 100%;
+    height: 100%;
+    min-height: 120px;
     max-width: 1200px;
-    height: 500px;
+    max-height: 500px;
     width: 95vw;
-    min-height: 400px;
     max-width: 1200px;
     background: transparent !important;
     overflow: hidden;
@@ -46,5 +47,9 @@
 
     & .pluto-status-text {
         height: 150px;
+    }
+
+    .pluto-list__virtualizer {
+        margin-bottom: 1rem;
     }
 }

@@ -20,15 +20,15 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, color, id, type record } from "@synnaxlabs/x";
+import { bounds, color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
-import { useSelectAxes, useSelectRules } from "@/lineplot/selectors";
-import { removeRule, type RuleState, selectRule, setRule } from "@/lineplot/slice";
+import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
+import { removeRule, type RuleState, setRule, setSelectedRule } from "@/lineplot/slice";
 
 interface EmptyContentProps {
   onCreateRule: () => void;
@@ -45,32 +45,45 @@ const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   </Align.Center>
 );
 
-interface ListItemProps extends PList.ItemProps<string, RuleState> {
+interface ListItemProps extends PList.ItemProps<string> {
+  layoutKey: string;
   onChangeLabel: (label: string) => void;
 }
 
-const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElement => (
-  <PList.ItemFrame
-    entry={entry}
-    {...rest}
-    // style={{ paddingTop: "0.5", paddingBottom: "0.5rem" }}
-    style={{ padding: "0.75rem 1.5rem" }}
-  >
-    <Text.Editable
-      value={entry.label}
-      level="p"
-      noWrap
-      shade={10}
-      weight={500}
-      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
-      onChange={onChangeLabel}
-    />
-  </PList.ItemFrame>
-);
+const ListItem = ({
+  layoutKey,
+  onChangeLabel,
+  ...rest
+}: ListItemProps): ReactElement | null => {
+  const { itemKey } = rest;
+  const entry = useSelectRule(layoutKey, itemKey);
+  const selectProps = Select.useItemState(itemKey);
+  if (entry == null) return null;
+  const { label } = entry;
+  return (
+    <PList.Item
+      {...rest}
+      style={{ padding: "0.5rem 1.5rem" }}
+      align="center"
+      {...selectProps}
+    >
+      <Text.Editable
+        value={label}
+        level="p"
+        noWrap
+        shade={10}
+        weight={500}
+        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+        onChange={onChangeLabel}
+      />
+    </PList.Item>
+  );
+};
 
 interface ListProps {
   rules: RuleState[];
   selected: string[];
+  layoutKey: string;
   onChange: (keys: string[]) => void;
   onCreate: () => void;
   onRemoveAnnotations: (keys: string[]) => void;
@@ -83,63 +96,66 @@ const List = ({
   rules,
   onCreate,
   onRemoveAnnotations,
+  layoutKey,
   onLabelChange,
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
+  const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
-    <Align.Space x empty style={{ width: "20%" }}>
-      <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
+    <Align.Space x empty style={{ width: "20%" }} align="start">
+      <Button.Icon tooltip="Add Rule" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
       <Divider.Divider y />
-      <PList.List<string, RuleState> data={rules}>
-        <PList.Selector
-          value={selected}
-          allowNone={false}
-          replaceOnSingle
-          onChange={onChange}
-        >
-          <PMenu.ContextMenu
-            menu={({ keys }) => (
-              <PMenu.Menu
-                onChange={{ remove: () => onRemoveAnnotations(keys) }}
-                level="small"
-              >
-                <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
-                  Delete
-                </PMenu.Item>
-                <Divider.Divider x />
-                <Menu.HardReloadItem />
-              </PMenu.Menu>
-            )}
-            {...menuProps}
-          >
-            <PList.Core<string, RuleState>
-              y
-              empty
-              grow
-              onContextMenu={menuProps.open}
-              className={menuProps.className}
+      <Select.Frame<string, RuleState>
+        multiple
+        data={data}
+        value={selected}
+        onChange={onChange}
+        replaceOnSingle
+        allowNone={false}
+      >
+        <PMenu.ContextMenu
+          menu={({ keys }) => (
+            <PMenu.Menu
+              onChange={{ remove: () => onRemoveAnnotations(keys) }}
+              level="small"
             >
-              {({ key, ...rest }) => (
-                <ListItem
-                  key={key}
-                  {...rest}
-                  onChangeLabel={(v) => onLabelChange(v, key)}
-                />
-              )}
-            </PList.Core>
-          </PMenu.ContextMenu>
-        </PList.Selector>
-      </PList.List>
+              <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
+                Delete
+              </PMenu.Item>
+              <Divider.Divider x />
+              <Menu.HardReloadItem />
+            </PMenu.Menu>
+          )}
+          {...menuProps}
+        >
+          <PList.Items<string, RuleState> onContextMenu={menuProps.open} grow>
+            {({ key, ...rest }) => (
+              <ListItem
+                layoutKey={layoutKey}
+                key={key}
+                {...rest}
+                onChangeLabel={(v) => onLabelChange(v, key)}
+              />
+            )}
+          </PList.Items>
+        </PMenu.ContextMenu>
+      </Select.Frame>
     </Align.Space>
   );
 };
 
-const AXIS_DATA: record.KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
-  name: key.toUpperCase(),
-  key: key as AxisKey,
-}));
+const AXIS_DATA: AxisKey[] = [Y1, Y2];
+
+const SelectAxis = (
+  props: Omit<Select.ButtonsProps<AxisKey>, "keys">,
+): ReactElement => (
+  <Select.Buttons {...props} keys={AXIS_DATA}>
+    <Select.Button itemKey={Y1}>Y1</Select.Button>
+    <Select.Button itemKey={Y2}>Y2</Select.Button>
+  </Select.Buttons>
+);
 
 interface RuleContentProps {
   rule: RuleState;
@@ -178,14 +194,7 @@ const RuleContent = ({
         />
       </Input.Item>
       <Input.Item label="Axis">
-        <Select.Button
-          size="medium"
-          onChange={onChangeAxis}
-          value={axis}
-          data={AXIS_DATA}
-          entryRenderKey="name"
-          allowNone={false}
-        />
+        <SelectAxis value={axis} onChange={onChangeAxis} />
       </Input.Item>
     </Align.Space>
     <Align.Space x wrap>
@@ -223,7 +232,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     .map((rule) => rule.key);
   const dispatch = useDispatch();
   const setSelectedRuleKeys = (keys: string[]): void => {
-    dispatch(selectRule({ key: linePlotKey, ruleKey: keys }));
+    dispatch(setSelectedRule({ key: linePlotKey, ruleKey: keys }));
   };
   const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
   const shownRule = rules.find((rule) => rule.key === shownRuleKey);
@@ -281,6 +290,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
         onCreate={handleCreateRule}
         onRemoveAnnotations={handleRemoveRules}
         onLabelChange={handleChangeLabel}
+        layoutKey={linePlotKey}
       />
       <Divider.Divider y />
       <RuleContent

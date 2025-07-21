@@ -14,15 +14,14 @@ import {
   Align,
   Button,
   Color,
-  componentRenderProp,
+  Component,
   Form,
   Icon,
-  Input,
   List,
   Text,
 } from "@synnaxlabs/pluto";
 import { type change, color, uuid } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -31,11 +30,11 @@ const formSchema = z.object({
   labels: label.newZ.array(),
 });
 
-const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
-  const { index } = props;
-  const utils = Form.fieldArrayUtils(Form.useContext(), "labels");
+const LabelListItem = (props: List.ItemProps<label.Key>) => {
+  const { itemKey } = props;
+  const { remove } = Form.fieldListUtils(Form.useContext(), "labels");
   return (
-    <List.ItemFrame
+    <List.Item
       highlightHovered={false}
       className={CSS.BE("label", "list-item")}
       allowSelect={false}
@@ -47,7 +46,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
       <Align.Space x size="small">
         <Form.Field<string>
           hideIfNull
-          path={`labels.${index}.color`}
+          path={`labels.${itemKey}.color`}
           padHelpText={false}
           showLabel={false}
         >
@@ -58,7 +57,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
         <Form.TextField
           showLabel={false}
           hideIfNull
-          path={`labels.${index}.name`}
+          path={`labels.${itemKey}.name`}
           padHelpText={false}
           inputProps={{
             placeholder: "Label Name",
@@ -69,10 +68,10 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
           }}
         />
       </Align.Space>
-      <Button.Icon onClick={() => utils.remove(index)} style={{ width: "fit-content" }}>
+      <Button.Icon onClick={() => remove(itemKey)} style={{ width: "fit-content" }}>
         <Icon.Delete />
       </Button.Icon>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -87,15 +86,12 @@ export const EDIT_LAYOUT: Layout.BaseState = {
   window: { navTop: true, size: { height: 800, width: 500 } },
 };
 
-const listItem = componentRenderProp(LabelListItem);
+const listItem = Component.renderProp(LabelListItem);
 
 const initialState = formSchema.parse({ labels: [] });
 
 export const Edit: Layout.Renderer = () => {
-  const methods = Form.useSynced<
-    typeof formSchema,
-    change.Change<string, label.Label>[]
-  >({
+  const ctx = Form.useSynced<typeof formSchema, change.Change<string, label.Label>[]>({
     values: initialState,
     key: ["labels"],
     name: "Labels",
@@ -118,37 +114,22 @@ export const Edit: Layout.Renderer = () => {
     },
   });
 
-  const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
+  const { data, push } = Form.useFieldList<label.Key, label.Label, typeof formSchema>(
+    "labels",
+    { ctx },
+  );
   const theme = Layout.useSelectTheme();
 
   return (
     <Align.Space y style={{ padding: "2rem" }} grow>
-      <Form.Form<typeof formSchema> {...methods}>
-        <List.List
-          data={arr.value}
-          emptyContent={
-            <Align.Center>
-              <Text.Text level="h3" shade={10}>
-                No labels created
-              </Text.Text>
-            </Align.Center>
-          }
-        >
+      <Form.Form<typeof formSchema> {...ctx}>
+        <List.Frame<label.Key, label.Label> data={data}>
           <Align.Space x justify="spaceBetween">
-            <List.Filter>
-              {(p) => (
-                <Input.Text
-                  {...p}
-                  placeholder="Search Labels"
-                  style={{ width: "unset" }}
-                />
-              )}
-            </List.Filter>
             <Button.Button
               onClick={() => {
                 const newColors = theme?.colors.visualization.palettes.default ?? [];
-                const v = color.hex(newColors[arr.value.length % newColors.length]);
-                arr.push({
+                const v = color.hex(newColors[data.length % newColors.length]);
+                push({
                   key: uuid.create(),
                   name: "New Label",
                   color: v,
@@ -161,17 +142,23 @@ export const Edit: Layout.Renderer = () => {
               Add Label
             </Button.Button>
           </Align.Space>
-          <List.Core
+          <List.Items
             style={{
               borderRadius: "1rem",
               border: "var(--pluto-border)",
               maxHeight: "calc(100% - 10rem)",
             }}
-            grow
+            emptyContent={
+              <Align.Center>
+                <Text.Text level="h3" shade={10}>
+                  No labels created
+                </Text.Text>
+              </Align.Center>
+            }
           >
             {listItem}
-          </List.Core>
-        </List.List>
+          </List.Items>
+        </List.Frame>
       </Form.Form>
     </Align.Space>
   );

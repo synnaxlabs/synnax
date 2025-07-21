@@ -11,7 +11,7 @@ import { createMockWorkers } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type FC, type PropsWithChildren, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";

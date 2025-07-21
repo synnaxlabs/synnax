@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { connectionConfigZ } from "@/hardware/opc/device/types";
@@ -107,7 +107,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 25,
 };
 
-export const readStatusDataZ = z.object({});
+export const readStatusDataZ = z.object({}).or(z.null());
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -144,20 +144,25 @@ export const ZERO_SCAN_CONFIG: ScanConfig = {};
 
 export const SCAN_COMMAND_TYPE = "scan";
 
-export const scannedNodeZ = z.object({
-  dataType: z.string(),
-  isArray: z.boolean(),
-  name: z.string(),
-  nodeClass: z.string(),
-  nodeId: z.string(),
-});
+export const scannedNodeZ = z
+  .object({
+    key: z.string().optional(),
+    dataType: z.string(),
+    isArray: z.boolean(),
+    name: z.string(),
+    nodeClass: z.string(),
+    nodeId: z.string(),
+  })
+  .transform(({ key, ...rest }) => ({ ...rest, key: key ?? rest.nodeId }));
 
 export type ScannedNode = z.infer<typeof scannedNodeZ>;
 
-export const scanCommandResponseZ = z.object({
-  channels: z.array(scannedNodeZ),
-  connection: connectionConfigZ,
-});
+export const scanCommandResponseZ = z
+  .object({
+    channels: z.array(scannedNodeZ),
+    connection: connectionConfigZ,
+  })
+  .or(z.null());
 export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

@@ -11,7 +11,7 @@ import { Align, Button, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -83,6 +83,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         <Nav.Bar.End>
           <Button.Button
             type="submit"
+            variant="filled"
             form="create-workspace"
             loading={isPending}
             disabled={isPending || client == null}

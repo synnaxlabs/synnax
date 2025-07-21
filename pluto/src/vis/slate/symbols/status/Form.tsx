@@ -8,7 +8,7 @@ import { Status } from "@/status";
 export const Form = (): ReactElement => (
   <Align.Space x grow>
     <Core.Field<status.Variant> path="variant" style={{ width: "30rem" }}>
-      {(p) => <Status.Select {...p} variant="outlined" />}
+      {({ value, onChange }) => <Status.Select value={value} onChange={onChange} />}
     </Core.Field>
     <Core.TextField path="message" grow />
   </Align.Space>

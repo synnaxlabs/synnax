@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import {
   AI_CHANNEL_SCHEMAS,
@@ -20,37 +19,11 @@ import {
   ZERO_AI_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends record.Keyed<AIChannelType> {
-  name: ReactElement;
-}
+export interface Entry extends record.KeyedNamed<AIChannelType> {}
 
-interface ChannelTypeProps {
-  type: AIChannelType;
-}
+export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType, Entry>;
 
-const ChannelType = ({ type }: ChannelTypeProps) => {
-  const Icon = AI_CHANNEL_TYPE_ICONS[type];
-  return (
-    <Text.WithIcon
-      level="p"
-      startIcon={
-        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l7)" }} />
-      }
-    >
-      {AI_CHANNEL_TYPE_NAMES[type]}
-    </Text.WithIcon>
-  );
-};
-
-export type SelectAIChannelTypeFieldProps = Form.DropdownButtonFieldProps<
-  AIChannelType,
-  Entry
->;
-
-export const SelectAIChannelTypeField = Form.buildDropdownButtonSelectField<
-  AIChannelType,
-  Entry
->({
+export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
@@ -61,25 +34,22 @@ export const SelectAIChannelTypeField = Form.buildDropdownButtonSelectField<
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AIChannel>(parentPath).value;
       const schema = AI_CHANNEL_SCHEMAS[value];
-      set(parentPath, {
+      const nextValue = {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
-      });
+      };
+      set(parentPath, nextValue);
     },
   },
   inputProps: {
-    hideColumnHeader: true,
-    entryRenderKey: "name",
-    columns: [
-      {
-        key: "name",
-        name: "Name",
-        render: ({ entry: { key } }) => <ChannelType type={key} />,
-      },
-    ],
-    data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => ({
-      key: key as AIChannelType,
-      name: <ChannelType type={key as AIChannelType} />,
-    })),
+    data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => {
+      const type = key as AIChannelType;
+      const Icon = AI_CHANNEL_TYPE_ICONS[type];
+      return {
+        key: type,
+        name: AI_CHANNEL_TYPE_NAMES[type],
+        icon: <Icon style={{ transform: "scale(0.9)" }} color={8} />,
+      };
+    }),
   },
 });

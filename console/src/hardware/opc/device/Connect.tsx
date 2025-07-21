@@ -25,7 +25,7 @@ import {
 import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
@@ -136,8 +136,10 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     },
   });
   const hasSecurity =
-    Form.useFieldValue<SecurityMode>("connection.securityMode", undefined, methods) !=
-    NO_SECURITY_MODE;
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
+      "connection.securityMode",
+      { ctx: methods },
+    ) != NO_SECURITY_MODE;
   const isPending = testConnectionMutation.isPending || connectMutation.isPending;
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
@@ -152,7 +154,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
+            {({ value, onChange }) => (
+              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
+            )}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
@@ -171,7 +175,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               label="Security Mode"
               path="connection.securityMode"
             >
-              {SelectSecurityMode}
+              {({ value, onChange }) => (
+                <SelectSecurityMode value={value} onChange={onChange} />
+              )}
             </Form.Field>
           </Align.Space>
           <Divider.Divider x padded="bottom" />
@@ -180,7 +186,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="connection.securityPolicy"
             label="Security Policy"
           >
-            {(p) => <SelectSecurityPolicy size="medium" {...p} />}
+            {({ value, onChange }) => (
+              <SelectSecurityPolicy value={value} onChange={onChange} />
+            )}
           </Form.Field>
           {hasSecurity && (
             <>
@@ -231,6 +239,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             disabled={isPending}
             loading={connectMutation.isPending}
             onClick={() => connectMutation.mutate()}
+            variant="filled"
           >
             Save
           </Button.Button>

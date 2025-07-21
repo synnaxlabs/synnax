@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Align, List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { cloneElement, type JSX } from "react";
 
@@ -23,10 +23,8 @@ export interface ListAndDetailsIconProps {
   name: string;
 }
 
-export interface ListAndDetailsChannelItemProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends List.ItemProps<K, E> {
+export interface ListAndDetailsChannelItemProps<K extends record.Key>
+  extends List.ItemProps<K> {
   port: string | number;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
@@ -52,7 +50,7 @@ const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"
   noWrap: true,
 });
 
-export const ListAndDetailsChannelItem = <K extends string, E extends record.Keyed<K>>({
+export const ListAndDetailsChannelItem = <K extends string>({
   port,
   portMaxChars,
   canTare,
@@ -64,14 +62,16 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
   icon,
   stateChannel,
   ...rest
-}: ListAndDetailsChannelItemProps<K, E>) => {
-  const { key } = rest.entry;
+}: ListAndDetailsChannelItemProps<K>) => {
+  const { itemKey } = rest;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
+  const selectProps = Select.useItemState(itemKey);
   return (
-    <List.ItemFrame
+    <List.Item
       {...rest}
+      {...selectProps}
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.25rem 2rem" }}
@@ -102,14 +102,14 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
             <WriteChannelNames
               cmdChannel={channel}
               stateChannel={stateChannel}
-              itemKey={key}
+              itemKey={itemKey}
             />
           </Align.Space>
         ) : (
           <ChannelName
             {...channelNameProps}
             channel={channel}
-            id={getChannelNameID(key)}
+            id={getChannelNameID(itemKey)}
           />
         )}
       </Align.Space>
@@ -119,6 +119,6 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
         )}
         <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
       </Align.Pack>
-    </List.ItemFrame>
+    </List.Item>
   );
 };

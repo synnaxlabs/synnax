@@ -7,112 +7,78 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, compare, type record, unique } from "@synnaxlabs/x";
+import { array, type compare, type record, unique } from "@synnaxlabs/x";
 
-import { type Haul } from "@/haul";
-import { type Icon } from "@/icon";
-
-export interface Node {
-  key: string;
-  name: string;
-  renaming?: boolean;
-  forcePosition?: number;
-  icon?: Icon.ReactElement;
-  allowRename?: boolean;
-  hasChildren?: boolean;
-  children?: Node[];
-  haulItems?: Haul.Item[];
-  canDrop?: (items: Haul.Item[]) => boolean;
-  href?: string;
-  extraData?: record.Unknown;
+export interface Node<K extends record.Key = string> {
+  key: K;
+  children?: Node<K>[];
 }
 
-export interface NodeWithPosition extends Node {
-  depth: number;
-  position: number;
-}
-
-export interface FlattenedNode extends Node {
-  index: number;
+export interface NodeShape {
   depth: number;
   expanded: boolean;
-  path: string;
+  hasChildren: boolean;
 }
 
-export const shouldExpand = (node: Node, expanded: string[]): boolean =>
-  expanded.includes(node.key);
+export interface Shape<K extends record.Key = string> {
+  keys: K[];
+  nodes: NodeShape[];
+}
 
-export interface FlattenProps {
-  nodes: Node[];
-  expanded: string[];
+export const shouldExpand = <K extends record.Key = string>(
+  node: Node<K>,
+  expanded: K[],
+): boolean => expanded.includes(node.key);
+
+export interface FlattenProps<K extends record.Key = string> {
+  nodes: Node<K>[];
+  expanded: K[];
+  sort?: compare.CompareF<Node<K>>;
   depth?: number;
-  sort?: SortOption;
   path?: string;
 }
 
-export type SortOption = compare.CompareF<Node> | boolean;
-
-export const defaultSort: compare.CompareF<Node> = (a, b) =>
-  compare.stringsWithNumbers(a.name, b.name);
-
-export const sortAndSplice = (
-  nodes: Node[],
-  sort: SortOption = defaultSort,
-): Node[] => {
-  if (typeof sort === "function") nodes.sort(sort);
-  let found = false;
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    if (node.forcePosition != null && i !== node.forcePosition) {
-      found = true;
-      // remove the node from its current position
-      nodes.splice(i, 1);
-      // splice it into the forced position
-      nodes.splice(node.forcePosition, 0, node);
-    }
-  }
-  if (found) return sortAndSplice(nodes, false);
-  return nodes;
-};
-
-export const flatten = ({
+export const flatten = <K extends record.Key = string>({
   nodes,
   expanded,
-  depth = 0,
   sort,
-  path = "",
-}: FlattenProps): FlattenedNode[] => {
-  // Sort the first level of the tree independently of the rest
-  if (depth === 0 && sort != false)
-    nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
-  const flattened: FlattenedNode[] = [];
-  nodes.forEach((node, index) => {
-    const nextPath = `${path}${node.key}/`;
+  depth = 0,
+}: FlattenProps<K>): Shape<K> => {
+  const flattened: Shape<K> = { keys: [], nodes: [] };
+  if (sort != null) nodes.sort(sort);
+  nodes.forEach((node) => {
     const expand = shouldExpand(node, expanded);
-    flattened.push({ ...node, depth, expanded: expand, index, path: nextPath });
+    flattened.keys.push(node.key);
+    flattened.nodes.push({
+      depth,
+      expanded: expand,
+      hasChildren: node.children != null,
+    });
     if (expand && node.children != null) {
-      node.children = sortAndSplice(node.children, sort);
-      flattened.push(
-        ...flatten({
-          nodes: node.children,
-          expanded,
-          depth: depth + 1,
-          sort,
-          path: nextPath,
-        }),
-      );
+      const { keys, nodes } = flatten({
+        nodes: node.children,
+        expanded,
+        sort,
+        depth: depth + 1,
+      });
+      flattened.keys.push(...keys);
+      flattened.nodes.push(...nodes);
     }
   });
   return flattened;
 };
 
-export interface MoveNodeProps {
-  tree: Node[];
-  destination: string | null;
-  keys: string | string[];
+export interface MoveNodeProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  destination: K | null;
+  keys: K | K[];
 }
 
-export const moveNode = ({ tree, destination, keys }: MoveNodeProps): Node[] => {
+export const moveNode = <K extends record.Key = string>({
+  tree,
+  destination,
+  keys,
+}: MoveNodeProps<K>): Node<K>[] => {
   keys = array.toArray(keys);
   if (destination == null) {
     const nodes = findNodes({ tree, keys });
@@ -127,12 +93,15 @@ export const moveNode = ({ tree, destination, keys }: MoveNodeProps): Node[] => 
   return tree;
 };
 
-export interface RemoveNodeProps {
-  tree: Node[];
-  keys: string | string[];
+export interface RemoveNodeProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  keys: K | K[];
 }
 
-export const removeNode = ({ tree, keys }: RemoveNodeProps): Node[] => {
+export const removeNode = <K extends record.Key = string>({
+  tree,
+  keys,
+}: RemoveNodeProps<K>): Node<K>[] => {
   keys = array.toArray(keys);
   keys.forEach((key) => {
     const index = tree.findIndex((node) => node.key === key);
@@ -146,13 +115,17 @@ export const removeNode = ({ tree, keys }: RemoveNodeProps): Node[] => {
   return tree;
 };
 
-export interface SetNodeProps {
-  tree: Node[];
-  destination: string | null;
-  additions: Node | Node[];
+export interface SetNodeProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  destination: K | null;
+  additions: Node<K> | Node<K>[];
 }
 
-export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] => {
+export const setNode = <K extends record.Key = string>({
+  tree,
+  destination,
+  additions,
+}: SetNodeProps<K>): Node<K>[] => {
   additions = array.toArray(additions);
   const uniqueAdditions = unique.by(additions, (node) => node.key, false);
   const addedKeys = uniqueAdditions.map((node) => node.key);
@@ -173,19 +146,19 @@ export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] 
   return tree;
 };
 
-export interface UpdateNodeProps {
-  tree: Node[];
-  key: string;
-  updater: (node: Node) => Node;
+export interface UpdateNodeProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  key: K;
+  updater: (node: Node<K>) => Node<K>;
   throwOnMissing?: boolean;
 }
 
-export const updateNode = ({
+export const updateNode = <K extends record.Key = string>({
   tree,
   key,
   updater,
   throwOnMissing = true,
-}: UpdateNodeProps): Node[] => {
+}: UpdateNodeProps<K>): Node<K>[] => {
   const node = findNode({ tree, key });
   if (node == null) {
     if (throwOnMissing) throw new Error(`Could not find node with key ${key}`);
@@ -207,19 +180,19 @@ export const updateNode = ({
   return tree;
 };
 
-interface UpdateNodeChildren {
-  tree: Node[];
-  parent: string;
-  updater: (nodes: Node[]) => Node[];
+interface UpdateNodeChildren<K extends record.Key = string> {
+  tree: Node<K>[];
+  parent: K;
+  updater: (nodes: Node<K>[]) => Node<K>[];
   throwOnMissing?: boolean;
 }
 
-export const updateNodeChildren = ({
+export const updateNodeChildren = <K extends record.Key = string>({
   tree,
   parent,
   updater,
   throwOnMissing = true,
-}: UpdateNodeChildren): Node[] => {
+}: UpdateNodeChildren<K>): Node<K>[] => {
   const parentNode = findNode({ tree, key: parent });
   if (parentNode == null) {
     if (throwOnMissing) throw new Error(`Could not find node with key ${parent}`);
@@ -229,25 +202,20 @@ export const updateNodeChildren = ({
   return tree;
 };
 
-export interface FindNodeProps {
-  tree: Node[];
-  key: string;
+export interface FindNodeProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  key: K;
   depth?: number;
 }
 
-export const findNode = ({
+export const findNode = <K extends record.Key = string>({
   tree,
   key,
   depth = 0,
-}: FindNodeProps): NodeWithPosition | null => {
+}: FindNodeProps<K>): Node<K> | null => {
   for (let i = 0; i < tree.length; i++) {
     const node = tree[i];
-    if (node.key === key) {
-      const n = node as NodeWithPosition;
-      n.depth = depth;
-      n.position = i;
-      return n;
-    }
+    if (node.key === key) return node;
     if (node.children != null) {
       const found = findNode({ tree: node.children, key, depth: depth + 1 });
       if (found != null) return found;
@@ -256,13 +224,16 @@ export const findNode = ({
   return null;
 };
 
-export interface FindNodesProps {
-  tree: Node[];
-  keys: string[];
+export interface FindNodesProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  keys: K[];
 }
 
-export const findNodes = ({ tree, keys }: FindNodesProps): NodeWithPosition[] => {
-  const nodes: NodeWithPosition[] = [];
+export const findNodes = <K extends record.Key = string>({
+  tree,
+  keys,
+}: FindNodesProps<K>): Node<K>[] => {
+  const nodes: Node<K>[] = [];
   for (const key of keys) {
     const node = findNode({ tree, key });
     if (node != null) nodes.push(node);
@@ -270,12 +241,15 @@ export const findNodes = ({ tree, keys }: FindNodesProps): NodeWithPosition[] =>
   return nodes;
 };
 
-export interface FindNodeParentProps {
-  tree: Node[];
-  key: string;
+export interface FindNodeParentProps<K extends record.Key = string> {
+  tree: Node<K>[];
+  key: K;
 }
 
-export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null => {
+export const findNodeParent = <K extends record.Key = string>({
+  tree,
+  key,
+}: FindNodeParentProps<K>): Node<K> | null => {
   for (const node of tree)
     if (node.children != null) {
       if (node.children.some((child) => child.key === key)) return node;
@@ -285,11 +259,16 @@ export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null 
   return null;
 };
 
-export const deepCopy = (nodes: Node[]): Node[] =>
-  nodes.map((node) => ({ ...node, children: deepCopy(node.children ?? []) }));
+export const deepCopy = <K extends record.Key = string>(nodes: Node<K>[]): Node<K>[] =>
+  nodes.map((node) => ({
+    ...node,
+    children: node.children != null ? deepCopy(node.children) : undefined,
+  }));
 
-export const getDescendants = (...node: Node[]): Node[] => {
-  const descendants: Node[] = [];
+export const getDescendants = <K extends record.Key = string>(
+  ...node: Node<K>[]
+): Node<K>[] => {
+  const descendants: Node<K>[] = [];
   node.forEach((n) => {
     descendants.push(n);
     if (n.children != null) descendants.push(...getDescendants(...n.children));
@@ -297,11 +276,35 @@ export const getDescendants = (...node: Node[]): Node[] => {
   return descendants;
 };
 
-export const getAllNodesOfMinDepth = (
-  nodes: NodeWithPosition[],
-): NodeWithPosition[] => {
-  if (nodes.length === 0) return [];
-  let minDepth = Infinity;
-  for (const { depth } of nodes) if (depth < minDepth) minDepth = depth;
-  return nodes.filter(({ depth }) => depth === minDepth);
+export const filterShape = <K extends record.Key = string>(
+  shape: Shape<K>,
+  match: (key: K, depth: number) => boolean,
+): Shape<K> => {
+  const filtered: Shape<K> = { keys: [], nodes: [] };
+  shape.keys.forEach((key, index) => {
+    if (!match(key, shape.nodes[index].depth)) return;
+    filtered.keys.push(key);
+    filtered.nodes.push(shape.nodes[index]);
+  });
+  return filtered;
+};
+
+export const getAllNodesOfMinDepth = <K extends record.Key = string>(
+  data: Shape<K>,
+): K[] => {
+  const minDepth = Math.min(...data.nodes.map((node) => node.depth));
+  return data.keys.filter((_, index) => data.nodes[index].depth === minDepth);
+};
+
+export const getDepth = (key: string, state: Shape<string>) => {
+  const index = state.keys.findIndex((k) => k === key);
+  return state.nodes[index].depth;
+};
+
+export const getNodeShape = <K extends record.Key = string>(
+  shape: Shape<K>,
+  key: K,
+): NodeShape | null => {
+  const index = shape.keys.findIndex((k) => k === key);
+  return shape.nodes[index];
 };

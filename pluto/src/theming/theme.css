@@ -39,13 +39,14 @@
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         fill 0.15s ease-in-out;
-    --pluto-dialog-animation: fade-in-zoom 0.15s ease-in-out;
+    --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
+    --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
 }
 
 .pluto-theme-synnax-light {
     --pluto-shadow-v1:
-        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.04),
-        0px 16px 24px -8px rgba(0, 0, 0, 0.06);
+        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
+        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
 
     --pluto-shadow-v2:
         lch(0 0 0 / 0.022) 0px 6px 18px, lch(0 0 0 / 0.044) 0px 3px 9px,
@@ -115,23 +116,23 @@ html {
 }
 
 .pluto--huge {
-    height: var(--pluto-height-huge);
+    min-height: var(--pluto-height-huge);
 }
 
 .pluto--large {
-    height: var(--pluto-height-large);
+    min-height: var(--pluto-height-large);
 }
 
 .pluto--medium {
-    height: var(--pluto-height-medium);
+    min-height: var(--pluto-height-medium);
 }
 
 .pluto--tiny {
-    height: var(--pluto-height-tiny);
+    min-height: var(--pluto-height-tiny);
 }
 
 .pluto--small {
-    height: var(--pluto-height-small);
+    min-height: var(--pluto-height-small);
 }
 
 .pluto--no-select {

@@ -7,44 +7,85 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { List, Text } from "@synnaxlabs/pluto";
-import { type FC, isValidElement } from "react";
+import { ontology } from "@synnaxlabs/client";
+import {
+  Component,
+  List,
+  Ontology as POntology,
+  Select,
+  Status,
+  Synnax as PSynnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { isValidElement, useCallback } from "react";
+import { useStore } from "react-redux";
 
-import { type Ontology } from "@/ontology";
+import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
+import { type UseListReturn } from "@/palette/list";
+import { type RootAction, type RootState } from "@/store";
 
-interface OntologyListItemProps extends List.ItemProps<string, ontology.Resource> {}
+interface OntologyListItemProps extends List.ItemProps<string> {}
 
-export const createResourceListItem = (
-  ontologyServices: Ontology.Services,
-): FC<OntologyListItemProps> => {
-  const ResourceListItem = (props: OntologyListItemProps) => {
-    const {
-      entry,
-      entry: { name, id },
-    } = props;
-    // This null check is needed because sometimes when switching to search mode from command
-    // mode, the commands are passed in as resources.
-    if (id == null) return null;
-    const { icon, onSelect, PaletteListItem } = ontologyServices[id.type];
-    // return null if the ontology service does not have an onSelect method, that way we
-    // don't show pointless items in the palette.
-    return onSelect == null ? null : PaletteListItem != null ? (
-      <PaletteListItem {...props} />
-    ) : (
-      <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
-        <Text.WithIcon
-          startIcon={isValidElement(icon) ? icon : icon(entry)}
-          level="p"
-          weight={450}
-          shade={11}
-          size="medium"
-        >
-          {name}
-        </Text.WithIcon>
-      </List.ItemFrame>
-    );
-  };
-  ResourceListItem.displayName = "ResourceListItem";
-  return ResourceListItem;
+const listItem = Component.renderProp((props: OntologyListItemProps) => {
+  const { itemKey } = props;
+  const id = ontology.idZ.parse(itemKey);
+  const item = List.useItem<string, ontology.Resource>(itemKey);
+  const { icon, onSelect, PaletteListItem } = Ontology.useService(id.type);
+  const selectProps = Select.useItemState(itemKey);
+  if (item == null) return null;
+  const { name } = item;
+  // return null if the ontology service does not have an onSelect method, that way we
+  // don't show pointless items in the palette.
+  return onSelect == null ? null : PaletteListItem != null ? (
+    <PaletteListItem {...props} />
+  ) : (
+    <List.Item
+      style={{ padding: "1.5rem" }}
+      highlightHovered
+      {...props}
+      {...selectProps}
+    >
+      <Text.WithIcon
+        startIcon={isValidElement(icon) ? icon : icon(item)}
+        level="p"
+        weight={450}
+        shade={11}
+        size="medium"
+      >
+        {name}
+      </Text.WithIcon>
+    </List.Item>
+  );
+});
+
+export const useResourceList = (): UseListReturn<ontology.Resource> => {
+  const { data, getItem, subscribe, retrieve } = POntology.useResourceList();
+  const services = Ontology.useServices();
+  const client = PSynnax.use();
+  const store = useStore<RootState, RootAction>();
+  const addStatus = Status.useAdder();
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
+  const handleError = Status.useErrorHandler();
+
+  const handleSelect = useCallback(
+    (key: string) => {
+      if (client == null) return;
+      const { type } = ontology.idZ.parse(key);
+      services[type].onSelect?.({
+        services,
+        store,
+        addStatus,
+        placeLayout,
+        removeLayout,
+        handleError,
+        client,
+        selection: getItem([key]),
+      });
+    },
+    [client, services, store, addStatus, placeLayout, removeLayout, handleError],
+  );
+
+  return { data, getItem, subscribe, handleSelect, listItem, retrieve };
 };

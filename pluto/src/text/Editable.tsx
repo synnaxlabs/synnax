@@ -45,6 +45,8 @@ const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
 const START_EDITING_EVENT_NAME = "start-editing";
 
+const escapeCharacters = (id: string): string => id.replace(/:/g, "\\:");
+
 export const edit = (
   id: string,
   onChange?: (value: string, renamed: boolean) => void,
@@ -52,7 +54,7 @@ export const edit = (
   let currRetry = 0;
   const tryEdit = (): void => {
     currRetry++;
-    const el = document.getElementById(id);
+    const el = document.querySelector(`#${escapeCharacters(id)}.${BASE_CLASS}`);
     if (el == null || !el.classList.contains(BASE_CLASS)) {
       if (currRetry < MAX_EDIT_RETRIES) setTimeout(() => tryEdit(), 100);
       else throw new Error(`Could not find element with id ${id}`);

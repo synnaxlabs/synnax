@@ -16,23 +16,24 @@ import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
-export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"> {
+export interface TextProps
+  extends Omit<BaseText.WithIconProps, "level" | "wrap">,
+    Partial<Omit<status.Status, "key">> {
   level?: BaseText.Level;
   hideIcon?: boolean;
-  noColor?: boolean;
-  variant?: status.Variant;
 }
 
 const Core = ({
   variant = "info",
   level = "p",
+  description,
   hideIcon = false,
   className,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
-  return (
+  const baseText = (
     <BaseText.WithIcon
       color={VARIANT_COLORS[variant]}
       className={CSS(className, CSS.B("status-text"))}
@@ -40,6 +41,18 @@ const Core = ({
       startIcon={icon}
       {...rest}
     />
+  );
+  if (description == null) return baseText;
+  const descriptionText = (
+    <BaseText.Text level="small" {...rest} shade={8} style={{ maxWidth: 150 }}>
+      {description}
+    </BaseText.Text>
+  );
+  return (
+    <Align.Space y align="start" size="small">
+      {baseText}
+      {descriptionText}
+    </Align.Space>
   );
 };
 

@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   Align,
-  componentRenderProp,
+  Component,
   Icon,
   List,
   Ontology,
@@ -59,8 +59,10 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
   },
 };
 
-const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => {
-  const { entry } = props;
+const SnapshotsListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  if (entry == null) return null;
   const { id, name } = entry;
   const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
   const placeLayout = Layout.usePlacer();
@@ -72,7 +74,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
       .catch((e) => handleError(e, `Failed to open ${entry.name}`));
   };
   return (
-    <List.ItemFrame
+    <List.Item
       style={{ padding: "1.5rem" }}
       size="tiny"
       {...props}
@@ -81,11 +83,11 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
       <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={11}>
         {name}
       </Text.WithIcon>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
-const snapshotsListItem = componentRenderProp(SnapshotsListItem);
+const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
   <Text.Text level="p" weight={400} shade={10}>
@@ -98,17 +100,18 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data: snapshots } = Ontology.useChildren(ranger.ontologyID(rangeKey));
-  if (snapshots == null) return null;
-  const filtered = snapshots.filter(({ data }) => data?.snapshot === true);
+  const { data, getItem, subscribe } = Ontology.useChildren({
+    initialParams: { id: ranger.ontologyID(rangeKey) },
+    filter: (item) => item.data?.snapshot === true,
+  });
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={10} weight={500}>
         Snapshots
       </Text.Text>
-      <List.List data={filtered} emptyContent={EMPTY_LIST_CONTENT}>
-        <List.Core empty>{snapshotsListItem}</List.Core>
-      </List.List>
+      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+        <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
+      </List.Frame>
     </Align.Space>
   );
 };

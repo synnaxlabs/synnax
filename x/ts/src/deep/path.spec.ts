@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
+import { type record } from "@/record";
 
 interface TestRecord {
   a: number;
@@ -72,8 +73,22 @@ describe("path", () => {
           }),
         ).toEqual(0);
       });
+
+      it("should get an array of keyed records", () => {
+        interface TestKeyedRecord {
+          values: record.KeyedNamed[];
+        }
+        const a: TestKeyedRecord = {
+          values: [
+            { key: "a", name: "a" },
+            { key: "b", name: "b" },
+          ],
+        };
+        expect(deep.get(a, "values.a.name")).toEqual("a");
+      });
     });
   });
+
   describe("set", () => {
     it("should set a key", () => {
       const a: TestRecord = {
@@ -110,6 +125,32 @@ describe("path", () => {
       };
       deep.set(a, "c.1", 4);
       expect(a).toEqual(b);
+    });
+
+    it("should set a value on a nested object in the array by key", () => {
+      const data = {
+        config: {
+          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
+        },
+      };
+      deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
+      expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
+    });
+
+    it("should set an entire item in the array by its key", () => {
+      const data = {
+        config: {
+          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
+        },
+      };
+      deep.set(data, "config.channels.tMnAnJeQmn6", {
+        key: "tMnAnJeQmn6",
+        type: "ai_force_bridge_table",
+      });
+      expect(data.config.channels[0]).toEqual({
+        key: "tMnAnJeQmn6",
+        type: "ai_force_bridge_table",
+      });
     });
   });
 

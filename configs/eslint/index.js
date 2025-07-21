@@ -90,6 +90,7 @@ export default [
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-wrapper-object-types": "off",
       "react/no-unescaped-entities": "off",
+      "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/require-await": "off",

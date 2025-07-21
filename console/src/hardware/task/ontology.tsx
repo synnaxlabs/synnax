@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -41,8 +41,12 @@ const handleSelect: Ontology.HandleSelect = ({
 const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      const resources = resourceIDs.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -55,16 +59,20 @@ const useDelete = () => {
     mutationFn: async (props: Ontology.TreeContextMenuProps) => {
       const {
         client,
-        selection: { resources },
+        selection: { resourceIDs },
         removeLayout,
       } = props;
-      await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
-      removeLayout(...resources.map(({ id }) => id.key));
+      const keys = resourceIDs.map((id) => id.key);
+      await client.hardware.tasks.delete(keys.map((key) => BigInt(key)));
+      removeLayout(...keys);
     },
-    onError: (e: Error, { handleError, selection: { resources } }) => {
+    onError: (
+      e: Error,
+      { handleError, selection: { resourceIDs }, state: { getResource } },
+    ) => {
       let message = "Failed to delete tasks";
-      if (resources.length === 1)
-        message = `Failed to delete task ${resources[0].name}`;
+      if (resourceIDs.length === 1)
+        message = `Failed to delete task ${getResource(resourceIDs[0]).name}`;
       if (errors.Canceled.matches(e)) return;
       handleError(e, message);
     },
@@ -72,8 +80,16 @@ const useDelete = () => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleError } = props;
-  const { resources, nodes } = selection;
+  const {
+    store,
+    selection,
+    client,
+    addStatus,
+    handleError,
+    state: { getResource, shape },
+  } = props;
+  const { resourceIDs } = selection;
+  const resources = getResource(resourceIDs);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const snap = useRangeSnapshot();
@@ -92,16 +108,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    rangeSnapshot: () => snap(props.selection.resources),
+    rangeSnapshot: () => snap(resources),
     group: () => group(props),
   };
-  const singleResource = resources.length === 1;
+  const singleResource = resourceIDs.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

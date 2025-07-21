@@ -20,7 +20,6 @@ import {
 import { useSelect } from "@/lineplot/selectors";
 import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { useSelectMultiple } from "@/range/selectors";
 
 const SELECT_PROPS = { location: "top" } as const;
 
@@ -31,7 +30,6 @@ export interface DataProps {
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
-  const allRanges = useSelectMultiple();
 
   const handleYChannelSelect = useCallback(
     (key: AxisKey, value: readonly channel.Key[]): void => {
@@ -82,17 +80,14 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
       />
       <Align.Space x grow wrap>
         <Range.SelectMultipleInputItem
-          data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}
           grow
-          selectProps={SELECT_PROPS}
         />
         <SelectAxisInputItem
           axis="x1"
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
-          grow
           selectProps={SELECT_PROPS}
         />
       </Align.Space>

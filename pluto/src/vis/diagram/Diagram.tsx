@@ -49,7 +49,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -61,7 +61,7 @@ import { useMemoCompare, useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
-import { type RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/component/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";

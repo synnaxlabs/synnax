@@ -9,7 +9,7 @@
 
 import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
 import { array, errors } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export class SynnaxError extends errors.createTyped("sy") {}
 

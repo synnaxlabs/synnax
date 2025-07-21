@@ -38,6 +38,7 @@ export const SINE_WAVE_TYPE = v0.SINE_WAVE_TYPE;
 export const TRIANGLE_WAVE_TYPE = v0.TRIANGLE_WAVE_TYPE;
 export const SQUARE_WAVE_TYPE = v0.SQUARE_WAVE_TYPE;
 export const SAWTOOTH_WAVE_TYPE = v0.SAWTOOTH_WAVE_TYPE;
+export const WAVE_TYPES = v0.WAVE_TYPES;
 export type WaveType = v0.WaveType;
 
 export type AIChannel = v1.AIChannel;

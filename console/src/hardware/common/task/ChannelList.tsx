@@ -14,7 +14,9 @@ import {
   List,
   Menu as PMenu,
   type RenderProp,
+  Select,
 } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
@@ -22,28 +24,26 @@ import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {
-  channels: C[];
   keys: string[];
+  channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> {
-  allowTare?: (keys: string[], channels: C[]) => boolean;
-  channels: C[];
-  isSnapshot: boolean;
+interface ContextMenuProps<C extends Channel>
+  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove"> {
   keys: string[];
-  onDuplicate?: (channels: C[], indices: number[]) => void;
-  onSelect: (keys: string[], index: number) => void;
+  allowTare?: (keys: string[], channels: C[]) => boolean;
+  isSnapshot: boolean;
+  onDuplicate?: (channels: C[], keys: string[]) => void;
+  onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
-  remove: (index: number | number[]) => void;
   contextMenuItems?: RenderProp<ContextMenuItemProps<C>>;
 }
 
 const ContextMenu = <C extends Channel>({
   allowTare,
-  channels,
-  isSnapshot,
   keys,
+  isSnapshot,
   onDuplicate,
   onSelect,
   onTare,
@@ -51,22 +51,13 @@ const ContextMenu = <C extends Channel>({
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
-  const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
-  const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
-  const handleRemove = () => {
-    if (indices.length === 0) return onSelect([], -1);
-    remove(indices);
-    const sorted = indices.sort((a, b) => a - b);
-    const idxToSelect = sorted[0] - 1;
-    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key], idxToSelect);
-    else onSelect([], -1);
-  };
+  const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { set } = Form.useContext();
-  const handleDuplicate = () => onDuplicate?.(channels, indices);
+  const channels = Form.useFieldValue<C[]>(path);
+  const handleDuplicate = () => onDuplicate?.(channels, keys);
   const handleDisable = () =>
-    indices.forEach((index) => set(`${path}.${index}.enabled`, false));
-  const handleEnable = () =>
-    indices.forEach((index) => set(`${path}.${index}.enabled`, true));
+    keys.forEach((key) => set(`${path}.${key}.enabled`, false));
+  const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
   const handleTare = useCallback(
     () => onTare?.(keys, channels),
     [onTare, keys, channels],
@@ -78,10 +69,10 @@ const ContextMenu = <C extends Channel>({
     tare: handleTare,
     duplicate: handleDuplicate,
   };
-  const canDuplicate = onDuplicate != null && indices.length > 0;
-  const canRemove = indices.length > 0;
-  const canDisable = indices.some((i) => channels[i].enabled);
-  const canEnable = indices.some((i) => !channels[i].enabled);
+  const canDuplicate = onDuplicate != null && keys.length > 0;
+  const canRemove = keys.length > 0;
+  const canDisable = channels.some(({ enabled }) => !enabled);
+  const canEnable = channels.some(({ enabled }) => enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PMenu.Menu onChange={handleSelect} level="small">
@@ -127,8 +118,7 @@ const ContextMenu = <C extends Channel>({
   );
 };
 
-export interface ChannelListItemProps<C extends Channel>
-  extends List.ItemProps<string, C> {
+export interface ChannelListItemProps extends List.ItemProps<string> {
   key: string;
   isSnapshot: boolean;
   path: string;
@@ -140,7 +130,7 @@ export interface ChannelListProps<C extends Channel>
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
-  listItem: RenderProp<ChannelListItemProps<C>>;
+  listItem: RenderProp<ChannelListItemProps>;
   selected: string[];
 }
 
@@ -155,11 +145,10 @@ export const ChannelList = <C extends Channel>({
   grow,
   ...rest
 }: ChannelListProps<C>) => {
-  const { channels, isSnapshot, onSelect, path } = rest;
+  const { isSnapshot, onSelect, path, data } = rest;
   const handleChange = useCallback(
-    (keys: string[], { clickedIndex }: { clickedIndex: number | null }) =>
-      clickedIndex != null && onSelect(keys, clickedIndex),
-    [onSelect],
+    (keys: string[]) => onSelect(keys),
+    [onSelect, path],
   );
   const menuProps = PMenu.useContextMenu();
   return (
@@ -171,24 +160,25 @@ export const ChannelList = <C extends Channel>({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <List.List<string, C> data={channels} emptyContent={emptyContent}>
-          <List.Selector<string, C>
-            onChange={handleChange}
-            replaceOnSingle
-            value={selected}
+        <Select.Frame<string, C>
+          multiple
+          data={data}
+          value={selected}
+          onChange={handleChange}
+          replaceOnSingle
+        >
+          <List.Items<string, C>
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            className={menuProps.className}
+            onContextMenu={menuProps.open}
+            emptyContent={emptyContent}
           >
-            <List.Core<string, C>
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              className={menuProps.className}
-              onContextMenu={menuProps.open}
-            >
-              {(props) =>
-                listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })
-              }
-            </List.Core>
-          </List.Selector>
-        </List.List>
+            {(props) =>
+              listItem({ isSnapshot, path: `${path}.${props.key}`, ...props })
+            }
+          </List.Items>
+        </Select.Frame>
       </PMenu.ContextMenu>
     </Align.Space>
   );

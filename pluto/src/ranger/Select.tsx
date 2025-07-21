@@ -8,266 +8,147 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { array, type AsyncTermSearcher, type record, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
-import { type DraggingState } from "@/haul/Haul";
+import { Component } from "@/component";
+import { Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { type List } from "@/list";
+import { List } from "@/list";
+import { type ListParams, useList } from "@/ranger/queries";
+import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
-const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
-  { key: "name", name: "Name" },
-];
-
-const canDrop = (
-  { items: entities }: DraggingState,
-  value: ranger.Key[] | readonly ranger.Key[],
-): boolean => {
-  const f = Haul.filterByType(HAUL_TYPE, entities);
-  return f.length > 0 && !f.every((h) => value.includes(h.key as ranger.Key));
+const ListItem = ({
+  itemKey,
+  ...rest
+}: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
+  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  const { selected, onSelect, hovered } = Select.useItemState<ranger.Key>(itemKey);
+  if (item == null) return null;
+  return (
+    <List.Item
+      itemKey={itemKey}
+      onSelect={onSelect}
+      selected={selected}
+      hovered={hovered}
+      justify="spaceBetween"
+      {...rest}
+    >
+      <Text.Text
+        level="p"
+        shade={10}
+        weight={450}
+        style={{
+          maxWidth: 250,
+          textOverflow: "ellipsis",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item?.name}
+      </Text.Text>
+      <TimeRangeChip level="small" timeRange={item.timeRange} />
+    </List.Item>
+  );
 };
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
   extends Omit<
-    Select.MultipleProps<ranger.Key, ranger.Payload>,
-    "columns" | "searcher"
-  > {}
+      Select.MultipleProps<ranger.Key, ranger.Payload | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 export const SelectMultiple = ({
   onChange,
-  className,
   value,
+  emptyContent,
+  filter,
+  initialParams,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const {
-    startDrag,
-    onDragEnd: endDrag,
-    ...dropProps
-  } = Haul.useDragAndDrop({
-    type: "Ranger.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
-      ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        if (dropped.length === 0) return [];
-        const v = unique.unique([
-          ...array.toArray(value),
-          ...(dropped.map((c) => c.key) as ranger.Keys),
-        ]);
-        onChange(v, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
-        return dropped;
-      },
-      [onChange, value],
-    ),
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    filter,
+    initialParams,
   });
-  const dragging = Haul.useDraggingState();
-
-  const handleSuccessfulDrop = useCallback(
-    ({ dropped }: Haul.OnSuccessfulDropProps) => {
-      onChange(
-        array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        },
-      );
-    },
-    [onChange, value],
-  );
-
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: ranger.Key) =>
-      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
-    [startDrag, handleSuccessfulDrop],
-  );
-
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Select.Multiple
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
+    <Select.Multiple<ranger.Key, ranger.Payload | undefined>
+      resourceName="Range"
+      haulType={HAUL_TYPE}
       value={value}
-      onTagDragStart={onDragStart}
-      onTagDragEnd={endDrag}
-      searcher={client?.ranges}
       onChange={onChange}
-      columns={rangeCols}
+      data={data}
+      getItem={getItem}
+      icon={<Icon.Range />}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
       emptyContent={emptyContent}
-      entryRenderKey="name"
-      {...dropProps}
+      status={status}
       {...rest}
-    />
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
   );
 };
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<ranger.Key, ranger.Payload>, "columns"> {}
-
-interface UseSingleReturn extends Omit<Haul.UseDragReturn, "startDrag"> {
-  emptyContent?: ReactElement;
-  dragging: DraggingState;
-  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  searcher?: AsyncTermSearcher<string, ranger.Key, ranger.Payload>;
-}
-
-const useSingle = ({
-  value,
-  onChange,
-}: Pick<SelectSingleProps, "onChange" | "value">): UseSingleReturn => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const id = useId();
-  const sourceAndTarget: Haul.Item = useMemo(
-    () => ({ key: id, type: "Ranger.SelectMultiple" }),
-    [id],
-  );
-
-  const { startDrag, ...dragProps } = Haul.useDragAndDrop({
-    type: "Ranger.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
-      ({ items }) => {
-        const ch = Haul.filterByType(HAUL_TYPE, items);
-        if (ch.length === 0) return [];
-        onChange(ch[0].key as ranger.Key, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
-        return ch;
-      },
-      [sourceAndTarget, onChange],
-    ),
-  });
-
-  const dragging = Haul.useDraggingState();
-  const onDragStart = useCallback(
-    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
-    [startDrag, value],
-  );
-  return {
-    emptyContent,
-    dragging,
-    ...dragProps,
-    onDragStart,
-    searcher: client?.ranges,
-  };
-};
+  extends Omit<
+      Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 export const SelectSingle = ({
   onChange,
   value,
-  className,
-  data,
+  filter,
+  allowNone,
+  emptyContent,
+  initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
+  const { data, retrieve, subscribe, getItem, ...status } = useList({
+    filter,
+    initialParams,
+  });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Select.Single<ranger.Key, ranger.Payload>
-      data={data}
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
+    <Select.Single<ranger.Key, ranger.Payload | undefined>
+      resourceName="Range"
+      variant="modal"
       value={value}
       onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
-      {...dragProps}
-      {...rest}
-    />
-  );
-};
-
-export const SelectButton = ({
-  data,
-  value,
-  onChange,
-  ...rest
-}: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
-  return (
-    <Select.Single<ranger.Key, ranger.Payload>
       data={data}
-      value={value as string}
-      onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
-      {...dragProps}
+      allowNone={allowNone}
+      haulType={HAUL_TYPE}
+      onFetchMore={onFetchMore}
+      getItem={getItem}
+      subscribe={subscribe}
+      status={status}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      icon={<Icon.Range />}
       {...rest}
-    />
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };
 
-const STAGE_ICONS: Record<ranger.Stage, Icon.ReactElement> = {
-  to_do: <Icon.ToDo />,
-  in_progress: <Icon.InProgress />,
-  completed: <Icon.Completed />,
-};
-
-interface StageEntry extends record.KeyedNamed<ranger.Stage> {}
-
-const SELECT_STAGE_COLS: List.ColumnSpec<ranger.Stage, StageEntry>[] = [
-  {
-    key: "name",
-    name: "Stage",
-    render: ({ entry }) => (
-      <Text.WithIcon level="p" startIcon={STAGE_ICONS[entry.key]}>
-        {entry.name}
-      </Text.WithIcon>
-    ),
-  },
+const DATA: Select.SimplyEntry<ranger.Stage>[] = [
+  { key: "to_do", name: "To Do", icon: <Icon.ToDo /> },
+  { key: "in_progress", name: "In Progress", icon: <Icon.InProgress /> },
+  { key: "completed", name: "Completed", icon: <Icon.Completed /> },
 ];
 
-const SELECT_STAGE_DATA: StageEntry[] = [
-  { key: "to_do", name: "To Do" },
-  { key: "in_progress", name: "In Progress" },
-  { key: "completed", name: "Completed" },
-];
+export interface SelectStageProps extends Select.SimpleProps<ranger.Stage> {}
 
-export const SelectStage = (
-  props: Select.DropdownButtonProps<ranger.Stage, StageEntry>,
-): ReactElement => (
-  <Select.DropdownButton<ranger.Stage, StageEntry>
-    {...props}
-    data={SELECT_STAGE_DATA}
-    columns={SELECT_STAGE_COLS}
-  >
-    {({ selected, ...props }) => (
-      <Select.BaseButton
-        selected={selected}
-        startIcon={STAGE_ICONS[selected?.key as ranger.Stage]}
-        {...props}
-      >
-        {selected?.name}
-      </Select.BaseButton>
-    )}
-  </Select.DropdownButton>
+export const SelectStage = (props: SelectStageProps): ReactElement => (
+  <Select.Simple {...props} data={DATA} resourceName="Stage" />
 );

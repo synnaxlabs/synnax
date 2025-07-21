@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto";
+import { Align, Form, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { FS } from "@/fs";
 import {
@@ -26,11 +26,7 @@ import {
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
 
-const NAMED_KEY_COLS: List.ColumnSpec<string, record.KeyedNamed>[] = [
-  { key: "name", name: "Name" },
-];
-
-const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
+const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
   record.KeyedNamed<ScaleType>
 >({
@@ -50,8 +46,6 @@ const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
     },
   },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: LINEAR_SCALE_TYPE, name: "Linear" },
       { key: MAP_SCALE_TYPE, name: "Map" },
@@ -101,12 +95,10 @@ const unitsData = (Object.entries(UNITS_STUFF) as [Units, UnitsInfo][]).map(
   ([key, { name }]) => ({ key, name }),
 );
 
-const UnitsField = Form.buildSelectSingleField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     allowNone: false,
     data: unitsData,
   },
@@ -181,8 +173,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableSchema = z.record(z.string(), z.array(z.unknown()));
-    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
-    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
+    const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
+    const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
     const currValueRef = useRef<Record<string, unknown[]>>({});
 
     const updateValue = () => {
@@ -240,16 +232,16 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
         </Input.Item>
         <Align.Space x>
           <Input.Item label="Raw Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
+            <Select.Simple
+              resourceName="Raw Column"
               value={rawCol}
               onChange={handleRawColChange}
               data={colOptions}
             />
           </Input.Item>
           <Input.Item label="Scaled Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
+            <Select.Simple
+              resourceName="Scaled Column"
               value={scaledCol}
               onChange={handleScaledColChange}
               data={colOptions}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { componentRenderProp, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
@@ -53,6 +53,6 @@ export const WriteChannelContextMenuItems: React.FC<
   );
 };
 
-export const writeChannelContextMenuItems = componentRenderProp(
+export const writeChannelContextMenuItems = Component.renderProp(
   WriteChannelContextMenuItems,
 );

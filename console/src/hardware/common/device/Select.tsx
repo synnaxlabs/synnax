@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Align, Device, Form, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback } from "react";
 
 import { Layout } from "@/layout";
@@ -19,6 +20,7 @@ export interface SelectProps {
   label?: string;
   make: string;
   path?: string;
+  icon?: Icon.ReactElement;
 }
 
 export const Select = ({
@@ -27,13 +29,14 @@ export const Select = ({
   label = "Device",
   make,
   path = "config.device",
+  icon,
 }: SelectProps) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
     (key: device.Key) => {
-      if (client == null) return;
+      if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
         const { configured } = await client.hardware.devices.retrieve(key);
         if (configured) return;
@@ -50,24 +53,14 @@ export const Select = ({
       path={path}
       style={{ flexBasis: 150 }}
     >
-      {(p) => (
+      {({ value, onChange }) => (
         <Device.SelectSingle
-          {...p}
-          allowNone={false}
-          autoSelectOnNone={false}
-          emptyContent={
-            typeof emptyContent === "string" ? (
-              <Align.Center>
-                <Text.Text level="p" shade={10}>
-                  {emptyContent}
-                </Text.Text>
-              </Align.Center>
-            ) : (
-              emptyContent
-            )
-          }
+          value={value}
+          onChange={onChange}
+          initialParams={{ makes: [make] }}
+          emptyContent={emptyContent}
           grow
-          searchOptions={{ makes: [make] }}
+          icon={icon}
         />
       )}
     </Form.Field>

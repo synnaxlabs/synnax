@@ -8,16 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import {
-  Align,
-  componentRenderProp,
-  Form as PForm,
-  type Haul,
-  Icon,
-} from "@synnaxlabs/pluto";
+import { Align, Component, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -74,7 +68,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   />
 );
 
-const isIndexItem = componentRenderProp(IsIndexItem);
+const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");

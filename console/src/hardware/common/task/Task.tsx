@@ -11,7 +11,7 @@ import { type device, type rack, task } from "@synnaxlabs/client";
 import { Status, Task } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 import { useStore } from "react-redux";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -71,18 +71,26 @@ export const wrap = <
   options: WrapOptions<Type, Config, StatusData>,
 ): Layout.Renderer => {
   const { schemas, getInitialPayload } = options;
+  const useRetrieve = Task.createRetrieveQuery(schemas).useDirect;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
       store.getState(),
       layoutKey,
     );
-    const res = Task.use(taskKey, schemas);
-    if (res.variant !== "success") return <Status.Text {...res} />;
+    const { data, variant, message, description } = useRetrieve({
+      params: { key: taskKey },
+    });
+    if (variant !== "success")
+      return (
+        <Status.Text variant={variant}>
+          {message} {description}
+        </Status.Text>
+      );
     return (
       <Wrapped
-        rackKey={res.data ? task.getRackKey(res.data.key) : rackKey}
-        task={res.data ?? getInitialPayload({ deviceKey })}
+        rackKey={data ? task.getRackKey(data.key) : rackKey}
+        task={data ?? getInitialPayload({ deviceKey })}
         layoutKey={layoutKey}
       />
     );

@@ -154,35 +154,6 @@
             box-shadow: inset 0 0 0 1px var(--pluto-primary-z);
         }
     }
-
-    &.pluto--text {
-        border: none !important;
-
-        &.pluto--shade-0 {
-            --pluto-hover-bg: var(--pluto-gray-l2);
-            --pluto-active-bg: var(--pluto-gray-l3);
-            --pluto-border-color: var(--pluto-gray-l0);
-        }
-
-        &.pluto--shade-1 {
-            --pluto-bg: var(--pluto-gray-l1);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l2);
-        }
-
-        &.pluto--shade-2 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l4);
-            --pluto-active-border-color: var(--pluto-gray-l5);
-        }
-
-        &.pluto--shade-3 {
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-hover-bg: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l8);
-        }
-    }
 }
 
 .pluto-btn-icon {
@@ -224,6 +195,7 @@
     transition: var(--pluto-btn-transition);
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
+    cursor: pointer;
     &.pluto--outlined {
         &.pluto--shade-0 {
             --pluto-bg: var(--pluto-gray-l2);
@@ -255,6 +227,16 @@
             --pluto-active-border-color: var(--pluto-gray-l7);
         }
 
+        &.pluto--shade-3 {
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-hover-bg: var(--pluto-gray-l3);
+            --pluto-active-bg: var(--pluto-gray-l4);
+
+            --pluto-border-color: var(--pluto-gray-l6);
+            --pluto-hover-border-color: var(--pluto-gray-l7);
+            --pluto-active-border-color: var(--pluto-gray-l8);
+        }
+
         &.pluto-btn--custom-color {
             --pluto-border-color: rgba(var(--pluto-btn-color), 1);
             --pluto-hover-border-color: rgba(var(--pluto-btn-color), 0.6);
@@ -274,7 +256,7 @@
         }
     }
     &:not(.pluto--disabled):not(:focus-within) {
-        &:hover {
+        &:is(:hover, .pluto--hovered) {
             --pluto-bg: var(--pluto-hover-bg);
             --pluto-border-color: var(--pluto-hover-border-color);
         }
@@ -283,5 +265,38 @@
             --pluto-bg: var(--pluto-active-bg);
             --pluto-border-color: var(--pluto-active-border-color);
         }
+    }
+    &.pluto--text {
+        border: none !important;
+
+        &.pluto--shade-0 {
+            --pluto-hover-bg: var(--pluto-gray-l2);
+            --pluto-active-bg: var(--pluto-gray-l3);
+            --pluto-border-color: var(--pluto-gray-l0);
+        }
+
+        &.pluto--shade-1 {
+            --pluto-bg: var(--pluto-gray-l1);
+            --pluto-hover-bg: var(--pluto-gray-l3);
+            --pluto-active-bg: var(--pluto-gray-l2);
+        }
+
+        &.pluto--shade-2 {
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-hover-bg: var(--pluto-gray-l3);
+            --pluto-active-bg: var(--pluto-gray-l4);
+            --pluto-active-border-color: var(--pluto-gray-l5);
+        }
+
+        &.pluto--shade-3 {
+            --pluto-bg: var(--pluto-gray-l3);
+            --pluto-hover-bg: var(--pluto-gray-l6);
+            --pluto-active-border-color: var(--pluto-gray-l8);
+        }
+    }
+
+    &.pluto-haul-drop-region {
+        --pluto-bg: var(--haul-background) !important;
+        --pluto-border-color: var(--haul-border-color) !important;
     }
 }

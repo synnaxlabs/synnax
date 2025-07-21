@@ -13,13 +13,13 @@ import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Align } from "@/align";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
 import { type RenderProp, type Tab } from "@/tabs/types";
 import { type ContextValue, Provider, useContext } from "@/tabs/useContext";
-import { type ComponentSize } from "@/util/component";
 
 /**
  * Checks if the selected tab key exists in the tabs array. If it does not, it returns
@@ -118,7 +118,7 @@ export interface TabsProps
     ContextValue,
     Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop"> {
   children?: RenderProp | ReactNode;
-  size?: ComponentSize;
+  size?: Component.Size;
   selectedAltColor?: boolean;
 }
 

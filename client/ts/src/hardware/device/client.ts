@@ -9,10 +9,8 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { framer } from "@/framer";
 import {
   type Device,
   deviceZ,
@@ -21,12 +19,9 @@ import {
   type New,
   newZ,
   ONTOLOGY_TYPE,
-  type Status,
-  statusZ,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { type ontology } from "@/ontology";
-import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -68,18 +63,14 @@ export interface RetrieveOptions
     "limit" | "offset" | "makes" | "ignoreNotFound" | "includeStatus"
   > {}
 
-interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
-
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export class Client implements AsyncTermSearcher<string, Key, Device> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
 
-  constructor(client: UnaryClient, frameClient: framer.Client) {
+  constructor(client: UnaryClient) {
     this.client = client;
-    this.frameClient = frameClient;
   }
 
   async retrieve<
@@ -101,15 +92,28 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
+  >(request: RetrieveRequest): Promise<Array<Device<Properties, Make, Model>>>;
+
+  async retrieve<
+    Properties extends record.Unknown = record.Unknown,
+    Make extends string = string,
+    Model extends string = string,
   >(
-    keys: string | string[],
+    keys: string | string[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
-    const isSingle = !Array.isArray(keys);
+    let request: RetrieveRequest;
+    let isSingle = false;
+    if (Array.isArray(keys)) request = { keys: array.toArray(keys), ...options };
+    else if (typeof keys === "object") request = keys;
+    else {
+      request = { keys: [keys], ...options };
+      isSingle = true;
+    }
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys), ...options },
+      request,
       retrieveReqZ,
       retrieveResZ,
     );
@@ -117,30 +121,6 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     return isSingle
       ? (res.devices[0] as Device<Properties, Make, Model>)
       : (res.devices as Array<Device<Properties, Make, Model>>);
-  }
-
-  async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
-    return (
-      await sendRequired(
-        this.client,
-        RETRIEVE_ENDPOINT,
-        { search: term, ...options },
-        retrieveReqZ,
-        retrieveResZ,
-      )
-    ).devices;
-  }
-
-  async page(offset: number, limit: number, options?: PageOptions): Promise<Device[]> {
-    return (
-      await sendRequired(
-        this.client,
-        RETRIEVE_ENDPOINT,
-        { offset, limit, ...options },
-        retrieveReqZ,
-        retrieveResZ,
-      )
-    ).devices;
   }
 
   async create<
@@ -182,43 +162,6 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       deleteResZ,
     );
   }
-
-  async openDeviceTracker(): Promise<signals.Observable<string, Device>> {
-    return await signals.openObservable<string, Device>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      decodeDeviceChanges,
-    );
-  }
-
-  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
-    return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(STATUS_CHANNEL_NAME);
-        return [s.parseJSON(statusZ), s.length > 0];
-      },
-    );
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Device> {
-    return {
-      type: this.type,
-      search: async (term: string) => await this.search(term, options),
-      retrieve: async (keys: string[]) => await this.retrieve(keys, options),
-      page: async (offset: number, limit: number) =>
-        await this.page(offset, limit, options),
-    };
-  }
 }
-
-const decodeDeviceChanges: signals.Decoder<string, Device> = (variant, data) => {
-  if (variant === "delete")
-    return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
-  return data.parseJSON(deviceZ).map((d) => ({ variant, key: d.key, value: d }));
-};
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

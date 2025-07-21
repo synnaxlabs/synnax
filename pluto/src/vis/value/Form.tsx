@@ -33,7 +33,7 @@ interface TelemFormProps {
 }
 
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
-  const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
+  const { value, onChange } = Form.useField<ValueTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,

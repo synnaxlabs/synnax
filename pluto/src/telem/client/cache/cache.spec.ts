@@ -32,9 +32,11 @@ class MockRetriever implements channel.Retriever {
   }
 
   async retrieve(
-    channels: channel.Params,
+    channels: channel.Params | channel.RetrieveRequest,
     opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
+    if (typeof channels === "object" && !Array.isArray(channels))
+      throw new Error("not implemented");
     return await this.func(channels, opts?.rangeKey);
   }
 }

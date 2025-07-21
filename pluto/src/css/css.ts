@@ -9,11 +9,11 @@
 
 import { direction, location, type spatial } from "@synnaxlabs/x/spatial";
 
+import { type Component } from "@/component";
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type Shade } from "@/text/external";
-import { type ComponentSize } from "@/util/component";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
@@ -21,7 +21,7 @@ export interface CSSType extends BEM {
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  size: (size: ComponentSize | number) => string | false;
+  size: (size: Component.Size | number) => string | false;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;

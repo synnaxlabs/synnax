@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
@@ -506,6 +506,7 @@ export class Series<T extends TelemValue = TelemValue>
   toStrings(): string[] {
     if (this.dataType.isVariable)
       return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
+    if (this.dataType.equals(DataType.UUID)) return this.toUUIDs();
     return Array.from(this).map((d) => d.toString());
   }
 

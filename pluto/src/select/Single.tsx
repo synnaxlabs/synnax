@@ -7,306 +7,73 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/select/Single.css";
+import { type record } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
-import { type AsyncTermSearcher, primitive, type record } from "@synnaxlabs/x";
-import {
-  type FocusEventHandler,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Dialog } from "@/dialog";
+import { type List } from "@/list";
+import { Select } from "@/select";
+import { type DialogProps } from "@/select/Dialog";
+import { Frame, type SingleFrameProps } from "@/select/Frame";
+import { type SingleTriggerProps } from "@/select/SingleTrigger";
 
-import { Button } from "@/button";
-import { Caret } from "@/caret";
-import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
-import { useAsyncEffect } from "@/hooks";
-import { Input } from "@/input";
-import { List as CoreList, type List } from "@/list";
-import {
-  selectValueIsZero,
-  type UseSelectOnChangeExtra,
-  type UseSelectSingleProps,
-} from "@/list/useSelect";
-import { ClearButton } from "@/select/ClearButton";
-import { Core } from "@/select/List";
-import { Triggers } from "@/triggers";
-
-export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
-    Omit<
-      Dropdown.DialogProps,
-      "onChange" | "visible" | "children" | "variant" | "close"
-    >,
-    Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">>,
-    Pick<CoreList.SearchProps<K, E>, "filter"> {
-  entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
-  columns?: Array<CoreList.ColumnSpec<K, E>>;
-  inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  searcher?: AsyncTermSearcher<string, K, E>;
-  hideColumnHeader?: boolean;
-  omit?: Array<K>;
-  children?: List.VirtualCoreProps<K, E>["children"];
-  dropdownVariant?: Dropdown.Variant;
-  dropdownZIndex?: number;
-  placeholder?: ReactNode;
-  inputPlaceholder?: ReactNode;
-  triggerTooltip?: ReactNode;
-  actions?: Input.ExtensionProps["children"];
+export interface SingleProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> extends Omit<SingleFrameProps<K, E>, "multiple" | "children">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
+    Omit<Dialog.FrameProps, "onChange" | "children">,
+    Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
+    Pick<List.ItemsProps<K>, "children"> {
+  resourceName: string;
 }
 
-/**
- * Allows a user to browse, search for, and select a value from a list of options.
- * It's important to note that Select maintains no internal selection state. The caller
- * must provide the selected value via the `value` prop and handle any changes via the
- * `onChange` prop.
- *
- * @param props - The props for the component. Any additional props will be passed to the
- * underlying input element.
- * @param props.data - The data to be used to populate the select options.
- * @param props.columns - The columns to be used to render the select options in the
- * dropdown. See the {@link ListColumn} type for more details on available options.
- * @param props.entryRenderKey - The option field rendered when selected. Defaults to "key".
- * @param props.location - Whether to render the dropdown above or below the select
- * component. Defaults to "below".
- * @param props.onChange - The callback to be invoked when the selected value changes.
- * @param props.value - The currently selected value.
- */
-export const Single = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->({
+export const Single = <K extends record.Key, E extends record.Keyed<K> | undefined>({
+  resourceName,
   onChange,
   value,
-  entryRenderKey = "key",
+  allowNone,
+  emptyContent,
+  haulType,
   data,
-  inputProps,
-  allowNone = true,
-  searcher,
-  className,
-  variant = "button",
-  hideColumnHeader = false,
+  getItem,
+  subscribe,
+  onFetchMore,
   disabled,
+  onSearch,
+  status,
+  icon,
   children,
-  dropdownVariant = "connected",
-  placeholder = DEFAULT_PLACEHOLDER,
-  inputPlaceholder = placeholder,
-  triggerTooltip,
-  dropdownZIndex,
-  filter,
+  variant = "connected",
   actions,
   ...rest
-}: SingleProps<K, E>): ReactElement => {
-  const { visible, open, close, toggle } = Dropdown.use();
-  const [selected, setSelected] = useState<E | null>(null);
-  const searchMode = searcher != null;
-
-  // This hook runs to make sure we have the selected entry populated when the value
-  // changes externally.
-  useAsyncEffect(
-    async (signal) => {
-      if (selectValueIsZero(value)) {
-        setSelected(null);
-        return;
-      }
-      if (selected?.key === value) return;
-      let nextSelected: E | null = null;
-      if (searchMode)
-        // Wrap this in a try-except clause just in case the searcher throws an error.
-        try {
-          [nextSelected] = await searcher.retrieve([value]);
-        } finally {
-          // It might be undefined, so coalesce it to null.
-          nextSelected ??= null;
-        }
-      else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
-      if (signal.aborted) return;
-      setSelected(nextSelected);
-    },
-    [searcher, value, data],
-  );
-
-  const handleChange = useCallback(
-    (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
-      if (Array.isArray(v)) return;
-      setSelected(v == null ? null : e.entries[0]);
-      close();
-      onChange(v as K, e);
-    },
-    [onChange, allowNone],
-  );
-
-  const InputWrapper = useMemo(
-    () => (searchMode ? CoreList.Search : CoreList.Filter),
-    [searchMode],
-  );
-
-  const searchInput = (
-    <InputWrapper<K, E> searcher={searcher} filter={filter}>
-      {({ onChange: handleChange }) => (
-        <SingleInput<K, E>
-          {...inputProps}
-          autoFocus={dropdownVariant === "modal"}
-          variant={variant}
-          onChange={handleChange}
-          onFocus={open}
-          selected={selected}
-          entryRenderKey={entryRenderKey}
-          visible={visible}
-          allowNone={allowNone}
-          className={className}
-          dropdownVariant={dropdownVariant}
-          disabled={disabled}
-          placeholder={inputPlaceholder}
-        >
-          {actions}
-        </SingleInput>
-      )}
-    </InputWrapper>
-  );
-
-  const buttonTrigger = (
-    <Button.Button
-      tooltip={triggerTooltip}
-      variant="outlined"
-      onClick={toggle}
-      disabled={disabled}
-    >
-      {selected != null ? getRenderValue(entryRenderKey, selected) : placeholder}
-    </Button.Button>
-  );
-
-  return (
-    <Core<K, E>
-      close={close}
-      zIndex={dropdownZIndex}
-      data={data}
-      allowMultiple={false}
-      visible={visible}
+}: SingleProps<K, E>): ReactElement => (
+  <Dialog.Frame {...rest} variant={variant}>
+    <Frame<K, E>
       value={value}
-      hideColumnHeader={hideColumnHeader}
-      onChange={handleChange}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
       allowNone={allowNone}
-      listItem={children}
-      variant={dropdownVariant}
-      trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}
-      extraDialogContent={dropdownVariant === "modal" ? searchInput : undefined}
-      keepMounted={false}
-      {...rest}
-    />
-  );
-};
-
-export interface SelectInputProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<Input.TextProps, "value" | "onFocus"> {
-  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode);
-  selected: E | null;
-  visible: boolean;
-  debounceSearch?: number;
-  allowNone?: boolean;
-  onFocus: () => void;
-  dropdownVariant?: Dropdown.Variant;
-  zIndex?: number;
-}
-
-export const DEFAULT_PLACEHOLDER = "Select";
-
-const getRenderValue = <K extends record.Key, E extends record.Keyed<K>>(
-  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
-  selected: E | null,
-): ReactNode => {
-  if (selected == null) return "";
-  if (typeof entryRenderKey === "function") return entryRenderKey(selected);
-  return (selected[entryRenderKey] as string | number).toString();
-};
-
-const SingleInput = <K extends record.Key, E extends record.Keyed<K>>({
-  entryRenderKey,
-  selected,
-  visible,
-  onChange,
-  onFocus,
-  allowNone = true,
-  placeholder = DEFAULT_PLACEHOLDER,
-  className,
-  disabled,
-  dropdownVariant,
-  children,
-  ...rest
-}: SelectInputProps<K, E>): ReactElement => {
-  const { clear } = CoreList.useSelectionUtils();
-  // We maintain our own value state for two reasons:
-  //
-  //  1. So we can avoid executing a search when the user selects an item and hides the
-  //     dropdown.
-  //  2. So that we can display the previous search results when the user focuses on the
-  //       while still being able to clear the input value for searching.
-  //
-  const [internalValue, setInternalValue] = useState("");
-
-  // Runs to set the value of the input to the item selected from the list.
-  useEffect(() => {
-    if (visible) return;
-    if (primitive.isZero(selected?.key)) return setInternalValue("");
-    if (selected == null) return;
-    setInternalValue(getRenderValue(entryRenderKey, selected) as string);
-  }, [selected, visible, entryRenderKey]);
-
-  const handleChange = (v: string): void => {
-    onChange(v);
-    setInternalValue(v);
-  };
-
-  const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
-    // Trigger an onChange to make sure the parent component is aware of the focus event.
-    if (internalValue === "") onChange("");
-    setInternalValue("");
-    onFocus?.();
-  };
-
-  const handleClick: React.MouseEventHandler<HTMLInputElement> = (e) => {
-    if (visible) return;
-    e.preventDefault();
-    onFocus?.();
-  };
-
-  const handleClear = (): void => {
-    setInternalValue("");
-    clear?.();
-  };
-
-  let endContent: ReactElement | undefined;
-  if (dropdownVariant !== "modal")
-    endContent = (
-      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
-    );
-
-  return (
-    <Input.Text
-      className={CSS(CSS.BE("select", "input"), className)}
-      value={internalValue}
-      onChange={handleChange}
-      onFocus={handleFocus}
-      onKeyDown={Triggers.matchCallback([["Enter"]], (e) => {
-        e.preventDefault();
-        if (visible) return;
-        onFocus?.();
-      })}
-      endContent={endContent}
-      style={{ flexGrow: 1 }}
-      onClick={handleClick}
-      placeholder={placeholder}
-      disabled={disabled}
-      {...rest}
+      onFetchMore={onFetchMore}
+      virtual
     >
-      {children}
-      {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
-    </Input.Text>
-  );
-};
+      <Select.SingleTrigger
+        haulType={haulType}
+        icon={icon}
+        placeholder={`Select a ${resourceName}`}
+        disabled={disabled}
+      />
+      <Select.Dialog<K>
+        onSearch={onSearch}
+        searchPlaceholder={`Search ${resourceName}s...`}
+        emptyContent={emptyContent}
+        status={status}
+        actions={actions}
+      >
+        {children}
+      </Select.Dialog>
+    </Frame>
+  </Dialog.Frame>
+);

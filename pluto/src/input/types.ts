@@ -10,18 +10,15 @@
 import { type ComponentPropsWithRef, type ReactNode } from "react";
 
 import { type Align } from "@/align";
+import { type Component } from "@/component";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 
-export type Value = unknown;
-
-export interface Control<I extends Value = Value, O extends Value = I> {
+export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
 }
 
-export interface OptionalControl<I extends Value = Value, O extends Value = I>
-  extends Partial<Control<I, O>> {}
+export interface OptionalControl<I = unknown, O = I> extends Partial<Control<I, O>> {}
 
 type HTMLInputProps = Omit<
   ComponentPropsWithRef<"input">,
@@ -30,9 +27,8 @@ type HTMLInputProps = Omit<
 
 export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
 
-export interface ExtensionProps<I extends Value = Value, O extends Value = I>
-  extends Control<I, O> {
-  size?: ComponentSize;
+export interface ExtensionProps<I = unknown, O = I> extends Control<I, O> {
+  size?: Component.Size;
   variant?: Variant;
   sharp?: boolean;
   placeholder?: ReactNode;
@@ -44,7 +40,7 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   onlyChangeOnBlur?: boolean;
 }
 
-export interface BaseProps<I extends Value = Value, O extends Value = I>
+export interface BaseProps<I = unknown, O = I>
   extends HTMLInputProps,
     ExtensionProps<I, O>,
     Pick<Align.PackProps, "borderWidth" | "borderShade"> {}

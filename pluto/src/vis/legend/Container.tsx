@@ -18,7 +18,7 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";

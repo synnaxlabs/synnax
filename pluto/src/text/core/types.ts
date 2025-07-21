@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
+import { type Component } from "@/component";
 import { type theming } from "@/theming/aether";
-import { type ComponentSize } from "@/util/component";
 
 export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
 export const levelZ = z.enum(LEVELS);
@@ -62,7 +62,7 @@ export const specZ = z.object({
 export type Spec = z.infer<typeof specZ>;
 
 /* Standardizes the typography levels for components of different sizes */
-export const ComponentSizeLevels: Record<ComponentSize, Level> = {
+export const COMPONENT_SIZE_LEVELS: Record<Component.Size, Level> = {
   tiny: "small",
   small: "small",
   medium: "p",
@@ -70,7 +70,7 @@ export const ComponentSizeLevels: Record<ComponentSize, Level> = {
   huge: "h2",
 };
 
-export const LevelComponentSizes: Record<Level, ComponentSize> = {
+export const LEVEL_COMPONENT_SIZES: Record<Level, Component.Size> = {
   h1: "huge",
   h2: "huge",
   h3: "huge",

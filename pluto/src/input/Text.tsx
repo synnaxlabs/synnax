@@ -62,7 +62,7 @@ export const Text = ({
   disabled,
   resetOnBlurIfEmpty = false,
   status,
-  shade,
+  shade = 1,
   weight,
   style,
   outlineColor,
@@ -138,7 +138,6 @@ export const Text = ({
         CSS.B("input"),
         CSS.disabled(disabled),
         level == null && CSS.size(size),
-        shade != null && CSS.shade(shade),
         CSS.M(variant),
         CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
@@ -153,10 +152,11 @@ export const Text = ({
       <div
         className={CSS(
           CSS.BE("input", "internal"),
-          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
+          CSS.BM("text", level ?? CoreText.COMPONENT_SIZE_LEVELS[size]),
+          CSS.size(size),
           CSS.M("clickable"),
           CSS.M("outlined"),
-          CSS.shade(0),
+          shade != null && CSS.shade(shade),
         )}
       >
         {showPlaceholder && (
@@ -167,7 +167,7 @@ export const Text = ({
             )}
           >
             {CoreText.formatChildren(
-              level ?? CoreText.ComponentSizeLevels[size],
+              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
               placeholder,
             )}
           </div>
@@ -192,7 +192,7 @@ export const Text = ({
         {endContent != null && (
           <div className={CSS.BE("input", "end-content")}>
             {CoreText.formatChildren(
-              level ?? CoreText.ComponentSizeLevels[size],
+              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
               endContent,
             )}
           </div>

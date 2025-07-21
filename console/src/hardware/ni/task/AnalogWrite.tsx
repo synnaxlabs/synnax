@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Align, Component, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -56,12 +56,12 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {}
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const {
-    entry: { port, cmdChannel, stateChannel, type },
-  } = rest;
+  const item = PForm.useFieldValue<AOChannel>(path);
+  if (item == null) return null;
+  const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -89,8 +89,8 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
-const channelListItem = componentRenderProp(ChannelListItem);
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<

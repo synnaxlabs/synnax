@@ -15,7 +15,7 @@ import {
   Form,
   Input,
   Nav,
-  Select,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -45,14 +45,24 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     params: {},
-    afterUpdate: async ({ form }) => {
-      if (createMore) form.reset({ ...Channel.ZERO_FORM_VALUES });
+    afterSave: ({ form }) => {
+      if (createMore) form.reset();
       else onClose();
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean>("isIndex", false, form);
-  const isVirtual = Form.useFieldValue<boolean, boolean>("virtual", false, form);
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "isIndex",
+    {
+      ctx: form,
+    },
+  );
+  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "virtual",
+    {
+      ctx: form,
+    },
+  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
@@ -97,10 +107,9 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             />
             <Form.Field<string> path="dataType" label="Data Type" grow>
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   hideVariableDensity={!isVirtual}
                 />
@@ -108,15 +117,14 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             </Form.Field>
           </Align.Space>
           <Form.Field<channel.Key> path="index" label="Index">
-            {(p) => (
+            {({ value, onChange }) => (
               <Channel.SelectSingle
-                placeholder="Select Index"
-                searchOptions={{ isIndex: true }}
+                value={value}
+                onChange={onChange}
+                initialParams={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
-                maxHeight="small"
                 allowNone={false}
                 zIndex={100}
-                {...p}
               />
             )}
           </Form.Field>
@@ -134,6 +142,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
           <Button.Button
             disabled={variant === "loading"}
             loading={variant === "loading"}
+            variant="filled"
             onClick={() => save()}
             triggers={[Triggers.SAVE]}
           >

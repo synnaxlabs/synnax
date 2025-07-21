@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType } from "@synnaxlabs/client";
-import { type Optional } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { Query } from "@/query";
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 
 export const useCalculationStatusSynchronizer = (
   onStatusChange: (status: channel.CalculationStatus) => void,
@@ -64,15 +63,9 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface QueryParams extends Query.Params {
+export interface FluxParams extends Flux.Params {
   key?: channel.Key;
 }
-
-interface UseFormArgs<Z extends z.ZodObject>
-  extends Optional<
-    Pick<Query.UseFormArgs<QueryParams, Z>, "initialValues" | "params" | "afterUpdate">,
-    "initialValues"
-  > {}
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema
@@ -89,41 +82,76 @@ export const ZERO_FORM_VALUES: z.infer<
   requires: [],
 };
 
-const retrieve = async ({
-  client,
-  params: { key },
-}: Query.RetrieveArgs<QueryParams>) => {
+const retrieve = async ({ client, params: { key } }: Flux.RetrieveArgs<FluxParams>) => {
   if (key == null) return null;
   return channelToFormValues(await client.channels.retrieve(key));
 };
 
 const update = async ({
   client,
-  values,
+  value,
   onChange,
-}: Query.UpdateArgs<QueryParams, typeof formSchema | typeof calculatedFormSchema>) => {
-  const ch = await client.channels.create(values);
+}: Flux.UpdateArgs<
+  FluxParams,
+  z.infer<typeof formSchema | typeof calculatedFormSchema>
+>) => {
+  const ch = await client.channels.create(value);
   onChange(channelToFormValues(ch));
 };
 
-export const useForm = (args: UseFormArgs<typeof formSchema>) =>
-  Query.useForm<QueryParams, typeof formSchema>({
+export const useForm = (args: Flux.UseFormArgs<FluxParams, typeof formSchema>) =>
+  Flux.createForm<FluxParams, typeof formSchema>({
     name: "Channel",
     schema: formSchema,
-    initialValues: { ...ZERO_FORM_VALUES },
-    ...args,
+    initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
     listeners: [],
-  });
+  })(args);
 
-export const useCalculatedForm = (args: UseFormArgs<typeof calculatedFormSchema>) =>
-  Query.useForm<QueryParams, typeof calculatedFormSchema>({
+export const useCalculatedForm = (
+  args: Flux.UseFormArgs<FluxParams, typeof calculatedFormSchema>,
+) =>
+  Flux.createForm<FluxParams, typeof calculatedFormSchema>({
     name: "CalculatedChannel",
     schema: calculatedFormSchema,
-    initialValues: { ...ZERO_FORM_VALUES },
-    ...args,
+    initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
     listeners: [],
-  });
+  })(args);
+
+export interface ListParams extends Flux.Params, channel.RetrieveOptions {
+  term?: string;
+  rangeKey?: string;
+  internal?: boolean;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>({
+  name: "Channels",
+  retrieve: async ({ client, params }) =>
+    await client.channels.retrieve({
+      ...params,
+      search: params.term,
+    }),
+  retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
+  listeners: [
+    {
+      channel: channel.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        channel.keyZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed, await client.channels.retrieve(changed));
+        },
+      ),
+    },
+    {
+      channel: channel.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
+});

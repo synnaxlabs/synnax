@@ -10,14 +10,22 @@
 import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { type bounds, color, type direction, location, type xy } from "@synnaxlabs/x";
+import {
+  type bounds,
+  color,
+  type direction,
+  type location,
+  type xy,
+} from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Component } from "@/component";
 import { CSS } from "@/css";
+import { Direction } from "@/direction";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -26,8 +34,7 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
-import { type Button as CoreButton } from "@/vis/button";
+import { Button as CoreButton } from "@/vis/button";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import {
   type ControlStateProps,
@@ -123,7 +130,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       label="Label Size"
       padHelpText={false}
     >
-      {(p) => <Select.Text.Level {...p} />}
+      {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
@@ -132,7 +139,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.TextAlignment {...p} />}
+      {({ value, onChange }) => <Align.Select value={value} onChange={onChange} />}
     </Form.Field>
     <Form.Field<direction.Direction>
       visible={!omit.includes("direction")}
@@ -141,7 +148,9 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.Direction {...p} yDirection="down" />}
+      {({ value, onChange }) => (
+        <Direction.Select value={value} onChange={onChange} yDirection="down" />
+      )}
     </Form.Field>
   </Align.Space>
 );
@@ -215,7 +224,7 @@ export const CommonStyleForm = ({
 const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
-  >({ path });
+  >(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -573,7 +582,9 @@ export const ValueForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Select.Text.Level {...p} />}
+                  {({ value, onChange }) => (
+                    <Select.Text.Level value={value} onChange={onChange} />
+                  )}
                 </Form.Field>
               </Align.Space>
             </Align.Space>
@@ -589,7 +600,7 @@ export const ValueForm = (): ReactElement => {
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<LightTelemFormT>({ path });
+  const { value, onChange } = Form.useField<LightTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -681,31 +692,8 @@ type ButtonTelemFormT = Omit<CoreButton.UseProps, "aetherKey"> & {
   control: ControlStateProps;
 };
 
-const SelectButtonMode = Form.buildButtonSelectField({
-  fieldProps: { label: "Mode" },
-  inputProps: {
-    entryRenderKey: "name",
-    tooltipKey: "tooltip",
-    tooltipLocation: location.TOP_RIGHT,
-    data: [
-      { key: "fire", name: "Fire", tooltip: "Output true when clicked" },
-      {
-        key: "momentary",
-        name: "Momentary",
-        tooltip: "Output true on press, false on release",
-      },
-      {
-        key: "pulse",
-        name: "Pulse",
-        tooltip: "Output true and then immediately output false on click",
-      },
-    ],
-    allowNone: false,
-  },
-});
-
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<ButtonTelemFormT>({ path });
+  const { value, onChange } = Form.useField<ButtonTelemFormT>(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
@@ -761,7 +749,11 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
           padHelpText={false}
         />
       </Align.Space>
-      <SelectButtonMode path="mode" optional defaultValue="fire" />
+      <Form.Field<CoreButton.Mode> path="mode" label="Mode" optional>
+        {({ value, onChange }) => (
+          <CoreButton.SelectMode value={value} onChange={onChange} />
+        )}
+      </Form.Field>
     </FormWrapper>
   );
 };
@@ -793,7 +785,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       control: ControlStateProps;
       disabled?: boolean;
     }
-  >({ path });
+  >(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
@@ -852,13 +844,15 @@ export const SetpointForm = (): ReactElement => {
                   align="start"
                   padHelpText={false}
                 />
-                <Form.Field<ComponentSize>
+                <Form.Field<Component.Size>
                   path="size"
                   label="Size"
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Select.ComponentSize {...p} />}
+                  {({ value, onChange }) => (
+                    <Component.SelectSize value={value} onChange={onChange} />
+                  )}
                 </Form.Field>
                 <ColorControl path="color" />
               </Align.Space>
@@ -875,10 +869,7 @@ export const SetpointForm = (): ReactElement => {
 };
 
 export const TextBoxForm = (): ReactElement => {
-  const autoFit = Form.useField<boolean>({
-    path: "autoFit",
-    optional: true,
-  });
+  const autoFit = Form.useField<boolean>("autoFit", { optional: true });
   return (
     <FormWrapper x align="stretch" grow>
       <Align.Space y grow>
@@ -887,7 +878,9 @@ export const TextBoxForm = (): ReactElement => {
             {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-            {(p) => <Select.Text.Level {...p} />}
+            {({ value, onChange }) => (
+              <Select.Text.Level value={value} onChange={onChange} />
+            )}
           </Form.Field>
           <Form.Field<Align.Alignment>
             path="align"
@@ -895,7 +888,9 @@ export const TextBoxForm = (): ReactElement => {
             padHelpText={false}
             hideIfNull
           >
-            {(p) => <Select.TextAlignment {...p} />}
+            {({ value, onChange }) => (
+              <Align.Select value={value} onChange={onChange} />
+            )}
           </Form.Field>
         </Align.Space>
         <Align.Space x>

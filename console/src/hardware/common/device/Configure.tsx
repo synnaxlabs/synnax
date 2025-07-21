@@ -23,7 +23,7 @@ import {
 import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
@@ -166,6 +166,7 @@ const Internal = <
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate()}
+            variant="filled"
             triggers={Triggers.SAVE}
             type="submit"
           >

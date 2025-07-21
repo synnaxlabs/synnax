@@ -16,7 +16,7 @@ import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Button,
-  componentRenderProp,
+  Component,
   Control,
   Diagram,
   Haul,
@@ -31,7 +31,6 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Sync } from "@synnaxlabs/pluto/dist/src/icon/registry.js";
 import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -157,7 +156,7 @@ const SymbolRenderer = ({
   );
 };
 
-const edgeRenderer = componentRenderProp(Core.Edge);
+const edgeRenderer = Component.renderProp(Core.Edge);
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <PMenu.Menu level="small" iconSpacing="small">

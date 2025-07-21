@@ -10,59 +10,35 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type List } from "@/list";
 import { Select as Core } from "@/select";
-import { Text } from "@/status/Text";
+import { Status } from "@/status";
 
-interface ListEntry {
-  key: status.Variant;
-  name: string;
-}
-
-const OPTIONS: ListEntry[] = [
+const DATA: Core.SimplyEntry<status.Variant>[] = [
   {
     key: "success",
     name: "Success",
+    icon: <Status.Indicator variant="success" />,
   },
   {
     key: "error",
     name: "Error",
+    icon: <Status.Indicator variant="error" />,
   },
   {
     key: "warning",
     name: "Warning",
+    icon: <Status.Indicator variant="warning" />,
   },
   {
     key: "info",
     name: "Info",
-  },
-];
-
-const COLUMNS: Array<List.ColumnSpec<string, ListEntry>> = [
-  {
-    key: "name",
-    name: "Name",
-    render: ({ entry: { key, name } }) => <Text variant={key}>{name}</Text>,
+    icon: <Status.Indicator variant="info" />,
   },
 ];
 
 export interface SelectProps
-  extends Omit<
-    Core.DropdownButtonProps<status.Variant, ListEntry>,
-    "data" | "columns" | "entryRenderKey"
-  > {}
+  extends Omit<Core.SimpleProps<status.Variant>, "data" | "resourceName"> {}
 
 export const Select = (props: SelectProps): ReactElement => (
-  <Core.DropdownButton
-    data={OPTIONS}
-    columns={COLUMNS}
-    entryRenderKey="name"
-    {...props}
-  >
-    {(p) => (
-      <Core.BaseButton {...p}>
-        <Text variant={p.selected?.key ?? "info"}>{p.selected?.name}</Text>
-      </Core.BaseButton>
-    )}
-  </Core.DropdownButton>
+  <Core.Simple {...props} data={DATA} resourceName="Status" />
 );

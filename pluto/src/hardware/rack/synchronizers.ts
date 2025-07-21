@@ -9,7 +9,7 @@
 
 import { rack } from "@synnaxlabs/client";
 
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 
 export const useStatusSynchronizer = (
   onStatusChange: (status: rack.Status) => void,

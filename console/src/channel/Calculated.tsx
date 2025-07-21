@@ -15,9 +15,9 @@ import {
   Form,
   Input,
   Nav,
-  Select,
   Status,
   Synnax,
+  Telem,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
@@ -72,7 +72,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
     boolean,
     boolean,
     typeof Channel.calculatedFormSchema
-  >("isIndex", false, form);
+  >("isIndex", { ctx: form });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -130,10 +130,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               style={{ width: 150 }}
             >
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   style={{ width: 150 }}
                 />

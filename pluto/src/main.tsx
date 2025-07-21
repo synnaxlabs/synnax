@@ -13,25 +13,54 @@ import "@/main.css";
 import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
+import { Component } from "@/component";
 import { Pluto } from "@/pluto";
+import { Text } from "@/text";
+import { Tree } from "@/tree";
 
-const Composite = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Add,
-});
+const nodes: Tree.Node[] = [
+  {
+    key: "1",
+    children: [
+      {
+        key: "1.1",
+      },
+    ],
+  },
+];
+
+const data = {
+  "1": {
+    name: "Cat",
+  },
+  "1.1": {
+    name: "Dog",
+  },
+};
+
+const treeItem = Component.renderProp((props: Tree.ItemProps<string>) => (
+  <Tree.Item {...props}>
+    {/* <Text.Text level="p">{data[props.itemKey].name}</Text.Text> */}
+  </Tree.Item>
+));
+
+const Content = () => {
+  const treeProps = Tree.use({
+    nodes,
+  });
+  return <Tree.Tree {...treeProps}>{treeItem}</Tree.Tree>;
+};
 
 const Main = (): ReactElement => (
-  <Pluto.Provider>
-    <div style={{ padding: "2rem" }}>
-      <Align.Space x className={CSS.B("stack")}>
-        <Button.Icon>
-          <Composite />
-        </Button.Icon>
-      </Align.Space>
-    </div>
+  <Pluto.Provider
+    connParams={{
+      host: "localhost",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+    }}
+  >
+    <Content />
   </Pluto.Provider>
 );
 

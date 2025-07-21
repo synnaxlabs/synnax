@@ -24,7 +24,7 @@ func Publish(
 	prov *signals.Provider,
 	db *gorp.DB,
 ) (io.Closer, error) {
-	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigNumeric[channel.Key, channel.Channel](
+	return signals.PublishFromGorp(ctx, prov, signals.GorpPublisherConfigPureNumeric[channel.Key, channel.Channel](
 		db,
 		telem.Uint32T,
 	))

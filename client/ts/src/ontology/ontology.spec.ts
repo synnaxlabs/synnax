@@ -43,20 +43,6 @@ describe("Ontology", () => {
       expect(parents[0].name).toEqual(name);
     });
   });
-  describe("page", () => {
-    it("should return a page of resources", async () => {
-      for (let i = 0; i < 10; i++)
-        await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const page = await client.ontology.page(0, 5);
-      expect(page.length).toEqual(5);
-      const page2 = await client.ontology.page(5, 5);
-      expect(page2.length).toEqual(5);
-      const page1Keys = page.map((r) => r.key);
-      const page2Keys = page2.map((r) => r.key);
-      const intersection = page1Keys.filter((key) => page2Keys.includes(key));
-      expect(intersection.length).toEqual(0);
-    });
-  });
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
@@ -101,28 +87,6 @@ describe("Ontology", () => {
       expect(rel.from.key).toEqual("keyA");
       expect(rel.to.type).toEqual("schematic");
       expect(rel.to.key).toEqual("keyB");
-    });
-    it("should correctly propagate resource changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.ResourceChange[]>((resolve) =>
-        change.resources.onChange((changes) => resolve(changes)),
-      );
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
-    });
-    it("should correctly propagate relationship changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
-        change.relationships.onChange((changes) => {
-          resolve(changes);
-        });
-      });
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
     });
   });
 });

@@ -9,7 +9,7 @@
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { breaker, observe, TimeSpan } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";

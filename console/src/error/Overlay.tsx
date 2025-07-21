@@ -13,7 +13,7 @@ import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component,
   CSS as PCSS,
   Nav,
   OS,
@@ -149,7 +149,9 @@ const FallBackRenderContent = ({
             </Text.Text>
             <Align.Space x>
               {onTryAgain && (
-                <Button.Button onClick={onTryAgain}>Try again</Button.Button>
+                <Button.Button variant="filled" onClick={onTryAgain}>
+                  Try again
+                </Button.Button>
               )}
               {onClear && (
                 <Button.Button onClick={onClear} variant="outlined">
@@ -164,8 +166,8 @@ const FallBackRenderContent = ({
   );
 };
 
-const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
-const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
+const fallbackRenderWithStore = Component.renderProp(FallbackRenderWithStore);
+const fallbackRenderWithoutStore = Component.renderProp(FallbackRenderWithoutStore);
 
 export const OverlayWithStore = (props: OverlayProps): ReactElement => (
   <ErrorBoundary {...props} fallbackRender={fallbackRenderWithStore} />

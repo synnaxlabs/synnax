@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { status } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { Query } from "@/query";
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 
 export const useCommandSynchronizer = (
   onCommandUpdate: (command: task.Command) => void,
@@ -50,31 +51,33 @@ export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =
     }),
   });
 
-interface QueryParams extends Query.Params {
+interface QueryParams extends Flux.Params {
   key: task.Key | undefined;
 }
 
-export const use = <
+export const createRetrieveQuery = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  key: task.Key | undefined,
   schemas: task.Schemas<Type, Config, StatusData>,
 ) =>
-  Query.use<QueryParams, task.Task<Type, Config, StatusData> | null>({
+  Flux.createRetrieve<QueryParams, task.Task<Type, Config, StatusData> | null>({
     name: "Task",
-    params: { key },
     retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
-      return await client.hardware.tasks.retrieve({ key, schemas });
+      return await client.hardware.tasks.retrieve({
+        key,
+        includeStatus: true,
+        schemas,
+      });
     },
     listeners: [
       {
         channel: task.SET_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
           task.keyZ,
-          async ({ client, changed, onChange }) => {
+          async ({ client, changed, onChange, params: { key } }) => {
             if (key == null || changed.toString() !== key.toString()) return;
             onChange(await client.hardware.tasks.retrieve({ key, schemas }));
           },
@@ -82,3 +85,67 @@ export const use = <
       },
     ],
   });
+
+export interface ListParams extends Flux.Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, task.Key, task.Task>({
+  name: "Task",
+  retrieve: async ({ client, params }) =>
+    await client.hardware.tasks.retrieve({
+      includeStatus: true,
+      ...params,
+    }),
+  retrieveByKey: async ({ client, key }) =>
+    await client.hardware.tasks.retrieve({ key }),
+  listeners: [
+    {
+      channel: task.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        task.keyZ,
+        async ({ client, changed: key, onChange }) =>
+          onChange(key, await client.hardware.tasks.retrieve({ key })),
+      ),
+    },
+    {
+      channel: task.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(task.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: task.STATUS_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        task.statusZ(z.unknown()),
+        async ({ changed, onChange, client }) => {
+          onChange(changed.details.task, (prev) => {
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({ ...prev, status: changed });
+          });
+        },
+      ),
+    },
+    {
+      channel: task.COMMAND_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        task.commandZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed.task, (prev) => {
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({
+              ...prev,
+              status: status.create<task.StatusDetails<z.ZodUnknown>>({
+                variant: "loading",
+                message: "Executing command...",
+                details: { task: changed.task, running: true, data: {} },
+              }),
+            });
+          });
+        },
+      ),
+    },
+  ],
+});

@@ -48,7 +48,6 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("workspace")
-	validate.NotNil(v, "signals", c.Signals)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -75,7 +74,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(ctx, s)
 	if cfg.Signals == nil {
-		return nil, err
+		return s, nil
 	}
 	s.shutdownSignals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Workspace](cfg.DB))
 	if err != nil {

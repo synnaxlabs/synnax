@@ -103,7 +103,7 @@ export const Edit: Layout.Renderer = ({ layoutKey }) => {
   const res = useQuery({
     queryKey: ["effect", layoutKey],
     queryFn: async () => {
-      if (effect != null) return effect;
+      if (effect != null || client == null) return effect;
       try {
         const effect = await client.effects.retrieve(layoutKey);
         return effect;

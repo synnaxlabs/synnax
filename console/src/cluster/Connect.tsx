@@ -14,7 +14,7 @@ import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/plu
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";
@@ -140,6 +140,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
             loading={loading === "submit"}
             disabled={loading !== null}
             triggers={Triggers.SAVE}
+            variant="filled"
           >
             Connect
           </Button.Button>

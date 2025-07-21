@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
@@ -142,8 +142,8 @@ export type Units = z.infer<typeof unitsZ>;
 export const LINEAR_SCALE_TYPE = "linear";
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().finite(),
-  yIntercept: z.number().finite(),
+  slope: z.number(),
+  yIntercept: z.number(),
   preScaledUnits: unitsZ,
   scaledUnits: z.string(),
 });
@@ -160,10 +160,10 @@ export const MAP_SCALE_TYPE = "map";
 const mapScaleZ = z
   .object({
     type: z.literal(MAP_SCALE_TYPE),
-    preScaledMin: z.number().finite(),
-    preScaledMax: z.number().finite(),
-    scaledMin: z.number().finite(),
-    scaledMax: z.number().finite(),
+    preScaledMin: z.number(),
+    preScaledMax: z.number(),
+    scaledMin: z.number(),
+    scaledMax: z.number(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -190,8 +190,8 @@ export const TABLE_SCALE_TYPE = "table";
 const tableScaleZ = z
   .object({
     type: z.literal(TABLE_SCALE_TYPE),
-    preScaledVals: z.number().finite().array(),
-    scaledVals: z.number().finite().array(),
+    preScaledVals: z.number().array(),
+    scaledVals: z.number().array(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -751,7 +751,7 @@ const aiThrmcplChanWithBuiltInCJCSourceZ = baseAIThrmcplChanZ.extend({
 });
 const aiThrmcplChanWithConstCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CONST_VAL),
-  cjcVal: z.number().finite(),
+  cjcVal: z.number(),
 });
 const aiThrmcplChanWithChanCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CHAN),
@@ -980,21 +980,18 @@ export const SINE_WAVE_TYPE = "Sine";
 export const TRIANGLE_WAVE_TYPE = "Triangle";
 export const SQUARE_WAVE_TYPE = "Square";
 export const SAWTOOTH_WAVE_TYPE = "Sawtooth";
-export type WaveType =
-  | typeof SINE_WAVE_TYPE
-  | typeof TRIANGLE_WAVE_TYPE
-  | typeof SQUARE_WAVE_TYPE
-  | typeof SAWTOOTH_WAVE_TYPE;
+export const WAVE_TYPES = [
+  SINE_WAVE_TYPE,
+  TRIANGLE_WAVE_TYPE,
+  SQUARE_WAVE_TYPE,
+  SAWTOOTH_WAVE_TYPE,
+] as const;
+export type WaveType = (typeof WAVE_TYPES)[number];
 
 const aoFuncGenChanZ = baseAOChanZ.extend({
   type: z.literal(AO_FUNC_GEN_CHAN_TYPE),
   // note that waveType is called type in DAQmx, but this conflicts with our convention
-  waveType: z.enum([
-    SINE_WAVE_TYPE,
-    SQUARE_WAVE_TYPE,
-    TRIANGLE_WAVE_TYPE,
-    SAWTOOTH_WAVE_TYPE,
-  ]),
+  waveType: z.enum(WAVE_TYPES),
   frequency: z.number(),
   amplitude: z.number(),
   offset: z.number(),

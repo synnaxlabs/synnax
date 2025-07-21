@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form, type List } from "@synnaxlabs/pluto";
+import { Align, Divider, Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -32,19 +32,10 @@ interface FormProps {
   prefix: string;
 }
 
-const NAMED_KEY_COLS: List.ColumnSpec<string, record.KeyedNamed>[] = [
-  { key: "name", name: "Name" },
-];
-
-const TerminalConfigField = Form.buildDropdownButtonSelectField<
-  string,
-  record.KeyedNamed
->({
+const TerminalConfigField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal Configuration" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "RSE", name: "Referenced Single Ended" },
       { key: "NRSE", name: "Non-Referenced Single Ended" },
@@ -55,15 +46,13 @@ const TerminalConfigField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const AccelSensitivityUnitsField = Form.buildDropdownButtonSelectField<
+const AccelSensitivityUnitsField = Form.buildSelectField<
   AccelSensitivityUnits,
   record.KeyedNamed<AccelSensitivityUnits>
 >({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "mVoltsPerG", name: "mV/g" },
       { key: "VoltsPerG", name: "V/g" },
@@ -71,31 +60,22 @@ const AccelSensitivityUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const ExcitSourceField = Form.buildDropdownButtonSelectField<string, record.KeyedNamed>(
-  {
-    fieldKey: "excitSource",
-    fieldProps: { label: "Excitation Source" },
-    inputProps: {
-      entryRenderKey: "name",
-      columns: NAMED_KEY_COLS,
-      data: [
-        { key: "Internal", name: "Internal" },
-        { key: "External", name: "External" },
-        { key: "None", name: "None" },
-      ],
-    },
+const ExcitSourceField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "excitSource",
+  fieldProps: { label: "Excitation Source" },
+  inputProps: {
+    data: [
+      { key: "Internal", name: "Internal" },
+      { key: "External", name: "External" },
+      { key: "None", name: "None" },
+    ],
   },
-);
+});
 
-const BridgeConfigField = Form.buildDropdownButtonSelectField<
-  string,
-  record.KeyedNamed<string>
->({
+const BridgeConfigField = Form.buildSelectField<string, record.KeyedNamed<string>>({
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge Configuration" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "FullBridge", name: "Full Bridge" },
       { key: "HalfBridge", name: "Half Bridge" },
@@ -104,15 +84,13 @@ const BridgeConfigField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const ShuntResistorLocField = Form.buildDropdownButtonSelectField<
+const ShuntResistorLocField = Form.buildSelectField<
   ShuntResistorLoc,
   record.KeyedNamed<ShuntResistorLoc>
 >({
   fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt Resistor Location" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "Default", name: "Default" },
       { key: "Internal", name: "Internal" },
@@ -121,15 +99,10 @@ const ShuntResistorLocField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const ResistanceConfigField = Form.buildDropdownButtonSelectField<
-  string,
-  record.KeyedNamed<string>
->({
+const ResistanceConfigField = Form.buildSelectField<string, record.KeyedNamed<string>>({
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance Configuration" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "2Wire", name: "2-Wire" },
       { key: "3Wire", name: "3-Wire" },
@@ -138,12 +111,10 @@ const ResistanceConfigField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const StrainConfig = Form.buildDropdownButtonSelectField({
+const StrainConfig = Form.buildSelectField({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain Configuration" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "FullBridgeI", name: "Full Bridge I" },
       { key: "FullBridgeII", name: "Full Bridge II" },
@@ -161,15 +132,13 @@ const SensitivityField = Form.buildNumericField({
   fieldProps: { label: "Sensitivity" },
 });
 
-const ForceUnitsField = Form.buildDropdownButtonSelectField<
+const ForceUnitsField = Form.buildSelectField<
   ForceUnits,
   record.KeyedNamed<ForceUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Force Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "Newtons", name: "Newtons" },
       { key: "Pounds", name: "Pounds" },
@@ -178,15 +147,13 @@ const ForceUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
+const ElectricalUnitsField = Form.buildSelectField<
   ElectricalUnits,
   record.KeyedNamed<ElectricalUnits>
 >({
   fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "VoltsPerVolt", name: "V/V" },
       { key: "mVoltsPerVolt", name: "mV/V" },
@@ -194,15 +161,13 @@ const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const PressureUnitsField = Form.buildDropdownButtonSelectField<
+const PressureUnitsField = Form.buildSelectField<
   PressureUnits,
   record.KeyedNamed<PressureUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Pressure Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "Pascals", name: "Pascals" },
       { key: "PoundsPerSquareInch", name: "PSI" },
@@ -210,15 +175,13 @@ const PressureUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
+const TemperatureUnitsField = Form.buildSelectField<
   TemperatureUnits,
   record.KeyedNamed<TemperatureUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     data: [
       { key: "DegC", name: "Celsius" },
       { key: "DegF", name: "Fahrenheit" },
@@ -228,13 +191,10 @@ const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
+const ThermocoupleTypeField = Form.buildSelectField({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
-    hideColumnHeader: true,
     data: [
       { key: "B", name: "B" },
       { key: "E", name: "E" },
@@ -248,15 +208,13 @@ const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
   },
 });
 
-const TorqueUnitsField = Form.buildDropdownButtonSelectField<
+const TorqueUnitsField = Form.buildSelectField<
   TorqueUnits,
   record.KeyedNamed<TorqueUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Torque Units" },
   inputProps: {
-    columns: NAMED_KEY_COLS,
-    entryRenderKey: "name",
     data: [
       { key: "NewtonMeters", name: "Newton Meters" },
       { key: "InchOunces", name: "Inch Ounces" },
@@ -265,12 +223,10 @@ const TorqueUnitsField = Form.buildDropdownButtonSelectField<
   },
 });
 
-const UnitsField = Form.buildSelectSingleField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
     allowNone: false,
     data: [
       { key: "Volts", name: "Volts" },
@@ -496,12 +452,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     </>
   ),
   ai_force_iepe: ({ prefix }) => {
-    const SensitivityUnits = Form.buildDropdownButtonSelectField({
+    const SensitivityUnits = Form.buildSelectField({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
         data: [
           { key: "mVoltsPerNewton", name: "mV/N" },
           { key: "mVoltsPerPound", name: "mV/lb" },
@@ -513,7 +467,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Divider.Divider x padded="bottom" />
-        <ForceUnitsField path={prefix} inputProps={{ omit: ["KilogramForce"] }} />
+        <ForceUnitsField
+          path={prefix}
+          inputProps={{ filter: ({ key }) => key !== "KilogramForce" }}
+        />
         <SensitivityField
           path={prefix}
           inputProps={{
@@ -543,12 +500,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   },
 
   ai_microphone: ({ prefix }) => {
-    const UnitsField = Form.buildDropdownButtonSelectField({
+    const UnitsField = Form.buildSelectField({
       fieldKey: "units",
       fieldProps: { label: "Sound Pressure Units" },
       inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
         data: [{ key: "Pascals", name: "Pascals" }],
       },
     });
@@ -717,13 +672,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     </>
   ),
   ai_rtd: ({ prefix }) => {
-    const RTDTypeField = Form.buildDropdownButtonSelectField({
+    const RTDTypeField = Form.buildSelectField({
       fieldKey: "rtdType",
       fieldProps: { label: "RTD Type" },
       inputProps: {
-        entryRenderKey: "name",
-        columns: NAMED_KEY_COLS,
-        hideColumnHeader: true,
         data: [
           { key: "Pt3750", name: "Pt3750" },
           { key: "Pt3851", name: "Pt3851" },
@@ -762,7 +714,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     );
   },
   ai_strain_gauge: ({ prefix }) => {
-    const StrainUnitsField = Form.buildDropdownButtonSelectField({
+    const StrainUnitsField = Form.buildSelectField({
       fieldKey: "units",
       fieldProps: { label: "Strain Units" },
       inputProps: { data: [{ key: "Strain", name: "Strain" }] },
@@ -818,7 +770,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   },
   ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
   ai_thermocouple: ({ prefix }) => {
-    const CJCSourceField = Form.buildDropdownButtonSelectField({
+    const CJCSourceField = Form.buildSelectField({
       fieldKey: "cjcSource",
       fieldProps: {
         label: "CJC Source",
@@ -828,8 +780,6 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         },
       },
       inputProps: {
-        columns: NAMED_KEY_COLS,
-        entryRenderKey: "name",
         data: [
           { key: "BuiltIn", name: "Built In" },
           { key: "ConstVal", name: "Constant Value" },
@@ -837,7 +787,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         ],
       },
     });
-    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
+    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, {
+      optional: true,
+    });
     return (
       <>
         <MinMaxValueFields path={prefix} />
@@ -960,30 +912,26 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     </>
   ),
   ai_velocity_iepe: ({ prefix }) => {
-    const VelocityUnits = Form.buildDropdownButtonSelectField<
+    const VelocityUnits = Form.buildSelectField<
       VelocityUnits,
       record.KeyedNamed<VelocityUnits>
     >({
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
-        columns: NAMED_KEY_COLS,
-        entryRenderKey: "name",
         data: [
           { key: "MetersPerSecond", name: "m/s" },
           { key: "InchesPerSecond", name: "in/s" },
         ],
       },
     });
-    const SensitivityUnits = Form.buildDropdownButtonSelectField<
+    const SensitivityUnits = Form.buildSelectField<
       VelocitySensitivityUnits,
       record.KeyedNamed<VelocitySensitivityUnits>
     >({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
-        columns: NAMED_KEY_COLS,
-        entryRenderKey: "name",
         data: [
           { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
           { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },

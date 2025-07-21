@@ -6,6 +6,8 @@ import { Form as Core } from "@/form";
 
 export const Form = (): ReactElement => (
   <Core.Field<channel.Key> path="channel">
-    {(p) => <Channel.SelectSingle {...p} />}
+    {({ value, onChange }) => (
+      <Channel.SelectSingle value={value} onChange={onChange} />
+    )}
   </Core.Field>
 );

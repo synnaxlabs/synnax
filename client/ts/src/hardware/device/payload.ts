@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, record, status, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";

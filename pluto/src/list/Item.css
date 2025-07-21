@@ -12,14 +12,13 @@
 .pluto-list__item {
     position: relative;
     cursor: pointer;
-    padding: 2rem;
+    padding: 1.5rem 2rem;
+    width: 100%;
     border-color: var(--pluto-gray-l2);
+    outline: none;
+    min-height: 6rem;
 
-    &.pluto--selectable:is(:hover, .pluto--hovered) {
-        --pluto-bg: var(--pluto-gray-l2);
-        background: var(--pluto-bg);
-        border-top-color: var(--pluto-bg);
-
+    &.pluto--clickable:is(:hover, .pluto--hovered) {
         &.pluto--highlight-hover {
             box-shadow: inset 2px 0 0 var(--pluto-primary-z);
             &.pluto--right-aligned {
@@ -29,11 +28,14 @@
     }
 
     &.pluto--selected {
-        --pluto-bg: var(--pluto-gray-l2) !important;
-        background: var(--pluto-bg);
-        box-shadow: inset 2px 0 0 var(--pluto-primary-z);
+        background: var(--pluto-hover-bg);
+        box-shadow: inset 3px 0 0 var(--pluto-primary-z);
         &.pluto--right-aligned {
             box-shadow: inset -2px 0 0 var(--pluto-primary-z);
         }
+    }
+
+    &.pluto--dragging-over {
+        background: var(--pluto-gray-l2);
     }
 }

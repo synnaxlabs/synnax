@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import {
   ChannelList as Core,
@@ -60,10 +60,10 @@ const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
 export interface ChannelListProps<C extends Channel>
   extends Omit<
     CoreProps<C>,
-    "channels" | "header" | "emptyContent" | "path" | "remove"
+    "data" | "header" | "emptyContent" | "path" | "remove" | "useListItem" | "value"
   > {
   createChannel: (channels: C[]) => C | null;
-  createChannels?: (channels: C[], indices: number[]) => C[];
+  createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;
 }
 
@@ -73,45 +73,39 @@ export const ChannelList = <C extends Channel>({
   createChannels,
   onSelect,
   path = "config.channels",
-  ...rest
+  listItem,
+  selected,
 }: ChannelListProps<C>) => {
-  const {
-    value: channels,
-    push,
-    remove,
-  } = Form.useFieldArray<C>({ path, updateOnChildren: true });
+  const ctx = Form.useContext();
+  const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const handleAdd = useCallback(() => {
+    const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
-    onSelect([channel.key], channels.length);
-  }, [push, channels, createChannel, onSelect]);
-  const handleDuplicate = useMemo(() => {
-    if (createChannels == null) return undefined;
-    return (chs: C[], indices: number[]) => {
-      const duplicated = createChannels(chs, indices);
-      if (duplicated.length === 0) {
-        onSelect([], -1);
-        return;
-      }
+    onSelect([channel.key]);
+  }, [push, createChannel, onSelect]);
+  const handleDuplicate = useCallback(
+    (chs: C[], keys: string[]) => {
+      if (createChannels == null) return;
+      const duplicated = createChannels(chs, keys);
       push(duplicated);
-      onSelect(
-        duplicated.map(({ key }) => key),
-        chs.length + duplicated.length - 1,
-      );
-    };
-  }, [createChannels, onSelect, push]);
+      return duplicated.map(({ key }) => key);
+    },
+    [createChannels, onSelect, push],
+  );
   return (
     <Core
       header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}
       emptyContent={<EmptyContent isSnapshot={isSnapshot} onAdd={handleAdd} />}
       isSnapshot={isSnapshot}
-      channels={channels}
       path={path}
-      remove={remove}
       onSelect={onSelect}
       onDuplicate={handleDuplicate}
-      {...rest}
+      data={data}
+      listItem={listItem}
+      selected={selected}
+      remove={remove}
     />
   );
 };

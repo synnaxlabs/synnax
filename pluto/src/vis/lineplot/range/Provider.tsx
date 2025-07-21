@@ -15,7 +15,7 @@ import { Align } from "@/align";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Menu } from "@/menu";
-import { type RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/component/renderProp";
 import { useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 import { range } from "@/vis/lineplot/range/aether";
 

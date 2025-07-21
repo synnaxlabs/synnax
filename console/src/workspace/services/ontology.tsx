@@ -16,8 +16,8 @@ import {
   table as clientTable,
   workspace as clientWorkspace,
 } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, strings, type record } from "@synnaxlabs/x";
+import { Icon, Menu as PMenu, Synnax, Text, Tree } from "@synnaxlabs/pluto";
+import { deep, errors, type record, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -47,7 +47,11 @@ import { add, rename, setActive } from "@/workspace/slice";
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Workspace" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
+      const resources = getResource(resourceIDs);
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -58,7 +62,13 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resources }, client, store }) => {
+    mutationFn: async ({
+      selection: { resourceIDs },
+      client,
+      store,
+      state: { getResource },
+    }) => {
+      const resources = getResource(resourceIDs);
       await client.workspaces.delete(resources.map(({ id }) => id.key));
       const s = store.getState();
       const activeKey = selectActiveKey(s);
@@ -101,12 +111,11 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
     mutationFn: async ({
       selection,
       placeLayout,
-      services,
-      state: { resources, setResources, nodes, setNodes },
+      state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspace = selection.resources[0].id.key;
-      const schematic = await client.workspaces.schematic.create(workspace, {
+      const workspaceID = selection.resourceIDs[0];
+      const schematic = await client.workspaces.schematic.create(workspaceID.key, {
         name: "New Schematic",
         snapshot: false,
         data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
@@ -114,7 +123,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const otg = await client.ontology.retrieve(
         clientSchematic.ontologyID(schematic.key),
       );
-      await maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspaceID.key);
       placeLayout(
         Schematic.create({
           ...schematic.data,
@@ -123,11 +132,11 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
           snapshot: schematic.snapshot,
         }),
       );
-      setResources([...resources, otg]);
+      setResource(otg);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.resources[0].key,
-        additions: Ontology.toTreeNodes(services, [otg]),
+        destination: ontology.idToString(workspaceID),
+        additions: otg,
       });
       setNodes([...nextNodes]);
     },
@@ -144,25 +153,24 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
     mutationFn: async ({
       selection,
       placeLayout,
-      services,
-      state: { setResources, resources, nodes, setNodes },
+      state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspace = selection.resources[0].id.key;
-      const linePlot = await client.workspaces.linePlot.create(workspace, {
+      const workspaceID = selection.resourceIDs[0];
+      const linePlot = await client.workspaces.linePlot.create(workspaceID.key, {
         name: "New Line Plot",
         data: deep.copy(LinePlot.ZERO_SLICE_STATE),
       });
       const otg = await client.ontology.retrieve(
         clientLinePlot.ontologyID(linePlot.key),
       );
-      await maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspaceID.key);
       placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
-      setResources([...resources, otg]);
+      setResource(otg);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.resources[0].key,
-        additions: Ontology.toTreeNodes(services, [otg]),
+        destination: ontology.idToString(workspaceID),
+        additions: { key: ontology.idToString(otg.id) },
       });
       setNodes([...nextNodes]);
     },
@@ -179,23 +187,22 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({
       selection,
       placeLayout,
-      services,
-      state: { setResources, resources, nodes, setNodes },
+      state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspace = selection.resources[0].id.key;
-      const log = await client.workspaces.log.create(workspace, {
+      const workspaceID = selection.resourceIDs[0];
+      const log = await client.workspaces.log.create(workspaceID.key, {
         name: "New Log",
         data: deep.copy(Log.ZERO_STATE),
       });
       const otg = await client.ontology.retrieve(clientLog.ontologyID(log.key));
-      await maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspaceID.key);
       placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
-      setResources([...resources, otg]);
+      setResource(otg);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.resources[0].key,
-        additions: Ontology.toTreeNodes(services, [otg]),
+        destination: ontology.idToString(workspaceID),
+        additions: { key: ontology.idToString(otg.id) },
       });
       setNodes([...nextNodes]);
     },
@@ -212,23 +219,22 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({
       selection,
       placeLayout,
-      services,
-      state: { setResources, resources, nodes, setNodes },
+      state: { nodes, setNodes, setResource },
       client,
     }) => {
-      const workspace = selection.resources[0].id.key;
-      const table = await client.workspaces.table.create(workspace, {
+      const workspaceID = selection.resourceIDs[0];
+      const table = await client.workspaces.table.create(workspaceID.key, {
         name: "New Table",
         data: deep.copy(Table.ZERO_STATE),
       });
       const otg = await client.ontology.retrieve(clientTable.ontologyID(table.key));
-      await maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspaceID.key);
       placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
-      setResources([...resources, otg]);
+      setResource(otg);
       const nextNodes = Tree.setNode({
         tree: nodes,
-        destination: selection.resources[0].key,
-        additions: Ontology.toTreeNodes(services, [otg]),
+        destination: ontology.idToString(workspaceID),
+        additions: { key: ontology.idToString(otg.id) },
       });
       setNodes([...nextNodes]);
     },
@@ -242,23 +248,27 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
-    selection: { resources },
+    selection: { resourceIDs },
+    state: { getResource, shape },
   } = props;
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
   const createPlot = useCreateLinePlot();
   const createLog = useCreateLog();
   const createTable = useCreateTable();
-  const importPlot = LinePlotServices.useImport(selection.resources[0].id.key);
+  const firstID = selection.resourceIDs[0];
+  const importPlot = LinePlotServices.useImport(firstID.key);
   const createSchematic = useCreateSchematic();
-  const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
+  const importSchematic = SchematicServices.useImport(firstID.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
-  const importLog = LogServices.useImport(selection.resources[0].id.key);
-  const importTable = TableServices.useImport(selection.resources[0].id.key);
+  const importLog = LogServices.useImport(firstID.key);
+  const importTable = TableServices.useImport(firstID.key);
+  const resources = getResource(resourceIDs);
+  const first = resources[0];
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => Tree.startRenaming(ontology.idToString(resources[0].id)),
+    rename: () => Text.edit(ontology.idToString(first.id)),
     group: () => group(props),
     createLog: () => createLog(props),
     createPlot: () => createPlot(props),
@@ -268,8 +278,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     importTable: () => importTable(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
-    export: () => handleExport(resources[0].id.key),
-    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
+    export: () => handleExport(first.id.key),
+    link: () => handleLink({ name: first.name, ontologyID: first.id }),
   };
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
@@ -282,7 +292,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       <PMenu.Divider />
       {singleResource && (
         <>

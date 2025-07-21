@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Component } from "@/component";
+import { isSize } from "@/component/size";
 import { text } from "@/text/core";
 import { type ThemeSpec } from "@/theming/core/theme";
-import { type ComponentSize, isComponentSize } from "@/util/component";
 
 interface FontStringOptions {
-  level: text.Level | ComponentSize;
+  level: text.Level | Component.Size;
   weight?: text.Weight;
   code?: boolean;
 }
@@ -59,7 +60,7 @@ export const fontString = (
     else fmly = "Inter Light, sans-serif";
   }
   const size =
-    typography[isComponentSize(level) ? text.ComponentSizeLevels[level] : level].size;
+    typography[isSize(level) ? text.COMPONENT_SIZE_LEVELS[level] : level].size;
   const sizePx = (base * size).toFixed(1);
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;

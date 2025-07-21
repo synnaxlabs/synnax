@@ -13,14 +13,12 @@ import {
   Breadcrumb,
   Form,
   Icon,
-  Select,
   Status,
   Table,
   TableCells,
-  Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -32,7 +30,6 @@ import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
   selectCell,
-  useSelectCellType,
   useSelectSelectedCellPos,
   useSelectSelectedCells,
 } from "@/table/selectors";
@@ -82,10 +79,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
         <Align.Space x align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
-            <SelectCellTypeField
-              tableKey={layoutKey}
-              cellKey={firstCell.key}
-              onChange={(variant) => handleVariantChange(variant, firstCell.key)}
+            <TableCells.SelectVariant
+              allowNone={false}
+              value={firstCell.variant}
+              onChange={(variant: TableCells.Variant) =>
+                handleVariantChange(variant, firstCell.key)
+              }
             />
           )}
         </Align.Space>
@@ -139,62 +138,6 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
     <Form.Form {...methods}>
       <F onVariantChange={onVariantChange} />
     </Form.Form>
-  );
-};
-
-type CellEntry = record.KeyedNamed<TableCells.Variant> & {
-  icon: Icon.ReactElement;
-};
-
-const CELL_TYPE_OPTIONS: CellEntry[] = [
-  { key: TableCells.CELLS.text.key, name: "Text", icon: <Icon.Text /> },
-  { key: TableCells.CELLS.value.key, name: "Value", icon: <Icon.Value /> },
-];
-
-interface SelectCellTypeFieldProps {
-  tableKey: string;
-  cellKey: string;
-  onChange: (variant: TableCells.Variant) => void;
-}
-
-const SelectCellTypeField = ({
-  tableKey,
-  cellKey,
-  onChange,
-}: SelectCellTypeFieldProps) => {
-  const cellType = useSelectCellType(tableKey, cellKey);
-  return (
-    <Select.DropdownButton<TableCells.Variant, CellEntry>
-      value={cellType}
-      onChange={onChange}
-      columns={[
-        {
-          key: "name",
-          name: "Name",
-          render: ({ entry }) => (
-            <Text.WithIcon level="p" startIcon={entry.icon}>
-              {entry.name}
-            </Text.WithIcon>
-          ),
-        },
-      ]}
-      dropdownVariant="floating"
-      data={CELL_TYPE_OPTIONS}
-      entryRenderKey="name"
-    >
-      {({ selected, ...p }) => (
-        <Select.BaseButton
-          style={{ width: 80 }}
-          variant="text"
-          size="small"
-          selected={selected}
-          {...p}
-          startIcon={selected?.icon}
-        >
-          {selected?.name}
-        </Select.BaseButton>
-      )}
-    </Select.DropdownButton>
   );
 };
 

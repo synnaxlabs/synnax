@@ -9,7 +9,7 @@
 
 import "@/layout/Modals.css";
 
-import { Breadcrumb, Button, Icon, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";
@@ -27,7 +27,6 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
 interface ModalProps {
   state: State;
   remove: (key: string) => void;
-  root?: string;
 }
 
 const calculateOffset = (window?: WindowProps): number => {
@@ -36,35 +35,36 @@ const calculateOffset = (window?: WindowProps): number => {
   return Math.round(window.size.height / 75);
 };
 
-export const Modal = ({ state, remove, root }: ModalProps) => {
+export const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
   return (
-    <Core.Modal
+    <Dialog.Frame
       key={key}
+      variant="modal"
       visible
-      close={() => remove(key)}
-      style={layoutCSS(window)}
-      root={root}
-      offset={calculateOffset(window)}
+      onVisibleChange={() => remove(key)}
+      modalOffset={calculateOffset(window)}
       background={0}
     >
-      {window?.navTop && (
-        <Nav.Bar location="top" size="6rem" bordered>
-          {(window?.showTitle ?? true) && (
-            <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
-                {name}
-              </Breadcrumb.Breadcrumb>
-            </Nav.Bar.Start>
-          )}
-          <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Icon onClick={() => remove(key)} size="small">
-              <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
-            </Button.Icon>
-          </Nav.Bar.End>
-        </Nav.Bar>
-      )}
-      <Content layoutKey={key} />
-    </Core.Modal>
+      <Dialog.Dialog style={layoutCSS(window)}>
+        {window?.navTop && (
+          <Nav.Bar location="top" size="6rem" bordered>
+            {(window?.showTitle ?? true) && (
+              <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+                <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
+                  {name}
+                </Breadcrumb.Breadcrumb>
+              </Nav.Bar.Start>
+            )}
+            <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+              <Button.Icon onClick={() => remove(key)} size="small">
+                <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
+              </Button.Icon>
+            </Nav.Bar.End>
+          </Nav.Bar>
+        )}
+        <Content layoutKey={key} />
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

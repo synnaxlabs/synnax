@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
+import { ranger, type Synnax } from "@synnaxlabs/client";
 import {
   bounds,
   box,
@@ -18,7 +18,7 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
@@ -45,7 +45,6 @@ interface InternalState {
   render: render.Context;
   requestRender: render.Requestor;
   draw: Draw2D;
-  tracker: signals.Observable<string, ranger.Range>;
   runAsync: status.ErrorHandler;
 }
 
@@ -73,19 +72,19 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (client == null) return;
     i.client = client;
 
-    if (i.tracker != null) return;
-    i.runAsync(async () => {
-      i.tracker = await client.ranges.openTracker();
-      i.tracker.onChange((c) => {
-        c.forEach((r) => {
-          if (r.variant === "delete") i.ranges.delete(r.key);
-          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
-        });
-        i.requestRender("tool");
-        this.setState((s) => ({ ...s, count: i.ranges.size }));
-      });
-      i.requestRender("tool");
-    }, "failed to open range tracker");
+    // if (i.tracker != null) return;
+    // i.runAsync(async () => {
+    //   i.tracker = await client.ranges.openTracker();
+    //   i.tracker.onChange((c) => {
+    //     c.forEach((r) => {
+    //       if (r.variant === "delete") i.ranges.delete(r.key);
+    //       else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
+    //     });
+    //     i.requestRender("tool");
+    //     this.setState((s) => ({ ...s, count: i.ranges.size }));
+    //   });
+    //   i.requestRender("tool");
+    // }, "failed to open range tracker");
   }
 
   private fetchInitial(timeRange: TimeRange): void {

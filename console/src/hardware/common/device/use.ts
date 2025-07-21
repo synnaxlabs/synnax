@@ -7,23 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
-import {
-  Device,
-  Form,
-  Status,
-  Synnax,
-  useAsyncEffect,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
-import { type z } from "zod/v4";
-
-interface UseContextValue
-  extends z.ZodObject<{
-    config: z.ZodObject<{ device: z.ZodString }>;
-  }> {}
+import { type device } from "@synnaxlabs/client";
+import { Device, Form } from "@synnaxlabs/pluto";
+import { primitive, type record } from "@synnaxlabs/x";
+import { useEffect } from "react";
 
 /**
  * A hook that retrieves and subscribes to updates for a device. Must be used within a
@@ -46,69 +33,12 @@ export const use = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
->(): device.Device<Properties, Make, Model> | undefined => {
-  const ctx = Form.useContext<UseContextValue>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const [dev, setDev] = useState<device.Device<Properties, Make, Model>>();
-  const deviceNameRef = useSyncedRef(dev?.name);
-  const handleExc = useCallback(
-    (e: unknown) => {
-      if (NotFoundError.matches(e)) {
-        setDev(undefined);
-        return;
-      }
-      handleError(e, `Failed to retrieve ${deviceNameRef.current ?? "device"}`);
-    },
-    [handleError],
-  );
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
-      const deviceKey = ctx.value().config.device;
-      if (deviceKey === "") {
-        setDev(undefined);
-        return;
-      }
-      try {
-        const d = await client.hardware.devices.retrieve<Properties, Make, Model>(
-          deviceKey,
-        );
-        if (signal.aborted) return;
-        setDev(d);
-      } catch (e) {
-        handleExc(e);
-      }
-    },
-    [ctx.value, client?.key],
-  );
-  Form.useFieldListener<string, UseContextValue>({
-    ctx,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Properties, Make, Model>(fs.value)
-          .then(setDev)
-          .catch(handleExc);
-      },
-      [client?.key, setDev, handleExc],
-    ),
-  });
-  const handleSet = useCallback(
-    (d: device.Device) => {
-      if (d.key === dev?.key) setDev(d as device.Device<Properties, Make, Model>);
-    },
-    [dev?.key],
-  );
-  const handleDelete = useCallback(
-    (key: device.Key) => {
-      if (key === dev?.key) setDev(undefined);
-    },
-    [dev?.key],
-  );
-  Device.useSetSynchronizer(handleSet);
-  Device.useDeleteSynchronizer(handleDelete);
-  return dev;
+>(): device.Device<Properties, Make, Model> | null => {
+  const devKey = Form.useFieldValue<string>("config.device");
+  const { retrieve, data } = Device.retrieve<Properties, Make, Model>().useStateful();
+  useEffect(() => {
+    if (primitive.isZero(devKey)) return;
+    retrieve({ key: devKey });
+  }, [devKey, retrieve]);
+  return data;
 };

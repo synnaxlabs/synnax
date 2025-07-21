@@ -8,26 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  componentRenderProp,
-  Icon,
-  List,
-  Ranger,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Component, Icon, List, Ranger, Text } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
-export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
-  const { entry } = props;
+export const ChildRangeListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = List.useItem<string, ranger.Range>(itemKey);
   const placeLayout = Layout.usePlacer();
+  if (entry == null) return null;
   return (
-    <List.ItemFrame
+    <List.Item
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
@@ -35,8 +29,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       size="tiny"
       justify="spaceBetween"
       align="center"
-      style={{ padding: "1.5rem", boxShadow: "none" }}
-      rounded={1}
+      style={{ padding: "1.5rem" }}
       {...props}
     >
       <Text.WithIcon
@@ -51,40 +44,39 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       <Align.Space x size="small">
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
       </Align.Space>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
-const childRangeListItem = componentRenderProp(ChildRangeListItem);
+const childRangeListItem = Component.renderProp(ChildRangeListItem);
 
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const res = Ranger.useChildren(rangeKey);
-  let childRanges: ranger.Payload[] = [];
-  if (res.variant === "success") childRanges = res.data.map(({ payload }) => payload);
+  const { getItem, subscribe, data } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Space y style={{ padding: "2rem" }} rounded={2} background={1} bordered>
-      <Align.Space x justify="spaceBetween" grow>
-        <Text.Text level="h4" shade={10} weight={450}>
-          Child Ranges
-        </Text.Text>
-        <Button.Icon
-          onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
-          variant="outlined"
-          size="small"
-        >
-          <Icon.Add />
-        </Button.Icon>
-      </Align.Space>
-      {childRanges.length > 0 && (
-        <List.List data={childRanges}>
-          <List.Core empty>{childRangeListItem}</List.Core>
-        </List.List>
-      )}
+    <Align.Space y>
+      <Text.Text level="h4" shade={11} weight={450}>
+        Child Ranges
+      </Text.Text>
+      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+        <List.Items>{childRangeListItem}</List.Items>
+      </List.Frame>
+      <Button.Button
+        size="medium"
+        shade={10}
+        weight={500}
+        startIcon={<Icon.Add />}
+        style={{ width: "fit-content" }}
+        iconSpacing="small"
+        variant="text"
+        onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+      >
+        Add Child Range
+      </Button.Button>
     </Align.Space>
   );
 };

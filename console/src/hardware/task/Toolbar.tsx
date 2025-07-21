@@ -13,16 +13,17 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
+  Flux,
   Icon,
   List,
   Menu as PMenu,
+  Select,
   Status,
   Synnax,
   Task,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan } from "@synnaxlabs/x";
+import { errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -42,9 +43,7 @@ import { Range } from "@/range";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const handleClick = () => {
-    placeLayout(SELECTOR_LAYOUT);
-  };
+  const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
       <Align.Center y style={{ height: "100%" }} size="small">
@@ -67,23 +66,26 @@ interface StartStopArgs {
   keys: task.Key[];
 }
 
-const updateTaskStatus =
-  (key: task.Key, update: (prev: task.Status) => task.Status) => (prev: task.Task[]) =>
-    prev.map((tsk) => {
-      if (tsk.key === key && tsk.status != null) tsk.status = update(tsk.status);
-      return tsk;
-    });
+const filterExternal = (task: task.Task) => task.internal === false;
 
 const Content = () => {
   const client = Synnax.use();
-  const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
+  const menuProps = PMenu.useContextMenu();
+  const dispatch = useDispatch();
+  const placeLayout = Layout.usePlacer();
+  const { data, getItem, subscribe, retrieve } = Task.useList({
+    filter: filterExternal,
+  });
+  const { onFetchMore } = Flux.usePager({ retrieve });
+
   const rename = useMutation({
-    onMutate: ({ key }) => tasks.find((t) => t.key === key)?.name ?? "task",
+    onMutate: ({ key }) => getItem(key)?.name ?? "task",
     mutationFn: async ({ name, key }: RenameArgs) => {
-      const tsk = tasks.find((t) => t.key === key);
+      const tsk = getItem(key);
       if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
       if (tsk.status?.details.running === true) {
         const confirmed = await confirm({
@@ -95,96 +97,23 @@ const Content = () => {
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
-      setTasks((prev) =>
-        prev.map((task) => {
-          if (task.key === key) task.name = name;
-          return task;
-        }),
-      );
       if (client == null) throw new DisconnectedError();
       await client.hardware.tasks.create({ ...tsk, name });
     },
-    onError: (e, { name, key }, oldName) => {
-      if (oldName != null)
-        setTasks((prev) =>
-          prev.map((tsk) => {
-            if (tsk.key === key) tsk.name = oldName;
-            return tsk;
-          }),
-        );
+    onError: (e, { name }, oldName) => {
       handleError(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
-  const menuProps = PMenu.useContextMenu();
-  const dispatch = useDispatch();
-  const placeLayout = Layout.usePlacer();
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) {
-        setTasks([]);
-        return;
-      }
-      const all = await client.hardware.tasks.list({ includeStatus: true });
-      if (signal.aborted) return;
-      const shown = all.filter(({ internal, snapshot }) => !internal && !snapshot);
-      setTasks(shown);
-    },
-    [client?.key],
-  );
-  const handleStatusChange = useCallback((status: task.Status) => {
-    setTasks((prev) => {
-      const tsk = prev.find((t) => t.key === status.details.task);
-      if (tsk == null) return prev;
-      tsk.status = status;
-      return [...prev];
-    });
-  }, []);
-  Task.useStatusSynchronizer(handleStatusChange);
-  const handleSet = useCallback(
-    (key: task.Key) => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const tk = await client.hardware.tasks.retrieve({ key, includeStatus: true });
-        setTasks((prev) => {
-          const existing = prev.find((t) => t.key === tk.key);
-          if (existing == null) return [...prev, tk];
-          return prev.map((t) => (t.key === tk.key ? tk : t));
-        });
-      }, "Failed to update task toolbar from sy_task_set channel");
-    },
-    [client?.key],
-  );
-  const handleDeletedTasks = useCallback((key: task.Key) => {
-    setTasks((prevTasks) => prevTasks.filter((t) => t.key !== key));
-    setSelected((prev) => prev.filter((k) => k !== key));
-  }, []);
-  Task.useSetSynchronizer(handleSet);
-  Task.useDeleteSynchronizer(handleDeletedTasks);
 
-  const handleCommandUpdate = useCallback(
-    ({ task, type }: task.Command) => {
-      const status = tasks.find(({ key }) => key === task)?.status;
-      if (status == null) return;
-      if (Common.Task.shouldExecuteCommand(status, type))
-        setTasks((prev) =>
-          prev.map((tsk) => {
-            if (tsk.key === task && tsk.status != null) tsk.status.variant = "loading";
-            return tsk;
-          }),
-        );
-    },
-    [tasks],
-  );
-  Task.useCommandSynchronizer(handleCommandUpdate);
   const handleDelete = useMutation({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
       if (keys.length === 0) return;
       if (client == null) throw new DisconnectedError();
-      const deletedNames = tasks
-        .filter(({ key }) => keys.includes(key))
-        .map(({ name }) => name);
-      const names = strings.naturalLanguageJoin(deletedNames, "tasks");
+      const names = strings.naturalLanguageJoin(
+        getItem(keys).map(({ name }) => name),
+        "tasks",
+      );
       const confirmed = await confirm({
         message: `Are you sure you want to delete ${names}?`,
         description: "This action cannot be undone.",
@@ -194,7 +123,6 @@ const Content = () => {
       if (!confirmed) return;
       await client.hardware.tasks.delete(keys.map(BigInt));
       dispatch(Layout.remove({ keys }));
-      setTasks((prev) => prev.filter(({ key }) => !keys.includes(key)));
     },
     onError: (e) => {
       if (errors.Canceled.matches(e)) return;
@@ -208,31 +136,16 @@ const Content = () => {
   const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
       if (client == null) throw new DisconnectedError();
-      const filteredKeys = new Set(
-        keys.filter((k) => {
-          const status = tasks.find(({ key }) => key === k)?.status;
-          if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
-          return Common.Task.shouldExecuteCommand(status, command);
-        }),
-      );
-      setTasks((prev) =>
-        prev.map((tsk) => {
-          if (filteredKeys.has(tsk.key) && tsk.status != null)
-            tsk.status.variant = "loading";
-          return tsk;
-        }),
-      );
-      const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
+      const filteredKeys = keys.filter((k) => {
+        const status = getItem(k)?.status;
+        if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
+        return Common.Task.shouldExecuteCommand(status, command);
+      });
+      const tasksToExecute = getItem(filteredKeys);
       tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {}).catch((e) => {
-          setTasks(
-            updateTaskStatus(t.key, (prev) => ({
-              ...prev,
-              variant: "error",
-              message: e.message,
-            })),
-          );
-        });
+        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {})
+          .then((res) => addStatus({ ...res, time: TimeStamp.now() }))
+          .catch(handleError);
       });
     },
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
@@ -249,29 +162,18 @@ const Content = () => {
     ({ keys }) => (
       <ContextMenu
         keys={keys}
-        tasks={tasks}
+        tasks={getItem(keys)}
         onDelete={handleDelete}
         onStart={handleStart}
         onStop={handleStop}
       />
     ),
-    [handleDelete, handleStart, handleStop, tasks],
+    [handleDelete, handleStart, handleStop],
   );
   const handleListItemStopStart = useCallback(
     (command: Common.Task.Command, key: task.Key) =>
       startOrStop({ command, keys: [key] }),
     [startOrStop],
-  );
-  const listItem = useCallback<List.ItemRenderProp<string, task.Task>>(
-    ({ key, ...p }) => (
-      <TaskListItem
-        key={key}
-        {...p}
-        onStopStart={(command) => handleListItemStopStart(command, key)}
-        onRename={(name) => rename({ name, key })}
-      />
-    ),
-    [handleListItemStopStart, rename],
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
@@ -285,11 +187,27 @@ const Content = () => {
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Toolbar.Actions>{actions}</Toolbar.Actions>
         </Toolbar.Header>
-        <List.List data={tasks} emptyContent={<EmptyContent />}>
-          <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
-            <List.Core<task.Key, task.Task>>{listItem}</List.Core>
-          </List.Selector>
-        </List.List>
+        <Select.Frame
+          multiple
+          data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          value={selected}
+          onChange={setSelected}
+          onFetchMore={onFetchMore}
+          replaceOnSingle
+        >
+          <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
+            {({ key, ...p }) => (
+              <TaskListItem
+                key={key}
+                {...p}
+                onStopStart={(command) => handleListItemStopStart(command, key)}
+                onRename={(name) => rename({ name, key })}
+              />
+            )}
+          </List.Items>
+        </Select.Frame>
       </Align.Space>
     </PMenu.ContextMenu>
   );
@@ -306,16 +224,18 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   maxSize: 400,
 };
 
-interface TaskListItemProps extends List.ItemProps<task.Key, task.Task> {
+interface TaskListItemProps extends List.ItemProps<task.Key> {
   onStopStart: (command: Common.Task.Command) => void;
   onRename: (name: string) => void;
 }
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
-  const { key, name, status, type } = rest.entry;
-  const details = status?.details;
-  let variant = status?.variant;
-  const icon = getIcon(type);
+  const { itemKey } = rest;
+  const task = List.useItem<task.Key, task.Task>(itemKey);
+  const selectProps = Select.useItemState(itemKey);
+  const details = task?.status?.details;
+  let variant = task?.status?.variant;
+  const icon = getIcon(task?.type ?? "");
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
@@ -328,7 +248,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
+    <List.Item {...rest} justify="spaceBetween" align="center" {...selectProps}>
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Indicator
@@ -343,27 +263,27 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             noWrap
           >
             <Text.MaybeEditable
-              id={`text-${key}`}
+              id={`text-${itemKey}`}
               level="p"
-              value={name}
+              value={task?.name ?? ""}
               onChange={onRename}
               allowDoubleClick={false}
             />
           </Text.WithIcon>
         </Align.Space>
         <Text.Text level="small" shade={10}>
-          {parseType(type)}
+          {parseType(task?.type ?? "")}
         </Text.Text>
       </Align.Space>
       <Button.Icon
         variant="outlined"
         loading={isLoading}
         onClick={handleClick}
-        tooltip={`${isRunning ? "Stop" : "Start"} ${name}`}
+        tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
       </Button.Icon>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -375,9 +295,13 @@ interface ContextMenuProps {
   tasks: task.Task[];
 }
 
-const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProps) => {
-  const selectedKeys = new Set(keys);
-  const selectedTasks = tasks.filter(({ key }) => selectedKeys.has(key));
+const ContextMenu = ({
+  keys,
+  tasks: selectedTasks,
+  onDelete,
+  onStart,
+  onStop,
+}: ContextMenuProps) => {
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
 
@@ -394,7 +318,7 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
 
   const handleEdit = useCallback(
     (key: task.Key) => {
-      const task = tasks.find((t) => t.key === key);
+      const task = selectedTasks.find((t) => t.key === key);
       if (task == null) {
         addStatus({
           variant: "error",
@@ -406,11 +330,11 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
       const layout = createLayout(task);
       placeLayout(layout);
     },
-    [tasks, addStatus, placeLayout],
+    [selectedTasks, addStatus, placeLayout],
   );
   const handleLink = useCallback(
     (key: task.Key) => {
-      const name = tasks.find((t) => t.key === key)?.name;
+      const name = selectedTasks.find((t) => t.key === key)?.name;
       if (name == null) {
         addStatus({
           variant: "error",
@@ -421,7 +345,7 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
       }
       copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
     },
-    [tasks, addStatus, copyLinkToClipboard],
+    [selectedTasks, addStatus, copyLinkToClipboard],
   );
   const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
     () => ({
