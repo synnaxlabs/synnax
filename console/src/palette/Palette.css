@@ -32,9 +32,14 @@
     width: 95vw;
     max-width: 1200px;
     padding-bottom: 1rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l6);
+    overflow: visible !important;
 
     .pluto-input__internal {
         border-color: var(--pluto-primary-z);
+        margin: -1px;
+        z-index: 10000;
         border-width: 1px !important;
         border-top-left-radius: 1rem !important;
         border-top-right-radius: 1rem !important;

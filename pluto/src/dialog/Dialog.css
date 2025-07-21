@@ -94,15 +94,14 @@
         padding: 5rem;
         transition: background 0.15s ease-in-out;
         background: var(--pluto-gray-l8-40);
-
-        @media (prefers-color-scheme: dark) {
-            background: var(--pluto-gray-l1-60);
-        }
-
         @media (max-height: 800px) {
             .pluto-dropdown__dialog {
                 top: 10%;
             }
         }
     }
+}
+
+.pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
+    background: var(--pluto-gray-l1-60);
 }
