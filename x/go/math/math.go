@@ -19,21 +19,28 @@ const (
 	MaxUint12 types.Uint12 = 2<<11 - 1
 )
 
-// IntPow efficiently returns the result of the operation base^exponent for two
-// numbers. IntPow panics if exponent is negative. This implementation uses
-// exponentiation by squaring. See
-// https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-func IntPow(base, exponent int) int {
-	if exponent < 0 {
-		panic("[math] IntPow: negative exponent")
-	}
-	y := 1
-	for exponent > 0 {
-		if exponent%2 == 1 {
-			y *= base
+// IntPow efficiently returns the result of the operation x^n for two numbers. This
+// implementation uses exponentiation by squaring. IntPow panics if x is zero and n is
+// negative. See
+// https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+func IntPow[T types.Numeric](x T, n int) T {
+	if n < 0 {
+		if x == 0 {
+			panic("[math.IntPow]: Cannot raise zero to a negative power")
 		}
-		base *= base
-		exponent /= 2
+		x = 1 / x
+		n *= -1
+	} else if n == 0 {
+		return 1
 	}
-	return y
+	y := T(1)
+	for n > 1 {
+		if n%2 == 1 {
+			y *= x
+			n--
+		}
+		x *= x
+		n /= 2
+	}
+	return x * y
 }
