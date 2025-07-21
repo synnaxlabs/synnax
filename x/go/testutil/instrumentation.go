@@ -11,6 +11,8 @@ package testutil
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -20,7 +22,6 @@ import (
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
-	"os"
 )
 
 type InstrumentationConfig struct {
@@ -35,9 +36,9 @@ type InstrumentationConfig struct {
 var (
 	_                            config.Config[InstrumentationConfig] = InstrumentationConfig{}
 	DefaultInstrumentationConfig                                      = InstrumentationConfig{
-		Trace:  config.Bool(false),
-		Log:    config.Bool(false),
-		Report: config.Bool(false),
+		Trace:  config.False(),
+		Log:    config.False(),
+		Report: config.False(),
 	}
 )
 
