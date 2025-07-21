@@ -54,7 +54,7 @@ export const useHover = <K extends record.Key>({
     [scrollToIndex],
   );
   useEffect(() => {
-    if (hover >= data.length) updateHover(0);
+    if (hoverRef.current >= data.length) updateHover(0);
   }, [data.length]);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);

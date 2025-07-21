@@ -37,11 +37,10 @@ const dynamicIcon = (
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
   if (range == null) return null;
   const { variant, name } = range;
   return (
-    <List.Item {...props} selected={selected} onSelect={onSelect}>
+    <Select.ListItem {...props}>
       <Text.Text level="p" style={{ width: 100 }}>
         {name}
       </Text.Text>
@@ -52,7 +51,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       ) : (
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       )}
-    </List.Item>
+    </Select.ListItem>
   );
 });
 

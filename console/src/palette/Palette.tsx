@@ -127,7 +127,11 @@ const DialogContent = ({
     [onSearch, onChange],
   );
   return (
-    <Dialog.Dialog className={CSS.BE("palette", "content")} rounded={1}>
+    <Dialog.Dialog
+      className={CSS.BE("palette", "content")}
+      rounded={1}
+      bordered={false}
+    >
       <Select.Frame<string, Command | ontology.Resource>
         data={data}
         getItem={getItem}

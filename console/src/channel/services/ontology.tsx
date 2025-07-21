@@ -323,7 +323,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item = ({ id, resource, onRename, ...rest }: Ontology.TreeItemProps) => {
+export const Item = ({
+  id,
+  resource,
+  icon: _,
+  onRename,
+  ...rest
+}: Ontology.TreeItemProps) => {
   const alias = PChannel.useAlias(Number(id.key));
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);

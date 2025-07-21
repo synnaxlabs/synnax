@@ -13,6 +13,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { type ItemProps } from "@/tree/Tree";
 
@@ -24,6 +25,7 @@ export const Item = <K extends record.Key>({
   style,
   className,
   showRules = true,
+  loading = false,
   ...rest
 }: ItemProps<K>) => (
   <Select.ListItem
@@ -50,5 +52,6 @@ export const Item = <K extends record.Key>({
       />
     )}
     {children}
+    {loading && <Icon.Loading />}
   </Select.ListItem>
 );

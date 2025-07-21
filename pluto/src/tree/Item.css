@@ -15,15 +15,14 @@
         padding: 0;
         padding-right: 1.5rem;
         padding-left: var(--pluto-tree-item-offset);
+        will-change: transform;
 
-        & .pluto-tree__expansion-indicator {
-            height: 2.5rem;
+        & .pluto-icon {
             width: 2.5rem;
-            flex-shrink: 0;
+            height: 2.5rem;
         }
+
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
-            height: 2.5rem;
-            width: 2.5rem;
             color: var(--pluto-gray-l10);
         }
 

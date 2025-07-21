@@ -37,7 +37,6 @@
     &.pluto--modal {
         animation: var(--pluto-modal-animation);
         position: relative;
-        border: var(--pluto-border);
         border-color: var(--pluto-gray-l6);
         z-index: 11;
         min-width: 400px;

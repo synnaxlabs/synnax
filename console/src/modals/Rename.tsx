@@ -42,6 +42,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           <Button.Button
             status="success"
             disabled={!allowEmpty && name.length === 0}
+            variant="filled"
             onClick={() => {
               if (allowEmpty && name.length === 0) return onFinish(null);
               if (!allowEmpty && name.length === 0)

@@ -94,11 +94,14 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-        <CoreList.Items emptyContent={<NoRanges />} {...dropProps}>
-          {listItem}
-        </CoreList.Items>
-      </PMenu.ContextMenu>
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <CoreList.Items
+        emptyContent={<NoRanges />}
+        {...dropProps}
+        onContextMenu={menuProps.open}
+      >
+        {listItem}
+      </CoreList.Items>
     </Select.Frame>
   );
 };
@@ -127,7 +130,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const { key, name, timeRange, persisted } = entry;
 
   return (
-    <CoreList.Item className={CSS.B("range-list-item")} {...props} size="small" y>
+    <Select.ListItem className={CSS.B("range-list-item")} {...props} size="small" y>
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
@@ -158,7 +161,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
           ))}
         </Align.Space>
       )}
-    </CoreList.Item>
+    </Select.ListItem>
   );
 });
 

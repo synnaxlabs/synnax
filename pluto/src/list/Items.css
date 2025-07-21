@@ -13,7 +13,7 @@
     user-select: none;
     overflow: auto;
     -webkit-user-select: none;
-    transition: height 0.1s ease-in-out;
+    transition: height 0.1s ease;
     height: 100%;
 }
 

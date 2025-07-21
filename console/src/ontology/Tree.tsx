@@ -9,7 +9,6 @@
 
 import { DisconnectedError, ontology, type Synnax } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
   Haul,
   Icon,
@@ -79,25 +78,22 @@ const DefaultItem = ({
   ...rest
 }: TreeItemProps) => (
   <Core.Item {...rest} onDoubleClick={onDoubleClick}>
-    <Align.Space size="small" x align="center" grow>
-      {icon}
-      <Text.Editable
-        id={ontology.idToString(id)}
-        level="p"
-        value={resource.name}
-        onChange={onRename}
-        allowDoubleClick={false}
-        style={{
-          userSelect: "none",
-          textOverflow: "ellipsis",
-          width: 0,
-          overflow: "hidden",
-          flexGrow: 1,
-        }}
-        noWrap
-      />
-    </Align.Space>
-    {loading && <Icon.Loading />}
+    {icon}
+    <Text.Editable
+      id={ontology.idToString(id)}
+      level="p"
+      value={resource.name}
+      onChange={onRename}
+      allowDoubleClick={false}
+      style={{
+        userSelect: "none",
+        textOverflow: "ellipsis",
+        width: 0,
+        overflow: "hidden",
+        flexGrow: 1,
+      }}
+      noWrap
+    />
   </Core.Item>
 );
 

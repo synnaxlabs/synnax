@@ -32,6 +32,8 @@
     width: 95vw;
     max-width: 1200px;
     overflow: hidden;
+    padding-bottom: 1rem;
+
     .pluto-input__internal {
         border-color: var(--pluto-primary-z);
         border-width: 1px;
@@ -47,9 +49,5 @@
 
     & .pluto-status-text {
         height: 150px;
-    }
-
-    .pluto-list__virtualizer {
-        margin-bottom: 1rem;
     }
 }

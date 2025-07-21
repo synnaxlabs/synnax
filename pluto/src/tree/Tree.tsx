@@ -137,6 +137,7 @@ export interface ItemProps<K extends record.Key = string>
   extends List.ItemProps<K>,
     NodeShape {
   showRules?: boolean;
+  loading?: boolean;
 }
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
@@ -173,6 +174,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       getItem={getItem}
       subscribe={subscribe}
       itemHeight={27}
+      virtual={false}
     >
       <List.Items<K, E>
         className={CSS(CSS.B("tree"), className)}

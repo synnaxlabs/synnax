@@ -26,10 +26,12 @@ export const Dialog = ({
   style,
   background = 0,
   className,
+  bordered,
   ...rest
 }: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
+  bordered ??= variant === "modal";
   if (!visible) return null;
   let dialog = (
     <Align.Pack
@@ -46,6 +48,7 @@ export const Dialog = ({
       )}
       role="dialog"
       empty
+      bordered={bordered}
       style={{ ...ctxStyle, ...style, zIndex }}
       {...rest}
     />
