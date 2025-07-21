@@ -58,13 +58,8 @@ func newLeaseProxy(
 		return nil, err
 	}
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
-<<<<<<< Updated upstream
 	var externalNonVirtualChannels []Channel
 	if err := gorp.
-=======
-	externalNonVirtualChannels := make([]Channel, 0)
-	if err = gorp.
->>>>>>> Stashed changes
 		NewRetrieve[Key, Channel]().
 		Where(func(c *Channel) bool {
 			return !c.Internal && !c.Virtual
@@ -73,11 +68,6 @@ func newLeaseProxy(
 		Exec(ctx, cfg.ClusterDB); err != nil {
 		return nil, err
 	}
-<<<<<<< Updated upstream
-=======
-	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
-	externalNonVirtualSet := set.NewInteger[Key](externalNonVirtualKeys...)
->>>>>>> Stashed changes
 
 	p := &leaseProxy{
 		ServiceConfig: cfg,
@@ -90,7 +80,7 @@ func newLeaseProxy(
 	p.mu.externalNonVirtualSet = set.NewInteger[Key](KeysFromChannels(externalNonVirtualChannels))
 	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
-		c, err = openCounter(ctx, cfg.ClusterDB, freeCounterKey)
+		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
 		}
@@ -102,9 +92,7 @@ func newLeaseProxy(
 	return p, nil
 }
 
-func (lp *leaseProxy) createHandler(
-	ctx context.Context, msg CreateMessage,
-) (CreateMessage, error) {
+func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	txn := lp.ClusterDB.OpenTx()
 	err := lp.create(ctx, txn, &msg.Channels, msg.Opts)
 	if err != nil {
@@ -113,9 +101,7 @@ func (lp *leaseProxy) createHandler(
 	return CreateMessage{Channels: msg.Channels}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (
-	types.Nil, error,
-) {
+func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
 	txn := lp.ClusterDB.OpenTx()
 	err := lp.delete(ctx, txn, msg.Keys, false)
 	if err != nil {
@@ -124,9 +110,7 @@ func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (
 	return types.Nil{}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (
-	types.Nil, error,
-) {
+func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
 	txn := lp.ClusterDB.OpenTx()
 	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
 	if err != nil {
@@ -135,9 +119,7 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (
 	return types.Nil{}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) create(
-	ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions,
-) error {
+func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
@@ -161,13 +143,7 @@ func (lp *leaseProxy) create(
 	}
 	if len(batch.Free) > 0 {
 		if !lp.HostResolver.HostKey().IsBootstrapper() {
-<<<<<<< Updated upstream
 			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
-=======
-			remoteChannels, err := lp.createRemote(
-				ctx, core.Bootstrapper, batch.Free, opts,
-			)
->>>>>>> Stashed changes
 			if err != nil {
 				return err
 			}
@@ -221,8 +197,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 				c.Requires = ic.Requires
 				c.Expression = ic.Expression
 				return c, nil
-			},
-		).
+			}).
 		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
@@ -233,17 +208,13 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(
-		ctx, tx, channels, lp.freeCounter, opt.RetrieveIfNameExists,
-	)
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, opt.RetrieveIfNameExists)
 	if err != nil {
 		return err
 	}
 
-	if err = gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(
-		ctx,
-		tx,
-	); err != nil {
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+		tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
@@ -266,9 +237,7 @@ func (lp *leaseProxy) validateFreeVirtual(
 				)
 			}
 			var required []Channel
-			if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&required).Exec(
-				ctx, tx,
-			); err != nil {
+			if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&required).Exec(ctx, tx); err != nil {
 				return err
 			}
 			idx := required[0].LocalIndex
@@ -303,21 +272,19 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = gorp.NewRetrieve[Key, Channel]().Where(
-			func(c *Channel) bool {
-				v := lo.IndexOf(names, c.Name)
-				exists := v != -1
-				if exists {
-					// If it exists, replace it with the existing channel and decrement the
-					// number of channels we need to create.
-					(*channels)[v] = *c
-					if incCounterBy != 0 {
-						incCounterBy--
-					}
+		if err = gorp.NewRetrieve[Key, Channel]().Where(func(c *Channel) bool {
+			v := lo.IndexOf(names, c.Name)
+			exists := v != -1
+			if exists {
+				// If it exists, replace it with the existing channel and decrement the
+				// number of channels we need to create.
+				(*channels)[v] = *c
+				if incCounterBy != 0 {
+					incCounterBy--
 				}
-				return exists
-			},
-		).Exec(ctx, tx); err != nil {
+			}
+			return exists
+		}).Exec(ctx, tx); err != nil {
 			return
 		}
 	}
@@ -350,24 +317,20 @@ func (lp *leaseProxy) deleteOverwritten(
 ) error {
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := gorp.NewDelete[Key, Channel]().
-		Where(
-			func(c *Channel) bool {
-				ch, i, found := lo.FindIndexOf(
-					*channels, func(ch Channel) bool {
-						return ch.Name == c.Name && ch.Key() != c.Key()
-					},
-				)
-				equal := ch.Equals(*c, "LocalKey", "LocalIndex")
-				shouldDelete := found && !equal
-				if shouldDelete {
-					storageToDelete = append(storageToDelete, c.Storage().Key)
-				}
-				if equal {
-					(*channels)[i] = *c
-				}
-				return shouldDelete
-			},
-		).Exec(ctx, tx); err != nil {
+		Where(func(c *Channel) bool {
+			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
+				return ch.Name == c.Name && ch.Key() != c.Key()
+			})
+			equal := ch.Equals(*c, "LocalKey", "LocalIndex")
+			shouldDelete := found && !equal
+			if shouldDelete {
+				storageToDelete = append(storageToDelete, c.Storage().Key)
+			}
+			if equal {
+				(*channels)[i] = *c
+			}
+			return shouldDelete
+		}).Exec(ctx, tx); err != nil {
 		return err
 	}
 	return lp.TSChannel.DeleteChannels(storageToDelete)
@@ -389,9 +352,7 @@ func (lp *leaseProxy) createGateway(
 		return err
 	}
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(
-		ctx, tx, channels, lp.leasedCounter, opts.RetrieveIfNameExists,
-	)
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, opts.RetrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -402,16 +363,10 @@ func (lp *leaseProxy) createGateway(
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
-<<<<<<< Updated upstream
 	lp.mu.Lock()
 	count := lp.mu.externalNonVirtualSet.Size()
 	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(int(count)+len(externalCreatedKeys))); err != nil {
 		lp.mu.Unlock()
-=======
-	newExternalNonVirtualSet := lp.externalNonVirtualSet.Copy()
-	newExternalNonVirtualSet.Insert(externalCreatedKeys...)
-	if err = lp.IntOverflowCheck(xtypes.Uint20(newExternalNonVirtualSet.Size())); err != nil {
->>>>>>> Stashed changes
 		return err
 	}
 	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
@@ -438,11 +393,9 @@ func (lp *leaseProxy) maybeSetResources(
 	if lp.Ontology == nil || lp.Group == nil {
 		return nil
 	}
-	externalIds := lo.FilterMap(
-		channels, func(ch Channel, _ int) (ontology.ID, bool) {
-			return OntologyID(ch.Key()), !ch.Internal
-		},
-	)
+	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+		return OntologyID(ch.Key()), !ch.Internal
+	})
 	w := lp.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, externalIds); err != nil {
 		return err
@@ -473,24 +426,18 @@ func (lp *leaseProxy) createRemote(
 	return res.Channels, nil
 }
 
-func (lp *leaseProxy) deleteByName(
-	ctx context.Context, tx gorp.Tx, names []string, allowInternal bool,
-) error {
+func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(
-		func(c *Channel) bool {
-			return lo.Contains(names, c.Name)
-		},
-	).Exec(ctx, tx); err != nil {
+	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(c *Channel) bool {
+		return lo.Contains(names, c.Name)
+	}).Exec(ctx, tx); err != nil {
 		return err
 	}
 	keys := KeysFromChannels(res)
 	return lp.delete(ctx, tx, keys, allowInternal)
 }
 
-func (lp *leaseProxy) delete(
-	ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool,
-) error {
+func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
 		if err := gorp.
@@ -529,16 +476,12 @@ func (lp *leaseProxy) delete(
 	return lp.maybeDeleteResources(ctx, tx, keys)
 }
 
-func (lp *leaseProxy) deleteFreeVirtual(
-	ctx context.Context, tx gorp.Tx, channels Keys,
-) error {
+func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
 	return gorp.NewDelete[Key, Channel]().WhereKeys(channels...).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(
-		ctx, tx,
-	); err != nil {
+	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
@@ -584,19 +527,15 @@ var _ proxy.Entry = renameBatchEntry{}
 func (r renameBatchEntry) Lease() cluster.NodeKey { return r.key.Lease() }
 
 func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
-	return lo.UnzipBy2(
-		entries, func(e renameBatchEntry) (Key, string) {
-			return e.key, e.name
-		},
-	)
+	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
+		return e.key, e.name
+	})
 }
 
 func newRenameBatch(keys Keys, names []string) []renameBatchEntry {
-	return lo.ZipBy2(
-		keys, names, func(k Key, n string) renameBatchEntry {
-			return renameBatchEntry{key: k, name: n}
-		},
-	)
+	return lo.ZipBy2(keys, names, func(k Key, n string) renameBatchEntry {
+		return renameBatchEntry{key: k, name: n}
+	})
 }
 
 func (lp *leaseProxy) rename(
@@ -611,21 +550,21 @@ func (lp *leaseProxy) rename(
 	}
 	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
-		keys, names = unzipRenameBatch(entries)
+		keys, names := unzipRenameBatch(entries)
 		err := lp.renameRemote(ctx, nodeKey, keys, names)
 		if err != nil {
 			return err
 		}
 	}
 	if len(batch.Free) > 0 {
-		keys, names = unzipRenameBatch(batch.Free)
+		keys, names := unzipRenameBatch(batch.Free)
 		err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal)
 		if err != nil {
 			return err
 		}
 	}
 	if len(batch.Gateway) > 0 {
-		keys, names = unzipRenameBatch(batch.Gateway)
+		keys, names := unzipRenameBatch(batch.Gateway)
 		return lp.renameGateway(ctx, tx, keys, names, allowInternal)
 	}
 	return nil
@@ -636,38 +575,28 @@ func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, 
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.RenameClient().Send(
-		ctx, addr, RenameRequest{Keys: keys, Names: names},
-	)
+	_, err = lp.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
 	return err
 }
 
-func channelNameUpdater(
-	allowInternal bool, keys Keys, names []string,
-) func(Channel) (Channel, error) {
+func channelNameUpdater(allowInternal bool, keys Keys, names []string) func(Channel) (Channel, error) {
 	return func(c Channel) (Channel, error) {
 		if c.Internal && !allowInternal {
-			return c, errors.Wrapf(
-				validate.Error, "cannot rename internal channel %v", c,
-			)
+			return c, errors.Wrapf(validate.Error, "cannot rename internal channel %v", c)
 		}
 		c.Name = names[lo.IndexOf(keys, c.Key())]
 		return c, nil
 	}
 }
 
-func (lp *leaseProxy) renameFreeVirtual(
-	ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool,
-) error {
+func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
 	return gorp.NewUpdate[Key, Channel]().
 		WhereKeys(channels...).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
-func (lp *leaseProxy) renameGateway(
-	ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool,
-) error {
+func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
 	if err := gorp.NewUpdate[Key, Channel]().
 		WhereKeys(keys...).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
