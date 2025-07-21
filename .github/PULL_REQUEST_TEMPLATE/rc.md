@@ -103,7 +103,7 @@ I can successfully:
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
     - [ ] 100 Hz
-    - [ ] 1000 Hz
+    - [ ] 1,000 Hz
 - [ ] Open a channel plot from a link.
 - [ ] Rename a channel and ensure the change synchronizes properly across:
   - Resources Toolbar
@@ -156,9 +156,11 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
+  - [ ] See a device's state get updated.
   - **Context Menu**
     - [ ] Group devices.
     - [ ] Configure an unconfigured device.
+    - [ ] Change the identifier on a configured device.
     - [ ] Rename a device.
     - [ ] Delete a device.
 
@@ -168,18 +170,21 @@ I can successfully:
 
 - [ ] Open documentation from the command palette.
 - [ ] Open documentation from the question mark icon.
-- [ ] Close and reopen documentation.
+- [ ] Close and reopen documentation in the same place as left off.
 
 ### Labels
 
 I can successfully:
 
-- [ ] Open the "Edit Label" modal from the command palette.
-- [ ] Add a new label.
-- [ ] Edit an existing label's name.
-- [ ] Change the color of an existing label.
-- [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-- [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
+- **Search and Command Palette**
+  - [ ] Open the "Edit Label" modal.
+- **Edit Label Modal**
+  - [ ] Add a new label.
+  - [ ] Edit an existing label's name.
+  - [ ] Change the color of an existing label.
+  - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
+  - [ ] Change a label's color and ensure the change synchronizes with the range
+        toolbar.
 
 ### Layout
 
@@ -189,14 +194,17 @@ I can successfully:
 - [ ] Rename a tab by double-clicking its name.
 - [ ] Close layout tabs by clicking the close icon.
 - **Context Menu**
-  - [ ] Split a mosaic horizontally.
-  - [ ] Split a mosaic vertically.
+  - [ ] Split a mosaic leaf horizontally.
+  - [ ] Split a mosaic leaf vertically.
   - [ ] Focus on a leaf.
+  - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
+  - [ ] Move a mosaic leaf to the main window from a secondary window.
 - [ ] Rename a tab with `Cmd + E`.
 - [ ] Close layout tabs with `Cmd + W`.
 - [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
+- [ ] Create a new mosaic leaf with `Cmd + T`.
 - **Search and Command Palette**
   - [ ] Toggle the color theme.
 
@@ -217,7 +225,7 @@ I can successfully:
   - [ ] Use the measuring tool on the line plot.
   - [ ] Rename a line plot from its tab title.
   - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot - copy links to local plots.
+  - [ ] Copy a link to a line plot.
 - **Resources Toolbar**
   - [ ] Open a plot by selecting it.
   - [ ] Drag a plot onto the mosaic.
@@ -226,7 +234,6 @@ I can successfully:
     - [ ] Delete a plot.
     - [ ] Delete multiple plots.
     - [ ] Export a plot.
-    - [ ] Export multiple plots.
     - [ ] Copy a link to a plot.
 - **Search and Command Palette**
   - [ ] Open an existing line plot.
@@ -295,6 +302,18 @@ I can successfully:
   - [ ] Cannot open the "Register User" dialog from the command palette.
   - [ ] Cannot delete users, open the permissions dialog, or change a username from the
         resources toolbar.
+
+### Racks
+
+I can successfully:
+
+- **Devices Toolbar**
+  - [ ] See a rack's state get updated.
+  - **Context Menu**
+    - [ ] Rename a rack.
+    - [ ] Delete a rack.
+    - [ ] Copy a rack's key.
+    - [ ] Create a control sequence from a rack.
 
 ### Ranges
 
@@ -383,7 +402,7 @@ I can successfully:
   - [ ] Actuate a valve.
   - [ ] Select and change the color of multiple elements.
   - [ ] View the list of writers in control on the schematic.
-  - [ ] Acquire absolute control over an autosequence.
+  - [ ] Acquire absolute control over a control sequence.
   - [ ] Copy a link.
   - [ ] Export a schematic.
 - **Resources Toolbar**
@@ -391,7 +410,6 @@ I can successfully:
   - [ ] Drag a schematic onto the mosaic to load it.
   - **Context Menu**
     - [ ] Export a schematic.
-    - [ ] Export multiple schematics.
     - [ ] Rename a schematic.
     - [ ] Delete a schematic.
     - [ ] Delete multiple schematics.
@@ -402,7 +420,7 @@ I can successfully:
     - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
   - [ ] Open an existing schematic.
-  - [ ] Open the "Create Schematic" dialog.
+  - [ ] Create a new schematic.
   - [ ] Import a schematic from a file.
 - [ ] Rename a schematic and ensure synchronization across:
   - Mosaic Tab
@@ -420,7 +438,28 @@ I can successfully:
 
 - [ ] Create a new table from the mosaic.
 - [ ] Open a table from a link.
+- **Visualization**
+  - [ ] Add rows and columns to a table.
+  - [ ] Delete rows and columns from a table.
+  - [ ] See live data in a table.
+  - [ ] Add redlines to a live value cell in a table.
+- **Resources Toolbar**
+  - [ ] Double-click a table to load it.
+  - [ ] Drag a table onto the mosaic to load it.
+  - **Context Menu**
+    - [ ] Rename a table.
+    - [ ] Delete a table.
+    - [ ] Delete multiple tables.
+    - [ ] Export a table.
+    - [ ] Copy a link to a table.
+- **Search and Command Palette**
+  - [ ] Open an existing table.
+  - [ ] Create a new table.
+  - [ ] Import a table from a file.
 - [ ] Rename a table and ensure synchronization across:
+  - Mosaic Tab
+  - Resources Toolbar
+  - Visualization Toolbar
 
 ### Tasks
 
@@ -447,6 +486,7 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
+- [ ] Start a task on server boot up when the "Auto start" option is enabled.
 - [ ] Rename a task and ensure synchronization across:
   - Resources Toolbar
   - Task Toolbar
@@ -469,7 +509,6 @@ I can successfully:
   - [ ] Delete multiple users.
 - **Search and Command Palette**
   - [ ] Register a new user.
-- [ ] Grant permissions to a user from the resources toolbar.
 - [ ] Change a user's username and log in with the new username.
 
 ### Version
@@ -498,11 +537,11 @@ I can successfully:
     - [ ] Create a new line plot in a workspace.
     - [ ] Create a new log in a workspace.
     - [ ] Create a new schematic in a workspace.
+    - [ ] Create a new table in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
-    - [ ] Create a new table in a workspace.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
   - [ ] Open the "Create Workspace" dialog.
@@ -550,7 +589,7 @@ I can successfully:
     - [ ] `set`
     - [ ] `set_authority`
   - [ ] Accept channel auto-complete suggestions and see the correct channel populated
-        in the "read_from" or "write_to" fields.
+        in the `read_from` or `write_to` fields.
   - [ ] Manually configure the `read_from` and `write_to` fields.
   - [ ] Set the sequence control rate.
   - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
@@ -561,8 +600,7 @@ I can successfully:
 
 - [ ] Enable and disable LabJack integration when starting the server.
 - [ ] Recognize and connect to a LabJack device available locally.
-- [ ] Save device configuration.
-- [ ] Run the driver without the LabJack library installed.
+- [ ] Run the driver on a machine without the LabJack library installed.
 - **Read Task**
   - [ ] Plot live analog data.
   - [ ] Plot live digital data.
@@ -600,8 +638,8 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Recognize and connect to a National Instruments device locally.
-- [ ] Recognize and connect to National Instruments devices over the network.
+- [ ] Recognize and connect to an NI device locally.
+- [ ] Recognize and connect to NI devices over the network.
 - [ ] Recognize and connect to physical and simulated devices.
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
@@ -660,7 +698,7 @@ I can successfully:
 - **Digital Write Task**
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure tasks.
-  - [ ] Handle device disconnection during active tasks with feedback.
+  - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
@@ -674,7 +712,6 @@ I can successfully:
 - [ ] Connect to an encrypted OPC UA server.
 - [ ] Create additional channels and move them to existing sampling groups.
 - [ ] Move and rename channels.
-- [ ] Save the device configuration.
 - **Read Task**
   - **Single Sampling**
     - [ ] Read from multiple channels.
@@ -694,11 +731,8 @@ I can successfully:
   - [ ] Maintain driver operation during device disconnection or channel removal while a
         task is running.
   - [ ] Enable and disable data saving.
-  - [ ] Pause a task for an hour and resume without reconfiguration.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
   - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
-  - [ ] Leave a write task idle for an hour and perform control without losing
-        connection.
   - [ ] Perform a write operation on an encrypted server.
