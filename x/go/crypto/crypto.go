@@ -11,17 +11,15 @@
 package crypto
 
 import (
-	"fmt"
-
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/math"
 )
 
 // Cipher applies a reversible shift cipher to an integer.
 //
-// It interprets the input entry as a number with 'numDigits' digits,
-// and shifts it downward by distance. If the result is negative,
-// it wraps around at 10^numDigits, ensuring the output remains in the range [10,
-// 10^numDigits).
+// It interprets the input entry as a number with 'numDigits' digits, and shifts it
+// downward by distance. If the result is negative, it wraps around at 10^numDigits,
+// ensuring the output remains in the range [10, 10^numDigits).
 //
 // For example, if numDigits = 3 (range 0-999):
 //
