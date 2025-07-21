@@ -136,7 +136,6 @@ export const use = <K extends record.Key = string>({
 export interface ItemProps<K extends record.Key = string>
   extends List.ItemProps<K>,
     NodeShape {
-  showRules?: boolean;
   loading?: boolean;
 }
 
@@ -161,6 +160,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   getItem,
   subscribe,
   className,
+  showRules = false,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -177,7 +177,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       virtual={false}
     >
       <List.Items<K, E>
-        className={CSS(CSS.B("tree"), className)}
+        className={CSS(CSS.B("tree"), className, showRules && CSS.M("show-rules"))}
         {...rest}
         displayItems={Infinity}
       >

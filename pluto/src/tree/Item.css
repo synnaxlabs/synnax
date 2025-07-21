@@ -10,6 +10,18 @@
  */
 
 .pluto-tree {
+    &.pluto--show-rules .pluto-tree__item::after {
+        content: "";
+        position: absolute;
+        left: calc(var(--pluto-tree-item-offset) - 1.5rem);
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--pluto-gray-l4);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+
     .pluto-tree__item {
         min-height: 4.5rem;
         padding: 0;
@@ -24,18 +36,6 @@
 
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
             color: var(--pluto-gray-l10);
-        }
-
-        &.pluto--show-rules::after {
-            content: "";
-            position: absolute;
-            left: calc(var(--pluto-tree-item-offset) - 1.5rem);
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: var(--pluto-gray-l4);
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
         }
     }
 

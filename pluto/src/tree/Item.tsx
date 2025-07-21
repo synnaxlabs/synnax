@@ -24,14 +24,13 @@ export const Item = <K extends record.Key>({
   children,
   style,
   className,
-  showRules = true,
   loading = false,
   ...rest
 }: ItemProps<K>) => (
   <Select.ListItem
     className={CSS(
       CSS.BE("tree", "item"),
-      showRules && depth !== 0 && CSS.M("show-rules"),
+      depth !== 0 && CSS.M("show-rules"),
       className,
     )}
     style={{

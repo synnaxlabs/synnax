@@ -149,14 +149,17 @@ export const Browser = ({ device }: BrowserProps) => {
     },
     onError: (error) => handleError(error, "Error loading nodes"),
   });
-  const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand.mutate });
+  const { selected, onSelect, shape, clearExpanded } = Tree.use({
+    nodes: treeNodes,
+    onExpand: expand.mutate,
+  });
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
     if (scanTask == null) return;
     setInitialLoading(true);
     expand.mutate({ action: "expand", current: [], delay: 200 });
-    treeProps.clearExpanded();
-  }, [scanTask, treeProps.clearExpanded]);
+    clearExpanded();
+  }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
     <Align.Center>
@@ -168,7 +171,9 @@ export const Browser = ({ device }: BrowserProps) => {
     </Status.Text.Centered>
   ) : (
     <Tree.Tree
-      {...treeProps}
+      selected={selected}
+      onSelect={onSelect}
+      shape={shape}
       getItem={opcNodesStore.getItem}
       subscribe={opcNodesStore.subscribe}
     >
