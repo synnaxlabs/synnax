@@ -15,6 +15,7 @@ import {
   List,
   Menu as PMenu,
   Ranger,
+  Select,
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
@@ -307,7 +308,13 @@ const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
   const resource = List.useItem<string, ontology.Resource>(props.itemKey);
   return (
-    <List.Item y size="tiny" style={{ padding: "1.5rem" }} highlightHovered {...props}>
+    <Select.ListItem
+      y
+      size="tiny"
+      style={{ padding: "1.5rem" }}
+      highlightHovered
+      {...props}
+    >
       <Text.WithIcon
         startIcon={<Icon.Range />}
         level="p"
@@ -321,7 +328,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         level="small"
         timeRange={resource?.data?.timeRange as CrudeTimeRange}
       />
-    </List.Item>
+    </Select.ListItem>
   );
 };
 
