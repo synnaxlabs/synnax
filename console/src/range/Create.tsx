@@ -21,6 +21,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { type z } from "zod";
 
@@ -59,7 +60,7 @@ export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 export const Create: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
 
@@ -69,7 +70,7 @@ export const Create: Layout.Renderer = (props) => {
     params: { key: args?.key },
     autoSave: false,
     initialValues: {
-      key: "",
+      key: uuid.create(),
       name: "",
       labels: [],
       stage: "to_do",
@@ -77,6 +78,7 @@ export const Create: Layout.Renderer = (props) => {
       parent: "",
       ...args,
     },
+    afterSave: onClose,
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent

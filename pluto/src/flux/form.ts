@@ -157,10 +157,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
       setter,
     ) => {
-      const nextStatus = state.executeSetter(setter, {
-        ...resultRef.current,
-        data: form.value() as any,
-      });
+      const nextStatus = state.executeSetter(setter, resultRef.current);
       if (nextStatus.data != null) {
         form.set("", nextStatus.data);
         form.setCurrentStateAsInitialValues();
