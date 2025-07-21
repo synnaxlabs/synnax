@@ -63,6 +63,7 @@ export interface MultipleTriggerProps<K extends record.Key> {
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   children?: RenderProp<MultipleTagProps<K>>;
+  variant?: "text" | "outlined";
 }
 
 export const staticCanDrop = <K extends record.Key>(
@@ -80,6 +81,7 @@ export const MultipleTrigger = <K extends record.Key>({
   haulType = "",
   disabled,
   placeholder = "Select...",
+  variant = "text",
   icon,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {
@@ -121,21 +123,29 @@ export const MultipleTrigger = <K extends record.Key>({
     [startDrag, handleSuccessfulDrop, haulType],
   );
   const dragging = Haul.useDraggingState();
+  let actions: ReactElement | null = null;
+  if (variant !== "text")
+    actions = (
+      <Button.Icon variant={variant} onClick={toggle}>
+        <Caret.Animated
+          enabled={visible}
+          enabledLoc="bottom"
+          disabledLoc="left"
+          color={8}
+        />
+      </Button.Icon>
+    );
   return (
     <Tag.Tags
       onClick={toggle}
       {...dropProps}
-      className={CSS(CSS.dropRegion(canDrop(dragging)), CSS.BE("select", "trigger"))}
-      actions={
-        <Button.Icon variant="outlined" onClick={toggle}>
-          <Caret.Animated
-            enabled={visible}
-            enabledLoc="bottom"
-            disabledLoc="left"
-            color={8}
-          />
-        </Button.Icon>
-      }
+      className={CSS(
+        CSS.dropRegion(canDrop(dragging)),
+        CSS.BE("select", "trigger"),
+        CSS.BM("variant", variant),
+      )}
+      variant={variant}
+      actions={actions}
       grow
     >
       {value.length === 0 && (

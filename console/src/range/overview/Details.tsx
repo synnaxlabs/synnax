@@ -187,18 +187,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
             )}
           </Form.Field>
-          <Form.Field<string[]> required={false} path="labels">
-            {({ variant: _, ...p }) => (
-              <Label.SelectMultiple
-                zIndex={100}
-                variant="floating"
-                location="bottom"
-                style={{ width: "fit-content" }}
-                {...p}
-              />
-            )}
-          </Form.Field>
         </Align.Space>
+        <Form.Field<string[]> required={false} path="labels">
+          {({ variant: _, ...p }) => (
+            <Label.SelectMultiple
+              zIndex={100}
+              variant="floating"
+              location="bottom"
+              style={{ width: "fit-content" }}
+              {...p}
+            />
+          )}
+        </Form.Field>
       </Align.Space>
     </Form.Form>
   );
