@@ -837,7 +837,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         ],
       },
     });
-    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
+    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, {
+      optional: true,
+    });
     return (
       <>
         <MinMaxValueFields path={prefix} />

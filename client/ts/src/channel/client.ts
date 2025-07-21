@@ -18,7 +18,7 @@ import {
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   channelZ,

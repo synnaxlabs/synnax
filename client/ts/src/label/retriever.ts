@@ -9,7 +9,7 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { keyZ, type Label, labelZ, type Params } from "@/label/payload";
 import { ontology } from "@/ontology";

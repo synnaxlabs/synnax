@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { type Command } from "@/hardware/common/task/types";

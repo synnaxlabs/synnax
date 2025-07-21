@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { caseconv, id } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { framer } from "@/framer";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";

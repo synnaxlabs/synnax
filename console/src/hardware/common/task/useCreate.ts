@@ -11,7 +11,7 @@ import { type rack, type task } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
