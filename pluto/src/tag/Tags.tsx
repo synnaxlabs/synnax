@@ -14,21 +14,27 @@ import { CSS } from "@/css";
 
 export interface TagsProps extends Align.SpaceProps {
   actions?: ReactNode;
+  variant?: "text" | "outlined";
 }
 
-export const Tags = ({ children, onClick, actions, className, ...rest }: TagsProps) => (
+export const Tags = ({
+  children,
+  onClick,
+  actions,
+  className,
+  variant = "outlined",
+  ...rest
+}: TagsProps) => (
   <Align.Pack {...rest}>
     <Align.Space
       x
       className={CSS(
         onClick && CSS.M("clickable"),
-        CSS.M("outlined"),
-        CSS.shade(1),
+        CSS.M(variant),
+        CSS.shade(0),
         CSS.size("medium"),
         className,
       )}
-      bordered
-      borderShade={5}
       onClick={onClick}
       align="center"
       size="small"
