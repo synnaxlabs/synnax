@@ -32,21 +32,17 @@ import (
 // See: https://en.wikipedia.org/wiki/Caesar_cipher
 func Cipher(entry, distance, numDigits int) (int, error) {
 	if entry < 0 {
-		return 0, fmt.Errorf(
-			"crypto: entry (%d) must be nonnegative",
-			entry,
-		)
+		return 0, errors.Newf("crypto: entry (%d) must be nonnegative", entry)
 	}
 	if numDigits <= 0 {
-		return 0, fmt.Errorf(
-			"crypto: numDigits (%d) must be positive",
-			numDigits,
-		)
+		return 0, errors.Newf("crypto: numDigits (%d) must be positive", numDigits)
 	}
 	ceiling := math.IntPow(10, numDigits)
 	if entry >= ceiling {
-		return 0, fmt.Errorf(
-			"crypto: entry (%d) must be less than 10^numDigits (%d)", entry, numDigits,
+		return 0, errors.Newf(
+			"crypto: entry (%d) must be less than 10^numDigits (%d)",
+			entry,
+			numDigits,
 		)
 	}
 	shifted := (entry - distance) % ceiling
