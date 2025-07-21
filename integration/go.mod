@@ -84,3 +84,15 @@ require (
 	google.golang.org/grpc v1.73.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
+
+replace github.com/synnaxlabs/x => ../x/go
+
+replace github.com/synnaxlabs/synnax => ../synnax
+
+replace github.com/synnaxlabs/freighter => ../freighter/go
+
+replace github.com/synnaxlabs/aspen => ../aspen
+
+replace github.com/synnaxlabs/alamos => ../alamos/go
+
+replace github.com/synnaxlabs/cesium => ../cesium

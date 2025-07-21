@@ -14,6 +14,10 @@ require (
 	golang.org/x/sync v0.15.0
 )
 
+replace github.com/synnaxlabs/x => ../x/go
+
+replace github.com/synnaxlabs/alamos => ../alamos/go
+
 require (
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506 // indirect

@@ -28,6 +28,18 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
+replace github.com/synnaxlabs/aspen => ../aspen
+
+replace github.com/synnaxlabs/cesium => ../cesium
+
+replace github.com/synnaxlabs/freighter => ../freighter/go
+
+replace github.com/synnaxlabs/x => ../x/go
+
+replace github.com/synnaxlabs/alamos => ../alamos/go
+
+replace github.com/synnaxlabs/computron => ../computron
+
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
@@ -51,7 +63,6 @@ require (
 	github.com/blevesearch/zapx/v14 v14.4.1 // indirect
 	github.com/blevesearch/zapx/v15 v15.4.1 // indirect
 	github.com/blevesearch/zapx/v16 v16.2.2 // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/crlib v0.0.0-20250521014800-1789bc709bcb // indirect

@@ -17,6 +17,11 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
+replace (
+	github.com/synnaxlabs/alamos => ../../alamos/go
+	github.com/synnaxlabs/x => ../../x/go
+)
+
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect

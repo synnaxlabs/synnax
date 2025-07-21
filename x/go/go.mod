@@ -22,6 +22,8 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
+replace github.com/synnaxlabs/alamos => ../../alamos/go
+
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
