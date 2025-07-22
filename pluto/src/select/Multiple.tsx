@@ -52,7 +52,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   replaceOnSingle,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
-  <Dialog.Frame {...rest} variant="connected">
+  <Dialog.Frame variant="connected" {...rest}>
     <Frame<K, E>
       multiple
       value={value}

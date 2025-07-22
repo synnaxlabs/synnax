@@ -22,7 +22,6 @@ export interface DialogProps extends Align.SpaceProps {
 }
 
 export const Dialog = ({
-  zIndex = 5,
   style,
   background = 0,
   className,
@@ -49,14 +48,14 @@ export const Dialog = ({
       role="dialog"
       empty
       bordered={bordered}
-      style={{ ...ctxStyle, ...style, zIndex }}
+      style={{ ...ctxStyle, ...style }}
       {...rest}
     />
   );
   if (variant === "floating") dialog = createPortal(dialog, getRootElement());
   else if (variant === "modal")
     dialog = createPortal(
-      <Background empty align="center" style={{ zIndex }} visible={visible}>
+      <Background empty align="center" visible={visible}>
         {dialog}
       </Background>,
       getRootElement(),

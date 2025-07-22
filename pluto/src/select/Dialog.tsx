@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Dialog.css";
+
 import { type record, type status } from "@synnaxlabs/x";
 
+import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
@@ -39,6 +42,7 @@ export const Dialog = <K extends record.Key>({
   actions,
   ...rest
 }: DialogProps<K>) => {
+  const { variant } = CoreDialog.useContext();
   if (status != null && status.variant !== "success")
     emptyContent = (
       <Status.Text.Centered
@@ -56,9 +60,14 @@ export const Dialog = <K extends record.Key>({
       </Status.Text.Centered>
     );
   return (
-    <CoreDialog.Dialog {...rest} style={{ ...style }}>
+    <CoreDialog.Dialog
+      {...rest}
+      style={{ ...style }}
+      className={CSS.BE("select", "dialog")}
+    >
       {onSearch != null && (
         <SearchInput
+          dialogVariant={variant}
           onSearch={onSearch}
           searchPlaceholder={searchPlaceholder}
           actions={actions}

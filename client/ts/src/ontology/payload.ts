@@ -10,28 +10,6 @@
 import { array, type change, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
-  ONTOLOGY_TYPE as POLICY_TYPE,
-} from "@/access/policy/ontology";
-import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
-import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
-import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
-import { ONTOLOGY_TYPE as RACK_TYPE } from "@/hardware/rack/payload";
-import { ONTOLOGY_TYPE as TASK_TYPE } from "@/hardware/task/payload";
-import { ONTOLOGY_TYPE as LABEL_TYPE } from "@/label/payload";
-import { ONTOLOGY_TYPE as GROUP_TYPE } from "@/ontology/group/payload";
-import {
-  ALIAS_ONTOLOGY_TYPE as RANGE_ALIAS_TYPE,
-  ONTOLOGY_TYPE as RANGE_TYPE,
-} from "@/ranger/payload";
-import { ONTOLOGY_TYPE as USER_TYPE } from "@/user/payload";
-import { ONTOLOGY_TYPE as LINE_PLOT_TYPE } from "@/workspace/lineplot/payload";
-import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
-import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
-import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
-import { ONTOLOGY_TYPE as TABLE_TYPE } from "@/workspace/table/payload";
-
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
 export interface ResourceDelete extends change.Delete<ID, Resource> {}
@@ -44,26 +22,26 @@ export const CLUSTER_TYPE = "cluster";
 export const NODE_TYPE = "node";
 
 export const resourceTypeZ = z.enum([
-  LABEL_TYPE,
-  LOG_TYPE,
-  ALLOW_ALL_TYPE,
-  BUILTIN_TYPE,
-  CLUSTER_TYPE,
-  CHANNEL_TYPE,
-  NODE_TYPE,
-  GROUP_TYPE,
-  RANGE_TYPE,
-  FRAMER_TYPE,
-  RANGE_ALIAS_TYPE,
-  USER_TYPE,
-  WORKSPACE_TYPE,
-  SCHEMATIC_TYPE,
-  LINE_PLOT_TYPE,
-  RACK_TYPE,
-  DEVICE_TYPE,
-  TASK_TYPE,
-  POLICY_TYPE,
-  TABLE_TYPE,
+  "label",
+  "log",
+  "allow_all",
+  "builtin",
+  "cluster",
+  "channel",
+  "node",
+  "group",
+  "range",
+  "framer",
+  "range-alias",
+  "user",
+  "workspace",
+  "schematic",
+  "lineplot",
+  "rack",
+  "device",
+  "task",
+  "policy",
+  "table",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

@@ -17,7 +17,7 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { type Icon } from "@/icon";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
@@ -124,20 +124,24 @@ export const MultipleTrigger = <K extends record.Key>({
   );
   const dragging = Haul.useDraggingState();
   let actions: ReactElement | null = null;
-  if (variant !== "text")
+  if (variant !== "text" || value.length > 0)
     actions = (
       <Button.Icon variant={variant} onClick={toggle}>
-        <Caret.Animated
-          enabled={visible}
-          enabledLoc="bottom"
-          disabledLoc="left"
-          color={8}
-        />
+        {variant !== "text" ? (
+          <Caret.Animated
+            enabled={visible}
+            enabledLoc="bottom"
+            disabledLoc="left"
+            color={8}
+          />
+        ) : (
+          <Icon.Add color={8} />
+        )}
       </Button.Icon>
     );
   return (
     <Tag.Tags
-      onClick={toggle}
+      onClick={variant !== "text" || value.length == 0 ? toggle : undefined}
       {...dropProps}
       className={CSS(
         CSS.dropRegion(canDrop(dragging)),
@@ -153,8 +157,8 @@ export const MultipleTrigger = <K extends record.Key>({
           level="p"
           shade={8}
           weight={400}
-          style={{ marginLeft: "1rem" }}
           startIcon={icon}
+          style={{ padding: "0 1rem" }}
         >
           {placeholder}
         </Text.WithIcon>

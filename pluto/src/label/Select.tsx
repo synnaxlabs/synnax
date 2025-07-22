@@ -17,6 +17,7 @@ import { type ListParams, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { Tag } from "@/tag";
 import { Text } from "@/text";
 
 const ListItem = ({
@@ -34,8 +35,12 @@ const ListItem = ({
       hovered={hovered}
       {...rest}
     >
-      <Icon.Circle color={item?.color} size="1.5rem" />
-      <Text.Text level="p">{item?.name}</Text.Text>
+      <Text.WithIcon
+        level="p"
+        startIcon={<Icon.Circle color={item?.color} size="2.5em" />}
+      >
+        {item?.name}
+      </Text.WithIcon>
     </List.Item>
   );
 };
@@ -48,6 +53,20 @@ export interface SelectMultipleProps
       "data" | "multiple" | "resourceName" | "subscribe" | "children"
     >,
     Flux.UseListArgs<ListParams, label.Key, label.Label> {}
+
+const labelRenderTag = Component.renderProp(
+  (props: Select.MultipleTagProps<label.Key>): ReactElement | null => {
+    const { itemKey } = props;
+    const item = List.useItem<label.Key, label.Label>(itemKey);
+    const { onSelect } = Select.useItemState<label.Key>(itemKey);
+    if (item == null) return null;
+    return (
+      <Tag.Tag color={item.color} onClose={onSelect} size="small">
+        {item.name}
+      </Tag.Tag>
+    );
+  },
+);
 
 export const SelectMultiple = ({
   onChange,
@@ -75,6 +94,10 @@ export const SelectMultiple = ({
       onSearch={onSearch}
       emptyContent={emptyContent}
       status={status}
+      renderTag={labelRenderTag}
+      icon={<Icon.Label />}
+      triggerVariant="text"
+      variant="floating"
       {...rest}
     >
       {listItemRenderProp}

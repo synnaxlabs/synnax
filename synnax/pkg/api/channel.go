@@ -220,7 +220,7 @@ func (s *ChannelService) Retrieve(
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
 		for i, ch := range resChannels {
-			al, err := resRng.GetAlias(ctx, ch.Key())
+			al, err := resRng.RetrieveAlias(ctx, ch.Key())
 			if err == nil {
 				oChannels[i].Alias = al
 			}

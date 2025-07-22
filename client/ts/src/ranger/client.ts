@@ -45,6 +45,8 @@ export class Range {
   readonly kv: KV;
   readonly timeRange: TimeRange;
   readonly color: string | undefined;
+  readonly parent: Payload | null;
+  readonly labels: label.Label[];
   readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
@@ -57,6 +59,8 @@ export class Range {
     timeRange: TimeRange = TimeRange.ZERO,
     key: string,
     color: string | undefined,
+    parent: Payload | null,
+    labels: label.Label[] | undefined = [],
     _frameClient: framer.Client,
     _kv: KV,
     _aliaser: Aliaser,
@@ -68,6 +72,8 @@ export class Range {
     this.key = key;
     this.name = name;
     this.timeRange = timeRange;
+    this.parent = parent;
+    this.labels = labels;
     this.frameClient = _frameClient;
     this.color = color;
     this.kv = _kv;
@@ -88,6 +94,8 @@ export class Range {
       name: this.name,
       timeRange: this.timeRange,
       color: this.color,
+      labels: this.labels,
+      parent: this.parent,
     };
   }
 
@@ -129,7 +137,7 @@ export class Range {
     return await this.frameClient.read(this.timeRange, channels);
   }
 
-  async labels(): Promise<label.Label[]> {
+  async retrieveLabels(): Promise<label.Label[]> {
     return await this.labelClient.retrieveFor(ontologyID(this.key));
   }
 
@@ -154,6 +162,8 @@ const retrieveReqZ = z.object({
   limit: z.number().int().optional(),
   offset: z.number().int().optional(),
   hasLabels: label.keyZ.array().optional(),
+  includeLabels: z.boolean().optional(),
+  includeParent: z.boolean().optional(),
 });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -203,14 +213,6 @@ export class Client {
 
   async delete(key: Key | Keys): Promise<void> {
     await this.writer.delete(array.toArray(key));
-  }
-
-  async search(term: string): Promise<Range[]> {
-    return this.sugarMany(await this.execRetrieve({ term }));
-  }
-
-  async page(offset: number, limit: number): Promise<Range[]> {
-    return this.sugarMany(await this.execRetrieve({ offset, limit }));
   }
 
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
@@ -270,6 +272,8 @@ export class Client {
       payload.timeRange,
       payload.key,
       payload.color,
+      payload.parent,
+      payload.labels,
       this.frameClient,
       new KV(payload.key, this.unaryClient),
       new Aliaser(payload.key, this.frameClient, this.unaryClient),
@@ -290,6 +294,8 @@ export class Client {
       name: resource.data?.name as string,
       timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
       color: resource.data?.color as string,
+      labels: [],
+      parent: null,
     });
   }
 }
@@ -312,5 +318,7 @@ export const convertOntologyResourceToPayload = ({
     name,
     timeRange,
     color: typeof data?.color === "string" ? data.color : undefined,
+    labels: [],
+    parent: null,
   };
 };

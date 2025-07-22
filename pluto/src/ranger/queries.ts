@@ -185,7 +185,7 @@ export const rangeToFormValues = async (
 ) => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
-  labels: labels ?? (await range.labels()).map((l) => l.key),
+  labels: labels ?? (await range.retrieveLabels()).map((l) => l.key),
   parent: parent ?? (await range.retrieveParent())?.key ?? "",
 });
 
@@ -307,16 +307,24 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
 
-export interface ListParams extends Flux.Params {
-  term?: string;
-  offset?: number;
-  limit?: number;
-}
+export interface ListParams
+  extends Flux.Params,
+    Pick<
+      ranger.RetrieveRequest,
+      "includeLabels" | "includeParent" | "term" | "offset" | "limit"
+    > {}
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Payload>({
   name: "Ranges",
-  retrieve: async ({ client, params }) => await client.ranges.retrieve(params),
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+  retrieve: async ({ client, params }) => {
+    const ranges = await client.ranges.retrieve({
+      includeParent: true,
+      includeLabels: true,
+      ...params,
+    });
+    return ranges.map((r) => r.payload);
+  },
+  retrieveByKey: async ({ client, key }) => (await client.ranges.retrieve(key)).payload,
   listeners: [
     {
       channel: ranger.SET_CHANNEL_NAME,

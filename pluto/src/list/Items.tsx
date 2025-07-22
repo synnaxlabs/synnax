@@ -50,15 +50,15 @@ const BaseItems = <
       </div>
     );
 
-  let height: number | undefined;
+  let minHeight: number | undefined;
   if (itemHeight != null && isFinite(displayItems) && visibleData.length > 0)
-    height = Math.min(displayItems, visibleData.length) * itemHeight;
+    minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
     <Align.Space
       empty
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
-      style={{ height, ...style }}
+      style={{ height: minHeight, ...style }}
       {...rest}
     >
       {content}
