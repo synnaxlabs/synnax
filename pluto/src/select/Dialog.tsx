@@ -23,7 +23,7 @@ export interface DialogProps<K extends record.Key>
 
 const DEFAULT_HEIGHT = 250;
 
-const defaultEmptyContent = (
+const DefaultEmptyContent = () => (
   <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
     No results
   </Status.Text.Centered>
@@ -32,14 +32,14 @@ const defaultEmptyContent = (
 export const Dialog = <K extends record.Key>({
   onSearch,
   children,
-  emptyContent = defaultEmptyContent,
+  emptyContent = <DefaultEmptyContent />,
   searchPlaceholder,
   style,
   status,
   actions,
   ...rest
 }: DialogProps<K>) => {
-  if (status?.variant !== "success")
+  if (status != null && status.variant !== "success")
     emptyContent = (
       <Status.Text.Centered
         variant={status?.variant}

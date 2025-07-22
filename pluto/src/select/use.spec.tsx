@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, renderHook } from "@testing-library/react";
-import { useState } from "react";
+import { type PropsWithChildren, useState } from "react";
 import { describe, expect, it } from "vitest";
 
+import { List } from "@/list";
 import { Select } from "@/select";
+import { Triggers } from "@/triggers";
 
 interface UseSelectMultipleWrapperReturn {
   value: string[];
@@ -50,24 +52,34 @@ const useSelectSingleWrapper = (
   return { value, clear, onSelect };
 };
 
+const data = ["1", "2", "3"];
+
+const Wrapper = (props: PropsWithChildren) => (
+  <Triggers.Provider>
+    <List.Frame data={data} {...props} />;
+  </Triggers.Provider>
+);
+
 describe("useSelect", () => {
   describe("multiple selection", () => {
     it("should select two items", () => {
-      const { result } = renderHook(useMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["1"]);
       act(() => result.current.onSelect("2"));
       expect(result.current.value).toEqual(["1", "2"]);
     });
+
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["2"]);
     });
+
     it("should clear all selections", () => {
-      const { result } = renderHook(useMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.clear());
@@ -75,7 +87,9 @@ describe("useSelect", () => {
     });
     describe("no not allow none", () => {
       it("should not allow removing the last selection", () => {
-        const { result } = renderHook(() => useMultipleWrapper({}));
+        const { result } = renderHook(() => useMultipleWrapper({ allowNone: false }), {
+          wrapper: Wrapper,
+        });
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
         expect(result.current.value).toEqual(["1"]);
@@ -83,38 +97,60 @@ describe("useSelect", () => {
     });
     describe("replaceOnSingle", () => {
       it("should replace the selection when you click a new item", () => {
-        const { result } = renderHook(() =>
-          useMultipleWrapper({ replaceOnSingle: true }),
+        const { result } = renderHook(
+          () => useMultipleWrapper({ replaceOnSingle: true }),
+          {
+            wrapper: Wrapper,
+          },
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual(["2"]);
       });
     });
+
+    it("should clear the selection when clear() is called", () => {
+      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+      act(() => result.current.onSelect("1"));
+      act(() => result.current.clear());
+      expect(result.current.value).toEqual([]);
+    });
   });
   describe("single selection", () => {
     it("should select one item", () => {
-      const { result } = renderHook(useSelectSingleWrapper);
+      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual("1");
       act(() => result.current.onSelect("2"));
       expect(result.current.value).toEqual("2");
     });
+
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useSelectSingleWrapper);
+      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(null);
     });
-    describe("no not allow none", () => {
+
+    describe("not allow none", () => {
       it("should not allow clearing all selections", () => {
-        const { result } = renderHook(() =>
-          useSelectSingleWrapper({ allowNone: false }),
+        const { result } = renderHook(
+          () => useSelectSingleWrapper({ allowNone: false }),
+          {
+            wrapper: Wrapper,
+          },
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
         expect(result.current.value).toEqual("1");
       });
+    });
+
+    it("should clear the selection when clear() is called", () => {
+      const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });
+      act(() => result.current.onSelect("1"));
+      act(() => result.current.clear());
+      expect(result.current.value).toEqual(null);
     });
   });
 });

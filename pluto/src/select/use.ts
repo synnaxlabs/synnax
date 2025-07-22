@@ -49,7 +49,6 @@ export type UseSingleProps<K extends record.Key> = Optional<
 >;
 
 export interface UseMultipleProps<K extends record.Key> {
-  allowMultiple?: true;
   allowNone?: boolean;
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
@@ -63,15 +62,6 @@ export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
   setSelected: (keys: K[]) => void;
   clear: () => void;
 }
-
-export const selectValueIsZero = <K extends record.Key>(
-  value?: K | K[],
-): value is undefined | K[] => {
-  if (value == null) return true;
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "string") return value.length === 0;
-  return false;
-};
 
 export const useSingle = <K extends record.Key>({
   allowNone = false,

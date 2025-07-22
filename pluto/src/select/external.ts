@@ -18,4 +18,4 @@ export * from "@/select/Single";
 export * from "@/select/SingleTrigger";
 export * from "@/select/text";
 export * from "@/select/use";
-export * from "@/select/use";
+export * from "@/select/useHover";

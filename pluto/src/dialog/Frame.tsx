@@ -77,7 +77,7 @@ const Context = createContext<ContextValue>({
   open: () => {},
   toggle: () => {},
   variant: "floating",
-  visible: false,
+  visible: true,
   location: xlocation.BOTTOM_LEFT,
 });
 
