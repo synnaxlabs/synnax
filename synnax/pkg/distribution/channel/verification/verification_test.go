@@ -11,15 +11,37 @@ package verification_test
 
 import (
 	"context"
+	"io"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
+	"github.com/synnaxlabs/x/encoding/base64"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var errDBGetCalled = errors.New("DB.Get called too many times")
+
+type db struct {
+	kv.DB
+	timesGetCalled int
+}
+
+var _ kv.DB = &db{}
+
+func newDB() *db { return &db{DB: memkv.New()} }
+
+func (d *db) Get(ctx context.Context, key []byte, opts ...any) ([]byte, io.Closer, error) {
+	d.timesGetCalled++
+	if d.timesGetCalled == 2 {
+		return nil, nil, errDBGetCalled
+	}
+	return d.DB.Get(ctx, key, opts...)
+}
 
 var _ = Describe("Verification", func() {
 	Describe("Config", func() {
@@ -81,24 +103,121 @@ var _ = Describe("Verification", func() {
 		})
 	})
 	Describe("Service", func() {
-		var db kv.DB
 		var ctx context.Context
 		BeforeEach(func() {
-			db = memkv.New()
 			ctx = context.Background()
 		})
-		AfterEach(func() {
-			Expect(db.Close()).To(Succeed())
+		Describe("Normal DB usage", func() {
+			var db kv.DB
+			BeforeEach(func() {
+				db = memkv.New()
+			})
+			AfterEach(func() {
+				Expect(db.Close()).To(Succeed())
+			})
+			It("should fail to open with invalid config", func() {
+				Expect(verification.OpenService(ctx)).Error().To(HaveOccurred())
+			})
+			It("should open with no verifier", func() {
+				svc := MustSucceed(
+					verification.OpenService(ctx, verification.Config{DB: db}),
+				)
+				Expect(svc).ToNot(BeNil())
+				Expect(svc.IsOverflowed(0)).To(Succeed())
+				Expect(svc.IsOverflowed(verification.FreeCount)).To(Succeed())
+				Expect(svc.IsOverflowed(verification.FreeCount + 1)).
+					To(MatchError(verification.ErrFree))
+				Expect(svc.Close()).To(Succeed())
+			})
+			DescribeTable("Invalid verifier", func(v string) {
+				Expect(verification.OpenService(
+					ctx,
+					verification.Config{DB: db, Verifier: v},
+				)).
+					Error().To(MatchError(verification.ErrInvalid))
+			},
+				Entry("invalid format", "not a valid format"),
+				Entry(
+					"invalid date",
+					base64.MustDecode("MDAwMDAwLTY0MzE3Mjg0LTA0MDA1MDAwMDU="),
+				),
+				Entry(
+					"invalid checksum",
+					base64.MustDecode("ODk0NDc4LTY0MzE3Mjg0LTAwMDAwMDAwMDA="),
+				),
+			)
+			Describe("Valid verifier", func() {
+				It("should open with a valid verifier", func() {
+					svc := MustSucceed(verification.OpenService(
+						ctx,
+						verification.Config{
+							DB: db,
+							Verifier: base64.MustDecode(
+								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
+							),
+						},
+					))
+					Expect(svc).ToNot(BeNil())
+					Expect(svc.IsOverflowed(0)).To(Succeed())
+					Expect(svc.IsOverflowed(100)).To(Succeed())
+					Expect(svc.IsOverflowed(101)).To(MatchError(verification.ErrTooMany))
+					Expect(svc.Close()).To(Succeed())
+				})
+				It("should load a verifier from the DB", func() {
+					svc := MustSucceed(verification.OpenService(
+						ctx,
+						verification.Config{
+							DB: db,
+							Verifier: base64.MustDecode(
+								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
+							),
+						},
+					))
+					Expect(svc.Close()).To(Succeed())
+					svc = MustSucceed(verification.OpenService(
+						ctx,
+						verification.Config{DB: db},
+					))
+					Expect(svc.IsOverflowed(0)).To(Succeed())
+					Expect(svc.IsOverflowed(100)).To(Succeed())
+					Expect(svc.IsOverflowed(101)).
+						To(MatchError(verification.ErrTooMany))
+					Expect(svc.Close()).To(Succeed())
+				})
+			})
+			Describe("Stale verifier", func() {
+				It("should allow loading a stale verifier", func() {
+					svc := MustSucceed(verification.OpenService(
+						ctx,
+						verification.Config{
+							DB: db,
+							Verifier: base64.MustDecode(
+								"ODk0NDc4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
+							),
+						},
+					))
+					Expect(svc).ToNot(BeNil())
+					Expect(svc.IsOverflowed(0)).To(Succeed())
+					Expect(svc.IsOverflowed(50)).To(Succeed())
+					Expect(svc.IsOverflowed(51)).To(MatchError(verification.ErrStale))
+					Expect(svc.Close()).To(Succeed())
+				})
+			})
 		})
-		It("should open with no verifier", func() {
-			svc := MustSucceed(verification.OpenService(ctx, verification.Config{DB: db}))
-			Expect(svc).ToNot(BeNil())
-			Expect(svc.IsOverflowed(0)).To(Succeed())
-			Expect(svc.IsOverflowed(verification.FreeCount)).To(Succeed())
-			Expect(svc.IsOverflowed(verification.FreeCount + 1)).
-				To(MatchError(verification.ErrFree))
-			Expect(svc.Close()).To(Succeed())
+		Describe("DB errors", func() {
+			It("should propagate DB errors to the service", func() {
+				db := newDB()
+				svc := MustSucceed(verification.OpenService(
+					ctx,
+					verification.Config{DB: db},
+				))
+				Expect(svc.Close()).To(Succeed())
+				Expect(verification.OpenService(
+					ctx,
+					verification.Config{DB: db},
+				)).Error().To(MatchError(errDBGetCalled))
+				Expect(db.Close()).To(Succeed())
+			})
 		})
-		It("should ")
 	})
 })

@@ -11,8 +11,8 @@ package verification
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,10 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	retrieveKey = "bGljZW5zZUtleQ=="
-	FreeCount   = 50
-)
+const FreeCount = 50
 
 // Config is the configuration for a verification service
 type Config struct {
@@ -58,24 +55,7 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
-var (
-	freeCountStr   = strconv.Itoa(FreeCount)
-	limitErrPrefix = base64.MustDecode("dXNpbmcgbW9yZSB0aGFuIA==")
-	ErrStale       = errors.New(
-		limitErrPrefix +
-			freeCountStr +
-			base64.MustDecode("IGNoYW5uZWxzIHdpdGggYW4gZXhwaXJlZCBsaWNlbnNlIGtleQ=="),
-	)
-	ErrFree = errors.New(
-		limitErrPrefix +
-			freeCountStr +
-			base64.MustDecode("IHdpdGhvdXQgYSBsaWNlbnNlIGtleQ=="),
-	)
-	useFree = base64.MustDecode("dXNpbmcgU3lubmF4IHdpdGhvdXQgYSBsaWNlbnNlIGtleSwgdXNhZ2UgaXMgbGltaXRlZCB0byA=") +
-		freeCountStr + base64.MustDecode("IGNoYW5uZWxzIGFyZSBhbGxvd2Vk") // using Synnax without a license key, usage is limited to
-	usingDBStr = base64.MustDecode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZSwgdXNhZ2UgaXMgbGltaXRlZCB0byA=") // using the last license key stored in the database, usage is limited to
-	chStr      = base64.MustDecode("IGNoYW5uZWxz")                                                                                     //  channels
-)
+var retrieveKey = []byte("bGljZW5zZUtleQ==")
 
 // Validate validates the configuration for use in the service.
 func (c Config) Validate() error {
@@ -113,18 +93,33 @@ type Service struct {
 
 var _ io.Closer = &Service{}
 
+var (
+	useFreeLog = fmt.Sprintf(
+		base64.MustDecode(
+			"dXNpbmcgU3lubmF4IHdpdGhvdXQgYSBsaWNlbnNlIGtleSwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscw==",
+		),
+		FreeCount,
+	)
+	newRegisteredTemplate = base64.MustDecode(
+		"bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzICVkIGNoYW5uZWxz",
+	)
+)
+
+// OpenService opens a new verification service.
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	service := &Service{cfg: cfg}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.cfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(service.cfg.Instrumentation),
+	)
 	service.shutdown = signal.NewHardShutdown(sCtx, cancel)
 
 	startLogMonitor := func() {
 		sCtx.Go(
-			service.logTheDog,
+			service.log,
 			signal.WithRetryOnPanic(),
 			signal.WithBaseRetryInterval(2*time.Second),
 			signal.WithRetryScale(1.1),
@@ -133,29 +128,29 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 
 	if cfg.Verifier == "" {
-		// TODO: ignoring error here
 		if err = service.loadCache(ctx); err != nil {
-			cfg.Instrumentation.L.Info(useFree)
+			if !errors.Is(err, kv.NotFound) {
+				return nil, err
+			}
+			cfg.Instrumentation.L.Info(useFreeLog)
 			return service, nil
 		}
-		cfg.Instrumentation.L.Info(usingDBStr + strconv.Itoa(int(service.info.numCh)) + chStr)
 		startLogMonitor()
 		return service, nil
 	}
 
 	if err = service.create(ctx, cfg.Verifier); err != nil {
-		return service, err
+		return nil, err
 	}
-	cfg.Instrumentation.L.Info(base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA=="))
+	cfg.Instrumentation.L.Infof(newRegisteredTemplate, service.info.numCh)
 	startLogMonitor()
-	cfg.Instrumentation.L.Info(base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
-		strconv.Itoa(int(service.info.numCh)) + base64.MustDecode("IGNoYW5uZWxz"))
-	return service, err
+	return service, nil
 }
 
-// Close implements io.Closer
+// Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
 
+// IsOverflowed tells if inUse causes the service to overflow.
 func (s *Service) IsOverflowed(inUse types.Uint20) error {
 	if s.info.numCh == 0 {
 		if inUse > FreeCount {
@@ -170,40 +165,66 @@ func (s *Service) IsOverflowed(inUse types.Uint20) error {
 		return nil
 	}
 	if inUse > s.info.numCh {
-		return errTooMany(s.info.numCh)
+		return newErrTooMany(s.info.numCh)
 	}
 	return nil
 }
 
+var (
+	expiredLog = fmt.Sprintf(base64.MustDecode(
+		"ZXhwaXJlZCBsaWNlbnNlIGtleSBmb3VuZCwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscw==",
+	), FreeCount)
+	existingLogTemplate = base64.MustDecode(
+		"ZXhpc3RpbmcgbGljZW5zZSBrZXkgZm91bmQsIHVzYWdlIGlzIGxpbWl0ZWQgdG8gJWQgY2hhbm5lbHM=",
+	)
+)
+
 func (s *Service) loadCache(ctx context.Context) error {
-	key, closer, err := s.cfg.DB.Get(ctx, []byte(retrieveKey))
+	key, closer, err := s.cfg.DB.Get(ctx, retrieveKey)
 	if err != nil {
 		return err
 	}
 	if err = closer.Close(); err != nil {
 		return err
 	}
-	licenseInf, err := parseLicenseKey(string(key))
+	licenseInf, err := parse(string(key))
 	if err != nil {
 		return err
+	}
+	if licenseInf.exprTime.Before(time.Now()) {
+		s.cfg.Instrumentation.L.Warn(expiredLog)
+	} else {
+		s.cfg.Instrumentation.L.Infof(existingLogTemplate, licenseInf.numCh)
 	}
 	s.info = licenseInf
 	return nil
 }
 
 func (s *Service) create(ctx context.Context, toCreate string) error {
-	licenseInf, err := parseLicenseKey(toCreate)
+	licenseInf, err := parse(toCreate)
 	if err != nil {
 		return err
 	}
-	if err = s.cfg.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
+	if err = s.cfg.DB.Set(ctx, retrieveKey, []byte(toCreate)); err != nil {
 		return err
 	}
 	s.info = licenseInf
 	return nil
 }
 
-func (s *Service) logTheDog(ctx context.Context) error {
+var (
+	hadExpiredLog = fmt.Sprintf(
+		base64.MustDecode(
+			"bGljZW5zZSBrZXkgZXhwaXJlZCwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscy4=",
+		),
+		FreeCount,
+	)
+	willExpireLogTemplate = base64.MustDecode(
+		"bGljZW5zZSBrZXkgd2lsbCBleHBpcmUgaW4gJXM=",
+	)
+)
+
+func (s *Service) log(ctx context.Context) error {
 	if s.info.exprTime.IsZero() {
 		return nil
 	}
@@ -215,28 +236,17 @@ func (s *Service) logTheDog(ctx context.Context) error {
 		case <-ticker.C:
 			if s.info.exprTime.Before(time.Now()) {
 				s.cfg.Instrumentation.L.Error(
-					base64.MustDecode("TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu"),
-					zap.String("ZXhwaXJlZEF0", s.info.exprTime.String()),
+					hadExpiredLog,
+					zap.String("expired_at", s.info.exprTime.String()),
 				)
-			} else if timeLeft := time.Until(s.info.exprTime); timeLeft <= s.cfg.WarningTime {
+			} else if timeLeft := time.Until(
+				s.info.exprTime,
+			); timeLeft <= s.cfg.WarningTime {
 				s.cfg.Instrumentation.L.Warn(
-					base64.MustDecode(
-						"TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4=",
-					),
-					zap.String(base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String()),
-				)
-			} else {
-				s.cfg.Instrumentation.L.Info(
-					base64.MustDecode("TGljZW5zZSBrZXkgaXMgbm90IGV4cGlyZWQu"),
-					zap.String(base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String()),
+					fmt.Sprintf(willExpireLogTemplate, timeLeft),
+					zap.String("expires_in", timeLeft.String()),
 				)
 			}
 		}
 	}
-}
-
-func errTooMany(count types.Uint20) error {
-	msg := base64.MustDecode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
-		strconv.Itoa(int(count)) + base64.MustDecode("IGNoYW5uZWxzIGFsbG93ZWQ=")
-	return errors.New(msg)
 }

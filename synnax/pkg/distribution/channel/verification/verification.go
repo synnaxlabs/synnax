@@ -17,8 +17,6 @@ import (
 
 	"github.com/synnaxlabs/x/crypto"
 	"github.com/synnaxlabs/x/date"
-	"github.com/synnaxlabs/x/encoding/base64"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -27,16 +25,13 @@ type info struct {
 	exprTime time.Time
 }
 
-var (
-	ErrInvalid  = errors.New(base64.MustDecode("aW52YWxpZCBsaWNlbnNlIGtleQ=="))
-	formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
-)
+var formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
 
-func parseLicenseKey(licenseKey string) (info, error) {
-	if !formatRegex.MatchString(licenseKey) {
+func parse(key string) (info, error) {
+	if !formatRegex.MatchString(key) {
 		return info{}, ErrInvalid
 	}
-	parts := strings.Split(licenseKey, "-")
+	parts := strings.Split(key, "-")
 	var (
 		i   info
 		err error
@@ -44,7 +39,7 @@ func parseLicenseKey(licenseKey string) (info, error) {
 	if i.exprTime, err = decodeDate(parts[0]); err != nil {
 		return info{}, err
 	}
-	if i.numCh, err = getChannelCount(parts[1]); err != nil {
+	if i.numCh, err = getCount(parts[1]); err != nil {
 		return info{}, err
 	}
 	if err = validateChecksum(parts[2]); err != nil {
@@ -85,8 +80,8 @@ func decodeDate(datePart string) (time.Time, error) {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
 }
 
-func getChannelCount(channelPart string) (types.Uint20, error) {
-	numChannels, err := strconv.Atoi(channelPart)
+func getCount(countPart string) (types.Uint20, error) {
+	numChannels, err := strconv.Atoi(countPart)
 	if err != nil {
 		return 0, err
 	}
@@ -97,16 +92,16 @@ func getChannelCount(channelPart string) (types.Uint20, error) {
 	return types.Uint20(numChannels), nil
 }
 
-func validateChecksum(code string) error {
+func validateChecksum(sumPart string) error {
 	var digits [10]int
 	for i := range digits {
-		d, err := strconv.Atoi(string(code[i]))
+		d, err := strconv.Atoi(string(sumPart[i]))
 		if err != nil {
 			return ErrInvalid
 		}
 		digits[i] = d
 	}
-	firstFive, err := strconv.Atoi(code[:5])
+	firstFive, err := strconv.Atoi(sumPart[:5])
 	if err != nil {
 		return ErrInvalid
 	}
