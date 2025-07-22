@@ -27,63 +27,62 @@ type info struct {
 	exprTime time.Time
 }
 
-const (
-	yearCipher    = 89
-	monthCipher   = 43
-	dayCipher     = 77
-	channelCipher = 64317284
-)
-
 var (
-	errInvalid  = errors.New(base64.MustDecode("aW52YWxpZCBsaWNlbnNlIGtleQ=="))
+	ErrInvalid  = errors.New(base64.MustDecode("aW52YWxpZCBsaWNlbnNlIGtleQ=="))
 	formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
 )
 
 func parseLicenseKey(licenseKey string) (info, error) {
 	if !formatRegex.MatchString(licenseKey) {
-		return info{}, errInvalid
+		return info{}, ErrInvalid
 	}
 	parts := strings.Split(licenseKey, "-")
-	expirationTime, err := decodeDate(parts[0])
-	if err != nil {
+	var (
+		i   info
+		err error
+	)
+	if i.exprTime, err = decodeDate(parts[0]); err != nil {
 		return info{}, err
 	}
-	numChannels, err := getChannelCount(parts[1])
-	if err != nil {
+	if i.numCh, err = getChannelCount(parts[1]); err != nil {
 		return info{}, err
 	}
 	if err = validateChecksum(parts[2]); err != nil {
 		return info{}, err
 	}
-	return info{numCh: numChannels, exprTime: expirationTime}, nil
+	return i, nil
 }
 
 func decodeDate(datePart string) (time.Time, error) {
-	var err error
-	var year, month, day int
-	if year, err = strconv.Atoi(datePart[:2]); err != nil {
+	year, err := strconv.Atoi(datePart[:2])
+	if err != nil {
 		return time.Time{}, err
 	}
-	if month, err = strconv.Atoi(datePart[2:4]); err != nil {
+	year, err = crypto.Cipher(year, 89, 2)
+	if err != nil {
 		return time.Time{}, err
 	}
-	if day, err = strconv.Atoi(datePart[4:6]); err != nil {
+	month, err := strconv.Atoi(datePart[2:4])
+	if err != nil {
 		return time.Time{}, err
 	}
-	if year, err = crypto.Cipher(year, yearCipher, 2); err != nil {
+	month, err = crypto.Cipher(month, 43, 2)
+	if err != nil {
 		return time.Time{}, err
 	}
-	if month, err = crypto.Cipher(month, monthCipher, 2); err != nil {
+	day, err := strconv.Atoi(datePart[4:6])
+	if err != nil {
 		return time.Time{}, err
 	}
-	if day, err = crypto.Cipher(day, dayCipher, 2); err != nil {
+	day, err = crypto.Cipher(day, 77, 2)
+	if err != nil {
 		return time.Time{}, err
 	}
 	year += 2000
 	if !date.DateExists(year, month, day) {
-		return time.Time{}, errInvalid
+		return time.Time{}, ErrInvalid
 	}
-	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC), nil
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
 }
 
 func getChannelCount(channelPart string) (types.Uint20, error) {
@@ -91,7 +90,7 @@ func getChannelCount(channelPart string) (types.Uint20, error) {
 	if err != nil {
 		return 0, err
 	}
-	numChannels, err = crypto.Cipher(numChannels, channelCipher, 8)
+	numChannels, err = crypto.Cipher(numChannels, 64317284, 8)
 	if err != nil {
 		return 0, err
 	}
@@ -103,13 +102,13 @@ func validateChecksum(code string) error {
 	for i := range digits {
 		d, err := strconv.Atoi(string(code[i]))
 		if err != nil {
-			return errInvalid
+			return ErrInvalid
 		}
 		digits[i] = d
 	}
 	firstFive, err := strconv.Atoi(code[:5])
 	if err != nil {
-		return errInvalid
+		return ErrInvalid
 	}
 	sum := digits[5] + digits[6] + digits[7] + digits[8]
 	switch {
@@ -118,7 +117,7 @@ func validateChecksum(code string) error {
 		sum%7 != 0,
 		digits[9] < 3,
 		digits[9] > 6:
-		return errInvalid
+		return ErrInvalid
 	}
 	return nil
 }

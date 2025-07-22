@@ -34,7 +34,6 @@ const (
 
 // Config is the configuration for a verification service
 type Config struct {
-	// DB is used to persist
 	DB            kv.DB
 	Verifier      string
 	Ins           alamos.Instrumentation
@@ -42,9 +41,12 @@ type Config struct {
 	CheckInterval time.Duration
 }
 
+var _ config.Config[Config] = Config{}
+
 var (
 	DefaultConfig = Config{
-		WarningTime: 7 * 24 * time.Hour, CheckInterval: 24 * time.Hour,
+		WarningTime:   7 * 24 * time.Hour,
+		CheckInterval: 24 * time.Hour,
 	}
 	freeCountStr   = strconv.Itoa(freeCount)
 	limitErrPrefix = base64.MustDecode("dXNpbmcgbW9yZSB0aGFuIA==")
@@ -65,10 +67,10 @@ var (
 
 // Validate implements config.Config
 func (c Config) Validate() error {
-	v := validate.New("key")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NonZero(v, "WarningTime", c.WarningTime)
-	validate.NonZero(v, "CheckInterval", c.CheckInterval)
+	v := validate.New("channel.verification")
+	validate.NotNil(v, "db", c.DB)
+	validate.NonZero(v, "warning_time", c.WarningTime)
+	validate.NonZero(v, "check_interval", c.CheckInterval)
 	return v.Error()
 }
 
@@ -87,6 +89,8 @@ type Service struct {
 	shutdown    io.Closer
 	licenseInfo info
 }
+
+var _ io.Closer = &Service{}
 
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -108,37 +112,29 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 
 	// TODO: check if you are opening with a stale key
-				return nil, err
-			}
-			service.Ins.L.Info(useFree)
-			return service, nil
-		}
-		service.Ins.L.Info(usingDBStr + strconv.Itoa(int(service.licenseInfo.numCh)) + chStr)
-		return service, nil
-	}
+	// if true {
+	// 			return nil, err
+	// 		}
+	// 		service.Ins.L.Info(useFree)
+	// 		return service, nil
+	// }
+	// service.Ins.L.Info(usingDBStr + strconv.Itoa(int(service.licenseInfo.numCh)) + chStr)
+	// return service, nil
+	// }
 
-<<<<<<< Updated upstream
 	err = service.create(ctx, cfg.Verifier)
 	if err != nil {
 		return service, err
-=======
-	service.Ins.L.Info(
-		base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
-	)
+	}
+	service.Ins.L.Info(base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA=="))
 	startLogMonitor()
-<<<<<<< Updated upstream
-	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
-		strconv.Itoa(int(getNumChan(cfg.Verifier))) + decode("IGNoYW5uZWxz"))
+	service.Ins.L.Info(base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
+		strconv.Itoa(int(service.licenseInfo.numCh)) + base64.MustDecode("IGNoYW5uZWxz"))
 	return service, err
-=======
-	return service, nil
->>>>>>> Stashed changes
 }
 
 // Close implements io.Closer
-func (s *Service) Close() error {
-	return s.shutdown.Close()
-}
+func (s *Service) Close() error { return s.shutdown.Close() }
 
 func (s *Service) IsOverflowed(inUse types.Uint20) error {
 	if s.licenseInfo.numCh == 0 {
@@ -154,7 +150,7 @@ func (s *Service) IsOverflowed(inUse types.Uint20) error {
 		return nil
 	}
 	if inUse > s.licenseInfo.numCh {
-		return errTooMany(int(s.licenseInfo.numCh))
+		return errTooMany(s.licenseInfo.numCh)
 	}
 	return nil
 }
@@ -200,9 +196,7 @@ func (s *Service) logTheDog(ctx context.Context) error {
 		case <-ticker.C:
 			if s.licenseInfo.exprTime.Before(time.Now()) {
 				s.Ins.L.Error(
-					base64.MustDecode(
-						"TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu",
-					),
+					base64.MustDecode("TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu"),
 					zap.String("ZXhwaXJlZEF0", s.licenseInfo.exprTime.String()),
 				)
 			} else if timeLeft := time.Until(s.licenseInfo.exprTime); timeLeft <= s.WarningTime {
@@ -210,24 +204,20 @@ func (s *Service) logTheDog(ctx context.Context) error {
 					base64.MustDecode(
 						"TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4=",
 					),
-					zap.String(
-						base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String(),
-					),
+					zap.String(base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String()),
 				)
 			} else {
 				s.Ins.L.Info(
 					base64.MustDecode("TGljZW5zZSBrZXkgaXMgbm90IGV4cGlyZWQu"),
-					zap.String(
-						base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String(),
-					),
+					zap.String(base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String()),
 				)
 			}
 		}
 	}
 }
 
-func errTooMany(count int) error {
+func errTooMany(count types.Uint20) error {
 	msg := base64.MustDecode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
-		strconv.Itoa(count) + base64.MustDecode("IGNoYW5uZWxzIGFsbG93ZWQ=")
+		strconv.Itoa(int(count)) + base64.MustDecode("IGNoYW5uZWxzIGFsbG93ZWQ=")
 	return errors.New(msg)
 }
