@@ -243,6 +243,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                     changed: frame.get(l.channel),
                     onChange: (value) => {
                       onChange((prev) => {
+                        console.log("onChange", value, prev);
                         if (prev.data == null) return prev;
                         const next = state.executeSetter(value, prev.data);
                         return successResult(name, "retrieved", next);

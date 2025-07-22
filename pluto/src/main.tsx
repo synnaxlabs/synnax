@@ -15,7 +15,6 @@ import ReactDOM from "react-dom/client";
 
 import { Component } from "@/component";
 import { Pluto } from "@/pluto";
-import { Text } from "@/text";
 import { Tree } from "@/tree";
 
 const nodes: Tree.Node[] = [
@@ -28,15 +27,6 @@ const nodes: Tree.Node[] = [
     ],
   },
 ];
-
-const data = {
-  "1": {
-    name: "Cat",
-  },
-  "1.1": {
-    name: "Dog",
-  },
-};
 
 const treeItem = Component.renderProp((props: Tree.ItemProps<string>) => (
   <Tree.Item {...props}>

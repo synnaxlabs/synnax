@@ -138,16 +138,17 @@ export interface ListParams extends Flux.Params {
 
 export const useList = Flux.createList<ListParams, label.Key, label.Label>({
   name: "Labels",
-  retrieve: async ({ client, params }) => await client.labels.search(params.term ?? ""),
+  retrieve: async ({ client, params }) =>
+    await client.labels.retrieve({
+      ...params,
+      search: params.term,
+    }),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
-        onChange(changed.key, (prev) => {
-          if (prev == null) return prev;
-          return changed;
-        });
+        onChange(changed.key, changed, { mode: "prepend" });
       }),
     },
     {
@@ -158,3 +159,46 @@ export const useList = Flux.createList<ListParams, label.Key, label.Label>({
     },
   ],
 });
+
+interface FormParams extends Flux.Params {
+  key?: label.Key;
+}
+
+export const formSchema = label.labelZ.partial({ key: true });
+
+export const useForm = Flux.createForm<FormParams, typeof formSchema>({
+  name: "Label",
+  initialValues: {
+    name: "",
+    color: "#000000",
+  },
+  schema: formSchema,
+  retrieve: async ({ client, params: { key } }) => {
+    if (key == null) return null;
+    const label = await client.labels.retrieve(key);
+    return label;
+  },
+  update: async ({ client, value, onChange }) =>
+    onChange(await client.labels.create(value)),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        label.labelZ,
+        async ({ changed, onChange, params }) => {
+          if (params.key == null || changed.key !== params.key) return;
+          onChange(changed);
+        },
+      ),
+    },
+  ],
+});
+
+export interface DeleteParams extends Flux.Params {
+  key: label.Key;
+}
+
+export const useDelete = Flux.createUpdate<DeleteParams, null>({
+  name: "Label",
+  update: async ({ client, params: { key } }) => await client.labels.delete(key),
+}).useDirect;

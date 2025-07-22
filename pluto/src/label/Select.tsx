@@ -11,7 +11,7 @@ import { type label } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { type ListParams, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";

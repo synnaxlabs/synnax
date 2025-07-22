@@ -9,5 +9,4 @@
 
 export * from "@/label/client";
 export * from "@/label/payload";
-export * from "@/label/retriever";
 export * from "@/label/writer";

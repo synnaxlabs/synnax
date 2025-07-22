@@ -8,41 +8,60 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
+import z from "zod";
 
-import { type Key, type Label, ONTOLOGY_TYPE } from "@/label/payload";
-import { Retriever } from "@/label/retriever";
+import { type Key, keyZ, type Label, labelZ, ONTOLOGY_TYPE } from "@/label/payload";
 import { type New, type SetOptions, Writer } from "@/label/writer";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
+const RETRIEVE_ENDPOINT = "/label/retrieve";
+
+const retrieveRequestZ = z.object({
+  keys: keyZ.array().optional(),
+  for: ontology.idZ.optional(),
+  search: z.string().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
+});
+
+export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
+const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
+
 export class Client {
   readonly type: string = "label";
-  private readonly retriever: Retriever;
+  private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly ontology: ontology.Client;
 
-  constructor(client: UnaryClient, ontology: ontology.Client) {
+  constructor(client: UnaryClient) {
+    this.client = client;
     this.writer = new Writer(client);
-    this.retriever = new Retriever(client);
-    this.ontology = ontology;
   }
 
-  async search(term: string): Promise<Label[]> {
-    return await this.retriever.search(term);
-  }
-
+  async retrieve(req: RetrieveRequest): Promise<Label[]>;
   async retrieve(key: Key): Promise<Label>;
   async retrieve(keys: Key[]): Promise<Label[]>;
-  async retrieve(keys: Key | Key[]): Promise<Label | Label[]> {
-    const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve(keys);
-    return isMany ? res : res[0];
+  async retrieve(keys: Key | RetrieveRequest | Key[]): Promise<Label | Label[]> {
+    const isSingle = typeof keys === "string";
+    let req: RetrieveRequest;
+    if (typeof keys === "object" && !Array.isArray(keys)) req = keys;
+    else req = { keys: array.toArray(keys) };
+    const [res, err] = await this.client.send<
+      typeof retrieveRequestZ,
+      typeof retrieveResponseZ
+    >(RETRIEVE_ENDPOINT, req, retrieveRequestZ, retrieveResponseZ);
+    if (err != null) throw err;
+    if (isSingle) return res.labels[0];
+    return res.labels;
   }
 
   async retrieveFor(id: ontology.ID): Promise<Label[]> {
-    return await this.retriever.retrieveFor(id);
+    return await this.retrieve({ for: id });
   }
 
   async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
@@ -51,10 +70,6 @@ export class Client {
 
   async removeLabels(id: ontology.ID, labels: Key[]): Promise<void> {
     await this.writer.remove(id, labels);
-  }
-
-  async page(offset: number, limit: number): Promise<Label[]> {
-    return await this.retriever.page(offset, limit);
   }
 
   async create(label: New): Promise<Label>;

@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams, useList } from "@/ranger/queries";

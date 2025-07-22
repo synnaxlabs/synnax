@@ -66,7 +66,7 @@ export const useListener = (
             await mu.runExclusive(async () => {
               await onChange({ changed: frame.get(channel) });
             });
-          }, "Error in Sync.useListener");
+          }, `Error in Sync.useListener: ${channel}`);
         },
       });
     });

@@ -9,7 +9,6 @@
 
 export * from "@/flux/form";
 export * from "@/flux/list";
-export * from "@/list/pager";
 export * from "@/flux/params";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";

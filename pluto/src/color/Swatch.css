@@ -29,12 +29,12 @@
         border-radius: 0.66666rem;
     }
     &.pluto--small {
-        width: 5rem;
-        height: 3.5rem;
+        width: 4rem;
+        min-height: 3rem;
     }
     &.pluto--medium {
-        width: 6rem;
-        height: 4rem;
+        min-width: 4rem;
+        min-height: 3.5rem;
     }
     &.pluto--large {
         width: 7rem;

@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { CSS } from "@/css";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Device } from "@/hardware/device";
 import { type ListParams, useList } from "@/hardware/device/queries";
 import { Icon } from "@/icon";

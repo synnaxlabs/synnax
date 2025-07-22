@@ -165,6 +165,12 @@ export interface UseList<
   (args?: UseListArgs<RetrieveParams, K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
+type ListChangeMode = "prepend" | "append" | "replace";
+
+interface ListenerOnChangeOptions {
+  mode?: ListChangeMode;
+}
+
 /**
  * Extra arguments passed to list listener handlers.
  *
@@ -182,7 +188,7 @@ interface ListListenerExtraArgs<
   /** The Synnax client instance */
   client: Synnax;
   /** Function to update a specific item in the list */
-  onChange: (key: K, e: state.SetArg<E | null>) => void;
+  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
   /** Function to remove an item from the list */
   onDelete: (key: K) => void;
 }
@@ -383,7 +389,8 @@ export const createList =
                           return { ...p, data: p.data.filter((key) => key !== k) };
                         });
                       },
-                      onChange: (k, setter) => {
+                      onChange: (k, setter, opts = {}) => {
+                        const { mode = "append" } = opts;
                         const prev = dataRef.current.get(k) ?? null;
                         if (prev != null && !filterRef.current(prev)) return;
                         const res = state.executeSetter(setter, prev);
@@ -391,7 +398,11 @@ export const createList =
                         if (prev == null)
                           setResult((p) => {
                             if (p.data == null) return p;
-                            return { ...p, data: [...p.data, k] };
+                            return {
+                              ...p,
+                              data:
+                                mode === "prepend" ? [k, ...p.data] : [...p.data, k],
+                            };
                           });
                         dataRef.current.set(k, res);
                         notifyListeners(k);

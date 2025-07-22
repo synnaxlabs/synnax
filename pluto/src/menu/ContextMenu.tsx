@@ -14,9 +14,9 @@ import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { type RenderProp } from "@/component/renderProp";
 
 interface ContextMenuState {
   visible: boolean;

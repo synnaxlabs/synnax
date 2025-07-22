@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Rack } from "@/hardware/rack";
 import { useList } from "@/hardware/rack/queries";
 import { Icon } from "@/icon";

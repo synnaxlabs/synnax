@@ -132,7 +132,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, this.ontology);
+    this.labels = new label.Client(this.transport.unary);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
