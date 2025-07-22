@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
   status: task.Status<StatusData>,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate, uuid } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import * as v1 from "@/schematic/types/v1";
 

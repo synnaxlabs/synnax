@@ -89,6 +89,7 @@ export default [
       "react/prop-types": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "react/no-unescaped-entities": "off",
+      "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/require-await": "off",

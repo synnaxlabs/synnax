@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactNode } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type Icon } from "@/icon";
 import { type RenderProp as BaseRenderProp } from "@/util/renderProp";

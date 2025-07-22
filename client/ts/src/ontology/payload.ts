@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type change, record } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,

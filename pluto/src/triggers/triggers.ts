@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { compare, type xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
 

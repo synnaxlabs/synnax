@@ -22,7 +22,7 @@ import {
 import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
@@ -135,11 +135,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       dispatch(add({ ranges: [newRange], switchActive: false }));
     },
   });
-  const name = Form.useFieldValue<string, string, typeof formSchema>(
-    "name",
-    false,
-    formCtx,
-  );
+  const name = Form.useFieldValue<string, string, typeof formSchema>("name", {
+    ctx: formCtx,
+  });
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });

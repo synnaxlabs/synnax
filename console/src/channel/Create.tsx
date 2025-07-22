@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -99,16 +99,12 @@ export const Create: Layout.Renderer = ({ onClose }) => {
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, Schema>(
-    "isIndex",
-    false,
-    methods,
-  );
-  const isVirtual = Form.useFieldValue<boolean, boolean, Schema>(
-    "virtual",
-    false,
-    methods,
-  );
+  const isIndex = Form.useFieldValue<boolean, boolean, Schema>("isIndex", {
+    ctx: methods,
+  });
+  const isVirtual = Form.useFieldValue<boolean, boolean, Schema>("virtual", {
+    ctx: methods,
+  });
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>

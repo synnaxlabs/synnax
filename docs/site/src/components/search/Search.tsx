@@ -163,7 +163,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
   }, []);
 
   useEffect(() => {
-    void handleSearch("");
+    handleSearch("").catch(console.error);
     inputRef.current?.focus();
   }, [visible]);
 

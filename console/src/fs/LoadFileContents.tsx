@@ -14,7 +14,7 @@ import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 
