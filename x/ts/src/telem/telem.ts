@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
-import { type Stringer } from "@/primitive/primitive";
 import { type bounds } from "@/spatial";
 
 /** Time zone specification when working with time stamps. */
@@ -995,15 +994,17 @@ export class TimeSpan
 }
 
 /** Rate represents a data rate in Hz. */
-export class Rate implements Stringer {
-  readonly value: number;
+export class Rate
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   constructor(value: CrudeRate) {
-    this.value = Number(value);
+    super(value.valueOf());
   }
 
   /** @returns a pretty string representation of the rate in the format "X Hz". */
   toString(): string {
-    return `${this.value} Hz`;
+    return `${this.valueOf()} Hz`;
   }
 
   /** @returns The number of seconds in the Rate. */
@@ -1017,7 +1018,7 @@ export class Rate implements Stringer {
    * @returns A TimeSpan representing the period of the Rate.
    */
   get period(): TimeSpan {
-    return TimeSpan.seconds(1 / this.value);
+    return TimeSpan.seconds(1 / this.valueOf());
   }
 
   /**
@@ -1027,7 +1028,7 @@ export class Rate implements Stringer {
    * @returns The number of samples in the given TimeSpan at this rate.
    */
   sampleCount(duration: CrudeTimeSpan): number {
-    return new TimeSpan(duration).seconds * this.value;
+    return new TimeSpan(duration).seconds * this.valueOf();
   }
 
   /**
@@ -1094,8 +1095,10 @@ export class Rate implements Stringer {
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density implements Stringer {
-  readonly value: number;
+export class Density
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   /**
    * Creates a Density representing the given number of bytes per value.
    *
@@ -1104,11 +1107,7 @@ export class Density implements Stringer {
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: CrudeDensity) {
-    this.value = Number(value);
-  }
-
-  valueOf(): number {
-    return this.value;
+    super(value.valueOf());
   }
 
   /**
@@ -1118,7 +1117,7 @@ export class Density implements Stringer {
    * @returns The number of values in the given Size.
    */
   length(size: Size): number {
-    return size.valueOf() / this.value;
+    return size.valueOf() / this.valueOf();
   }
 
   /**
@@ -1128,7 +1127,7 @@ export class Density implements Stringer {
    * @returns A Size representing the given number of values.
    */
   size(sampleCount: number): Size {
-    return new Size(sampleCount * this.value);
+    return new Size(sampleCount * this.valueOf());
   }
 
   /** Unknown/Invalid Density. */
@@ -1687,19 +1686,17 @@ export class DataType
 /**
  * The Size of an element in bytes.
  */
-export class Size implements Stringer {
-  readonly value: number;
+export class Size
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   constructor(value: CrudeSize) {
-    this.value = Number(value);
-  }
-
-  valueOf(): number {
-    return this.value;
+    super(value.valueOf());
   }
 
   /** @returns true if the Size is larger than the other size. */
   largerThan(other: CrudeSize): boolean {
-    return this.value > other.valueOf();
+    return this.valueOf() > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other size. */

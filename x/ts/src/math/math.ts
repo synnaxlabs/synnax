@@ -20,8 +20,7 @@ export const sub = <V extends Numeric>(a: V, b: Numeric): V => {
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
 export const add = <V extends Numeric>(a: V, b: Numeric): V => {
   if (typeof a === "bigint") return (a + BigInt(b)) as V;
-  // @ts-expect-error - a is a number
-  return (a + Number(b)) as V;
+  return ((a as unknown as number) + Number(b)) as V;
 };
 
 /** @returns true if a is close to b within epsilon. */
@@ -47,6 +46,7 @@ export const roundToNearestMagnitude = (num: number): number => {
 
 /** @returns the minimum of a and b, coercing b to the type of a if necessary. */
 export const min = <V extends Numeric>(a: V, b: Numeric): V => {
+  if (a <= b) return a;
   if (typeof a === "bigint") return (a <= b ? a : BigInt(b)) as V;
   return (a <= b ? a : Number(b)) as V;
 };
