@@ -9,7 +9,6 @@
 
 import {
   Component,
-  Flux,
   Icon,
   Input,
   List,

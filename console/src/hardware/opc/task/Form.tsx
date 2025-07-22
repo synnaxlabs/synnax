@@ -16,7 +16,6 @@ import {
   Haul,
   Header as PHeader,
   Icon,
-  List,
   type RenderProp,
   Select,
   Text,

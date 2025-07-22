@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, List, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
+import { Align, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
