@@ -115,7 +115,6 @@ export class Client {
     if (typeof keys === "string" || Array.isArray(keys))
       req = { keys: array.toArray(keys) };
     else req = keys;
-    console.log(req);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -123,7 +122,6 @@ export class Client {
       retrieveReqZ,
       retrieveResZ,
     );
-    console.log(res, isMany);
     return isMany ? res.workspaces : res.workspaces[0];
   }
 
