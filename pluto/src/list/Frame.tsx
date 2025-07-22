@@ -205,7 +205,7 @@ const StaticFrame = <
       scrollTo = index + dirMultiplier;
     else scrollTo = index;
     const child = container.children[scrollTo] as HTMLElement | undefined;
-    if (child)
+    if (child != null)
       child.scrollIntoView({
         block: "nearest",
         inline: "nearest",

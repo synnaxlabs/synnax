@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { type List } from "@/list";
 
 export interface UseKeysDataReturn<K extends record.Key = record.Key>
-  extends Pick<List.FrameProps<K, record.Keyed<K>>, "getItem"> {
+  extends Required<Pick<List.FrameProps<K, record.Keyed<K>>, "getItem">> {
   data: K[];
 }
 
