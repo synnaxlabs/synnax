@@ -11,49 +11,49 @@ import { renderHook } from "@testing-library/react";
 import { useCallback } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Flux } from "@/flux";
+import { List } from "@/list";
 import { state } from "@/state";
 
 describe("pager", () => {
   it("should fetch the correct page when onFetchMore is called", () => {
-    let currParams: Flux.PagerParams | undefined;
+    let currParams: List.PagerParams | undefined;
     const { result } = renderHook(() => {
       const retrieve = useCallback(
-        (setter: state.SetArg<Flux.PagerParams, Partial<Flux.PagerParams>>) => {
+        (setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>) => {
           const nextParams = state.executeSetter(setter, currParams ?? {});
           currParams = nextParams;
           return nextParams;
         },
         [],
       );
-      return Flux.usePager({ retrieve });
+      return List.usePager({ retrieve });
     });
     result.current.onFetchMore();
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
-      term: undefined,
+      term: "",
     });
     result.current.onFetchMore();
     expect(currParams).toEqual({
       offset: 10,
       limit: 10,
-      term: undefined,
+      term: "",
     });
   });
 
   it("should reset the offset when onSearch is called", () => {
-    let currParams: Flux.PagerParams | undefined;
+    let currParams: List.PagerParams | undefined;
     const { result } = renderHook(() => {
       const retrieve = useCallback(
-        (setter: state.SetArg<Flux.PagerParams, Partial<Flux.PagerParams>>) => {
+        (setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>) => {
           const nextParams = state.executeSetter(setter, currParams ?? {});
           currParams = nextParams;
           return nextParams;
         },
         [],
       );
-      return Flux.usePager({ retrieve });
+      return List.usePager({ retrieve });
     });
     result.current.onSearch("test");
     expect(currParams).toEqual({

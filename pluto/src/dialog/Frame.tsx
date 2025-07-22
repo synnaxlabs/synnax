@@ -191,7 +191,7 @@ export const Frame = ({
     [zIndex],
   );
 
-  useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
+  useClickOutside({ ref: dialogRef, exclude, onClickOutside: console.log });
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,

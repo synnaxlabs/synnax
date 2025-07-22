@@ -10,7 +10,7 @@
 import { type Optional, type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+// import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -51,7 +51,7 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   ...rest
 }: SimpleProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Single<K, E>
       {...rest}

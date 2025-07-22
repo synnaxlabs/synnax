@@ -15,7 +15,7 @@ import { useAliases } from "@/channel/AliasContext";
 import { type ListParams, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -75,7 +75,7 @@ export const SelectMultiple = ({
     initialParams,
     filter,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       resourceName="Channel"
@@ -117,7 +117,7 @@ export const SelectSingle = ({
     initialParams,
     filter,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Single<channel.Key, channel.Channel | undefined>
       resourceName="Channel"

@@ -349,7 +349,7 @@ describe("Form", () => {
       expect(result.current.parent.value?.ssn).toEqual("123-45-6786");
     });
 
-    it("should update an array parent when a child in the array changes", () => {
+    it("should update an array parent when a child in the array changes", async () => {
       const { result } = renderHook(
         () => {
           const ctx = Form.useContext();

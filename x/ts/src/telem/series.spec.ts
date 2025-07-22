@@ -702,6 +702,24 @@ describe("Series", () => {
         { a: 3, b: "carrot" },
       ]);
     });
+
+    it("should construct a JS array from a UUID series", () => {
+      // Valid UUID v4 bytes (version 4, variant 1)
+      const bytes = new Uint8Array([
+        // First UUID: 123e4567-e89b-4xxx-yxxx-426614174000 (version 4, variant 1)
+        0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14,
+        0x17, 0x40, 0x00,
+        // Second UUID: 7f3e4567-e89b-4xxx-yxxx-426614174000 (version 4, variant 1)
+        0x7f, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14,
+        0x17, 0x40, 0x00,
+      ]);
+      const s = new Series({ data: bytes, dataType: DataType.UUID });
+      const arr = Array.from(s);
+      expect(arr).toEqual([
+        "123e4567-e89b-40d3-8056-426614174000",
+        "7f3e4567-e89b-40d3-8056-426614174000",
+      ]);
+    });
   });
 
   describe("as", () => {
@@ -809,7 +827,7 @@ describe("Series", () => {
     });
   });
 
-  describe("toUUIDs", () => {
+  describe("converting to a JS array", () => {
     it("should convert a UUID series to an array of UUID strings", () => {
       // Valid UUID v4 bytes (version 4, variant 1)
       const bytes = new Uint8Array([
@@ -821,20 +839,15 @@ describe("Series", () => {
         0x17, 0x40, 0x00,
       ]);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(2);
       expect(uuids[0]).toBe("123e4567-e89b-40d3-8056-426614174000");
       expect(uuids[1]).toBe("7f3e4567-e89b-40d3-8056-426614174000");
     });
 
-    it("should throw an error when converting non-UUID series", () => {
-      const series = new Series({ data: [1, 2, 3], dataType: DataType.INT32 });
-      expect(() => series.toUUIDs()).toThrow("cannot convert non-uuid series to uuids");
-    });
-
     it("should handle empty UUID series", () => {
       const series = new Series({ data: new Uint8Array(), dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(0);
     });
 
@@ -842,7 +855,7 @@ describe("Series", () => {
       // Nil UUID: 00000000-0000-0000-0000-000000000000
       const bytes = new Uint8Array(16).fill(0);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("00000000-0000-0000-0000-000000000000");
     });
@@ -851,7 +864,7 @@ describe("Series", () => {
       // Max UUID: ffffffff-ffff-ffff-ffff-ffffffffffff
       const bytes = new Uint8Array(16).fill(0xff);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("ffffffff-ffff-ffff-ffff-ffffffffffff");
     });

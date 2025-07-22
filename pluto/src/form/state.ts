@@ -216,13 +216,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return cachedRef;
   }
 
-  private updateCachedRefs(parentPath: string) {
-    this.cachedRefs.forEach((_, childPath) => {
-      if (
-        deep.pathsMatch(childPath, parentPath) ||
-        deep.pathsMatch(parentPath, childPath)
-      )
-        this.cachedRefs.set(childPath, {});
+  private updateCachedRefs(fieldPath: string) {
+    this.cachedRefs.forEach((_, refPath) => {
+      if (deep.pathsMatch(refPath, fieldPath) || deep.pathsMatch(fieldPath, refPath))
+        this.cachedRefs.set(refPath, {});
     });
   }
 }

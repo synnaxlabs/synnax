@@ -75,7 +75,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Multiple<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
@@ -117,7 +117,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Single<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"

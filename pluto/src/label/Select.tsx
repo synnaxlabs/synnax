@@ -61,7 +61,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       resourceName="Label"
@@ -102,7 +102,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Single<label.Key, label.Label | undefined>
       resourceName="Label"

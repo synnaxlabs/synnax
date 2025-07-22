@@ -53,7 +53,7 @@ describe("Select.Multiple", () => {
       const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { onSearch } = Flux.usePager({ retrieve });
+      const { onSearch } = List.usePager({ retrieve });
       const [value, setValue] = useState<string[]>([]);
       const handleChange = (keys: string[]) => {
         setValue(keys);

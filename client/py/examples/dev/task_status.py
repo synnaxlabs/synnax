@@ -18,7 +18,7 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(["sy_task_status"]) as s:
+with client.open_streamer(["sy_range_delete"]) as s:
     for frame in s:
-        for v in frame["sy_task_status"]:
+        for v in frame["sy_range_delete"]:
             print(v)

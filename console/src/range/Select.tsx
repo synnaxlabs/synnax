@@ -81,7 +81,7 @@ export const renderTag = Component.renderProp(RangeTag);
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
   const entries = useSelectMultiple();
   const { data, retrieve } = List.useStaticData<string>({ data: entries });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   return (
     <Select.Multiple<string, Range>
       resourceName="Range"

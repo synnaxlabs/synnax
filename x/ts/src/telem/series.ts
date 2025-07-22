@@ -506,21 +506,7 @@ export class Series<T extends TelemValue = TelemValue>
   toStrings(): string[] {
     if (this.dataType.isVariable)
       return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
-    if (this.dataType.equals(DataType.UUID)) return this.toUUIDs();
     return Array.from(this).map((d) => d.toString());
-  }
-
-  /**
-   * Returns a parsed array of UUIDs from the series.
-   * @throws Error if the series does not have a data type of UUID.
-   * @returns An array of UUID strings.
-   */
-  toUUIDs(): string[] {
-    if (!this.dataType.equals(DataType.UUID))
-      throw new Error("cannot convert non-uuid series to uuids");
-    const den = DataType.UUID.density.valueOf();
-    const d = new Uint8Array(this.underlyingData.buffer);
-    return Array.from({ length: this.length }, (_, i) => uuid.parse(d, i * den));
   }
 
   /**
@@ -906,6 +892,9 @@ export class Series<T extends TelemValue = TelemValue>
         return new JSONSeriesIterator(s) as Iterator<T>;
       return s as Iterator<T>;
     }
+    if (this.dataType.equals(DataType.UUID))
+      return new UUIDSeriesIterator(this) as Iterator<T>;
+
     return new FixedSeriesIterator(this) as Iterator<T>;
   }
 
@@ -1094,6 +1083,29 @@ class JSONSeriesIterator implements Iterator<unknown> {
       done: false,
       value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.schema),
     };
+  }
+}
+
+class UUIDSeriesIterator implements Iterator<string> {
+  private readonly series: Series;
+  private index: number;
+  private readonly data: Uint8Array;
+  private readonly density: number;
+
+  constructor(series: Series) {
+    if (!series.dataType.equals(DataType.UUID))
+      throw new Error("cannot create a UUID series iterator for a non-UUID series");
+    this.series = series;
+    this.index = 0;
+    this.data = new Uint8Array(series.buffer);
+    this.density = DataType.UUID.density.valueOf();
+  }
+
+  next(): IteratorResult<string> {
+    if (this.index >= this.series.length) return { done: true, value: undefined };
+    const uuidString = uuid.parse(this.data, this.index * this.density);
+    this.index++;
+    return { done: false, value: uuidString };
   }
 }
 

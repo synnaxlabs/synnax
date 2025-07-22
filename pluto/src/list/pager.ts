@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type UseListReturn } from "@/flux/list";
-import { type Params } from "@/flux/params";
+import { type state } from "@/state";
 
 /**
- * Parameters for pagination functionality, extending the base Params interface.
+ * Parameters for pagination functionality.
  * These parameters are automatically managed by the pager utilities.
  */
-export interface PagerParams extends Params {
+export interface PagerParams extends Record<string, primitive.Value> {
   /** Search term for filtering results */
   term?: string;
   /** Number of items to skip (for pagination) */
@@ -35,11 +35,19 @@ export interface UsePagerReturn {
   onSearch: (term: string) => void;
 }
 
+interface RetrieveOptions {
+  mode?: "append" | "replace";
+}
+
 /**
  * Arguments for the usePager hook.
  */
-export interface UsePagerArgs
-  extends Pick<UseListReturn<PagerParams, any, any>, "retrieve"> {
+export interface UsePagerArgs {
+  /** Function to retrieve data */
+  retrieve: (
+    setter: state.SetArg<PagerParams, Partial<PagerParams>>,
+    options?: RetrieveOptions,
+  ) => void;
   /** Number of items per page (default: 10) */
   pageSize?: number;
 }

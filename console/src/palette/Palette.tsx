@@ -117,7 +117,7 @@ const DialogContent = ({
   const commandProps = useCommandList();
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
     value.startsWith(commandSymbol) ? commandProps : resourceProps;
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { onFetchMore, onSearch } = List.usePager({ retrieve });
   const handleSearch = useCallback(
     (v: string) => {
       onChange(v);

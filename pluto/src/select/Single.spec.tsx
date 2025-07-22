@@ -55,7 +55,7 @@ describe("Select.Single", () => {
       const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { onSearch } = Flux.usePager({ retrieve });
+      const { onSearch } = List.usePager({ retrieve });
       const [value, setValue] = useState<string | undefined>(undefined);
       const handleChange = (key: string | undefined) => {
         setValue(key);
@@ -188,7 +188,7 @@ describe("Select.Single", () => {
       const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { onSearch } = Flux.usePager({ retrieve });
+      const { onSearch } = List.usePager({ retrieve });
       return (
         <Select.Single<string, TestEntry>
           getItem={getItem}

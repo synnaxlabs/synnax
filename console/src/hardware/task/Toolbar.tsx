@@ -13,7 +13,6 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -80,7 +79,7 @@ const Content = () => {
   const { data, getItem, subscribe, retrieve } = Task.useList({
     filter: filterExternal,
   });
-  const { onFetchMore } = Flux.usePager({ retrieve });
+  const { onFetchMore } = List.usePager({ retrieve });
 
   const rename = useMutation({
     onMutate: ({ key }) => getItem(key)?.name ?? "task",
