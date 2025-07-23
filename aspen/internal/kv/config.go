@@ -14,7 +14,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -51,7 +52,7 @@ type Config struct {
 	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
-	Engine xkv.DB
+	Engine kv.DB
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration
@@ -60,6 +61,11 @@ type Config struct {
 	// [Not Required]
 	RecoveryThreshold int
 }
+
+var (
+	_ config.Config[Config] = Config{}
+	_ alamos.ReportProvider = Config{}
+)
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {

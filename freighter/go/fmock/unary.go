@@ -97,11 +97,11 @@ func (uc *UnaryClient[RQ, RS]) Send(
 				handler = route.exec
 			}
 			res, oMD, err = handler(ctx, req)
-			if err != nil {
-				return oMD, err
-			}
 			if uc.network != nil {
 				uc.network.appendEntry(target, req, res, err)
+			}
+			if err != nil {
+				return freighter.Context{}, err
 			}
 			return oMD, nil
 		})
