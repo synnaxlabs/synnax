@@ -61,9 +61,6 @@ func (a Address) Port() int {
 // Address("localhost:9090").Host() would return "localhost".
 func (a Address) Host() string {
 	parts := strings.Split(string(a), ":")
-	if len(parts) == 0 {
-		return ""
-	}
 	return parts[0]
 }
 

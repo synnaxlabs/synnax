@@ -66,6 +66,4 @@ type Func[I, O any] func(I, Handler[I, O]) (O, error)
 var _ Middleware[any, any] = (*Func[any, any])(nil)
 
 // Exec calls f(in, next)
-func (f Func[I, O]) Exec(in I, next Handler[I, O]) (O, error) {
-	return f(in, next)
-}
+func (f Func[I, O]) Exec(in I, next Handler[I, O]) (O, error) { return f(in, next) }

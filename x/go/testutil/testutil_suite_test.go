@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil
+package testutil_test
 
-import "github.com/onsi/ginkgo/v2"
+import (
+	"testing"
 
-var (
-	Integration = ginkgo.Label("integration")
-	Performance = ginkgo.Label("performance")
-	Slow        = ginkgo.Label("slow")
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
+
+func TestTestUtil(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "TestUtil Suite")
+}
