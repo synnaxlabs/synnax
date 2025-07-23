@@ -21,7 +21,7 @@ const formSchema = z.object({
   age: z.number(),
 });
 
-interface Params extends Flux.Params {
+interface Params {
   key?: string;
 }
 

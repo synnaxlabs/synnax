@@ -25,7 +25,7 @@ import {
   parseIDs,
   type RelationshipChange,
   type RelationshipDirection,
-  relationShipZ,
+  relationshipZ,
   type Resource,
   type ResourceChange,
   resourceTypeZ,
@@ -297,7 +297,7 @@ export class ChangeTracker {
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "set",
-      key: relationShipZ.parse(rel),
+      key: relationshipZ.parse(rel),
       value: undefined,
     }));
   }
@@ -307,7 +307,7 @@ export class ChangeTracker {
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "delete",
-      key: relationShipZ.parse(rel),
+      key: relationshipZ.parse(rel),
     }));
   }
 

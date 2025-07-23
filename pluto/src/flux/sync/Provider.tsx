@@ -29,19 +29,16 @@ export const Provider = ({ children }: ProviderProps): ReactElement => {
   const streamerRef = useRef<sync.Mutex<MutexValue>>(sync.newMutex({ streamer: null }));
   const handleError = Status.useErrorHandler();
 
-  useAsyncEffect(
-    async () => async () => {
-      await updateStreamer();
-      return async () =>
-        await streamerRef.current.runExclusive(async () => {
-          const { streamer } = streamerRef.current;
-          if (streamer == null) return;
-          await streamer.close();
-          streamerRef.current.streamer = null;
-        });
-    },
-    [client],
-  );
+  useAsyncEffect(async () => {
+    await updateStreamer();
+    return async () =>
+      await streamerRef.current.runExclusive(async () => {
+        const { streamer } = streamerRef.current;
+        if (streamer == null) return;
+        await streamer.close();
+        streamerRef.current.streamer = null;
+      });
+  }, [client]);
 
   const handleChange = useCallback(
     (frame: framer.Frame) => {

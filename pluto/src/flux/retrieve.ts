@@ -11,8 +11,7 @@ import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type MultiSeries } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
-import { useMountSynchronizers } from "@/flux/listeners";
-import { type AsyncOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -21,6 +20,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { type Sync } from "@/flux/sync";
+import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
@@ -32,10 +32,7 @@ import { Synnax as PSynnax } from "@/synnax";
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-interface RetrieveListenerExtraArgs<
-  RetrieveParams extends Params,
-  Data extends state.State,
-> {
+interface RetrieveListenerExtraArgs<RetrieveParams, Data extends state.State> {
   /** The current retrieve parameters */
   params: RetrieveParams;
   /** The Synnax client instance */
@@ -54,10 +51,7 @@ interface RetrieveListenerExtraArgs<
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface RetrieveListenerConfig<
-  RetrieveParams extends Params,
-  Data extends state.State,
-> {
+export interface RetrieveListenerConfig<RetrieveParams, Data extends state.State> {
   /** The channel to listen to for real-time updates */
   channel: channel.Name;
   /** The function to call when a new value is received from the channel */
@@ -72,7 +66,7 @@ export interface RetrieveListenerConfig<
  *
  * @template RetrieveParams The type of parameters for the retrieve operation
  */
-export interface RetrieveArgs<RetrieveParams extends Params> {
+export interface RetrieveArgs<RetrieveParams> {
   /** The Synnax client instance for making requests */
   client: Synnax;
   /** The parameters for the retrieve operation */
@@ -85,13 +79,11 @@ export interface RetrieveArgs<RetrieveParams extends Params> {
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface CreateRetrieveArgs<
-  RetrieveParams extends Params,
-  Data extends state.State,
-> {
+export interface CreateRetrieveArgs<RetrieveParams, Data extends state.State> {
   /**
    * The name of the resource being retrieved. This is used to make pretty messages for
-   * the various query states.
+   * the various query states. This name should be in a human readable format and
+   * capitalized as a proper noun.
    */
   name: string;
   /** Function executed when the query is evaluated or the query parameters change. */
@@ -126,12 +118,12 @@ export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
   /** Function to trigger a retrieve operation (fire-and-forget) */
   retrieve: (
     params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-    options?: AsyncOptions,
+    options?: FetchOptions,
   ) => void;
   /** Function to trigger a retrieve operation and await the result */
   retrieveAsync: (
     params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-    options?: AsyncOptions,
+    options?: FetchOptions,
   ) => Promise<void>;
 }
 
@@ -217,7 +209,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-      options: AsyncOptions = {},
+      options: FetchOptions = {},
     ) => {
       const { signal } = options;
       const params = state.executeSetter<RetrieveParams, Partial<RetrieveParams>>(

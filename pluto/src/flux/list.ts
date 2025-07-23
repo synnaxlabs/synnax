@@ -19,8 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
-import { useMountSynchronizers } from "@/flux/listeners";
-import { type AsyncOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -30,6 +29,7 @@ import {
 } from "@/flux/result";
 import { type CreateRetrieveArgs } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
+import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -55,7 +55,7 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 /**
  * Options for async list operations.
  */
-interface AsyncListOptions extends AsyncOptions {
+interface AsyncListOptions extends FetchOptions {
   /**
    * How to modify the list when new data is retrieved. In append mode, new entries
    * will be added to the end of the list. In replace mode, the list will be replaced
@@ -177,6 +177,7 @@ interface ListListenerExtraArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
+  changed: MultiSeries;
   /** The current retrieve parameters */
   params: RetrieveParams;
   /** The Synnax client instance */
@@ -420,7 +421,7 @@ export const createList =
     );
 
     const retrieveSingle = useCallback(
-      (key: K, options: AsyncOptions = {}) => {
+      (key: K, options: FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {

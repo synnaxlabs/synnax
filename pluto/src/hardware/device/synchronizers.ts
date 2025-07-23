@@ -14,17 +14,13 @@ import { Sync } from "@/flux/sync";
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
   Sync.useListener({
     channel: device.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.deviceZ, async (args) => {
-      onSet(args.changed);
-    }),
+    onChange: Sync.parsedHandler(device.deviceZ, (args) => onSet(args.changed)),
   });
 
 export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
   Sync.useListener({
     channel: device.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
+    onChange: Sync.parsedHandler(device.keyZ, (args) => onDelete(args.changed)),
   });
 
 export const useStatusSynchronizer = (
@@ -32,7 +28,7 @@ export const useStatusSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: device.STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.statusZ, async (args) => {
-      onStatusChange(args.changed);
-    }),
+    onChange: Sync.parsedHandler(device.statusZ, (args) =>
+      onStatusChange(args.changed),
+    ),
   });

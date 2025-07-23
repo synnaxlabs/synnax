@@ -33,7 +33,7 @@ export const useRelationshipSetSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onSet(changed);
     }),
   });
@@ -43,7 +43,7 @@ export const useRelationshipDeleteSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onDelete(changed);
     }),
   });
@@ -59,7 +59,7 @@ const matchRelationshipAndID = (
     id,
   );
 
-interface UseDependentQueryParams extends Flux.Params {
+interface UseDependentQueryParams {
   id: ontology.ID;
   direction: ontology.RelationshipDirection;
 }
@@ -78,7 +78,7 @@ const retrieveDependents = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ client, changed, params: { id, direction }, onChange }) => {
           if (!matchRelationshipAndID(changed, direction, id)) return;
           const dependent = await client.ontology.retrieve(changed[direction]);
@@ -92,7 +92,7 @@ const retrieveDependents = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, params: { id, direction }, onChange }) => {
           if (!matchRelationshipAndID(changed, direction, id)) return;
           onChange((p) =>
@@ -126,7 +126,7 @@ export const useParents = (
 ): Flux.UseDirectRetrieveReturn<ontology.Resource[]> =>
   retrieveDependents.useDirect({ params: { id, direction: "from" } });
 
-export interface UseResourceQueryParams extends Flux.Params {
+export interface UseResourceQueryParams {
   id: ontology.ID;
 }
 

@@ -10,7 +10,7 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type AsyncOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -61,9 +61,9 @@ export interface CreateUpdateArgs<
  */
 export interface UseObservableUpdateReturn<Data extends state.State> {
   /** Function to trigger an update (fire-and-forget) */
-  update: (value: Data, opts?: AsyncOptions) => void;
+  update: (value: Data, opts?: FetchOptions) => void;
   /** Function to trigger an update and await the result */
-  updateAsync: (value: Data, opts?: AsyncOptions) => Promise<void>;
+  updateAsync: (value: Data, opts?: FetchOptions) => Promise<void>;
 }
 
 /**
@@ -131,7 +131,7 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   CreateUpdateArgs<UpdateParams, Data>): UseObservableUpdateReturn<Data> => {
   const client = PSynnax.use();
   const handleUpdate = useCallback(
-    async (value: Data, opts: AsyncOptions = {}) => {
+    async (value: Data, opts: FetchOptions = {}) => {
       const { signal } = opts;
       try {
         if (client == null) return onChange(nullClientResult(name, "update"));

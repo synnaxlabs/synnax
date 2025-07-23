@@ -9,7 +9,7 @@
 
 import { label, ontology, ranger } from "@synnaxlabs/client";
 import { type Optional, primitive } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -77,7 +77,7 @@ export const useParent = (
   return { ...res, data: client.ranges.sugarOntologyResource(parent) };
 };
 
-export interface QueryParams extends Flux.Params {
+export interface QueryParams {
   key: ranger.Key;
 }
 
@@ -159,7 +159,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
@@ -179,13 +179,16 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
-            if (Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
-            return { ...prev, labels: prev.labels.filter((l) => l !== rel.to.key) };
+            if (!Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
+              return prev;
+            return {
+              ...prev,
+              labels: prev.labels.filter((l) => l !== changed.to.key),
+            };
           });
         },
       ),
@@ -193,17 +196,16 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
             if (
-              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
+              changed.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
             )
               return prev;
-            return { ...prev, parent: rel.from.key };
+            return { ...prev, parent: changed.from.key };
           });
         },
       ),
@@ -211,14 +213,13 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
             if (
-              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
+              changed.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
             )
               return prev;
             return { ...prev, parent: undefined };
@@ -234,7 +235,7 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
 
-interface ListParams extends Flux.Params {
+interface ListParams {
   term?: string;
   offset?: number;
   limit?: number;

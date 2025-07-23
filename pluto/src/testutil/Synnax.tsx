@@ -33,10 +33,10 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const newSynnaxWrapper =
-  (client: Synnax | null = null): FC<PropsWithChildren> =>
-  // eslint-disable-next-line react/display-name
-  ({ children }: PropsWithChildren): ReactElement => (
+export const newSynnaxWrapper = (
+  client: Synnax | null = null,
+): FC<PropsWithChildren> => {
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <PSynnax.TestProvider client={client}>
@@ -45,3 +45,5 @@ export const newSynnaxWrapper =
       </Status.Aggregator>
     </AetherProvider>
   );
+  return Wrapper;
+};

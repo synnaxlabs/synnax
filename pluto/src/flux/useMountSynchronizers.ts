@@ -2,7 +2,6 @@ import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
 
 /**
  * Internal reference object for managing synchronizer lifecycle.
@@ -48,20 +47,17 @@ export const useMountSynchronizers = (): ((listeners?: Sync.Subscriber[]) => voi
     destructor: () => {},
   });
   const addListener = Sync.useAddListener();
-  const client = PSynnax.use();
-
   // Clean up listeners when component unmounts
   useEffect(() => () => ref.current.destructor(), []);
-
   return useCallback(
     (listeners?: Sync.Subscriber[]) => {
-      if (listeners == null || listeners.length === 0 || client == null) return;
+      if (listeners == null || listeners.length === 0) return;
       ref.current.mounted = true;
       const destructors = listeners.map(({ channel, handler }) =>
         addListener({ channel, handler }),
       );
       ref.current.destructor = () => destructors.forEach((d) => d());
     },
-    [addListener, client],
+    [addListener],
   );
 };

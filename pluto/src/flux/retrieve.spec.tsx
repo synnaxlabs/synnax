@@ -18,11 +18,10 @@ const client = newTestClient();
 
 describe("retrieve", () => {
   describe("basic retrieval", () => {
-    interface Params extends Flux.Params {}
     it("should return a loading result as its initial state", () => {
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, number>({
+          Flux.createRetrieve<{}, number>({
             name: "Resource",
             retrieve: async () => 0,
           }).useDirect({ params: {} }),
@@ -37,7 +36,7 @@ describe("retrieve", () => {
     it("should return a success result when the data is fetched", async () => {
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, number>({
+          Flux.createRetrieve<{}, number>({
             name: "Resource",
             retrieve: async () => 12,
           }).useDirect({ params: {} }),
@@ -54,7 +53,7 @@ describe("retrieve", () => {
     it("should return an error result when the retrieve function throws an error", async () => {
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, number>({
+          Flux.createRetrieve<{}, number>({
             name: "Resource",
             retrieve: async () => {
               throw new Error("test");
@@ -74,7 +73,7 @@ describe("retrieve", () => {
     it("should return an error result when no client is connected", async () => {
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, number>({
+          Flux.createRetrieve<{}, number>({
             name: "Resource",
             retrieve: async () => 0,
           }).useDirect({ params: {} }),
@@ -103,12 +102,9 @@ describe("retrieve", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Flux.Params {
-        key: channel.Key;
-      }
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, channel.Channel>({
+          Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>
               await client.channels.retrieve(key),
@@ -142,12 +138,9 @@ describe("retrieve", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Flux.Params {
-        key: channel.Key;
-      }
       const { result } = renderHook(
         () =>
-          Flux.createRetrieve<Params, channel.Channel>({
+          Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>
               await client.channels.retrieve(key),

@@ -72,7 +72,7 @@ export interface AfterSaveArgs<FormParams extends Params, Z extends z.ZodObject>
 export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
-  /** Whether to automatically save form changes (not currently implemented) */
+  /** Whether to automatically save form changes */
   autoSave?: boolean;
   /** Parameters for the form query */
   params: FormParams;
@@ -159,8 +159,8 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     ) => {
       const nextStatus = state.executeSetter(setter, {
         ...resultRef.current,
-        data: form.value() as any,
-      });
+        data: form.value(),
+      } as Result<z.infer<Schema>>);
       if (nextStatus.data != null) {
         form.set("", nextStatus.data);
         form.setCurrentStateAsInitialValues();

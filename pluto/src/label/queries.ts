@@ -17,7 +17,7 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
   rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
   ontology.idsEqual(rel.from, id);
 
-interface UseLabelsOfQueryParams extends Flux.Params {
+interface UseLabelsOfQueryParams {
   id: ontology.ID;
 }
 
@@ -43,7 +43,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
@@ -55,7 +55,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           onChange((prev) => prev.filter((l) => l.key !== changed.to.key));
@@ -86,7 +86,7 @@ export const useLabelsOfForm = Flux.createForm<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
@@ -101,7 +101,7 @@ export const useLabelsOfForm = Flux.createForm<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           onChange((prev) => {
