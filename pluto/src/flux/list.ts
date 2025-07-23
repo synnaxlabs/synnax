@@ -47,7 +47,7 @@ import { Synnax as PSynnax } from "@/synnax";
  */
 interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   /** Get a single item by key, returns undefined if not found */
-  (key?: K): E | undefined;
+  (key: K): E | undefined;
   /** Get multiple items by an array of keys */
   (keys: K[]): E[];
 }
@@ -91,7 +91,7 @@ export type UseListReturn<
   /** Function to get items by key, with automatic lazy loading */
   getItem: GetItem<K, E>;
   /** Function to subscribe to changes for specific items */
-  subscribe: (callback: () => void, key?: K) => Destructor;
+  subscribe: (callback: () => void, key: K) => Destructor;
 };
 
 /**
@@ -491,7 +491,7 @@ export const createList =
 export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
   extends Pick<UseListReturn<Params, K, E>, "subscribe" | "getItem"> {
   /** The key of the item to retrieve and subscribe to */
-  key?: K;
+  key: K;
 }
 
 /**
