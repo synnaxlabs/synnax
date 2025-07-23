@@ -73,6 +73,7 @@ type Transport struct {
 
 	ExportCSV freighter.UnaryServer[ExportCSVRequest, ExportCSVResponse]
 
+	FrameRead     freighter.UnaryServer[FrameReadRequest, FrameReadResponse]
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]

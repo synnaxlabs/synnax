@@ -137,6 +137,23 @@ func (uc *unaryClient[RQ, RS]) Send(
 }
 
 func encodeAndWrite(ctx *fiber.Ctx, codec httputil.Codec, v any) error {
+	if uReader, ok := v.(freighter.UnaryReadable); ok {
+		r, w := io.Pipe()
+		go func() {
+			for {
+				v, err := uReader.Read()
+				if err != nil {
+					w.CloseWithError(err)
+					return
+				}
+				if err := codec.EncodeStream(ctx.Context(), w, v); err != nil {
+					w.CloseWithError(err)
+					return
+				}
+			}
+		}()
+		return ctx.SendStream(r)
+	}
 	if r, ok := v.(io.Reader); ok {
 		return ctx.SendStream(r)
 	}

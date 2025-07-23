@@ -25,6 +25,7 @@ func New(channels channel.Readable) (api.Transport, []fgrpc.BindableTransport) {
 		ChannelRename:          fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{},
 		ChannelRetrieveGroup:   fnoop.UnaryServer[types.Nil, api.ChannelRetrieveGroupResponse]{},
 		ExportCSV:              fnoop.UnaryServer[api.ExportCSVRequest, api.ExportCSVResponse]{},
+		FrameRead:              fnoop.UnaryServer[api.FrameReadRequest, api.FrameReadResponse]{},
 		UserRename:             fnoop.UnaryServer[api.UserRenameRequest, types.Nil]{},
 		UserChangeUsername:     fnoop.UnaryServer[api.UserChangeUsernameRequest, types.Nil]{},
 		UserCreate:             fnoop.UnaryServer[api.UserCreateRequest, api.UserCreateResponse]{},

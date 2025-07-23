@@ -36,3 +36,7 @@ type UnaryServer[RQ, RS Payload] interface {
 	// form).
 	BindHandler(func(context.Context, RQ) (RS, error))
 }
+
+type UnaryReadable interface {
+	Read() (any, error)
+}

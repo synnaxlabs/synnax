@@ -72,6 +72,96 @@ func NewFrameService(p Provider) *FrameService {
 	}
 }
 
+type FrameReadRequest struct {
+	Keys         channel.Keys           `json:"keys" msgpack:"keys"`
+	TimeRange    telem.TimeRange        `json:"time_range" msgpack:"time_range"`
+	ChannelNames map[channel.Key]string `json:"channel_names" msgpack:"channel_names"`
+}
+
+type FrameReadResponse struct {
+	metaData        FrameReadMetadataWrite
+	frameChannel    chan Frame
+	errorChannel    chan error
+	metaDataWritten bool
+}
+
+var _ freighter.UnaryReadable = &FrameReadResponse{}
+
+func (r *FrameReadResponse) Read() (any, error) {
+	if !r.metaDataWritten {
+		r.metaDataWritten = true
+		return r.metaData, nil
+	}
+	select {
+	case frame := <-r.frameChannel:
+		return frame, nil
+	case err := <-r.errorChannel:
+		return nil, err
+	}
+}
+
+type FrameReadMetadataWrite struct {
+	Channels     []channel.Channel
+	ChannelNames map[channel.Key]string
+}
+
+func (fs *FrameService) Read(
+	ctx context.Context,
+	req FrameReadRequest,
+) (FrameReadResponse, error) {
+	keys := req.Keys.Unique()
+	indexKeys := make(channel.Keys, len(keys))
+	var (
+		channels []channel.Channel
+		allKeys  channel.Keys
+	)
+	if err := fs.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := fs.
+			channel.
+			NewRetrieve().
+			WhereKeys(keys...).
+			Entries(&channels).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		for i, c := range channels {
+			indexKeys[i] = c.Index()
+		}
+		allKeys = append(keys, indexKeys...).Unique()
+		if err := fs.
+			channel.
+			NewRetrieve().
+			WhereKeys(allKeys...).
+			Entries(&channels).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return FrameReadResponse{}, err
+	}
+	response := FrameReadResponse{}
+	go func() {
+		iter, err := fs.internal.Iterator.Open(ctx, framer.IteratorConfig{
+			Keys:   allKeys,
+			Bounds: req.TimeRange,
+		})
+		if err != nil {
+			response.errorChannel <- err
+			close(response.frameChannel)
+			close(response.errorChannel)
+			return
+		}
+		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
+			response.frameChannel <- iter.Value()
+		}
+		response.errorChannel <- iter.Error()
+		close(response.frameChannel)
+		close(response.errorChannel)
+	}()
+	return response, nil
+}
+
 type FrameDeleteRequest struct {
 	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
@@ -475,9 +565,11 @@ func (c *WSFramerCodec) DecodeStream(
 }
 
 func (c *WSFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	wr := &bytes.Buffer{}
-	err := c.EncodeStream(ctx, wr, value)
-	return wr.Bytes(), err
+	buf := &bytes.Buffer{}
+	if err := c.EncodeStream(ctx, buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -491,7 +583,7 @@ func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 	case fhttp.WSMessage[FrameStreamerResponse]:
 		return c.encodeStreamResponse(ctx, w, v)
 	default:
-		panic("incompatible type")
+		panic(fmt.Sprintf("incompatible type %s provided to framer codec", reflect.TypeOf(value)))
 	}
 }
 
