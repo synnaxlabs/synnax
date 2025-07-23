@@ -11,8 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"go/types"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -22,99 +20,89 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type (
-	unaryServer     = freighter.UnaryServer[request, response]
-	unaryClient     = freighter.UnaryClient[request, response]
-	streamingClient = freighter.UnaryClient[types.Nil, io.Reader]
-	streamingServer = freighter.UnaryServer[types.Nil, io.Reader]
+	unaryServer = freighter.UnaryServer[request, response]
+	unaryClient = freighter.UnaryClient[request, response]
 )
 
 type unaryImplementation interface {
-	start(address.Address) (unaryServer, unaryClient, streamingServer, streamingClient)
+	start(address.Address) (unaryServer, unaryClient)
 	stop() error
 }
 
-var unaryImplementations = []unaryImplementation{&httpUnaryImplementation{}}
+var unaryImplementations = []unaryImplementation{
+	&httpUnaryImplementation{},
+	&mockUnaryImplementation{},
+}
 
 var _ = Describe("Unary", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
 		for _, impl := range unaryImplementations {
 			var (
-				addr            address.Address
-				server          unaryServer
-				client          unaryClient
-				streamingServer streamingServer
-				streamingClient streamingClient
+				addr   address.Address
+				server unaryServer
+				client unaryClient
+				req    request
 			)
 			BeforeAll(func() {
 				addr = "localhost:8081"
-				server, client, streamingServer, streamingClient = impl.start(addr)
+				server, client = impl.start(addr)
+				req = request{ID: 1, Message: "hello"}
 			})
 			AfterAll(func() {
 				Expect(impl.stop()).To(Succeed())
 			})
 			Describe("Normal Operation", func() {
 				It("should send a request", func() {
-					server.BindHandler(func(_ context.Context, req request) (response, error) {
-						return response{
-							ID:      req.ID,
-							Message: req.Message,
-						}, nil
+					server.BindHandler(func(
+						_ context.Context,
+						req request,
+					) (response, error) {
+						return req, nil
 					})
-					req := request{ID: 1, Message: "hello"}
-					res, err := client.Send(context.Background(), addr, req)
-					Expect(err).To(Succeed())
-					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
+					Expect(client.Send(context.Background(), addr, req)).To(Equal(req))
 				})
-			})
-			Describe("streaming", func() {
-				It("should allow for stream processing", func() {
-					streamingServer.BindHandler(func(context.Context, types.Nil) (io.Reader, error) {
-						r, w := io.Pipe()
-						go func() {
-							for i := range 5 {
-								Expect(w.Write([]byte{byte(i)})).To(Succeed())
-							}
-							Expect(w.Close()).To(Succeed())
-						}()
-						return r, nil
-					})
-					reader := MustSucceed(streamingClient.Send(context.Background(), addr+"/streaming", types.Nil{}))
-					data := MustSucceed(io.ReadAll(reader))
-					Expect(data).To(Equal([]byte{0, 1, 2, 3, 4}))
-				})
-
 			})
 			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
-					server.BindHandler(func(context.Context, request) (response, error) {
+					server.BindHandler(func(
+						context.Context,
+						request,
+					) (response, error) {
 						return response{}, myCustomError
 					})
-					req := request{ID: 1, Message: "hello"}
-					_, err := client.Send(context.Background(), addr, req)
-					Expect(err).To(Equal(myCustomError))
+					Expect(client.Send(context.Background(), addr, req)).
+						Error().To(MatchError(myCustomError))
 				})
 			})
 			Describe("Middleware", func() {
 				It("Should correctly call the middleware", func() {
 					c := 0
-					server.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.MiddlewareHandler) (freighter.Context, error) {
+					server.Use(freighter.MiddlewareFunc(func(
+						ctx freighter.Context,
+						next freighter.MiddlewareHandler,
+					) (freighter.Context, error) {
 						c++
 						oMd, err := next(ctx)
+						if err != nil {
+							return freighter.Context{}, err
+						}
 						c++
-						return oMd, err
+						return oMd, nil
 					}))
-					server.BindHandler(func(context.Context, request) (response, error) {
+					server.BindHandler(func(
+						context.Context,
+						request,
+					) (response, error) {
 						return response{}, nil
 					})
-					req := request{ID: 1, Message: "hello"}
-					_, err := client.Send(context.Background(), addr, req)
-					Expect(err).To(Succeed())
+					Expect(client.Send(context.Background(), addr, req)).
+						Error().To(Not(HaveOccurred()))
 					Expect(c).To(Equal(2))
 				})
 			})
@@ -126,30 +114,45 @@ type httpUnaryImplementation struct{ app *fiber.App }
 
 var _ unaryImplementation = &httpUnaryImplementation{}
 
-func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unaryClient, streamingServer, streamingClient) {
-	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
+func (i *httpUnaryImplementation) start(
+	host address.Address,
+) (unaryServer, unaryClient) {
+	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{})
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		Codec: httputil.JSONCodec,
 	})
 	server := fhttp.UnaryServer[request, response](router, "/")
 	client := fhttp.UnaryClient[request, response](factory)
-	streamingClient := fhttp.UnaryClient[types.Nil, io.Reader](factory)
-	streamingServer := fhttp.UnaryServer[types.Nil, io.Reader](router, "/streaming")
-	router.BindTo(h.app)
-	h.app.Get("/health", func(c *fiber.Ctx) error {
+	router.BindTo(i.app)
+	i.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 	go func() {
-		if err := h.app.Listen(host.PortString()); err != nil {
+		if err := i.app.Listen(host.PortString()); err != nil {
 			log.Fatal(err)
 		}
 	}()
 	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + host.String() + "/health")
-		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(http.Get("http://" + host.String() + "/health")).
+			Error().ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
-	return server, client, streamingServer, streamingClient
+	return server, client
 }
 
-func (h *httpUnaryImplementation) stop() error { return h.app.Shutdown() }
+func (i *httpUnaryImplementation) stop() error { return i.app.Shutdown() }
+
+type mockUnaryImplementation struct{}
+
+var _ unaryImplementation = &mockUnaryImplementation{}
+
+func (i *mockUnaryImplementation) start(
+	host address.Address,
+) (unaryServer, unaryClient) {
+	net := fmock.NewNetwork[request, response]()
+	server := net.UnaryServer(host)
+	client := net.UnaryClient()
+	return server, client
+}
+
+func (i *mockUnaryImplementation) stop() error { return nil }

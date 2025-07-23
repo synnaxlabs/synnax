@@ -54,7 +54,7 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return &UnaryClient[RQ, RS]{Network: n}
+	return &UnaryClient[RQ, RS]{network: n}
 }
 
 func (n *Network[RQ, RS]) resolveUnaryTarget(
@@ -77,14 +77,14 @@ func (n *Network[RQ, RS]) StreamServer(
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
 	b, _ := parseBuffers(buffers)
-	s := &StreamServer[RQ, RS]{Reporter: reporter, BufferSize: b, Address: addr}
+	s := &StreamServer[RQ, RS]{Reporter: reporter, bufferSize: b, Address: addr}
 	n.mu.streamRoutes[addr] = s
 	return s
 }
 
 func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
 	b, _ := parseBuffers(buffers)
-	return &StreamClient[RQ, RS]{Network: n, BufferSize: b}
+	return &StreamClient[RQ, RS]{network: n, bufferSize: b}
 }
 
 func (n *Network[RQ, RS]) resolveStreamTarget(

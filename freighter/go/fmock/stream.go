@@ -19,10 +19,12 @@ import (
 
 // NewStreamPair creates a new stream client and server pair that are directly linked to
 // one another i.e. dialing any target on the client will call the server's handler.
-func NewStreamPair[RQ, RS freighter.Payload](buffers ...int) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
+func NewStreamPair[RQ, RS freighter.Payload](
+	buffers ...int,
+) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
 	inB, outB := parseBuffers(buffers)
-	ss := &StreamServer[RQ, RS]{BufferSize: outB, Reporter: reporter}
-	sc := &StreamClient[RQ, RS]{BufferSize: inB, Server: ss, Reporter: reporter}
+	ss := &StreamServer[RQ, RS]{bufferSize: outB, Reporter: reporter}
+	sc := &StreamClient[RQ, RS]{bufferSize: inB, Server: ss, Reporter: reporter}
 	return ss, sc
 }
 
@@ -58,8 +60,8 @@ func NewStreams[RQ, RS freighter.Payload](
 // transport.
 type StreamServer[RQ, RS freighter.Payload] struct {
 	Address    address.Address
-	BufferSize int
-	Handler    func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
+	bufferSize int
+	handler    func(context.Context, freighter.ServerStream[RQ, RS]) error
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
@@ -67,24 +69,28 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
 
 // BindHandler implements the freighter.StreamServer interface.
-func (ss *StreamServer[RQ, RS]) BindHandler(handler func(
-	ctx context.Context,
-	srv freighter.ServerStream[RQ, RS]) error) {
-	ss.Handler = handler
+func (ss *StreamServer[RQ, RS]) BindHandler(
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
+) {
+	ss.handler = handler
 }
 
 func (ss *StreamServer[RQ, RS]) exec(
 	ctx freighter.Context,
 	srv *ServerStream[RQ, RS],
 ) (freighter.Context, error) {
-	if ss.Handler == nil {
-		return ctx, errors.New("no handler bound to stream server")
+	if ss.handler == nil {
+		return freighter.Context{}, errors.New("no handler bound to stream server")
 	}
 	return ss.MiddlewareCollector.Exec(
 		ctx,
 		func(md freighter.Context) (freighter.Context, error) {
-			go srv.exec(ctx, ss.Handler)
-			return freighter.Context{Target: ss.Address, Protocol: ss.Protocol, Params: make(freighter.Params)}, nil
+			go srv.exec(ctx, ss.handler)
+			return freighter.Context{
+				Target:   ss.Address,
+				Protocol: ss.Protocol,
+				Params:   make(freighter.Params),
+			}, nil
 		},
 	)
 }
@@ -92,8 +98,8 @@ func (ss *StreamServer[RQ, RS]) exec(
 // StreamClient is a mock implementation of the freighter.StreamClient interface.
 type StreamClient[RQ, RS freighter.Payload] struct {
 	Address    address.Address
-	BufferSize int
-	Network    *Network[RQ, RS]
+	bufferSize int
+	network    *Network[RQ, RS]
 	Server     *StreamServer[RQ, RS]
 	freighter.Reporter
 	freighter.MiddlewareCollector
@@ -124,17 +130,21 @@ func (sc *StreamClient[RQ, RS]) Stream(
 			)
 			if sc.Server != nil {
 				server = sc.Server
-				targetBufferSize = server.BufferSize
-			} else if sc.Network != nil {
-				srv, ok := sc.Network.resolveStreamTarget(target)
-				if !ok || srv.Handler == nil {
+				targetBufferSize = server.bufferSize
+			} else if sc.network != nil {
+				srv, ok := sc.network.resolveStreamTarget(target)
+				if !ok || srv.handler == nil {
 					return freighter.Context{}, address.NewErrTargetNotFound(target)
 				}
 				server = srv
-				targetBufferSize = srv.BufferSize
+				targetBufferSize = srv.bufferSize
 			}
 			var serverStream *ServerStream[RQ, RS]
-			stream, serverStream = NewStreams[RQ, RS](ctx, sc.BufferSize, targetBufferSize)
+			stream, serverStream = NewStreams[RQ, RS](
+				ctx,
+				sc.bufferSize,
+				targetBufferSize,
+			)
 			return server.exec(ctx, serverStream)
 		},
 	)
@@ -174,8 +184,8 @@ func (ss *ServerStream[RQ, RS]) Send(res RS) error {
 		return ss.sendErr
 	}
 
-	if ss.ctx.Err() != nil {
-		return ss.ctx.Err()
+	if err := ss.ctx.Err(); err != nil {
+		return err
 	}
 	select {
 	case <-ss.ctx.Done():
@@ -246,8 +256,8 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	if cs.receiveErr != nil {
 		return freighter.EOF
 	}
-	if cs.ctx.Err() != nil {
-		return cs.ctx.Err()
+	if err := cs.ctx.Err(); err != nil {
+		return err
 	}
 	select {
 	case <-cs.ctx.Done():

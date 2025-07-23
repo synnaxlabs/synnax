@@ -40,7 +40,7 @@ var (
 
 var codecs = []Codec{JSONCodec, MsgPackCodec}
 
-type CodecResolver func(contentType string) (Codec, error)
+type CodecResolver func(string) (Codec, error)
 
 func ResolveCodec(contentType string) (Codec, error) {
 	for _, ecd := range codecs {
