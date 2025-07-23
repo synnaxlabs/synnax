@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { observe, strings } from "@synnaxlabs/x";
+import { array, observe, strings } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
@@ -151,7 +151,11 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.execRetrieve({ ids: parseIDs(ids), children: true, ...options });
+    return await this.execRetrieve({
+      ids: array.toArray(ids),
+      children: true,
+      ...options,
+    });
   }
 
   /**
@@ -167,7 +171,11 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.execRetrieve({ ids: parseIDs(ids), parents: true, ...options });
+    return await this.execRetrieve({
+      ids: array.toArray(ids),
+      parents: true,
+      ...options,
+    });
   }
 
   /**
