@@ -11,12 +11,13 @@ package verification
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
@@ -26,62 +27,99 @@ import (
 	"go.uber.org/zap"
 )
 
+const FreeCount = 50
+
+// Config is the configuration for a verification service
 type Config struct {
-	DB            kv.DB
-	Verifier      string
-	Ins           alamos.Instrumentation
-	WarningTime   time.Duration
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL]
+	alamos.Instrumentation
+	// DB is the database used for storing the verifier.
+	//
+	// [REQUIRED]
+	kv.DB
+	// CheckInterval is the interval at which verification will be performed.
+	//
+	// [OPTIONAL] - Defaults to 24 hours
 	CheckInterval time.Duration
+	// Verifier is the verifier used for verifying things that need to be verified.
+	//
+	// [OPTIONAL] - Defaults to ""
+	Verifier string
+	// WarningTime is the period given to start warning before verification will fail.
+	//
+	// [OPTIONAL] - Defaults to 1 week
+	WarningTime time.Duration
 }
 
-var (
-	DefaultConfig = Config{
-		WarningTime:   7 * 24 * time.Hour,
-		CheckInterval: 24 * time.Hour,
-	}
-	errStale = errors.New(decode("dXNpbmcgYW4gZXhwaXJlZCBwcm9kdWN0IGxpY2Vuc2Uga2V5LCB1c2UgaXMgbGltaXRlZCB0byB0aGUgZmlyc3Qg") +
-		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz"))
-	errFree = errors.New(decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
-		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
-	useFree = decode("dXNpbmcgdGhlIGZyZWUgdmVyc2lvbiBvZiBTeW5uYXgsIG9ubHkg") +
-		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxzIGFyZSBhbGxvd2Vk")
-)
+var _ config.Config[Config] = Config{}
 
+var retrieveKey = []byte("bGljZW5zZUtleQ==")
+
+// Validate validates the configuration for use in the service.
 func (c Config) Validate() error {
-	v := validate.New("key")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NonZero(v, decode("V2FybmluZ1RpbWU="), c.WarningTime)
-	validate.NonZero(v, decode("Q2hlY2tJbnRlcnZhbA=="), c.CheckInterval)
+	v := validate.New("channel.verification")
+	validate.NotNil(v, "db", c.DB)
+	validate.NonZero(v, "warning_time", c.WarningTime)
+	validate.NonZero(v, "check_interval", c.CheckInterval)
 	return v.Error()
 }
 
+// Override replaces fields on c with valid fields from other.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ins = override.Zero(c.Ins, other.Ins)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.CheckInterval = override.If(c.CheckInterval, other.CheckInterval,
+		other.CheckInterval.Nanoseconds() != 0)
 	c.WarningTime = override.If(c.WarningTime, other.WarningTime,
 		other.WarningTime.Nanoseconds() != 0)
 	c.Verifier = override.String(other.Verifier, c.Verifier)
 	return c
 }
 
-type Service struct {
-	Config
-	shutdown io.Closer
-	key      string
+// DefaultConfig is the default configuration for the verification service.
+var DefaultConfig = Config{
+	CheckInterval: 24 * time.Hour,
+	WarningTime:   7 * 24 * time.Hour,
 }
 
+// Service provides a service for verifying channels.
+type Service struct {
+	info
+	cfg      Config
+	shutdown io.Closer
+}
+
+var _ io.Closer = &Service{}
+
+var (
+	useFreeLog = fmt.Sprintf(
+		base64.MustDecode(
+			"dXNpbmcgU3lubmF4IHdpdGhvdXQgYSBsaWNlbnNlIGtleSwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscw==",
+		),
+		FreeCount,
+	)
+	newRegisteredTemplate = base64.MustDecode(
+		"bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzICVkIGNoYW5uZWxz",
+	)
+)
+
+// OpenService opens a new verification service.
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	service := &Service{Config: cfg}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
+	service := &Service{cfg: cfg}
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(service.cfg.Instrumentation),
+	)
 	service.shutdown = signal.NewHardShutdown(sCtx, cancel)
 
 	startLogMonitor := func() {
 		sCtx.Go(
-			service.logTheDog,
+			service.log,
 			signal.WithRetryOnPanic(),
 			signal.WithBaseRetryInterval(2*time.Second),
 			signal.WithRetryScale(1.1),
@@ -90,108 +128,125 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 
 	if cfg.Verifier == "" {
-		if err := service.loadCache(ctx); err != nil {
-			service.Ins.L.Info(useFree)
+		if err = service.loadCache(ctx); err != nil {
+			if !errors.Is(err, kv.NotFound) {
+				return nil, err
+			}
+			cfg.Instrumentation.L.Info(useFreeLog)
 			return service, nil
 		}
-		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
 		startLogMonitor()
 		return service, nil
 	}
 
-	err = service.create(ctx, cfg.Verifier)
-	if err != nil {
-		return service, err
+	if err = service.create(ctx, cfg.Verifier); err != nil {
+		return nil, err
 	}
-
+	cfg.Instrumentation.L.Infof(newRegisteredTemplate, service.info.numCh)
 	startLogMonitor()
-	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
-		strconv.Itoa(int(getNumChan(cfg.Verifier))) + decode("IGNoYW5uZWxz"))
-	return service, err
+	return service, nil
 }
 
-func (s *Service) Close() error {
-	return s.shutdown.Close()
-}
+// Close should be called when the service is no longer needed.
+func (s *Service) Close() error { return s.shutdown.Close() }
 
-func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
-	key := s.key
-	if key == "" {
-		if inUse > freeCount {
-			return errFree
+// IsOverflowed tells if inUse causes the service to overflow.
+func (s *Service) IsOverflowed(inUse types.Uint20) error {
+	if s.info.numCh == 0 {
+		if inUse > FreeCount {
+			return ErrFree
 		}
 		return nil
 	}
-	staleTime, err := whenStale(key)
-	if err != nil {
-		return err
-	}
-	if staleTime.Before(time.Now()) {
-		if inUse > freeCount {
-			return errStale
+	if s.info.exprTime.Before(time.Now()) {
+		if inUse > FreeCount {
+			return ErrStale
 		}
 		return nil
 	}
-	if channelsAllowed := getNumChan(key); inUse > channelsAllowed {
-		return errTooMany(int(channelsAllowed))
+	if inUse > s.info.numCh {
+		return newErrTooMany(s.info.numCh)
 	}
 	return nil
 }
 
-const retrieveKey = "bGljZW5zZUtleQ=="
+var (
+	expiredLog = fmt.Sprintf(base64.MustDecode(
+		"ZXhwaXJlZCBsaWNlbnNlIGtleSBmb3VuZCwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscw==",
+	), FreeCount)
+	existingLogTemplate = base64.MustDecode(
+		"ZXhpc3RpbmcgbGljZW5zZSBrZXkgZm91bmQsIHVzYWdlIGlzIGxpbWl0ZWQgdG8gJWQgY2hhbm5lbHM=",
+	)
+)
 
 func (s *Service) loadCache(ctx context.Context) error {
-	key, closer, err := s.DB.Get(ctx, []byte(retrieveKey))
+	key, closer, err := s.cfg.DB.Get(ctx, retrieveKey)
 	if err != nil {
 		return err
 	}
-	s.key = string(key)
-	return closer.Close()
+	if err = closer.Close(); err != nil {
+		return err
+	}
+	licenseInf, err := parse(string(key))
+	if err != nil {
+		return err
+	}
+	if licenseInf.exprTime.Before(time.Now()) {
+		s.cfg.Instrumentation.L.Warn(expiredLog)
+	} else {
+		s.cfg.Instrumentation.L.Infof(existingLogTemplate, licenseInf.numCh)
+	}
+	s.info = licenseInf
+	return nil
 }
 
 func (s *Service) create(ctx context.Context, toCreate string) error {
-	err := validateInput(toCreate)
+	licenseInf, err := parse(toCreate)
 	if err != nil {
 		return err
 	}
-	if err := s.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
+	if err = s.cfg.DB.Set(ctx, retrieveKey, []byte(toCreate)); err != nil {
 		return err
 	}
-	s.key = toCreate
+	s.info = licenseInf
 	return nil
 }
 
-func (s *Service) logTheDog(ctx context.Context) error {
-	if s.key == "" {
+var (
+	hadExpiredLog = fmt.Sprintf(
+		base64.MustDecode(
+			"bGljZW5zZSBrZXkgZXhwaXJlZCwgdXNhZ2UgaXMgbGltaXRlZCB0byAlZCBjaGFubmVscy4=",
+		),
+		FreeCount,
+	)
+	willExpireLogTemplate = base64.MustDecode(
+		"bGljZW5zZSBrZXkgd2lsbCBleHBpcmUgaW4gJXM=",
+	)
+)
+
+func (s *Service) log(ctx context.Context) error {
+	if s.info.exprTime.IsZero() {
 		return nil
 	}
-	staleTime, err := whenStale(s.key)
-	if err != nil {
-		return err
-	}
-	ticker := time.NewTicker(s.CheckInterval)
-	defer ticker.Stop()
+	ticker := time.NewTicker(s.cfg.CheckInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if staleTime.Before(time.Now()) {
-				s.Ins.L.Error(decode("TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu"),
-					zap.String("ZXhwaXJlZEF0", staleTime.String()))
-			} else if timeLeft := time.Until(staleTime); timeLeft <= s.WarningTime {
-				s.Ins.L.Warn(decode("TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4="),
-					zap.String(decode("ZXhwaXJlc0lu"), timeLeft.String()))
-			} else {
-				s.Ins.L.Info(decode("TGljZW5zZSBrZXkgaXMgbm90IGV4cGlyZWQu"),
-					zap.String(decode("ZXhwaXJlc0lu"), timeLeft.String()))
+			if s.info.exprTime.Before(time.Now()) {
+				s.cfg.Instrumentation.L.Error(
+					hadExpiredLog,
+					zap.String("expired_at", s.info.exprTime.String()),
+				)
+			} else if timeLeft := time.Until(
+				s.info.exprTime,
+			); timeLeft <= s.cfg.WarningTime {
+				s.cfg.Instrumentation.L.Warn(
+					fmt.Sprintf(willExpireLogTemplate, timeLeft),
+					zap.String("expires_in", timeLeft.String()),
+				)
 			}
 		}
 	}
-}
-
-func errTooMany(count int) error {
-	msg := decode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
-		strconv.Itoa(count) + decode("IGNoYW5uZWxzIGFsbG93ZWQ=")
-	return errors.New(msg)
 }
