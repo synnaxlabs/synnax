@@ -1,7 +1,7 @@
-import { type Component, type Flux, type List, type state } from "@synnaxlabs/pluto";
+import { type Component, type List, type state } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-export interface RetrieveParams extends Flux.Params {
+export interface RetrieveParams extends List.PagerParams {
   term?: string;
   offset?: number;
   limit?: number;

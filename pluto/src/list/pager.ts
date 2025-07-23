@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type state } from "@/state";
@@ -16,7 +15,7 @@ import { type state } from "@/state";
  * Parameters for pagination functionality.
  * These parameters are automatically managed by the pager utilities.
  */
-export interface PagerParams extends Record<string, primitive.Value> {
+export interface PagerParams {
   /** Search term for filtering results */
   term?: string;
   /** Number of items to skip (for pagination) */

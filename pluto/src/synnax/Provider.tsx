@@ -46,7 +46,6 @@ export const useConnectionState = () => useContext().state;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
-  client?: Synnax;
 }
 
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {

@@ -88,12 +88,12 @@ export const oppositeRelationshipDirection = (
   direction: RelationshipDirection,
 ): RelationshipDirection => (direction === "to" ? "from" : "to");
 
-export const relationShipZ = z.object({ from: idZ, type: z.string(), to: idZ }).or(
+export const relationshipZ = z.object({ from: idZ, type: z.string(), to: idZ }).or(
   z.string().transform((v) => {
     const [from, type, to] = v.split("->");
     return { from: idZ.parse(from), type, to: idZ.parse(to) };
   }),
 );
-export type Relationship = z.infer<typeof relationShipZ>;
+export type Relationship = z.infer<typeof relationshipZ>;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
