@@ -183,12 +183,6 @@ export interface CreateRetrieveReturn<
   useDirect: (
     args: UseDirectRetrieveArgs<RetrieveParams>,
   ) => UseDirectRetrieveReturn<Data>;
-  /** Hook that provides retrieve functions for external state management */
-  useObservable: (
-    args: UseObservableRetrieveArgs<Data>,
-  ) => UseObservableRetrieveReturn<RetrieveParams>;
-  /** Hook that provides retrieve functions with internal state management */
-  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
   /** Hook that automatically triggers retrieve operations based on parameter changes */
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
 }
@@ -369,9 +363,6 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
 export const createRetrieve = <RetrieveParams extends Params, Data extends state.State>(
   factoryArgs: CreateRetrieveArgs<RetrieveParams, Data>,
 ): CreateRetrieveReturn<RetrieveParams, Data> => ({
-  useObservable: (args: UseObservableRetrieveArgs<Data>) =>
-    useObservable({ ...factoryArgs, ...args }),
-  useStateful: () => useStateful(factoryArgs),
   useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
     useDirect({ ...factoryArgs, ...args }),
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
