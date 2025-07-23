@@ -341,7 +341,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       DELETE_CHANNEL_NAME,
       (variant, data) => {
         if (variant === "delete")
-          return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
+          return Array.from(data.as("string")).map((k) => ({
+            variant,
+            key: k,
+            value: undefined,
+          }));
         const sugared = this.sugarMany(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },

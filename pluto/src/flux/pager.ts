@@ -30,9 +30,9 @@ export interface PagerParams {
  */
 export interface UsePagerReturn {
   /** Function to fetch the next page of results */
-  onFetchMore: () => void;
+  fetchMore: () => void;
   /** Function to perform a search with the given term */
-  onSearch: (term: string) => void;
+  search: (term: string) => void;
 }
 
 /**
@@ -73,7 +73,7 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
   /**
    * Fetches the next page of results by incrementing the offset.
    */
-  const onFetchMore = useCallback(() => {
+  const fetchMore = useCallback(() => {
     retrieve(
       ({ offset = -pageSize, term }) => ({
         offset: offset + pageSize,
@@ -87,10 +87,10 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
   /**
    * Performs a search with the given term, resetting to the first page.
    */
-  const onSearch = useCallback(
+  const search = useCallback(
     (term: string) => retrieve({ term, offset: 0, limit: pageSize }),
     [retrieve, pageSize],
   );
 
-  return { onFetchMore, onSearch };
+  return { fetchMore, search };
 };

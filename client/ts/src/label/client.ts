@@ -125,7 +125,8 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
 }
 
 const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
-  if (variant === "delete") return data.toUUIDs().map((v) => ({ variant, key: v }));
+  if (variant === "delete")
+    return Array.from(data.as("string")).map((v) => ({ variant, key: v }));
   return data.parseJSON(labelZ).map((l) => ({ variant, key: l.key, value: l }));
 };
 

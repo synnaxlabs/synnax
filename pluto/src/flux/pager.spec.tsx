@@ -28,13 +28,13 @@ describe("pager", () => {
       );
       return Flux.usePager({ retrieve });
     });
-    result.current.onFetchMore();
+    result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
       term: undefined,
     });
-    result.current.onFetchMore();
+    result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 10,
       limit: 10,
@@ -55,19 +55,19 @@ describe("pager", () => {
       );
       return Flux.usePager({ retrieve });
     });
-    result.current.onSearch("test");
+    result.current.search("test");
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
       term: "test",
     });
-    result.current.onFetchMore();
+    result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 10,
       limit: 10,
       term: "test",
     });
-    result.current.onSearch("test2");
+    result.current.search("test2");
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
