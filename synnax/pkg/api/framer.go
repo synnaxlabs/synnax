@@ -57,15 +57,15 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Channel  channel.Readable
-	Internal *framer.Service
+	channel  channel.Readable
+	internal *framer.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
 	return &FrameService{
 		Instrumentation: p.Instrumentation,
-		Internal:        p.Service.Framer,
-		Channel:         p.Distribution.Channel,
+		internal:        p.Service.Framer,
+		channel:         p.Distribution.Channel,
 		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,
@@ -89,9 +89,9 @@ func (fs *FrameService) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, fs.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, fs.dbProvider.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
-		w := fs.Internal.NewDeleter()
+		w := fs.internal.NewDeleter()
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
 				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
@@ -160,7 +160,7 @@ func (fs *FrameService) openIterator(ctx context.Context, srv FrameIteratorStrea
 	}); err != nil {
 		return nil, err
 	}
-	iter, err := fs.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
+	iter, err := fs.internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds:    req.Bounds,
 		Keys:      req.Keys,
 		ChunkSize: req.ChunkSize,
@@ -223,7 +223,7 @@ func (fs *FrameService) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := fs.Internal.NewStreamer(ctx, req)
+	reader, err := fs.internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func (fs *FrameService) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err := fs.Internal.NewStreamWriter(ctx, writer.Config{
+	w, err := fs.internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -416,7 +416,7 @@ func (fs *FrameService) openWriter(
 	}
 
 	channels := make([]channel.Channel, 0, len(req.Config.Keys))
-	if err = fs.Channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err = fs.channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return w, err
 	}
 	// Let the client know the writer is ready to receive segments.

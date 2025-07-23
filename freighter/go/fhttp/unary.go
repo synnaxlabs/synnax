@@ -136,15 +136,15 @@ func (uc *unaryClient[RQ, RS]) Send(
 	return res, err
 }
 
-func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v any) error {
+func encodeAndWrite(ctx *fiber.Ctx, codec httputil.Codec, v any) error {
 	if r, ok := v.(io.Reader); ok {
-		return c.SendStream(r)
+		return ctx.SendStream(r)
 	}
-	b, err := codec.Encode(c.Context(), v)
+	b, err := codec.Encode(ctx.Context(), v)
 	if err != nil {
 		return err
 	}
-	_, err = c.Write(b)
+	_, err = ctx.Write(b)
 	return err
 }
 
