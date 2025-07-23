@@ -1049,7 +1049,7 @@ export class Rate
    * @returns A TimeSpan that corresponds to the given number of samples.
    */
   span(sampleCount: number): TimeSpan {
-    return TimeSpan.seconds(sampleCount / this.value);
+    return TimeSpan.seconds(sampleCount / this.valueOf());
   }
 
   /**
@@ -1071,10 +1071,6 @@ export class Rate
    */
   static hz(value: number): Rate {
     return new Rate(value);
-  }
-
-  valueOf(): number {
-    return this.value;
   }
 
   /**
