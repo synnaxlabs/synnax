@@ -233,6 +233,8 @@ jobs:
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
         uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
