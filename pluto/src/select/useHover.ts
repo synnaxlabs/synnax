@@ -88,6 +88,10 @@ export const useHover = <K extends record.Key>({
     },
     [onSelect],
   );
-  Triggers.use({ triggers: TRIGGERS, callback: handleTrigger, loose: true });
+  Triggers.use({
+    triggers: TRIGGERS,
+    callback: handleTrigger,
+    loose: true,
+  });
   return { hover: data[hover] };
 };

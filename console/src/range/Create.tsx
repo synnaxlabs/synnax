@@ -123,8 +123,9 @@ export const Create: Layout.Renderer = (props) => {
                   zIndex={100}
                   filter={recursiveParentFilter}
                   value={value}
-                  onChange={onChange}
+                  onChange={(v: ranger.Key) => onChange(v ?? "")}
                   icon={<ParentRangeIcon />}
+                  allowNone
                 />
               )}
             </Form.Field>

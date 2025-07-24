@@ -55,7 +55,7 @@ export interface FrameProps<
 const useDataContext = <K extends record.Key = record.Key>(): DataContextValue<K> =>
   useRequiredContext(DataContext) as unknown as DataContextValue<K>;
 
-const useUtilContext = <
+export const useUtilContext = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): UtilContextValue<K, E> =>
