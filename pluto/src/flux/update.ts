@@ -146,7 +146,7 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
           value,
           params,
         });
-        if (signal?.aborted || !updated) return;
+        if (signal?.aborted || updated) return;
         onChange(successResult(name, "updated", value));
       } catch (error) {
         onChange(errorResult(name, "update", error));
