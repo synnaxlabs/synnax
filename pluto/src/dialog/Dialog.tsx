@@ -17,9 +17,7 @@ import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { getRootElement } from "@/util/rootElement";
 
-export interface DialogProps extends Align.SpaceProps {
-  zIndex?: number;
-}
+export interface DialogProps extends Align.SpaceProps {}
 
 export const Dialog = ({
   style,

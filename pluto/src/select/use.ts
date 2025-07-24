@@ -13,7 +13,7 @@ import { useCallback, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
-import { useHover, type UseHoverReturn } from "@/select/useHover";
+import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
 import { Triggers } from "@/triggers";
 
 /**
@@ -43,12 +43,15 @@ export interface UseSingleRequiredProps<K extends record.Key> {
 type UseSingleInternalProps<K extends record.Key> =
   | UseSingleAllowNoneProps<K>
   | UseSingleRequiredProps<K>;
+
 export type UseSingleProps<K extends record.Key> = Optional<
   UseSingleInternalProps<K>,
   "allowNone"
->;
+> &
+  Pick<UseHoverProps<K>, "initialHover">;
 
-export interface UseMultipleProps<K extends record.Key> {
+export interface UseMultipleProps<K extends record.Key>
+  extends Pick<UseHoverProps<K>, "initialHover"> {
   allowNone?: boolean;
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
@@ -68,6 +71,7 @@ export const useSingle = <K extends record.Key>({
   onChange,
   value,
   closeDialogOnSelect = true,
+  initialHover,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { data } = List.useData<K>();
@@ -97,7 +101,7 @@ export const useSingle = <K extends record.Key>({
     [onChange],
   );
 
-  const hover = useHover({ data, onSelect: handleSelect });
+  const hover = useHover({ data, onSelect: handleSelect, initialHover });
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -105,6 +109,7 @@ export const useMultiple = <K extends record.Key>({
   value = [],
   replaceOnSingle = false,
   onChange,
+  initialHover,
   allowNone = true,
   closeDialogOnSelect = false,
 }: UseMultipleProps<K>): UseReturn<K> => {
@@ -171,6 +176,6 @@ export const useMultiple = <K extends record.Key>({
     (keys: K[]): void => onChange(keys, { clicked: null, clickedIndex: 0 }),
     [onChange],
   );
-  const hover = useHover({ data, onSelect });
+  const hover = useHover({ data, onSelect, initialHover });
   return { onSelect, setSelected, clear, ...hover };
 };

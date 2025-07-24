@@ -109,7 +109,7 @@ export const Frame = ({
   className,
   variant = "floating",
   maxHeight,
-  zIndex = 5,
+  zIndex,
   modalOffset = 20,
   initialVisible = false,
   visible: propsVisible,
@@ -184,7 +184,7 @@ export const Frame = ({
         const isDialog = el?.getAttribute("role") === "dialog";
         if (!isDialog) return false;
         const zi = el.style.zIndex;
-        return Number(zi) > zIndex;
+        return Number(zi) > Number(dialogRef.current?.style.zIndex);
       });
       return parent != null;
     },

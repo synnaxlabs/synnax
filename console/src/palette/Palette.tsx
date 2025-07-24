@@ -140,6 +140,7 @@ const DialogContent = ({
         onFetchMore={fetchMore}
         itemHeight={39}
         virtual={false}
+        initialHover={0}
       >
         <Input.Text
           className={CSS(CSS.BE("palette", "input"))}
