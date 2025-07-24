@@ -32,8 +32,8 @@ export interface UtilContextValue<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
   ref: RefCallback<HTMLDivElement | null>;
-  getItem?: (key?: K) => E | undefined;
-  subscribe?: (callback: () => void, key?: K) => () => void;
+  getItem?: (key: K) => E | undefined;
+  subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
 }
 
@@ -73,7 +73,7 @@ export const useItem = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(
-  key?: K,
+  key: K,
 ): E | undefined => {
   const { getItem, subscribe } = useUtilContext<K, E>();
   return useSyncExternalStore(

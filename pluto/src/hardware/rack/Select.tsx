@@ -56,7 +56,7 @@ export const SelectSingle = ({
     initialParams: { includeStatus: true, ...initialParams },
     filter,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<rack.Key, rack.Payload | undefined>
       resourceName="Driver"
@@ -65,8 +65,8 @@ export const SelectSingle = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       icon={<Icon.Rack />}

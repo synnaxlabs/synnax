@@ -302,26 +302,6 @@ describe("useMapData", () => {
       expect(listener).toHaveBeenCalledTimes(1); // Still only called once
     });
 
-    it("should handle subscription with undefined key", async () => {
-      const { result } = renderHook(() => useMapData<string, TestItem>());
-
-      const listener = vi.fn();
-
-      const unsubscribe = await act(async () =>
-        result.current.subscribe(listener, undefined),
-      );
-
-      const item: TestItem = { key: "1", name: "Apple", value: 10 };
-
-      act(() => {
-        result.current.setItem(item);
-      });
-
-      expect(listener).not.toHaveBeenCalled();
-
-      unsubscribe();
-    });
-
     it("should notify multiple listeners for same key", async () => {
       const { result } = renderHook(() => useMapData<string, TestItem>());
 

@@ -75,7 +75,7 @@ export const SelectMultiple = ({
     initialParams,
     filter,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       resourceName="Channel"
@@ -85,8 +85,8 @@ export const SelectMultiple = ({
       haulType={HAUL_TYPE}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       icon={<Icon.Channel />}
@@ -117,7 +117,7 @@ export const SelectSingle = ({
     initialParams,
     filter,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<channel.Key, channel.Channel | undefined>
       resourceName="Channel"
@@ -125,8 +125,8 @@ export const SelectSingle = ({
       value={value}
       allowNone={allowNone}
       emptyContent={emptyContent}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       data={data}
       getItem={getItem}
       subscribe={subscribe}

@@ -166,15 +166,15 @@ const listItem = Component.renderProp(LabelListItem);
 
 export const Edit: Layout.Renderer = () => {
   const { data, getItem, retrieve, subscribe } = Label.useList();
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   const [newFormVisible, setNewFormVisible] = useState(false);
-  const [search, setSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   return (
     <Align.Space y grow empty>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
-        onFetchMore={onFetchMore}
+        onFetchMore={fetchMore}
         subscribe={subscribe}
       >
         <Align.Space x justify="spaceBetween" style={{ padding: "2rem" }}>
@@ -184,10 +184,10 @@ export const Edit: Layout.Renderer = () => {
                 Search Labels
               </Text.WithIcon>
             }
-            value={search}
+            value={searchTerm}
             onChange={(v) => {
-              setSearch(v);
-              onSearch(v);
+              setSearchTerm(v);
+              search(v);
             }}
           />
           <Button.Button

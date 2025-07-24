@@ -116,14 +116,14 @@ const DialogContent = ({
   const commandProps = useCommandList();
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
     value.startsWith(commandSymbol) ? commandProps : resourceProps;
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   const handleSearch = useCallback(
     (v: string) => {
       onChange(v);
       if (v.startsWith(commandSymbol)) v = v.slice(commandSymbol.length);
-      onSearch(v);
+      search(v);
     },
-    [onSearch, onChange],
+    [search, onChange],
   );
   return (
     <Dialog.Dialog
@@ -137,7 +137,7 @@ const DialogContent = ({
         subscribe={subscribe}
         value={value}
         onChange={handleSelect}
-        onFetchMore={onFetchMore}
+        onFetchMore={fetchMore}
         itemHeight={39}
         virtual={false}
       >

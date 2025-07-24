@@ -80,7 +80,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
@@ -91,8 +91,8 @@ export const SelectMultiple = ({
       getItem={getItem}
       icon={<Icon.Range />}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       {...rest}
@@ -122,7 +122,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
@@ -132,11 +132,11 @@ export const SelectSingle = ({
       data={data}
       allowNone={allowNone}
       haulType={HAUL_TYPE}
-      onFetchMore={onFetchMore}
+      onFetchMore={fetchMore}
       getItem={getItem}
       subscribe={subscribe}
       status={status}
-      onSearch={onSearch}
+      onSearch={search}
       emptyContent={emptyContent}
       icon={<Icon.Range />}
       itemHeight={56}

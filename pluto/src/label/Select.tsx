@@ -80,7 +80,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       resourceName="Label"
@@ -90,8 +90,8 @@ export const SelectMultiple = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       renderTag={labelRenderTag}
@@ -125,7 +125,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<label.Key, label.Label | undefined>
       resourceName="Label"
@@ -135,8 +135,8 @@ export const SelectSingle = ({
       getItem={getItem}
       subscribe={subscribe}
       allowNone={allowNone}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       haulType={HAUL_TYPE}

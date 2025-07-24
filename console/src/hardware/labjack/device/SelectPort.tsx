@@ -61,7 +61,7 @@ export const SelectPort = ({
     data: PORTS[model][portType],
     filter,
   });
-  const selected = getItem?.(value);
+  const selected = getItem(value ?? "");
   return (
     <Dialog.Frame location="bottom" {...rest}>
       <Select.Frame data={data} getItem={getItem} onChange={onChange}>

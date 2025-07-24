@@ -76,7 +76,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
       resourceName="Device"
@@ -85,8 +85,8 @@ export const SelectSingle = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       disabled={disabled}

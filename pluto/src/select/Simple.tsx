@@ -51,14 +51,9 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   ...rest
 }: SimpleProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
-  const { onFetchMore, onSearch } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Single<K, E>
-      {...rest}
-      {...listProps}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
-    >
+    <Single<K, E> {...rest} {...listProps} onFetchMore={fetchMore} onSearch={search}>
       {children}
     </Single>
   );

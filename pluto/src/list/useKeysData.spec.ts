@@ -54,13 +54,6 @@ describe("useKeysData", () => {
       expect(result.current.getItem("")).toBeUndefined();
     });
 
-    it("should handle undefined key parameter", () => {
-      const data = ["apple", "banana", "cherry"];
-      const { result } = renderHook(() => useKeysData(data));
-
-      expect(result.current.getItem(undefined)).toBeUndefined();
-    });
-
     it("should handle empty array data", () => {
       const data: string[] = [];
       const { result } = renderHook(() => useKeysData(data));

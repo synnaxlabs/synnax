@@ -79,7 +79,7 @@ const Content = () => {
   const { data, getItem, subscribe, retrieve } = Task.useList({
     filter: filterExternal,
   });
-  const { onFetchMore } = List.usePager({ retrieve });
+  const { fetchMore } = List.usePager({ retrieve });
 
   const rename = useMutation({
     onMutate: ({ key }) => getItem(key)?.name ?? "task",
@@ -193,7 +193,7 @@ const Content = () => {
           subscribe={subscribe}
           value={selected}
           onChange={setSelected}
-          onFetchMore={onFetchMore}
+          onFetchMore={fetchMore}
           replaceOnSingle
         >
           <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>

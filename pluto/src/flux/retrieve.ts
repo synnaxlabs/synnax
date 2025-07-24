@@ -194,7 +194,26 @@ export interface CreateRetrieveReturn<
    * (e.g., through the onChange callback). Returns void - no state is managed internally.
    */
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
+
+  /**
+   * Hook that provides manual control over when data is fetched, with internal state management.
+   * Use this when you need to trigger data fetching based on user actions or specific events.
+   * Returns both the current state (data, variant, error) and functions to manually trigger retrieval.
+   */
+  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
 }
+
+const useStateful = <RetrieveParams extends Params, Data extends state.State>(
+  args: CreateRetrieveArgs<RetrieveParams, Data>,
+): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
+  const [state, setState] = useState<Result<Data>>(
+    pendingResult<Data>(args.name, "retrieving"),
+  );
+  return {
+    ...state,
+    ...useObservable({ ...args, onChange: setState }),
+  };
+};
 
 const useObservable = <RetrieveParams extends Params, Data extends state.State>({
   retrieve,
@@ -268,18 +287,6 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   return {
     retrieve: retrieveSync,
     retrieveAsync,
-  };
-};
-
-const useStateful = <RetrieveParams extends Params, Data extends state.State>(
-  args: CreateRetrieveArgs<RetrieveParams, Data>,
-): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
-  const [state, setState] = useState<Result<Data>>(
-    pendingResult<Data>(args.name, "retrieving"),
-  );
-  return {
-    ...state,
-    ...useObservable({ ...args, onChange: setState }),
   };
 };
 
@@ -378,6 +385,7 @@ export const createRetrieve = <RetrieveParams extends Params, Data extends state
 ): CreateRetrieveReturn<RetrieveParams, Data> => ({
   useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
     useDirect({ ...factoryArgs, ...args }),
+  useStateful: () => useStateful(factoryArgs),
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
     useEffect({ ...factoryArgs, ...args }),
 });

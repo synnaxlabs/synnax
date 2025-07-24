@@ -54,7 +54,7 @@ describe("Select.Single", () => {
       const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { onSearch } = List.usePager({ retrieve });
+      const { search } = List.usePager({ retrieve });
       const [value, setValue] = useState<string | undefined>(undefined);
       const handleChange = (key: string | undefined) => {
         setValue(key);
@@ -67,7 +67,7 @@ describe("Select.Single", () => {
           value={value}
           onChange={handleChange}
           resourceName="Test Item"
-          onSearch={onSearch}
+          onSearch={search}
           {...props}
         >
           {listItemRenderProp}
@@ -187,7 +187,7 @@ describe("Select.Single", () => {
       const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { onSearch } = List.usePager({ retrieve });
+      const { search } = List.usePager({ retrieve });
       return (
         <Select.Single<string, TestEntry>
           getItem={getItem}
@@ -195,7 +195,7 @@ describe("Select.Single", () => {
           value="2"
           onChange={onChange}
           resourceName="Test Item"
-          onSearch={onSearch}
+          onSearch={search}
         >
           {listItemRenderProp}
         </Select.Single>
