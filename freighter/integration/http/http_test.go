@@ -40,7 +40,6 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 	var (
 		app         *fiber.App
 		addr        address.Address
-		factory     *fhttp.ClientFactory
 		unaryEcho   unaryClient
 		unaryReader readerClient
 		streamEcho  streamClient
@@ -53,12 +52,12 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 		app = fiber.New(fiber.Config{DisableStartupMessage: true})
 		httpIntegration.BindTo(app)
 
-		factory = fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: httputil.JSONCodec,
-		})
-		unaryEcho = fhttp.UnaryClient[message, message](factory)
-		unaryReader = fhttp.UnaryClient[message, io.Reader](factory)
-		streamEcho = fhttp.StreamClient[message, message](factory)
+		clientConfig := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+		unaryEcho = MustSucceed(fhttp.NewUnaryClient[message, message](clientConfig))
+		unaryReader = MustSucceed(
+			fhttp.NewUnaryClient[message, io.Reader](clientConfig),
+		)
+		streamEcho = MustSucceed(fhttp.NewStreamClient[message, message](clientConfig))
 
 		app.Get("/health", func(ctx *fiber.Ctx) error {
 			return ctx.SendStatus(fiber.StatusOK)

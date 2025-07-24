@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 )
@@ -39,7 +40,7 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	internal bool
 }
 
-var _ freighter.UnaryServer[any, any] = (*unaryServer[any, any])(nil)
+var _ freighter.UnaryServer[any, any] = &unaryServer[any, any]{}
 
 func (us *unaryServer[RQ, RS]) BindHandler(
 	handler func(context.Context, RQ) (RS, error),
@@ -81,6 +82,16 @@ type unaryClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	codec httputil.Codec
+}
+
+func NewUnaryClient[RQ, RS freighter.Payload](
+	cfgs ...ClientConfig,
+) (*unaryClient[RQ, RS], error) {
+	cfg, err := config.New(DefaultClientConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &unaryClient[RQ, RS]{codec: cfg.Codec}, nil
 }
 
 func (uc *unaryClient[RQ, RS]) Send(

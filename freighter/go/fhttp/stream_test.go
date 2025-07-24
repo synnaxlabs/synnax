@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type streamImplementation struct{ app *fiber.App }
@@ -35,7 +36,8 @@ func (i *streamImplementation) Start(
 		Instrumentation:     ins,
 		StreamWriteDeadline: StreamWriteDeadline,
 	})
-	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{Codec: httputil.JSONCodec})
+	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+	client := MustSucceed(fhttp.NewStreamClient[Request, Response](clientCfg))
 	i.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -49,7 +51,7 @@ func (i *streamImplementation) Start(
 		_, err := http.Get("http://" + host.String() + "/health")
 		g.Expect(err).ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
-	return server, fhttp.StreamClient[Request, Response](client)
+	return server, client
 }
 
 func (i *streamImplementation) Stop() error { return i.app.Shutdown() }

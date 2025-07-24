@@ -37,7 +37,7 @@ var streamReporter = freighter.Reporter{
 var (
 	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
 	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)
-	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
+	_ config.Config[ClientConfig]            = ClientConfig{}
 )
 
 // WSMessageType is used to differentiate between the different types of messages use to
@@ -273,6 +273,16 @@ type streamClient[RQ, RS freighter.Payload] struct {
 	dialer ws.Dialer
 	freighter.Reporter
 	freighter.MiddlewareCollector
+}
+
+func NewStreamClient[RQ, RS freighter.Payload](
+	cfgs ...ClientConfig,
+) (*streamClient[RQ, RS], error) {
+	cfg, err := config.New(DefaultClientConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &streamClient[RQ, RS]{codec: cfg.Codec}, nil
 }
 
 func (s *streamClient[RQ, RS]) Report() alamos.Report {

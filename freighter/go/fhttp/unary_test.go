@@ -10,10 +10,6 @@
 package fhttp_test
 
 import (
-	"log"
-	"net/http"
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +17,7 @@ import (
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type implementation struct{ app *fiber.App }
@@ -30,24 +27,13 @@ var _ UnaryImplementation = &implementation{}
 func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) {
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{})
-	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-		Codec: httputil.JSONCodec,
-	})
 	server := fhttp.UnaryServer[Request, Response](router, "/")
-	client := fhttp.UnaryClient[Request, Response](factory)
+	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+	client := MustSucceed(fhttp.NewUnaryClient[Request, Response](clientCfg))
 	router.BindTo(i.app)
-	i.app.Get("/health", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
-	})
 	go func() {
-		if err := i.app.Listen(host.PortString()); err != nil {
-			log.Fatal(err)
-		}
+		Expect(i.app.Listen(host.PortString())).To(Succeed())
 	}()
-	Eventually(func(g Gomega) {
-		g.Expect(http.Get("http://" + host.String() + "/health")).
-			Error().ToNot(HaveOccurred())
-	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return server, client
 }
 
