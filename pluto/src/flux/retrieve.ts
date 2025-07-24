@@ -9,6 +9,7 @@
 
 import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type MultiSeries } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { useCallback, useRef, useState } from "react";
 
 import { type FetchOptions, type Params } from "@/flux/params";
@@ -21,7 +22,7 @@ import {
 } from "@/flux/result";
 import { type Sync } from "@/flux/sync";
 import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
-import { useAsyncEffect } from "@/hooks";
+import { useAsyncEffect, useInitializerRef } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
@@ -228,6 +229,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const client = PSynnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
   const mountListeners = useMountSynchronizers();
+  const mu = useInitializerRef(() => new Mutex());
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
@@ -248,7 +250,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
           listeners.map((l) => ({
             channel: l.channel,
             handler: (frame) =>
-              void (async () => {
+              void mu.current.runExclusive(async () => {
                 if (client == null || paramsRef.current == null) return;
                 try {
                   await l.onChange({
@@ -266,7 +268,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                 } catch (error) {
                   onChange(errorResult<Data>(name, "retrieve", error));
                 }
-              })(),
+              }),
           })),
         );
         onChange(successResult<Data>(name, "retrieved", value));

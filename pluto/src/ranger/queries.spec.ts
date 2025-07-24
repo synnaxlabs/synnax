@@ -1,4 +1,4 @@
-import { newTestClient, ontology, type ranger } from "@synnaxlabs/client";
+import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -735,63 +735,6 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.value().labels).not.toContain(label1.key);
         expect(result.current.form.value().labels).toContain(label2.key);
-      });
-    });
-
-    it("should update form when parent is assigned externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
-      const testRange = await client.ranges.create({
-        name: "parentAssignmentTest",
-        timeRange,
-      });
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().parent).toEqual("");
-
-      const newParent = await client.ranges.create({
-        name: "newParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
-      });
-
-      await client.ontology.moveChildren(testRange.ontologyID, newParent.ontologyID);
-
-      await waitFor(() => {
-        expect(result.current.form.value().parent).toEqual(newParent.key);
-      });
-    });
-
-    it("should update form when parent is removed externally", async () => {
-      const parentRange = await client.ranges.create({
-        name: "parentToRemove",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
-      });
-      const childRange = await client.ranges.create(
-        {
-          name: "childForParentRemoval",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(20)),
-        },
-        { parent: parentRange.ontologyID },
-      );
-
-      const { result } = renderHook(
-        () => Ranger.useForm({ params: { key: childRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().parent).toEqual(parentRange.key);
-
-      await client.ontology.moveChildren(
-        parentRange.ontologyID,
-        ontology.ROOT_ID,
-        childRange.ontologyID,
-      );
-
-      await waitFor(() => {
-        expect(result.current.form.value().parent).toBeUndefined();
       });
     });
 

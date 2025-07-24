@@ -251,23 +251,13 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ontology.relationshipZ,
-        async ({ changed, onChange }) => {
+        async ({ changed, onChange, params: { key } }) => {
+          if (key == null || !Label.matchRelationship(changed, ranger.ontologyID(key)))
+            return;
           onChange((prev) => {
-            if (prev == null || prev.key == null) return prev;
-            let next = prev;
-            if (Label.matchRelationship(changed, ranger.ontologyID(prev.key))) {
-              const nextLabels = prev.labels.filter((l) => l !== changed.to.key);
-              next = {
-                ...prev,
-                labels: nextLabels,
-              };
-            }
-            if (
-              changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
-            )
-              next = { ...prev, parent: undefined };
-            return next;
+            if (prev == null) return prev;
+            const nextLabels = prev.labels.filter((l) => l !== changed.to.key);
+            return { ...prev, labels: nextLabels };
           });
         },
       ),
