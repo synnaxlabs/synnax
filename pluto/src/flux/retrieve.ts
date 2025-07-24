@@ -179,11 +179,20 @@ export interface CreateRetrieveReturn<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
-  /** Hook that provides retrieve functions with external state management */
+  /**
+   * Hook that automatically fetches data when parameters change and returns the result state.
+   * Use this for most cases where you want React to handle the data fetching lifecycle automatically.
+   * Data is fetched when the component mounts and re-fetched whenever params change.
+   */
   useDirect: (
     args: UseDirectRetrieveArgs<RetrieveParams>,
   ) => UseDirectRetrieveReturn<Data>;
-  /** Hook that automatically triggers retrieve operations based on parameter changes */
+
+  /**
+   * Hook that triggers data fetching as a side effect when parameters change but returns nothing.
+   * Use this when you need to trigger data fetching but handle the result state externally
+   * (e.g., through the onChange callback). Returns void - no state is managed internally.
+   */
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
 }
 
@@ -301,16 +310,16 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
 };
 
 /**
- * Creates a retrieve query system that provides hooks for fetching data.
+ * Creates a retrieve query system that provides hooks for fetching data with different control patterns.
  *
  * This function creates a set of React hooks that handle data retrieval with
  * proper loading states, error handling, caching, and real-time updates. It provides
- * multiple hook variants for different use cases:
+ * four hook variants for different use cases:
  *
- * - `useObservable`: For external state management.
- * - `useStateful`: For internal state management with manual control of query execution.
- * - `useDirect`: For automatic retrieval based on parameters.
- * - `useEffect`: For side-effect based retrieval.
+ * - `useDirect`: Automatically fetches data when parameters change. Best for most use cases.
+ * - `useEffect`: Triggers data fetching as a side effect without returning state. Use when handling results externally.
+ * - `useObservable`: Provides retrieve functions for external state management. Use when integrating with external state systems.
+ * - `useStateful`: Provides manual control over when data is fetched, with internal state management. Use for user-triggered actions.
  *
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
@@ -331,7 +340,7 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
  * }
  *
  * const userRetrieve = createRetrieve<UserRetrieveParams, User>({
- *   name: "user",
+ *   name: "User",
  *   retrieve: async ({ params, client }) => {
  *     return await client.users.get(params.userId, {
  *       includeProfile: params.includeProfile
@@ -350,14 +359,17 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
  *   ]
  * });
  *
- * // Usage with automatic retrieval
+ * // Automatic fetching - data loads when component mounts and when userId changes
  * const { data, variant, error } = userRetrieve.useDirect({
  *   params: { userId: 123, includeProfile: true }
  * });
  *
- * // Usage with manual control
- * const { data, variant, error, retrieve } = userRetrieve.useStateful();
- * retrieve({ userId: 123 });
+ *
+ * // Side effect only - trigger fetching but handle result elsewhere
+ * userRetrieve.useEffect({
+ *   params: { userId: 123 },
+ *   onChange: (result) => analyticsService.track('user_loaded', result)
+ * });
  * ```
  */
 export const createRetrieve = <RetrieveParams extends Params, Data extends state.State>(

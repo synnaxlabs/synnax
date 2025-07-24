@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DisconnectedError, newTestClient } from "@synnaxlabs/client";
+import { channel, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,7 +31,6 @@ describe("retrieve", () => {
         );
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(null);
-        expect(result.current.error).toEqual(null);
         expect(result.current.message).toEqual("Retrieving Resource");
       });
 
@@ -47,7 +46,6 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.error).toEqual(null);
           expect(result.current.message).toEqual("Retrieved Resource");
         });
       });
@@ -65,7 +63,6 @@ describe("retrieve", () => {
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
-          expect(result.current.error).toEqual(new Error("test"));
           expect(result.current.data).toEqual(null);
           expect(result.current.message).toEqual("Failed to retrieve Resource");
           expect(result.current.description).toEqual("test");
@@ -83,11 +80,6 @@ describe("retrieve", () => {
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
-          expect(result.current.error).toEqual(
-            new DisconnectedError(
-              "Cannot retrieve Resource because no cluster is connected.",
-            ),
-          );
           expect(result.current.data).toEqual(null);
           expect(result.current.message).toEqual("Failed to retrieve Resource");
           expect(result.current.description).toEqual(
@@ -166,7 +158,6 @@ describe("retrieve", () => {
         });
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
-          expect(result.current.error).toEqual(new Error("test"));
         });
       });
     });

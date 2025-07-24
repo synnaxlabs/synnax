@@ -471,7 +471,7 @@ describe("useForm", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.error).toEqual(new Error("Listener error"));
+        expect(result.current.description).toEqual("Listener error");
       });
     });
   });
