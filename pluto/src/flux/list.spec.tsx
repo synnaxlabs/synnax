@@ -40,7 +40,6 @@ describe("list", () => {
       );
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
-      expect(result.current.error).toEqual(null);
     });
 
     it("should return a success result when the list is retrieved", async () => {
@@ -61,7 +60,6 @@ describe("list", () => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toEqual([1, 2]);
-        expect(result.current.error).toEqual(null);
       });
     });
 
@@ -82,7 +80,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(result.current.variant).toEqual("error");
-        expect(result.current.error).toEqual(new Error("Test Error"));
+        expect(result.current.description).toEqual("Test Error");
       });
       unmount();
     });
@@ -187,7 +185,7 @@ describe("list", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.error).toEqual(new Error("Test Error"));
+        expect(result.current.description).toEqual("Test Error");
       });
       unmount();
     });

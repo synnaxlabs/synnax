@@ -118,8 +118,6 @@ const NEW_LINE = 10;
 type JSType = "string" | "number" | "bigint";
 
 const checkAsType = (jsType: JSType, dataType: DataType) => {
-  if (jsType === "string" && !dataType.isVariable)
-    throw new Error(`cannot convert series of type ${dataType.toString()} to string`);
   if (jsType === "number" && !dataType.isNumeric)
     throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
   if (jsType === "bigint" && !dataType.usesBigInt)
@@ -709,8 +707,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   at(index: number, required?: false): T | undefined;
 
-  at(index: number, required?: boolean): T | undefined {
+  at(index: number, required: boolean = false): T | undefined {
     if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
@@ -718,6 +717,18 @@ export class Series<T extends TelemValue = TelemValue>
       return undefined;
     }
     return addSamples(v, this.sampleOffset) as T;
+  }
+
+  private atUUID(index: number, required: boolean): string | undefined {
+    if (index < 0) index = this.length + index;
+    const uuidString = uuid.parse(
+      new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
+    );
+    if (uuidString == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return uuidString;
   }
 
   private atVariable(index: number, required: boolean): T | undefined {
