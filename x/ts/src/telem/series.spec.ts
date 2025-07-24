@@ -84,10 +84,10 @@ describe("Series", () => {
       expect(a.byteLength).toEqual(Size.bytes(12));
       expect(a.byteCapacity).toEqual(Size.bytes(12));
       expect(a.capacity).toEqual(3);
-      const b = new Series({ data: new BigInt64Array([BigInt(1)]) });
+      const b = new Series({ data: new BigInt64Array([1n]) });
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       const c = new Series({
-        data: new BigInt64Array([BigInt(1)]),
+        data: new BigInt64Array([1n]),
         dataType: DataType.TIMESTAMP,
       });
       expect(c.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
@@ -173,25 +173,25 @@ describe("Series", () => {
     it("should convert a numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: 12, dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(12)]));
+      expect(a.data).toEqual(new BigInt64Array([12n]));
       const b = new Series({ data: 12, dataType: DataType.TIMESTAMP });
       expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(12)]));
+      expect(b.data).toEqual(new BigInt64Array([12n]));
       const c = new Series({ data: 12, dataType: DataType.UINT64 });
       expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
-      expect(c.data).toEqual(new BigUint64Array([BigInt(12)]));
+      expect(c.data).toEqual(new BigUint64Array([12n]));
     });
 
     it("should convert an array of numeric values to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: [12, 13, 14], dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(a.data).toEqual(new BigInt64Array([12n, 13n, 14n]));
       const b = new Series({ data: [12, 13, 14], dataType: DataType.TIMESTAMP });
       expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(b.data).toEqual(new BigInt64Array([12n, 13n, 14n]));
       const c = new Series({ data: [12, 13, 14], dataType: DataType.UINT64 });
       expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
-      expect(c.data).toEqual(new BigUint64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(c.data).toEqual(new BigUint64Array([12n, 13n, 14n]));
     });
 
     it("should convert bigints to numbers when data type does not use bigints", () => {
@@ -209,7 +209,7 @@ describe("Series", () => {
     it("should convert a floating point numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: 12.5, dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(13)]));
+      expect(a.data).toEqual(new BigInt64Array([13n]));
     });
 
     it("should convert encoded keys to snake_case", () => {
@@ -456,7 +456,7 @@ describe("Series", () => {
 
     test("from int64 to int32", () => {
       const a = new Series({
-        data: new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]),
+        data: new BigInt64Array([1n, 2n, 3n]),
       });
       const b = a.convert(DataType.INT32);
       expect(b.dataType.toString()).toBe(DataType.INT32.toString());
@@ -470,7 +470,7 @@ describe("Series", () => {
       });
       const b = a.convert(DataType.INT64);
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
+      expect(b.data).toEqual(new BigInt64Array([1n, 2n, 3n]));
     });
   });
 
@@ -767,9 +767,9 @@ describe("Series", () => {
     });
     describe("bigint", () => {
       it("should correctly interpret the series as a bigint", () => {
-        const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
+        const s = new Series([1n, 2n, 3n]);
         const s2 = s.as("bigint");
-        expect(s2.at(0)).toEqual(BigInt(1));
+        expect(s2.at(0)).toEqual(1n);
       });
       it("should throw an error if the series is not a bigint", () => {
         const s = new Series([1, 2, 3]);

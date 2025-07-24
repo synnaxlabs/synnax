@@ -266,6 +266,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                     },
                   });
                 } catch (error) {
+                  if (signal?.aborted) return;
                   onChange(errorResult<Data>(name, "retrieve", error));
                 }
               }),
@@ -273,6 +274,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
         );
         onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
+        if (signal?.aborted) return;
         onChange(errorResult<Data>(name, "retrieve", error));
       }
     },
@@ -281,7 +283,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const retrieveSync = useCallback(
     (
       params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-      options?: { signal?: AbortSignal },
+      options?: FetchOptions,
     ) => void retrieveAsync(params, options),
     [retrieveAsync],
   );

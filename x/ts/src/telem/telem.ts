@@ -93,7 +93,7 @@ export class TimeStamp
       super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
-      let offset: bigint = BigInt(0);
+      let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
@@ -265,7 +265,7 @@ export class TimeStamp
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -646,7 +646,6 @@ export class TimeStamp
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
   ]);
@@ -855,7 +854,7 @@ export class TimeSpan
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -989,7 +988,6 @@ export class TimeSpan
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
@@ -1088,7 +1086,6 @@ export class Rate
   /** A zod schema for validating and transforming rates */
   static readonly z = z.union([
     z.number().transform((n) => new Rate(n)),
-    z.instanceof(Number).transform((n) => new Rate(n)),
     z.instanceof(Rate),
   ]);
 }
@@ -1145,7 +1142,6 @@ export class Density
   /** A zod schema for validating and transforming densities */
   static readonly z = z.union([
     z.number().transform((n) => new Density(n)),
-    z.instanceof(Number).transform((n) => new Density(n)),
     z.instanceof(Density),
   ]);
 }
@@ -1683,7 +1679,9 @@ export class DataType
   ]);
 }
 
-/** The size of an element in bytes. */
+/**
+ * The Size of an element in bytes.
+ */
 export class Size
   extends primitive.ValueExtension<number>
   implements primitive.Stringer
@@ -1845,31 +1843,22 @@ export class Size
 
 export type CrudeTimeStamp =
   | bigint
-  | BigInt
   | TimeStamp
   | TimeSpan
   | number
   | Date
   | string
-  | DateComponents
-  | Number;
+  | DateComponents;
 export type TimeStampT = number;
-export type CrudeTimeSpan =
-  | bigint
-  | BigInt
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Number
-  | Rate;
+export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
 export type TimeSpanT = number;
-export type CrudeRate = Rate | number | Number;
+export type CrudeRate = Rate | number;
 export type RateT = number;
-export type CrudeDensity = Density | number | Number;
+export type CrudeDensity = Density | number;
 export type DensityT = number;
 export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
-export type CrudeSize = Size | number | Number;
+export type CrudeSize = Size | number;
 export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
@@ -1938,11 +1927,11 @@ export const convertDataType = (
   target: DataType,
   value: math.Numeric,
   offset: math.Numeric = 0,
-): math.PrimitiveNumeric => {
+): math.Numeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset).valueOf();
+  return addSamples(value, -offset);
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {

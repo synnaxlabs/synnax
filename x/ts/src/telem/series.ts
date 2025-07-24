@@ -362,7 +362,7 @@ export class Series<T extends TelemValue = TelemValue>
         ).buffer;
       else if (!this.dataType.usesBigInt && typeof first === "bigint")
         this._data = new this.dataType.Array(
-          data_.map((v) => Number(v)) as number[] & bigint[],
+          data_.map(Number) as number[] & bigint[],
         ).buffer;
       else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
