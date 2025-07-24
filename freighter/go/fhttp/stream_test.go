@@ -29,13 +29,13 @@ func (i *streamImplementation) Start(
 	host address.Address, ins alamos.Instrumentation,
 ) (StreamServer, StreamClient) {
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{
+	router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 		Instrumentation:     ins,
 		StreamWriteDeadline: StreamWriteDeadline,
-	})
+	}))
 	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
 	client := MustSucceed(fhttp.NewStreamClient[Request, Response](clientCfg))
-	server := fhttp.StreamServer[Request, Response](router, "/")
+	server := fhttp.NewStreamServer[Request, Response](router, "/")
 	router.BindTo(i.app)
 	go func() {
 		defer GinkgoRecover()

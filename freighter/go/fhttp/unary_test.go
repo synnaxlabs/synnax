@@ -10,14 +10,22 @@
 package fhttp_test
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http/httptest"
+
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type implementation struct{ app *fiber.App }
@@ -26,8 +34,8 @@ var _ UnaryImplementation = &implementation{}
 
 func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) {
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{})
-	server := fhttp.UnaryServer[Request, Response](router, "/")
+	router := MustSucceed(fhttp.NewRouter())
+	server := fhttp.NewUnaryServer[Request, Response](router, "/")
 	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
 	client := MustSucceed(fhttp.NewUnaryClient[Request, Response](clientCfg))
 	router.BindTo(i.app)
@@ -40,6 +48,68 @@ func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) 
 
 func (i *implementation) Stop() error { return i.app.Shutdown() }
 
+type TestRequest struct {
+	ID      int    `json:"id" msgpack:"id"`
+	Message string `json:"message" msgpack:"message"`
+}
+
 var _ = Describe("Unary", func() {
 	AssertUnary(&implementation{})
+	Describe("Server", func() {
+		It("Should return an error if the content type is not supported", func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			fhttp.NewUnaryServer[any, any](router, "/")
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "text/plain")
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusUnsupportedMediaType))
+		})
+		It("Should return an error if decoding the request body fails", func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			fhttp.NewUnaryServer[any, any](router, "/")
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "application/msgpack")
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusBadRequest))
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(string(body)).To(ContainSubstring(binary.ErrDecode.Error()))
+		})
+		It("should return an error if the requested content-type is not acceptable", func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			fhttp.NewUnaryServer[any, any](router, "/")
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "application/msgpack")
+			req.Header.Set("Accept", "application/nonexistent")
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusNotAcceptable))
+		})
+		It("Should allow for different content types", func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			server := fhttp.NewUnaryServer[TestRequest, TestRequest](router, "/")
+			server.BindHandler(func(_ context.Context, req TestRequest) (TestRequest, error) {
+				return req, nil
+			})
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/msgpack")
+			testReq := TestRequest{ID: 1, Message: "Hello, World!"}
+			jsonData := MustSucceed(json.Marshal(testReq))
+			msgpackData := MustSucceed(msgpack.Marshal(testReq))
+			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
+			req.ContentLength = int64(len(jsonData))
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusOK))
+			Expect(res.Header.Get("Content-Type")).To(Equal("application/msgpack"))
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(body).To(Equal(msgpackData))
+		})
+	})
 })

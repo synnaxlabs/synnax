@@ -357,6 +357,24 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	wg            *sync.WaitGroup
 }
 
+func NewStreamServer[RQ, RS freighter.Payload](
+	r *Router,
+	path string,
+	opts ...ServerOption,
+) *streamServer[RQ, RS] {
+	s := &streamServer[RQ, RS]{
+		serverOptions:   newServerOptions(opts),
+		Reporter:        streamReporter,
+		path:            path,
+		Instrumentation: r.Instrumentation,
+		serverCtx:       r.streamCtx,
+		writeDeadline:   r.StreamWriteDeadline,
+		wg:              r.streamWg,
+	}
+	r.register(path, "GET", s, s.fiberHandler)
+	return s
+}
+
 func (s *streamServer[RQ, RS]) BindHandler(
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
 ) {
@@ -382,7 +400,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, err := s.codecResolver(headerContentType)
+	codec, err := s.reqCodecResolver(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we send a
 		// best effort string.

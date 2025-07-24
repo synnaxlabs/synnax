@@ -20,18 +20,34 @@ type BindableTransport interface {
 	BindTo(*fiber.App)
 }
 
-type serverOptions struct{ codecResolver httputil.CodecResolver }
+type serverOptions struct {
+	reqCodecResolver              httputil.CodecResolver
+	resCodecResolver              httputil.CodecResolver
+	supportedResponseContentTypes []string
+}
 
 type ServerOption func(*serverOptions)
 
 func WithCodecResolver(r httputil.CodecResolver) ServerOption {
 	return func(o *serverOptions) {
-		o.codecResolver = r
+		o.reqCodecResolver = r
+		o.resCodecResolver = r
+	}
+}
+
+func WithResponseCodecResolver(r httputil.CodecResolver, supportedContentTypes []string) ServerOption {
+	return func(o *serverOptions) {
+		o.resCodecResolver = r
+		o.supportedResponseContentTypes = supportedContentTypes
 	}
 }
 
 func newServerOptions(opts []ServerOption) serverOptions {
-	so := serverOptions{codecResolver: httputil.ResolveCodec}
+	so := serverOptions{
+		reqCodecResolver:              httputil.ResolveCodec,
+		resCodecResolver:              httputil.ResolveCodec,
+		supportedResponseContentTypes: httputil.SupportedContentTypes(),
+	}
 	for _, opt := range opts {
 		opt(&so)
 	}
