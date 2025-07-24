@@ -20,4 +20,5 @@ var _ = DescribeTable("Variant", func(v freighter.Variant, s string) {
 },
 	Entry("Unary", freighter.Unary, "Unary"),
 	Entry("Stream", freighter.Stream, "Stream"),
+	Entry("Invalid", freighter.Variant(0), "Variant(0)"),
 )

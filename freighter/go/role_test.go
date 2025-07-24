@@ -20,4 +20,5 @@ var _ = DescribeTable("Role", func(r freighter.Role, s string) {
 },
 	Entry("Client", freighter.Client, "Client"),
 	Entry("Server", freighter.Server, "Server"),
+	Entry("Invalid", freighter.Role(0), "Role(0)"),
 )
