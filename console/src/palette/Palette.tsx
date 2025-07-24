@@ -86,11 +86,17 @@ export const Palette = ({
         >
           Search & Command
         </Button.Button>
-        <DialogContent
-          value={value}
-          onChange={setValue}
-          commandSymbol={commandSymbol}
-        />
+        <Dialog.Dialog
+          className={CSS.BE("palette", "content")}
+          rounded={1}
+          bordered={false}
+        >
+          <DialogContent
+            value={value}
+            onChange={setValue}
+            commandSymbol={commandSymbol}
+          />
+        </Dialog.Dialog>
       </Dialog.Frame>
     </Tooltip.Dialog>
   );
@@ -126,41 +132,35 @@ const DialogContent = ({
     [search, onChange],
   );
   return (
-    <Dialog.Dialog
-      className={CSS.BE("palette", "content")}
-      rounded={1}
-      bordered={false}
+    <Select.Frame<string, Command | ontology.Resource>
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      value={value}
+      onChange={handleSelect}
+      onFetchMore={fetchMore}
+      itemHeight={39}
+      virtual={false}
+      initialHover={0}
     >
-      <Select.Frame<string, Command | ontology.Resource>
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
+      <Input.Text
+        className={CSS(CSS.BE("palette", "input"))}
+        placeholder={
+          <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+            Type to search or {commandSymbol} to view commands
+          </Text.WithIcon>
+        }
+        size="huge"
+        autoFocus
+        shade={3}
+        onChange={handleSearch}
         value={value}
-        onChange={handleSelect}
-        onFetchMore={fetchMore}
-        itemHeight={39}
-        virtual={false}
-        initialHover={0}
-      >
-        <Input.Text
-          className={CSS(CSS.BE("palette", "input"))}
-          placeholder={
-            <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
-              Type to search or {commandSymbol} to view commands
-            </Text.WithIcon>
-          }
-          size="huge"
-          autoFocus
-          shade={3}
-          onChange={handleSearch}
-          value={value}
-          autoComplete="off"
-          onKeyDown={Triggers.matchCallback([["Escape"]], close)}
-        />
-        <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
-          {listItem}
-        </List.Items>
-      </Select.Frame>
-    </Dialog.Dialog>
+        autoComplete="off"
+        onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+      />
+      <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+        {listItem}
+      </List.Items>
+    </Select.Frame>
   );
 };

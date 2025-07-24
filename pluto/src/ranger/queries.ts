@@ -50,9 +50,11 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key));
-    return resources
-      .filter(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE)
-      .map((resource) => client.ranges.sugarOntologyResource(resource));
+    return await client.ranges.retrieve({
+      keys: resources.map(({ id: { key } }) => key),
+      includeParent: true,
+      includeLabels: true,
+    });
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   listeners: [

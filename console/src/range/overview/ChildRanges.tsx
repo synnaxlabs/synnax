@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Align, Button, Component, Icon, List, Ranger, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Component,
+  Header,
+  Icon,
+  List,
+  Ranger,
+} from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";
@@ -21,30 +29,18 @@ export const ChildRangeListItem = (props: List.ItemProps<string>) => {
   const placeLayout = Layout.usePlacer();
   if (entry == null) return null;
   return (
-    <List.Item
+    <Ranger.ListItem
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
       x
+      showParent={false}
       size="tiny"
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.5rem" }}
       {...props}
-    >
-      <Text.WithIcon
-        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
-        level="p"
-        weight={450}
-        shade={11}
-        size="small"
-      >
-        {entry.name}
-      </Text.WithIcon>
-      <Align.Space x size="small">
-        <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
-      </Align.Space>
-    </List.Item>
+    />
   );
 };
 
@@ -55,28 +51,34 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const { getItem, subscribe, data } = Ranger.useChildren();
+  const { getItem, subscribe, data, retrieve } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space y>
-      <Text.Text level="h4" shade={11} weight={450}>
-        Child Ranges
-      </Text.Text>
-      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+      <Header.Header level="h4" bordered={false} borderShade={5}>
+        <Header.Title shade={11} weight={450}>
+          Child Ranges
+        </Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            size="medium"
+            shade={0}
+            onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+          >
+            <Icon.Add />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <List.Frame
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={() => {
+          retrieve({ key: rangeKey });
+        }}
+      >
         <List.Items>{childRangeListItem}</List.Items>
       </List.Frame>
-      <Button.Button
-        size="medium"
-        shade={10}
-        weight={500}
-        startIcon={<Icon.Add />}
-        style={{ width: "fit-content" }}
-        iconSpacing="small"
-        variant="text"
-        onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
-      >
-        Add Child Range
-      </Button.Button>
     </Align.Space>
   );
 };

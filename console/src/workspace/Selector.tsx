@@ -52,6 +52,7 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
+  const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Workspace.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
@@ -71,13 +72,14 @@ export const Selector = (): ReactElement => {
             keepNav: false,
           }),
         );
+        setDialogVisible(false);
       }, "Failed to switch workspace");
     },
-    [active, client, dispatch, close, handleError],
+    [active, client, dispatch, handleError],
   );
 
   return (
-    <Dialog.Frame>
+    <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
         data={data}
         value={active?.key}
@@ -117,7 +119,10 @@ export const Selector = (): ReactElement => {
                 startIcon={<Icon.Close />}
                 size="large"
                 variant="outlined"
-                onClick={() => handleChange(null)}
+                onClick={() => {
+                  handleChange(null);
+                  setDialogVisible(false);
+                }}
                 iconSpacing="small"
                 tooltip="Switch to no workspace"
               >
@@ -128,7 +133,7 @@ export const Selector = (): ReactElement => {
                 startIcon={<Icon.Add />}
                 variant="outlined"
                 onClick={() => {
-                  close();
+                  setDialogVisible(false);
                   placeLayout(CREATE_LAYOUT);
                 }}
                 iconSpacing="small"

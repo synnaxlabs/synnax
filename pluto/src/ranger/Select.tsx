@@ -22,10 +22,17 @@ import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 
-const ListItem = ({
+interface ListItemProps extends List.ItemProps<ranger.Key> {
+  showParent?: boolean;
+  showLabels?: boolean;
+}
+
+export const ListItem = ({
   itemKey,
+  showParent = true,
+  showLabels = true,
   ...rest
-}: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
+}: ListItemProps): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
   if (item == null) return null;
   const { name, timeRange, parent, labels } = item;
@@ -36,7 +43,7 @@ const ListItem = ({
       shade: 10,
     },
   ];
-  if (parent != null)
+  if (parent != null && showParent)
     breadcrumbSegments.push({
       label: parent.name,
       weight: 400,
@@ -48,13 +55,15 @@ const ListItem = ({
         <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
         <TimeRangeChip level="small" timeRange={timeRange} />
       </Align.Space>
-      <Tag.Tags>
-        {labels?.map((l) => (
-          <Tag.Tag key={l.key} color={l.color} size="small">
-            {l.name}
-          </Tag.Tag>
-        ))}
-      </Tag.Tags>
+      {showLabels && (
+        <Tag.Tags>
+          {labels?.map((l) => (
+            <Tag.Tag key={l.key} color={l.color} size="small">
+              {l.name}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      )}
     </Select.ListItem>
   );
 };

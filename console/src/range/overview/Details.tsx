@@ -46,7 +46,6 @@ const ParentRangeButton = ({
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={11}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -76,6 +75,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       timeRange: { start: 0, end: 0 },
       labels: [],
     },
+    autoSave: true,
   });
   const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
