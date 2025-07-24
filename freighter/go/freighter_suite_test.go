@@ -10,42 +10,13 @@
 package freighter_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 )
-
-type (
-	request = struct {
-		ID      int
-		Message string
-	}
-	response = request
-)
-
-var myCustomError = errors.New("my custom error")
 
 func TestFreighter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Freighter Suite")
 }
-
-var _ = BeforeSuite(func() {
-	errors.Register(
-		func(_ context.Context, err error) (errors.Payload, bool) {
-			if errors.Is(err, myCustomError) {
-				return errors.Payload{Type: "myCustomError", Data: err.Error()}, true
-			}
-			return errors.Payload{}, false
-		},
-		func(_ context.Context, pld errors.Payload) (error, bool) {
-			if pld.Type != "myCustomError" {
-				return nil, false
-			}
-			return myCustomError, true
-		},
-	)
-})

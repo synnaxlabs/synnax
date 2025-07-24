@@ -20,3 +20,8 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return a, b
 }
+
+func MustFail(value any, err error) error {
+	ExpectWithOffset(1, value).To(BeZero())
+	return err
+}
