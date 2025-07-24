@@ -238,6 +238,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					wg := sync.WaitGroup{}
 					wg.Add(1)
 					go func() {
+						defer GinkgoRecover()
 						defer wg.Done()
 						w3, err := db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 30 * telem.SecondTS,
