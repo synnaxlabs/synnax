@@ -1,0 +1,76 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Requirements"
+heading: "Console Requirements"
+next: "Clusters"
+nextURL: "/reference/console/clusters"
+prev: "Get Started"
+prevURL: "/reference/console/get-started"
+description: "Hardware and software requirements for running the Synnax Console."
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+
+<Divider.Divider x />
+
+## Operating System
+
+The Synnax Console is compatible with Windows 11 and macOS Sequoia or later. While the
+Console does work on certain versions of Windows 10, it is not officially supported and
+you may experience issues.
+
+<Divider.Divider x />
+
+## General Hardware Requirements
+
+#### Minimum System Requirements
+
+- **CPU**: Intel Core i5 (8th generation) or AMD Ryzen 5 (3000 series) or equivalent
+- **RAM**: 8 GB RAM
+- **Storage**: 2 GB available disk space
+
+#### Recommended System Requirements
+
+- **CPU**: Intel Core i7 (10th generation) or AMD Ryzen 7 (4000 series) or better
+- **RAM**: 16 GB RAM or more
+- **Storage**: 4 GB available disk space (SSD recommended)
+
+<Divider.Divider x />
+
+## Graphics Requirements
+
+The Synnax Console is **GPU-intensive** due to its real-time data visualization
+capabilities, including high-frequency time-series plotting and dense schematics. For
+optimal performance, we strongly recommend using a dedicated graphics card.
+
+#### Minimum GPU Requirements
+
+- **Dedicated GPU**: NVIDIA GTX 1030 / AMD RX 550 or equivalent
+- **VRAM**: 2 GB
+- **DirectX**: Version 12 compatible
+- **OpenGL**: Version 4.5 support
+
+#### Recommended GPU Specifications
+
+- **Dedicated GPU**: NVIDIA RTX 2060 / AMD RX 5600 XT or better
+- **VRAM**: 6 GB or more
+- **DirectX**: Version 12 Ultimate support
+- **OpenGL**: Version 4.6 support
+
+#### Integrated Graphics
+
+While the Console can run on integrated graphics (Intel Iris Xe, AMD Radeon Vega),
+performance may be significantly reduced, especially when:
+
+- Displaying multiple high-frequency data streams simultaneously
+- Working with large datasets or long time ranges
+- Editing complex schematics
+
+For production environments or heavy data analysis workflows, a dedicated GPU is
+essential for maintaining smooth, responsive performance.
+
+## Display Requirements
+
+We recommend running the Console on a display with a resolution of at least 1920x1080,
+although 4K displays are preferred as they provide a far better user experience when
+operating the Console for extended periods.

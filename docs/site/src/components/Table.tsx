@@ -34,7 +34,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<K, E>): ReactElement => (
+}: TableProps<record.Key, E>): ReactElement => (
   <div style={{ overflowX: "auto", paddingLeft: 2 }}>
     <table>
       <thead>
