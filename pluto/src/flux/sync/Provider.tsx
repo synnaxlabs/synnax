@@ -9,7 +9,13 @@
 
 import { type channel, framer } from "@synnaxlabs/client";
 import { sync } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 
 import { AddListenerContext } from "@/flux/sync/Context";
 import { type FrameHandler, type ListenerAdder } from "@/flux/sync/types";
@@ -17,13 +23,18 @@ import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-export interface ProviderProps extends PropsWithChildren {}
+export interface ProviderProps extends PropsWithChildren {
+  openStreamer?: framer.StreamOpener;
+}
 
 interface MutexValue {
   streamer: framer.ObservableStreamer | null;
 }
 
-export const Provider = ({ children }: ProviderProps): ReactElement => {
+export const Provider = ({
+  children,
+  openStreamer: propsOpenStreamer,
+}: ProviderProps): ReactElement => {
   const client = Synnax.use();
   const handlersRef = useRef(new Map<FrameHandler, channel.Name>());
   const streamerRef = useRef<sync.Mutex<MutexValue>>(sync.newMutex({ streamer: null }));
@@ -55,9 +66,14 @@ export const Provider = ({ children }: ProviderProps): ReactElement => {
     [handleError],
   );
 
+  const openStreamer = useMemo(
+    () => propsOpenStreamer ?? client?.openStreamer.bind(client),
+    [client, propsOpenStreamer],
+  );
+
   const updateStreamer = useCallback(async () => {
     await streamerRef.current.runExclusive(async () => {
-      if (client == null) return;
+      if (openStreamer == null) return;
       const { streamer } = streamerRef.current;
       const names = Array.from(handlersRef.current.values());
       if (streamer != null) {
@@ -67,14 +83,12 @@ export const Provider = ({ children }: ProviderProps): ReactElement => {
         }
         return await streamer.update(names);
       }
-      const hardenedStreamer = await framer.HardenedStreamer.open(
-        client.openStreamer.bind(client),
-        names,
-      );
+      if (names.length === 0) return;
+      const hardenedStreamer = await framer.HardenedStreamer.open(openStreamer, names);
       streamerRef.current.streamer = new framer.ObservableStreamer(hardenedStreamer);
       streamerRef.current.streamer.onChange(handleChange);
     });
-  }, [client, handleChange]);
+  }, [client, handleChange, openStreamer]);
 
   const addListener: ListenerAdder = useCallback(
     ({ channel, handler, onOpen }) => {

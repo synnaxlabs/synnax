@@ -57,16 +57,14 @@ export const useListener = (
   const addListener = useAddListener();
   const handleError = Status.useErrorHandler();
   useEffect(() => {
-    const mu = new Mutex();
     const destructors = array.toArray(listeners).map(({ channel, onChange }) =>
       addListener({
         channel,
         handler: (frame) => {
-          handleError(async () => {
-            await mu.runExclusive(async () => {
-              await onChange({ changed: frame.get(channel) });
-            });
-          }, "Error in Sync.useListener");
+          handleError(
+            async () => await onChange({ changed: frame.get(channel) }),
+            "Error in Sync.useListener",
+          );
         },
       }),
     );
