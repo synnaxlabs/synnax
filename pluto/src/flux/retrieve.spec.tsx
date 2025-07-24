@@ -116,6 +116,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(ch);
+          expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
           await client.channels.rename(ch.key, "Test Channel 2");
@@ -152,6 +153,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(ch);
+          expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
           await client.channels.rename(ch.key, "Test Channel 2");
@@ -169,7 +171,7 @@ describe("retrieve", () => {
       const { result } = renderHook(
         () => {
           const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.pendingResult<number>("Resource", "retrieving"),
+            Flux.pendingResult<number>("Resource", "retrieving", null, false),
           );
           const handleChange: Flux.UseEffectRetrieveArgs<
             { key: string },

@@ -9,7 +9,7 @@
 
 import { channel, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -28,6 +28,13 @@ interface Params {
 const client = newTestClient();
 
 describe("useForm", () => {
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
   describe("no existing entity", () => {
     it("should return the initial values as the form values", async () => {
       const retrieve = vi.fn().mockReturnValue(null);
@@ -139,7 +146,7 @@ describe("useForm", () => {
       { wrapper: newSynnaxWrapper(client) },
     );
     act(() => {
-      result.current.save();
+      result.current.save({ signal: controller.signal });
     });
     const status = result.current.form.get("name").status;
     expect(status.variant).toEqual("success");
@@ -171,7 +178,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).toHaveBeenCalledTimes(1);
@@ -196,7 +203,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).not.toHaveBeenCalled();
@@ -221,7 +228,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).not.toHaveBeenCalled();
@@ -289,7 +296,7 @@ describe("useForm", () => {
     );
     act(() => {
       result.current.form.set("name", "Jane Doe");
-      result.current.save();
+      result.current.save({ signal: controller.signal });
     });
     await waitFor(() => {
       expect(retrieve).toHaveBeenCalledTimes(1);
@@ -407,6 +414,7 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       // Trigger a channel name change which should invoke the listener
@@ -463,6 +471,7 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => {
