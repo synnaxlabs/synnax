@@ -55,7 +55,7 @@ var _ = Describe("Receiver", func() {
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-		It("Should exit the receiver on context cancellation", Focus, func() {
+		It("Should exit the receiver on context cancellation", func() {
 			receiverStream := confluence.NewStream[int](10)
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)

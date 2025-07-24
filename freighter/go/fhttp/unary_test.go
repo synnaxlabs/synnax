@@ -32,6 +32,7 @@ func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) 
 	client := MustSucceed(fhttp.NewUnaryClient[Request, Response](clientCfg))
 	router.BindTo(i.app)
 	go func() {
+		defer GinkgoRecover()
 		Expect(i.app.Listen(host.PortString())).To(Succeed())
 	}()
 	return server, client

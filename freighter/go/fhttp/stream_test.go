@@ -10,9 +10,6 @@
 package fhttp_test
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,19 +35,12 @@ func (i *streamImplementation) Start(
 	})
 	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
 	client := MustSucceed(fhttp.NewStreamClient[Request, Response](clientCfg))
-	i.app.Get("/health", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
-	})
 	server := fhttp.StreamServer[Request, Response](router, "/")
 	router.BindTo(i.app)
 	go func() {
 		defer GinkgoRecover()
 		Expect(i.app.Listen(host.PortString())).To(Succeed())
 	}()
-	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + host.String() + "/health")
-		g.Expect(err).ToNot(HaveOccurred())
-	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return server, client
 }
 
