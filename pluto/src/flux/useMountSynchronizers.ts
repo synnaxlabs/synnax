@@ -9,9 +9,14 @@ import { Sync } from "@/flux/sync";
  */
 interface SynchronizerRef {
   /** Whether the synchronizer is currently mounted */
-  mounted: boolean;
+  mountCalled: boolean;
   /** Function to clean up all active listeners */
   destructor: Destructor;
+}
+
+export interface UseMountSynchronizersProps {
+  onOpen?: () => void;
+  listeners?: Sync.Subscriber[];
 }
 
 /**
@@ -41,20 +46,28 @@ interface SynchronizerRef {
  * mountSynchronizers(listeners);
  * ```
  */
-export const useMountSynchronizers = (): ((listeners?: Sync.Subscriber[]) => void) => {
+export const useMountSynchronizers = (): ((
+  props: UseMountSynchronizersProps,
+) => void) => {
   const ref = useRef<SynchronizerRef>({
-    mounted: false,
+    mountCalled: false,
     destructor: () => {},
   });
   const addListener = Sync.useAddListener();
   // Clean up listeners when component unmounts
   useEffect(() => () => ref.current.destructor(), []);
   return useCallback(
-    (listeners?: Sync.Subscriber[]) => {
-      if (listeners == null || listeners.length === 0) return;
-      ref.current.mounted = true;
+    ({ listeners, onOpen }: UseMountSynchronizersProps) => {
+      if (listeners == null || listeners.length === 0 || ref.current.mountCalled)
+        return;
+      ref.current.mountCalled = true;
+      let openCount = 0;
+      const handleOpen = () => {
+        openCount++;
+        if (openCount === listeners.length) onOpen?.();
+      };
       const destructors = listeners.map(({ channel, handler }) =>
-        addListener({ channel, handler }),
+        addListener({ channel, handler, onOpen: handleOpen }),
       );
       ref.current.destructor = () => destructors.forEach((d) => d());
     },

@@ -134,23 +134,24 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
     async (value: Data, opts: FetchOptions = {}) => {
       const { signal } = opts;
       try {
-        if (client == null) return onChange(nullClientResult(name, "update"));
-        onChange(pendingResult(name, "updating"));
+        if (client == null)
+          return onChange((p) => nullClientResult(name, "update", p.listenersMounted));
+        onChange((p) => pendingResult(name, "updating", p.data, p.listenersMounted));
         let updated = false;
         await update({
           client,
           onChange: (value) => {
-            onChange(successResult(name, "updated", value));
             updated = true;
+            onChange((p) => successResult(name, "updated", value, p.listenersMounted));
           },
           value,
           params,
         });
         if (signal?.aborted || updated) return;
-        onChange(successResult(name, "updated", value));
+        onChange((p) => successResult(name, "updated", value, p.listenersMounted));
       } catch (error) {
         if (signal?.aborted) return;
-        onChange(errorResult(name, "update", error));
+        onChange((p) => errorResult(name, "update", error, p.listenersMounted));
       }
     },
     [name, params],
@@ -176,7 +177,7 @@ const useDirect = <UpdateParams extends Params, Data extends state.State>({
 }: UseDirectUpdateArgs<UpdateParams> &
   CreateUpdateArgs<UpdateParams, Data>): UseDirectUpdateReturn<Data> => {
   const [result, setResult] = useState<Result<Data | null>>(
-    successResult(name, "updated", null),
+    successResult(name, "updated", null, false),
   );
   const methods = useObservable<UpdateParams, Data>({
     ...restArgs,

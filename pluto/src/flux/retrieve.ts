@@ -208,7 +208,7 @@ const useStateful = <RetrieveParams extends Params, Data extends state.State>(
   args: CreateRetrieveArgs<RetrieveParams, Data>,
 ): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
   const [state, setState] = useState<Result<Data>>(
-    pendingResult<Data>(args.name, "retrieving"),
+    pendingResult<Data>(args.name, "retrieving", null, false),
   );
   return {
     ...state,
@@ -242,12 +242,16 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       );
       paramsRef.current = params;
       try {
-        if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
-        onChange((p) => pendingResult(name, "retrieving", p.data));
+        if (client == null)
+          return onChange((p) =>
+            nullClientResult<Data>(name, "retrieve", p.listenersMounted),
+          );
+        onChange((p) => pendingResult(name, "retrieving", p.data, p.listenersMounted));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;
-        mountListeners(
-          listeners.map((l) => ({
+        mountListeners({
+          onOpen: () => onChange((p) => ({ ...p, listenersMounted: true })),
+          listeners: listeners.map((l) => ({
             channel: l.channel,
             handler: (frame) =>
               void mu.current.runExclusive(async () => {
@@ -261,21 +265,30 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                       onChange((prev) => {
                         if (prev.data == null) return prev;
                         const next = state.executeSetter(value, prev.data);
-                        return successResult(name, "retrieved", next);
+                        return successResult(
+                          name,
+                          "retrieved",
+                          next,
+                          prev.listenersMounted,
+                        );
                       });
                     },
                   });
                 } catch (error) {
                   if (signal?.aborted) return;
-                  onChange(errorResult<Data>(name, "retrieve", error));
+                  onChange((p) =>
+                    errorResult<Data>(name, "retrieve", error, p.listenersMounted),
+                  );
                 }
               }),
           })),
+        });
+        onChange((p) =>
+          successResult<Data>(name, "retrieved", value, p.listenersMounted),
         );
-        onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         if (signal?.aborted) return;
-        onChange(errorResult<Data>(name, "retrieve", error));
+        onChange((p) => errorResult<Data>(name, "retrieve", error, p.listenersMounted));
       }
     },
     [client, name, mountListeners],

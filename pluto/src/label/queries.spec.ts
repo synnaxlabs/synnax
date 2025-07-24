@@ -126,7 +126,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
 
       const updatedLabel = await client.labels.create({
@@ -151,7 +154,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.data).toContain(testLabel.key);
 
       await client.labels.delete(testLabel.key);
@@ -209,7 +215,10 @@ describe("queries", () => {
           }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       const initialLength = result.current.data?.length ?? 0;
 
       const newLabel = await client.labels.create({
@@ -243,7 +252,10 @@ describe("queries", () => {
           }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
 
       await client.labels.label(label.ontologyID(targetLabel.key), [], {
@@ -274,7 +286,10 @@ describe("queries", () => {
           }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(
         result.current.data?.find((l) => l.key === originalLabel.key)?.name,
       ).toEqual("originalName");
@@ -310,7 +325,10 @@ describe("queries", () => {
           }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
 
       await client.labels.delete(labelToDelete.key);
@@ -439,7 +457,10 @@ describe("queries", () => {
         () => Label.useForm({ params: { key: testLabel.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
       await client.labels.create({

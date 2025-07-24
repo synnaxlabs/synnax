@@ -286,13 +286,11 @@ const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
   name: "Ranges",
-  retrieve: async ({ client, params }) => {
-    const ranges = await client.ranges.retrieve({
+  retrieve: async ({ client, params }) =>
+    await client.ranges.retrieve({
       ...DEFAULT_LIST_PARAMS,
       ...params,
-    });
-    return ranges;
-  },
+    }),
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   listeners: [
     {

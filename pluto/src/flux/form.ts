@@ -154,7 +154,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   return ({ params, initialValues, autoSave = false, afterSave, sync = false }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(pendingResult(name, "retrieving"));
+    >(pendingResult(name, "retrieving", null, false));
 
     const form = Form.use<Schema>({
       schema,
@@ -193,7 +193,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
             await updateAsync(form.value(), opts);
             afterSave?.({ form, params });
           } catch (error) {
-            setResult(errorResult(name, "update", error));
+            setResult((p) => errorResult(name, "update", error, p.listenersMounted));
           }
         })(),
       [form, updateAsync, afterSave, params],

@@ -66,8 +66,8 @@ export type Result<Data extends state.State> =
 export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
-  data: Data | null = null,
-  listenersMounted: boolean = false,
+  data: Data | null,
+  listenersMounted: boolean,
 ): Result<Data> => ({
   ...status.create<undefined, "loading">({
     variant: "loading",
@@ -96,7 +96,7 @@ export const successResult = <Data extends state.State>(
   name: string,
   op: string,
   data: Data,
-  listenersMounted: boolean = false,
+  listenersMounted: boolean,
 ): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
@@ -125,7 +125,7 @@ export const errorResult = <Data extends state.State>(
   name: string,
   op: string,
   error: unknown,
-  listenersMounted: boolean = false,
+  listenersMounted: boolean,
 ): Result<Data> => ({
   ...status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
@@ -149,7 +149,7 @@ export const errorResult = <Data extends state.State>(
 export const nullClientResult = <Data extends state.State>(
   name: string,
   opName: string,
-  listenersMounted: boolean = false,
+  listenersMounted: boolean,
 ): Result<Data> =>
   errorResult(
     name,

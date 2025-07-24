@@ -52,7 +52,12 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() =>
+        expect(
+          result.current.variant,
+          `${result.current.message}:${result.current.description}`,
+        ).toEqual("success"),
+      );
 
       const retrievedRange = result.current.getItem(testRange.key);
       expect(retrievedRange?.key).toEqual(testRange.key);
@@ -122,7 +127,12 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({ includeParent: true }, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() =>
+        expect(
+          result.current.variant,
+          `${result.current.message}:${result.current.description}`,
+        ).toEqual("success"),
+      );
 
       const retrievedChild = result.current.getItem(childRange.key);
       expect(retrievedChild?.key).toEqual(childRange.key);
@@ -152,7 +162,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       const initialLength = result.current.data.length;
 
       const newRange = await client.ranges.create({
@@ -178,7 +191,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.getItem(testRange.key)?.name).toEqual("original");
 
       await client.ranges.rename(testRange.key, "updated");
@@ -200,7 +216,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.data).toContain(testRange.key);
 
       await client.ranges.delete(testRange.key);
@@ -359,7 +378,10 @@ describe("queries", () => {
           { signal: controller.signal },
         );
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       const initialLength = result.current.data.length;
       expect(initialLength).toEqual(0);
 
@@ -399,7 +421,10 @@ describe("queries", () => {
           { signal: controller.signal },
         );
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.getItem(childRange.key)?.name).toEqual("originalChild");
 
       await client.ranges.rename(childRange.key, "updatedChild");
@@ -431,7 +456,10 @@ describe("queries", () => {
           { signal: controller.signal },
         );
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.data).toContain(childRange.key);
 
       await client.ranges.delete(childRange.key);
@@ -696,7 +724,10 @@ describe("queries", () => {
         () => Ranger.useForm({ params: { key: testRange.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
       await client.ranges.rename(testRange.key, "externallyUpdated");
@@ -717,7 +748,10 @@ describe("queries", () => {
         () => Ranger.useForm({ params: { key: testRange.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
 
       const initialLabels = result.current.form.value().labels;
 
@@ -757,7 +791,10 @@ describe("queries", () => {
         () => Ranger.useForm({ params: { key: testRange.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.form.value().labels).toContain(label1.key);
       expect(result.current.form.value().labels).toContain(label2.key);
 
@@ -790,7 +827,10 @@ describe("queries", () => {
         () => Ranger.useForm({ params: { key: childRange.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
+      });
       expect(result.current.form.value().parent).toEqual(originalParent.key);
 
       await client.ontology.moveChildren(

@@ -198,7 +198,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () => {
-          const { getItem, subscribe, retrieve } = Flux.createList<
+          const { getItem, subscribe, retrieve, listenersMounted } = Flux.createList<
             {},
             ranger.Key,
             ranger.Payload
@@ -221,17 +221,18 @@ describe("list", () => {
             getItem,
             key: rng.key,
           });
-          return { retrieve, value };
+          return { retrieve, value, listenersMounted };
         },
         { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
@@ -251,34 +252,36 @@ describe("list", () => {
       });
       const { result } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<{}, ranger.Key, ranger.Payload>(
-            {
-              name: "Resource",
-              retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
-              retrieveByKey: async ({ client, key }) =>
-                await client.ranges.retrieve(key),
-              listeners: [
-                {
-                  channel: ranger.DELETE_CHANNEL_NAME,
-                  onChange: Sync.parsedHandler(
-                    ranger.keyZ,
-                    async ({ onDelete, changed }) => onDelete(changed),
-                  ),
-                },
-              ],
-            },
-          )();
-          return { retrieve, value: getItem(rng.key) };
+          const { getItem, retrieve, listenersMounted } = Flux.createList<
+            {},
+            ranger.Key,
+            ranger.Payload
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            listeners: [
+              {
+                channel: ranger.DELETE_CHANNEL_NAME,
+                onChange: Sync.parsedHandler(
+                  ranger.keyZ,
+                  async ({ onDelete, changed }) => onDelete(changed),
+                ),
+              },
+            ],
+          })();
+          return { retrieve, value: getItem(rng.key), listenersMounted };
         },
         { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
+        expect(result.current.listenersMounted).toEqual(true);
       });
       await act(async () => await client.ranges.delete(rng.key));
       await waitFor(() => {
