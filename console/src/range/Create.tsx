@@ -167,13 +167,13 @@ export const Create: Layout.Renderer = (props) => {
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            onClick={save}
+            onClick={() => save()}
             disabled={variant === "loading"}
           >
             Save Locally
           </Button.Button>
           <Button.Button
-            onClick={save}
+            onClick={() => save()}
             disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
