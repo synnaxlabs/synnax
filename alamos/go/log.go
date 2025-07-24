@@ -111,6 +111,14 @@ func (l *Logger) Info(msg string, fields ...zap.Field) {
 	}
 }
 
+// Infof logs a message at the Info level using the given format. This is a slower
+// method that should not be used in hot paths.
+func (l *Logger) Infof(format string, args ...any) {
+	if l != nil {
+		l.zap.Sugar().Infof(format, args...)
+	}
+}
+
 // Warn logs a message at the Warn level with the given fields.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
 	if l != nil {

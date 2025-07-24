@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package math provides extended math functionality.
 package math
 
 import "github.com/synnaxlabs/x/types"
@@ -18,20 +19,28 @@ const (
 	MaxUint12 types.Uint12 = 2<<11 - 1
 )
 
-// IntPow returns x^n for two integers x and n. IntPow requires n to be a
-// nonnegative integer.
-func IntPow(x, n int) int {
-	return expBySquaring(1, x, n)
-}
-
-// expBySquaring returns y*x^n for integers y, x, and n. This requires n to be
-// a nonnegative integer.
-func expBySquaring(y, x, n int) int {
-	if n == 0 {
-		return y
+// IntPow efficiently returns the result of the operation x^n for two numbers. This
+// implementation uses exponentiation by squaring. IntPow panics if x is zero and n is
+// negative. See
+// https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+func IntPow[T types.Numeric](x T, n int) T {
+	if n < 0 {
+		if x == 0 {
+			panic("[math.IntPow]: Cannot raise zero to a negative power")
+		}
+		x = 1 / x
+		n *= -1
+	} else if n == 0 {
+		return 1
 	}
-	if n%2 == 0 {
-		return expBySquaring(y, x*x, n/2)
+	y := T(1)
+	for n > 1 {
+		if n%2 == 1 {
+			y *= x
+			n--
+		}
+		x *= x
+		n /= 2
 	}
-	return expBySquaring(x*y, x*x, (n-1)/2)
+	return x * y
 }
