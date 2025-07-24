@@ -22,7 +22,8 @@ export interface ListParams {
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
   name: "Racks",
   retrieve: async ({ client, params }) => await client.hardware.racks.retrieve(params),
-  retrieveByKey: async ({ client, key }) => await client.hardware.racks.retrieve(key),
+  retrieveByKey: async ({ client, key }) =>
+    await client.hardware.racks.retrieve({ key }),
   listeners: [
     {
       channel: rack.STATUS_CHANNEL_NAME,
@@ -34,8 +35,10 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
     },
     {
       channel: rack.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(rack.keyZ, async ({ changed, onChange, client }) =>
-        onChange(changed, (await client.hardware.racks.retrieve(changed)).payload),
+      onChange: Sync.parsedHandler(
+        rack.keyZ,
+        async ({ changed: key, onChange, client }) =>
+          onChange(key, (await client.hardware.racks.retrieve({ key })).payload),
       ),
     },
     {

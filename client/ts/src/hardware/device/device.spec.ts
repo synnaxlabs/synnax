@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, unique } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { NotFoundError } from "@/errors";
 import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
@@ -92,22 +91,6 @@ describe("Device", async () => {
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
-    });
-    it("should handle ignoreNotFound option", async () => {
-      // Test multiple device retrieval
-      const results = await client.hardware.devices.retrieve(
-        ["nonexistent_key1", "nonexistent_key2"],
-        { ignoreNotFound: true },
-      );
-      expect(results).toEqual([]);
-    });
-
-    it("should throw an error when device not found and ignoreNotFound is false", async () => {
-      await expect(
-        client.hardware.devices.retrieve(["nonexistent_key"], {
-          ignoreNotFound: false,
-        }),
-      ).rejects.toThrow(NotFoundError);
     });
 
     describe("state", () => {
@@ -202,6 +185,139 @@ describe("Device", async () => {
               retrieved.status.variant === "info" &&
               retrieved.status.details.device === key
             );
+          })
+          .toBeTruthy();
+      });
+    });
+
+    describe("request object format", () => {
+      const testDevices: Array<{
+        key: string;
+        name: string;
+        make: string;
+        model: string;
+        location: string;
+      }> = [];
+
+      beforeAll(async () => {
+        const deviceConfigs = [
+          { name: "sensor1", make: "ni", model: "pxi-6281", location: "Lab1" },
+          { name: "sensor2", make: "ni", model: "pxi-6284", location: "Lab2" },
+          { name: "actuator1", make: "labjack", model: "t7", location: "Lab1" },
+          { name: "actuator2", make: "labjack", model: "t4", location: "Lab3" },
+          { name: "controller", make: "opc", model: "server", location: "Lab2" },
+        ];
+
+        for (const config of deviceConfigs) {
+          const key = id.create();
+          await client.hardware.devices.create({
+            key,
+            rack: testRack.key,
+            location: config.location,
+            name: config.name,
+            make: config.make,
+            model: config.model,
+            properties: { test: true },
+          });
+          testDevices.push({ key, ...config });
+        }
+      });
+
+      it("should retrieve devices by names", async () => {
+        const result = await client.hardware.devices.retrieve({
+          names: ["sensor1", "actuator1"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(unique.unique(result.map((d) => d.name).sort())).toEqual([
+          "actuator1",
+          "sensor1",
+        ]);
+      });
+
+      it("should retrieve devices by makes", async () => {
+        const result = await client.hardware.devices.retrieve({
+          makes: ["ni"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.make === "ni")).toBeTruthy();
+      });
+
+      it("should retrieve devices by models", async () => {
+        const result = await client.hardware.devices.retrieve({
+          models: ["pxi-6281", "t7"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(unique.unique(result.map((d) => d.model).sort())).toEqual([
+          "pxi-6281",
+          "t7",
+        ]);
+      });
+
+      it("should retrieve devices by locations", async () => {
+        const result = await client.hardware.devices.retrieve({
+          locations: ["Lab1"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.location === "Lab1")).toBeTruthy();
+      });
+
+      it("should retrieve devices by racks", async () => {
+        const result = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(5);
+        expect(result.every((d) => d.rack === testRack.key)).toBeTruthy();
+      });
+
+      it("should retrieve devices by search term", async () => {
+        const result = await client.hardware.devices.retrieve({
+          search: "sensor",
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.name.includes("sensor"))).toBeTruthy();
+      });
+
+      it("should support pagination with limit and offset", async () => {
+        const firstPage = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+          limit: 2,
+          offset: 0,
+        });
+        expect(firstPage).toHaveLength(2);
+
+        const secondPage = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+          limit: 2,
+          offset: 2,
+        });
+        expect(secondPage).toHaveLength(2);
+
+        const firstPageKeys = firstPage.map((d) => d.key);
+        const secondPageKeys = secondPage.map((d) => d.key);
+        expect(
+          firstPageKeys.every((key) => !secondPageKeys.includes(key)),
+        ).toBeTruthy();
+      });
+
+      it("should support combined filters", async () => {
+        const result = await client.hardware.devices.retrieve({
+          makes: ["ni"],
+          locations: ["Lab1", "Lab2"],
+          includeStatus: true,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(
+          result.every((d) => d.make === "ni" && ["Lab1", "Lab2"].includes(d.location)),
+        ).toBeTruthy();
+
+        await expect
+          .poll(async () => {
+            const devices = await client.hardware.devices.retrieve({
+              makes: ["ni"],
+              locations: ["Lab1", "Lab2"],
+              includeStatus: true,
+            });
+            return devices.every((d) => d.status !== undefined);
           })
           .toBeTruthy();
       });

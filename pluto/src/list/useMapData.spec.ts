@@ -181,13 +181,13 @@ describe("useMapData", () => {
         result.current.setItem(item);
       });
 
-      expect(result.current.hasItem("1")).toBe(true);
+      expect(result.current.hasItem("1")).toBeTruthy();
     });
 
     it("should return false for non-existing item", () => {
       const { result } = renderHook(() => useMapData<string, TestItem>());
 
-      expect(result.current.hasItem("nonexistent")).toBe(false);
+      expect(result.current.hasItem("nonexistent")).toBeFalsy();
     });
 
     it("should return false after item is deleted", () => {
@@ -199,13 +199,13 @@ describe("useMapData", () => {
         result.current.setItem(item);
       });
 
-      expect(result.current.hasItem("1")).toBe(true);
+      expect(result.current.hasItem("1")).toBeTruthy();
 
       act(() => {
         result.current.deleteItem("1");
       });
 
-      expect(result.current.hasItem("1")).toBe(false);
+      expect(result.current.hasItem("1")).toBeFalsy();
     });
   });
 
@@ -342,7 +342,7 @@ describe("useMapData", () => {
       });
 
       expect(numberResult.current.getItem(1)).toEqual(numberItem);
-      expect(numberResult.current.hasItem(1)).toBe(true);
+      expect(numberResult.current.hasItem(1)).toBeTruthy();
     });
 
     it("should handle bulk operations", () => {
@@ -358,8 +358,8 @@ describe("useMapData", () => {
         result.current.setItem(items);
       });
 
-      expect(result.current.hasItem("item-0")).toBe(true);
-      expect(result.current.hasItem("item-99")).toBe(true);
+      expect(result.current.hasItem("item-0")).toBeTruthy();
+      expect(result.current.hasItem("item-99")).toBeTruthy();
 
       const keysToDelete = items.slice(0, 50).map((item) => item.key);
 
@@ -367,9 +367,9 @@ describe("useMapData", () => {
         result.current.deleteItem(keysToDelete);
       });
 
-      expect(result.current.hasItem("item-0")).toBe(false);
-      expect(result.current.hasItem("item-49")).toBe(false);
-      expect(result.current.hasItem("item-50")).toBe(true);
+      expect(result.current.hasItem("item-0")).toBeFalsy();
+      expect(result.current.hasItem("item-49")).toBeFalsy();
+      expect(result.current.hasItem("item-50")).toBeTruthy();
     });
 
     it("should maintain referential stability", () => {

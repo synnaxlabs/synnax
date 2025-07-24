@@ -23,7 +23,7 @@ import {
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { type ontology } from "@/ontology";
-import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
@@ -46,6 +46,28 @@ const retrieveReqZ = z.object({
 });
 
 type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+
+const keyRetrieveReqZ = z
+  .object({
+    key: keyZ,
+    includeStatus: z.boolean().optional(),
+  })
+  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+
+type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
+
+const nameRetrieveReqZ = z
+  .object({
+    name: z.string(),
+    includeStatus: z.boolean().optional(),
+  })
+  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+
+type NameRetrieveRequest = z.input<typeof nameRetrieveReqZ>;
+
+const retrieveArgsZ = z.union([keyRetrieveReqZ, nameRetrieveReqZ, retrieveReqZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
@@ -95,35 +117,21 @@ export class Client {
     return sugared;
   }
 
-  async retrieve(key: string | Key, options?: RetrieveOptions): Promise<Rack>;
-  async retrieve(keys: Key[], options?: RetrieveOptions): Promise<Rack[]>;
+  async retrieve(params: KeyRetrieveRequest | NameRetrieveRequest): Promise<Rack>;
   async retrieve(request: RetrieveRequest): Promise<Rack[]>;
 
-  async retrieve(
-    racks: string | Key | Key[] | RetrieveRequest,
-    options?: RetrieveOptions,
-  ): Promise<Rack | Rack[]> {
-    let request: RetrieveRequest;
-    let single = false;
-    if (typeof racks === "object" && !Array.isArray(racks)) request = racks;
-    else {
-      const res = analyzeParams(racks, { string: "names", number: "keys" });
-      single = res.single;
-      request = {
-        [res.variant]: res.normalized,
-        includeStatus: options?.includeStatus,
-      };
-    }
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+  async retrieve(params: RetrieveArgs): Promise<Rack | Rack[]> {
+    const isSingle = "key" in params || "name" in params;
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      request,
-      retrieveReqZ,
+      params,
+      retrieveArgsZ,
       retrieveResZ,
     );
     const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", racks, sugared, single);
-    return single ? sugared[0] : sugared;
+    checkForMultipleOrNoResults("Rack", params, sugared, isSingle);
+    return isSingle ? sugared[0] : sugared;
   }
 
   sugar(payload: Payload): Rack;

@@ -24,7 +24,7 @@ describe("UUID", () => {
       const uuids = new Set();
       for (let i = 0; i < 1000; i++) {
         const uid = uuid.create();
-        expect(uuids.has(uid)).toBe(false);
+        expect(uuids.has(uid)).toBeFalsy();
         uuids.add(uid);
       }
     });

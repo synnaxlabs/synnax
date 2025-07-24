@@ -188,7 +188,6 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     const handleSave = useCallback(
       () =>
         void (async () => {
-          console.log("saving");
           try {
             if (!(await form.validateAsync())) return;
             await updateAsync(form.value());

@@ -181,7 +181,7 @@ export const useForm = <
         config as z.infer<Config>,
         name,
       );
-      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
+      if (task_.key != "" && rackKey != task.rackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:

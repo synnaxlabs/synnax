@@ -314,26 +314,33 @@ export interface ListParams
     "includeLabels" | "includeParent" | "term" | "offset" | "limit"
   > {}
 
-export const useList = Flux.createList<ListParams, ranger.Key, ranger.Payload>({
+const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
+  includeParent: true,
+  includeLabels: true,
+};
+
+export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
   name: "Ranges",
   retrieve: async ({ client, params }) => {
     const ranges = await client.ranges.retrieve({
-      includeParent: true,
-      includeLabels: true,
+      ...DEFAULT_LIST_PARAMS,
       ...params,
     });
-    return ranges.map((r) => r.payload);
+    return ranges;
   },
-  retrieveByKey: async ({ client, key }) => (await client.ranges.retrieve(key)).payload,
+  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   listeners: [
     {
       channel: ranger.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(ranger.payloadZ, async ({ changed, onChange }) => {
-        onChange(changed.key, (prev) => {
-          if (prev == null) return prev;
-          return changed;
-        });
-      }),
+      onChange: Sync.parsedHandler(
+        ranger.payloadZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed.key, (prev) => {
+            if (prev == null) return prev;
+            return client.ranges.sugarOne(changed);
+          });
+        },
+      ),
     },
     {
       channel: ranger.DELETE_CHANNEL_NAME,

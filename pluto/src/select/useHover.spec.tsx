@@ -10,6 +10,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
@@ -29,13 +30,16 @@ describe("useHover", () => {
       return <div>{hover}</div>;
     };
     return render(
-      <List.Frame data={data}>
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>
-      </List.Frame>,
+      <Dialog.Frame visible>
+        <List.Frame data={data}>
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>
+        </List.Frame>
+      </Dialog.Frame>,
     );
   };
+
   it("should shift the hover position of the list when the down arrow is pressed", () => {
     const onSelect = vi.fn();
     const data = ["1", "2", "3"];

@@ -14,55 +14,55 @@ import { is } from "@/link/link";
 describe("is", () => {
   // Valid IRIs
   it("should return true for a simple HTTP URL", () => {
-    expect(is("http://example.com")).toBe(true);
+    expect(is("http://example.com")).toBeTruthy();
   });
 
   it("should return true for an HTTP URL with a port", () => {
-    expect(is("http://example.com:8080")).toBe(true);
+    expect(is("http://example.com:8080")).toBeTruthy();
   });
 
   it("should return true for an HTTPS URL with path, query, and fragment", () => {
-    expect(is("https://example.com/path?query=param#fragment")).toBe(true);
+    expect(is("https://example.com/path?query=param#fragment")).toBeTruthy();
   });
 
   it("should return true for an IRI with IPv4", () => {
-    expect(is("http://192.168.1.1")).toBe(true);
+    expect(is("http://192.168.1.1")).toBeTruthy();
   });
 
   it("should return true for an IRI with percent-encoded spaces", () => {
-    expect(is("http://example.com/path%20with%20spaces")).toBe(true);
+    expect(is("http://example.com/path%20with%20spaces")).toBeTruthy();
   });
 
   it("should return true for an IRI with query and fragment", () => {
-    expect(is("http://example.com/path?query=123#section")).toBe(true);
+    expect(is("http://example.com/path?query=123#section")).toBeTruthy();
   });
 
   // Invalid IRIs
   it("should return false for a URL with invalid characters", () => {
-    expect(is("http://example.com/invalid|character")).toBe(false);
+    expect(is("http://example.com/invalid|character")).toBeFalsy();
   });
 
   it("should return false for a scheme with spaces", () => {
-    expect(is("ht tp://example.com")).toBe(false);
+    expect(is("ht tp://example.com")).toBeFalsy();
   });
 
   it("should return false for a URL with a missing host", () => {
-    expect(is("http://")).toBe(false);
+    expect(is("http://")).toBeFalsy();
   });
 
   it("should return false for a URL with an unsupported scheme", () => {
-    expect(is("xyz://example.com")).toBe(false);
+    expect(is("xyz://example.com")).toBeFalsy();
   });
 
   it("should return false for an IPv6 with double colons", () => {
-    expect(is("http://[2001:db8:::1]")).toBe(false);
+    expect(is("http://[2001:db8:::1]")).toBeFalsy();
   });
 
   it("should return false for a scheme with a trailing colon", () => {
-    expect(is("http:/example.com")).toBe(false);
+    expect(is("http:/example.com")).toBeFalsy();
   });
 
   it("should return false for a fragment with spaces", () => {
-    expect(is("http://example.com#invalid fragment")).toBe(false);
+    expect(is("http://example.com#invalid fragment")).toBeFalsy();
   });
 });
