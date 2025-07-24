@@ -29,6 +29,7 @@ import {
   type ReactElement,
   useCallback,
   useMemo,
+  useState,
 } from "react";
 import { useDispatch } from "react-redux";
 
@@ -121,6 +122,7 @@ export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElem
 };
 
 export const Dropdown = (): ReactElement => {
+  const [dialogVisible, setDialogVisible] = useState(false);
   const cluster = useSelect();
   const disconnected = cluster == null;
   const menuProps = PMenu.useContextMenu();
@@ -218,7 +220,7 @@ export const Dropdown = (): ReactElement => {
   );
 
   return (
-    <Dialog.Frame>
+    <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
         data={keys}
         value={selected}
@@ -251,7 +253,10 @@ export const Dropdown = (): ReactElement => {
               size="large"
               iconSpacing="small"
               startIcon={<Icon.Connect />}
-              onClick={() => placeLayout(CONNECT_LAYOUT)}
+              onClick={() => {
+                placeLayout(CONNECT_LAYOUT);
+                setDialogVisible(false);
+              }}
               className={CSS.B("cluster-list-add")}
             >
               Connect

@@ -24,14 +24,6 @@ export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void
     }),
   });
 
-export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void =>
-  Sync.useListener({
-    channel: ranger.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ranger.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
-  });
-
 export const useAliasSetSynchronizer = (onSet: (alias: ranger.Alias) => void): void =>
   Sync.useListener({
     channel: ranger.SET_ALIAS_CHANNEL_NAME,
@@ -90,8 +82,8 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
           if (!("key" in params)) return;
           if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(params.key)))
             return;
-          const range = await client.ranges.retrieve(params.key);
-          onChange(params.key, range);
+          const range = await client.ranges.retrieve(changed.to.key);
+          onChange(changed.to.key, range);
         },
       ),
     },
@@ -99,9 +91,10 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ontology.relationshipZ,
-        async ({ changed, onChange, params: { key }, client }) =>
-          matchRelationshipAndID(changed, "to", ranger.ontologyID(key)) &&
-          onChange(key, await client.ranges.retrieve(key)),
+        async ({ changed, onDelete, params: { key } }) => {
+          if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(key))) return;
+          onDelete(changed.to.key);
+        },
       ),
     },
   ],
@@ -172,7 +165,7 @@ export const retrieveQuery = Flux.createRetrieve<QueryParams, ranger.Range>({
 export const useRetrieve = retrieveQuery.useDirect;
 
 export const rangeFormSchema = z.object({
-  ...ranger.payloadZ.omit({ timeRange: true }).shape,
+  ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
   timeRange: z.object({ start: z.number(), end: z.number() }),
@@ -192,7 +185,6 @@ export const rangeToFormValues = async (
 export interface UseFormQueryParams extends Optional<QueryParams, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof rangeFormSchema> = {
-  key: "",
   name: "",
   labels: [],
   parent: "",
@@ -235,16 +227,22 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
         ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
-            if (prev == null) return prev;
-            if (!Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
-              return prev;
-            return {
-              ...prev,
-              labels: [
-                ...prev.labels.filter((l) => l !== changed.to.key),
-                changed.to.key,
-              ],
-            };
+            if (prev == null || prev.key == null) return prev;
+            let next = prev;
+            if (Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
+              next = {
+                ...prev,
+                labels: [
+                  ...prev.labels.filter((l) => l !== changed.to.key),
+                  changed.to.key,
+                ],
+              };
+            if (
+              changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
+            )
+              return { ...prev, parent: changed.from.key };
+            return next;
           });
         },
       ),
@@ -255,47 +253,21 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
         ontology.relationshipZ,
         async ({ changed, onChange }) => {
           onChange((prev) => {
-            if (prev == null) return prev;
-            if (!Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
-              return prev;
-            return {
-              ...prev,
-              labels: prev.labels.filter((l) => l !== changed.to.key),
-            };
-          });
-        },
-      ),
-    },
-    {
-      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
+            if (prev == null || prev.key == null) return prev;
+            let next = prev;
+            if (Label.matchRelationship(changed, ranger.ontologyID(prev.key))) {
+              const nextLabels = prev.labels.filter((l) => l !== changed.to.key);
+              next = {
+                ...prev,
+                labels: nextLabels,
+              };
+            }
             if (
-              changed.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+              changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
               ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
             )
-              return prev;
-            return { ...prev, parent: changed.from.key };
-          });
-        },
-      ),
-    },
-    {
-      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
-            if (
-              changed.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
-            )
-              return prev;
-            return { ...prev, parent: undefined };
+              next = { ...prev, parent: undefined };
+            return next;
           });
         },
       ),
@@ -334,12 +306,8 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
       channel: ranger.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
-        async ({ changed, onChange, client }) => {
-          onChange(changed.key, (prev) => {
-            if (prev == null) return prev;
-            return client.ranges.sugarOne(changed);
-          });
-        },
+        async ({ changed, onChange, client }) =>
+          onChange(changed.key, client.ranges.sugarOne(changed)),
       ),
     },
     {

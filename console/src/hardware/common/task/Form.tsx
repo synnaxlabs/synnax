@@ -190,7 +190,7 @@ export const useForm = <
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;
-        await client.hardware.tasks.delete(BigInt(task_.key));
+        await client.hardware.tasks.delete(task_.key);
       }
 
       methods.setCurrentStateAsInitialValues();

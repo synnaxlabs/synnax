@@ -35,22 +35,6 @@ export const useStatusSynchronizer = <StatusData extends z.ZodType>(
     }),
   });
 
-export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
-  Sync.useListener({
-    channel: task.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
-      onSet(args.changed);
-    }),
-  });
-
-export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =>
-  Sync.useListener({
-    channel: task.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
-  });
-
 interface QueryParams {
   key: task.Key | undefined;
 }

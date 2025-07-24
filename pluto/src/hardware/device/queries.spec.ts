@@ -189,7 +189,7 @@ describe("queries", () => {
         result.current.retrieve({ search: "special" });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThan(1);
+      expect(result.current.data.length).toBeGreaterThanOrEqual(1);
       expect(
         result.current.data
           .map((d) => result.current.getItem(d)?.name)

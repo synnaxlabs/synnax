@@ -191,7 +191,7 @@ export class Rack {
     );
   }
 
-  async deleteTask(task: bigint): Promise<void> {
+  async deleteTask(task: task.Key): Promise<void> {
     await this.tasks.delete([task]);
   }
 

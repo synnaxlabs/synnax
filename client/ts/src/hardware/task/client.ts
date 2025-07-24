@@ -301,7 +301,7 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async delete(keys: bigint | bigint[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
