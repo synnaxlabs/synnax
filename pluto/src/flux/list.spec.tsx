@@ -249,7 +249,7 @@ describe("list", () => {
           end: TimeSpan.seconds(13),
         }),
       });
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
           const { getItem, retrieve } = Flux.createList<{}, ranger.Key, ranger.Payload>(
             {
