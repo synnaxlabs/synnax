@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc = MustSucceed(workspace.NewService(ctx, workspace.Config{
+	svc = MustSucceed(workspace.OpenService(ctx, workspace.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

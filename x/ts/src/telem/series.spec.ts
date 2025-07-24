@@ -21,6 +21,16 @@ import {
   TimeStamp,
 } from "@/telem/telem";
 
+// Valid UUID v4 bytes (version 4, variant 1)
+const SAMPLE_UUID_BYTES = new Uint8Array([
+  // First UUID: "123e4567-e89b-40d3-8056-426614174000",
+  0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14, 0x17,
+  0x40, 0x00,
+  // Second UUID: "7f3e4567-e89b-40d3-8056-426614174000",
+  0x7f, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14, 0x17,
+  0x40, 0x00,
+]);
+
 describe("Series", () => {
   describe("construction", () => {
     const IS_CRUDE_SERIES_SPEC: Array<[unknown, boolean]> = [
@@ -279,6 +289,7 @@ describe("Series", () => {
       expect(series.at(1)).toEqual(4);
       expect(series.at(2)).toEqual(5);
     });
+
     it("should return undefined when the index is out of bounds", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -286,6 +297,7 @@ describe("Series", () => {
       });
       expect(series.at(3)).toBeUndefined();
     });
+
     it("should allow the index to be negative", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -293,6 +305,7 @@ describe("Series", () => {
       });
       expect(series.at(-1)).toEqual(3);
     });
+
     it("should throw an error when the index is out of bounds and require is set to true", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -302,6 +315,7 @@ describe("Series", () => {
         series.at(3, true);
       }).toThrow();
     });
+
     it("should return the correct value for a string series", () => {
       const series = new Series({
         data: ["apple", "banana", "carrot"],
@@ -312,6 +326,13 @@ describe("Series", () => {
       expect(series.at(2)).toEqual("carrot");
       expect(series.at(-1)).toEqual("carrot");
     });
+
+    it("should return the correct value for a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
     it("should return the correct value for a JSON series", () => {
       const series = new Series({
         data: [
@@ -323,6 +344,7 @@ describe("Series", () => {
       expect(series.at(0)).toEqual({ a: 1, b: "apple" });
       expect(series.at(1)).toEqual({ a: 2, b: "banana" });
     });
+
     it("should throw an error if the index is out of bounds for a string series", () => {
       const series = new Series({
         data: ["apple", "banana", "carrot"],
@@ -332,6 +354,7 @@ describe("Series", () => {
         series.at(3, true);
       }).toThrow();
     });
+
     it("should throw an error if the index is out of bounds for a JSON series", () => {
       const series = new Series({
         data: [
@@ -702,6 +725,15 @@ describe("Series", () => {
         { a: 3, b: "carrot" },
       ]);
     });
+
+    it("should construct a JS array from a UUID series", () => {
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      const arr = Array.from(s);
+      expect(arr).toEqual([
+        "123e4567-e89b-40d3-8056-426614174000",
+        "7f3e4567-e89b-40d3-8056-426614174000",
+      ]);
+    });
   });
 
   describe("as", () => {
@@ -718,17 +750,19 @@ describe("Series", () => {
         }).toThrow();
       });
     });
+
     describe("string", () => {
       it("should correctly interpret the series as a string", () => {
         const s = new Series(["apple", "banana", "carrot"]);
         const s2 = s.as("string");
         expect(s2.at(0)).toEqual("apple");
       });
-      it("should throw an error if the series is not a string", () => {
-        const s = new Series([1, 2, 3]);
-        expect(() => {
-          s.as("string");
-        }).toThrow();
+
+      it("should allow the caller to convert a UUID series to a string series", () => {
+        const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+        const s2 = s.as("string");
+        expect(s2.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+        expect(s2.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
       });
     });
     describe("bigint", () => {
@@ -785,7 +819,7 @@ describe("Series", () => {
         dataType: "json",
       },
       {
-        name: "number",
+        name: "integer number",
         values: [1, 2, 3],
         expected: ["1", "2", "3"],
       },
@@ -794,22 +828,36 @@ describe("Series", () => {
         values: [BigInt(1), BigInt(2), BigInt(3)],
         expected: ["1", "2", "3"],
       },
+      {
+        name: "uuid",
+        values: SAMPLE_UUID_BYTES,
+        expected: [
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+        ],
+        dataType: "uuid",
+      },
+      {
+        name: "float number",
+        values: [1.1, 2.2, 3.3],
+        expected: ["1.1", "2.2", "3.3"],
+      },
     ];
-    SPECS.forEach(({ name, values, expected }) => {
+    SPECS.forEach(({ name, values, expected, dataType }) => {
       it(`should correctly convert a ${name} series to strings`, () => {
-        const s = new Series({ data: values });
+        const s = new Series({ data: values, dataType });
         expect(s.toStrings()).toEqual(expected);
       });
     });
 
     it("should return an series of length 0 if the series is empty", () => {
-      const s = new Series({ data: new Float32Array([]), dataType: DataType.STRING });
+      const s = new Series({ data: [], dataType: DataType.STRING });
       const outStrings = s.toStrings();
       expect(outStrings).toEqual([]);
     });
   });
 
-  describe("toUUIDs", () => {
+  describe("converting to a JS array", () => {
     it("should convert a UUID series to an array of UUID strings", () => {
       // Valid UUID v4 bytes (version 4, variant 1)
       const bytes = new Uint8Array([
@@ -821,20 +869,15 @@ describe("Series", () => {
         0x17, 0x40, 0x00,
       ]);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(2);
       expect(uuids[0]).toBe("123e4567-e89b-40d3-8056-426614174000");
       expect(uuids[1]).toBe("7f3e4567-e89b-40d3-8056-426614174000");
     });
 
-    it("should throw an error when converting non-UUID series", () => {
-      const series = new Series({ data: [1, 2, 3], dataType: DataType.INT32 });
-      expect(() => series.toUUIDs()).toThrow("cannot convert non-uuid series to uuids");
-    });
-
     it("should handle empty UUID series", () => {
       const series = new Series({ data: new Uint8Array(), dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(0);
     });
 
@@ -842,7 +885,7 @@ describe("Series", () => {
       // Nil UUID: 00000000-0000-0000-0000-000000000000
       const bytes = new Uint8Array(16).fill(0);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("00000000-0000-0000-0000-000000000000");
     });
@@ -851,7 +894,7 @@ describe("Series", () => {
       // Max UUID: ffffffff-ffff-ffff-ffff-ffffffffffff
       const bytes = new Uint8Array(16).fill(0xff);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("ffffffff-ffff-ffff-ffff-ffffffffffff");
     });
@@ -1097,6 +1140,7 @@ describe("MultiSeries", () => {
       expect(multi.at(4)).toEqual(5);
       expect(multi.at(5)).toEqual(6);
     });
+
     it("should correctly return a value via negative indexing", () => {
       const a = new Series(new Float32Array([1, 2, 3]));
       const b = new Series(new Float32Array([4, 5, 6]));
@@ -1397,10 +1441,10 @@ describe("MultiSeries", () => {
     });
 
     it("should throw an error when trying to cast to an incompatible type", () => {
-      const a = new Series(new Float32Array([1, 2, 3]));
-      const b = new Series(new Float32Array([4, 5, 6]));
+      const a = new Series(["cat", "dog"]);
+      const b = new Series(["impala", "zebra"]);
       const multi = new MultiSeries([a, b]);
-      expect(() => multi.as("string")).toThrow();
+      expect(() => multi.as("bigint")).toThrow();
     });
   });
 
@@ -1800,6 +1844,102 @@ describe("MultiSeries", () => {
       expect(() => multiSeries1.push(multiSeries2)).toThrow(
         "cannot push a int64 series to a float32 multi-series",
       );
+    });
+  });
+
+  describe("toStrings", () => {
+    interface Spec {
+      name: string;
+      series: Array<CrudeSeries>;
+      expected: string[];
+      dataType?: CrudeDataType;
+    }
+    const SPECS: Spec[] = [
+      {
+        name: "string",
+        series: [
+          ["apple", "banana"],
+          ["carrot", "date"],
+        ],
+        expected: ["apple", "banana", "carrot", "date"],
+      },
+      {
+        name: "json",
+        series: [
+          [
+            { a: 1, b: "apple" },
+            { a: 2, b: "banana" },
+          ],
+          [
+            { a: 3, b: "carrot" },
+            { a: 4, b: "date" },
+          ],
+        ],
+        expected: [
+          '{"a":1,"b":"apple"}',
+          '{"a":2,"b":"banana"}',
+          '{"a":3,"b":"carrot"}',
+          '{"a":4,"b":"date"}',
+        ],
+        dataType: "json",
+      },
+      {
+        name: "integer number",
+        series: [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+        expected: ["1", "2", "3", "4", "5", "6"],
+      },
+      {
+        name: "bigint",
+        series: [
+          [BigInt(1), BigInt(2)],
+          [BigInt(3), BigInt(4)],
+        ],
+        expected: ["1", "2", "3", "4"],
+      },
+      {
+        name: "uuid",
+        series: [SAMPLE_UUID_BYTES, SAMPLE_UUID_BYTES],
+        expected: [
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+        ],
+        dataType: "uuid",
+      },
+      {
+        name: "float number",
+        series: [
+          [1.1, 2.2, 3.3],
+          [4.4, 5.5, 6.6],
+        ],
+        expected: ["1.1", "2.2", "3.3", "4.4", "5.5", "6.6"],
+      },
+    ];
+    SPECS.forEach(({ name, series, expected, dataType }) => {
+      it(`should correctly convert a ${name} multi-series to strings`, () => {
+        const multiSeries = new MultiSeries(
+          series.map((s) => new Series({ data: s, dataType })),
+        );
+        expect(multiSeries.toStrings()).toEqual(expected);
+      });
+    });
+
+    it("should return an empty array if the multi-series is empty", () => {
+      const multiSeries = new MultiSeries();
+      const outStrings = multiSeries.toStrings();
+      expect(outStrings).toEqual([]);
+    });
+
+    it("should handle multi-series with empty series", () => {
+      const series1 = new Series({ data: ["apple", "banana"] });
+      const series2 = new Series({ data: [], dataType: DataType.STRING });
+      const series3 = new Series({ data: ["carrot"] });
+      const multiSeries = new MultiSeries([series1, series2, series3]);
+      expect(multiSeries.toStrings()).toEqual(["apple", "banana", "carrot"]);
     });
   });
 });

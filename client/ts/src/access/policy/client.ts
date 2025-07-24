@@ -14,7 +14,7 @@ import { ALLOW_ALL_ONTOLOGY_TYPE, ONTOLOGY_TYPE } from "@/access/policy/ontology
 import { type Key, type New, type Policy } from "@/access/policy/payload";
 import { Retriever } from "@/access/policy/retriever";
 import { Writer } from "@/access/policy/writer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 
 export class Client {
   private readonly retriever: Retriever;
@@ -41,13 +41,10 @@ export class Client {
     return isMany ? res : res[0];
   }
 
-  async retrieveFor(subject: ontology.CrudeID): Promise<Policy[]>;
-  async retrieveFor(subjects: ontology.CrudeID[]): Promise<Policy[]>;
-  async retrieveFor(
-    subjects: ontology.CrudeID | ontology.CrudeID[],
-  ): Promise<Policy[]> {
-    const newIds = array.toArray(subjects).map((id) => new ontology.ID(id).payload);
-    return await this.retriever.retrieve({ subjects: newIds });
+  async retrieveFor(subject: ontology.ID): Promise<Policy[]>;
+  async retrieveFor(subjects: ontology.ID[]): Promise<Policy[]>;
+  async retrieveFor(subjects: ontology.ID | ontology.ID[]): Promise<Policy[]> {
+    return await this.retriever.retrieve({ subjects: array.toArray(subjects) });
   }
 
   async delete(key: Key): Promise<void>;
@@ -57,10 +54,9 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
-export const ALLOW_ALL_ONTOLOGY_ID = new ontology.ID({
+export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
   type: ALLOW_ALL_ONTOLOGY_TYPE,
   key: "",
-});
+};

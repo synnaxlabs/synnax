@@ -118,8 +118,6 @@ const NEW_LINE = 10;
 type JSType = "string" | "number" | "bigint";
 
 const checkAsType = (jsType: JSType, dataType: DataType) => {
-  if (jsType === "string" && !dataType.isVariable)
-    throw new Error(`cannot convert series of type ${dataType.toString()} to string`);
   if (jsType === "number" && !dataType.isNumeric)
     throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
   if (jsType === "bigint" && !dataType.usesBigInt)
@@ -338,6 +336,8 @@ export class Series<T extends TelemValue = TelemValue>
     } else this.dataType = new DataType(data);
 
     if (!isArray && !isSingle) this._data = data as ArrayBuffer;
+    else if (isArray && data.length === 0)
+      this._data = new this.dataType.Array([]).buffer;
     else {
       let data_ = isSingle ? [data] : data;
       const first = data_[0];
@@ -505,19 +505,6 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.isVariable)
       return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
     return Array.from(this).map((d) => d.toString());
-  }
-
-  /**
-   * Returns a parsed array of UUIDs from the series.
-   * @throws Error if the series does not have a data type of UUID.
-   * @returns An array of UUID strings.
-   */
-  toUUIDs(): string[] {
-    if (!this.dataType.equals(DataType.UUID))
-      throw new Error("cannot convert non-uuid series to uuids");
-    const den = DataType.UUID.density.valueOf();
-    const d = new Uint8Array(this.underlyingData.buffer);
-    return Array.from({ length: this.length }, (_, i) => uuid.parse(d, i * den));
   }
 
   /**
@@ -720,8 +707,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   at(index: number, required?: false): T | undefined;
 
-  at(index: number, required?: boolean): T | undefined {
+  at(index: number, required: boolean = false): T | undefined {
     if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
@@ -729,6 +717,18 @@ export class Series<T extends TelemValue = TelemValue>
       return undefined;
     }
     return addSamples(v, this.sampleOffset) as T;
+  }
+
+  private atUUID(index: number, required: boolean): string | undefined {
+    if (index < 0) index = this.length + index;
+    const uuidString = uuid.parse(
+      new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
+    );
+    if (uuidString == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return uuidString;
   }
 
   private atVariable(index: number, required: boolean): T | undefined {
@@ -903,6 +903,9 @@ export class Series<T extends TelemValue = TelemValue>
         return new JSONSeriesIterator(s) as Iterator<T>;
       return s as Iterator<T>;
     }
+    if (this.dataType.equals(DataType.UUID))
+      return new UUIDSeriesIterator(this) as Iterator<T>;
+
     return new FixedSeriesIterator(this) as Iterator<T>;
   }
 
@@ -1091,6 +1094,29 @@ class JSONSeriesIterator implements Iterator<unknown> {
       done: false,
       value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.schema),
     };
+  }
+}
+
+class UUIDSeriesIterator implements Iterator<string> {
+  private readonly series: Series;
+  private index: number;
+  private readonly data: Uint8Array;
+  private readonly density: number;
+
+  constructor(series: Series) {
+    if (!series.dataType.equals(DataType.UUID))
+      throw new Error("cannot create a UUID series iterator for a non-UUID series");
+    this.series = series;
+    this.index = 0;
+    this.data = new Uint8Array(series.buffer);
+    this.density = DataType.UUID.density.valueOf();
+  }
+
+  next(): IteratorResult<string> {
+    if (this.index >= this.series.length) return { done: true, value: undefined };
+    const uuidString = uuid.parse(this.data, this.index * this.density);
+    this.index++;
+    return { done: false, value: uuidString };
   }
 }
 
@@ -1471,6 +1497,15 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
         },
       };
     return new MultiSeriesIterator<T>(this.series);
+  }
+
+  /**
+   * Returns an array of the values in the multi-series as strings.
+   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * @returns An array of string representations of the multi-series values.
+   */
+  toStrings(): string[] {
+    return this.series.flatMap((s) => s.toStrings());
   }
 }
 
