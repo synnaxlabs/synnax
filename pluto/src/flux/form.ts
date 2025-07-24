@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import { type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/params";
 import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
@@ -47,7 +47,7 @@ export type UseFormReturn<DataSchema extends z.ZodObject> = Omit<
   /** Form management utilities for binding inputs and validation */
   form: Form.UseReturn<DataSchema>;
   /** Function to save the current form values */
-  save: () => void;
+  save: (opts?: FetchOptions) => void;
 };
 
 /**
@@ -186,11 +186,11 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     });
 
     const handleSave = useCallback(
-      () =>
+      (opts?: FetchOptions) =>
         void (async () => {
           try {
             if (!(await form.validateAsync())) return;
-            await updateAsync(form.value());
+            await updateAsync(form.value(), opts);
             afterSave?.({ form, params });
           } catch (error) {
             setResult(errorResult(name, "update", error));

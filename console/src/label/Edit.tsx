@@ -142,7 +142,7 @@ const LabelListItem = ({
           className={CSS.BE("label", "delete")}
           variant="outlined"
           size="small"
-          onClick={() => handleDelete(null)}
+          onClick={() => handleDelete()}
         >
           <Icon.Delete />
         </Button.Icon>

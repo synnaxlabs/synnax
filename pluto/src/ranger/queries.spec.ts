@@ -1,7 +1,7 @@
 import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
@@ -9,6 +9,13 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 const client = newTestClient();
 
 describe("queries", () => {
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
   describe("useList", () => {
     it("should return a list of range keys", async () => {
       const range1 = await client.ranges.create({
@@ -24,7 +31,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
@@ -43,7 +50,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -67,7 +74,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ term: "special" });
+        result.current.retrieve({ term: "special" }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -88,7 +95,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ includeLabels: true });
+        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -113,7 +120,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ includeParent: true });
+        result.current.retrieve({ includeParent: true }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -132,7 +139,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);
@@ -143,7 +150,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialLength = result.current.data.length;
@@ -169,7 +176,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(testRange.key)?.name).toEqual("original");
@@ -191,7 +198,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(testRange.key);
@@ -214,7 +221,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -236,7 +243,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -276,7 +283,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
@@ -302,7 +312,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -322,7 +335,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(0);
@@ -338,7 +354,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialLength = result.current.data.length;
@@ -375,7 +394,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(childRange.key)?.name).toEqual("originalChild");
@@ -404,7 +426,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: parentRange.key });
+        result.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(childRange.key);
@@ -441,7 +466,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        grandparentResult.current.retrieve({ key: grandparentRange.key });
+        grandparentResult.current.retrieve(
+          { key: grandparentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(grandparentResult.current.variant).toEqual("success"));
       expect(grandparentResult.current.data).toContain(parentRange.key);
@@ -452,7 +480,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        parentResult.current.retrieve({ key: parentRange.key });
+        parentResult.current.retrieve(
+          { key: parentRange.key },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(parentResult.current.variant).toEqual("success"));
       expect(parentResult.current.data).toContain(childRange.key);
@@ -482,7 +513,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ key: rootRange.key });
+        result.current.retrieve({ key: rootRange.key }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -505,7 +536,7 @@ describe("queries", () => {
         result.current.form.set("name", "newFormRange");
         result.current.form.set("timeRange", timeRange.numeric);
         result.current.form.set("color", "#FF0000");
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -536,7 +567,7 @@ describe("queries", () => {
         result.current.form.set("name", "labeledRange");
         result.current.form.set("timeRange", timeRange.numeric);
         result.current.form.set("labels", [label1.key, label2.key]);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -561,7 +592,7 @@ describe("queries", () => {
         result.current.form.set("name", "childRange");
         result.current.form.set("timeRange", childTimeRange.numeric);
         result.current.form.set("parent", parentRange.key);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -592,7 +623,7 @@ describe("queries", () => {
       act(() => {
         result.current.form.set("name", "editedRange");
         result.current.form.set("color", "#00FFFF");
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -808,7 +839,7 @@ describe("queries", () => {
         result.current.form.set("parent", parentRange.key);
         result.current.form.set("labels", [label.key]);
         result.current.form.set("color", "#654321");
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -830,7 +861,7 @@ describe("queries", () => {
       act(() => {
         result.current.form.set("name", "timeRangeTest");
         result.current.form.set("timeRange", initialTimeRange.numeric);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -840,7 +871,7 @@ describe("queries", () => {
       const modifiedTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(20));
       act(() => {
         result.current.form.set("timeRange", modifiedTimeRange.numeric);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -870,7 +901,7 @@ describe("queries", () => {
         result.current.form.set("name", "parentChangeTest");
         result.current.form.set("timeRange", timeRange.numeric);
         result.current.form.set("parent", parent1.key);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -879,7 +910,7 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set("parent", parent2.key);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {

@@ -50,6 +50,7 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key));
+    if (resources.length === 0) return [];
     return await client.ranges.retrieve({
       keys: resources.map(({ id: { key } }) => key),
       includeParent: true,

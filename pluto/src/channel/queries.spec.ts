@@ -1,6 +1,6 @@
 import { type channel, DataType, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
@@ -8,6 +8,13 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 const client = newTestClient();
 
 describe("queries", () => {
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
   describe("useList", () => {
     it("should return a list of channel keys", async () => {
       const indexCh = await client.channels.create({
@@ -30,7 +37,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(3);
@@ -49,7 +56,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -74,7 +81,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ term: "special" });
+        result.current.retrieve({ term: "special" }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -97,7 +104,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);
@@ -108,7 +115,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialLength = result.current.data.length;
@@ -136,7 +143,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
@@ -159,7 +166,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(testChannel.key);
@@ -182,7 +189,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -203,7 +210,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -222,7 +229,7 @@ describe("queries", () => {
         result.current.form.set("name", "newFormChannel");
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("virtual", true);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -245,7 +252,7 @@ describe("queries", () => {
         result.current.form.set("name", "newIndexChannel");
         result.current.form.set("dataType", DataType.TIMESTAMP.toString());
         result.current.form.set("isIndex", true);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -274,7 +281,7 @@ describe("queries", () => {
         result.current.form.set("name", "newDataChannel");
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("index", indexChannel.key);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -307,7 +314,7 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set("name", "editedChannel");
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -421,7 +428,7 @@ describe("queries", () => {
         result.current.form.set("virtual", true);
         result.current.form.set("expression", "return sourceChannel * 2;");
         result.current.form.set("requires", [sourceChannel.key]);
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
@@ -464,7 +471,7 @@ describe("queries", () => {
 
       act(() => {
         result.current.form.set("expression", "return existingSource * 3;");
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {

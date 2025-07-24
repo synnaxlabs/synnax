@@ -35,14 +35,17 @@ export type Result<Data extends state.State> =
   | (status.Status<status.ExceptionDetails, "error"> & {
       /** The data payload, null when in error state */
       data: null;
+      listenersMounted: boolean;
     })
   | (status.Status<undefined, "loading"> & {
       /** The data payload, may be null or contain previous data while loading */
       data: null | Data;
+      listenersMounted: boolean;
     })
   | (status.Status<undefined, "success"> & {
       /** The successfully retrieved data */
       data: Data;
+      listenersMounted: boolean;
     });
 
 /**
@@ -64,12 +67,14 @@ export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
   data: Data | null = null,
+  listenersMounted: boolean = false,
 ): Result<Data> => ({
   ...status.create<undefined, "loading">({
     variant: "loading",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
+  listenersMounted,
 });
 
 /**
@@ -91,12 +96,14 @@ export const successResult = <Data extends state.State>(
   name: string,
   op: string,
   data: Data,
+  listenersMounted: boolean = false,
 ): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
+  listenersMounted,
 });
 
 /**
@@ -118,9 +125,11 @@ export const errorResult = <Data extends state.State>(
   name: string,
   op: string,
   error: unknown,
+  listenersMounted: boolean = false,
 ): Result<Data> => ({
   ...status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
+  listenersMounted,
 });
 
 /**
@@ -140,9 +149,11 @@ export const errorResult = <Data extends state.State>(
 export const nullClientResult = <Data extends state.State>(
   name: string,
   opName: string,
+  listenersMounted: boolean = false,
 ): Result<Data> =>
   errorResult(
     name,
     opName,
     new DisconnectedError(`Cannot ${opName} ${name} because no cluster is connected.`),
+    listenersMounted,
   );
