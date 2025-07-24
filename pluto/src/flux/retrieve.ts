@@ -262,7 +262,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const retrieveSync = useCallback(
     (
       params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
-      options?: { signal?: AbortSignal },
+      options?: FetchOptions,
     ) => void retrieveAsync(params, options),
     [retrieveAsync],
   );

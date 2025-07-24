@@ -156,7 +156,7 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
     [name, params],
   );
   const handleSyncUpdate = useCallback(
-    (value: Data) => void handleUpdate(value),
+    (value: Data, opts?: FetchOptions) => void handleUpdate(value, opts),
     [handleUpdate],
   );
   return {
