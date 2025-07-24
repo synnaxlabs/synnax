@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { channel, newTestClient } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
@@ -105,9 +107,13 @@ describe("retrieve", () => {
               listeners: [
                 {
                   channel: channel.SET_CHANNEL_NAME,
-                  onChange: async ({ client, params: { key }, onChange }) => {
-                    onChange(await client.channels.retrieve(key));
-                  },
+                  onChange: Sync.parsedHandler(
+                    channel.keyZ,
+                    async ({ client, params: { key }, onChange, changed }) => {
+                      if (key !== changed) return;
+                      onChange(await client.channels.retrieve(key));
+                    },
+                  ),
                 },
               ],
             }).useDirect({ params: { key: ch.key } }),
@@ -122,41 +128,46 @@ describe("retrieve", () => {
           await client.channels.rename(ch.key, "Test Channel 2");
         });
         await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
+          expect(
+            result.current.variant,
+            `${result.current.message}:${result.current.description}`,
+          ).toEqual("success");
           expect(result.current.data?.name).toEqual("Test Channel 2");
         });
       });
 
       it("should move the query into an error state when the listener throws an error", async () => {
-        const ch = await client.channels.create({
-          name: "Test Channel",
+        const signalChannelName = `signal_${uuid.create()}`;
+        await client.channels.create({
+          name: signalChannelName,
           virtual: true,
           dataType: "float32",
         });
+
         const { result } = renderHook(
           () =>
-            Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
+            Flux.createRetrieve<{}, number>({
               name: "Resource",
-              retrieve: async ({ client, params: { key } }) =>
-                await client.channels.retrieve(key),
+              retrieve: async () => 5,
               listeners: [
                 {
-                  channel: channel.SET_CHANNEL_NAME,
+                  channel: signalChannelName,
                   onChange: async () => {
                     throw new Error("test");
                   },
                 },
               ],
-            }).useDirect({ params: { key: ch.key } }),
+            }).useDirect({ params: {} }),
           { wrapper: newSynnaxWrapper(client) },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(ch);
           expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
-          await client.channels.rename(ch.key, "Test Channel 2");
+          const writer = await client.openWriter(signalChannelName);
+          await writer.write(signalChannelName, 12);
+          await writer.close();
         });
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");

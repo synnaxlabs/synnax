@@ -430,14 +430,15 @@ describe("useForm", () => {
     });
 
     it("should move the form into an error state when the listener throws an error", async () => {
-      const ch = await client.channels.create({
-        name: "Test Channel",
+      const signalChannelName = `signal_${uuid.create()}`;
+      await client.channels.create({
+        name: signalChannelName,
         virtual: true,
         dataType: "float32",
       });
 
       const initialValues = {
-        key: ch.key.toString(),
+        key: "12",
         name: "Initial Name",
         age: 25,
       };
@@ -445,21 +446,10 @@ describe("useForm", () => {
       const retrieve = vi.fn().mockReturnValue(initialValues);
       const update = vi.fn();
 
-      const signalChannelName = uuid.create();
-      await client.channels.create({
-        name: signalChannelName,
-        virtual: true,
-        dataType: "float32",
-      });
-
       const { result } = renderHook(
         () =>
           Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: "",
-              name: "",
-              age: 0,
-            },
+            initialValues,
             schema: formSchema,
             name: "test",
             retrieve,
@@ -478,7 +468,10 @@ describe("useForm", () => {
 
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
-        expect(result.current.variant).toEqual("success");
+        expect(
+          result.current.variant,
+          `${result.current.message}:${result.current.description}`,
+        ).toEqual("success");
         expect(result.current.listenersMounted).toEqual(true);
       });
 
