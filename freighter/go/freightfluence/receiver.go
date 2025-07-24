@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// Receiver wraps freighter.StreamReceiver to provide a confluence compatible interface
+// Receiver wraps freighter.StreamReceiver to provide a confluence-compatible interface
 // for receiving messages from a network freighter.
 type Receiver[M freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[M]

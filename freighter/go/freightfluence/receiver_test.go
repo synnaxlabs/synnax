@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Receiver", func() {
@@ -43,19 +44,18 @@ var _ = Describe("Receiver", func() {
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			stream, err := client.Stream(context.Background(), "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			stream := MustSucceed(client.Stream(context.Background(), "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = stream.Receive()
+			_, err := stream.Receive()
 			Expect(err).To(Equal(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{1}))
 			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-		It("Should exit the receiver on context cancellation", func() {
+		It("Should exit the receiver on context cancellation", Focus, func() {
 			receiverStream := confluence.NewStream[int](10)
 			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
@@ -67,14 +67,13 @@ var _ = Describe("Receiver", func() {
 				return sCtx.Wait()
 			})
 			ctx, cancel := context.WithCancel(context.Background())
-			stream, err := client.Stream(ctx, "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			stream := MustSucceed(client.Stream(ctx, "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			By("Closing the network pipe")
 			v := <-receiverStream.Outlet()
 			Expect(v).To(Equal(1))
 			cancel()
-			_, err = stream.Receive()
+			_, err := stream.Receive()
 			Expect(err).To(Equal(context.Canceled))
 			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
@@ -99,12 +98,11 @@ var _ = Describe("Receiver", func() {
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			stream, err := client.Stream(context.Background(), "localhost:0")
-			Expect(err).ToNot(HaveOccurred())
+			stream := MustSucceed(client.Stream(context.Background(), "localhost:0"))
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = stream.Receive()
+			_, err := stream.Receive()
 			Expect(err).To(Equal(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{2}))
 			By("Closing the receive server on exit")
