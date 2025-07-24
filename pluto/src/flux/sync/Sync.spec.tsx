@@ -27,7 +27,7 @@ describe("sync", () => {
         virtual: true,
       });
       const writer = await client.openWriter([testChannelName]);
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
           const [data, setData] = useState<string[]>([]);
           const [open, setOpen] = useState(false);
@@ -58,7 +58,6 @@ describe("sync", () => {
         expect(result.current.data).toEqual(["write number one"]),
       );
       await writer.close();
-      unmount();
     });
   });
 
@@ -137,7 +136,7 @@ describe("sync", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return { done: false, value: new framer.Frame([]) };
       });
-      const { result, unmount } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Sync.useAddListener(), {
         wrapper: ({ children }) => (
           <Sync.Provider
             openStreamer={async () => {
@@ -160,7 +159,6 @@ describe("sync", () => {
       await waitFor(async () => {
         expect(openStreamer).toHaveBeenCalled();
       });
-      unmount();
     });
 
     it("should only open the streamer once even if multiple listeners are added", async () => {
@@ -169,7 +167,7 @@ describe("sync", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return { done: false, value: new framer.Frame([]) };
       });
-      const { result, unmount } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Sync.useAddListener(), {
         wrapper: ({ children }) => (
           <Sync.Provider
             openStreamer={async () => {
@@ -197,7 +195,6 @@ describe("sync", () => {
       await waitFor(async () => {
         expect(openStreamer).toHaveBeenCalledTimes(1);
       });
-      unmount();
     });
 
     it("should call update if multiple listeners are added", async () => {
@@ -241,7 +238,7 @@ describe("sync", () => {
         return { done: false, value: new framer.Frame([]) };
       });
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
-      const { result, unmount } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Sync.useAddListener(), {
         wrapper: ({ children }) => (
           <Sync.Provider openStreamer={openStreamer}>{children}</Sync.Provider>
         ),
@@ -269,7 +266,6 @@ describe("sync", () => {
       await waitFor(async () => {
         expect(mockStreamer.closeVi).toHaveBeenCalledTimes(1);
       });
-      unmount();
     });
 
     it("should close the streamer when the provider is unmounted", async () => {

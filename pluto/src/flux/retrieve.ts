@@ -245,6 +245,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                     },
                   });
                 } catch (error) {
+                  if (signal?.aborted) return;
                   onChange(errorResult<Data>(name, "retrieve", error));
                 }
               })(),
@@ -252,6 +253,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
         );
         onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
+        if (signal?.aborted) return;
         onChange(errorResult<Data>(name, "retrieve", error));
       }
     },

@@ -399,6 +399,7 @@ export const createList =
                       },
                     });
                   } catch (error) {
+                    if (signal?.aborted) return;
                     setResult(errorResult<K[]>(name, "retrieve", error));
                   }
                 })(),
@@ -414,6 +415,7 @@ export const createList =
             ]);
           });
         } catch (error) {
+          if (signal?.aborted) return;
           setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
@@ -439,6 +441,7 @@ export const createList =
             dataRef.current.set(key, item);
             notifyListeners(key);
           } catch (error) {
+            if (signal?.aborted) return;
             dataRef.current.set(key, null);
             setResult(errorResult<K[]>(name, "retrieve", error));
           }
