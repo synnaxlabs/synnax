@@ -136,13 +136,17 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
       try {
         if (client == null) return onChange(nullClientResult(name, "update"));
         onChange(pendingResult(name, "updating"));
+        let updated = false;
         await update({
           client,
-          onChange: (value) => onChange(successResult(name, "updated", value)),
+          onChange: (value) => {
+            onChange(successResult(name, "updated", value));
+            updated = true;
+          },
           value,
           params,
         });
-        if (signal?.aborted) return;
+        if (signal?.aborted || !updated) return;
         onChange(successResult(name, "updated", value));
       } catch (error) {
         onChange(errorResult(name, "update", error));
