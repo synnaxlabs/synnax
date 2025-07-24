@@ -13,6 +13,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
@@ -105,9 +106,13 @@ describe("retrieve", () => {
               listeners: [
                 {
                   channel: channel.SET_CHANNEL_NAME,
-                  onChange: async ({ client, params: { key }, onChange }) => {
-                    onChange(await client.channels.retrieve(key));
-                  },
+                  onChange: Sync.parsedHandler(
+                    channel.keyZ,
+                    async ({ client, params: { key }, onChange, changed }) => {
+                      if (key !== changed) return;
+                      onChange(await client.channels.retrieve(key));
+                    },
+                  ),
                 },
               ],
             }).useDirect({ params: { key: ch.key } }),
@@ -122,7 +127,10 @@ describe("retrieve", () => {
           await client.channels.rename(ch.key, "Test Channel 2");
         });
         await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
+          expect(
+            result.current.variant,
+            `${result.current.message}:${result.current.description}`,
+          ).toEqual("success");
           expect(result.current.data?.name).toEqual("Test Channel 2");
         });
       });
