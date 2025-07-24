@@ -19,8 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
-import { useMountSynchronizers } from "@/flux/listeners";
-import { type AsyncOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -30,6 +29,7 @@ import {
 } from "@/flux/result";
 import { type CreateRetrieveArgs } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
+import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -47,7 +47,7 @@ import { Synnax as PSynnax } from "@/synnax";
  */
 interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   /** Get a single item by key, returns undefined if not found */
-  (key?: K): E | undefined;
+  (key: K): E | undefined;
   /** Get multiple items by an array of keys */
   (keys: K[]): E[];
 }
@@ -55,7 +55,7 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
 /**
  * Options for async list operations.
  */
-interface AsyncListOptions extends AsyncOptions {
+interface AsyncListOptions extends FetchOptions {
   /**
    * How to modify the list when new data is retrieved. In append mode, new entries
    * will be added to the end of the list. In replace mode, the list will be replaced
@@ -91,7 +91,7 @@ export type UseListReturn<
   /** Function to get items by key, with automatic lazy loading */
   getItem: GetItem<K, E>;
   /** Function to subscribe to changes for specific items */
-  subscribe: (callback: () => void, key?: K) => Destructor;
+  subscribe: (callback: () => void, key: K) => Destructor;
 };
 
 /**
@@ -165,6 +165,12 @@ export interface UseList<
   (args?: UseListArgs<RetrieveParams, K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
+type ListChangeMode = "prepend" | "append" | "replace";
+
+interface ListenerOnChangeOptions {
+  mode?: ListChangeMode;
+}
+
 /**
  * Extra arguments passed to list listener handlers.
  *
@@ -177,12 +183,13 @@ interface ListListenerExtraArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
+  changed: MultiSeries;
   /** The current retrieve parameters */
   params: RetrieveParams;
   /** The Synnax client instance */
   client: Synnax;
   /** Function to update a specific item in the list */
-  onChange: (key: K, e: state.SetArg<E | null>) => void;
+  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
   /** Function to remove an item from the list */
   onDelete: (key: K) => void;
 }
@@ -383,7 +390,8 @@ export const createList =
                           return { ...p, data: p.data.filter((key) => key !== k) };
                         });
                       },
-                      onChange: (k, setter) => {
+                      onChange: (k, setter, opts = {}) => {
+                        const { mode = "append" } = opts;
                         const prev = dataRef.current.get(k) ?? null;
                         if (prev != null && !filterRef.current(prev)) return;
                         const res = state.executeSetter(setter, prev);
@@ -391,7 +399,11 @@ export const createList =
                         if (prev == null)
                           setResult((p) => {
                             if (p.data == null) return p;
-                            return { ...p, data: [...p.data, k] };
+                            return {
+                              ...p,
+                              data:
+                                mode === "prepend" ? [k, ...p.data] : [...p.data, k],
+                            };
                           });
                         dataRef.current.set(k, res);
                         notifyListeners(k);
@@ -420,7 +432,7 @@ export const createList =
     );
 
     const retrieveSingle = useCallback(
-      (key: K, options: AsyncOptions = {}) => {
+      (key: K, options: FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {
@@ -490,7 +502,7 @@ export const createList =
 export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
   extends Pick<UseListReturn<Params, K, E>, "subscribe" | "getItem"> {
   /** The key of the item to retrieve and subscribe to */
-  key?: K;
+  key: K;
 }
 
 /**

@@ -54,7 +54,7 @@ export const calculatedFormSchema = formSchema
       }),
   })
   .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one synnax channel",
+    message: "Expression must use at least one channel",
     path: ["requires"],
   });
 
@@ -63,7 +63,7 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface FluxParams extends Flux.Params {
+export interface FluxParams {
   key?: channel.Key;
 }
 
@@ -113,7 +113,7 @@ export const useCalculatedForm = (
   args: Flux.UseFormArgs<FluxParams, typeof calculatedFormSchema>,
 ) =>
   Flux.createForm<FluxParams, typeof calculatedFormSchema>({
-    name: "CalculatedChannel",
+    name: "Calculated Channel",
     schema: calculatedFormSchema,
     initialValues: ZERO_FORM_VALUES,
     retrieve,
@@ -121,7 +121,7 @@ export const useCalculatedForm = (
     listeners: [],
   })(args);
 
-export interface ListParams extends Flux.Params, channel.RetrieveOptions {
+export interface ListParams extends channel.RetrieveOptions {
   term?: string;
   rangeKey?: string;
   internal?: boolean;

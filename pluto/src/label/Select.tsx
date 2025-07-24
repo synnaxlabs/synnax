@@ -11,12 +11,13 @@ import { type label } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { type ListParams, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { Tag } from "@/tag";
 import { Text } from "@/text";
 
 const ListItem = ({
@@ -34,8 +35,12 @@ const ListItem = ({
       hovered={hovered}
       {...rest}
     >
-      <Icon.Circle color={item?.color} size="1.5rem" />
-      <Text.Text level="p">{item?.name}</Text.Text>
+      <Text.WithIcon
+        level="p"
+        startIcon={<Icon.Circle color={item?.color} size="2.5em" />}
+      >
+        {item?.name}
+      </Text.WithIcon>
     </List.Item>
   );
 };
@@ -49,6 +54,20 @@ export interface SelectMultipleProps
     >,
     Flux.UseListArgs<ListParams, label.Key, label.Label> {}
 
+const labelRenderTag = Component.renderProp(
+  (props: Select.MultipleTagProps<label.Key>): ReactElement | null => {
+    const { itemKey } = props;
+    const item = List.useItem<label.Key, label.Label>(itemKey);
+    const { onSelect } = Select.useItemState<label.Key>(itemKey);
+    if (item == null) return null;
+    return (
+      <Tag.Tag color={item.color} onClose={onSelect} size="small">
+        {item.name}
+      </Tag.Tag>
+    );
+  },
+);
+
 export const SelectMultiple = ({
   onChange,
   value,
@@ -61,7 +80,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       resourceName="Label"
@@ -71,10 +90,14 @@ export const SelectMultiple = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
+      renderTag={labelRenderTag}
+      icon={<Icon.Label />}
+      triggerVariant="text"
+      variant="floating"
       {...rest}
     >
       {listItemRenderProp}
@@ -102,7 +125,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<label.Key, label.Label | undefined>
       resourceName="Label"
@@ -112,8 +135,8 @@ export const SelectSingle = ({
       getItem={getItem}
       subscribe={subscribe}
       allowNone={allowNone}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       haulType={HAUL_TYPE}

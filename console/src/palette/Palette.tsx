@@ -14,7 +14,6 @@ import {
   Align,
   Button,
   Dialog,
-  Flux,
   Icon,
   Input,
   List,
@@ -117,45 +116,50 @@ const DialogContent = ({
   const commandProps = useCommandList();
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
     value.startsWith(commandSymbol) ? commandProps : resourceProps;
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   const handleSearch = useCallback(
     (v: string) => {
       onChange(v);
       if (v.startsWith(commandSymbol)) v = v.slice(commandSymbol.length);
-      onSearch(v);
+      search(v);
     },
-    [onSearch, onChange],
+    [search, onChange],
   );
   return (
-    <Dialog.Dialog rounded={1}>
+    <Dialog.Dialog
+      className={CSS.BE("palette", "content")}
+      rounded={1}
+      bordered={false}
+    >
       <Select.Frame<string, Command | ontology.Resource>
         data={data}
         getItem={getItem}
         subscribe={subscribe}
         value={value}
         onChange={handleSelect}
-        onFetchMore={onFetchMore}
+        onFetchMore={fetchMore}
+        itemHeight={39}
+        virtual={false}
+        initialHover={0}
       >
-        <Align.Pack className={CSS.BE("palette", "content")} y bordered={false}>
-          <Input.Text
-            className={CSS(CSS.BE("palette", "input"))}
-            placeholder={
-              <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
-                Type to search or {commandSymbol} to view commands
-              </Text.WithIcon>
-            }
-            size="huge"
-            autoFocus
-            shade={3}
-            onChange={handleSearch}
-            value={value}
-            autoComplete="off"
-            onKeyDown={Triggers.matchCallback([["Escape"]], close)}
-          />
-          <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
-            {listItem}
-          </List.Items>
-        </Align.Pack>
+        <Input.Text
+          className={CSS(CSS.BE("palette", "input"))}
+          placeholder={
+            <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+              Type to search or {commandSymbol} to view commands
+            </Text.WithIcon>
+          }
+          size="huge"
+          autoFocus
+          shade={3}
+          onChange={handleSearch}
+          value={value}
+          autoComplete="off"
+          onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        />
+        <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+          {listItem}
+        </List.Items>
       </Select.Frame>
     </Dialog.Dialog>
   );

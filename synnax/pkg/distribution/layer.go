@@ -99,6 +99,7 @@ type Config struct {
 	GorpCodec binary.Codec
 	// EnableChannelSignals sets whether to enable CDC signal propagation for changes
 	// to channel data structures.
+	//
 	// [OPTIONAL] - Defaults to true.
 	EnableChannelSignals *bool
 }

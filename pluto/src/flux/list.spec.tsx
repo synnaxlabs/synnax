@@ -40,7 +40,6 @@ describe("list", () => {
       );
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
-      expect(result.current.error).toEqual(null);
     });
 
     it("should return a success result when the list is retrieved", async () => {
@@ -61,7 +60,6 @@ describe("list", () => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toEqual([1, 2]);
-        expect(result.current.error).toEqual(null);
       });
     });
 
@@ -82,7 +80,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(result.current.variant).toEqual("error");
-        expect(result.current.error).toEqual(new Error("Test Error"));
+        expect(result.current.description).toEqual("Test Error");
       });
       unmount();
     });
@@ -187,14 +185,13 @@ describe("list", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.error).toEqual(new Error("Test Error"));
+        expect(result.current.description).toEqual("Test Error");
       });
       unmount();
     });
   });
 
   describe("listeners", () => {
-    interface RangeParams extends Flux.Params {}
     it("should correctly update a list item when the listener changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -207,7 +204,7 @@ describe("list", () => {
       const { result, unmount } = renderHook(
         () => {
           const { getItem, subscribe, retrieve } = Flux.createList<
-            RangeParams,
+            {},
             ranger.Key,
             ranger.Payload
           >({
@@ -260,24 +257,23 @@ describe("list", () => {
       });
       const { result, unmount } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<
-            RangeParams,
-            ranger.Key,
-            ranger.Payload
-          >({
-            name: "Resource",
-            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
-            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            listeners: [
-              {
-                channel: ranger.DELETE_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
-                  ranger.keyZ,
-                  async ({ onDelete, changed }) => onDelete(changed),
-                ),
-              },
-            ],
-          })();
+          const { getItem, retrieve } = Flux.createList<{}, ranger.Key, ranger.Payload>(
+            {
+              name: "Resource",
+              retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+              retrieveByKey: async ({ client, key }) =>
+                await client.ranges.retrieve(key),
+              listeners: [
+                {
+                  channel: ranger.DELETE_CHANNEL_NAME,
+                  onChange: Sync.parsedHandler(
+                    ranger.keyZ,
+                    async ({ onDelete, changed }) => onDelete(changed),
+                  ),
+                },
+              ],
+            },
+          )();
           return { retrieve, value: getItem(rng.key) };
         },
         { wrapper: newSynnaxWrapper(client) },

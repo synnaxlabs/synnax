@@ -74,13 +74,15 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 
 type (
 	RangeRetrieveRequest struct {
-		Keys         []uuid.UUID     `json:"keys" msgpack:"keys"`
-		Names        []string        `json:"names" msgpack:"names"`
-		Term         string          `json:"term" msgpack:"term"`
-		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
-		HasLabels    []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
-		Limit        int             `json:"limit" msgpack:"limit"`
-		Offset       int             `json:"offset" msgpack:"offset"`
+		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
+		Names         []string        `json:"names" msgpack:"names"`
+		Term          string          `json:"term" msgpack:"term"`
+		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		Limit         int             `json:"limit" msgpack:"limit"`
+		Offset        int             `json:"offset" msgpack:"offset"`
+		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
+		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
 	}
 	RangeRetrieveResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -117,6 +119,27 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	err := q.Exec(ctx, nil)
 	if err != nil {
 		return RangeRetrieveResponse{}, err
+	}
+	if req.IncludeLabels {
+		for i, rng := range resRanges {
+			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
+				return RangeRetrieveResponse{}, err
+			}
+			resRanges[i] = rng
+		}
+	}
+	if req.IncludeParent {
+		for i, rng := range resRanges {
+			parent, err := rng.RetrieveParent(ctx)
+			if errors.Is(err, query.NotFound) {
+				continue
+			}
+			if err != nil {
+				return RangeRetrieveResponse{}, err
+			}
+			rng.Parent = &parent
+			resRanges[i] = rng
+		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
@@ -384,7 +407,7 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 		Exec(ctx, nil); err != nil {
 		return res, err
 	}
-	aliases, err := r.ListAliases(ctx)
+	aliases, err := r.RetrieveAliases(ctx)
 	if err != nil {
 		return res, err
 	}

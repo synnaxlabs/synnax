@@ -10,33 +10,32 @@
  */
 
 .pluto-tree {
+    &.pluto--show-rules .pluto-tree__item::after {
+        content: "";
+        position: absolute;
+        left: calc(var(--pluto-tree-item-offset) - 1.5rem);
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--pluto-gray-l4);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+
     .pluto-tree__item {
         min-height: 4.5rem;
         padding: 0;
         padding-right: 1.5rem;
         padding-left: var(--pluto-tree-item-offset);
+        will-change: transform;
 
-        & .pluto-tree__expansion-indicator {
-            height: 2.5rem;
+        & .pluto-icon {
             width: 2.5rem;
-            flex-shrink: 0;
+            height: 2.5rem;
         }
+
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
-            height: 2.5rem;
-            width: 2.5rem;
             color: var(--pluto-gray-l10);
-        }
-
-        &.pluto--show-rules::after {
-            content: "";
-            position: absolute;
-            left: calc(var(--pluto-tree-item-offset) - 1.5rem);
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: var(--pluto-gray-l4);
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
         }
     }
 

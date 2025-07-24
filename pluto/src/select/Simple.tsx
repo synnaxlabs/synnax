@@ -10,7 +10,7 @@
 import { type Optional, type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+// import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -33,15 +33,14 @@ export interface SimpleProps<
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
   const item = List.useItem<record.Key, SimplyEntry<record.Key>>(itemKey);
-  const selectProps = Select.useItemState(itemKey);
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <List.Item {...p} {...selectProps}>
+    <Select.ListItem {...p}>
       <Text.WithIcon level="p" startIcon={icon}>
         {name}
       </Text.WithIcon>
-    </List.Item>
+    </Select.ListItem>
   );
 });
 
@@ -52,14 +51,9 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   ...rest
 }: SimpleProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Single<K, E>
-      {...rest}
-      {...listProps}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
-    >
+    <Single<K, E> {...rest} {...listProps} onFetchMore={fetchMore} onSearch={search}>
       {children}
     </Single>
   );

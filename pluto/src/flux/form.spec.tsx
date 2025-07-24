@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient } from "@synnaxlabs/client";
+import { channel, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -18,10 +18,10 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 const formSchema = z.object({
   key: z.string(),
   name: z.string().min(1, "Name is required"),
-  age: z.number(),
+  age: z.number().positive("Age must be positive"),
 });
 
-interface Params extends Flux.Params {
+interface Params {
   key?: string;
 }
 
@@ -152,6 +152,83 @@ describe("useForm", () => {
     });
   });
 
+  describe("afterSave", () => {
+    it("should call the afterSave function after the form is validated and updated successfully", async () => {
+      const afterSave = vi.fn();
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: {
+              key: "",
+              name: "John Doe",
+              age: 25,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve: vi.fn().mockReturnValue(null),
+            update: vi.fn(),
+          })({ params: {}, afterSave }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.save();
+      });
+      await waitFor(() => {
+        expect(afterSave).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("should not call afterSave if the update function fails", async () => {
+      const afterSave = vi.fn();
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: {
+              key: "",
+              name: "John Doe",
+              age: 25,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve: vi.fn().mockReturnValue(null),
+            update: vi.fn().mockRejectedValue(new Error("Update failed")),
+          })({ params: {}, afterSave }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.save();
+      });
+      await waitFor(() => {
+        expect(afterSave).not.toHaveBeenCalled();
+      });
+    });
+
+    it("should not call afterSave if the form is not valid", async () => {
+      const afterSave = vi.fn();
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: {
+              key: "",
+              name: "",
+              age: -10,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve: vi.fn().mockReturnValue(null),
+            update: vi.fn(),
+          })({ params: {}, afterSave }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.save();
+      });
+      await waitFor(() => {
+        expect(afterSave).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe("autoSave = false", () => {
     it("should allow the caller to modify the form values without calling update", async () => {
       const update = vi.fn();
@@ -274,6 +351,127 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(update).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("listeners", () => {
+    it("should correctly update the form data when the listener receives changes", async () => {
+      const ch = await client.channels.create({
+        name: "Test Channel",
+        virtual: true,
+        dataType: "float32",
+      });
+
+      const initialValues = {
+        key: ch.key.toString(),
+        name: "Initial Name",
+        age: 25,
+      };
+
+      const retrieve = vi.fn().mockReturnValue(initialValues);
+      const update = vi.fn();
+
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: {
+              key: ch.key.toString(),
+              name: "",
+              age: 0,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve,
+            update,
+            listeners: [
+              {
+                channel: channel.SET_CHANNEL_NAME,
+                onChange: async ({ client, params, onChange }) => {
+                  if (ch.key.toString() !== params.key) return;
+                  const updatedChannel = await client.channels.retrieve(ch.key);
+                  onChange((prev) => {
+                    if (prev == null) return prev;
+                    return {
+                      ...prev,
+                      name: updatedChannel.name,
+                    };
+                  });
+                },
+              },
+            ],
+          })({ params: { key: ch.key.toString() } }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+
+      await waitFor(() => {
+        expect(result.current.form.value()).toEqual(initialValues);
+        expect(result.current.variant).toEqual("success");
+      });
+
+      // Trigger a channel name change which should invoke the listener
+      await act(async () => {
+        await client.channels.rename(ch.key, "Updated Channel Name");
+      });
+
+      await waitFor(() => {
+        expect(result.current.form.value().name).toEqual("Updated Channel Name");
+        expect(result.current.variant).toEqual("success");
+      });
+    });
+
+    it("should move the form into an error state when the listener throws an error", async () => {
+      const ch = await client.channels.create({
+        name: "Test Channel",
+        virtual: true,
+        dataType: "float32",
+      });
+
+      const initialValues = {
+        key: ch.key.toString(),
+        name: "Initial Name",
+        age: 25,
+      };
+
+      const retrieve = vi.fn().mockReturnValue(initialValues);
+      const update = vi.fn();
+
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: {
+              key: "",
+              name: "",
+              age: 0,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve,
+            update,
+            listeners: [
+              {
+                channel: channel.SET_CHANNEL_NAME,
+                onChange: async () => {
+                  throw new Error("Listener error");
+                },
+              },
+            ],
+          })({ params: {} }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+
+      await waitFor(() => {
+        expect(result.current.form.value()).toEqual(initialValues);
+        expect(result.current.variant).toEqual("success");
+      });
+
+      await act(async () => {
+        await client.channels.rename(ch.key, "Updated Channel Name");
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("error");
+        expect(result.current.description).toEqual("Listener error");
       });
     });
   });

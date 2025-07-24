@@ -28,7 +28,7 @@ export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): vo
     }),
   });
 
-export interface RetrieveParams extends Flux.Params {
+export interface RetrieveParams {
   key: workspace.Key;
 }
 
@@ -37,7 +37,7 @@ export const retrieve = Flux.createRetrieve<RetrieveParams, workspace.Workspace>
   retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
 });
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   offset?: number;
   limit?: number;
 }

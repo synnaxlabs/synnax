@@ -9,14 +9,12 @@
 
 import { DisconnectedError, ontology, type Synnax } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
   Haul,
   Icon,
   List,
   Menu,
   Ontology,
-  Select,
   Status,
   Synnax as PSynnax,
   Text,
@@ -80,25 +78,22 @@ const DefaultItem = ({
   ...rest
 }: TreeItemProps) => (
   <Core.Item {...rest} onDoubleClick={onDoubleClick}>
-    <Align.Space size="small" x align="center" grow>
-      {icon}
-      <Text.Editable
-        id={ontology.idToString(id)}
-        level="p"
-        value={resource.name}
-        onChange={onRename}
-        allowDoubleClick={false}
-        style={{
-          userSelect: "none",
-          textOverflow: "ellipsis",
-          width: 0,
-          overflow: "hidden",
-          flexGrow: 1,
-        }}
-        noWrap
-      />
-    </Align.Space>
-    {loading && <Icon.Loading />}
+    {icon}
+    <Text.Editable
+      id={ontology.idToString(id)}
+      level="p"
+      value={resource.name}
+      onChange={onRename}
+      allowDoubleClick={false}
+      style={{
+        userSelect: "none",
+        textOverflow: "ellipsis",
+        width: 0,
+        overflow: "hidden",
+        flexGrow: 1,
+      }}
+      noWrap
+    />
   </Core.Item>
 );
 
@@ -107,7 +102,6 @@ const itemRenderProp = Component.renderProp(
     const { itemKey } = rest;
     const id = ontology.idZ.parse(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
-    const selectProps = Select.useItemState<string>(itemKey);
     const service = useServices()[id.type];
     const Item = service.Item ?? DefaultItem;
     const { onRename, onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } =
@@ -160,7 +154,6 @@ const itemRenderProp = Component.renderProp(
         resource={resource}
         loading={loading}
         onRename={handleRename}
-        {...selectProps}
       />
     );
   },

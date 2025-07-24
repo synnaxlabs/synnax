@@ -17,7 +17,7 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
   rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
   ontology.idsEqual(rel.from, id);
 
-interface UseLabelsOfQueryParams extends Flux.Params {
+interface UseLabelsOfQueryParams {
   id: ontology.ID;
 }
 
@@ -43,7 +43,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
@@ -55,7 +55,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           onChange((prev) => prev.filter((l) => l.key !== changed.to.key));
@@ -86,7 +86,7 @@ export const useLabelsOfForm = Flux.createForm<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
@@ -101,7 +101,7 @@ export const useLabelsOfForm = Flux.createForm<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           onChange((prev) => {
@@ -130,7 +130,7 @@ export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void 
     }),
   });
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   term?: string;
   offset?: number;
   limit?: number;
@@ -138,16 +138,17 @@ export interface ListParams extends Flux.Params {
 
 export const useList = Flux.createList<ListParams, label.Key, label.Label>({
   name: "Labels",
-  retrieve: async ({ client, params }) => await client.labels.search(params.term ?? ""),
+  retrieve: async ({ client, params }) =>
+    await client.labels.retrieve({
+      ...params,
+      search: params.term,
+    }),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
-        onChange(changed.key, (prev) => {
-          if (prev == null) return prev;
-          return changed;
-        });
+        onChange(changed.key, changed, { mode: "prepend" });
       }),
     },
     {
@@ -158,3 +159,46 @@ export const useList = Flux.createList<ListParams, label.Key, label.Label>({
     },
   ],
 });
+
+interface FormParams {
+  key?: label.Key;
+}
+
+export const formSchema = label.labelZ.partial({ key: true });
+
+export const useForm = Flux.createForm<FormParams, typeof formSchema>({
+  name: "Label",
+  initialValues: {
+    name: "",
+    color: "#000000",
+  },
+  schema: formSchema,
+  retrieve: async ({ client, params: { key } }) => {
+    if (key == null) return null;
+    const label = await client.labels.retrieve(key);
+    return label;
+  },
+  update: async ({ client, value, onChange }) =>
+    onChange(await client.labels.create(value)),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        label.labelZ,
+        async ({ changed, onChange, params }) => {
+          if (params.key == null || changed.key !== params.key) return;
+          onChange(changed);
+        },
+      ),
+    },
+  ],
+});
+
+export interface DeleteParams {
+  key: label.Key;
+}
+
+export const useDelete = Flux.createUpdate<DeleteParams, null>({
+  name: "Label",
+  update: async ({ client, params: { key } }) => await client.labels.delete(key),
+}).useDirect;

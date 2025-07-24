@@ -33,7 +33,7 @@ export const useRelationshipSetSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onSet(changed);
     }),
   });
@@ -43,7 +43,7 @@ export const useRelationshipDeleteSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onDelete(changed);
     }),
   });
@@ -59,7 +59,7 @@ export const matchRelationshipAndID = (
     id,
   );
 
-interface UseDependentQueryParams extends Flux.Params {
+interface UseDependentQueryParams {
   id: ontology.ID;
 }
 
@@ -77,7 +77,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
-          ontology.relationShipZ,
+          ontology.relationshipZ,
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
             const { id } = params;
@@ -90,7 +90,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
-          ontology.relationShipZ,
+          ontology.relationshipZ,
           async ({ changed, params, onDelete }) => {
             if (!("id" in params)) return;
             const { id } = params;
@@ -118,7 +118,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
 export const useChildren = createDependentsListHook("to");
 export const useParents = createDependentsListHook("from");
 
-export interface UseResourceQueryParams extends Flux.Params {
+export interface UseResourceQueryParams {
   id: ontology.ID;
 }
 
@@ -151,7 +151,7 @@ export const useResource = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   offset?: number;
   limit?: number;
   term?: string;
@@ -180,7 +180,7 @@ export const retrieveParentID = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (
             changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
@@ -194,7 +194,7 @@ export const retrieveParentID = Flux.createRetrieve<
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
+        ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (
             changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&

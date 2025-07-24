@@ -57,16 +57,10 @@ const ListItem = ({
 }: ListItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const entry = useSelectRule(layoutKey, itemKey);
-  const selectProps = Select.useItemState(itemKey);
   if (entry == null) return null;
   const { label } = entry;
   return (
-    <PList.Item
-      {...rest}
-      style={{ padding: "0.5rem 1.5rem" }}
-      align="center"
-      {...selectProps}
-    >
+    <Select.ListItem {...rest} style={{ padding: "0.5rem 1.5rem" }} align="center">
       <Text.Editable
         value={label}
         level="p"
@@ -76,7 +70,7 @@ const ListItem = ({
         style={{ overflow: "hidden", textOverflow: "ellipsis" }}
         onChange={onChangeLabel}
       />
-    </PList.Item>
+    </Select.ListItem>
   );
 };
 

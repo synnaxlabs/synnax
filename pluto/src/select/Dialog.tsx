@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Dialog.css";
+
 import { type record, type status } from "@synnaxlabs/x";
 
+import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
@@ -23,7 +26,7 @@ export interface DialogProps<K extends record.Key>
 
 const DEFAULT_HEIGHT = 250;
 
-const defaultEmptyContent = (
+const DefaultEmptyContent = () => (
   <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
     No results
   </Status.Text.Centered>
@@ -32,14 +35,15 @@ const defaultEmptyContent = (
 export const Dialog = <K extends record.Key>({
   onSearch,
   children,
-  emptyContent = defaultEmptyContent,
+  emptyContent = <DefaultEmptyContent />,
   searchPlaceholder,
   style,
   status,
   actions,
   ...rest
 }: DialogProps<K>) => {
-  if (status?.variant !== "success")
+  const { variant } = CoreDialog.useContext();
+  if (status != null && status.variant !== "success")
     emptyContent = (
       <Status.Text.Centered
         variant={status?.variant}
@@ -56,9 +60,14 @@ export const Dialog = <K extends record.Key>({
       </Status.Text.Centered>
     );
   return (
-    <CoreDialog.Dialog {...rest} style={{ ...style }}>
+    <CoreDialog.Dialog
+      {...rest}
+      style={{ ...style }}
+      className={CSS.BE("select", "dialog")}
+    >
       {onSearch != null && (
         <SearchInput
+          dialogVariant={variant}
           onSearch={onSearch}
           searchPlaceholder={searchPlaceholder}
           actions={actions}

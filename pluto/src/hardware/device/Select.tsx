@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { CSS } from "@/css";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Device } from "@/hardware/device";
 import { type ListParams, useList } from "@/hardware/device/queries";
 import { Icon } from "@/icon";
@@ -26,12 +26,10 @@ import { Text } from "@/text";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);
-    const selectProps = Select.useItemState(itemKey);
     return (
-      <List.Item
+      <Select.ListItem
         itemKey={itemKey}
         {...rest}
-        {...selectProps}
         className={CSS.BE("device", "list-item")}
         justify="spaceBetween"
         align="center"
@@ -51,7 +49,7 @@ const listItemRenderProp = Component.renderProp(
         >
           {item?.location ?? ""}
         </Breadcrumb.Breadcrumb>
-      </List.Item>
+      </Select.ListItem>
     );
   },
 );
@@ -78,7 +76,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
       resourceName="Device"
@@ -87,8 +85,8 @@ export const SelectSingle = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       disabled={disabled}

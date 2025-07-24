@@ -35,20 +35,14 @@ export type Result<Data extends state.State> =
   | (status.Status<status.ExceptionDetails, "error"> & {
       /** The data payload, null when in error state */
       data: null;
-      /** The error that occurred during the operation */
-      error: unknown;
     })
   | (status.Status<undefined, "loading"> & {
       /** The data payload, may be null or contain previous data while loading */
       data: null | Data;
-      /** No error in loading state */
-      error: null;
     })
   | (status.Status<undefined, "success"> & {
       /** The successfully retrieved data */
       data: Data;
-      /** No error in success state */
-      error: null;
     });
 
 /**
@@ -76,7 +70,6 @@ export const pendingResult = <Data extends state.State>(
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
-  error: null,
 });
 
 /**
@@ -104,7 +97,6 @@ export const successResult = <Data extends state.State>(
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
-  error: null,
 });
 
 /**
@@ -129,7 +121,6 @@ export const errorResult = <Data extends state.State>(
 ): Result<Data> => ({
   ...status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
-  error,
 });
 
 /**

@@ -10,7 +10,7 @@
  */
 
 .pluto-caret-animated {
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease;
     transform-origin: center;
     color: var(--pluto-gray-l8);
 

@@ -58,11 +58,11 @@ const GLOBALS: Variable[] = [
 
 export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const client = Synnax.use();
-  const { channelKey } = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
-  const isEdit = channelKey !== 0;
+  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
+  const isEdit = args?.channelKey !== 0;
 
   const { form, variant, save } = Channel.useCalculatedForm({
-    params: { key: channelKey },
+    params: { key: args?.channelKey },
   });
 
   const handleError = Status.useErrorHandler();

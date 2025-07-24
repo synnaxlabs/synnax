@@ -9,68 +9,144 @@
 
 import "@/label/Edit.css";
 
-import { label } from "@synnaxlabs/client";
+import { type label } from "@synnaxlabs/client";
 import {
   Align,
   Button,
   Color,
   Component,
+  CSS as PCSS,
+  Divider,
+  type Flux,
   Form,
   Icon,
+  Input,
+  Label,
   List,
   Text,
+  useClickOutside,
 } from "@synnaxlabs/pluto";
-import { type change, color, uuid } from "@synnaxlabs/x";
-import { z } from "zod";
+import { color } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
-const formSchema = z.object({
-  labels: label.newZ.array(),
-});
+interface LabelListItemProps extends List.ItemProps<label.Key> {
+  isCreate?: boolean;
+  visible?: boolean;
+  onClose?: () => void;
+}
 
-const LabelListItem = (props: List.ItemProps<label.Key>) => {
-  const { itemKey } = props;
-  const { remove } = Form.fieldListUtils(Form.useContext(), "labels");
+const LabelListItem = ({
+  isCreate = false,
+  onClose,
+  visible = true,
+  ...rest
+}: LabelListItemProps) => {
+  const { itemKey } = rest;
+  const initialValues = List.useItem<string, label.Label>(itemKey);
+  const { form, save } = Label.useForm({
+    params: {},
+    initialValues,
+    autoSave: !isCreate,
+    afterSave: useCallback(
+      ({ form }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+        onClose?.();
+        if (isCreate)
+          form.reset({
+            name: "",
+            color: "#000000",
+          });
+      },
+      [isCreate, onClose],
+    ),
+    sync: true,
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { update: handleDelete } = Label.useDelete({ params: { key: itemKey } });
+  useEffect(() => {
+    if (isCreate && visible) inputRef.current?.focus();
+  }, [isCreate, visible]);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside({
+    ref,
+    onClickOutside: useCallback(() => {
+      if (!isCreate) return;
+      if (form.validate()) save();
+      else onClose?.();
+    }, [isCreate, form, save, onClose]),
+  });
   return (
     <List.Item
+      ref={ref}
       highlightHovered={false}
-      className={CSS.BE("label", "list-item")}
-      allowSelect={false}
+      className={CSS(
+        CSS.BE("label", "list-item"),
+        isCreate && CSS.M("create"),
+        PCSS.visible(visible),
+      )}
       align="center"
-      style={{ padding: "2rem 4rem" }}
       justify="spaceBetween"
-      {...props}
+      {...rest}
     >
-      <Align.Space x size="small">
-        <Form.Field<string>
-          hideIfNull
-          path={`labels.${itemKey}.color`}
-          padHelpText={false}
-          showLabel={false}
-        >
-          {({ onChange, variant: _, ...p }) => (
-            <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
-          )}
-        </Form.Field>
-        <Form.TextField
-          showLabel={false}
-          hideIfNull
-          path={`labels.${itemKey}.name`}
-          padHelpText={false}
-          inputProps={{
-            placeholder: "Label Name",
-            variant: "shadow",
-            selectOnFocus: true,
-            resetOnBlurIfEmpty: true,
-            onlyChangeOnBlur: true,
-          }}
-        />
+      <Align.Space x size="small" align="center">
+        <Form.Form<typeof Label.formSchema> {...form}>
+          <Form.Field<string>
+            hideIfNull
+            path={`color`}
+            padHelpText={false}
+            showLabel={false}
+          >
+            {({ onChange, variant: _, ...p }) => (
+              <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
+            )}
+          </Form.Field>
+          <Form.TextField
+            showLabel={false}
+            hideIfNull
+            path={`name`}
+            showHelpText={false}
+            padHelpText={false}
+            inputProps={{
+              ref: inputRef,
+              placeholder: "Label Name",
+              variant: "shadow",
+              selectOnFocus: true,
+              autoFocus: isCreate,
+              resetOnBlurIfEmpty: true,
+              onlyChangeOnBlur: !isCreate,
+            }}
+          />
+        </Form.Form>
       </Align.Space>
-      <Button.Icon onClick={() => remove(itemKey)} style={{ width: "fit-content" }}>
-        <Icon.Delete />
-      </Button.Icon>
+      {isCreate ? (
+        <Align.Pack>
+          <Button.Icon
+            variant="filled"
+            size="small"
+            onClick={() => {
+              save();
+              console.log("saved");
+            }}
+            triggers={visible ? [["Enter"]] : undefined}
+          >
+            <Icon.Check />
+          </Button.Icon>
+          <Button.Icon variant="outlined" size="small" onClick={onClose}>
+            <Icon.Close />
+          </Button.Icon>
+        </Align.Pack>
+      ) : (
+        <Button.Icon
+          className={CSS.BE("label", "delete")}
+          variant="outlined"
+          size="small"
+          onClick={() => handleDelete(null)}
+        >
+          <Icon.Delete />
+        </Button.Icon>
+      )}
     </List.Item>
   );
 };
@@ -83,83 +159,80 @@ export const EDIT_LAYOUT: Layout.BaseState = {
   name: "Labels.Edit",
   location: "modal",
   icon: "Label",
-  window: { navTop: true, size: { height: 800, width: 500 } },
+  window: { navTop: true, size: { height: 700, width: 450 } },
 };
 
 const listItem = Component.renderProp(LabelListItem);
 
-const initialState = formSchema.parse({ labels: [] });
-
 export const Edit: Layout.Renderer = () => {
-  const ctx = Form.useSynced<typeof formSchema, change.Change<string, label.Label>[]>({
-    values: initialState,
-    key: ["labels"],
-    name: "Labels",
-    queryFn: async ({ client }) => ({ labels: await client.labels.page(0, 100) }),
-    applyChanges: async ({ values, path, prev, client }) => {
-      if (path === "labels") {
-        const tPrev = prev as label.Label[];
-        if (values.labels.length >= tPrev.length) return;
-        const newKeys = values.labels.map((l) => l.key);
-        const oldKeys = tPrev.map((l) => l.key);
-        const key = oldKeys.find((k) => !newKeys.includes(k));
-        if (key == null) return;
-        await client.labels.delete(key);
-        return;
-      }
-      const idx = Number(path.split(".")[1]);
-      const label = values.labels[idx];
-      if (label == null) return;
-      await client.labels.create({ ...label, color: color.hex(label.color) });
-    },
-  });
-
-  const { data, push } = Form.useFieldList<label.Key, label.Label, typeof formSchema>(
-    "labels",
-    { ctx },
-  );
-  const theme = Layout.useSelectTheme();
-
+  const { data, getItem, retrieve, subscribe } = Label.useList();
+  const { fetchMore, search } = List.usePager({ retrieve });
+  const [newFormVisible, setNewFormVisible] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Align.Space y style={{ padding: "2rem" }} grow>
-      <Form.Form<typeof formSchema> {...ctx}>
-        <List.Frame<label.Key, label.Label> data={data}>
-          <Align.Space x justify="spaceBetween">
-            <Button.Button
-              onClick={() => {
-                const newColors = theme?.colors.visualization.palettes.default ?? [];
-                const v = color.hex(newColors[data.length % newColors.length]);
-                push({
-                  key: uuid.create(),
-                  name: "New Label",
-                  color: v,
-                });
-              }}
-              startIcon={<Icon.Add />}
-              style={{ width: "fit-content" }}
-              iconSpacing="small"
-            >
-              Add Label
-            </Button.Button>
-          </Align.Space>
-          <List.Items
-            style={{
-              borderRadius: "1rem",
-              border: "var(--pluto-border)",
-              maxHeight: "calc(100% - 10rem)",
+    <Align.Space y grow empty>
+      <List.Frame<label.Key, label.Label>
+        data={data}
+        getItem={getItem}
+        onFetchMore={fetchMore}
+        subscribe={subscribe}
+      >
+        <Align.Space x justify="spaceBetween" style={{ padding: "2rem" }}>
+          <Input.Text
+            placeholder={
+              <Text.WithIcon level="p" startIcon={<Icon.Search />}>
+                Search Labels
+              </Text.WithIcon>
+            }
+            value={searchTerm}
+            onChange={(v) => {
+              setSearchTerm(v);
+              search(v);
             }}
+          />
+          <Button.Button
+            variant="filled"
+            startIcon={<Icon.Add />}
+            style={{ width: "fit-content" }}
+            iconSpacing="small"
+            onClick={() => setNewFormVisible(true)}
+          >
+            Add Label
+          </Button.Button>
+        </Align.Space>
+        <Divider.Divider x />
+        <Align.Space
+          y
+          style={{
+            borderRadius: "1rem",
+            height: "100%",
+          }}
+          empty
+        >
+          <LabelListItem
+            key="form"
+            index={0}
+            itemKey=""
+            isCreate
+            visible={newFormVisible}
+            onClose={() => setNewFormVisible(false)}
+          />
+          <List.Items
+            grow
             emptyContent={
-              <Align.Center>
-                <Text.Text level="h3" shade={10}>
-                  No labels created
-                </Text.Text>
-              </Align.Center>
+              !newFormVisible && (
+                <Align.Center>
+                  <Text.Text level="h4" shade={8}>
+                    No labels created
+                  </Text.Text>
+                </Align.Center>
+              )
             }
           >
             {listItem}
           </List.Items>
-        </List.Frame>
-      </Form.Form>
+        </Align.Space>
+      </List.Frame>
     </Align.Space>
   );
 };

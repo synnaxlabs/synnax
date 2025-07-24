@@ -9,7 +9,6 @@
 
 import {
   Component,
-  Flux,
   Icon,
   Input,
   List,
@@ -37,11 +36,10 @@ const dynamicIcon = (
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
   if (range == null) return null;
   const { variant, name } = range;
   return (
-    <List.Item {...props} selected={selected} onSelect={onSelect}>
+    <Select.ListItem {...props}>
       <Text.Text level="p" style={{ width: 100 }}>
         {name}
       </Text.Text>
@@ -52,7 +50,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       ) : (
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       )}
-    </List.Item>
+    </Select.ListItem>
   );
 });
 
@@ -82,15 +80,15 @@ export const renderTag = Component.renderProp(RangeTag);
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
   const entries = useSelectMultiple();
   const { data, retrieve } = List.useStaticData<string>({ data: entries });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<string, Range>
       resourceName="Range"
       data={data}
       icon={<Icon.Range />}
       renderTag={renderTag}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       {...props}
     >
       {listItem}

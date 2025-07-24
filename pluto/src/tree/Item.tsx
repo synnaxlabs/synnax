@@ -13,7 +13,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
-import { List } from "@/list";
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { type ItemProps } from "@/tree/Tree";
 
@@ -24,37 +24,33 @@ export const Item = <K extends record.Key>({
   children,
   style,
   className,
-  showRules = true,
+  loading = false,
   ...rest
-}: ItemProps<K>) => {
-  const { itemKey } = rest;
-  const selectProps = Select.useItemState(itemKey);
-  return (
-    <List.Item
-      className={CSS(
-        CSS.BE("tree", "item"),
-        showRules && depth !== 0 && CSS.M("show-rules"),
-        className,
-      )}
-      style={{
-        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
-        ...style,
-      }}
-      size="small"
-      align="center"
-      {...rest}
-      {...selectProps}
-    >
-      {hasChildren && (
-        <Caret.Animated
-          className={CSS.BE("tree", "expansion-indicator")}
-          key="caret"
-          enabled={expanded}
-          enabledLoc="bottom"
-          disabledLoc="right"
-        />
-      )}
-      {children}
-    </List.Item>
-  );
-};
+}: ItemProps<K>) => (
+  <Select.ListItem
+    className={CSS(
+      CSS.BE("tree", "item"),
+      depth !== 0 && CSS.M("show-rules"),
+      className,
+    )}
+    style={{
+      [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
+      ...style,
+    }}
+    size="small"
+    align="center"
+    {...rest}
+  >
+    {hasChildren && (
+      <Caret.Animated
+        className={CSS.BE("tree", "expansion-indicator")}
+        key="caret"
+        enabled={expanded}
+        enabledLoc="bottom"
+        disabledLoc="right"
+      />
+    )}
+    {children}
+    {loading && <Icon.Loading />}
+  </Select.ListItem>
+);

@@ -10,47 +10,52 @@
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Align } from "@/align";
+import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams, useList } from "@/ranger/queries";
 import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
-import { Text } from "@/text";
+import { Tag } from "@/tag";
 
 const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
-  const { selected, onSelect, hovered } = Select.useItemState<ranger.Key>(itemKey);
   if (item == null) return null;
+  const { name, timeRange, parent, labels } = item;
+  const breadcrumbSegments: Breadcrumb.Segments = [
+    {
+      label: name,
+      weight: 450,
+      shade: 10,
+    },
+  ];
+  if (parent != null)
+    breadcrumbSegments.push({
+      label: parent.name,
+      weight: 400,
+      shade: 8,
+    });
   return (
-    <List.Item
-      itemKey={itemKey}
-      onSelect={onSelect}
-      selected={selected}
-      hovered={hovered}
-      justify="spaceBetween"
-      {...rest}
-    >
-      <Text.Text
-        level="p"
-        shade={10}
-        weight={450}
-        style={{
-          maxWidth: 250,
-          textOverflow: "ellipsis",
-          overflow: "hidden",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {item?.name}
-      </Text.Text>
-      <TimeRangeChip level="small" timeRange={item.timeRange} />
-    </List.Item>
+    <Select.ListItem itemKey={itemKey} justify="spaceBetween" {...rest}>
+      <Align.Space y size="small">
+        <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
+        <TimeRangeChip level="small" timeRange={timeRange} />
+      </Align.Space>
+      <Tag.Tags>
+        {labels?.map((l) => (
+          <Tag.Tag key={l.key} color={l.color} size="small">
+            {l.name}
+          </Tag.Tag>
+        ))}
+      </Tag.Tags>
+    </Select.ListItem>
   );
 };
 
@@ -75,7 +80,7 @@ export const SelectMultiple = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
@@ -86,8 +91,8 @@ export const SelectMultiple = ({
       getItem={getItem}
       icon={<Icon.Range />}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       {...rest}
@@ -117,7 +122,7 @@ export const SelectSingle = ({
     filter,
     initialParams,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
@@ -127,13 +132,19 @@ export const SelectSingle = ({
       data={data}
       allowNone={allowNone}
       haulType={HAUL_TYPE}
-      onFetchMore={onFetchMore}
+      onFetchMore={fetchMore}
       getItem={getItem}
       subscribe={subscribe}
       status={status}
-      onSearch={onSearch}
+      onSearch={search}
       emptyContent={emptyContent}
       icon={<Icon.Range />}
+      itemHeight={56}
+      dialogProps={{
+        style: {
+          width: 800,
+        },
+      }}
       {...rest}
     >
       {listItemRenderProp}

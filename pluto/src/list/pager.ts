@@ -9,14 +9,13 @@
 
 import { useCallback } from "react";
 
-import { type UseListReturn } from "@/flux/list";
-import { type Params } from "@/flux/params";
+import { type state } from "@/state";
 
 /**
- * Parameters for pagination functionality, extending the base Params interface.
+ * Parameters for pagination functionality.
  * These parameters are automatically managed by the pager utilities.
  */
-export interface PagerParams extends Params {
+export interface PagerParams {
   /** Search term for filtering results */
   term?: string;
   /** Number of items to skip (for pagination) */
@@ -30,16 +29,24 @@ export interface PagerParams extends Params {
  */
 export interface UsePagerReturn {
   /** Function to fetch the next page of results */
-  onFetchMore: () => void;
+  fetchMore: () => void;
   /** Function to perform a search with the given term */
-  onSearch: (term: string) => void;
+  search: (term: string) => void;
+}
+
+interface RetrieveOptions {
+  mode?: "append" | "replace";
 }
 
 /**
  * Arguments for the usePager hook.
  */
-export interface UsePagerArgs
-  extends Pick<UseListReturn<PagerParams, any, any>, "retrieve"> {
+export interface UsePagerArgs {
+  /** Function to retrieve data */
+  retrieve: (
+    setter: state.SetArg<PagerParams, Partial<PagerParams>>,
+    options?: RetrieveOptions,
+  ) => void;
   /** Number of items per page (default: 10) */
   pageSize?: number;
 }
@@ -73,7 +80,7 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
   /**
    * Fetches the next page of results by incrementing the offset.
    */
-  const onFetchMore = useCallback(() => {
+  const fetchMore = useCallback(() => {
     retrieve(
       ({ offset = -pageSize, term = "", ...prev }) => ({
         ...prev,
@@ -88,10 +95,10 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
   /**
    * Performs a search with the given term, resetting to the first page.
    */
-  const onSearch = useCallback(
-    (term: string) => retrieve((p) => ({ ...p, term, offset: 0, limit: pageSize })),
+  const search = useCallback(
+    (term: string) => retrieve({ term, offset: 0, limit: pageSize }),
     [retrieve, pageSize],
   );
 
-  return { onFetchMore, onSearch };
+  return { fetchMore, search };
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { strings } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
@@ -130,7 +130,11 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.execRetrieve({ ids: parseIDs(ids), children: true, ...options });
+    return await this.execRetrieve({
+      ids: array.toArray(ids),
+      children: true,
+      ...options,
+    });
   }
 
   /**
@@ -146,7 +150,11 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.execRetrieve({ ids: parseIDs(ids), parents: true, ...options });
+    return await this.execRetrieve({
+      ids: array.toArray(ids),
+      parents: true,
+      ...options,
+    });
   }
 
   /**

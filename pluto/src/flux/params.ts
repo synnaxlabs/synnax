@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@synnaxlabs/x";
+import { type state } from "@/state";
 
 /** Options to control async operations. */
-export interface AsyncOptions {
+export interface FetchOptions {
   /** Optional AbortSignal to cancel the operation */
   signal?: AbortSignal;
 }
@@ -38,4 +38,4 @@ export interface AsyncOptions {
  * };
  * ```
  */
-export type Params = Record<string, primitive.Value>;
+export type Params = state.State;

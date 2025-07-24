@@ -53,7 +53,9 @@ const ContextMenu = <C extends Channel>({
 }: ContextMenuProps<C>) => {
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { set } = Form.useContext();
-  const channels = Form.useFieldValue<C[]>(path);
+  const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
+    keys.includes(key),
+  );
   const handleDuplicate = () => onDuplicate?.(channels, keys);
   const handleDisable = () =>
     keys.forEach((key) => set(`${path}.${key}.enabled`, false));
@@ -71,8 +73,8 @@ const ContextMenu = <C extends Channel>({
   };
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
-  const canDisable = channels.some(({ enabled }) => !enabled);
-  const canEnable = channels.some(({ enabled }) => enabled);
+  const canDisable = channels.some(({ enabled }) => enabled);
+  const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PMenu.Menu onChange={handleSelect} level="small">

@@ -92,7 +92,7 @@ export const Text = ({
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
-    if (onlyChangeOnBlur) setTempValue(value);
+    if (onlyChangeOnBlur && value.length > 0) setTempValue(value);
     onFocus?.(e);
     cachedFocusRef.current = e.target.value;
   };

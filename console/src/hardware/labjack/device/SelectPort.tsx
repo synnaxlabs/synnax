@@ -31,10 +31,9 @@ export interface SelectPortProps
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const port = List.useItem<string, Port>(props.itemKey);
   if (port == null) return null;
-  const selectProps = Select.useItemState(props.itemKey);
   const { alias, key } = port;
   return (
-    <List.Item {...props} {...selectProps} align="center">
+    <Select.ListItem {...props} align="center">
       <Text.Text level="p" shade={11} style={{ width: 50 }}>
         {alias ?? key}
       </Text.Text>
@@ -43,7 +42,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
           {key}
         </Text.Text>
       )}
-    </List.Item>
+    </Select.ListItem>
   );
 });
 
@@ -62,7 +61,7 @@ export const SelectPort = ({
     data: PORTS[model][portType],
     filter,
   });
-  const selected = getItem?.(value);
+  const selected = getItem(value ?? "");
   return (
     <Dialog.Frame location="bottom" {...rest}>
       <Select.Frame data={data} getItem={getItem} onChange={onChange}>

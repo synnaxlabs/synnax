@@ -9,18 +9,21 @@
 
 import { useState } from "react";
 
+import { type Dialog } from "@/dialog";
 import { Input } from "@/input";
 
 export interface SearchInputProps {
   searchPlaceholder?: string;
   onSearch?: (term: string) => void;
   actions?: Input.TextProps["children"];
+  dialogVariant?: Dialog.FrameProps["variant"];
 }
 
 export const SearchInput = ({
   searchPlaceholder = "Search...",
   onSearch,
   actions,
+  dialogVariant = "floating",
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   return (
@@ -28,6 +31,7 @@ export const SearchInput = ({
       value={term}
       autoFocus
       placeholder={searchPlaceholder}
+      size={dialogVariant === "modal" ? "large" : "medium"}
       shade={3}
       onChange={(v) => {
         setTerm(v);

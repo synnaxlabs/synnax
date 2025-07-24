@@ -21,7 +21,7 @@ export const useSetSynchronizer = (onSet: (device: device.Device) => void): void
     ),
   });
 
-export interface RetrieveParams extends Flux.Params {
+export interface RetrieveParams {
   key: device.Key;
 }
 
@@ -53,7 +53,7 @@ export const retrieve = <
     ],
   });
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   term?: string;
   offset?: number;
   limit?: number;

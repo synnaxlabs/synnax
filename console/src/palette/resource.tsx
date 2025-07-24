@@ -32,7 +32,6 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   const id = ontology.idZ.parse(itemKey);
   const item = List.useItem<string, ontology.Resource>(itemKey);
   const { icon, onSelect, PaletteListItem } = Ontology.useService(id.type);
-  const selectProps = Select.useItemState(itemKey);
   if (item == null) return null;
   const { name } = item;
   // return null if the ontology service does not have an onSelect method, that way we
@@ -40,12 +39,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   return onSelect == null ? null : PaletteListItem != null ? (
     <PaletteListItem {...props} />
   ) : (
-    <List.Item
-      style={{ padding: "1.5rem" }}
-      highlightHovered
-      {...props}
-      {...selectProps}
-    >
+    <Select.ListItem style={{ padding: "1.5rem" }} highlightHovered {...props}>
       <Text.WithIcon
         startIcon={isValidElement(icon) ? icon : icon(item)}
         level="p"
@@ -55,7 +49,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
       >
         {name}
       </Text.WithIcon>
-    </List.Item>
+    </Select.ListItem>
   );
 });
 

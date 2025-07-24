@@ -51,7 +51,7 @@ export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =
     }),
   });
 
-interface QueryParams extends Flux.Params {
+interface QueryParams {
   key: task.Key | undefined;
 }
 
@@ -86,7 +86,7 @@ export const createRetrieveQuery = <
     ],
   });
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   term?: string;
   offset?: number;
   limit?: number;

@@ -134,6 +134,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           color: r.color,
           timeRange: r.timeRange,
           stage: r.stage,
+          parent: r.parent,
           viewport: {
             lower: dataToDecimalScale
               .scale(box.xBounds(viewport))

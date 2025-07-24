@@ -12,10 +12,10 @@ import { type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Menu } from "@/menu";
-import { type RenderProp } from "@/component/renderProp";
 import { useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 import { range } from "@/vis/lineplot/range/aether";
 

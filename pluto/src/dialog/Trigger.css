@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dialog__trigger .pluto-caret-animated {
-    margin-left: auto;
+.pluto-dialog__trigger {
+    will-change: transform;
+
+    .pluto-caret-animated {
+        margin-left: auto;
+    }
 }

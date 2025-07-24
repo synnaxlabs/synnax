@@ -21,7 +21,7 @@ export type ListenerArgs<Value, Extra> = {
 } & Extra;
 
 export interface ListenerHandler<Value, Extra> {
-  (args: ListenerArgs<Value, Extra>): Promise<unknown>;
+  (args: ListenerArgs<Value, Extra>): Promise<unknown> | unknown;
 }
 
 export const parsedHandler =
@@ -57,18 +57,19 @@ export const useListener = (
   const addListener = useAddListener();
   const handleError = Status.useErrorHandler();
   useEffect(() => {
-    const mu = new Mutex();
-    array.toArray(listeners).map(({ channel, onChange }) => {
+    const destructors = array.toArray(listeners).map(({ channel, onChange }) =>
       addListener({
         channel,
         handler: (frame) => {
-          handleError(async () => {
-            await mu.runExclusive(async () => {
-              await onChange({ changed: frame.get(channel) });
-            });
-          }, "Error in Sync.useListener");
+          handleError(
+            async () => await onChange({ changed: frame.get(channel) }),
+            "Error in Sync.useListener",
+          );
         },
-      });
-    });
+      }),
+    );
+    return () => {
+      for (const destructor of destructors) destructor();
+    };
   }, [addListener]);
 };

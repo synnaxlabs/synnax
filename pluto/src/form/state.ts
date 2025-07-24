@@ -65,11 +65,11 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses = new Map();
     this.touched = new Set();
     this.cachedRefs = new Map();
-    this.initialValues = values;
+    this.initialValues = deep.copy(this.values);
   }
 
   setValue(path: string, value: unknown) {
-    if (path == "") this.values = value as z.infer<Z>;
+    if (path == "") this.values = deep.copy(value) as z.infer<Z>;
     else deep.set(this.values, path, value);
     this.checkTouched(path, value);
     this.updateCachedRefs(path);
@@ -215,13 +215,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return cachedRef;
   }
 
-  private updateCachedRefs(parentPath: string) {
-    this.cachedRefs.forEach((_, childPath) => {
-      if (
-        deep.pathsMatch(childPath, parentPath) ||
-        deep.pathsMatch(parentPath, childPath)
-      )
-        this.cachedRefs.set(childPath, {});
+  private updateCachedRefs(fieldPath: string) {
+    this.cachedRefs.forEach((_, refPath) => {
+      if (deep.pathsMatch(refPath, fieldPath) || deep.pathsMatch(fieldPath, refPath))
+        this.cachedRefs.set(refPath, {});
     });
   }
 }

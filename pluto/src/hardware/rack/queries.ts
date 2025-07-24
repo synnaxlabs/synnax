@@ -12,10 +12,11 @@ import { rack } from "@synnaxlabs/client";
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
-export interface ListParams extends Flux.Params {
+export interface ListParams {
   term?: string;
   offset?: number;
   limit?: number;
+  includeStatus?: boolean;
 }
 
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({

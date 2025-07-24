@@ -16,8 +16,8 @@ import {
   Haul,
   Header as PHeader,
   Icon,
-  List,
   type RenderProp,
+  Select,
   Text,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
@@ -57,7 +57,7 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <List.Item {...rest} justify="spaceBetween" align="center">
+    <Select.ListItem {...rest} justify="spaceBetween" align="center" rightAligned>
       <Align.Space direction="y" size="small">
         <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
         <Text.WithIcon
@@ -78,7 +78,7 @@ const ChannelListItem = <C extends Channel>({
           isSnapshot={isSnapshot}
         />
       </Align.Space>
-    </List.Item>
+    </Select.ListItem>
   );
 };
 

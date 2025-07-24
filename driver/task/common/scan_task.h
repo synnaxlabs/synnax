@@ -135,7 +135,6 @@ public:
         client(std::move(client)) {
         this->key = task.key;
         this->state.details.task = task.key;
-        this->ctx->set_status(this->state);
     }
 
     ScanTask(

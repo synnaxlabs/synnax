@@ -17,56 +17,70 @@ export const isSetter = <S extends State, PS = S>(
   arg: SetArg<S, PS>,
 ): arg is SetFunc<S, PS> => typeof arg === "function";
 
-export type SetArg<S extends State, PS = S> = S | SetFunc<S, PS>;
-export type Setter<S extends State, PS = S> = (value: SetArg<S, PS>) => void;
-export type PureSetter<S extends State> = (value: S) => void;
-export type Initial<S extends State> = S | (() => S);
+export type SetArg<NextState extends State, PrevState = NextState> =
+  | NextState
+  | SetFunc<NextState, PrevState>;
+export type Setter<NextState extends State, PrevState = NextState> = (
+  value: SetArg<NextState, PrevState>,
+) => void;
+export type PureSetter<NextState extends State> = (value: NextState) => void;
+export type Initial<InitialState extends State> = InitialState | (() => InitialState);
 
-export const executeSetter = <S extends State, PS = S>(
-  setter: SetArg<S, PS>,
-  prev: PS,
-): S => (isSetter(setter) ? setter(prev) : setter);
+export const executeSetter = <NextState extends State, PrevState = NextState>(
+  setter: SetArg<NextState, PrevState>,
+  prev: PrevState,
+): NextState => (isSetter(setter) ? setter(prev) : setter);
 
-export const executeInitialSetter = <S extends State>(setter: Initial<S>): S =>
-  isInitialSetter(setter) ? setter() : setter;
+export const executeInitialSetter = <InitialState extends State>(
+  setter: Initial<InitialState>,
+): InitialState => (isInitialSetter(setter) ? setter() : setter);
 
-export const isInitialSetter = <S extends State>(arg: Initial<S>): arg is () => S =>
-  typeof arg === "function";
+export const isInitialSetter = <InitialState extends State>(
+  arg: Initial<InitialState>,
+): arg is () => InitialState => typeof arg === "function";
 
-export type UseReturn<S extends State> = [S, Setter<S>];
-export type Use = <S extends State>(initial: Initial<S>) => UseReturn<S>;
-export type PureUseReturn<S extends State> = [S, PureSetter<S>];
-export type PureUse<S extends State> = (initial: S) => PureUseReturn<S>;
+export type UseReturn<NextState extends State> = [NextState, Setter<NextState>];
+export type Use = <NextState extends State>(
+  initial: Initial<NextState>,
+) => UseReturn<NextState>;
+export type PureUseReturn<NextState extends State> = [NextState, PureSetter<NextState>];
+export type PureUse<NextState extends State> = (
+  initial: NextState,
+) => PureUseReturn<NextState>;
 
-export interface UsePassthroughProps<S extends State> {
-  initial: Initial<S>;
-  value?: S;
-  onChange?: Setter<S>;
+export interface UsePassthroughProps<NextState extends State> {
+  initial: Initial<NextState>;
+  value?: NextState;
+  onChange?: Setter<NextState>;
 }
 
-export const usePassthrough = <S extends State>({
+export const usePassthrough = <NextState extends State>({
   initial,
   value,
   onChange,
-}: UsePassthroughProps<S>): UseReturn<S> => {
-  const [internal, setInternal] = useState<S>(executeInitialSetter(value ?? initial));
+}: UsePassthroughProps<NextState>): UseReturn<NextState> => {
+  const [internal, setInternal] = useState<NextState>(
+    executeInitialSetter(value ?? initial),
+  );
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setInternal];
 };
 
-export interface UsePurePassthroughProps<S extends State> {
-  initial: Initial<S>;
-  value?: S;
-  onChange?: PureSetter<S>;
+export interface UsePurePassthroughProps<NextState extends State> {
+  initial: Initial<NextState>;
+  value?: NextState;
+  onChange?: PureSetter<NextState>;
   callOnChangeIfValueIsUndefined?: boolean;
 }
 
-export const usePurePassthrough = <S extends State>({
+export const usePurePassthrough = <NextState extends State>({
   initial,
   value,
   onChange,
-}: UsePurePassthroughProps<S>): PureUseReturn<S> => {
-  const [internal, setInternal] = useState<S>(executeInitialSetter(value ?? initial));
+}: UsePurePassthroughProps<NextState>): PureUseReturn<NextState> => {
+  const [internal, setInternal] = useState<NextState>(
+    executeInitialSetter(value ?? initial),
+  );
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setInternal];
 };

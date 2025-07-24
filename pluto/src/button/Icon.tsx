@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import clsx from "clsx";
-import { cloneElement, type ReactElement } from "react";
+import { cloneElement, type ReactElement, useCallback } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { parseColor } from "@/button/color";
@@ -53,10 +53,23 @@ export const Icon = Tooltip.wrap(
     tabIndex,
     onMouseDown,
     triggerIndicator,
+    triggers,
     ...rest
   }: IconProps): ReactElement => {
     if (loading) children = <BaseIcon.Loading />;
     const isDisabled = disabled || loading;
+    Triggers.use({
+      triggers,
+      callback: useCallback<(e: Triggers.UseEvent) => void>(
+        ({ stage }) => {
+          if (stage !== "end" || isDisabled || variant === "preview") return;
+          onClick?.(
+            new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
+          );
+        },
+        [onClick, isDisabled],
+      ),
+    });
     return (
       <button
         ref={ref}

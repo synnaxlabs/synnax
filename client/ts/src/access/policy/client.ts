@@ -56,4 +56,7 @@ export class Client {
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
-export const ALLOW_ALL_ONTOLOGY_ID = { type: ALLOW_ALL_ONTOLOGY_TYPE, key: "" };
+export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
+  type: ALLOW_ALL_ONTOLOGY_TYPE,
+  key: "",
+};

@@ -17,19 +17,18 @@ import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { getRootElement } from "@/util/rootElement";
 
-export interface DialogProps extends Align.SpaceProps {
-  zIndex?: number;
-}
+export interface DialogProps extends Align.SpaceProps {}
 
 export const Dialog = ({
-  zIndex = 5,
   style,
   background = 0,
   className,
+  bordered,
   ...rest
 }: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
+  bordered ??= variant === "modal";
   if (!visible) return null;
   let dialog = (
     <Align.Pack
@@ -46,20 +45,15 @@ export const Dialog = ({
       )}
       role="dialog"
       empty
-      style={{ ...ctxStyle, ...style, zIndex }}
+      bordered={bordered}
+      style={{ ...ctxStyle, ...style }}
       {...rest}
     />
   );
   if (variant === "floating") dialog = createPortal(dialog, getRootElement());
   else if (variant === "modal")
     dialog = createPortal(
-      <Background
-        role="dialog"
-        empty
-        align="center"
-        style={{ zIndex }}
-        visible={visible}
-      >
+      <Background empty align="center" visible={visible}>
         {dialog}
       </Background>,
       getRootElement(),

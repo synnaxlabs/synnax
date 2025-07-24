@@ -164,7 +164,7 @@ export const Frame = <
   onChange,
   multiple,
   onFetchMore,
-  virtual,
+  virtual = false,
   ...rest
 }: FrameProps<K, E>): ReactElement => {
   let child: ReactElement;

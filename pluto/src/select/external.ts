@@ -10,6 +10,7 @@
 export * from "@/select/Button";
 export * from "@/select/Dialog";
 export * from "@/select/Frame";
+export * from "@/select/ListItem";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
 export * from "@/select/Simple";
@@ -17,4 +18,4 @@ export * from "@/select/Single";
 export * from "@/select/SingleTrigger";
 export * from "@/select/text";
 export * from "@/select/use";
-export * from "@/select/use";
+export * from "@/select/useHover";

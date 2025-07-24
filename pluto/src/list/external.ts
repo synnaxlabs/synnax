@@ -10,6 +10,7 @@
 export * from "@/list/Frame";
 export * from "@/list/Item";
 export * from "@/list/Items";
+export * from "@/list/pager";
 export * from "@/list/useKeysData";
 export * from "@/list/useMapData";
 export * from "@/list/useStaticData";

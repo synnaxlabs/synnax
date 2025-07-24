@@ -1,4 +1,4 @@
-import { type record } from "@synnaxlabs/x";
+import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
@@ -24,6 +24,7 @@ export interface DataContextValue<K extends record.Key = record.Key> {
   data: K[];
   getItems: () => ItemSpec<K>[];
   getTotalSize: () => number | undefined;
+  itemHeight?: number;
 }
 
 export interface UtilContextValue<
@@ -31,9 +32,9 @@ export interface UtilContextValue<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
   ref: RefCallback<HTMLDivElement | null>;
-  getItem?: (key?: K) => E | undefined;
-  subscribe?: (callback: () => void, key?: K) => () => void;
-  scrollToIndex: (index: number) => void;
+  getItem?: (key: K) => E | undefined;
+  subscribe?: (callback: () => void, key: K) => () => void;
+  scrollToIndex: (index: number, direction?: location.Y) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -46,6 +47,7 @@ export interface FrameProps<
     Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
   data: K[];
   virtual?: boolean;
+  overscan?: number;
   itemHeight?: number;
   onFetchMore?: () => void;
 }
@@ -53,7 +55,7 @@ export interface FrameProps<
 const useDataContext = <K extends record.Key = record.Key>(): DataContextValue<K> =>
   useRequiredContext(DataContext) as unknown as DataContextValue<K>;
 
-const useUtilContext = <
+export const useUtilContext = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): UtilContextValue<K, E> =>
@@ -71,7 +73,7 @@ export const useItem = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(
-  key?: K,
+  key: K,
 ): E | undefined => {
   const { getItem, subscribe } = useUtilContext<K, E>();
   return useSyncExternalStore(
@@ -90,9 +92,18 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize } = useDataContext<K>();
+  const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
   const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
-  return { data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe };
+  return {
+    data,
+    getItems,
+    getTotalSize,
+    ref,
+    getItem,
+    scrollToIndex,
+    subscribe,
+    itemHeight,
+  };
 };
 
 const VirtualFrame = <
@@ -104,6 +115,7 @@ const VirtualFrame = <
   subscribe,
   children,
   onFetchMore,
+  overscan = 10,
   itemHeight = 36,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
@@ -121,7 +133,7 @@ const VirtualFrame = <
     count: data.length,
     getScrollElement: () => ref.current,
     estimateSize: () => itemHeight,
-    overscan: 10,
+    overscan,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const items = v.getVirtualItems();
@@ -144,18 +156,21 @@ const VirtualFrame = <
       subscribe,
       getTotalSize: () => virtualizer.getTotalSize(),
       getItems: () => items,
+      itemHeight,
     }),
-    [refCallback, virtualizer, data, getItem, items],
+    [refCallback, virtualizer, data, getItem, items, itemHeight],
   );
+
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
       ref: refCallback,
       getItem,
-      scrollToIndex: virtualizer.scrollToIndex,
+      scrollToIndex: (index) => virtualizer.scrollToIndex(index),
       subscribe,
     }),
     [refCallback, virtualizer, getItem, subscribe],
   );
+
   return (
     <DataContext.Provider value={dataCtxValue}>
       <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
@@ -174,10 +189,30 @@ const StaticFrame = <
   subscribe,
   children,
   onFetchMore,
+  itemHeight,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const { visible } = Dialog.useContext();
   const onFetchMoreRef = useSyncedRef(onFetchMore);
+
+  const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
+    const container = ref.current?.children[0];
+    if (!container) return;
+    const dirMultiplier = direction === "top" ? 1 : -1;
+    let scrollTo: number;
+    const idealHover = index + dirMultiplier;
+    if (bounds.contains({ lower: 0, upper: container.children.length }, idealHover))
+      scrollTo = index + dirMultiplier;
+    else scrollTo = index;
+    const child = container.children[scrollTo] as HTMLElement | undefined;
+    if (child != null)
+      child.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+  }, []);
+
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
@@ -195,17 +230,18 @@ const StaticFrame = <
       subscribe,
       getTotalSize: () => undefined,
       getItems: () => items,
+      itemHeight,
     }),
-    [refCallback, data, getItem, subscribe],
+    [refCallback, data, getItem, subscribe, itemHeight],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
       ref: refCallback,
       getItem,
-      scrollToIndex: () => {},
+      scrollToIndex,
       subscribe,
     }),
-    [refCallback, getItem, subscribe],
+    [refCallback, getItem, subscribe, scrollToIndex],
   );
   return (
     <DataContext.Provider value={dataCtxValue}>

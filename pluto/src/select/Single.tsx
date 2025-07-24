@@ -27,6 +27,7 @@ export interface SingleProps<
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
   triggerVariant?: Select.SingleTriggerProps["variant"];
+  dialogProps?: Dialog.FrameProps;
 }
 
 export const Single = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -39,6 +40,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   data,
   getItem,
   subscribe,
+  itemHeight,
   onFetchMore,
   disabled,
   onSearch,
@@ -48,6 +50,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   variant = "connected",
   actions,
   triggerVariant,
+  dialogProps,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
   <Dialog.Frame {...rest} variant={variant}>
@@ -59,6 +62,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       subscribe={subscribe}
       allowNone={allowNone}
       onFetchMore={onFetchMore}
+      itemHeight={itemHeight}
       virtual
     >
       <Select.SingleTrigger
@@ -74,6 +78,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        {...dialogProps}
       >
         {children}
       </Select.Dialog>

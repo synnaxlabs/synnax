@@ -21,6 +21,7 @@ export interface ItemsProps<K extends record.Key = record.Key>
   extends Omit<Align.SpaceProps, "children" | "ref"> {
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
+  displayItems?: number;
 }
 
 const BaseItems = <
@@ -30,9 +31,11 @@ const BaseItems = <
   className,
   children,
   emptyContent,
+  displayItems = 10,
+  style,
   ...rest
 }: ItemsProps<K>): ReactElement => {
-  const { ref, getItems, getTotalSize, data } = useData<K, E>();
+  const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
   const visibleData = getItems();
   let content = emptyContent;
   if (data.length > 0)
@@ -46,11 +49,16 @@ const BaseItems = <
         )}
       </div>
     );
+
+  let minHeight: number | undefined;
+  if (itemHeight != null && isFinite(displayItems) && visibleData.length > 0)
+    minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
     <Align.Space
       empty
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
+      style={{ height: minHeight, ...style }}
       {...rest}
     >
       {content}

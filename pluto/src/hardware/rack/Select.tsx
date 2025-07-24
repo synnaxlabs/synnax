@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
-import { Flux } from "@/flux";
+import { type Flux } from "@/flux";
 import { Rack } from "@/hardware/rack";
 import { useList } from "@/hardware/rack/queries";
 import { Icon } from "@/icon";
@@ -34,12 +34,11 @@ const listItemRenderProp = Component.renderProp(
   (props: List.ItemRenderProps<rack.Key>) => {
     const { itemKey } = props;
     const item = List.useItem<rack.Key, rack.Rack>(itemKey);
-    const selectProps = Select.useItemState(itemKey);
     return (
-      <List.Item {...props} {...selectProps} align="center" justify="spaceBetween">
+      <Select.ListItem {...props} align="center" justify="spaceBetween">
         <Text.Text level="p">{item?.name}</Text.Text>
         <Rack.StatusIndicator status={item?.status} tooltipLocation="left" />
-      </List.Item>
+      </Select.ListItem>
     );
   },
 );
@@ -57,7 +56,7 @@ export const SelectSingle = ({
     initialParams: { includeStatus: true, ...initialParams },
     filter,
   });
-  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<rack.Key, rack.Payload | undefined>
       resourceName="Driver"
@@ -66,8 +65,8 @@ export const SelectSingle = ({
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      onSearch={onSearch}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
       status={status}
       icon={<Icon.Rack />}

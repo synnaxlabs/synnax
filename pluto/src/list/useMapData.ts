@@ -48,7 +48,6 @@ export const useMapData = <
     const itemKeys = items.map((i) => i.key);
     items.forEach((i) => dataRef.current.set(i.key, i));
     notifyListeners(itemKeys);
-    console.log(dataRef.current);
   }, []);
   const deleteItem = useCallback((key: K | K[]) => {
     const keys = array.toArray(key);
