@@ -77,6 +77,9 @@ func (w Writer) CreateWithParent(
 	// Range already exists and no parent provided = do nothing
 	// Range does not exist = define parent
 	if exists && hasParent {
+		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+			return err
+		}
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
 			return
 		}

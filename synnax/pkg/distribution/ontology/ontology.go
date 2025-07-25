@@ -156,6 +156,7 @@ type Writer interface {
 	// their incoming and outgoing relationships. If any of the resources do not exist,
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error
+	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given keys. If the relationship already exists, DefineRelationship
 	// does nothing.

@@ -53,7 +53,8 @@ export const useList = Flux.createList<
         async ({ changed, onChange, params: { parent }, client }) => {
           if (
             changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-            ontology.idsEqual(changed.from, parent)
+            ontology.idsEqual(changed.from, parent) &&
+            changed.to.type === annotation.ONTOLOGY_TYPE
           ) {
             const annotation = await client.annotations.retrieve({
               key: changed.to.key,

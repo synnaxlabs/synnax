@@ -1,5 +1,5 @@
 import { type ranger } from "@synnaxlabs/client";
-import { Divider, Icon, Menu as PMenu, Ranger } from "@synnaxlabs/pluto";
+import { Divider, Form, Icon, Menu as PMenu, Ranger } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
@@ -17,12 +17,12 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const isEmpty = ranges.length === 0;
   const isSingle = ranges.length === 1;
   const placeLayout = Layout.usePlacer();
+  const ctx = Form.useContext();
   const rename = Modals.useRename();
   const confirm = useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-  const { update } = Ranger.useUpdate.useDirect({ params: {} });
   const { update: del } = Ranger.useDelete.useDirect({ params: {} });
   const handleAddChildRange = () => {
     placeLayout(createCreateLayout({ parent: ranges[0].key }));
@@ -33,14 +33,14 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       rename({ initialValue: ranges[0].name }, { icon: "Range", name: "Range.Rename" })
         .then((renamed) => {
           if (renamed == null) return;
-          update({ ...ranges[0].payload, name: renamed });
+          ctx.set("name", renamed);
         })
         .catch(console.error);
     },
     delete: () => {
-      confirm(ranges[0])
+      confirm(ranges)
         .then((confirmed) => {
-          if (confirmed) del(ranges[0].key);
+          if (confirmed) del(ranges.map((r) => r.key));
         })
         .catch(console.error);
     },

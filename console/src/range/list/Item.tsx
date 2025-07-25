@@ -42,9 +42,15 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
     };
   }, [item]);
   if (initialValues == null || item == null) return null;
+
   const { name, parent, labels, timeRange } = item;
 
-  const { form } = Ranger.useForm({ params: {}, initialValues, sync: true });
+  const { form } = Ranger.useForm({
+    params: {},
+    initialValues,
+    sync: true,
+    autoSave: true,
+  });
   const sliceRange = useSelect(itemKey);
   const starred = sliceRange != null;
   const handleSelect = () => placeLayout({ ...OVERVIEW_LAYOUT, name, key: itemKey });
@@ -63,24 +69,27 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
       {...selectProps}
       {...props}
     >
-      <Menu.ContextMenu
-        menu={(p) => <ContextMenu {...p} getItem={getItem} />}
-        onClick={stopPropagation}
-        {...menuProps}
-      />
       <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+        <Menu.ContextMenu
+          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
+          onClick={stopPropagation}
+          {...menuProps}
+        />
         <Align.Space x empty>
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
           />
-          <Align.Space x align="center" empty>
+          <Align.Space x align="center" size="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
               {({ value, onChange }) => (
                 <Ranger.SelectStage
                   value={value}
                   onChange={onChange}
+                  variant="floating"
+                  location="bottom"
+                  onClick={stopPropagation}
                   triggerProps={{ iconOnly: true, variant: "text" }}
                 />
               )}

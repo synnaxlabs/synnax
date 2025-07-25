@@ -68,7 +68,11 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
         async ({ changed, onChange, client }) => {
           onChange(changed.key, (prev) => {
             if (prev == null) return prev;
-            return client.ranges.sugarOne(changed);
+            return client.ranges.sugarOne({
+              ...prev.payload,
+              ...changed,
+              parent: prev.parent ?? changed.parent,
+            });
           });
         },
       ),
@@ -87,8 +91,12 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
           if (!("key" in params)) return;
           if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(params.key)))
             return;
-          const range = await client.ranges.retrieve(changed.to.key);
-          onChange(changed.to.key, range);
+          const range = await client.ranges.retrieve({
+            keys: [changed.to.key],
+            includeParent: true,
+            includeLabels: true,
+          });
+          onChange(changed.to.key, range[0]);
         },
       ),
     },
@@ -139,7 +147,7 @@ export const retrieveParent = Flux.createRetrieve<
       channel: ranger.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
-        async ({ changed, onChange, params: { key }, client }) => {
+        async ({ changed, onChange, client }) => {
           onChange((prev) => {
             if (prev == null || prev.key !== changed.key) return prev;
             return client.ranges.sugarOne({ ...prev.payload, ...changed });
@@ -210,12 +218,19 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     return await rangeToFormValues(await client.ranges.retrieve(key));
   },
   update: async ({ client, value, onChange }) => {
+    console.log("value", value);
     const parentID = primitive.isZero(value.parent)
       ? undefined
       : ranger.ontologyID(value.parent as string);
     const rng = await client.ranges.create(value, { parent: parentID });
     await client.labels.label(rng.ontologyID, value.labels, { replace: true });
-    onChange(await rangeToFormValues(rng, value.labels, value.parent));
+    onChange({
+      ...value,
+      ...rng.payload,
+      timeRange: rng.timeRange.numeric,
+      labels: value.labels,
+      parent: value.parent,
+    });
   },
   listeners: [
     {
@@ -382,7 +397,7 @@ export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload>({
     onChange(await client.ranges.create(value)),
 });
 
-export const useDelete = Flux.createUpdate<UpdateParams, ranger.Key>({
+export const useDelete = Flux.createUpdate<UpdateParams, ranger.Key | ranger.Keys>({
   name: "Range",
   update: async ({ client, value }) => await client.ranges.delete(value),
 });
