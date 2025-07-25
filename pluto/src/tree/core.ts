@@ -33,7 +33,7 @@ export const shouldExpand = <K extends record.Key = string>(
 export interface FlattenProps<K extends record.Key = string> {
   nodes: Node<K>[];
   expanded: K[];
-  sort?: compare.CompareF<Node<K>>;
+  sort?: compare.Comparator<Node<K>>;
   depth?: number;
   path?: string;
 }

@@ -168,13 +168,13 @@ export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
 export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
-  push: (value: E | E[], sort?: compare.CompareF<E>) => void;
+  push: (value: E | E[], sort?: compare.Comparator<E>) => void;
   add: (value: E | E[], start: number) => void;
   remove: (keys: K | K[]) => K[];
   keepOnly: (keys: K | K[]) => K[];
   set: (values: state.SetArg<E[]>) => void;
   value(): E[];
-  sort?: (compareFn: compare.CompareF<E>) => void;
+  sort?: (compareFn: compare.Comparator<E>) => void;
 }
 
 export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
