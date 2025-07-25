@@ -13,7 +13,7 @@ import { createContext, type ReactElement, type ReactNode, use } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { type Text } from "@/text";
+import { Text } from "@/text";
 
 export interface HeaderProps extends Omit<Align.SpaceProps, "children" | "el"> {
   level?: Text.Level;
@@ -54,6 +54,7 @@ export const Header = ({
       className={CSS(
         CSS.B("header"),
         CSS.bordered("bottom"),
+        CSS.size(Text.LEVEL_COMPONENT_SIZES[level]),
         divided && CSS.BM("header", "divided"),
         className,
       )}

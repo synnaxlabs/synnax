@@ -32,6 +32,7 @@ type Writer struct {
 func (w Writer) Create(
 	ctx context.Context,
 	c *Annotation,
+	parent ontology.ID,
 ) (err error) {
 	var exists bool
 	if c.Key == uuid.Nil {
@@ -45,11 +46,16 @@ func (w Writer) Create(
 	if err = gorp.NewCreate[uuid.UUID, Annotation]().Entry(c).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if exists {
+	otgID := OntologyID(c.Key)
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	otgID := OntologyID(c.Key)
-	return w.otgWriter.DefineResource(ctx, otgID)
+	if exists {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+			return
+		}
+	}
+	return w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID)
 }
 
 // Delete deletes the annotations with the given keys.

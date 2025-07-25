@@ -152,6 +152,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     validateChildren: boolean = true,
     result: z.ZodSafeParseResult<z.infer<Z>>,
   ): boolean {
+    console.log(result);
     if (this.schema == null) return true;
     const cachedRefsToClear = new Set<string>();
     this.statuses.forEach((status, childPath) => {

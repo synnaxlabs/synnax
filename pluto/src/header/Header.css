@@ -10,9 +10,17 @@
  */
 
 .pluto-header {
-    padding-right: 0.5rem;
-    padding-bottom: 0.5rem;
-    padding-top: 0.5rem;
+    &.pluto--small {
+        padding-right: 0.5rem;
+        padding-bottom: 0.5rem;
+        padding-top: 0.5rem;
+    }
+    &:is(.pluto--medium, .pluto--large) {
+        padding-right: 1rem;
+        padding-bottom: 1rem;
+        padding-top: 1rem;
+    }
+
     box-sizing: content-box;
 
     .pluto-header__text,

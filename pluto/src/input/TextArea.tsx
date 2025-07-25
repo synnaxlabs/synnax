@@ -45,6 +45,7 @@ export const TextArea = ({
   placeholder,
   variant = "outlined",
   sharp = false,
+  level = "h3",
   children,
   ...rest
 }: TextAreaProps): ReactElement => (
@@ -53,6 +54,7 @@ export const TextArea = ({
     className={CSS(
       CSS.B("textarea"),
       CSS.BM("textarea", variant),
+      CSS.BM("text", level),
       CSS.sharp(sharp),
       className,
     )}

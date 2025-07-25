@@ -13,10 +13,8 @@ import { Align } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
-import { ChildRanges } from "@/range/overview/ChildRanges";
+import { Annotations } from "@/range/overview/Annotations";
 import { Details } from "@/range/overview/Details";
-import { MetaData } from "@/range/overview/MetaData";
-import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Align.Space
@@ -26,8 +24,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     size="large"
   >
     <Details rangeKey={layoutKey} />
-    <MetaData rangeKey={layoutKey} />
+    <Annotations rangeKey={layoutKey} />
+    {/* <MetaData rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
-    <Snapshots rangeKey={layoutKey} />
+    <Snapshots rangeKey={layoutKey} /> */}
   </Align.Space>
 );

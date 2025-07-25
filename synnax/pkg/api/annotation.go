@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/x/gorp"
@@ -35,6 +36,7 @@ func NewAnnotationService(p Provider) *AnnotationService {
 
 type (
 	AnnotationCreateRequest struct {
+		Parent      ontology.ID             `json:"parent" msgpack:"parent"`
 		Annotations []annotation.Annotation `json:"annotations" msgpack:"annotations"`
 	}
 	AnnotationCreateResponse = AnnotationCreateRequest
@@ -51,7 +53,7 @@ func (s *AnnotationService) Create(ctx context.Context, req AnnotationCreateRequ
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
 		for i, annotation_ := range req.Annotations {
-			if err = w.Create(ctx, &annotation_); err != nil {
+			if err = w.Create(ctx, &annotation_, req.Parent); err != nil {
 				return err
 			}
 			req.Annotations[i] = annotation_

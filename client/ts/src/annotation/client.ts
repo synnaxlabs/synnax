@@ -20,17 +20,38 @@ import {
   newZ,
   type Params,
 } from "@/annotation/payload";
+import { ontology } from "@/ontology";
 
 const CREATE_ENDPOINT = "/annotation/create";
 const DELETE_ENDPOINT = "/annotation/delete";
 const RETRIEVE_ENDPOINT = "/annotation/retrieve";
 
-const createReqZ = z.object({ annotations: z.array(newZ) });
+const createReqZ = z.object({
+  parent: ontology.idZ,
+  annotations: z.array(newZ),
+});
 const createResZ = z.object({ annotations: z.array(annotationZ) });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const retrieveReqZ = z.object({ keys: z.array(keyZ) });
 const retrieveResZ = z.object({ annotations: z.array(annotationZ) });
 const emptyResZ = z.object({});
+
+const retrieveReqZ = z.object({
+  keys: z.array(keyZ).optional(),
+  term: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+
+const keyRetrieveReqZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
+
+const retrieveArgsZ = z.union([retrieveReqZ, keyRetrieveReqZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
@@ -39,14 +60,17 @@ export class Client {
     this.client = client;
   }
 
-  async create(annotation: New): Promise<Annotation>;
-  async create(annotations: New[]): Promise<Annotation[]>;
-  async create(annotations: New | New[]): Promise<Annotation | Annotation[]> {
+  async create(annotation: New, parent: ontology.ID): Promise<Annotation>;
+  async create(annotations: New[], parent: ontology.ID): Promise<Annotation[]>;
+  async create(
+    annotations: New | New[],
+    parent: ontology.ID,
+  ): Promise<Annotation | Annotation[]> {
     const isMany = Array.isArray(annotations);
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { annotations: array.toArray(annotations) },
+      { parent, annotations: array.toArray(annotations) },
       createReqZ,
       createResZ,
     );
@@ -65,17 +89,18 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Annotation>;
-  async retrieve(keys: Key[]): Promise<Annotation[]>;
-  async retrieve(keys: Params): Promise<Annotation | Annotation[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: KeyRetrieveRequest): Promise<Annotation>;
+  async retrieve(args: RetrieveRequest): Promise<Annotation[]>;
+  async retrieve(args: RetrieveArgs): Promise<Annotation | Annotation[]> {
+    const isSingle = "key" in args;
+    console.log("retrieving annotations", args);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.annotations : res.annotations[0];
+    return isSingle ? res.annotations[0] : res.annotations;
   }
 }

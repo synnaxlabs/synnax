@@ -16,7 +16,6 @@
     resize: none;
     white-space: nowrap;
     overflow-x: hidden;
-    font-size: var(--pluto-h3-size);
 
     &:focus-within {
         outline: none;

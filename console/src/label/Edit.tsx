@@ -80,7 +80,6 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
-      highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),

@@ -13,6 +13,7 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
+import { type Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
@@ -35,6 +36,7 @@ export interface ItemProps<K extends record.Key>
   onSelect?: (key: K) => void;
   selected?: boolean;
   hovered?: boolean;
+  variant?: Button.ButtonProps["variant"];
 }
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -54,6 +56,7 @@ export const Item = <K extends record.Key>({
   onClick,
   hovered,
   style,
+  variant = "text",
   ...rest
 }: ItemProps<K>): ReactElement => (
   <Align.Space
@@ -76,7 +79,7 @@ export const Item = <K extends record.Key>({
       CSS.selected(selected),
       CSS.shade(0),
       allowSelect && CSS.M("clickable"),
-      CSS.M("text"),
+      CSS.M(variant),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",
