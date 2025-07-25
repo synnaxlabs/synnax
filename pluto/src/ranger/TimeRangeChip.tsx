@@ -24,6 +24,9 @@ export interface TimeRangeChipProps
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
   labeled?: boolean;
+  collapseZero?: boolean;
+  offsetFrom?: TimeStamp;
+  showAgo?: boolean;
 }
 
 export const TimeRangeChip = ({
@@ -32,12 +35,16 @@ export const TimeRangeChip = ({
   shade = 9,
   showSpan = false,
   labeled = false,
+  collapseZero = false,
+  offsetFrom,
+  showAgo = true,
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
   const startFormat = startTS.isToday ? "time" : "dateTime";
   const endTS = new TimeStamp(timeRange.end);
   const isOpen = endTS.equals(TimeStamp.MAX);
+  const isZero = startTS.equals(endTS);
   const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
   const span = startTS.span(endTS);
 
@@ -60,7 +67,7 @@ export const TimeRangeChip = ({
     </Align.Space>
   );
 
-  let endTime = (
+  let endTime: ReactElement | null = (
     <>
       {isOpen ? (
         <Text.Text level={level}>Now</Text.Text>
@@ -98,6 +105,48 @@ export const TimeRangeChip = ({
 
   const levelVar = CSS.levelSizeVar(level);
 
+  let arrow: ReactElement | null = (
+    <Icon.Arrow.Right
+      color="var(--pluto-gray-l9)"
+      style={{
+        width: levelVar,
+        height: levelVar,
+      }}
+    />
+  );
+
+  if (collapseZero && isZero) {
+    endTime = null;
+    arrow = null;
+  }
+
+  let offset: ReactElement | null = null;
+  if (offsetFrom != null) {
+    let offsetSpan = offsetFrom.span(startTS);
+    let character = "+";
+    if (offsetSpan.lessThan(0)) {
+      character = "-";
+      offsetSpan = offsetSpan.mult(-1);
+    }
+    offset = (
+      <Text.Text level={level} shade={shade} weight={450}>
+        T{character} {offsetSpan.toString()}
+      </Text.Text>
+    );
+  }
+
+  let ago: ReactElement | null = null;
+  if (showAgo) {
+    let agoSpan = startTS.span(TimeStamp.now());
+    if (agoSpan.lessThan(0)) agoSpan = agoSpan.mult(-1);
+
+    ago = (
+      <Text.Text level={level} shade={shade} weight={450}>
+        {agoSpan.truncate(TimeSpan.MINUTE).toString()} ago
+      </Text.Text>
+    );
+  }
+
   return (
     <Align.Space
       x
@@ -107,14 +156,10 @@ export const TimeRangeChip = ({
       {...rest}
     >
       {startTime}
-      <Icon.Arrow.Right
-        color="var(--pluto-gray-l9)"
-        style={{
-          width: levelVar,
-          height: levelVar,
-        }}
-      />
+      {arrow}
       {endTime}
+      {offset}
+      {ago}
     </Align.Space>
   );
 };

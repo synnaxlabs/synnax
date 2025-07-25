@@ -147,11 +147,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
+                onClick={handleCopyPythonCode}
               >
-                <Icon.Python
-                  onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l9)" }}
-                />
+                <Icon.Python style={{ color: "var(--pluto-gray-l9)" }} />
               </Button.Icon>
               <Button.Icon
                 variant="text"

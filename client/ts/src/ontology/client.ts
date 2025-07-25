@@ -31,6 +31,7 @@ const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
+  creator: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
   term: z.string().optional(),
   limit: z.number().optional(),

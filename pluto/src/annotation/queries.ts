@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { annotation, type ontology, TimeRange } from "@synnaxlabs/client";
+import { annotation, ontology, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import z from "zod";
 
 import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 
 export interface UseListParams extends annotation.RetrieveRequest {
   parent: ontology.ID;
@@ -29,6 +30,40 @@ export const useList = Flux.createList<
     return await client.annotations.retrieve({ keys: children.map((c) => c.id.key) });
   },
   retrieveByKey: async ({ key, client }) => await client.annotations.retrieve({ key }),
+  listeners: [
+    {
+      channel: annotation.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(annotation.annotationZ, ({ changed, onChange }) =>
+        onChange(changed.key, (prev) => {
+          if (prev == null) return null;
+          return changed;
+        }),
+      ),
+    },
+    {
+      channel: annotation.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(annotation.keyZ, ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationshipZ,
+        async ({ changed, onChange, params: { parent }, client }) => {
+          if (
+            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+            ontology.idsEqual(changed.from, parent)
+          ) {
+            const annotation = await client.annotations.retrieve({
+              key: changed.to.key,
+            });
+            onChange(annotation.key, annotation, { mode: "append" });
+          }
+        },
+      ),
+    },
+  ],
 });
 
 export const formSchema = z.object({
@@ -70,12 +105,13 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
   },
   update: async ({ params, client, value }) => {
     if (params.parent == null) return;
-    console.log("updating annotation", value);
+    let timeRange = TimeRange.z.parse(value.timeRange);
+    if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);
     await client.annotations.create(
       {
         key: params.key,
         message: value.message,
-        timeRange: TimeRange.z.parse(value.timeRange) ?? TimeRange.ZERO,
+        timeRange,
       },
       params.parent,
     );

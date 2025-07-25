@@ -29,7 +29,8 @@ const (
 	// ParentOf indicates that a resource is the parent of another resource. When
 	// examining a Relationship of type ParentOf, the Start field will be the parent
 	// and the to field will be the child i.e. (Start is the ParentOf To).
-	ParentOf RelationshipType = "parent"
+	ParentOf  RelationshipType = "parent"
+	CreatorOf RelationshipType = "creator"
 )
 
 // Relationship is a struct that represents a relationship between two resources in the

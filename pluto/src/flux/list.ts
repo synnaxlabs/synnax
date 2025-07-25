@@ -403,9 +403,11 @@ export const createList =
                       onChange: (k, setter, opts = {}) => {
                         const { mode = "append" } = opts;
                         const prev = dataRef.current.get(k) ?? null;
+                        console.log("prev", prev);
                         if (prev != null && !filterRef.current(prev)) return;
                         const res = state.executeSetter(setter, prev);
                         if (res == null) return;
+                        console.log(resultRef.current.data);
                         if (prev == null)
                           setResult((p) => {
                             if (p.data == null) return p;

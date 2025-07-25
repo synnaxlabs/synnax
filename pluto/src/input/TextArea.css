@@ -17,6 +17,10 @@
     white-space: nowrap;
     overflow-x: hidden;
 
+    &::placeholder {
+        padding-left: 1px;
+    }
+
     &:focus-within {
         outline: none;
     }

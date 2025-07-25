@@ -33,6 +33,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
@@ -177,6 +178,11 @@ const Content = (): ReactElement => {
               key: "create",
               children: <Icon.Add />,
               onClick: () => placeLayout(CREATE_LAYOUT),
+            },
+            {
+              key: "explorer",
+              children: <Icon.Explore />,
+              onClick: () => placeLayout(EXPLORER_LAYOUT),
             },
           ]}
         </Toolbar.Actions>

@@ -43,8 +43,9 @@ type (
 )
 
 func (s *AnnotationService) Create(ctx context.Context, req AnnotationCreateRequest) (res AnnotationCreateResponse, err error) {
+	subject := getSubject(ctx)
 	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
+		Subject: subject,
 		Action:  access.Create,
 		Objects: annotation.OntologyIDsFromAnnotations(req.Annotations),
 	}); err != nil {
@@ -53,7 +54,7 @@ func (s *AnnotationService) Create(ctx context.Context, req AnnotationCreateRequ
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
 		for i, annotation_ := range req.Annotations {
-			if err = w.Create(ctx, &annotation_, req.Parent); err != nil {
+			if err = w.Create(ctx, &annotation_, req.Parent, subject); err != nil {
 				return err
 			}
 			req.Annotations[i] = annotation_

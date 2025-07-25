@@ -26,6 +26,9 @@ const CREATE_ENDPOINT = "/annotation/create";
 const DELETE_ENDPOINT = "/annotation/delete";
 const RETRIEVE_ENDPOINT = "/annotation/retrieve";
 
+export const SET_CHANNEL_NAME = "sy_annotation_set";
+export const DELETE_CHANNEL_NAME = "sy_annotation_delete";
+
 const createReqZ = z.object({
   parent: ontology.idZ,
   annotations: z.array(newZ),
@@ -49,7 +52,7 @@ const keyRetrieveReqZ = z
 
 type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
 
-const retrieveArgsZ = z.union([retrieveReqZ, keyRetrieveReqZ]);
+const retrieveArgsZ = z.union([keyRetrieveReqZ, retrieveReqZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
@@ -93,7 +96,6 @@ export class Client {
   async retrieve(args: RetrieveRequest): Promise<Annotation[]>;
   async retrieve(args: RetrieveArgs): Promise<Annotation | Annotation[]> {
     const isSingle = "key" in args;
-    console.log("retrieving annotations", args);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,

@@ -33,6 +33,7 @@ func (w Writer) Create(
 	ctx context.Context,
 	c *Annotation,
 	parent ontology.ID,
+	creator ontology.ID,
 ) (err error) {
 	var exists bool
 	if c.Key == uuid.Nil {
@@ -55,7 +56,10 @@ func (w Writer) Create(
 			return
 		}
 	}
-	return w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID)
+	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		return err
+	}
+	return w.otgWriter.DefineRelationship(ctx, creator, ontology.CreatorOf, otgID)
 }
 
 // Delete deletes the annotations with the given keys.

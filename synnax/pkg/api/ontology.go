@@ -47,6 +47,7 @@ type (
 		Term             string          `json:"term" msgpack:"term"`
 		Limit            int             `json:"limit" msgpack:"limit"`
 		Offset           int             `json:"offset" msgpack:"offset"`
+		Creator          bool            `json:"creator" msgpack:"creator"`
 	}
 	OntologyRetrieveResponse struct {
 		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
@@ -71,6 +72,9 @@ func (o *OntologyService) Retrieve(
 	}
 	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
+	}
+	if req.Creator {
+		q = q.TraverseTo(ontology.Creator)
 	}
 	if len(req.Types) > 0 {
 		q = q.WhereTypes(req.Types...)

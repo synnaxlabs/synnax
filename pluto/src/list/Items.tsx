@@ -33,6 +33,7 @@ const BaseItems = <
   emptyContent,
   displayItems = 10,
   style,
+  size = 0,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
@@ -55,10 +56,10 @@ const BaseItems = <
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
     <Align.Space
-      empty
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
       style={{ height: minHeight, ...style }}
+      size={size}
       {...rest}
     >
       {content}
