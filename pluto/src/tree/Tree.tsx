@@ -36,7 +36,7 @@ export interface HandleExpandProps<K extends record.Key = string> {
 export interface UseProps<K extends record.Key = string> {
   onExpand?: (props: HandleExpandProps<K>) => void;
   selected?: K[];
-  sort?: compare.CompareF<Node<K>>;
+  sort?: compare.Comparator<Node<K>>;
   onSelectedChange?: state.Setter<K[]>;
   initialExpanded?: K[];
   nodes: Node<K>[];
