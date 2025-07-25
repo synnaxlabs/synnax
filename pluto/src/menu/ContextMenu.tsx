@@ -102,10 +102,8 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      console.log("selected", selected);
       keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
-    console.log("keys", keys);
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };
 
@@ -160,6 +158,7 @@ const Internal = ({
   className,
   cursor: _,
   style,
+  onClick,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
@@ -168,7 +167,10 @@ const Internal = ({
       className={CSS(CSS.B("menu-context"), CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
-      onClick={close}
+      onClick={(e) => {
+        close();
+        onClick?.(e);
+      }}
       size="tiny"
       {...rest}
     >

@@ -49,7 +49,9 @@ export interface ChildrenParams {
 export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Range>({
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
-    const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key));
+    const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
+      types: [ranger.ONTOLOGY_TYPE],
+    });
     if (resources.length === 0) return [];
     return await client.ranges.retrieve({
       keys: resources.map(({ id: { key } }) => key),
@@ -121,7 +123,7 @@ export const retrieveParent = Flux.createRetrieve<
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
           matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(key)),
+          onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
@@ -130,15 +132,19 @@ export const retrieveParent = Flux.createRetrieve<
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
           matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(key)),
+          onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
       channel: ranger.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
-        async ({ changed, onChange, params: { key }, client }) =>
-          changed.key === key && onChange(client.ranges.sugarOne(changed)),
+        async ({ changed, onChange, params: { key }, client }) => {
+          onChange((prev) => {
+            if (prev == null || prev.key !== changed.key) return prev;
+            return client.ranges.sugarOne({ ...prev.payload, ...changed });
+          });
+        },
       ),
     },
   ],
@@ -220,7 +226,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
           const values = await rangeToFormValues(client.ranges.sugarOne(changed));
           onChange((prev) => {
             if (prev?.key !== changed.key) return prev;
-            return values;
+            return { ...values, labels: prev.labels, parent: prev.parent };
           });
         },
       ),
@@ -251,21 +257,21 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
         },
       ),
     },
-    {
-      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange, params: { key } }) => {
-          if (key == null || !Label.matchRelationship(changed, ranger.ontologyID(key)))
-            return;
-          onChange((prev) => {
-            if (prev == null) return prev;
-            const nextLabels = prev.labels.filter((l) => l !== changed.to.key);
-            return { ...prev, labels: nextLabels };
-          });
-        },
-      ),
-    },
+    // {
+    //   channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+    //   onChange: Sync.parsedHandler(
+    //     ontology.relationshipZ,
+    //     async ({ changed, onChange, params: { key } }) => {
+    //       if (key == null || !Label.matchRelationship(changed, ranger.ontologyID(key)))
+    //         return;
+    //       onChange((prev) => {
+    //         if (prev == null) return prev;
+    //         const nextLabels = prev.labels.filter((l) => l !== changed.to.key);
+    //         return { ...prev, labels: nextLabels };
+    //       });
+    //     },
+    //   ),
+    // },
   ],
 });
 
@@ -299,7 +305,14 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
         async ({ changed, onChange, client }) =>
-          onChange(changed.key, client.ranges.sugarOne(changed)),
+          onChange(changed.key, (prev) => {
+            const next = {
+              ...prev?.payload,
+              ...changed,
+              parent: prev?.parent ?? changed.parent,
+            };
+            return client.ranges.sugarOne(next);
+          }),
       ),
     },
     {

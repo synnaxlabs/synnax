@@ -7,54 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Component,
-  Header,
-  Icon,
-  List,
-  Ranger,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-
-export const ChildRangeListItem = (props: List.ItemProps<string>) => {
-  const { itemKey } = props;
-  const entry = List.useItem<string, ranger.Range>(itemKey);
-  const placeLayout = Layout.usePlacer();
-  if (entry == null) return null;
-  return (
-    <Ranger.ListItem
-      onClick={() =>
-        placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
-      }
-      x
-      showParent={false}
-      size="tiny"
-      justify="spaceBetween"
-      align="center"
-      style={{ padding: "1.5rem", paddingRight: "2rem" }}
-      rounded
-      showSpan
-      {...props}
-    />
-  );
-};
-
-const childRangeListItem = Component.renderProp(ChildRangeListItem);
+import { List } from "@/range/list/List";
 
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const { getItem, subscribe, data, retrieve } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
+  const { data, getItem, subscribe, retrieve } = Ranger.useChildren({
+    initialParams: { key: rangeKey },
+  });
   return (
     <Align.Space y>
       <Header.Header level="h4" bordered={false} borderShade={5}>
@@ -71,16 +39,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
           </Button.Icon>
         </Header.Actions>
       </Header.Header>
-      <List.Frame
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={() => {
-          retrieve({ key: rangeKey });
-        }}
-      >
-        <List.Items>{childRangeListItem}</List.Items>
-      </List.Frame>
+      <List data={data} getItem={getItem} subscribe={subscribe} retrieve={retrieve} />
     </Align.Space>
   );
 };

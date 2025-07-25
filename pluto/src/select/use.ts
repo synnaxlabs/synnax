@@ -27,14 +27,14 @@ export interface UseOnChangeExtra<K extends record.Key = record.Key> {
 }
 
 export interface UseSingleAllowNoneProps<K extends record.Key> {
-  allowNone?: true;
+  allowNone: true;
   value?: K;
   onChange: (next: K | null, extra: UseOnChangeExtra<K>) => void;
   closeDialogOnSelect?: boolean;
 }
 
 export interface UseSingleRequiredProps<K extends record.Key> {
-  allowNone: false | undefined;
+  allowNone?: false | undefined;
   value: K;
   onChange: (next: K, extra: UseOnChangeExtra<K>) => void;
   closeDialogOnSelect?: boolean;

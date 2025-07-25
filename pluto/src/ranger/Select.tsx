@@ -13,8 +13,6 @@ import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
-import { Breadcrumb } from "@/breadcrumb";
-import { Button } from "@/button";
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { type Flux } from "@/flux";
@@ -22,6 +20,7 @@ import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Ranger } from "@/ranger";
+import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListParams, useList } from "@/ranger/queries";
 import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
@@ -52,20 +51,6 @@ export const ListItem = ({
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
   if (item == null) return null;
   const { name, timeRange, parent, labels, stage } = item;
-  const breadcrumbSegments: Breadcrumb.Segments = [
-    {
-      label: name,
-      weight: 450,
-      shade: 10,
-    },
-  ];
-  if (parent != null && showParent)
-    breadcrumbSegments.push({
-      label: parent.name,
-      weight: 400,
-      shade: 8,
-    });
-
   const { onSelect, selected } = Select.useItemState(itemKey);
 
   return (
@@ -94,9 +79,7 @@ export const ListItem = ({
             location="bottom"
             triggerProps={{ iconOnly: true, variant: "text" }}
           />
-          <Align.Space y size="small">
-            <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
-          </Align.Space>
+          <Breadcrumb name={name} parent={parent} showParent={showParent} />
         </Align.Space>
       </Align.Space>
       <Align.Space x>
@@ -115,16 +98,6 @@ export const ListItem = ({
           showAgo={showAgo}
           showSpan={showSpan}
         />
-        <Button.Icon
-          className={CSS(CSS.B("star-button"))}
-          onClick={(e) => {
-            e.stopPropagation();
-            onStar?.(!starred);
-          }}
-          size="small"
-        >
-          {starred ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-        </Button.Icon>
       </Align.Space>
     </List.Item>
   );
