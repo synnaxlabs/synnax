@@ -87,11 +87,11 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const scanTasks = await client.hardware.tasks.retrieve({
-        type: SCAN_TYPE,
+        types: [SCAN_TYPE],
         rack: rack.key,
         schemas: SCAN_SCHEMAS,
       });
@@ -114,9 +114,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,

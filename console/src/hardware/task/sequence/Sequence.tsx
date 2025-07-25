@@ -121,7 +121,7 @@ const Internal = ({
         ...base,
         config: {
           ...base.config,
-          rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+          rack: rackKey ?? task.rackKey(base.key ?? "0"),
         },
       },
       layoutKey,

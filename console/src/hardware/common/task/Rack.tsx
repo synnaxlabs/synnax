@@ -17,7 +17,7 @@ interface RackProps {
 }
 
 export const Rack = ({ taskKey }: RackProps) => {
-  const rackKey = task.getRackKey(taskKey);
+  const rackKey = task.rackKey(taskKey);
   const rack = PRack.use(rackKey);
   if (rack == null) return null;
   return (

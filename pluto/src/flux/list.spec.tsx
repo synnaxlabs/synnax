@@ -65,7 +65,7 @@ describe("list", () => {
 
     it("should return an error result when the query fails to execute", async () => {
       const retrieve = vi.fn().mockRejectedValue(new Error("Test Error"));
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -82,13 +82,12 @@ describe("list", () => {
         expect(result.current.variant).toEqual("error");
         expect(result.current.description).toEqual("Test Error");
       });
-      unmount();
     });
   });
 
   describe("filter", () => {
     it("should allow the caller to provide a custom filter function", async () => {
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -103,11 +102,10 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.data).toEqual([1]);
       });
-      unmount();
     });
 
     it("should respect the filter function when retrieving a list item", async () => {
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
           const result = Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -129,13 +127,12 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value).toEqual(undefined);
       });
-      unmount();
     });
   });
 
   describe("useListItem", () => {
     it("should return a pre-retrieved list item", async () => {
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
           const { retrieve, subscribe, getItem } = Flux.createList<
             {},
@@ -158,13 +155,12 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
       });
-      unmount();
     });
 
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
       const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
           const result = Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -187,7 +183,6 @@ describe("list", () => {
         expect(result.current.variant).toEqual("error");
         expect(result.current.description).toEqual("Test Error");
       });
-      unmount();
     });
   });
 
@@ -201,9 +196,9 @@ describe("list", () => {
         }),
       });
 
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
-          const { getItem, subscribe, retrieve } = Flux.createList<
+          const { getItem, subscribe, retrieve, listenersMounted } = Flux.createList<
             {},
             ranger.Key,
             ranger.Payload
@@ -226,17 +221,18 @@ describe("list", () => {
             getItem,
             key: rng.key,
           });
-          return { retrieve, value };
+          return { retrieve, value, listenersMounted };
         },
         { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
@@ -244,7 +240,6 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
-      unmount();
     });
 
     it("should correctly remove a list item when it gets deleted", async () => {
@@ -255,42 +250,43 @@ describe("list", () => {
           end: TimeSpan.seconds(13),
         }),
       });
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<{}, ranger.Key, ranger.Payload>(
-            {
-              name: "Resource",
-              retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
-              retrieveByKey: async ({ client, key }) =>
-                await client.ranges.retrieve(key),
-              listeners: [
-                {
-                  channel: ranger.DELETE_CHANNEL_NAME,
-                  onChange: Sync.parsedHandler(
-                    ranger.keyZ,
-                    async ({ onDelete, changed }) => onDelete(changed),
-                  ),
-                },
-              ],
-            },
-          )();
-          return { retrieve, value: getItem(rng.key) };
+          const { getItem, retrieve, listenersMounted } = Flux.createList<
+            {},
+            ranger.Key,
+            ranger.Payload
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            listeners: [
+              {
+                channel: ranger.DELETE_CHANNEL_NAME,
+                onChange: Sync.parsedHandler(
+                  ranger.keyZ,
+                  async ({ onDelete, changed }) => onDelete(changed),
+                ),
+              },
+            ],
+          })();
+          return { retrieve, value: getItem(rng.key), listenersMounted };
         },
         { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
+        expect(result.current.listenersMounted).toEqual(true);
       });
       await act(async () => await client.ranges.delete(rng.key));
       await waitFor(() => {
         expect(result.current.value?.key).not.toEqual(rng.key);
       });
-      unmount();
     });
   });
 });

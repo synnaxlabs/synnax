@@ -146,12 +146,12 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button onClick={save} disabled={variant === "loading"}>
+          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
             variant="filled"
-            onClick={save}
+            onClick={() => save()}
             disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"

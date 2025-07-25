@@ -96,7 +96,7 @@ export const Browser = ({ device }: BrowserProps) => {
         typeof scanConfigZ,
         typeof scanStatusDataZ
       >({
-        type: SCAN_TYPE,
+        types: [SCAN_TYPE],
         rack: device.rack,
         schemas: SCAN_SCHEMAS,
       });

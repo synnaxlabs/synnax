@@ -89,7 +89,7 @@ export const wrap = <
       );
     return (
       <Wrapped
-        rackKey={data ? task.getRackKey(data.key) : rackKey}
+        rackKey={data ? task.rackKey(data.key) : rackKey}
         task={data ?? getInitialPayload({ deviceKey })}
         layoutKey={layoutKey}
       />

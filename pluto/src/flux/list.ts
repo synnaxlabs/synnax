@@ -324,7 +324,7 @@ export const createList =
       listeners: new Map(),
     }));
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving"),
+      pendingResult<K[]>(name, "retrieving", null, false),
     );
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
@@ -347,14 +347,19 @@ export const createList =
         paramsRef.current = params;
 
         try {
-          if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
-          setResult((p) => pendingResult(name, "retrieving", p.data));
+          if (client == null)
+            return setResult((p) =>
+              nullClientResult<K[]>(name, "retrieve", p.listenersMounted),
+            );
+          setResult((p) => pendingResult(name, "retrieving", p.data, false));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
           // of the query, so we start from the top again.
           if (mode === "replace") hasMoreRef.current = true;
           else if (mode === "append" && !hasMoreRef.current)
-            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+            return setResult((p) =>
+              successResult(name, "retrieved", p.data ?? [], p.listenersMounted),
+            );
 
           let value = await retrieve({ client, params });
           if (signal?.aborted) return;
@@ -368,12 +373,17 @@ export const createList =
             resultRef.current.data != null &&
             compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
           )
-            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+            return setResult((p) =>
+              successResult(name, "retrieved", p.data ?? [], p.listenersMounted),
+            );
 
           value.forEach((v) => dataRef.current.set(v.key, v));
 
-          mountSynchronizers(
-            listeners?.map((l) => ({
+          mountSynchronizers({
+            onOpen: () => {
+              setResult((p) => ({ ...p, listenersMounted: true }));
+            },
+            listeners: listeners?.map((l) => ({
               channel: l.channel,
               handler: (frame) =>
                 void (async () => {
@@ -410,22 +420,30 @@ export const createList =
                       },
                     });
                   } catch (error) {
-                    setResult(errorResult<K[]>(name, "retrieve", error));
+                    if (signal?.aborted) return;
+                    setResult((p) =>
+                      errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
+                    );
                   }
                 })(),
             })),
-          );
+          });
           return setResult((prev) => {
             if (mode === "replace" || prev.data == null)
-              return successResult(name, "retrieved", keys);
+              return successResult(name, "retrieved", keys, prev.listenersMounted);
             const keysSet = new Set(keys);
-            return successResult(name, "retrieved", [
-              ...prev.data.filter((k) => !keysSet.has(k)),
-              ...keys,
-            ]);
+            return successResult(
+              name,
+              "retrieved",
+              [...prev.data.filter((k) => !keysSet.has(k)), ...keys],
+              prev.listenersMounted,
+            );
           });
         } catch (error) {
-          setResult(errorResult<K[]>(name, "retrieve", error));
+          if (signal?.aborted) return;
+          setResult((p) =>
+            errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
+          );
         }
       },
       [client, name, mountSynchronizers, filterRef],
@@ -450,8 +468,11 @@ export const createList =
             dataRef.current.set(key, item);
             notifyListeners(key);
           } catch (error) {
+            if (signal?.aborted) return;
             dataRef.current.set(key, null);
-            setResult(errorResult<K[]>(name, "retrieve", error));
+            setResult((p) =>
+              errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
+            );
           }
         })();
       },

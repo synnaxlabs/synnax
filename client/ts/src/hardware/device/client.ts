@@ -41,7 +41,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-const retrieveReqZ = z.object({
+const retrieveRequestz = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
@@ -51,17 +51,19 @@ const retrieveReqZ = z.object({
   search: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  ignoreNotFound: z.boolean().optional(),
   includeStatus: z.boolean().optional(),
 });
 
-interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
+export interface RetrieveRequest extends z.infer<typeof retrieveRequestz> {}
+
+const retrieveArgsZ = retrieveRequestz
+  .or(keyZ.array().transform((keys) => ({ keys })))
+  .or(keyZ.transform((key) => ({ keys: [key] })));
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export interface RetrieveOptions
-  extends Pick<
-    RetrieveRequest,
-    "limit" | "offset" | "makes" | "ignoreNotFound" | "includeStatus"
-  > {}
+  extends Pick<RetrieveRequest, "limit" | "offset" | "makes" | "includeStatus"> {}
 
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
@@ -99,28 +101,20 @@ export class Client {
     Make extends string = string,
     Model extends string = string,
   >(
-    keys: string | string[] | RetrieveRequest,
+    args: RetrieveArgs,
     options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
-    let request: RetrieveRequest;
-    let isSingle = false;
-    if (Array.isArray(keys)) request = { keys: array.toArray(keys), ...options };
-    else if (typeof keys === "object") request = keys;
-    else {
-      request = { keys: [keys], ...options };
-      isSingle = true;
-    }
+    const isSingle = typeof args === "string";
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      request,
-      retrieveReqZ,
+      { ...retrieveArgsZ.parse(args), ...options },
+      retrieveRequestz,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
-    return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model>)
-      : (res.devices as Array<Device<Properties, Make, Model>>);
+    checkForMultipleOrNoResults("Device", args, res.devices, isSingle);
+    const devices = res.devices as Device<Properties, Make, Model>[];
+    return isSingle ? devices[0] : devices;
   }
 
   async create<
@@ -148,9 +142,8 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model>)
-      : (res.devices as Device<Properties, Make, Model>[]);
+    const created = res.devices as Device<Properties, Make, Model>[];
+    return isSingle ? created[0] : created;
   }
 
   async delete(keys: string | string[]): Promise<void> {

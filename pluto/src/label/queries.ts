@@ -198,7 +198,7 @@ export interface DeleteParams {
   key: label.Key;
 }
 
-export const useDelete = Flux.createUpdate<DeleteParams, null>({
+export const useDelete = Flux.createUpdate<DeleteParams, void>({
   name: "Label",
   update: async ({ client, params: { key } }) => await client.labels.delete(key),
 }).useDirect;

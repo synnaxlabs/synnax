@@ -106,7 +106,18 @@ export const useForm = (args: Flux.UseFormArgs<FluxParams, typeof formSchema>) =
     initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
-    listeners: [],
+    listeners: [
+      {
+        channel: channel.SET_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(
+          channel.keyZ,
+          async ({ changed, onChange, params, client }) => {
+            if (params.key !== changed) return;
+            onChange(channelToFormValues(await client.channels.retrieve(changed)));
+          },
+        ),
+      },
+    ],
   })(args);
 
 export const useCalculatedForm = (
@@ -118,7 +129,18 @@ export const useCalculatedForm = (
     initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
-    listeners: [],
+    listeners: [
+      {
+        channel: channel.SET_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(
+          channel.keyZ,
+          async ({ changed, onChange, params, client }) => {
+            if (params.key !== changed) return;
+            onChange(channelToFormValues(await client.channels.retrieve(changed)));
+          },
+        ),
+      },
+    ],
   })(args);
 
 export interface ListParams extends channel.RetrieveOptions {

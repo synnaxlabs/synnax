@@ -156,15 +156,15 @@ describe("read", () => {
     expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2]);
     expect(remoteReadF).toHaveBeenCalledWith(tr2, [3, 4, 5]);
     expect(res[0]).toHaveLength(3);
-    expect(res[0].timeRange.equals(tr1)).toBe(true);
+    expect(res[0].timeRange.equals(tr1)).toBeTruthy();
     expect(res[1]).toHaveLength(3);
-    expect(res[1].timeRange.equals(tr1)).toBe(true);
+    expect(res[1].timeRange.equals(tr1)).toBeTruthy();
     expect(res[2]).toHaveLength(3);
-    expect(res[2].timeRange.equals(tr2)).toBe(true);
+    expect(res[2].timeRange.equals(tr2)).toBeTruthy();
     expect(res[3]).toHaveLength(3);
-    expect(res[3].timeRange.equals(tr2)).toBe(true);
+    expect(res[3].timeRange.equals(tr2)).toBeTruthy();
     expect(res[4]).toHaveLength(3);
-    expect(res[4].timeRange.equals(tr2)).toBe(true);
+    expect(res[4].timeRange.equals(tr2)).toBeTruthy();
   });
 
   it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
@@ -192,19 +192,19 @@ describe("read", () => {
     expect(remoteReadF).toHaveBeenCalledTimes(1);
     expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5]);
     expect(res[0]).toHaveLength(3);
-    expect(res[0].timeRange.equals(expectedReadTr)).toBe(true);
+    expect(res[0].timeRange.equals(expectedReadTr)).toBeTruthy();
     expect(res[0].at(0)).toEqual(1);
     expect(res[1]).toHaveLength(3);
-    expect(res[1].timeRange.equals(expectedReadTr)).toBe(true);
+    expect(res[1].timeRange.equals(expectedReadTr)).toBeTruthy();
     expect(res[1].at(0)).toEqual(1);
     expect(res[2]).toHaveLength(3);
-    expect(res[2].timeRange.equals(expectedReadTr)).toBe(true);
+    expect(res[2].timeRange.equals(expectedReadTr)).toBeTruthy();
     expect(res[2].at(0)).toEqual(1);
     expect(res[3]).toHaveLength(3);
-    expect(res[3].timeRange.equals(expectedReadTr)).toBe(true);
+    expect(res[3].timeRange.equals(expectedReadTr)).toBeTruthy();
     expect(res[3].at(0)).toEqual(1);
     expect(res[4]).toHaveLength(3);
-    expect(res[4].timeRange.equals(expectedReadTr)).toBe(true);
+    expect(res[4].timeRange.equals(expectedReadTr)).toBeTruthy();
     expect(res[4].at(0)).toEqual(1);
   });
 });

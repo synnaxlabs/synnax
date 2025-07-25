@@ -13,7 +13,7 @@ import { type Series } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
+import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { type ontology } from "@/ontology";
@@ -21,7 +21,6 @@ import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
   ALIAS_ONTOLOGY_TYPE,
-  analyzeParams,
   type Key,
   type Keys,
   keyZ,
@@ -35,10 +34,21 @@ import {
   type Stage,
 } from "@/ranger/payload";
 import { type CreateOptions, type Writer } from "@/ranger/writer";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
+
+interface RangeConstructionOptions {
+  frameClient: framer.Client;
+  kv: KV;
+  aliaser: Aliaser;
+  channels: channel.Retriever;
+  labelClient: label.Client;
+  ontologyClient: ontology.Client;
+  rangeClient: Client;
+}
 
 export class Range {
   key: string;
@@ -57,20 +67,24 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    name: string,
-    timeRange: TimeRange = TimeRange.ZERO,
-    key: string,
-    color: string | undefined,
-    stage: Stage,
-    parent: Payload | null,
-    labels: label.Label[] | undefined = [],
-    _frameClient: framer.Client,
-    _kv: KV,
-    _aliaser: Aliaser,
-    _channels: channel.Retriever,
-    _labelClient: label.Client,
-    _ontologyClient: ontology.Client,
-    _rangeClient: Client,
+    {
+      name,
+      timeRange = TimeRange.ZERO,
+      key,
+      color,
+      parent,
+      stage,
+      labels = [],
+    }: Payload,
+    {
+      frameClient,
+      kv,
+      aliaser,
+      channels,
+      labelClient,
+      ontologyClient,
+      rangeClient,
+    }: RangeConstructionOptions,
   ) {
     this.key = key;
     this.name = name;
@@ -78,14 +92,14 @@ export class Range {
     this.stage = stage;
     this.parent = parent;
     this.labels = labels;
-    this.frameClient = _frameClient;
+    this.frameClient = frameClient;
     this.color = color;
-    this.kv = _kv;
-    this.aliaser = _aliaser;
-    this.channels = _channels;
-    this.labelClient = _labelClient;
-    this.ontologyClient = _ontologyClient;
-    this.rangeClient = _rangeClient;
+    this.kv = kv;
+    this.aliaser = aliaser;
+    this.channels = channels;
+    this.labelClient = labelClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   get ontologyID(): ontology.ID {
@@ -159,7 +173,7 @@ export class Range {
   }
 }
 
-const retrieveReqZ = z.object({
+const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.array(z.string()).optional(),
   term: z.string().optional(),
@@ -171,7 +185,21 @@ const retrieveReqZ = z.object({
   includeParent: z.boolean().optional(),
 });
 
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+const retrieveArgsZ = retrieveRequestZ
+  .or(keyZ.array().transform((keys) => ({ keys })))
+  .or(keyZ.transform((key) => ({ keys: [key] })))
+  .or(z.string().transform((name) => ({ names: [name] })))
+  .or(
+    z
+      .string()
+      .array()
+      .transform((names) => ({ names })),
+  )
+  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const RETRIEVE_ENDPOINT = "/range/retrieve";
 
@@ -220,43 +248,26 @@ export class Client {
     await this.writer.delete(array.toArray(key));
   }
 
-  async retrieve(range: CrudeTimeRange): Promise<Range[]>;
-  async retrieve(range: Key | Name): Promise<Range>;
-  async retrieve(range: Keys | Names): Promise<Range[]>;
-  async retrieve(req: RetrieveRequest): Promise<Range[]>;
-  async retrieve(
-    ranges: Params | CrudeTimeRange | RetrieveRequest,
-  ): Promise<Range | Range[]> {
-    if (typeof ranges === "object" && "start" in ranges)
-      return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
-    if (typeof ranges === "object" && !Array.isArray(ranges))
-      return await this.execRetrieve(ranges);
-    const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
-    if (empty) return [];
-    const retrieved = await this.execRetrieve({ [variant]: normalized });
-    if (!single) return retrieved;
-    if (retrieved.length === 0)
-      throw new NotFoundError(`range matching ${actual as string} not found`);
-    if (retrieved.length > 1)
-      throw new MultipleFoundError(
-        `multiple ranges matching ${actual as string} found`,
-      );
-    return retrieved[0];
+  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Keys | Names): Promise<Range[]>;
+  async retrieve(params: TimeRange): Promise<Range[]>;
+  async retrieve(params: RetrieveRequest): Promise<Range[]>;
+  async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
+    const isSingle = typeof params === "string";
+    const { ranges } = await sendRequired(
+      this.unaryClient,
+      RETRIEVE_ENDPOINT,
+      params,
+      retrieveArgsZ,
+      retrieveResZ,
+    );
+    checkForMultipleOrNoResults("Range", params, ranges, isSingle);
+    if (isSingle) return this.sugarMany(ranges)[0];
+    return this.sugarMany(ranges);
   }
 
   getKV(range: Key): KV {
     return new KV(range, this.unaryClient);
-  }
-
-  private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
-    const { ranges } = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.unaryClient,
-      RETRIEVE_ENDPOINT,
-      req,
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugarMany(ranges);
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
@@ -272,22 +283,15 @@ export class Client {
   }
 
   sugarOne(payload: Payload): Range {
-    return new Range(
-      payload.name,
-      payload.timeRange,
-      payload.key,
-      payload.color,
-      payload.stage,
-      payload.parent,
-      payload.labels,
-      this.frameClient,
-      new KV(payload.key, this.unaryClient),
-      new Aliaser(payload.key, this.frameClient, this.unaryClient),
-      this.channels,
-      this.labelClient,
-      this.ontologyClient,
-      this,
-    );
+    return new Range(payload, {
+      frameClient: this.frameClient,
+      kv: new KV(payload.key, this.unaryClient),
+      aliaser: new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      channels: this.channels,
+      labelClient: this.labelClient,
+      ontologyClient: this.ontologyClient,
+      rangeClient: this,
+    });
   }
 
   sugarMany(payloads: Payload[]): Range[] {

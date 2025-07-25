@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { channel, newTestClient } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -28,6 +29,13 @@ interface Params {
 const client = newTestClient();
 
 describe("useForm", () => {
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
   describe("no existing entity", () => {
     it("should return the initial values as the form values", async () => {
       const retrieve = vi.fn().mockReturnValue(null);
@@ -139,7 +147,7 @@ describe("useForm", () => {
       { wrapper: newSynnaxWrapper(client) },
     );
     act(() => {
-      result.current.save();
+      result.current.save({ signal: controller.signal });
     });
     const status = result.current.form.get("name").status;
     expect(status.variant).toEqual("success");
@@ -171,7 +179,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).toHaveBeenCalledTimes(1);
@@ -196,7 +204,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).not.toHaveBeenCalled();
@@ -221,7 +229,7 @@ describe("useForm", () => {
         { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
-        result.current.save();
+        result.current.save({ signal: controller.signal });
       });
       await waitFor(() => {
         expect(afterSave).not.toHaveBeenCalled();
@@ -289,7 +297,7 @@ describe("useForm", () => {
     );
     act(() => {
       result.current.form.set("name", "Jane Doe");
-      result.current.save();
+      result.current.save({ signal: controller.signal });
     });
     await waitFor(() => {
       expect(retrieve).toHaveBeenCalledTimes(1);
@@ -358,7 +366,7 @@ describe("useForm", () => {
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const ch = await client.channels.create({
-        name: "Test Channel",
+        name: "Initial Name",
         virtual: true,
         dataType: "float32",
       });
@@ -407,6 +415,7 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       // Trigger a channel name change which should invoke the listener
@@ -421,14 +430,15 @@ describe("useForm", () => {
     });
 
     it("should move the form into an error state when the listener throws an error", async () => {
-      const ch = await client.channels.create({
-        name: "Test Channel",
+      const signalChannelName = `signal_${uuid.create()}`;
+      await client.channels.create({
+        name: signalChannelName,
         virtual: true,
         dataType: "float32",
       });
 
       const initialValues = {
-        key: ch.key.toString(),
+        key: "12",
         name: "Initial Name",
         age: 25,
       };
@@ -439,18 +449,14 @@ describe("useForm", () => {
       const { result } = renderHook(
         () =>
           Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: "",
-              name: "",
-              age: 0,
-            },
+            initialValues,
             schema: formSchema,
             name: "test",
             retrieve,
             update,
             listeners: [
               {
-                channel: channel.SET_CHANNEL_NAME,
+                channel: signalChannelName,
                 onChange: async () => {
                   throw new Error("Listener error");
                 },
@@ -462,11 +468,17 @@ describe("useForm", () => {
 
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
-        expect(result.current.variant).toEqual("success");
+        expect(
+          result.current.variant,
+          `${result.current.message}:${result.current.description}`,
+        ).toEqual("success");
+        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => {
-        await client.channels.rename(ch.key, "Updated Channel Name");
+        const writer = await client.openWriter(signalChannelName);
+        await writer.write(signalChannelName, 12);
+        await writer.close();
       });
 
       await waitFor(() => {

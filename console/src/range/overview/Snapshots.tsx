@@ -18,6 +18,7 @@ import {
 import {
   Align,
   Component,
+  Header,
   Icon,
   List,
   Ontology,
@@ -106,9 +107,11 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   });
   return (
     <Align.Space y>
-      <Text.Text level="h4" shade={10} weight={500}>
-        Snapshots
-      </Text.Text>
+      <Header.Header level="h4" bordered={false} borderShade={5}>
+        <Header.Title shade={11} weight={450}>
+          Snapshots
+        </Header.Title>
+      </Header.Header>
       <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
       </List.Frame>

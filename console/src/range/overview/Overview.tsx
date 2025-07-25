@@ -16,21 +16,18 @@ import { type Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
+import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Align.Space
     y
-    style={{
-      padding: "3rem",
-      maxWidth: 1050,
-      margin: "0 auto",
-      overflowY: "auto",
-    }}
+    style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
-    size="medium"
+    size="large"
   >
     <Details rangeKey={layoutKey} />
     <MetaData rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
+    <Snapshots rangeKey={layoutKey} />
   </Align.Space>
 );

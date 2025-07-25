@@ -120,7 +120,7 @@ const Content = () => {
         confirm: { label: "Delete", variant: "error" },
       });
       if (!confirmed) return;
-      await client.hardware.tasks.delete(keys.map(BigInt));
+      await client.hardware.tasks.delete(keys);
       dispatch(Layout.remove({ keys }));
     },
     onError: (e) => {

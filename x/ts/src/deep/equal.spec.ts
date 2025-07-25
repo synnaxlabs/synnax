@@ -24,59 +24,59 @@ describe("deepEqual", () => {
     it("should return true for overlapping objects", () => {
       const base: TestRecord = { a: 1, b: { c: 2, d: 3 } };
       const partial: TestRecord = { a: 1, b: { c: 2 } };
-      expect(deep.partialEqual(base, partial)).toBe(true);
+      expect(deep.partialEqual(base, partial)).toBeTruthy();
     });
     it("should return false for non-overlapping objects", () => {
       const base = { a: 1, b: { c: 2, d: 3 } };
       const partial = { a: 1, b: { c: 2, d: 4 } };
-      expect(deep.partialEqual(base, partial)).toBe(false);
+      expect(deep.partialEqual(base, partial)).toBeFalsy();
     });
   });
   describe("deepEqual", () => {
     it("should return true for equal objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2, d: 3 } };
-      expect(deep.equal(a, b)).toBe(true);
+      expect(deep.equal(a, b)).toBeTruthy();
     });
     it("should return false for non-equal objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2, d: 4 } };
-      expect(deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBeFalsy();
     });
     it("should return false for partial objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2 } };
-      expect(deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBeFalsy();
     });
     it("should return true for primitive arrays that are equal", () => {
       const a = [1, 2, 3];
       const b = [1, 2, 3];
-      expect(deep.equal(a, b)).toBe(true);
+      expect(deep.equal(a, b)).toBeTruthy();
     });
     it("should true for object arrays that are equal", () => {
       const a = [{ a: 1 }, { b: 2 }];
       const b = [{ a: 1 }, { b: 2 }];
-      expect(deep.equal(a, b)).toBe(true);
+      expect(deep.equal(a, b)).toBeTruthy();
     });
     it("should return true for nested object arrays that are equal", () => {
       const a = [{ a: 1 }, { b: 2, c: [{ d: 3 }] }];
       const b = [{ a: 1 }, { b: 2, c: [{ d: 3 }] }];
-      expect(deep.equal(a, b)).toBe(true);
+      expect(deep.equal(a, b)).toBeTruthy();
     });
     it("shold return false for nested object arrays that are not equal", () => {
       const a = [{ a: 1 }, { b: 2, c: [{ d: 3 }] }];
       const b = [{ a: 1 }, { b: 2, c: [{ d: 4 }] }];
-      expect(deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBeFalsy();
     });
     it("should return false for primitive arrays that are not equal", () => {
       const a = [1, 2, 3];
       const b = [1, 2, 4];
-      expect(deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBeFalsy();
     });
     it("should return false for object arrays that are not equal", () => {
       const a = [{ a: 1 }, { b: 2 }];
       const b = [{ a: 1 }, { b: 2, c: 4 }];
-      expect(deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBeFalsy();
     });
   });
 });

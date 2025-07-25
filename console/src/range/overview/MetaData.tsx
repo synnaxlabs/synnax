@@ -13,11 +13,11 @@ import {
   Button,
   Component,
   Divider,
+  Header,
   Icon,
   Input,
   List,
   Ranger,
-  Text,
 } from "@synnaxlabs/pluto";
 import { type kv, link } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -32,10 +32,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
     <Input.Text
       value={value}
       onChange={onChange}
-      style={{
-        width: "unset",
-        flexGrow: 2,
-      }}
+      style={{ width: "unset", flexGrow: 2 }}
       variant="shadow"
       selectOnFocus={true}
       resetOnBlurIfEmpty={true}
@@ -117,10 +114,12 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
     initialParams: { rangeKey },
   });
   return (
-    <Align.Space y style={{ padding: "2rem" }} rounded={2} background={1} bordered>
-      <Text.Text level="h4" shade={11} weight={450}>
-        Metadata
-      </Text.Text>
+    <Align.Space y>
+      <Header.Header level="h4" bordered={false} borderShade={5}>
+        <Header.Title shade={11} weight={450}>
+          Metadata
+        </Header.Title>
+      </Header.Header>
       <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items>{metaDataItem}</List.Items>
       </List.Frame>

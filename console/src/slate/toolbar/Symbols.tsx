@@ -80,30 +80,28 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
   );
 
   return (
-    <>
-      <Align.Space
-        x
-        className={CSS(
-          CSS.B("slate-symbols"),
-          PCSS.BE("symbol", "container"),
-          PCSS.M("editable"),
-        )}
-        wrap
-        empty
-        grow
-      >
-        {symbols.map((p) => (
-          <SymbolsButton
-            key={p.key}
-            symbolSpec={p}
-            onClick={() => handleAddElement(p.key)}
-            theme={theme}
-            startDrag={handleDragStart}
-            onDragEnd={onDragEnd}
-          />
-        ))}
-      </Align.Space>
-    </>
+    <Align.Space
+      x
+      className={CSS(
+        CSS.B("slate-symbols"),
+        PCSS.BE("symbol", "container"),
+        PCSS.M("editable"),
+      )}
+      wrap
+      empty
+      grow
+    >
+      {symbols.map((p) => (
+        <SymbolsButton
+          key={p.key}
+          symbolSpec={p}
+          onClick={() => handleAddElement(p.key)}
+          theme={theme}
+          startDrag={handleDragStart}
+          onDragEnd={onDragEnd}
+        />
+      ))}
+    </Align.Space>
   );
 };
 
@@ -148,7 +146,11 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
   const group = useMemo(() => Slate.REGISTRY[props.itemKey], [props.itemKey]);
   const selectProps = Select.useItemState(props.itemKey);
   return (
-    <List.Item {...props} {...selectProps} style={{ padding: "1px 2rem" }}>
+    <List.Item
+      {...props}
+      {...selectProps}
+      style={{ minHeight: "5rem", padding: "0 2rem" }}
+    >
       <Text.WithIcon level="p" startIcon={group.icon} size="medium">
         {group.name}
       </Text.WithIcon>
@@ -159,20 +161,17 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   return (
-    <Align.Space x empty grow style={{ height: "100%" }}>
-      <Align.Space x empty style={{ width: 150 }}>
-        <Select.Frame<string, Slate.Group>
-          data={GROUP_LIST_DATA}
-          value={selectedGroup}
-          onChange={setSelectedGroup}
-          virtual={false}
-        >
-          <List.Items<string, Slate.Group> style={{ width: "100%" }}>
-            {groupListItem}
-          </List.Items>
-        </Select.Frame>
-      </Align.Space>
-      <Divider.Divider y />
+    <Align.Space x empty>
+      <Select.Frame<string, Slate.Group>
+        data={GROUP_LIST_DATA}
+        value={selectedGroup}
+        onChange={setSelectedGroup}
+        virtual={false}
+      >
+        <List.Items<string, Slate.Group> style={{ borderRight: "var(--pluto-border)" }}>
+          {groupListItem}
+        </List.Items>
+      </Select.Frame>
       <Group group={selectedGroup} layoutKey={layoutKey} />
     </Align.Space>
   );

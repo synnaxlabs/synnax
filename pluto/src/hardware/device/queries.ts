@@ -53,12 +53,7 @@ export const retrieve = <
     ],
   });
 
-export interface ListParams {
-  term?: string;
-  offset?: number;
-  limit?: number;
-  makes?: string[];
-}
+export interface ListParams extends device.RetrieveRequest {}
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: "Devices",
@@ -80,9 +75,11 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
     },
     {
       channel: device.STATUS_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
-        onChange(changed.key, (p) => (p == null ? p : { ...p, status: changed })),
-      ),
+      onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) => {
+        onChange(changed.details.device, (p) =>
+          p == null ? p : { ...p, status: changed },
+        );
+      }),
     },
   ],
 });

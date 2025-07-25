@@ -26,7 +26,7 @@ describe("update", () => {
       controller.abort();
     });
     it("should return a success result as its initial state", () => {
-      const { result, unmount } = renderHook(() =>
+      const { result } = renderHook(() =>
         Flux.createUpdate<{}, number>({
           name: "Resource",
           update: async () => {},
@@ -35,12 +35,11 @@ describe("update", () => {
       expect(result.current.variant).toEqual("success");
       expect(result.current.data).toEqual(null);
       expect(result.current.message).toEqual("Updated Resource");
-      unmount();
     });
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({
             name: "Resource",
@@ -48,17 +47,18 @@ describe("update", () => {
           }).useDirect({ params: {} }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      act(() => result.current.update(12, { signal: controller.signal }));
+      act(() => {
+        result.current.update(12, { signal: controller.signal });
+      });
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);
       });
-      unmount();
     });
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -73,12 +73,11 @@ describe("update", () => {
         expect(result.current.data).toEqual(null);
         expect(result.current.message).toEqual("Failed to update Resource");
       });
-      unmount();
     });
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -93,14 +92,13 @@ describe("update", () => {
         expect(result.current.data).toEqual(null);
         expect(result.current.message).toEqual("Failed to update Resource");
       });
-      unmount();
     });
 
     it("should return a loading result when the update function is being executed", async () => {
       const update = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       };
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -115,7 +113,6 @@ describe("update", () => {
         expect(result.current.data).toEqual(null);
         expect(result.current.message).toEqual("Updating Resource");
       });
-      unmount();
     });
   });
 });

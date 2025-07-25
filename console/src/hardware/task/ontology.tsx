@@ -63,7 +63,7 @@ const useDelete = () => {
         removeLayout,
       } = props;
       const keys = resourceIDs.map((id) => id.key);
-      await client.hardware.tasks.delete(keys.map((key) => BigInt(key)));
+      await client.hardware.tasks.delete(keys);
       removeLayout(...keys);
     },
     onError: (

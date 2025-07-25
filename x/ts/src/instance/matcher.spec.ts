@@ -21,36 +21,36 @@ describe("createMatcher", () => {
 
   it("should return true for instances of the class", () => {
     const instance = new TestClass("value");
-    expect(isTestClass(instance)).toBe(true);
+    expect(isTestClass(instance)).toBeTruthy();
   });
 
   it("should return true for objects with matching discriminator", () => {
     const obj = { discriminator: "test", value: "value" };
-    expect(isTestClass(obj)).toBe(true);
+    expect(isTestClass(obj)).toBeTruthy();
   });
 
   it("should return false for null", () => {
-    expect(isTestClass(null)).toBe(false);
+    expect(isTestClass(null)).toBeFalsy();
   });
 
   it("should return false for undefined", () => {
-    expect(isTestClass(undefined)).toBe(false);
+    expect(isTestClass(undefined)).toBeFalsy();
   });
 
   it("should return false for non-objects", () => {
-    expect(isTestClass("string")).toBe(false);
-    expect(isTestClass(123)).toBe(false);
-    expect(isTestClass(true)).toBe(false);
+    expect(isTestClass("string")).toBeFalsy();
+    expect(isTestClass(123)).toBeFalsy();
+    expect(isTestClass(true)).toBeFalsy();
   });
 
   it("should return false for objects with different discriminator", () => {
     const obj = { discriminator: "other", value: "value" };
-    expect(isTestClass(obj)).toBe(false);
+    expect(isTestClass(obj)).toBeFalsy();
   });
 
   it("should return false for objects without discriminator", () => {
     const obj = { value: "value" };
-    expect(isTestClass(obj)).toBe(false);
+    expect(isTestClass(obj)).toBeFalsy();
   });
 
   it("should work with multiple class instances", () => {
@@ -70,9 +70,9 @@ describe("createMatcher", () => {
     const instanceA = new ClassA("value");
     const instanceB = new ClassB("value");
 
-    expect(isClassA(instanceA)).toBe(true);
-    expect(isClassA(instanceB)).toBe(false);
-    expect(isClassB(instanceA)).toBe(false);
-    expect(isClassB(instanceB)).toBe(true);
+    expect(isClassA(instanceA)).toBeTruthy();
+    expect(isClassA(instanceB)).toBeFalsy();
+    expect(isClassB(instanceA)).toBeFalsy();
+    expect(isClassB(instanceB)).toBeTruthy();
   });
 });

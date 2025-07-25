@@ -18,12 +18,11 @@ xerrors::Error
 rack::Config::load_config_file(xargs::Parser &args, breaker::Breaker &breaker) {
     std::string config_path = args.optional("--config", "");
     if (config_path.empty()) {
-        if (breaker.retry_count() == 0)
-            LOG(INFO) << "[driver] no config file specified";
+        if (breaker.retry_count() == 0) LOG(INFO) << "no config file specified";
         return xerrors::NIL;
     }
     if (breaker.retry_count() == 0)
-        LOG(INFO) << "[driver] loading config file from "
+        LOG(INFO) << "loading config file from "
                   << xpath::resolve_relative(config_path);
     auto p = xjson::Parser::from_file_path(config_path);
     auto conn = p.optional_child("connection");

@@ -39,16 +39,16 @@ const ParentRangeButton = ({
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
+  const Icon = Ranger.STAGE_ICONS[parent.stage];
   return (
     <Align.Space x size="small" align="center">
-      <Text.Text level="p" shade={11} weight={450}>
-        Child Range of
+      <Text.Text level="p" shade={8} weight={450}>
+        Child range of
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={11}
         weight={400}
-        startIcon={<Icon.Range />}
+        startIcon={<Icon />}
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
@@ -72,10 +72,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
+      stage: "to_do",
       name: "",
       timeRange: { start: 0, end: 0 },
       labels: [],
     },
+    autoSave: true,
   });
   const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
@@ -188,17 +190,31 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
         </Align.Space>
-        <Form.Field<string[]> required={false} path="labels">
-          {({ variant: _, ...p }) => (
-            <Label.SelectMultiple
-              zIndex={100}
-              variant="floating"
-              location="bottom"
-              style={{ width: "fit-content" }}
-              {...p}
-            />
-          )}
-        </Form.Field>
+        <Align.Space x>
+          <Form.Field<ranger.Stage> path="stage" required={false}>
+            {({ onChange, value }) => (
+              <Ranger.SelectStage
+                onChange={onChange}
+                value={value}
+                triggerProps={{ variant: "text", hideCaret: true }}
+                variant="floating"
+                location="bottom"
+              />
+            )}
+          </Form.Field>
+
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                zIndex={100}
+                variant="floating"
+                location="bottom"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
+            )}
+          </Form.Field>
+        </Align.Space>
       </Align.Space>
     </Form.Form>
   );

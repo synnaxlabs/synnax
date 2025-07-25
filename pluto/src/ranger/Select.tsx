@@ -12,23 +12,32 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Breadcrumb } from "@/breadcrumb";
+import { Button } from "@/button";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
+import { Ranger } from "@/ranger";
 import { type ListParams, useList } from "@/ranger/queries";
 import { TimeRangeChip } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 
-const ListItem = ({
+interface ListItemProps extends List.ItemProps<ranger.Key> {
+  showParent?: boolean;
+  showLabels?: boolean;
+}
+
+export const ListItem = ({
   itemKey,
+  showParent = true,
+  showLabels = true,
   ...rest
-}: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
+}: ListItemProps): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
   if (item == null) return null;
-  const { name, timeRange, parent, labels } = item;
+  const { name, timeRange, parent, labels, stage } = item;
   const breadcrumbSegments: Breadcrumb.Segments = [
     {
       label: name,
@@ -36,25 +45,36 @@ const ListItem = ({
       shade: 10,
     },
   ];
-  if (parent != null)
+  if (parent != null && showParent)
     breadcrumbSegments.push({
       label: parent.name,
       weight: 400,
       shade: 8,
     });
+
+  const Icon = Ranger.STAGE_ICONS[stage];
   return (
     <Select.ListItem itemKey={itemKey} justify="spaceBetween" {...rest}>
-      <Align.Space y size="small">
-        <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
-        <TimeRangeChip level="small" timeRange={timeRange} />
+      <Align.Space x align="center" size="small">
+        <Button.Icon>
+          <Icon />
+        </Button.Icon>
+        <Align.Space y size="small">
+          <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
+        </Align.Space>
       </Align.Space>
-      <Tag.Tags>
-        {labels?.map((l) => (
-          <Tag.Tag key={l.key} color={l.color} size="small">
-            {l.name}
-          </Tag.Tag>
-        ))}
-      </Tag.Tags>
+      <Align.Space x>
+        {showLabels && (
+          <Tag.Tags>
+            {labels?.map(({ key, name, color }) => (
+              <Tag.Tag key={key} color={color} size="small" shade={9}>
+                {name}
+              </Tag.Tag>
+            ))}
+          </Tag.Tags>
+        )}
+        <TimeRangeChip level="p" timeRange={timeRange} />
+      </Align.Space>
     </Select.ListItem>
   );
 };
@@ -140,11 +160,7 @@ export const SelectSingle = ({
       emptyContent={emptyContent}
       icon={<Icon.Range />}
       itemHeight={56}
-      dialogProps={{
-        style: {
-          width: 800,
-        },
-      }}
+      dialogProps={{ style: { width: 800 } }}
       {...rest}
     >
       {listItemRenderProp}
@@ -152,14 +168,21 @@ export const SelectSingle = ({
   );
 };
 
+export const STAGE_ICONS: Record<ranger.Stage, Icon.FC> = {
+  to_do: Icon.ToDo,
+  in_progress: Icon.InProgress,
+  completed: Icon.Completed,
+};
+
 const DATA: Select.SimplyEntry<ranger.Stage>[] = [
-  { key: "to_do", name: "To Do", icon: <Icon.ToDo /> },
-  { key: "in_progress", name: "In Progress", icon: <Icon.InProgress /> },
-  { key: "completed", name: "Completed", icon: <Icon.Completed /> },
+  { key: "to_do", name: "To Do", icon: <STAGE_ICONS.to_do /> },
+  { key: "in_progress", name: "In Progress", icon: <STAGE_ICONS.in_progress /> },
+  { key: "completed", name: "Completed", icon: <STAGE_ICONS.completed /> },
 ];
 
-export interface SelectStageProps extends Select.SimpleProps<ranger.Stage> {}
+export interface SelectStageProps
+  extends Omit<Select.SimpleProps<ranger.Stage>, "data" | "resourceName"> {}
 
 export const SelectStage = (props: SelectStageProps): ReactElement => (
-  <Select.Simple {...props} data={DATA} resourceName="Stage" />
+  <Select.Simple {...props} data={DATA} resourceName="Stage" icon={<Icon.ToDo />} />
 );

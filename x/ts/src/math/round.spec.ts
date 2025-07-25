@@ -74,7 +74,7 @@ describe("roundBySpan", () => {
   TEST_CASES.forEach(({ name, value, bounds, expected }) => {
     it(name, () => {
       const result = math.roundBySpan(value, bounds);
-      if (Number.isNaN(expected)) expect(Number.isNaN(result)).toBe(true);
+      if (Number.isNaN(expected)) expect(Number.isNaN(result)).toBeTruthy();
       else expect(result).toBe(expected);
     });
   });

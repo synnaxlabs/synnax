@@ -61,7 +61,7 @@ const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => voi
 
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name }) => {
-    const rack = await client.hardware.racks.retrieve(id.key);
+    const rack = await client.hardware.racks.retrieve({ key: Number(id.key) });
     await client.hardware.racks.create({ ...rack, name });
   },
 };

@@ -96,7 +96,7 @@ export const SelectMultiple = ({
       status={status}
       renderTag={labelRenderTag}
       icon={<Icon.Label />}
-      triggerVariant="text"
+      triggerProps={{ variant: "text" }}
       variant="floating"
       {...rest}
     >

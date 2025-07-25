@@ -23,7 +23,7 @@ export const use = (key: rack.Key): rack.Rack | undefined => {
         setRack(undefined);
         return;
       }
-      const rack = await client.hardware.racks.retrieve(key);
+      const rack = await client.hardware.racks.retrieve({ key });
       if (signal.aborted) return;
       setRack(rack);
     },

@@ -29,6 +29,7 @@ import {
 } from "@/hardware/task/payload";
 import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const STATUS_CHANNEL_NAME = "sy_task_status";
@@ -162,6 +163,30 @@ const retrieveReqZ = z.object({
   limit: z.number().optional(),
 });
 
+const nameRetrieveReqZ = z
+  .object({ name: z.string(), includeStatus: z.boolean().optional() })
+  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+
+type NameRetrieveRequest = z.input<typeof nameRetrieveReqZ>;
+
+const keyRetrieveReqZ = z
+  .object({ key: keyZ, includeStatus: z.boolean().optional() })
+  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+
+type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
+
+const retrieveArgsZ = z.union([nameRetrieveReqZ, keyRetrieveReqZ, retrieveReqZ]);
+
+type RetrieveSchemas<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> = {
+  schemas?: Schemas<Type, Config, StatusData>;
+};
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
 const retrieveResZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -276,7 +301,7 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async delete(keys: bigint | bigint[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
@@ -292,81 +317,52 @@ export class Client {
     StatusData extends z.ZodType,
   >({
     key,
-  }: { key: string } & RetrieveOptions & {
-      schemas: Schemas<Type, Config, StatusData>;
-    }): Promise<Task<Type, Config, StatusData>>;
-
-  async retrieve({ key }: { key: string } & RetrieveOptions): Promise<Task>;
-
+  }: KeyRetrieveRequest &
+    RetrieveOptions &
+    RetrieveSchemas<Type, Config, StatusData>): Promise<Task<Type, Config, StatusData>>;
+  async retrieve({ key }: KeyRetrieveRequest & RetrieveOptions): Promise<Task>;
+  async retrieve<
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >({
+    name,
+  }: NameRetrieveRequest &
+    RetrieveOptions &
+    RetrieveSchemas<Type, Config, StatusData>): Promise<Task<Type, Config, StatusData>>;
+  async retrieve({ name }: NameRetrieveRequest & RetrieveOptions): Promise<Task>;
   async retrieve(request: RetrieveRequest): Promise<Task[]>;
-
+  async retrieve<
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >(
+    request: RetrieveRequest & RetrieveSchemas<Type, Config, StatusData>,
+  ): Promise<Task<Type, Config, StatusData>[]>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >({
-    name,
-  }: { name: string } & RetrieveOptions & {
-      schemas: Schemas<Type, Config, StatusData>;
-    }): Promise<Task<Type, Config, StatusData>[]>;
-
-  async retrieve({ name }: { name: string } & RetrieveOptions): Promise<Task>;
-
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >({
-    type,
-  }: { type: string } & RetrieveOptions & {
-      schemas: Schemas<Type, Config, StatusData>;
-    }): Promise<Task<Type, Config, StatusData>[]>;
-
-  async retrieve({
-    rack,
-  }: { rack: number | string | string[] } & RetrieveOptions): Promise<Task[]>;
-
-  async retrieve({ type }: { type: string } & RetrieveOptions): Promise<Task[]>;
-
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >({
-    key,
-    keys,
-    name,
-    type,
     schemas,
-    ...options
-  }: {
-    key?: string;
-    keys?: string[];
-    name?: string;
-    type?: string;
-    rack?: number | string | string[];
-  } & RetrieveOptions & { schemas?: Schemas<Type, Config, StatusData> }): Promise<
+    ...args
+  }: RetrieveArgs &
+    RetrieveOptions &
+    RetrieveSchemas<Type, Config, StatusData>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
-    const req: RetrieveRequest = { ...options };
-    let isMultiple = true;
-    if (key != null) {
-      req.keys = [key];
-      isMultiple = false;
-    }
-    if (keys != null) req.keys = keys;
-    if (name != null) {
-      req.names = [name];
-      isMultiple = false;
-    }
-    if (type != null) req.types = [type];
-
-    const tasks = await this.execRetrieve<Type, Config, StatusData>(req);
-    const sugared = this.sugar<Type, Config, StatusData>(
-      tasks,
-      schemas as Schemas<Type, Config, StatusData>,
+    const isSingle = "key" in args || "name" in args;
+    const res = await sendRequired(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      args,
+      retrieveArgsZ,
+      retrieveResZ(schemas),
     );
-    return isMultiple ? sugared : sugared[0];
+    const tasks = res.tasks as Payload<Type, Config, StatusData>[];
+    const sugared = this.sugar<Type, Config, StatusData>(tasks, schemas);
+    checkForMultipleOrNoResults("Task", args, sugared, isSingle);
+    return isSingle ? sugared[0] : sugared;
   }
 
   async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
@@ -384,26 +380,6 @@ export class Client {
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null) throw NOT_CREATED_ERROR;
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
-  }
-
-  private async execRetrieve<
-    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-    Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodType = z.ZodType,
-  >({
-    schemas,
-    ...req
-  }: RetrieveRequest & { schemas?: Schemas<Type, Config, StatusData> }): Promise<
-    Payload<Type, Config, StatusData>[]
-  > {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      req,
-      retrieveReqZ,
-      retrieveResZ(schemas),
-    );
-    return res.tasks as Payload<Type, Config, StatusData>[];
   }
 
   sugar<
