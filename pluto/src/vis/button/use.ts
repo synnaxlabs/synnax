@@ -14,6 +14,9 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { button } from "@/vis/button/aether";
 
+export type Mode = button.Mode;
+export const MODES = button.MODES;
+
 export interface UseProps extends Omit<z.input<typeof button.buttonStateZ>, "trigger"> {
   aetherKey: string;
 }

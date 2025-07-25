@@ -9,54 +9,74 @@
 
 import "@/list/Item.css";
 
-import { type Optional, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { type ItemProps } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 
-export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Optional<ItemProps<K, E>, "sourceIndex">,
-    Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
+export interface ItemRenderProps<K extends record.Key = record.Key> {
+  index: number;
+  key: K;
+  itemKey: K;
+  className?: string;
+  translate?: number;
+}
+
+export interface ItemProps<K extends record.Key>
+  extends Omit<Align.SpaceProps, "key" | "onSelect" | "translate">,
+    ItemRenderProps<K> {
   draggingOver?: boolean;
   rightAligned?: boolean;
   highlightHovered?: boolean;
   allowSelect?: boolean;
+  onSelect?: (key: K) => void;
+  selected?: boolean;
+  hovered?: boolean;
 }
 
-export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
-  entry,
-  selected,
-  hovered,
-  onSelect,
+export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+
+export const Item = <K extends record.Key>({
+  itemKey,
   className,
+  index,
   direction = "x",
-  draggingOver: __,
+  draggingOver = false,
   rightAligned = false,
   highlightHovered = false,
   allowSelect = true,
+  selected = false,
   translate,
+  onSelect,
+  onClick,
+  hovered,
   style,
-  sourceIndex: _,
   ...rest
-}: ItemFrameProps<K, E>): ReactElement => (
+}: ItemProps<K>): ReactElement => (
   <Align.Space
-    id={entry.key.toString()}
+    id={itemKey.toString()}
     direction={direction}
-    onClick={() => onSelect?.(entry.key)}
-    tabIndex={0}
+    onClick={(e) => {
+      onSelect?.(itemKey);
+      onClick?.(e);
+    }}
+    tabIndex={-1}
     className={CSS(
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
-      allowSelect && CSS.M("selectable"),
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),
+      draggingOver && CSS.M("dragging-over"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
+      CSS.shade(0),
+      allowSelect && CSS.M("clickable"),
+      CSS.M("text"),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",

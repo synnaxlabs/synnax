@@ -252,7 +252,7 @@ export const PATHS: Record<PathType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-export const PATH_TYPES: record.KeyedNamed<PathType>[] = [
+const DATA: record.KeyedNamed<PathType>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -263,17 +263,8 @@ export const PATH_TYPES: record.KeyedNamed<PathType>[] = [
 ];
 
 export interface SelectPathTypeProps
-  extends Omit<
-    Select.DropdownButtonProps<PathType, record.KeyedNamed<PathType>>,
-    "data"
-  > {}
+  extends Omit<Select.SimpleProps<PathType>, "data" | "resourceName"> {}
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
-  <Select.DropdownButton
-    columns={[{ key: "name", name: "Type" }]}
-    data={PATH_TYPES}
-    style={{ width: 200 }}
-    entryRenderKey="name"
-    {...props}
-  />
+  <Select.Simple data={DATA} {...props} resourceName="Path Type" />
 );

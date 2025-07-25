@@ -366,7 +366,7 @@ describe("useForm", () => {
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const ch = await client.channels.create({
-        name: "Test Channel",
+        name: "Initial Name",
         virtual: true,
         dataType: "float32",
       });

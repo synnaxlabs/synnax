@@ -53,7 +53,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const scanTasks = await client.hardware.tasks.retrieve({
-        type: SCAN_TYPE,
+        types: [SCAN_TYPE],
         schemas: SCAN_SCHEMAS,
       });
       if (scanTasks.length === 0)

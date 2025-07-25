@@ -9,5 +9,6 @@
 
 export * from "@/align/Center";
 export * from "@/align/Pack";
+export * from "@/align/Select";
 export * from "@/align/Space";
 export * from "@/align/Stack";

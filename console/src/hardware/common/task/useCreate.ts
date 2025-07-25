@@ -28,7 +28,7 @@ export const useCreate = <
   return useCallback(
     async (task: task.New<Type, Config>, rackKey: rack.Key) => {
       if (client == null) throw new DisconnectedError();
-      const rck = await client.hardware.racks.retrieve(rackKey);
+      const rck = await client.hardware.racks.retrieve({ key: rackKey });
       const createdTask = await rck.createTask(task, schemas);
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: createdTask.key }));

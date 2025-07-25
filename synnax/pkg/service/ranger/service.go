@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -38,6 +39,7 @@ type Config struct {
 	// Signals is used to publish signals on channels when ranges are created, updated,
 	// deleted, along with changes to aliases and key-value pairs.
 	Signals *signals.Provider
+	Label   *label.Service
 }
 
 var (
@@ -51,6 +53,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
 	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "Label", c.Label)
 	return v.Error()
 }
 
@@ -60,6 +63,7 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -140,5 +144,10 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new Retrieve query to fetch ranges from the database.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: s.DB, otg: s.Ontology}
+	return Retrieve{
+		gorp:   gorp.NewRetrieve[uuid.UUID, Range](),
+		baseTX: s.DB,
+		otg:    s.Ontology,
+		label:  s.Label,
+	}
 }

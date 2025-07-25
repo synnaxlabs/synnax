@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DisconnectedError, ontology, type ranger } from "@synnaxlabs/client";
-import { useMutation } from "@tanstack/react-query";
 import { createContext, use, useCallback, useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -74,26 +73,27 @@ export const useName = (
     },
     [key, getName],
   );
-  const renameMutation = useMutation({
-    onMutate: (newName) => {
-      setName(newName);
-      return name;
+  const handleRename = useCallback(
+    (newName: string) => {
+      handleError(async () => {
+        const oldName = name;
+        try {
+          if (currentAlias != null) {
+            if (setAlias == null) throw new Error("AliasSetter not found");
+            await setAlias(key, newName);
+            return;
+          }
+          if (client == null) throw new DisconnectedError();
+          await client.channels.rename(key, newName);
+        } catch (e) {
+          setName(oldName);
+          throw e;
+        }
+      }, "Failed to rename channel");
     },
-    mutationFn: async (newName: string) => {
-      if (currentAlias != null) {
-        if (setAlias == null) throw new Error("AliasSetter not found");
-        await setAlias(key, newName);
-        return;
-      }
-      if (client == null) throw new DisconnectedError();
-      await client.channels.rename(key, newName);
-    },
-    onError: (e, newName, oldName) => {
-      setName(oldName);
-      handleError(e, `Failed to rename ${oldName ?? "channel"} to ${newName}`);
-    },
-  });
-  return [name ?? defaultName, renameMutation.mutate];
+    [currentAlias, setAlias, key, handleError, name],
+  );
+  return [name ?? defaultName, handleRename];
 };
 
 export const useAliasSetter = (): AliasSetter | null => useContext().setAlias;

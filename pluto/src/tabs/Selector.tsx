@@ -18,17 +18,17 @@ import {
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 
 export interface SelectorProps
   extends Omit<Align.SpaceProps, "children" | "contextMenu" | "onDrop"> {
-  size?: ComponentSize;
+  size?: Component.Size;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -224,7 +224,7 @@ const SelectorButton = ({
   );
 
   const isSelected = selected === tabKey;
-  const level = Text.ComponentSizeLevels[size];
+  const level = Text.COMPONENT_SIZE_LEVELS[size];
 
   return (
     <Align.Pack
@@ -263,7 +263,7 @@ const SelectorButton = ({
         tabKey={tabKey}
         onRename={onRename}
         editable={editable}
-        level={Text.ComponentSizeLevels[size]}
+        level={Text.COMPONENT_SIZE_LEVELS[size]}
       />
       {closable && onClose != null && (
         <Button.Icon
@@ -287,7 +287,7 @@ export interface SelectorButtonProps extends Spec {
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
-  size: ComponentSize;
+  size: Component.Size;
 }
 
 interface NameProps extends Text.CoreProps<Text.Level> {

@@ -9,7 +9,7 @@
 
 import "@/range/overview/Overview.css";
 
-import { Align, Divider } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -26,11 +26,8 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     size="medium"
   >
     <Details rangeKey={layoutKey} />
-    <Divider.Divider x />
     <MetaData rangeKey={layoutKey} />
-    <Divider.Divider x />
     <ChildRanges rangeKey={layoutKey} />
-    <Divider.Divider x />
     <Snapshots rangeKey={layoutKey} />
   </Align.Space>
 );

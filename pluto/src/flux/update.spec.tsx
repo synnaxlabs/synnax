@@ -47,7 +47,9 @@ describe("update", () => {
           }).useDirect({ params: {} }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      act(() => result.current.update(12, { signal: controller.signal }));
+      act(() => {
+        result.current.update(12, { signal: controller.signal });
+      });
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);

@@ -21,8 +21,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
@@ -59,29 +60,30 @@ export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 export const Create: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
 
   const client = Synnax.use();
   const clientExists = client != null;
   const { form, save, variant } = Ranger.useForm({
-    params: { key: args.key },
+    params: { key: args?.key },
     autoSave: false,
     initialValues: {
-      key: "",
+      key: uuid.create(),
       name: "",
       labels: [],
       timeRange: { start: now, end: now },
       parent: "",
       ...args,
     },
+    afterSave: () => onClose(),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== args.key),
-    [args.key],
+    (data: ranger.Payload) => data.key !== args?.key,
+    [args?.key],
   );
 
   return (
@@ -115,48 +117,21 @@ export const Create: Layout.Renderer = (props) => {
           </Align.Space>
           <Align.Space x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
-              {({ onChange, ...p }) => (
+              {({ onChange, value }) => (
                 <Ranger.SelectSingle
-                  dropdownVariant="modal"
                   style={{ width: "fit-content" }}
                   zIndex={100}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e) => (
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      size="small"
-                    >
-                      {e.name}
-                    </Text.WithIcon>
-                  )}
-                  inputPlaceholder="Search Ranges"
-                  triggerTooltip="Select Parent Range"
-                  placeholder={
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      size="small"
-                    >
-                      Parent Range
-                    </Text.WithIcon>
-                  }
-                  onChange={(v: string) => onChange(v ?? "")}
-                  {...p}
+                  value={value}
+                  onChange={(v: ranger.Key) => onChange(v ?? "")}
+                  icon={<ParentRangeIcon />}
+                  allowNone
                 />
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
               {({ variant, ...p }) => (
-                <Label.SelectMultiple
-                  entryRenderKey="name"
-                  dropdownVariant="floating"
-                  zIndex={100}
-                  location="bottom"
-                  {...p}
-                />
+                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
               )}
             </Form.Field>
           </Align.Space>
@@ -165,14 +140,11 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            variant="outlined"
-            onClick={() => save()}
-            disabled={variant === "loading"}
-          >
+          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
+            variant="filled"
             onClick={() => save()}
             disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}

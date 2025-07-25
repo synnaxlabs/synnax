@@ -705,10 +705,10 @@ describe("TimeRange", () => {
 describe("DataType", () => {
   describe("isVariable", () => {
     it("should return true if the data type has a variable length", () => {
-      expect(DataType.INT32.isVariable).toBe(false);
+      expect(DataType.INT32.isVariable).toBeFalsy();
     });
     it("should return false if the data type does not have a variable length", () => {
-      expect(DataType.STRING.isVariable).toBe(true);
+      expect(DataType.STRING.isVariable).toBeTruthy();
     });
   });
 
@@ -762,7 +762,7 @@ describe("DataType", () => {
         DataType.FLOAT64,
       ];
       for (const from of numericTypes)
-        for (const to of numericTypes) expect(from.canCastTo(to)).toBe(true);
+        for (const to of numericTypes) expect(from.canCastTo(to)).toBeTruthy();
     });
     it("should return true for non-numeric data types ONLY if they are equal", () => {
       const nonNumericTypes = [DataType.STRING, DataType.BOOLEAN];

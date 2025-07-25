@@ -9,20 +9,40 @@
 
 import { workspace } from "@synnaxlabs/client";
 
+import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
-export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
-  Sync.useListener({
-    channel: workspace.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(workspace.workspaceZ, async (args) => {
-      onSet(args.changed);
-    }),
-  });
+export interface RetrieveParams {
+  key: workspace.Key;
+}
 
-export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): void =>
-  Sync.useListener({
-    channel: workspace.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(workspace.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
-  });
+export const retrieve = Flux.createRetrieve<RetrieveParams, workspace.Workspace>({
+  name: "Workspace",
+  retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
+});
+
+export interface ListParams {
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, workspace.Key, workspace.Workspace>({
+  name: "Workspace",
+  retrieve: async ({ client, params }) => await client.workspaces.retrieve(params),
+  retrieveByKey: async ({ client, key }) => await client.workspaces.retrieve(key),
+  listeners: [
+    {
+      channel: workspace.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        workspace.workspaceZ,
+        async ({ onChange, changed }) => onChange(changed.key, changed),
+      ),
+    },
+    {
+      channel: workspace.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(workspace.keyZ, async ({ onDelete, changed }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
+});

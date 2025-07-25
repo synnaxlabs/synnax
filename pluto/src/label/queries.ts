@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -129,3 +129,76 @@ export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void 
       onDelete(args.changed);
     }),
   });
+
+export interface ListParams {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, label.Key, label.Label>({
+  name: "Labels",
+  retrieve: async ({ client, params }) =>
+    await client.labels.retrieve({
+      ...params,
+      search: params.term,
+    }),
+  retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
+        onChange(changed.key, changed, { mode: "prepend" });
+      }),
+    },
+    {
+      channel: label.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(label.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
+});
+
+interface FormParams {
+  key?: label.Key;
+}
+
+export const formSchema = label.labelZ.partial({ key: true });
+
+export const useForm = Flux.createForm<FormParams, typeof formSchema>({
+  name: "Label",
+  initialValues: {
+    name: "",
+    color: "#000000",
+  },
+  schema: formSchema,
+  retrieve: async ({ client, params: { key } }) => {
+    if (key == null) return null;
+    const label = await client.labels.retrieve(key);
+    return label;
+  },
+  update: async ({ client, value, onChange }) =>
+    onChange(await client.labels.create(value)),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        label.labelZ,
+        async ({ changed, onChange, params }) => {
+          if (params.key == null || changed.key !== params.key) return;
+          onChange(changed);
+        },
+      ),
+    },
+  ],
+});
+
+export interface DeleteParams {
+  key: label.Key;
+}
+
+export const useDelete = Flux.createUpdate<DeleteParams, void>({
+  name: "Label",
+  update: async ({ client, params: { key } }) => await client.labels.delete(key),
+}).useDirect;

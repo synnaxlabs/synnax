@@ -35,7 +35,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.useParent(rangeKey);
+  const res = Ranger.retrieveParent.useDirect({ params: { key: rangeKey } });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
@@ -46,7 +46,6 @@ const ParentRangeButton = ({
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={11}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -76,10 +75,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       timeRange: { start: 0, end: 0 },
       labels: [],
     },
+    autoSave: true,
   });
-  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>("name", {
-    ctx: form,
-  });
+  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
+    "name",
+    {
+      ctx: form,
+    },
+  );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
@@ -184,19 +187,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
             )}
           </Form.Field>
-          <Form.Field<string[]> required={false} path="labels">
-            {({ variant: _, ...p }) => (
-              <Label.SelectMultiple
-                entryRenderKey="name"
-                dropdownVariant="floating"
-                zIndex={100}
-                location="bottom"
-                style={{ width: "fit-content" }}
-                {...p}
-              />
-            )}
-          </Form.Field>
         </Align.Space>
+        <Form.Field<string[]> required={false} path="labels">
+          {({ variant: _, ...p }) => (
+            <Label.SelectMultiple
+              zIndex={100}
+              variant="floating"
+              location="bottom"
+              style={{ width: "fit-content" }}
+              {...p}
+            />
+          )}
+        </Form.Field>
       </Align.Space>
     </Form.Form>
   );

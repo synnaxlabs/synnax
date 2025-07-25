@@ -28,7 +28,7 @@ import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface CreateChannel<C extends Channel> {
-  (channels: C[], index: number): C | null;
+  (channels: C[], channelKeyToCopy?: string): C | null;
 }
 
 export interface DetailsProps {
@@ -54,26 +54,16 @@ export const ListAndDetails = <C extends Channel>({
   const [selected, setSelected] = useState<string[]>(
     initialChannels.length ? [initialChannels[0].key] : [],
   );
-  const [selectedIndex, setSelectedIndex] = useState<number>(
-    initialChannels.length ? 0 : -1,
-  );
   const { get } = Form.useContext();
-  const handleSelect = useCallback(
-    (keys: string[], index: number) => {
-      setSelected(keys);
-      setSelectedIndex(index);
-    },
-    [setSelected, setSelectedIndex],
-  );
   const handleCreateChannel = useCallback(
-    (channels: C[]) => createChannel(channels, selectedIndex),
-    [selectedIndex],
+    (channels: C[]) => createChannel(channels),
+    [createChannel],
   );
   const handleDuplicateChannels = useCallback(
-    (allChannels: C[], indices: number[]) => {
+    (allChannels: C[], keys: string[]) => {
       const newlyMade: C[] = [];
-      indices.forEach((index) => {
-        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], index);
+      keys.forEach((key) => {
+        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], key);
         if (newlyMadeChannel != null) newlyMade.push(newlyMadeChannel);
       });
       return newlyMade;
@@ -82,18 +72,18 @@ export const ListAndDetails = <C extends Channel>({
   );
   const copy = useCopyToClipboard();
   const handleCopyChannelDetails = useCallback(() => {
-    if (selectedIndex === -1) return;
+    if (selected.length === 0) return;
     copy(
-      binary.JSON_CODEC.encodeString(get(`config.channels.${selectedIndex}`).value),
+      binary.JSON_CODEC.encodeString(get(`config.channels.${selected[0]}`).value),
       "channel details",
     );
-  }, [selectedIndex, copy, get]);
+  }, [copy, get, selected]);
   return (
     <>
       <ChannelList<C>
         {...rest}
         selected={selected}
-        onSelect={handleSelect}
+        onSelect={setSelected}
         createChannel={handleCreateChannel}
         createChannels={handleDuplicateChannels}
       />
@@ -105,7 +95,7 @@ export const ListAndDetails = <C extends Channel>({
           </Header.Title>
           <Header.Actions>
             <Button.Icon
-              disabled={selectedIndex === -1}
+              disabled={selected.length === 0}
               tooltip="Copy channel details as JSON"
               tooltipLocation="left"
               variant="text"
@@ -116,9 +106,9 @@ export const ListAndDetails = <C extends Channel>({
             </Button.Icon>
           </Header.Actions>
         </Header.Header>
-        {selectedIndex === -1 ? null : (
+        {selected.length > 0 && (
           <Align.Space y className={CSS.BE("details", "form")} empty grow>
-            {details({ path: `config.channels.${selectedIndex}` })}
+            {details({ path: `config.channels.${selected[0]}` })}
           </Align.Space>
         )}
       </Align.Space>

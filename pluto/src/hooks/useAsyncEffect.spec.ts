@@ -18,7 +18,7 @@ describe("useAsyncEffect", () => {
     let state = 0;
     const effect = vi.fn(async (signal: AbortSignal) => {
       state++;
-      expect(signal.aborted).toBe(false);
+      expect(signal.aborted).toBeFalsy();
     });
     const { rerender, unmount } = renderHook(() => useAsyncEffect(effect, [state]));
     await flushTaskQueue();
@@ -33,7 +33,7 @@ describe("useAsyncEffect", () => {
   it("should cleanup", async () => {
     let connectedNumber = 0;
     const effect = vi.fn(async (signal: AbortSignal) => {
-      expect(signal.aborted).toBe(false);
+      expect(signal.aborted).toBeFalsy();
       connectedNumber++;
       return () => {
         connectedNumber--;
@@ -100,7 +100,7 @@ describe("useAsyncEffect", () => {
     let cleanupsCalled = 0;
 
     const effect = vi.fn(async (signal: AbortSignal) => {
-      expect(signal.aborted).toBe(false);
+      expect(signal.aborted).toBeFalsy();
       const currID = `id-${count++}`;
       await server.connect(currID);
       return () => {
@@ -110,22 +110,22 @@ describe("useAsyncEffect", () => {
     });
     const { rerender, unmount } = renderHook(() => useAsyncEffect(effect));
     await flushTaskQueue();
-    expect(server.isConnected("id-0")).toBe(false);
-    expect(server.isConnected("id-1")).toBe(false);
+    expect(server.isConnected("id-0")).toBeFalsy();
+    expect(server.isConnected("id-1")).toBeFalsy();
     expect(server.connectionsCount).toBe(0);
     expect(cleanupsCalled).toBe(0);
 
     rerender();
     await flushTaskQueue();
-    expect(server.isConnected("id-0")).toBe(false);
-    expect(server.isConnected("id-1")).toBe(true);
+    expect(server.isConnected("id-0")).toBeFalsy();
+    expect(server.isConnected("id-1")).toBeTruthy();
     expect(server.connectionsCount).toBe(1);
     expect(cleanupsCalled).toBe(1);
 
     unmount();
     await flushTaskQueue();
-    expect(server.isConnected("id-0")).toBe(false);
-    expect(server.isConnected("id-1")).toBe(false);
+    expect(server.isConnected("id-0")).toBeFalsy();
+    expect(server.isConnected("id-1")).toBeFalsy();
     expect(server.connectionsCount).toBe(0);
     expect(cleanupsCalled).toBe(2);
   });

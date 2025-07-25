@@ -16,17 +16,18 @@ import { type FC, type ReactElement, useState } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
+import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-import { componentRenderProp } from "@/util/renderProp";
 
 const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
   ts.add(
@@ -80,15 +81,14 @@ export const DateTime = ({
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
-  const { close, toggle, visible } = Dropdown.use();
+  const [visible, setVisible] = useState(false);
 
   return (
-    <Dropdown.Dialog
-      close={close}
+    <Dialog.Frame
       visible={visible}
       variant="modal"
       zIndex={500}
-      keepMounted={false}
+      onVisibleChange={setVisible}
     >
       <InputText
         className={CSS.BE("input", "datetime")}
@@ -102,7 +102,7 @@ export const DateTime = ({
         {...rest}
       >
         <Button.Icon
-          onClick={toggle}
+          onClick={() => setVisible(!visible)}
           variant={variant === "natural" ? "text" : "outlined"}
         >
           <Icon.Calendar />
@@ -113,7 +113,7 @@ export const DateTime = ({
         onChange={(next) => onChange(Number(next.valueOf()))}
         close={close}
       />
-    </Dropdown.Dialog>
+    </Dialog.Frame>
   );
 };
 
@@ -132,35 +132,37 @@ const DateTimeModal = ({
   onChange,
   close,
 }: DateTimeModalProps): ReactElement => (
-  <Align.Space className={CSS.B("datetime-modal")} empty>
-    <Align.Space className={CSS.B("content")}>
-      <Align.Space x className={CSS.B("header")}>
-        <Text.DateTime level="h3" format="preciseDate">
-          {value}
-        </Text.DateTime>
+  <Dialog.Dialog>
+    <Align.Space className={CSS.B("datetime-modal")} empty>
+      <Align.Space className={CSS.B("content")}>
+        <Align.Space x className={CSS.B("header")}>
+          <Text.DateTime level="h3" format="preciseDate">
+            {value}
+          </Text.DateTime>
+        </Align.Space>
+        <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
+          <Icon.Close />
+        </Button.Icon>
+        <Align.Space x className={CSS.B("content")}>
+          <AISelector value={value} onChange={onChange} close={close} />
+          <Calendar value={value} onChange={onChange} />
+        </Align.Space>
       </Align.Space>
-      <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
-        <Icon.Close />
-      </Button.Icon>
-      <Align.Space x className={CSS.B("content")}>
-        <AISelector value={value} onChange={onChange} close={close} />
-        <Calendar value={value} onChange={onChange} />
-      </Align.Space>
+      <Nav.Bar location="bottom" size="7rem">
+        <Nav.Bar.Start size="small">
+          <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={11} level="small">
+            To Finish
+          </Text.Text>
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Button.Button onClick={close} variant="outlined">
+            Done
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
-    <Nav.Bar location="bottom" size="7rem">
-      <Nav.Bar.Start size="small">
-        <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
-        <Text.Text shade={11} level="small">
-          To Finish
-        </Text.Text>
-      </Nav.Bar.Start>
-      <Nav.Bar.End>
-        <Button.Button onClick={close} variant="outlined">
-          Done
-        </Button.Button>
-      </Nav.Bar.End>
-    </Nav.Bar>
-  </Align.Space>
+  </Dialog.Dialog>
 );
 
 interface AISuggestion {
@@ -169,13 +171,16 @@ interface AISuggestion {
   onSelect: () => void;
 }
 
-const AIListItem = (props: List.ItemProps<string, AISuggestion>): ReactElement => (
-  <List.ItemFrame {...props}>
-    <Text.Text level="p">{props.entry.name}</Text.Text>
-  </List.ItemFrame>
-);
+const AIListItem = (props: List.ItemRenderProps<string>): ReactElement => {
+  const item = List.useItem<string, AISuggestion>(props.key);
+  return (
+    <List.Item {...props}>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </List.Item>
+  );
+};
 
-const aiListItem = componentRenderProp(AIListItem);
+const aiListItem = renderProp(AIListItem);
 
 interface AISelectorProps {
   value: TimeStamp;
@@ -190,6 +195,7 @@ const AISelector = ({
 }: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
   const [entries, setEntries] = useState<AISuggestion[]>([]);
+  const { data, getItem } = List.useStaticData<string>({ data: entries });
 
   const handleChange = (next: string): void => {
     const processed = nlp(next) as DatesMethods;
@@ -245,37 +251,28 @@ const AISelector = ({
         autoFocus
         placeholder="AI Suggestion"
       />
-      <List.List
-        data={entries}
-        emptyContent={
-          <Align.Center empty grow>
-            <Align.Space y size="tiny">
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "April 1 at 2PM"
-              </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "Add 2 two hours"
-              </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "Next Friday"
-              </Text.Text>
-            </Align.Space>
-          </Align.Center>
-        }
-      >
-        <List.Selector<string, AISuggestion>
-          value={null}
-          allowMultiple={false}
-          allowNone
-          onChange={handleSelect}
+      <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
+        <List.Items<string, AISuggestion>
+          className={CSS.B("ai-list")}
+          emptyContent={
+            <Align.Center empty grow>
+              <Align.Space y size="tiny">
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "April 1 at 2PM"
+                </Text.Text>
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "Add 2 two hours"
+                </Text.Text>
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "Next Friday"
+                </Text.Text>
+              </Align.Space>
+            </Align.Center>
+          }
         >
-          <List.Hover initialHover={0}>
-            <List.Core grow bordered>
-              {aiListItem}
-            </List.Core>
-          </List.Hover>
-        </List.Selector>
-      </List.List>
+          {aiListItem}
+        </List.Items>
+      </Select.Frame>
     </Align.Pack>
   );
 };
@@ -373,14 +370,12 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
-const TimeListItem = (
-  props: List.ItemProps<string, record.KeyedNamed>,
-): ReactElement => {
-  const { entry } = props;
+const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => {
+  const entry = List.useItem<number, record.KeyedNamed<number>>(props.key);
   return (
-    <List.ItemFrame {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
-      <Text.Text level="small">{entry.name}</Text.Text>
-    </List.ItemFrame>
+    <List.Item {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
+      <Text.Text level="small">{entry?.name}</Text.Text>
+    </List.Item>
   );
 };
 
@@ -389,26 +384,24 @@ interface TimeListProps {
   onChange: (next: number) => void;
 }
 
-const timeListItem = componentRenderProp(TimeListItem);
+const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
-  const data = Array.from({ length: count }, (_, i) => ({
-    key: i.toString(),
-    name: i.toString(),
-  }));
+  const data = Array.from({ length: count }, (_, i) => i);
+  const getItem = (key?: number): record.KeyedNamed<number> | undefined =>
+    key == null ? undefined : { key, name: key.toString() };
+
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
-    <List.List<string, record.KeyedNamed> data={data}>
-      <List.Selector<string, record.KeyedNamed>
-        value={value.toString()}
-        onChange={(next: string) => onChange(Number(next))}
-        allowMultiple={false}
-        allowNone={false}
-      >
-        <List.Core<string, record.KeyedNamed> className={CSS.B("time-list")}>
-          {timeListItem}
-        </List.Core>
-      </List.Selector>
-    </List.List>
+    <Select.Frame<number, record.KeyedNamed<number>>
+      data={data}
+      value={value}
+      onChange={onChange}
+      getItem={getItem}
+    >
+      <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
+        {timeListItem}
+      </List.Items>
+    </Select.Frame>
   );
   TimeList.displayName = "TimeList";
   return TimeList;

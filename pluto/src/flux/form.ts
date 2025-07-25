@@ -78,6 +78,8 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
   params: FormParams;
   /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
+  /** Whether to synchronize the form with the server */
+  sync?: boolean;
 }
 
 /**
@@ -149,31 +151,10 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   });
   const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
 
-  return ({ params, initialValues, autoSave = false, afterSave }) => {
+  return ({ params, initialValues, autoSave = false, afterSave, sync = false }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null, false));
-
-    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
-      setter,
-    ) => {
-      const nextStatus = state.executeSetter(setter, {
-        ...resultRef.current,
-        data: form.value(),
-      } as Result<z.infer<Schema>>);
-      if (nextStatus.data != null) {
-        form.set("", nextStatus.data);
-        form.setCurrentStateAsInitialValues();
-      }
-      setResult(nextStatus);
-    };
-
-    retrieveHook.useEffect({ params, onChange: handleResultChange });
-
-    const { updateAsync } = updateHook.useObservable({
-      params,
-      onChange: handleResultChange,
-    });
 
     const form = Form.use<Schema>({
       schema,
@@ -181,6 +162,27 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       onChange: ({ path }) => {
         if (autoSave && path !== "") handleSave();
       },
+      sync,
+    });
+
+    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> =
+      useCallback(
+        (setter) => {
+          const nextStatus = state.executeSetter(setter, resultRef.current);
+          if (nextStatus.data != null) {
+            form.set("", nextStatus.data);
+            form.setCurrentStateAsInitialValues();
+          }
+          setResult(nextStatus);
+        },
+        [form],
+      );
+
+    retrieveHook.useEffect({ params, onChange: handleResultChange });
+
+    const { updateAsync } = updateHook.useObservable({
+      params,
+      onChange: handleResultChange,
     });
 
     const handleSave = useCallback(

@@ -65,6 +65,7 @@ func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
+	"color":      zyn.String(),
 	"time_range": telem.TimeRangeSchema,
 })
 

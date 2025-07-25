@@ -42,7 +42,7 @@ export default defineConfig({
         header: path.resolve(".", "src/header/index.ts"),
         align: path.resolve(".", "src/align/index.ts"),
         tree: path.resolve(".", "src/tree/index.ts"),
-        dropdown: path.resolve(".", "src/dropdown/index.ts"),
+        dialog: path.resolve(".", "src/dialog/index.ts"),
         button: path.resolve(".", "src/button/index.ts"),
         video: path.resolve(".", "src/video/index.ts"),
         text: path.resolve(".", "src/text/index.ts"),

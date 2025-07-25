@@ -70,7 +70,7 @@ export const compareSemVer = ((
     if (aPatch > bPatch) return compare.GREATER_THAN;
   }
   return compare.EQUAL;
-}) satisfies compare.CompareF<SemVer>;
+}) satisfies compare.Comparator<SemVer>;
 
 /**
  * @returns true if the two semantic versions are equal.

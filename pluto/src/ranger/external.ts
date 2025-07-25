@@ -9,6 +9,5 @@
 
 export * from "@/ranger/queries";
 export * from "@/ranger/Select";
-export * from "@/ranger/SelectLabel";
 export * from "@/ranger/TimeRangeChip";
 export * from "@/ranger/types";

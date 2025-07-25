@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Align, Icon, Text } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
 import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
@@ -34,5 +34,6 @@ export const Select = () => (
     emptyContent={<EmptyContent />}
     label="OPC UA Server"
     make={MAKE}
+    icon={<Icon.Logo.OPC />}
   />
 );

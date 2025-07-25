@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type device } from "@synnaxlabs/client";
-import { bounds } from "@synnaxlabs/x";
+import { bounds, type record } from "@synnaxlabs/x";
 
 import { type Common } from "@/hardware/common";
 
@@ -26,8 +26,7 @@ export type T8Model = typeof T8_MODEL;
 
 export type Model = T4Model | T7Model | T8Model;
 
-export interface BasePort {
-  key: string;
+export interface BasePort extends record.KeyedNamed<string> {
   alias?: string;
 }
 
@@ -77,23 +76,29 @@ const convertAltConfigToAlias = ({ prefix, offset }: AltConfig, port: number): s
   `${prefix}${port - offset}`;
 
 const aiFactory = (b: bounds.Bounds, altConfig?: AltConfig): AIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `AIN${i + b.lower}`,
-    type: AI_PORT_TYPE,
-    alias: altConfig ? convertAltConfigToAlias(altConfig, i + b.lower) : undefined,
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const key = `AIN${i + b.lower}`;
+    return {
+      key,
+      name: key,
+      type: AI_PORT_TYPE,
+      alias: altConfig ? convertAltConfigToAlias(altConfig, i + b.lower) : undefined,
+    };
+  });
 
 const aoFactory = (b: bounds.Bounds): AOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DAC${i + b.lower}`,
-    type: AO_PORT_TYPE,
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const key = `DAC${i + b.lower}`;
+    return { key, name: key, type: AO_PORT_TYPE };
+  });
 
 const diFactory = (b: bounds.Bounds, altConfig: AltConfig): DIPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
+    const key = `DIO${port}`;
     return {
-      key: `DIO${port}`,
+      key,
+      name: key,
       type: DI_PORT_TYPE,
       alias: convertAltConfigToAlias(altConfig, port),
     };
@@ -102,8 +107,10 @@ const diFactory = (b: bounds.Bounds, altConfig: AltConfig): DIPort[] =>
 const doFactory = (b: bounds.Bounds, altConfig: AltConfig): DOPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
+    const key = `DIO${port}`;
     return {
-      key: `DIO${port}`,
+      key,
+      name: key,
       type: DO_PORT_TYPE,
       alias: convertAltConfigToAlias(altConfig, port),
     };

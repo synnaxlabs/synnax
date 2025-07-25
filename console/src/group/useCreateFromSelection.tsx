@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Icon, Tree } from "@synnaxlabs/pluto";
+import { Text, Tree } from "@synnaxlabs/pluto";
 import { errors, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -28,23 +28,27 @@ export const useCreateFromSelection = (): CreateFromSelection => {
   const create = useMutation<void, Error, CreateArgs, Tree.Node[]>({
     onMutate: async ({
       selection,
-      state: { nodes, setNodes, setSelection },
+      state: { nodes, setNodes, setSelection, shape, setResource },
       newID,
     }) => {
       if (selection.parentID == null) return;
-      const resourcesToGroup = getResourcesToGroup(selection);
+      const resourcesToGroup = getResourcesToGroup(selection.resourceIDs, shape);
       const prevNodes = Tree.deepCopy(nodes);
+      const res: ontology.Resource = {
+        key: ontology.idToString(newID),
+        id: newID,
+        name: "",
+      };
+      setResource(res);
+      const destination = ontology.idsEqual(selection.rootID, selection.parentID)
+        ? null
+        : ontology.idToString(selection.parentID);
       let nextNodes = Tree.setNode({
         tree: nodes,
-        destination: ontology.idsEqual(selection.rootID, selection.parentID)
-          ? null
-          : ontology.idToString(selection.parentID),
+        destination,
         additions: {
           key: ontology.idToString(newID),
-          icon: <Icon.Group />,
           children: [],
-          name: "",
-          allowRename: true,
         },
       });
       nextNodes = Tree.moveNode({
@@ -56,11 +60,11 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       setSelection([ontology.idToString(newID)]);
       return prevNodes;
     },
-    mutationFn: async ({ client, selection, newID }: CreateArgs) => {
+    mutationFn: async ({ client, selection, newID, state: { shape } }: CreateArgs) => {
       if (selection.parentID == null) return;
-      const [groupName, renamed] = await Tree.asyncRename(ontology.idToString(newID));
+      const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
       if (!renamed) throw new errors.Canceled();
-      const resourcesToGroup = getResourcesToGroup(selection);
+      const resourcesToGroup = getResourcesToGroup(selection.resourceIDs, shape);
       await client.ontology.groups.create(selection.parentID, groupName, newID.key);
       await client.ontology.moveChildren(
         selection.parentID,

@@ -10,13 +10,13 @@
 import { caseconv, deep, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
+import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 interface FieldChild<I, O> extends Input.Control<I, O> {
   variant?: Input.Variant;
@@ -32,7 +32,7 @@ export type FieldProps<I = string | number, O = I> = GetOptions<I> &
     hideIfNull?: boolean;
   };
 
-const defaultInput = componentRenderProp(Input.Text);
+const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
 
 export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
@@ -135,58 +135,10 @@ export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchPro
 export const buildSwitchField = fieldBuilder(Input.Switch);
 export const SwitchField = buildSwitchField({});
 
-export type SelectSingleFieldProps<
+export type SelectFieldProps<
   K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.SingleProps<K, E>>;
-export const buildSelectSingleField = fieldBuilder(Select.Single) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.SingleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.SingleProps<K, E>>
->;
-
-export type SelectMultiFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.MultipleProps<K, E>>;
-export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.MultipleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
->;
-
-export type DropdownButtonFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>;
-export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
->;
-
-export type ButtonSelectFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.ButtonProps<K, E>>;
-export const buildButtonSelectField = fieldBuilder(Select.Button) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.ButtonProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.ButtonProps<K, E>>
->;
+  E extends record.KeyedNamed<K>,
+> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>>;
+export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
+  props: FieldBuilderProps<K, K, Select.SimpleProps<K, E>>,
+) => fieldBuilder(Select.Simple<K, E>)(props as any);

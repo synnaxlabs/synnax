@@ -15,9 +15,9 @@ import {
   Form,
   Input,
   Nav,
-  Select,
   Status,
   Synnax,
+  Telem,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
@@ -58,11 +58,11 @@ const GLOBALS: Variable[] = [
 
 export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const client = Synnax.use();
-  const { channelKey } = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
-  const isEdit = channelKey !== 0;
+  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
+  const isEdit = args?.channelKey !== 0;
 
   const { form, variant, save } = Channel.useCalculatedForm({
-    params: { key: channelKey },
+    params: { key: args?.channelKey },
   });
 
   const handleError = Status.useErrorHandler();
@@ -130,10 +130,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               style={{ width: 150 }}
             >
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   style={{ width: 150 }}
                 />

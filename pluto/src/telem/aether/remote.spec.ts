@@ -94,7 +94,7 @@ describe("remote", () => {
       };
       const scv = new StreamChannelValue(c, props);
       expect(scv.value()).toBe(0);
-      expect(scv.testingOnlyValid).toBe(false);
+      expect(scv.testingOnlyValid).toBeFalsy();
     });
 
     it("should return a zero value when no leading buffer has been set", async () => {

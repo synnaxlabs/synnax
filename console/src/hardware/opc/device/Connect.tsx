@@ -87,11 +87,11 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const scanTasks = await client.hardware.tasks.retrieve({
-        type: SCAN_TYPE,
+        types: [SCAN_TYPE],
         rack: rack.key,
         schemas: SCAN_SCHEMAS,
       });
@@ -114,9 +114,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
@@ -154,7 +154,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
+            {({ value, onChange }) => (
+              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
+            )}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
@@ -173,7 +175,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               label="Security Mode"
               path="connection.securityMode"
             >
-              {SelectSecurityMode}
+              {({ value, onChange }) => (
+                <SelectSecurityMode value={value} onChange={onChange} />
+              )}
             </Form.Field>
           </Align.Space>
           <Divider.Divider x padded="bottom" />
@@ -182,7 +186,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="connection.securityPolicy"
             label="Security Policy"
           >
-            {(p) => <SelectSecurityPolicy size="medium" {...p} />}
+            {({ value, onChange }) => (
+              <SelectSecurityPolicy value={value} onChange={onChange} />
+            )}
           </Form.Field>
           {hasSecurity && (
             <>
@@ -233,6 +239,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             disabled={isPending}
             loading={connectMutation.isPending}
             onClick={() => connectMutation.mutate()}
+            variant="filled"
           >
             Save
           </Button.Button>
