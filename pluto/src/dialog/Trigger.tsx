@@ -19,12 +19,15 @@ import { type Icon } from "@/icon";
 
 export interface TriggerProps extends Button.ButtonProps {
   hideCaret?: boolean;
+  iconOnly?: boolean;
 }
 
 export const Trigger = ({
   onClick,
   className,
   hideCaret = false,
+  startIcon,
+  iconOnly,
   ...rest
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
@@ -33,6 +36,20 @@ export const Trigger = ({
     endIcon = (
       <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
     );
+  if (iconOnly && startIcon != null)
+    return (
+      <Button.Icon
+        className={CSS(CSS.BE("dialog", "trigger"), className)}
+        onClick={(e) => {
+          onClick?.(e);
+          toggle();
+        }}
+        {...rest}
+      >
+        {startIcon as Icon.ReactElement}
+      </Button.Icon>
+    );
+
   return (
     <Button.Button
       className={CSS(CSS.BE("dialog", "trigger"), className)}
@@ -40,6 +57,7 @@ export const Trigger = ({
         onClick?.(e);
         toggle();
       }}
+      startIcon={startIcon}
       endIcon={endIcon}
       {...rest}
     />

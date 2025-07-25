@@ -14,6 +14,7 @@ import { Align } from "@synnaxlabs/pluto";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Annotations } from "@/range/overview/Annotations";
+import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
@@ -24,9 +25,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     size="large"
   >
     <Details rangeKey={layoutKey} />
+    <ChildRanges rangeKey={layoutKey} />
     <Annotations rangeKey={layoutKey} />
     {/* <MetaData rangeKey={layoutKey} />
-    <ChildRanges rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} /> */}
   </Align.Space>
 );

@@ -63,6 +63,7 @@ const List = (): ReactElement => {
   const dispatch = useDispatch();
   const activeRange = useSelect();
   const data = useSelectKeys();
+  const store = useStore<RootState>();
 
   const handleSelect = (key: string): void => {
     dispatch(setActive(key));
@@ -95,7 +96,10 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <PMenu.ContextMenu
+        menu={(p) => <ContextMenu {...p} range={select(store.getState(), p.keys[0])} />}
+        {...menuProps}
+      />
       <CoreList.Items
         emptyContent={<NoRanges />}
         {...dropProps}

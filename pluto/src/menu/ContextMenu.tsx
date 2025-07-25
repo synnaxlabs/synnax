@@ -97,12 +97,15 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const handleOpen: ContextMenuOpen = (e, keys) => {
     const p = xy.construct(e);
     if (typeof e === "object" && "preventDefault" in e) {
+      console.log("open", e.target);
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
+      console.log("selected", selected);
       keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
+    console.log("keys", keys);
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };
 

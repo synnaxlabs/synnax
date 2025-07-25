@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/ranger/Select.css";
+
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
@@ -14,25 +16,37 @@ import { Align } from "@/align";
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
 import { Component } from "@/component";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Ranger } from "@/ranger";
 import { type ListParams, useList } from "@/ranger/queries";
-import { TimeRangeChip } from "@/ranger/TimeRangeChip";
+import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 
-interface ListItemProps extends List.ItemProps<ranger.Key> {
+interface ListItemProps
+  extends List.ItemProps<ranger.Key>,
+    Pick<TimeRangeChipProps, "showAgo" | "showSpan"> {
   showParent?: boolean;
   showLabels?: boolean;
+  starred?: boolean;
+  onStar?: (starred: boolean) => void;
+  onStageChange?: (stage: ranger.Stage) => void;
 }
 
 export const ListItem = ({
   itemKey,
   showParent = true,
   showLabels = true,
+  starred,
+  onStar,
+  showAgo,
+  showSpan,
+  onStageChange,
   ...rest
 }: ListItemProps): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
@@ -52,15 +66,37 @@ export const ListItem = ({
       shade: 8,
     });
 
-  const Icon = Ranger.STAGE_ICONS[stage];
+  const { onSelect, selected } = Select.useItemState(itemKey);
+
   return (
-    <Select.ListItem itemKey={itemKey} justify="spaceBetween" {...rest}>
-      <Align.Space x align="center" size="small">
-        <Button.Icon>
-          <Icon />
-        </Button.Icon>
-        <Align.Space y size="small">
-          <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
+    <List.Item
+      className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
+      itemKey={itemKey}
+      justify="spaceBetween"
+      selected={selected}
+      {...rest}
+    >
+      <Align.Space x size="tiny" align="center">
+        <Input.Checkbox
+          value={selected}
+          onChange={() => onSelect?.()}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        />
+        <Align.Space x align="center" empty>
+          <Ranger.SelectStage
+            value={stage}
+            allowNone={false}
+            onChange={(v: ranger.Stage | null) => v != null && onStageChange?.(v)}
+            onClick={(e) => e.stopPropagation()}
+            variant="floating"
+            location="bottom"
+            triggerProps={{ iconOnly: true, variant: "text" }}
+          />
+          <Align.Space y size="small">
+            <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
+          </Align.Space>
         </Align.Space>
       </Align.Space>
       <Align.Space x>
@@ -73,9 +109,24 @@ export const ListItem = ({
             ))}
           </Tag.Tags>
         )}
-        <TimeRangeChip level="p" timeRange={timeRange} />
+        <TimeRangeChip
+          level="small"
+          timeRange={timeRange}
+          showAgo={showAgo}
+          showSpan={showSpan}
+        />
+        <Button.Icon
+          className={CSS(CSS.B("star-button"))}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStar?.(!starred);
+          }}
+          size="small"
+        >
+          {starred ? <Icon.StarFilled /> : <Icon.StarOutlined />}
+        </Button.Icon>
       </Align.Space>
-    </Select.ListItem>
+    </List.Item>
   );
 };
 

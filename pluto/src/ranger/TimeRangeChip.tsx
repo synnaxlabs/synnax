@@ -37,7 +37,7 @@ export const TimeRangeChip = ({
   labeled = false,
   collapseZero = false,
   offsetFrom,
-  showAgo = true,
+  showAgo = false,
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -84,7 +84,7 @@ export const TimeRangeChip = ({
       )}
       {!span.isZero && showSpan && (
         <Text.Text level={level} shade={shade} weight={450}>
-          ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
+          ({span.truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
     </>

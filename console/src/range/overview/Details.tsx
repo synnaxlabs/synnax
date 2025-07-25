@@ -194,6 +194,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Ranger.SelectStage
                 onChange={onChange}
                 value={value}
+                allowNone={false}
                 triggerProps={{ variant: "text", hideCaret: true }}
                 variant="floating"
                 location="bottom"

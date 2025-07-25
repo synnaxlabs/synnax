@@ -40,6 +40,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string>) => {
       align="center"
       style={{ padding: "1.5rem", paddingRight: "2rem" }}
       rounded
+      showSpan
       {...props}
     />
   );

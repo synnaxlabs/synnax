@@ -360,3 +360,16 @@ export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
     onChange(value);
   },
 });
+
+export interface UpdateParams {}
+
+export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload>({
+  name: "Range",
+  update: async ({ client, value, onChange }) =>
+    onChange(await client.ranges.create(value)),
+});
+
+export const useDelete = Flux.createUpdate<UpdateParams, ranger.Key>({
+  name: "Range",
+  update: async ({ client, value }) => await client.ranges.delete(value),
+});

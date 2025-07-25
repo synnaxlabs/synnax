@@ -1,0 +1,22 @@
+.pluto-range__list-item {
+    .pluto-star-button,
+    .pluto-input-checkbox__checkmark {
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    &.pluto--starred .pluto-star-button {
+        color: goldenrod;
+    }
+
+    &:is(:hover) :is(.pluto-star-button, .pluto-input-checkbox__checkmark) {
+        opacity: 1;
+    }
+    &.pluto--starred .pluto-star-button {
+        opacity: 1;
+    }
+    &.pluto--selected {
+        .pluto-input-checkbox__checkmark {
+            opacity: 1;
+        }
+    }
+}

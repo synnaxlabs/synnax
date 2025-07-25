@@ -1,5 +1,6 @@
 import { NotFoundError, type ontology, type user } from "@synnaxlabs/client";
-import { Flux } from "@synnaxlabs/pluto";
+
+import { Flux } from "@/flux";
 
 interface RetrieveParams {
   key: user.Key;
