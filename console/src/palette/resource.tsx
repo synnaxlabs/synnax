@@ -38,7 +38,7 @@ export const createResourceListItem = (
           level="p"
           weight={450}
           shade={11}
-          size="medium"
+          gap="medium"
         >
           {name}
         </Text.WithIcon>

@@ -113,7 +113,7 @@ export const Selector = (): ReactElement => {
                       size="large"
                       variant="outlined"
                       onClick={() => handleChange(null)}
-                      iconSpacing="small"
+                      gap="small"
                       tooltip="Switch to no workspace"
                     >
                       Clear
@@ -126,7 +126,7 @@ export const Selector = (): ReactElement => {
                         close();
                         placeLayout(CREATE_LAYOUT);
                       }}
-                      iconSpacing="small"
+                      gap="small"
                       tooltip="Create a new workspace"
                       tooltipLocation={{ y: "bottom" }}
                     >

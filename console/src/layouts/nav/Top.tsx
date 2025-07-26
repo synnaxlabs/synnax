@@ -75,7 +75,7 @@ export const Top = (): ReactElement => {
       <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
         <TopPalette />
       </Nav.Bar.Center>
-      <Nav.Bar.End justify="end" align="center" data-tauri-drag-region size="small">
+      <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         <Version.Badge />
         <Cluster.Dropdown />
         <Docs.OpenButton />

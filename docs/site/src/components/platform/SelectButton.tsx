@@ -66,7 +66,7 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
       {(p) => (
         <Select.BaseButton
           {...p}
-          iconSpacing="small"
+          gap="small"
           size="medium"
           variant="outlined"
           startIcon={p.selected?.icon}

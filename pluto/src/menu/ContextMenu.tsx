@@ -166,7 +166,7 @@ const Internal = ({
       ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={close}
-      size="tiny"
+      gap="tiny"
       {...rest}
     >
       {menu?.({ keys })}

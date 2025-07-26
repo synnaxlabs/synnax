@@ -137,7 +137,7 @@ const FallBackRenderContent = ({
       </Nav.Bar>
 
       <Align.Center role="alert">
-        <Align.Space x className={CSS.B("dialog")} size={20}>
+        <Align.Space x className={CSS.B("dialog")} gap={20}>
           <Logo variant="icon" />
           <Align.Space y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>

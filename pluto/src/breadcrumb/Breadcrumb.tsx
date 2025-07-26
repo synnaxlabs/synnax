@@ -131,7 +131,7 @@ export const Breadcrumb = <
   icon,
   shade = 9,
   weight,
-  size = 0.5,
+  gap: size = 0.5,
   url,
   level = "p",
   separator = ".",
@@ -148,7 +148,7 @@ export const Breadcrumb = <
       level={level}
       shade={shade}
       weight={weight}
-      size={size}
+      gap={size}
       x
       {...rest}
     >
@@ -192,7 +192,7 @@ export const URL = ({
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
       x
-      size="small"
+      gap="small"
       align="center"
     >
       {content}

@@ -33,5 +33,5 @@ export const SaveHelpText = ({
       </Text.Text>
     </>
   );
-  return noBar ? content : <Nav.Bar.Start size="small">{content}</Nav.Bar.Start>;
+  return noBar ? content : <Nav.Bar.Start gap="small">{content}</Nav.Bar.Start>;
 };

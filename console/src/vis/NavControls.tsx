@@ -32,7 +32,7 @@ export const NavControls = (): ReactElement | null => {
   return Controls == null ? null : (
     <Align.Space
       x
-      size="medium"
+      gap="medium"
       className={CSS.B("nav-controls")}
       style={{ paddingLeft: "0.5rem" }}
     >

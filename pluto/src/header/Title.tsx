@@ -35,7 +35,7 @@ export const Title = ({
       className={CSS(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
       divided={divided}
-      size={1.5}
+      gap={1.5}
       {...rest}
     />
   );

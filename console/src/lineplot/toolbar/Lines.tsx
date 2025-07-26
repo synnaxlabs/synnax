@@ -39,7 +39,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
-    <Align.Center x size="small">
+    <Align.Center x gap="small">
       <Status.Text variant="disabled" hideIcon>
         No lines plotted. Use the
       </Status.Text>

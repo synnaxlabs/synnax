@@ -86,7 +86,7 @@ export const MacOS = ({
   ...rest
 }: InternalControlsProps): ReactElement => (
   <Align.Space
-    size={1.5}
+    gap={1.5}
     x
     className={CSS(
       CSS.B("macos-controls"),

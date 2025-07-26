@@ -32,7 +32,7 @@ const COLUMNS: Array<List.ColumnSpec<device.Key, Entry>> = [
         shade={9}
         weight={450}
         style={{ marginTop: "0.25rem" }}
-        size="tiny"
+        gap="tiny"
       >
         {rackName ? `${rackName}.${location}` : location}
       </Breadcrumb.Breadcrumb>

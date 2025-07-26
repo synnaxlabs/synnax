@@ -109,8 +109,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
     <Align.Space y grow>
       <Align.Space y grow style={{ padding: "5rem" }}>
         <Form.Form<typeof formSchema> {...methods}>
-          <Align.Space y size="large">
-            <Align.Space x align="center" size={8}>
+          <Align.Space y gap="large">
+            <Align.Space x align="center" gap={8}>
               <Align.Space y>
                 <Text.WithIcon
                   startIcon={<Icon.Access />}
@@ -137,7 +137,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
               >
                 Schematics
               </Text.WithIcon>
-              <Align.Space x size={8} align="center" style={{ marginLeft: "2rem" }}>
+              <Align.Space x gap={8} align="center" style={{ marginLeft: "2rem" }}>
                 <Align.Space y>
                   <Text.Text level="h5" shade={10}>
                     Edit
@@ -158,8 +158,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
           </Align.Space>
         </Form.Form>
       </Align.Space>
-      <Modals.BottomNavBar size="6rem">
-        <Nav.Bar.Start align="center" size="large">
+      <Modals.BottomNavBar gap={6}>
+        <Nav.Bar.Start align="center" gap="large">
           <Status.Text variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
           </Status.Text>

@@ -143,7 +143,7 @@ export const Rule = ({
         className={CSS(className, CSS.BE("rule", "tag"))}
         bordered
         onClick={onSelect}
-        size={1}
+        gap={1}
         rounded
         style={{
           borderColor: color.cssString(colorVal),
@@ -160,7 +160,7 @@ export const Rule = ({
           color={textColor}
         />
         <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
-        <Align.Space size="small" x align="center">
+        <Align.Space gap="small" x align="center">
           <Text.Editable
             value={propsPosition.toFixed(2)}
             onChange={(v) => {

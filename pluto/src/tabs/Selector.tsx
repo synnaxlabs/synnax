@@ -28,7 +28,7 @@ import { type ComponentSize } from "@/util/component";
 
 export interface SelectorProps
   extends Omit<Align.SpaceProps, "children" | "contextMenu" | "onDrop"> {
-  size?: ComponentSize;
+  gap?: ComponentSize;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -40,7 +40,7 @@ const CLS = "tabs-selector";
 export const Selector = ({
   className,
   altColor = false,
-  size = "medium",
+  gap: size = "medium",
   direction = "x",
   contextMenu,
   addTooltip,
@@ -228,7 +228,7 @@ const SelectorButton = ({
 
   return (
     <Align.Pack
-      size={size}
+      gap={size}
       id={tabKey}
       className={CSS(
         CSS.BE(CLS, "btn"),

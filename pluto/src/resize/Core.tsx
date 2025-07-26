@@ -16,7 +16,10 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
 
-export type CoreProps<E extends Align.ElementType = "div"> = Align.SpaceProps<E> & {
+export type CoreProps<E extends Align.ElementType = "div"> = Omit<
+  Align.SpaceProps<E>,
+  "gap"
+> & {
   location: location.Crude;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;

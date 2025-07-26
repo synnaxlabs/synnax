@@ -39,7 +39,7 @@ export const ConnectionStatusBadge = ({
   const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
   return (
     <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
-      <Align.Space y size="tiny">
+      <Align.Space y gap="tiny">
         <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
           {STATUS_MESSAGES[status]}
         </Status.Text>

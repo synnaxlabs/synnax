@@ -43,7 +43,7 @@ export const Selector = ({
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Align.Center className={CSS.B("vis-layout-selector")} size="large" wrap>
+      <Align.Center className={CSS.B("vis-layout-selector")} gap="large" wrap>
         <Text.Text level="h4" shade={10} weight={400}>
           {text}
         </Text.Text>
@@ -52,7 +52,7 @@ export const Selector = ({
           wrap
           style={{ maxWidth: "500px", width: "100%" }}
           justify="center"
-          size={2.5}
+          gap={2.5}
         >
           {selectables.map(({ key, title, icon, create }) => (
             <Button.Button

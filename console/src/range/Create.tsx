@@ -157,7 +157,7 @@ const CreateLayoutForm = ({
               />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Align.Space x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
@@ -179,7 +179,7 @@ const CreateLayoutForm = ({
                       level="p"
                       shade={11}
                       startIcon={<ParentRangeIcon />}
-                      size="small"
+                      gap="small"
                     >
                       {e.name}
                     </Text.WithIcon>
@@ -191,7 +191,7 @@ const CreateLayoutForm = ({
                       level="p"
                       shade={11}
                       startIcon={<ParentRangeIcon />}
-                      size="small"
+                      gap="small"
                     >
                       Parent Range
                     </Text.WithIcon>

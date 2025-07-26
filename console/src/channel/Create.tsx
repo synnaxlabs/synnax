@@ -121,7 +121,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Align.Space x gap="large">
             <Form.SwitchField
               path="virtual"
               label="Virtual"
@@ -176,8 +176,8 @@ export const Create: Layout.Renderer = ({ onClose }) => {
       </Align.Space>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText />
-        <Nav.Bar.End align="center" size="large">
-          <Align.Space x align="center" size="small">
+        <Nav.Bar.End align="center" gap="large">
+          <Align.Space x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
             <Text.Text level="p" shade={11}>
               Create More

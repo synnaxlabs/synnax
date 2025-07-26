@@ -416,7 +416,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     };
 
     return (
-      <PMenu.Menu onChange={handleSelect} iconSpacing="small" level="small">
+      <PMenu.Menu onChange={handleSelect} gap="small" level="small">
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
