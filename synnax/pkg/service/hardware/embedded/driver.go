@@ -29,18 +29,37 @@ type Config struct {
 	alamos.Instrumentation
 	// Enabled is used to enable or disable the embedded driver.
 	Enabled *bool `json:"enabled"`
-	// Address
-	Address        address.Address `json:"address"`
-	RackKey        rack.Key        `json:"rack_key"`
-	ClusterKey     uuid.UUID       `json:"cluster_key"`
-	Integrations   []string        `json:"integrations"`
-	CACertPath     string          `json:"ca_cert_path"`
-	ClientCertFile string          `json:"client_cert_file"`
-	ClientKeyFile  string          `json:"client_key_file"`
-	Username       string          `json:"username"`
-	Password       string          `json:"password"`
-	Debug          *bool           `json:"debug"`
-	StartTimeout   time.Duration   `json:"start_timeout"`
+	// Address is the reachable address of the cluster for the driver to connect to.
+	Address address.Address `json:"address"`
+	// RackKey is the key of the rack that the driver should assume the identity of.
+	RackKey rack.Key `json:"rack_key"`
+	// ClusterKey is the key of the current cluster.
+	ClusterKey uuid.UUID `json:"cluster_key"`
+	// Integrations define which device integrations are enabled.
+	Integrations []string `json:"integrations"`
+	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
+	// communication. Not required if the CA is universally recognized or already
+	// installed on the users' system.
+	CACertPath string `json:"ca_cert_path"`
+	// ClientCertFile sets the path to the client cert file to use for authenticated/
+	// encrypted communication.
+	ClientCertFile string `json:"client_cert_file"`
+	// ClientKeyFile sets the secret key file used for authenticated/encrypted communication
+	// between the driver and cluster.
+	ClientKeyFile string `json:"client_key_file"`
+	// Username sets the username to authenticate to the cluster with.
+	Username string `json:"username"`
+	// Password sets the password to authenticate to the cluster with.
+	Password string `json:"password"`
+	// Debug sets whether to enable debug logging.
+	Debug *bool `json:"debug"`
+	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
+	// successfully before timing out and returning a failed startup error.
+	StartTimeout time.Duration `json:"start_timeout"`
+	// ParentDirname is the parent directory in which the driver will create a 'driver'
+	// directory to extract and execute the driver binary and extract configuration files
+	// into.
+	ParentDirname string `json:"parent_dirname"`
 }
 
 func (c Config) format() map[string]any {
@@ -94,6 +113,7 @@ func (c Config) Override(other Config) Config {
 	c.Password = override.String(c.Password, other.Password)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
+	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
 	return c
 }
 
@@ -109,6 +129,7 @@ func (c Config) Validate() error {
 	}
 	validate.NotEmptyString(v, "address", c.Address)
 	validate.NotNil(v, "debug", c.Debug)
+	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
 	return v.Error()
 }
 

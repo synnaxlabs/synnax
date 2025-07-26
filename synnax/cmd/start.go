@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 
 	"github.com/samber/lo"
@@ -148,6 +149,12 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
+		workDir, err := resolveWorkDir()
+		if err != nil {
+			return errors.Wrapf(err, "failed to resolve working directory")
+		}
+		ins.L.Info("using working directory", zap.String("dir", workDir))
+
 		if storageLayer, err = storage.Open(ctx, storage.Config{
 			Instrumentation: ins.Child("storage"),
 			InMemory:        config.Bool(memBacked),
@@ -267,6 +274,7 @@ func start(cmd *cobra.Command) {
 				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
 				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
 				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:   workDir,
 			},
 		); !ok(err, embeddedDriver) {
 			return err
@@ -299,4 +307,12 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 	configureStartFlags()
 	bindFlags(startCmd)
+}
+
+func resolveWorkDir() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
 }

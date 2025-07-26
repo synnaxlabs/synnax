@@ -12,7 +12,6 @@ import { type FC } from "react";
 
 import pre from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
-import Summary from "@/components/details/Summary.astro";
 import table from "@/components/Table.astro";
 
 interface TextFactoryProps {
@@ -47,5 +46,4 @@ export const mdxOverrides = {
   h2: textFactory({ level: "h2", includeAnchor: true }),
   h3: textFactory({ level: "h3", includeAnchor: true }),
   details: Details,
-  summary: Summary,
 };
