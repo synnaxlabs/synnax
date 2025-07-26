@@ -209,7 +209,7 @@ export const Core = <
     <Align.Space
       className={CSS(className, CSS.BE("list", "container"))}
       ref={ref}
-      size={0}
+      gap={0}
       {...rest}
     >
       {data.length === 0 ? (

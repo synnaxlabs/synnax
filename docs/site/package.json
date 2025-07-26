@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "tsc --noEmit && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "algolia": "node ./src/util/algoliasearch.js",

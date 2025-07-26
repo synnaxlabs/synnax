@@ -94,13 +94,13 @@ export const Main = (): ReactElement => (
     <Layout.Modals />
     <Align.Space
       x
-      size="tiny"
+      gap="tiny"
       grow
       style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
     >
       <Nav.Left />
-      <Align.Space size="tiny" grow style={{ width: 0 }}>
-        <Align.Space x size="tiny" grow style={{ height: 0 }}>
+      <Align.Space gap="tiny" grow style={{ width: 0 }}>
+        <Align.Space x gap="tiny" grow style={{ height: 0 }}>
           <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
           <Mosaic />
         </Align.Space>

@@ -106,7 +106,7 @@ const Internal = <
           align="stretch"
           justify="center"
           grow
-          size="large"
+          gap="large"
           style={{ padding: "5rem" }}
         >
           {isNameStep ? (
@@ -130,7 +130,7 @@ const Internal = <
                 channels associated with this device. We've given you some suggestions
                 below.
               </Text.Text>
-              <Align.Space size="small">
+              <Align.Space gap="small">
                 <Form.TextField
                   autoFocus
                   label="Identifier"

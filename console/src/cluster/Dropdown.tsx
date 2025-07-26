@@ -137,8 +137,8 @@ export const List = (): ReactElement => {
 
   return (
     <Align.Pack className={CSS.B("cluster-list")} y>
-      <Align.Pack x justify="spaceBetween" size="large" grow>
-        <Header.Header grow bordered borderShade={5} size="small">
+      <Align.Pack x justify="spaceBetween" gap="large" grow>
+        <Header.Header grow bordered borderShade={5} gap="small">
           <Header.Title level="h5" startIcon={<Icon.Cluster />}>
             Clusters
           </Header.Title>
@@ -146,7 +146,7 @@ export const List = (): ReactElement => {
         <Button.Button
           variant="filled"
           size="large"
-          iconSpacing="small"
+          gap="small"
           startIcon={<Icon.Connect />}
           onClick={() => placeLayout(CONNECT_LAYOUT)}
           className={CSS.B("cluster-list-add")}
@@ -200,7 +200,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
       align="center"
       {...rest}
     >
-      <Align.Space y justify="spaceBetween" size="tiny" grow>
+      <Align.Space y justify="spaceBetween" gap="tiny" grow>
         <Text.MaybeEditable
           level="p"
           id={`cluster-dropdown-${rest.entry.key}`}
@@ -244,7 +244,7 @@ export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElem
       style={{ height: "100%", position: "relative", ...style }}
       {...rest}
     >
-      <Align.Center y style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} gap="small">
         <Text.Text level="p">No cluster connected.</Text.Text>
         <Text.Link level="p" onClick={handleCluster}>
           Connect a cluster

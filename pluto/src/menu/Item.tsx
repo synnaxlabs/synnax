@@ -28,13 +28,7 @@ export interface ItemProps extends Button.ButtonProps, MenuItemExtraProps {}
 export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const {
-    onClick: ctxOnClick,
-    selected,
-    level = "p",
-    iconSpacing,
-    shade,
-  } = useContext();
+  const { onClick: ctxOnClick, selected, level = "p", gap, shade } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -52,10 +46,11 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       shade={shade}
-      size={size ?? iconSpacing}
+      size={size}
+      gap={gap}
       endIcon={
         trigger && (
-          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x size="tiny">
+          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x gap="tiny">
             <TriggersText level={level} trigger={trigger} />
           </Align.Space>
         )
@@ -69,7 +64,7 @@ export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
 export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, iconSpacing, shade } = useContext();
+  const { onClick: ctxOnClick, selected, shade } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -84,7 +79,7 @@ export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement 
       onClick={handleClick}
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
-      size={size ?? iconSpacing}
+      size={size}
       shade={props.shade ?? shade}
     />
   );
@@ -95,13 +90,7 @@ export interface ItemLinkProps extends Button.LinkProps, MenuItemExtraProps {}
 export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const {
-    onClick: ctxOnClick,
-    selected,
-    level = "p",
-    iconSpacing,
-    shade,
-  } = useContext();
+  const { onClick: ctxOnClick, selected, level = "p", gap, shade } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -119,10 +108,11 @@ export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement 
       variant="text"
       shade={shade}
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
-      size={size ?? iconSpacing}
+      size={size}
+      gap={gap}
       endIcon={
         trigger && (
-          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x size="tiny">
+          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x gap="tiny">
             <TriggersText level={level} trigger={trigger} />
           </Align.Space>
         )
