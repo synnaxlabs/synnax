@@ -25,7 +25,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   });
   return (
     <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5}>
+      <Header.Header level="h4" bordered={false} borderShade={5} padded>
         <Header.Title shade={11} weight={450}>
           Child Ranges
         </Header.Title>

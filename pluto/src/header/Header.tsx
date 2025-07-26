@@ -19,6 +19,7 @@ export interface HeaderProps extends Omit<Align.SpaceProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
+  padded?: boolean;
 }
 
 export interface ContextValue {
@@ -44,6 +45,7 @@ export const Header = ({
   className,
   level = "h1",
   divided = false,
+  padded,
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
@@ -54,7 +56,7 @@ export const Header = ({
       className={CSS(
         CSS.B("header"),
         CSS.bordered("bottom"),
-        CSS.size(Text.LEVEL_COMPONENT_SIZES[level]),
+        padded && CSS.M(`padded-${Text.LEVEL_COMPONENT_SIZES[level]}`),
         divided && CSS.BM("header", "divided"),
         className,
       )}

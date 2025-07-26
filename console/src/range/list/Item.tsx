@@ -97,7 +97,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
             <Ranger.Breadcrumb name={name} parent={parent} />
           </Align.Space>
         </Align.Space>
-        <Align.Space x>
+        <Align.Space x align="center">
           <Tag.Tags>
             {labels?.map(({ key, name, color }) => (
               <Tag.Tag key={key} color={color} size="small" shade={9}>

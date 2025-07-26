@@ -12,6 +12,7 @@ import "@/range/Toolbar.css";
 import { ranger } from "@synnaxlabs/client";
 import {
   Align,
+  Button,
   Component,
   Haul,
   Icon,
@@ -176,20 +177,14 @@ const Content = (): ReactElement => {
     <Align.Space empty style={{ height: "100%" }}>
       <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Toolbar.Actions>
-          {[
-            {
-              key: "create",
-              children: <Icon.Add />,
-              onClick: () => placeLayout(CREATE_LAYOUT),
-            },
-            {
-              key: "explorer",
-              children: <Icon.Explore />,
-              onClick: () => placeLayout(EXPLORER_LAYOUT),
-            },
-          ]}
-        </Toolbar.Actions>
+        <Align.Pack>
+          <Button.Icon onClick={() => placeLayout(CREATE_LAYOUT)} variant="outlined">
+            <Icon.Add />
+          </Button.Icon>
+          <Button.Icon onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
+            <Icon.Explore />
+          </Button.Icon>
+        </Align.Pack>
       </Toolbar.Header>
       <List />
     </Align.Space>

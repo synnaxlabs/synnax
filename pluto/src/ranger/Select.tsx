@@ -12,96 +12,14 @@ import "@/ranger/Select.css";
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Component } from "@/component";
-import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { Input } from "@/input";
 import { List } from "@/list";
-import { Ranger } from "@/ranger";
-import { Breadcrumb } from "@/ranger/Breadcrumb";
+import { ListItem } from "@/ranger/ListItem";
 import { type ListParams, useList } from "@/ranger/queries";
-import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
-import { Tag } from "@/tag";
-
-interface ListItemProps
-  extends List.ItemProps<ranger.Key>,
-    Pick<TimeRangeChipProps, "showAgo" | "showSpan"> {
-  showParent?: boolean;
-  showLabels?: boolean;
-  starred?: boolean;
-  onStar?: (starred: boolean) => void;
-  onStageChange?: (stage: ranger.Stage) => void;
-}
-
-export const ListItem = ({
-  itemKey,
-  showParent = true,
-  showLabels = true,
-  starred,
-  onStar,
-  showAgo,
-  showSpan,
-  onStageChange,
-  ...rest
-}: ListItemProps): ReactElement | null => {
-  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
-  if (item == null) return null;
-  const { name, timeRange, parent, labels, stage } = item;
-  const { onSelect, selected } = Select.useItemState(itemKey);
-
-  return (
-    <List.Item
-      className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
-      itemKey={itemKey}
-      justify="spaceBetween"
-      selected={selected}
-      {...rest}
-    >
-      <Align.Space x size="tiny" align="center">
-        <Input.Checkbox
-          value={selected}
-          onChange={() => onSelect?.()}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        />
-        <Align.Space x align="center" empty>
-          <Ranger.SelectStage
-            value={stage}
-            allowNone={false}
-            onChange={(v: ranger.Stage | null) => v != null && onStageChange?.(v)}
-            onClick={(e) => e.stopPropagation()}
-            variant="floating"
-            location="bottom"
-            triggerProps={{ iconOnly: true, variant: "text" }}
-          />
-          <Breadcrumb name={name} parent={parent} showParent={showParent} />
-        </Align.Space>
-      </Align.Space>
-      <Align.Space x>
-        {showLabels && (
-          <Tag.Tags>
-            {labels?.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small" shade={9}>
-                {name}
-              </Tag.Tag>
-            ))}
-          </Tag.Tags>
-        )}
-        <TimeRangeChip
-          level="small"
-          timeRange={timeRange}
-          showAgo={showAgo}
-          showSpan={showSpan}
-        />
-      </Align.Space>
-    </List.Item>
-  );
-};
 
 const listItemRenderProp = Component.renderProp(ListItem);
 

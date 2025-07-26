@@ -118,7 +118,7 @@ export const Annotations = ({ rangeKey }: AnnotationsProps) => {
 
   return (
     <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5}>
+      <Header.Header level="h4" bordered={false} borderShade={5} padded>
         <Header.Title shade={11} weight={450}>
           Annotations
         </Header.Title>
