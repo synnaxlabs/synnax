@@ -363,6 +363,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			go func() {
+				defer GinkgoRecover()
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				close(done)
 			}()

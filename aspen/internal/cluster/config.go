@@ -55,38 +55,38 @@ type Config struct {
 var _ config.Config[Config] = Config{}
 
 // Override implements config.Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
-	cfg.Codec = override.Nil(cfg.Codec, other.Codec)
-	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
-	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
-	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.Gossip = cfg.Gossip.Override(other.Gossip)
-	cfg.Pledge = cfg.Pledge.Override(other.Pledge)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.HostAddress = override.String(c.HostAddress, other.HostAddress)
+	c.Codec = override.Nil(c.Codec, other.Codec)
+	c.StorageFlushInterval = override.Numeric(c.StorageFlushInterval, other.StorageFlushInterval)
+	c.StorageKey = override.Slice(c.StorageKey, other.StorageKey)
+	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Gossip = c.Gossip.Override(other.Gossip)
+	c.Pledge = c.Pledge.Override(other.Pledge)
+	return c
 }
 
 // Validate implements config.Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("aspen.cluster")
-	validate.NotEmptyString(v, "host_address", cfg.HostAddress)
-	validate.NotNil(v, "codec", cfg.Codec)
-	validate.NonZero(v, "storage_flush_interval", cfg.StorageFlushInterval)
-	validate.NotEmptySlice(v, "local_key", cfg.StorageKey)
+	validate.NotEmptyString(v, "host_address", c.HostAddress)
+	validate.NotNil(v, "codec", c.Codec)
+	validate.NonZero(v, "storage_flush_interval", c.StorageFlushInterval)
+	validate.NotEmptySlice(v, "local_key", c.StorageKey)
 	return v.Error()
 }
 
 // Report implements the alamos.ReportProvider interface.
-func (cfg Config) Report() alamos.Report {
+func (c Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	if cfg.Storage != nil {
-		report["storage"] = cfg.Storage.Report()
+	if c.Storage != nil {
+		report["storage"] = c.Storage.Report()
 	} else {
 		report["storage"] = "not provided"
 	}
-	report["storage_key"] = string(cfg.StorageKey)
-	report["storage_flush_interval"] = cfg.StorageFlushInterval
+	report["storage_key"] = string(c.StorageKey)
+	report["storage_flush_interval"] = c.StorageFlushInterval
 	return report
 }
 

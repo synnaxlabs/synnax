@@ -11,6 +11,7 @@ package alamos
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -87,8 +88,8 @@ type Tracer struct {
 // NewTracer initializes a new devTracer using the given configuration. If no configuration
 // is provided, NewTracer will return a validation error. If you want a no-op devTracer,
 // simply use a nil pointer.
-func NewTracer(configs ...TracingConfig) (*Tracer, error) {
-	cfg, err := config.New(DefaultTracingConfig, configs...)
+func NewTracer(cfgs ...TracingConfig) (*Tracer, error) {
+	cfg, err := config.New(DefaultTracingConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

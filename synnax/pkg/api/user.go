@@ -64,8 +64,8 @@ type (
 
 // Create registers the new users with the provided credentials. If successful, Create
 // returns a slice of the new users.
-func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{user.OntologyID(uuid.Nil)},
@@ -73,11 +73,11 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 		return UserCreateResponse{}, err
 	}
 	var res UserCreateResponse
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.internal.NewWriter(tx)
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		newUsers := make([]user.User, len(req.Users))
 		for i, u := range req.Users {
-			if err := svc.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
+			if err := s.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
 				return err
 			}
 			newUsers[i].Username = u.Username
@@ -89,7 +89,7 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 			}
 
 			// Let the user update information about themselves
-			if err := svc.access.NewWriter(tx).Create(ctx, &rbac.Policy{
+			if err := s.access.NewWriter(tx).Create(ctx, &rbac.Policy{
 				Subjects: []ontology.ID{user.OntologyID(u.Key)},
 				Actions:  []access.Action{access.Update},
 				Objects:  []ontology.ID{user.OntologyID(u.Key)},

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
@@ -178,8 +178,8 @@ var legacyChannelNames = map[string]string{
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
 // must be closed after use.
-func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*Tracker, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if err = gorp.NewRetrieve[task.Key, task.Status]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
-				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 				return nil, err
 			}
 			rck.TaskStatuses[tsk.Key] = taskState
@@ -240,7 +240,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		if err = gorp.NewRetrieve[string, device.Status]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
-			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 			return nil, err
 		}
 		t.mu.Devices[dev.Key] = deviceState
@@ -466,7 +466,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			}
 			t.stateWriter.Inlet() <- framer.WriterRequest{
 				Command: writer.Write,
-				Frame:   core.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
+				Frame:   frame.NewUnary(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 
 	}
 
-	fr := core.Frame{}
+	fr := frame.Frame{}
 	if len(rackStatuses) > 0 {
 		fr = fr.Append(t.rackStateChannelKey, telem.NewSeriesStaticJSONV(rackStatuses...))
 	}

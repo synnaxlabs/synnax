@@ -21,12 +21,7 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 	return a, b
 }
 
-func MustSucceed3[A, B, C any](a A, b B, c C, err error) (A, B, C) {
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return a, b, c
-}
-
-func MustSucceed4[A, B, C, D any](a A, b B, c C, d D, err error) (A, B, C, D) {
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return a, b, c, d
+func MustFail(value any, err error) error {
+	ExpectWithOffset(1, value).To(BeZero())
+	return err
 }

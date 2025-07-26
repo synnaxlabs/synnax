@@ -10,12 +10,13 @@
 package io
 
 import (
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"os"
-	"sync"
 )
 
 var _ = Describe("Counter", func() {
@@ -81,8 +82,8 @@ var _ = Describe("Counter", func() {
 
 				wg.Add(1000)
 				for i := range 1000 {
-					i := i
 					go func() {
+						defer GinkgoRecover()
 						defer wg.Done()
 						val, err := c.Add(1)
 						keys[i] = val

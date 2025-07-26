@@ -11,9 +11,10 @@ package fmock
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"sync"
 )
 
 // Network is a mock network implementation that is ideal for in-memory testing
@@ -29,7 +30,7 @@ type Network[RQ, RS freighter.Payload] struct {
 	}
 }
 
-// NetworkEntry is a single entry in the network's history. NetworkEntry
+// NetworkEntry is a single entry in the network's history.
 type NetworkEntry[RQ, RS freighter.Payload] struct {
 	Host     address.Address
 	Target   address.Address
@@ -39,12 +40,13 @@ type NetworkEntry[RQ, RS freighter.Payload] struct {
 }
 
 // UnaryServer returns a new freighter.Unary hosted at the given address. This transport
-// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP is called.
+// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP
+// is called.
 func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pHost := n.parseTarget(host)
-	s := &UnaryServer[RQ, RS]{Network: n, Address: pHost}
+	s := &UnaryServer[RQ, RS]{Address: pHost}
 	n.mu.unaryRoutes[pHost] = s
 	return s
 }
@@ -52,38 +54,42 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return &UnaryClient[RQ, RS]{Network: n}
+	return &UnaryClient[RQ, RS]{network: n}
 }
 
-func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServer[RQ, RS], bool) {
+func (n *Network[RQ, RS]) resolveUnaryTarget(
+	target address.Address,
+) (*UnaryServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.unaryRoutes[target]
 	return t, ok
 }
 
-// StreamServer returns a new freighter.Stream hosted at the given address.
-// This transport is not reachable by other hosts in the network until
+// StreamServer returns a new freighter.Stream hosted at the given address. This
+// transport is not reachable by other hosts in the network until
 // freighter.Stream.ServeHTTP is called.
-func (n *Network[RQ, RS]) StreamServer(host address.Address, buffer ...int) *StreamServer[RQ, RS] {
+func (n *Network[RQ, RS]) StreamServer(
+	host address.Address,
+	buffers ...int,
+) *StreamServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
-	b, _ := parseBuffers(buffer)
-	s := &StreamServer[RQ, RS]{Reporter: reporter, BufferSize: b, Address: addr}
+	b, _ := parseBuffers(buffers)
+	s := &StreamServer[RQ, RS]{Reporter: reporter, bufferSize: b, Address: addr}
 	n.mu.streamRoutes[addr] = s
 	return s
 }
 
 func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
 	b, _ := parseBuffers(buffers)
-	return &StreamClient[RQ, RS]{
-		Network:    n,
-		BufferSize: b,
-	}
+	return &StreamClient[RQ, RS]{network: n, bufferSize: b}
 }
 
-func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamServer[RQ, RS], bool) {
+func (n *Network[RQ, RS]) resolveStreamTarget(
+	target address.Address,
+) (*StreamServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.streamRoutes[target]
@@ -92,12 +98,19 @@ func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamSe
 
 func (n *Network[RQ, RS]) parseTarget(target address.Address) address.Address {
 	if target == "" {
-		return address.Address(fmt.Sprintf("localhost:%v", len(n.mu.unaryRoutes)+len(n.mu.streamRoutes)))
+		return address.Address(
+			fmt.Sprintf("localhost:%v", len(n.mu.unaryRoutes)+len(n.mu.streamRoutes)),
+		)
 	}
 	return target
 }
 
-func (n *Network[RQ, RS]) appendEntry(target address.Address, req RQ, res RS, err error) {
+func (n *Network[RQ, RS]) appendEntry(
+	target address.Address,
+	req RQ,
+	res RS,
+	err error,
+) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.Entries = append(n.Entries, NetworkEntry[RQ, RS]{

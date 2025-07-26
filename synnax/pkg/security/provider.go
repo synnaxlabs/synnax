@@ -78,8 +78,8 @@ func (s ProviderConfig) Validate() error {
 }
 
 // NewProvider opens a new security Provider using the given configuration.
-func NewProvider(configs ...ProviderConfig) (Provider, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func NewProvider(cfgs ...ProviderConfig) (Provider, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

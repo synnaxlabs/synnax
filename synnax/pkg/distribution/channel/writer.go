@@ -51,9 +51,7 @@ type CreateOptions struct {
 type CreateOption func(*CreateOptions)
 
 func RetrieveIfNameExists(v bool) CreateOption {
-	return func(o *CreateOptions) {
-		o.RetrieveIfNameExists = v
-	}
+	return func(o *CreateOptions) { o.RetrieveIfNameExists = v }
 }
 
 func OverwriteIfNameExistsAndDifferentProperties() CreateOption {

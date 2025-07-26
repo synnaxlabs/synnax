@@ -17,40 +17,40 @@ import (
 
 type BindableTransport interface {
 	freighter.Transport
-	BindTo(app *fiber.App)
-}
-
-var streamReporter = freighter.Reporter{
-	Protocol:  "websocket",
-	Encodings: httputil.SupportedContentTypes(),
-}
-
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
+	BindTo(*fiber.App)
 }
 
 type serverOptions struct {
-	internal      bool
-	codecResolver httputil.CodecResolver
+	reqCodecResolver              httputil.CodecResolver
+	resCodecResolver              httputil.CodecResolver
+	supportedResponseContentTypes []string
 }
 
 type ServerOption func(*serverOptions)
 
 func WithCodecResolver(r httputil.CodecResolver) ServerOption {
 	return func(o *serverOptions) {
-		o.codecResolver = r
+		o.reqCodecResolver = r
+		o.resCodecResolver = r
 	}
 }
 
-func InternalRoute() ServerOption {
+func WithResponseCodecResolver(
+	resolver httputil.CodecResolver,
+	supportedContentTypes []string,
+) ServerOption {
 	return func(o *serverOptions) {
-		o.internal = true
+		o.resCodecResolver = resolver
+		o.supportedResponseContentTypes = supportedContentTypes
 	}
 }
 
-func newServerOptions(opts []ServerOption) (so serverOptions) {
-	so.codecResolver = httputil.ResolveCodec
+func newServerOptions(opts []ServerOption) serverOptions {
+	so := serverOptions{
+		reqCodecResolver:              httputil.ResolveCodec,
+		resCodecResolver:              httputil.ResolveCodec,
+		supportedResponseContentTypes: httputil.SupportedContentTypes(),
+	}
 	for _, opt := range opts {
 		opt(&so)
 	}

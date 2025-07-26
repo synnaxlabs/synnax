@@ -50,7 +50,7 @@ def parse_channel_dio(i, product: dict):
     line_lower_candidates = set([x["lower"] for x in lines_candidates])
     line_upper_candidates = set([x["upper"] for x in lines_candidates])
 
-    # For upper, get teh largest value
+    # For upper, get the largest value
     port_upper = max(power_upper_candidates, default=0)
     port_lower = min(port_lower_candidates, default=0)
     line_upper = max(line_upper_candidates, default=0)

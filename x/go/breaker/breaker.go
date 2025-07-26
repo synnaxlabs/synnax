@@ -70,8 +70,8 @@ type Breaker struct {
 
 // NewBreaker creates a new breaker on the given context and configuration. If the context
 // is canceled while the breaker is waiting, the breaker stops waiting immediately.
-func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+func NewBreaker(ctx context.Context, cfgs ...Config) (Breaker, error) {
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return Breaker{}, err
 	}

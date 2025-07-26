@@ -42,8 +42,8 @@ func (c Config) Validate() error { return nil }
 
 func (c Config) Override(other Config) Config { return c }
 
-func New(configs ...Config) (*Index, error) {
-	cfg, err := config.New(Config{}, configs...)
+func New(cfgs ...Config) (*Index, error) {
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

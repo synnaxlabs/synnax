@@ -94,8 +94,8 @@ const localKeyCounterSuffix = ".rack.counter"
 
 const groupName = "Devices"
 
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

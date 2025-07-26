@@ -194,10 +194,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   private buildURL(target: string, ctx: Context): string {
     const qs = buildQueryString(
-      {
-        [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-        ...ctx.params,
-      },
+      { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType, ...ctx.params },
       FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;

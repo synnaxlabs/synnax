@@ -207,11 +207,11 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+								frame = frame.Append(ch, telem.NewSeries(indexData))
 							}
 						}
 					} else {
-						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						indexDataSeries := telem.NewSeries(indexData)
 						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
@@ -293,7 +293,7 @@ func BenchRead(
 	}
 
 	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
-		ControlSubject: control.Subject{Key: fmt.Sprintf("bench_reader")},
+		ControlSubject: control.Subject{Key: "bench_reader"},
 		Start:          1 * telem.SecondTS,
 		Channels:       keys,
 	})
@@ -325,11 +325,11 @@ func BenchRead(
 		if k == 0 {
 			for _, ch := range keys {
 				if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-					frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+					frame = frame.Append(ch, telem.NewSeries(indexData))
 				}
 			}
 		} else {
-			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+			indexDataSeries := telem.NewSeries(indexData)
 			for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 				if l > cfg.numIndexChannels {
 					break
@@ -463,7 +463,7 @@ func BenchStream(
 
 				s, err = db.NewStreamer(ctx, cesium.StreamerConfig{Channels: writerChannels})
 				if err != nil {
-					b.Errorf("Steramer open error")
+					b.Errorf("Streamer open error")
 				}
 
 				iStream, oStream := confluence.Attach(s, 1)
@@ -492,11 +492,11 @@ func BenchStream(
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+								frame = frame.Append(ch, telem.NewSeries(indexData))
 							}
 						}
 					} else {
-						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						indexDataSeries := telem.NewSeries(indexData)
 						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break

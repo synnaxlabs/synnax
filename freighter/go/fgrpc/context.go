@@ -44,8 +44,8 @@ func parseServerContext(
 		return oCtx
 	}
 	if tlsAuth, ok := p.AuthInfo.(credentials.TLSInfo); ok {
-		oCtx.Sec.TLS.Used = true
-		oCtx.Sec.TLS.ConnectionState = tlsAuth.State
+		oCtx.SecurityInfo.TLS.Used = true
+		oCtx.SecurityInfo.TLS.ConnectionState = tlsAuth.State
 	}
 	grpcMD, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

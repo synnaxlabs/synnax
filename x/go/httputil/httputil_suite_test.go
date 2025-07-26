@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHttputil(t *testing.T) {
+func TestHTTPUtil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Httputil Suite")
+	RunSpecs(t, "HTTP Util Suite")
 }

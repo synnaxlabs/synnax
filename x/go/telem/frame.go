@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
@@ -47,6 +48,8 @@ type Frame[K types.Numeric] struct {
 		bit.Mask128
 	}
 }
+
+var _ binary.CSVMarshaler = Frame[int]{}
 
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
@@ -140,7 +143,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
-// RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
+// RawKeys returns the raw slice of keys in the frame. This includes any keys that have
 // been filtered out by FilterKeys. To check whether an index in this slice has been
 // filtered out, use ShouldExcludeRaw.
 //
@@ -409,7 +412,7 @@ func (f Frame[K]) Get(key K) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// Append adds a new key-series pair to the end of teh frame, returning the updated
+// Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)
@@ -496,4 +499,33 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 		}
 	}
 	return Frame[K]{keys: fKeys, series: fSeries}
+}
+
+func (f Frame[K]) getLargestSeriesLength() int64 {
+	var length int64
+	for s := range f.Series() {
+		if s.Len() > length {
+			length = s.Len()
+		}
+	}
+	return length
+}
+
+// MarshalCSV converts the frame into a CSV representation. Each series corresponds to a
+// different column in the CSV. If the keys are not unique, the series will be repeated
+// for each occurrence of the key.
+func (f Frame[K]) MarshalCSV() ([][]string, error) {
+	rowCount := f.getLargestSeriesLength()
+	records := make([][]string, rowCount)
+	for s := range f.Series() {
+		seriesAsStrings := s.AsCSVStrings()
+		for i := range int(rowCount) {
+			if i < len(seriesAsStrings) {
+				records[i] = append(records[i], seriesAsStrings[i])
+			} else {
+				records[i] = append(records[i], "")
+			}
+		}
+	}
+	return records, nil
 }

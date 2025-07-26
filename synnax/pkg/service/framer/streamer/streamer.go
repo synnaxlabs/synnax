@@ -43,22 +43,22 @@ var (
 )
 
 // Validate implements config.Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("streamer.config")
-	validate.GreaterThanEq(v, "downsample_factor", cfg.DownsampleFactor, 0)
+	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
 	return v.Error()
 }
 
 // Override implements config.Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.Keys = override.Slice(cfg.Keys, other.Keys)
-	cfg.SendOpenAck = other.SendOpenAck
-	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.SendOpenAck = other.SendOpenAck
+	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
+	return c
 }
 
-func (cfg Config) distribution() framer.StreamerConfig {
-	return framer.StreamerConfig{Keys: cfg.Keys, SendOpenAck: &cfg.SendOpenAck}
+func (c Config) distribution() framer.StreamerConfig {
+	return framer.StreamerConfig{Keys: c.Keys, SendOpenAck: &c.SendOpenAck}
 }
 
 // ServiceConfig is the configuration for opening a new streamer service.

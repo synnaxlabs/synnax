@@ -117,7 +117,7 @@ func Serve(cfgs ...Config) (*Server, error) {
 	return s, s.start()
 }
 
-func (s *Server) start() (err error) {
+func (s *Server) start() error {
 	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
 	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
@@ -193,12 +193,11 @@ func (s *Server) startBranches(
 	for i, b := range branches {
 		listeners[i] = mux.Match(b.Routing().Matchers...)
 	}
-	bc := s.baseBranchContext()
+	bCtx := s.baseBranchContext()
 	for i, b := range branches {
-		b, i := b, i
 		sCtx.Go(func(context.Context) error {
-			bc.Lis = listeners[i]
-			return filterCloserError(b.Serve(bc))
+			bCtx.Lis = listeners[i]
+			return filterCloserError(b.Serve(bCtx))
 		}, signal.WithKey(b.Key()))
 	}
 }
