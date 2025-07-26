@@ -35,9 +35,12 @@ func WithCodecResolver(r httputil.CodecResolver) ServerOption {
 	}
 }
 
-func WithResponseCodecResolver(r httputil.CodecResolver, supportedContentTypes []string) ServerOption {
+func WithResponseCodecResolver(
+	resolver httputil.CodecResolver,
+	supportedContentTypes []string,
+) ServerOption {
 	return func(o *serverOptions) {
-		o.resCodecResolver = r
+		o.resCodecResolver = resolver
 		o.supportedResponseContentTypes = supportedContentTypes
 	}
 }

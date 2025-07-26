@@ -188,6 +188,7 @@ func (l *Layer) BindTo(t Transport) {
 		insecureMiddleware,
 		t.AuthLogin,
 		t.ConnectivityCheck,
+		t.FrameRead,
 	)
 
 	freighter.UseOnAll(

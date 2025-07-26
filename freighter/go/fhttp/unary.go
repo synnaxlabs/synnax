@@ -66,12 +66,6 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	if err != nil {
 		return errors.Combine(fiber.ErrUnsupportedMediaType, err)
 	}
-	resContentType := fiberCtx.Accepts(us.supportedResponseContentTypes...)
-	resCodec, err := us.resCodecResolver(resContentType)
-	if err != nil {
-		return errors.Combine(fiber.ErrNotAcceptable, err)
-	}
-	fiberCtx.Set(fiber.HeaderContentType, resCodec.ContentType())
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		parseRequestCtx(fiberCtx.Context(), fiberCtx, address.Address(fiberCtx.Path())),
@@ -98,10 +92,10 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	setResponseCtx(fiberCtx, oMD)
 	fErr := errors.Encode(fiberCtx.Context(), err, us.internal)
 	if fErr.Type == errors.TypeNil {
-		return encodeAndWrite(fiberCtx, resCodec, res)
+		return us.encodeAndWrite(fiberCtx, res)
 	}
 	fiberCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fiberCtx, resCodec, fErr)
+	return us.encodeAndWrite(fiberCtx, fErr)
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
@@ -175,7 +169,16 @@ func (uc *unaryClient[RQ, RS]) Send(
 	return res, err
 }
 
-func encodeAndWrite(ctx *fiber.Ctx, codec httputil.Codec, v any) error {
+func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
+	if reader, ok := v.(io.Reader); ok {
+		return ctx.SendStream(reader)
+	}
+	resContentType := ctx.Accepts(us.supportedResponseContentTypes...)
+	resCodec, err := us.resCodecResolver(resContentType)
+	if err != nil {
+		return errors.Combine(fiber.ErrNotAcceptable, err)
+	}
+	ctx.Set(fiber.HeaderContentType, resCodec.ContentType())
 	if uReader, ok := v.(freighter.UnaryReadable); ok {
 		r, w := io.Pipe()
 		go func() {
@@ -185,7 +188,7 @@ func encodeAndWrite(ctx *fiber.Ctx, codec httputil.Codec, v any) error {
 					w.CloseWithError(err)
 					return
 				}
-				if err := codec.EncodeStream(ctx.Context(), w, v); err != nil {
+				if err := resCodec.EncodeStream(ctx.Context(), w, v); err != nil {
 					w.CloseWithError(err)
 					return
 				}
@@ -196,7 +199,7 @@ func encodeAndWrite(ctx *fiber.Ctx, codec httputil.Codec, v any) error {
 	if r, ok := v.(io.Reader); ok {
 		return ctx.SendStream(r)
 	}
-	b, err := codec.Encode(ctx.Context(), v)
+	b, err := resCodec.Encode(ctx.Context(), v)
 	if err != nil {
 		return err
 	}

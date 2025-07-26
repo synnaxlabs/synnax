@@ -105,6 +105,20 @@ type FrameReadMetadataWrite struct {
 	ChannelNames map[channel.Key]string
 }
 
+var _ xbinary.CSVMarshaler = FrameReadMetadataWrite{}
+
+func (m FrameReadMetadataWrite) MarshalCSV() ([][]string, error) {
+	records := make([]string, len(m.Channels))
+	for i, ch := range m.Channels {
+		if name, ok := m.ChannelNames[ch.Key()]; ok {
+			records[i] = name
+		} else {
+			records[i] = ch.Name
+		}
+	}
+	return [][]string{records}, nil
+}
+
 func (fs *FrameService) Read(
 	ctx context.Context,
 	req FrameReadRequest,
@@ -704,4 +718,38 @@ func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
 		}
 		return httputil.ResolveCodec(contentType)
 	}
+}
+
+type readCSVFramerCodec struct {
+	codec xbinary.CSVCodec
+}
+
+var _ httputil.Codec = &readCSVFramerCodec{}
+
+func (c *readCSVFramerCodec) ContentType() string { return "text/csv" }
+
+func (c *readCSVFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	if err := c.EncodeStream(ctx, buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (c *readCSVFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	switch v := value.(type) {
+	case FrameReadMetadataWrite, Frame:
+		return c.codec.EncodeStream(ctx, w, v)
+	case error:
+		return v
+	}
+	panic("whoops")
+}
+
+func (c *readCSVFramerCodec) Decode(context.Context, []byte, any) error {
+	panic("not implemented")
+}
+
+func (c *readCSVFramerCodec) DecodeStream(context.Context, io.Reader, any) error {
+	panic("not implemented")
 }

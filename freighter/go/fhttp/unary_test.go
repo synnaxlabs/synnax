@@ -23,6 +23,7 @@ import (
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -111,5 +112,61 @@ var _ = Describe("Unary", func() {
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(body).To(Equal(msgpackData))
 		})
+		It("should allow for adding response content type resolvers", func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			codecResolver := httputil.CodecResolver(
+				func(contentType string) (httputil.Codec, error) {
+					if contentType == "application/x-gob" {
+						return &gobCodec{}, nil
+					}
+					return nil, errors.Newf("unsupported content type: %s", contentType)
+				},
+			)
+			server := fhttp.NewUnaryServer[TestRequest, TestRequest](router, "/", fhttp.WithResponseCodecResolver(codecResolver, []string{"application/x-gob"}))
+			server.BindHandler(func(_ context.Context, req TestRequest) (TestRequest, error) {
+				return req, nil
+			})
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/x-gob")
+			testReq := TestRequest{ID: 1, Message: "Hello, World!"}
+			jsonData := MustSucceed(json.Marshal(testReq))
+			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
+			req.ContentLength = int64(len(jsonData))
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusOK))
+			Expect(res.Header.Get("Content-Type")).To(Equal("application/x-gob"))
+			var decodedRes TestRequest
+			c := gobCodec{}
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(c.Decode(context.Background(), body, &decodedRes)).To(Succeed())
+			Expect(decodedRes).To(Equal(testReq))
+		})
+		It("should allow sending direct io.Reader as response", Focus, func() {
+			app := fiber.New(fiber.Config{DisableStartupMessage: true})
+			router := MustSucceed(fhttp.NewRouter())
+			server := fhttp.NewUnaryServer[TestRequest, io.Reader](router, "/")
+			server.BindHandler(func(_ context.Context, req TestRequest) (io.Reader, error) {
+				return bytes.NewBufferString(req.Message), nil
+			})
+			router.BindTo(app)
+			req := httptest.NewRequest("POST", "/", nil)
+			req.Header.Set("Content-Type", "application/json")
+			jsonData := MustSucceed(json.Marshal(TestRequest{ID: 1, Message: "Hello, World!"}))
+			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
+			req.ContentLength = int64(len(jsonData))
+			res := MustSucceed(app.Test(req))
+			Expect(res.StatusCode).To(Equal(fiber.StatusOK))
+			body := MustSucceed(io.ReadAll(res.Body))
+			Expect(string(body)).To(Equal("Hello, World!"))
+		})
 	})
 })
+
+type gobCodec struct{ binary.GobCodec }
+
+var _ httputil.Codec = &gobCodec{}
+
+func (t gobCodec) ContentType() string { return "application/x-gob" }

@@ -217,10 +217,13 @@ func start(cmd *cobra.Command) {
 		)
 
 		// Configure the HTTP Layer AspenTransport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{
+		r, err := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
+		if err != nil {
+			return err
+		}
 		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
 
 		// Configure the GRPC Layer AspenTransport.
