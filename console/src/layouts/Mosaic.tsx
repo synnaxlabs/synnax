@@ -15,11 +15,11 @@ import {
   Align,
   Breadcrumb,
   Button,
-  componentRenderProp,
+  Component,
+  Dialog,
   Eraser,
   Icon,
   Menu as PMenu,
-  Modal,
   Mosaic as Core,
   Nav as PNav,
   OS,
@@ -105,11 +105,12 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Modal.Dialog
-      close={handleClose}
+    <Dialog.Frame
+      onVisibleChange={handleClose}
       visible={focused}
       style={{ width: "100%", height: "100%" }}
-      offset={0}
+      modalOffset={0}
+      variant="modal"
       background={focused ? 0 : undefined}
     >
       <PNav.Bar
@@ -141,11 +142,11 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
         )}
       </PNav.Bar>
       <Portal.Out node={node} />
-    </Modal.Dialog>
+    </Dialog.Frame>
   );
 };
 
-const contextMenu = componentRenderProp(ContextMenu);
+const contextMenu = Component.renderProp(ContextMenu);
 
 interface MosaicProps {
   windowKey: string;
@@ -168,6 +169,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -189,9 +191,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         return;
       }
       tabKeys.forEach((tabKey) => {
-        const res = ontology.stringIDZ.safeParse(tabKey);
+        const res = ontology.idZ.safeParse(tabKey);
         if (res.success) {
-          const id = new ontology.ID(res.data);
+          const id = res.data;
           if (client == null) return;
           services[id.type].onMosaicDrop?.({
             client,
@@ -202,6 +204,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             placeLayout,
             addStatus,
             handleError,
+            removeLayout,
+            services,
           });
         } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });

@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
-import { ontology } from "@/ontology";
+import { type ID, idZ } from "@/ontology/payload";
 
 export const newZ = labelZ.extend({ key: keyZ.optional() });
 export interface New extends z.infer<typeof newZ> {}
@@ -24,7 +24,9 @@ const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const setReqZ = z.object({
-  id: ontology.idZ,
+  get id() {
+    return idZ;
+  },
   labels: keyZ.array(),
   replace: z.boolean().optional(),
 });
@@ -69,11 +71,7 @@ export class Writer {
     );
   }
 
-  async set(
-    id: ontology.ID,
-    labels: Key[],
-    { replace }: SetOptions = {},
-  ): Promise<void> {
+  async set(id: ID, labels: Key[], { replace }: SetOptions = {}): Promise<void> {
     await sendRequired<typeof setReqZ, typeof emptyResZ>(
       this.client,
       SET_ENDPOINT,
@@ -83,7 +81,7 @@ export class Writer {
     );
   }
 
-  async remove(id: ontology.ID, labels: Key[]): Promise<void> {
+  async remove(id: ID, labels: Key[]): Promise<void> {
     await sendRequired<typeof removeReqZ, typeof emptyResZ>(
       this.client,
       REMOVE_ENDPOINT,

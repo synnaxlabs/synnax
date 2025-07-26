@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Icon } from "@synnaxlabs/pluto";
+import { Align, Component, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
-import {
-  DigitalChannelList,
-  type NameProps,
-} from "@/hardware/ni/task/DigitalChannelList";
+import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_SCHEMAS,
@@ -56,9 +53,7 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({
-  entry: { cmdChannel, key, stateChannel },
-}: NameProps<DOChannel>) => (
+const NameComponent = ({ cmdChannel, key, stateChannel }: DOChannel) => (
   <Common.Task.WriteChannelNames
     cmdChannel={cmdChannel}
     stateChannel={stateChannel}
@@ -66,7 +61,7 @@ const NameComponent = ({
   />
 );
 
-const name = componentRenderProp(NameComponent);
+const name = Component.renderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<

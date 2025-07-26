@@ -24,6 +24,10 @@ export type Key = z.infer<typeof keyZ>;
 export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
   z.object({ task: keyZ, running: z.boolean(), data });
 
+export type StatusDetails<D extends z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<D>>
+>;
+
 export const statusZ = <D extends z.ZodType>(data: D) =>
   status.statusZ(statusDetailsZ(data));
 
@@ -123,4 +127,4 @@ export interface CommandObservable extends observe.ObservableAsyncCloseable<Comm
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const getRackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
+export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);

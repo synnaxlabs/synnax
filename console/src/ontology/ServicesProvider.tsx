@@ -20,6 +20,11 @@ export const useServices = (): Services => {
   return services;
 };
 
+export const useService = <T extends keyof Services>(service: T): Services[T] => {
+  const services = useServices();
+  return services[service];
+};
+
 export interface ServicesProviderProps extends PropsWithChildren {
   services: Services;
 }

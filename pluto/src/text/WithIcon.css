@@ -22,43 +22,43 @@
     flex-shrink: 0;
 }
 
-.pluto-text-icon--h1 svg {
+.pluto-text-icon--h1 > svg {
     width: var(--pluto-h1-size);
     min-width: var(--pluto-h1-size);
     height: var(--pluto-h1-size);
 }
 
-.pluto-text-icon--h2 svg {
+.pluto-text-icon--h2 > svg {
     width: var(--pluto-h2-size);
     min-width: var(--pluto-h2-size);
     height: var(--pluto-h2-size);
 }
 
-.pluto-text-icon--h3 svg {
+.pluto-text-icon--h3 > svg {
     width: calc(var(--pluto-h3-size) * 1.05);
     min-width: calc(var(--pluto-h3-size) * 1.05);
     height: calc(var(--pluto-h3-size) * 1.05);
 }
 
-.pluto-text-icon--h4 svg {
+.pluto-text-icon--h4 > svg {
     width: calc(var(--pluto-h4-size) * 1.05);
     min-width: calc(var(--pluto-h4-size) * 1.05);
     height: calc(var(--pluto-h4-size) * 1.05);
 }
 
-.pluto-text-icon--h5 svg {
+.pluto-text-icon--h5 > svg {
     width: calc(var(--pluto-h5-size) * 1.05);
     min-width: calc(var(--pluto-h5-size) * 1.05);
     height: calc(var(--pluto-h5-size) * 1.05);
 }
 
-.pluto-text-icon--p svg {
+.pluto-text-icon--p > svg {
     width: calc(var(--pluto-p-size) * 1.05);
     min-width: calc(var(--pluto-p-size) * 1.05);
     height: calc(var(--pluto-p-size) * 1.05);
 }
 
-.pluto-text-icon--small svg {
+.pluto-text-icon--small > svg {
     width: var(--pluto-small-size);
     min-width: var(--pluto-small-size);
     height: var(--pluto-small-size);

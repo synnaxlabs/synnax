@@ -32,7 +32,7 @@ describe("sugar", () => {
         payload: {},
       };
       const { emitted, emitter, action } = desugar(a);
-      expect(emitted).toBe(true);
+      expect(emitted).toBeTruthy();
       expect(emitter).toBe("1");
       expect(action).toEqual({
         type: "myReducer/myAction",

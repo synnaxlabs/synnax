@@ -10,8 +10,8 @@
 import { type ReactNode } from "react";
 import { z } from "zod";
 
+import { type RenderProp as BaseRenderProp } from "@/component/renderProp";
 import { type Icon } from "@/icon";
-import { type RenderProp as BaseRenderProp } from "@/util/renderProp";
 
 export const specZ = z.object({
   tabKey: z.string(),

@@ -17,8 +17,6 @@ import {
   TC_CHANNEL_TYPE,
 } from "@/hardware/labjack/task/types";
 
-const COLUMNS = [{ key: "name", name: "Name" }];
-
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
 const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
@@ -27,13 +25,12 @@ const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
   { key: TC_CHANNEL_TYPE, name: "Thermocouple" },
 ];
 
-export interface SelectInputChannelTypeFieldProps
-  extends Omit<
-    Form.DropdownButtonFieldProps<InputChannelType, InputChannelTypeEntry>,
-    "data" | "entryRenderKey" | "columns"
-  > {}
+export type SelectInputChannelTypeFieldProps = Form.SelectFieldProps<
+  InputChannelType,
+  InputChannelTypeEntry
+>;
 
-export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
+export const SelectInputChannelTypeField = Form.buildSelectField<
   InputChannelType,
   InputChannelTypeEntry
 >({
@@ -41,8 +38,6 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   fieldProps: { label: "Channel Type" },
   inputProps: {
     allowNone: false,
-    entryRenderKey: "name",
-    columns: COLUMNS,
     data: INPUT_CHANNEL_TYPES,
   },
 });

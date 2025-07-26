@@ -1,0 +1,125 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input-checkbox__container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    .pluto-input-checkbox__input {
+        position: relative;
+        cursor: pointer;
+        opacity: 0;
+        height: 4rem;
+        width: 4rem;
+    }
+
+    .pluto-input-checkbox__checkmark {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        display: inline-block;
+        width: 2.5rem;
+        height: 2.5rem;
+        background: var(--pluto-gray-l1);
+        border: var(--pluto-border-l5);
+        border-radius: 0.3rem;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+
+    .pluto-input-checkbox__checkmark::after {
+        content: "";
+        position: absolute;
+        display: none;
+        left: 5px;
+        top: 2px;
+        width: 0.5rem;
+        height: 1rem;
+        border: solid var(--pluto-gray-l1);
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark {
+        background: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1);
+    }
+
+    .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark::after {
+        display: block;
+    }
+
+    &.pluto--small {
+        .pluto-input-checkbox__checkmark {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.25rem;
+        }
+
+        .pluto-input-checkbox__checkmark::after {
+            left: 3.5px;
+            top: 1px;
+            width: 0.4rem;
+            height: 0.8rem;
+            border-width: 0 2px 2px 0;
+        }
+    }
+
+    &.pluto--large {
+        .pluto-input-checkbox__checkmark {
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 0.35rem;
+        }
+
+        .pluto-input-checkbox__checkmark::after {
+            left: 0.7rem;
+            top: 0.25rem;
+            width: 0.6rem;
+            height: 1.2rem;
+            border-width: 0 3px 3px 0;
+        }
+    }
+
+    /* Disabled state */
+    &.pluto--disabled {
+        * {
+            cursor: not-allowed !important;
+        }
+
+        .pluto-input-checkbox__checkmark {
+            background: var(--pluto-gray-l2-50);
+            border-color: var(--pluto-gray-l3-50);
+        }
+
+        .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+            border-color: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+        }
+
+        .pluto-input-checkbox__checkmark::after {
+            border-color: color-mix(
+                in srgb,
+                var(--pluto-gray-l6),
+                var(--pluto-gray-l1)
+            );
+        }
+    }
+}

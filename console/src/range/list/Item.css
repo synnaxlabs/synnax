@@ -1,0 +1,23 @@
+.console-range__list-item {
+    padding-left: 1rem;
+    .console-star-button,
+    .pluto-input-checkbox__checkmark {
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    &.console--starred .console-star-button {
+        color: goldenrod;
+    }
+
+    &:is(:hover) :is(.console-star-button, .pluto-input-checkbox__checkmark) {
+        opacity: 1;
+    }
+    &.console--starred .console-star-button {
+        opacity: 1;
+    }
+    &.pluto--selected {
+        .pluto-input-checkbox__checkmark {
+            opacity: 1;
+        }
+    }
+}

@@ -16,15 +16,15 @@ import {
   useMemo,
 } from "react";
 
+import { type Component } from "@/component";
 import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 
 export interface ContextValue {
   onClick: (key: string) => void;
   selected: string;
   level?: Text.Level;
-  iconSpacing?: ComponentSize;
+  iconSpacing?: Component.Size;
   shade?: Text.Shade;
 }
 

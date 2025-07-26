@@ -1888,6 +1888,7 @@ export const Button = ({
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
     <CoreButton.Button
+      variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}
@@ -1946,6 +1947,7 @@ export const TextBox = ({
       {...rest}
     >
       <Text.MaybeEditable
+        className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}
         level={level}
         value={value}

@@ -29,11 +29,11 @@ export const useSelectSliceState = (): SliceState =>
  * Selects the key of the active cluster.
  * @param state - The state of the cluster store.
  */
-export const selectActiveKey = (state: StoreState): string | null =>
-  selectSliceState(state).activeCluster;
+export const selectActiveKey = (state: StoreState): string | undefined =>
+  selectSliceState(state).activeCluster ?? undefined;
 
 /** Selects the key of the active cluster */
-export const useSelectActiveKey = (): string | null =>
+export const useSelectActiveKey = (): string | undefined =>
   useMemoSelect((s: StoreState) => selectActiveKey(s), []);
 
 /**
@@ -43,10 +43,7 @@ export const useSelectActiveKey = (): string | null =>
  * key will be used. If the active cluster key is not set or the cluster does not exist,
  * null will be returned.
  */
-export const select = (
-  state: StoreState,
-  key?: string | null,
-): Cluster | null | undefined =>
+export const select = (state: StoreState, key?: string): Cluster | undefined =>
   selectByKey(selectSliceState(state).clusters, key, selectActiveKey(state));
 
 /**
@@ -56,7 +53,7 @@ export const select = (
  * key will be used. If the active cluster key is not set or the cluster does not exist,
  * null will be returned.
  */
-export const useSelect = (key?: string): Cluster | null | undefined =>
+export const useSelect = (key?: string): Cluster | undefined =>
   useMemoSelect((s: StoreState) => select(s, key), [key]);
 
 /**

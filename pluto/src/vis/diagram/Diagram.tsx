@@ -10,18 +10,19 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, color, location, type record, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
   applyNodeChanges as rfApplyNodeChanges,
   Background as RFBackground,
   type Connection as RFConnection,
+  type ConnectionLineComponent,
   ConnectionMode,
   type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
-  type FitViewOptions,
+  type FitViewOptions as RFFitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
   type NodeChange,
@@ -53,14 +54,14 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
-import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
+import { useMemoCompare, useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
-import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -69,17 +70,12 @@ import {
   edgeConverter,
   type Node,
   nodeConverter,
-  type RFEdgeData,
   translateEdgesForward,
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
   type Viewport,
 } from "@/vis/diagram/aether/types";
-import { Edge as EdgeComponent } from "@/vis/diagram/edge";
-import { type connector } from "@/vis/diagram/edge/connector";
-import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
-import { type PathType } from "@/vis/diagram/edge/paths";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -176,7 +172,11 @@ export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
-    Aether.ComponentProps {
+    Aether.ComponentProps,
+    Pick<
+      ReactFlowProps,
+      "minZoom" | "maxZoom" | "fitViewOptions" | "snapGrid" | "snapToGrid"
+    > {
   triggers?: CoreViewport.UseTriggers;
   dragHandleSelector?: string;
 }
@@ -186,8 +186,11 @@ interface ContextValue {
   visible: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
+  registerEdgeRenderer: (renderer: RenderProp<EdgeProps<record.Unknown>>) => void;
+  registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
+  fitViewOptions: FitViewOptions;
 }
 
 const Context = createContext<ContextValue>({
@@ -195,14 +198,21 @@ const Context = createContext<ContextValue>({
   visible: true,
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
+  registerEdgeRenderer: () => {},
+  registerConnectionLineComponent: () => {},
   fitViewOnResize: false,
   setFitViewOnResize: () => {},
+  fitViewOptions: FIT_VIEW_OPTIONS,
 });
 
 export const useContext = () => reactUse(Context);
 
 export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
+}
+
+export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {
+  onDataChange: (data: D) => void;
 }
 
 export const NodeRenderer = memo(
@@ -213,6 +223,35 @@ export const NodeRenderer = memo(
   },
 );
 NodeRenderer.displayName = "NodeRenderer";
+
+export interface EdgeRendererProps<D extends record.Unknown> {
+  connectionLineComponent: ConnectionLineComponent<RFNode>;
+  children: RenderProp<EdgeProps<D>>;
+}
+
+const CoreEdgeRenderer = memo(
+  <D extends record.Unknown>({
+    children,
+    connectionLineComponent,
+  }: EdgeRendererProps<D>): ReactElement | null => {
+    const { registerEdgeRenderer, registerConnectionLineComponent } = useContext();
+    useEffect(
+      () => registerEdgeRenderer(children as RenderProp<EdgeProps<record.Unknown>>),
+      [registerEdgeRenderer, children],
+    );
+    useEffect(
+      () => registerConnectionLineComponent(connectionLineComponent),
+      [registerConnectionLineComponent, connectionLineComponent],
+    );
+    return null;
+  },
+);
+CoreEdgeRenderer.displayName = "EdgeRenderer";
+export const EdgeRenderer = CoreEdgeRenderer as <D extends record.Unknown>(
+  props: EdgeRendererProps<D>,
+) => ReactElement | null;
+
+export type FitViewOptions = RFFitViewOptions;
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
@@ -230,10 +269,14 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
+  fitViewOptions = FIT_VIEW_OPTIONS,
+  className,
   dragHandleSelector,
+  snapGrid,
+  snapToGrid = false,
   ...rest
 }: DiagramProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ visible });
+  const memoProps = useMemoDeepEqual({ visible });
   const [{ path }, , setState] = Aether.use({
     aetherKey,
     type: diagram.Diagram.TYPE,
@@ -253,7 +296,7 @@ const Core = ({
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
-        if (fitViewOnResize) debouncedFitView(FIT_VIEW_OPTIONS);
+        if (fitViewOnResize) debouncedFitView(fitViewOptions);
         setState((prev) => ({ ...prev, region: b }));
       },
       [setState, debouncedFitView, fitViewOnResize],
@@ -291,11 +334,31 @@ const Core = ({
     onEnd: handleViewport,
   });
 
-  const [renderer, setRenderer] = useState<RenderProp<SymbolProps>>(() => () => null);
+  const [nodeRenderer, setNodeRenderer] = useState<RenderProp<SymbolProps>>(
+    () => () => null,
+  );
+  const [edgeRenderer, setEdgeRenderer] = useState<RenderProp<
+    EdgeProps<record.Unknown>
+  > | null>(null);
+  const [connectionLineComponent, setConnectionLineComponent] = useState<
+    ConnectionLineComponent<RFNode> | undefined
+  >(undefined);
 
   const registerNodeRenderer = useCallback(
-    (renderer: RenderProp<SymbolProps>) => setRenderer(() => renderer),
-    [],
+    (renderer: RenderProp<SymbolProps>) => setNodeRenderer(() => renderer),
+    [setNodeRenderer],
+  );
+
+  const registerEdgeRenderer = useCallback(
+    (renderer: RenderProp<EdgeProps<record.Unknown>>) =>
+      setEdgeRenderer(() => renderer),
+    [setEdgeRenderer],
+  );
+
+  const registerConnectionLineComponent = useCallback(
+    (component: ConnectionLineComponent<RFNode>) =>
+      setConnectionLineComponent(() => component),
+    [setConnectionLineComponent],
   );
 
   const nodeTypes = useMemo(
@@ -307,13 +370,36 @@ const Core = ({
         selected = false,
         draggable = true,
       }: RFNodeProps) =>
-        renderer({ symbolKey: id, position: { x, y }, selected, draggable }),
+        nodeRenderer({ symbolKey: id, position: { x, y }, selected, draggable }),
     }),
-    [renderer],
+    [nodeRenderer],
   );
 
+  const handleDataChange = useCallback(
+    (id: string, data: record.Unknown) => {
+      const next = [...edgesRef.current];
+      const index = next.findIndex((e) => e.key === id);
+      if (index === -1) return;
+      next[index] = { ...next[index], data };
+      edgesRef.current = next;
+      onEdgesChange(next);
+    },
+    [onEdgesChange, defaultEdgeColor],
+  );
+
+  const edgeTypes = useMemo(() => {
+    if (edgeRenderer == null) return undefined;
+    return {
+      default: (props: RFEdgeProps<RFEdge<record.Unknown>>) =>
+        edgeRenderer({
+          ...props,
+          onDataChange: (data) => handleDataChange(props.id, data),
+        }),
+    };
+  }, [edgeRenderer, handleDataChange]);
+
   const edgesRef = useRef(edges);
-  const edges_ = useMemo<RFEdge<RFEdgeData>[]>(() => {
+  const edges_ = useMemo<RFEdge<record.Unknown>[]>(() => {
     edgesRef.current = edges;
     return translateEdgesForward(edges);
   }, [edges]);
@@ -333,7 +419,7 @@ const Core = ({
   );
 
   const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange<RFEdge<RFEdgeData>>[]) =>
+    (changes: RFEdgeChange<RFEdge<record.Unknown>>[]) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -345,7 +431,7 @@ const Core = ({
   );
 
   const handleEdgeUpdate = useCallback(
-    (oldEdge: RFEdge<RFEdgeData>, newConnection: RFConnection) =>
+    (oldEdge: RFEdge<record.Unknown>, newConnection: RFConnection) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -364,40 +450,7 @@ const Core = ({
     [onEdgesChange, defaultEdgeColor],
   );
 
-  const handleEdgeSegmentsChange = useCallback(
-    (id: string, segments: connector.Segment[]) => {
-      const next = [...edgesRef.current];
-      const index = next.findIndex((e) => e.key === id);
-      if (index === -1) return;
-      next[index] = { ...next[index], segments };
-      edgesRef.current = next;
-      onEdgesChange(next);
-    },
-    [onEdgesChange],
-  );
-
   const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
-
-  const handleEdgeSegmentsChangeRef = useSyncedRef(handleEdgeSegmentsChange);
-
-  const edgeTypes = useMemo(
-    () => ({
-      default: (props: RFEdgeProps<RFEdge<RFEdgeData>>) => (
-        <EdgeComponent
-          key={props.id}
-          {...props}
-          segments={props.data?.segments ?? []}
-          color={props.data?.color}
-          variant={props.data?.variant as PathType}
-          onSegmentsChange={useCallback(
-            (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
-            [props.id],
-          )}
-        />
-      ),
-    }),
-    [],
-  );
 
   const triggerRef = useRef<HTMLElement>(null);
   Triggers.use({
@@ -431,25 +484,37 @@ const Core = ({
       editable,
       onEditableChange,
       registerNodeRenderer,
+      registerEdgeRenderer,
+      registerConnectionLineComponent,
       fitViewOnResize,
       setFitViewOnResize,
+      fitViewOptions,
     }),
-    [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
+    [
+      editable,
+      visible,
+      registerConnectionLineComponent,
+      onEditableChange,
+      registerNodeRenderer,
+      registerEdgeRenderer,
+      fitViewOnResize,
+      fitViewOptions,
+    ],
   );
 
   return (
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
-          <ReactFlow<RFNode, RFEdge<RFEdgeData>>
+          <ReactFlow<RFNode, RFEdge<record.Unknown>>
             {...triggerProps}
             className={CSS(
+              className,
               CSS.B("diagram"),
               CSS.editable(editable),
               CSS.BE("symbol", "container"),
             )}
             nodes={nodes_}
-            // @ts-expect-error - edge types
             edges={edges_}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -458,18 +523,23 @@ const Core = ({
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
+            connectionLineComponent={connectionLineComponent}
             onReconnect={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
-            connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
-            minZoom={0.5}
-            maxZoom={1.2}
+            defaultEdgeOptions={{
+              type: edgeRenderer == null ? "smoothstep" : "default",
+            }}
+            minZoom={fitViewOptions.minZoom}
+            maxZoom={fitViewOptions.maxZoom}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
-            fitViewOptions={FIT_VIEW_OPTIONS}
+            fitViewOptions={fitViewOptions}
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
             deleteKeyCode={DELETE_KEY_CODES}
+            snapGrid={snapGrid}
+            snapToGrid={snapToGrid}
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
@@ -524,11 +594,11 @@ export const FitViewControl = ({
   ...rest
 }: FitViewControlProps): ReactElement => {
   const { fitView } = useReactFlow();
-  const { fitViewOnResize, setFitViewOnResize } = useContext();
+  const { fitViewOnResize, setFitViewOnResize, fitViewOptions } = useContext();
   return (
     <Button.ToggleIcon
       onClick={(e) => {
-        void fitView(FIT_VIEW_OPTIONS);
+        void fitView(fitViewOptions);
         onClick?.(e);
       }}
       // @ts-expect-error - toggle icon issues

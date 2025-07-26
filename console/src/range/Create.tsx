@@ -9,7 +9,7 @@
 
 import "@/range/Create.css";
 
-import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -18,34 +18,20 @@ import {
   Input,
   Nav,
   Ranger,
-  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitive, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useRef } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { uuid } from "@synnaxlabs/x";
+import { useCallback, useRef } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
-const formSchema = z.object({
-  key: z.string().optional(),
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
-  labels: z.string().array(),
-  parent: z.string().optional(),
-});
-
-export type FormProps = z.infer<typeof formSchema>;
-
-export type CreateLayoutArgs = Partial<FormProps>;
+export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.rangeFormSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
@@ -57,7 +43,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   icon: "Range",
   window: {
     resizable: false,
-    size: { height: 370, width: 700 },
+    size: { height: 440, width: 700 },
     navTop: true,
   },
 };
@@ -74,67 +60,31 @@ export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 export const Create: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const initialValues: FormProps = {
-    name: "",
-    labels: [],
-    timeRange: { start: now, end: now },
-    parent: "",
-    ...args,
-  };
 
-  return <CreateLayoutForm initialValues={initialValues} {...props} />;
-};
-
-interface CreateLayoutFormProps extends Layout.RendererProps {
-  initialValues: FormProps;
-  onClose: () => void;
-}
-
-const CreateLayoutForm = ({
-  initialValues,
-  onClose,
-}: CreateLayoutFormProps): ReactElement => {
-  const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const dispatch = useDispatch();
   const client = Synnax.use();
   const clientExists = client != null;
-  const handleError = Status.useErrorHandler();
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (persisted: boolean) => {
-      if (!methods.validate()) return;
-      const values = methods.value();
-      const { timeRange: tr, parent } = values;
-      const timeRange = new TimeRange(tr);
-      const name = values.name.trim();
-      const key = initialValues.key ?? uuid.create();
-      const parentID = primitive.isZero(parent)
-        ? undefined
-        : ranger.ontologyID(parent as string);
-      const otgID = ranger.ontologyID(key);
-      if (persisted && clientExists) {
-        await client.ranges.create({ key, name, timeRange }, { parent: parentID });
-        await client.labels.label(otgID, values.labels, { replace: true });
-      }
-      dispatch(
-        add({
-          ranges: [
-            { variant: "static", name, timeRange: timeRange.numeric, key, persisted },
-          ],
-        }),
-      );
-      onClose();
+  const { form, save, variant } = Ranger.useForm({
+    params: { key: args?.key },
+    autoSave: false,
+    initialValues: {
+      key: uuid.create(),
+      name: "",
+      labels: [],
+      stage: "to_do",
+      timeRange: { start: now, end: now },
+      parent: "",
+      ...args,
     },
-    onError: (e) => handleError(e, "Failed to create range"),
+    afterSave: () => onClose(),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== initialValues.key),
-    [initialValues.key],
+    (data: ranger.Payload) => data.key !== args?.key,
+    [args?.key],
   );
 
   return (
@@ -145,7 +95,7 @@ const CreateLayoutForm = ({
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -157,59 +107,37 @@ const CreateLayoutForm = ({
               />
             )}
           </Form.Field>
+          <Form.Field<ranger.Stage> path="stage" required={false}>
+            {(p) => (
+              <Ranger.SelectStage {...p} variant="outlined" style={{ width: 150 }} />
+            )}
+          </Form.Field>
           <Align.Space x size="large">
-            <Form.Field<number> path="timeRange.start" label="From">
+            <Form.Field<number> path="timeRange.start" label="From" required={false}>
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
             <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Form.Field<number> path="timeRange.end" label="To">
+            <Form.Field<number> path="timeRange.end" label="To" required={false}>
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
           <Align.Space x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
-              {({ onChange, ...p }) => (
+              {({ onChange, value }) => (
                 <Ranger.SelectSingle
-                  dropdownVariant="modal"
                   style={{ width: "fit-content" }}
                   zIndex={100}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e) => (
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      size="small"
-                    >
-                      {e.name}
-                    </Text.WithIcon>
-                  )}
-                  inputPlaceholder="Search Ranges"
-                  triggerTooltip="Select Parent Range"
-                  placeholder={
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      size="small"
-                    >
-                      Parent Range
-                    </Text.WithIcon>
-                  }
-                  onChange={(v: string) => onChange(v ?? "")}
-                  {...p}
+                  value={value}
+                  onChange={(v: ranger.Key) => onChange(v ?? "")}
+                  icon={<ParentRangeIcon />}
+                  allowNone
                 />
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
               {({ variant, ...p }) => (
-                <Label.SelectMultiple
-                  entryRenderKey="name"
-                  dropdownVariant="floating"
-                  zIndex={100}
-                  location="bottom"
-                  {...p}
-                />
+                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
               )}
             </Form.Field>
           </Align.Space>
@@ -218,19 +146,16 @@ const CreateLayoutForm = ({
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            variant="outlined"
-            onClick={() => mutate(false)}
-            disabled={isPending}
-          >
+          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
-            onClick={() => mutate(true)}
-            disabled={!clientExists || isPending}
+            variant="filled"
+            onClick={() => save()}
+            disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={isPending}
+            loading={variant === "loading"}
             triggers={Triggers.SAVE}
           >
             Save to Synnax

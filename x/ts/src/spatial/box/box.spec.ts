@@ -129,12 +129,12 @@ describe("Box", () => {
   describe("equality", () => {
     it("should be equal to itself", () => {
       const b = box.construct(0, 0, 10, 10);
-      expect(box.equals(b, b)).toBe(true);
+      expect(box.equals(b, b)).toBeTruthy();
     });
     it("should be equal to a box with the same values", () => {
       const b = box.construct(0, 0, 10, 10);
       const b2 = box.construct(0, 0, 10, 10);
-      expect(box.equals(b, b2)).toBe(true);
+      expect(box.equals(b, b2)).toBeTruthy();
     });
   });
   describe("positionInCenterOf", () => {
@@ -279,20 +279,20 @@ describe("Box", () => {
   describe("areaIsZero", () => {
     it("should return true if the area is zero", () => {
       const b = box.construct(0, 0, 0, 0);
-      expect(box.areaIsZero(b)).toBe(true);
+      expect(box.areaIsZero(b)).toBeTruthy();
     });
     it("should return false if the area is not zero", () => {
       const b = box.construct(0, 0, 10, 10);
-      expect(box.areaIsZero(b)).toBe(false);
+      expect(box.areaIsZero(b)).toBeFalsy();
     });
   });
   describe("isBox", () => {
     it("should return true if the value is a box", () => {
       const b = box.construct(0, 0, 10, 10);
-      expect(box.isBox(b)).toBe(true);
+      expect(box.isBox(b)).toBeTruthy();
     });
     it("should return false if the value is not a box", () => {
-      expect(box.isBox({})).toBe(false);
+      expect(box.isBox({})).toBeFalsy();
     });
   });
   describe("yBounds", () => {
@@ -312,72 +312,72 @@ describe("Box", () => {
       it("should return true if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2)).toBe(true);
+        expect(box.contains(b, b2)).toBeTruthy();
       });
       it("should return true if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 14, 14);
-        expect(box.contains(b, b2)).toBe(true);
+        expect(box.contains(b, b2)).toBeTruthy();
       });
       it("should return false if the box does not completely contain the other box", () => {
         const b = box.construct(0, 0, 10, 10);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2)).toBe(false);
+        expect(box.contains(b, b2)).toBeFalsy();
       });
       it("should return true if the two boxes are equal", () => {
         const b = box.construct(0, 0, 10, 10);
-        expect(box.contains(b, b)).toBe(true);
+        expect(box.contains(b, b)).toBeTruthy();
       });
       it("should return true if the box contains the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 5, y: 5 };
-        expect(box.contains(b, p)).toBe(true);
+        expect(box.contains(b, p)).toBeTruthy();
       });
       it("should return false if the box does not contain the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 15, y: 15 };
-        expect(box.contains(b, p)).toBe(false);
+        expect(box.contains(b, p)).toBeFalsy();
       });
       it("should return true if the point is on the border", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 10, y: 10 };
-        expect(box.contains(b, p)).toBe(true);
+        expect(box.contains(b, p)).toBeTruthy();
       });
     });
     describe("exclusive of border", () => {
       it("should return false if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2, false)).toBe(false);
+        expect(box.contains(b, b2, false)).toBeFalsy();
       });
       it("should return true if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 14, 14);
-        expect(box.contains(b, b2, false)).toBe(true);
+        expect(box.contains(b, b2, false)).toBeTruthy();
       });
       it("should return false if the box does not completely contain the other box", () => {
         const b = box.construct(0, 0, 10, 10);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2, false)).toBe(false);
+        expect(box.contains(b, b2, false)).toBeFalsy();
       });
       it("should return false if the two boxes are equal", () => {
         const b = box.construct(0, 0, 10, 10);
-        expect(box.contains(b, b, false)).toBe(false);
+        expect(box.contains(b, b, false)).toBeFalsy();
       });
       it("should return false if the box contains the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 5, y: 5 };
-        expect(box.contains(b, p, false)).toBe(true);
+        expect(box.contains(b, p, false)).toBeTruthy();
       });
       it("should return false if the box does not contain the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 15, y: 15 };
-        expect(box.contains(b, p, false)).toBe(false);
+        expect(box.contains(b, p, false)).toBeFalsy();
       });
       it("should return false if the point is on the border", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 10, y: 10 };
-        expect(box.contains(b, p, false)).toBe(false);
+        expect(box.contains(b, p, false)).toBeFalsy();
       });
     });
   });
@@ -396,7 +396,7 @@ describe("Box", () => {
     it("should return a copy of the box", () => {
       const b = box.construct(0, 0, 10, 10);
       const b2 = box.copy(b);
-      expect(box.equals(b, b2)).toBe(true);
+      expect(box.equals(b, b2)).toBeTruthy();
     });
   });
   describe("edgePoints", () => {

@@ -14,9 +14,9 @@ import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { type RenderProp } from "@/util/renderProp";
 
 interface ContextMenuState {
   visible: boolean;
@@ -97,6 +97,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const handleOpen: ContextMenuOpen = (e, keys) => {
     const p = xy.construct(e);
     if (typeof e === "object" && "preventDefault" in e) {
+      console.log("open", e.target);
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();
@@ -157,6 +158,7 @@ const Internal = ({
   className,
   cursor: _,
   style,
+  onClick,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
@@ -165,7 +167,10 @@ const Internal = ({
       className={CSS(CSS.B("menu-context"), CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
-      onClick={close}
+      onClick={(e) => {
+        close();
+        onClick?.(e);
+      }}
       size="tiny"
       {...rest}
     >

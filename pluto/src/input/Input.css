@@ -87,6 +87,7 @@
         padding: 0 1.5rem;
         font-size: inherit;
         line-height: inherit;
+        font-weight: inherit;
 
         &::placeholder,
         &::-webkit-input-placeholder {

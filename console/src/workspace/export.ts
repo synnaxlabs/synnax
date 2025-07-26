@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as CSynnax } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax as CSynnax } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -51,7 +50,7 @@ export const export_ = async (
         toExport = existingWorkspace.layout as Layout.SliceState;
         name = existingWorkspace.name;
       } else {
-        if (client == null) throw NULL_CLIENT_ERROR;
+        if (client == null) throw new DisconnectedError();
         const ws = await client.workspaces.retrieve(key);
         toExport = ws.layout as Layout.SliceState;
         name = ws.name;

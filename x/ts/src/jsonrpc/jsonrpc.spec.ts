@@ -116,11 +116,11 @@ describe("JSON-RPC", () => {
       };
       const messageStr = JSON.stringify(message);
       const encoded = jsonRPC.encodeMessage(message);
-      expect(encoded.startsWith("Content-Length:")).toBe(true);
+      expect(encoded.startsWith("Content-Length:")).toBeTruthy();
       const contentLength = encoded.match(/Content-Length: (\d+)/);
       expect(contentLength).not.toBeNull();
       expect(contentLength?.[1]).toBe(messageStr.length.toString());
-      expect(encoded.endsWith(messageStr)).toBe(true);
+      expect(encoded.endsWith(messageStr)).toBeTruthy();
     });
   });
 });

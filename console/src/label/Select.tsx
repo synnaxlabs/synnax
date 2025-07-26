@@ -49,7 +49,7 @@ export const SelectSingle = (props: SelectSingleProps) => (
 const AddButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Icon onClick={onClick} variant="outlined">
+    <Button.Icon onClick={onClick} variant="outlined" shade={3}>
       <Icon.Add />
     </Button.Icon>
   );

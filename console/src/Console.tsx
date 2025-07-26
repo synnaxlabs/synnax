@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import "@/index.css";
-import "@synnaxlabs/media/dist/media.css";
-import "@synnaxlabs/pluto/dist/pluto.css";
 
+// import "@synnaxlabs/media/dist/media.css";
+// import "@synnaxlabs/pluto/dist/pluto.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import {
   type Color,
@@ -28,7 +28,9 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
+import { COMMANDS } from "@/commands";
 import { Docs } from "@/docs";
+import { Effect } from "@/effect";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
 import { Label } from "@/label";
@@ -38,6 +40,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+import { Palette } from "@/palette";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -68,6 +71,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
+  ...Effect.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -126,44 +130,46 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
-    <QueryClientProvider client={queryClient}>
-      <Pluto.Provider
-        theming={theme}
-        channelAlias={{
-          // Set the alias active range to undefined if the range is not saved in Synnax,
-          // otherwise it will try to pull aliases from a range that doesn't exist.
-          activeRange: activeRange?.persisted ? activeRange.key : undefined,
-        }}
-        workerEnabled
-        connParams={cluster ?? undefined}
-        workerURL={WorkerURL}
-        triggers={TRIGGERS_PROVIDER_PROPS}
-        haul={{ useState: useHaulState }}
-        color={{ useState: useColorContextState }}
-        alamos={{ level: "info" }}
-      >
-        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
-          <Vis.Canvas>
-            <Layout.Window />
-          </Vis.Canvas>
-        </Code.Provider>
-      </Pluto.Provider>
-    </QueryClientProvider>
+    <Pluto.Provider
+      theming={theme}
+      channelAlias={{
+        // Set the alias active range to undefined if the range is not saved in Synnax,
+        // otherwise it will try to pull aliases from a range that doesn't exist.
+        activeRange: activeRange?.persisted ? activeRange.key : undefined,
+      }}
+      workerEnabled
+      connParams={cluster ?? undefined}
+      workerURL={WorkerURL}
+      triggers={TRIGGERS_PROVIDER_PROPS}
+      haul={{ useState: useHaulState }}
+      color={{ useState: useColorContextState }}
+      alamos={{ level: "info" }}
+    >
+      <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+        <Vis.Canvas>
+          <Layout.Window />
+        </Vis.Canvas>
+      </Code.Provider>
+    </Pluto.Provider>
   );
 };
 
 export const Console = (): ReactElement => (
-  <Error.OverlayWithoutStore>
-    <Provider store={store}>
-      <Error.OverlayWithStore>
-        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
-            </Ontology.ServicesProvider>
-          </Layout.ContextMenuProvider>
-        </Layout.RendererProvider>
-      </Error.OverlayWithStore>
-    </Provider>
-  </Error.OverlayWithoutStore>
+  <QueryClientProvider client={queryClient}>
+    <Error.OverlayWithoutStore>
+      <Provider store={store}>
+        <Error.OverlayWithStore>
+          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+              <Ontology.ServicesProvider services={SERVICES}>
+                <Palette.CommandProvider commands={COMMANDS}>
+                  <MainUnderContext />
+                </Palette.CommandProvider>
+              </Ontology.ServicesProvider>
+            </Layout.ContextMenuProvider>
+          </Layout.RendererProvider>
+        </Error.OverlayWithStore>
+      </Provider>
+    </Error.OverlayWithoutStore>
+  </QueryClientProvider>
 );

@@ -15,7 +15,7 @@ import { type ReactElement, useRef } from "react";
 import { Align } from "@/align";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
 import { Text } from "@/text";
@@ -145,7 +145,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       });
     },
   });
-  const visibleRef = useRef(false);
+  const [visible, setVisible, visibleRef] = useCombinedStateAndRef<boolean>(false);
   Triggers.use({
     triggers: [["Delete"]],
     callback: ({ stage }) => {
@@ -187,9 +187,8 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         draggable
         key={stop.key}
         value={stop.color}
-        onVisibleChange={(v) => {
-          visibleRef.current = v;
-        }}
+        onVisibleChange={setVisible}
+        visible={visible}
         onChange={(v: color.Color) => onChange({ ...stop, color: v })}
       />
     </Align.Space>

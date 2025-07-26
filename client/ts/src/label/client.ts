@@ -8,73 +8,68 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { observe } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { array } from "@synnaxlabs/x";
+import z from "zod";
 
-import { type framer } from "@/framer";
-import {
-  type Key,
-  type Label,
-  LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  labelZ,
-  ONTOLOGY_TYPE,
-} from "@/label/payload";
-import { Retriever } from "@/label/retriever";
+import { type Key, keyZ, type Label, labelZ, ONTOLOGY_TYPE } from "@/label/payload";
 import { type New, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
-import { signals } from "@/signals";
+import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-export class Client implements AsyncTermSearcher<string, Key, Label> {
+const RETRIEVE_ENDPOINT = "/label/retrieve";
+
+const retrieveRequestZ = z.object({
+  keys: keyZ.array().optional(),
+  for: ontology.idZ.optional(),
+  search: z.string().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
+});
+
+export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
+const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
+
+export class Client {
   readonly type: string = "label";
-  private readonly retriever: Retriever;
+  private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly frameClient: framer.Client;
-  private readonly ontology: ontology.Client;
 
-  constructor(
-    client: UnaryClient,
-    frameClient: framer.Client,
-    ontology: ontology.Client,
-  ) {
+  constructor(client: UnaryClient) {
+    this.client = client;
     this.writer = new Writer(client);
-    this.retriever = new Retriever(client);
-    this.frameClient = frameClient;
-    this.ontology = ontology;
   }
 
-  async search(term: string): Promise<Label[]> {
-    return await this.retriever.search(term);
-  }
-
+  async retrieve(req: RetrieveRequest): Promise<Label[]>;
   async retrieve(key: Key): Promise<Label>;
   async retrieve(keys: Key[]): Promise<Label[]>;
-  async retrieve(keys: Key | Key[]): Promise<Label | Label[]> {
-    const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve(keys);
-    return isMany ? res : res[0];
+  async retrieve(keys: Key | RetrieveRequest | Key[]): Promise<Label | Label[]> {
+    const isSingle = typeof keys === "string";
+    let req: RetrieveRequest;
+    if (typeof keys === "object" && !Array.isArray(keys)) req = keys;
+    else req = { keys: array.toArray(keys) };
+    const [res, err] = await this.client.send<
+      typeof retrieveRequestZ,
+      typeof retrieveResponseZ
+    >(RETRIEVE_ENDPOINT, req, retrieveRequestZ, retrieveResponseZ);
+    if (err != null) throw err;
+    if (isSingle) return res.labels[0];
+    return res.labels;
   }
 
-  async retrieveFor(id: ontology.CrudeID): Promise<Label[]> {
-    return await this.retriever.retrieveFor(new ontology.ID(id));
+  async retrieveFor(id: ontology.ID): Promise<Label[]> {
+    return await this.retrieve({ for: id });
   }
 
-  async label(
-    id: ontology.CrudeID,
-    labels: Key[],
-    opts: SetOptions = {},
-  ): Promise<void> {
-    await this.writer.set(new ontology.ID(id), labels, opts);
+  async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
+    await this.writer.set(id, labels, opts);
   }
 
-  async removeLabels(id: ontology.CrudeID, labels: Key[]): Promise<void> {
-    await this.writer.remove(new ontology.ID(id), labels);
-  }
-
-  async page(offset: number, limit: number): Promise<Label[]> {
-    return await this.retriever.page(offset, limit);
+  async removeLabels(id: ontology.ID, labels: Key[]): Promise<void> {
+    await this.writer.remove(id, labels);
   }
 
   async create(label: New): Promise<Label>;
@@ -90,48 +85,6 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   async delete(keys: Key | Key[]): Promise<void> {
     await this.writer.delete(keys);
   }
-
-  async openChangeTracker(): Promise<signals.Observable<string, Label>> {
-    return await signals.openObservable<string, Label>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      decodeChanges,
-    );
-  }
-
-  async trackLabelsOf(
-    id: ontology.CrudeID,
-  ): Promise<observe.ObservableAsyncCloseable<Label[]>> {
-    const wrapper = new observe.Observer<Label[]>();
-    const initial = (await this.retrieveFor(id)).map((l) => ({
-      id: ontologyID(l.key),
-      key: l.key,
-      name: l.name,
-      data: l,
-    }));
-    const base = await this.ontology.openDependentTracker({
-      target: new ontology.ID(id),
-      dependents: initial,
-      relationshipType: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-    });
-    base.onChange((resources: ontology.Resource[]) =>
-      wrapper.notify(
-        resources.map((r) => ({
-          key: r.id.key,
-          color: r.data?.color as string,
-          name: r.data?.name as string,
-        })),
-      ),
-    );
-    return wrapper;
-  }
 }
 
-const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
-  if (variant === "delete") return data.toUUIDs().map((v) => ({ variant, key: v }));
-  return data.parseJSON(labelZ).map((l) => ({ variant, key: l.key, value: l }));
-};
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

@@ -13,10 +13,12 @@ import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { access } from "@/access";
+import { annotation } from "@/annotation";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
+import { effect } from "@/effect";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
@@ -26,6 +28,7 @@ import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { slate } from "@/slate";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -68,6 +71,9 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly slates: slate.Client;
+  readonly effects: effect.Client;
+  readonly annotations: annotation.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -132,7 +138,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, this, this.ontology);
+    this.labels = new label.Client(this.transport.unary);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -144,15 +150,18 @@ export default class Synnax extends framer.Client {
     this.access = new access.Client(this.transport.unary);
     this.user = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(this.transport.unary, this);
+    const devices = new device.Client(this.transport.unary);
     const tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
     );
-    const racks = new rack.Client(this.transport.unary, tasks, this);
+    const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+    this.slates = new slate.Client(this.transport.unary);
+    this.effects = new effect.Client(this.transport.unary, this);
+    this.annotations = new annotation.Client(this.transport.unary);
   }
 
   get key(): string {

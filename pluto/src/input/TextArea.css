@@ -16,7 +16,10 @@
     resize: none;
     white-space: nowrap;
     overflow-x: hidden;
-    font-size: var(--pluto-h3-size);
+
+    &::placeholder {
+        padding-left: 1px;
+    }
 
     &:focus-within {
         outline: none;

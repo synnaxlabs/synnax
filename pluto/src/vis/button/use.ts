@@ -11,8 +11,11 @@ import { useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { button } from "@/vis/button/aether";
+
+export type Mode = button.Mode;
+export const MODES = button.MODES;
 
 export interface UseProps extends Omit<z.input<typeof button.buttonStateZ>, "trigger"> {
   aetherKey: string;
@@ -25,7 +28,7 @@ export interface UseReturn {
 }
 
 export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqualProps({ sink, mode });
+  const memoProps = useMemoDeepEqual({ sink, mode });
   const propsRef = useRef({ trigger: 0, ...memoProps });
   const { setState } = Aether.useLifecycle({
     aetherKey,

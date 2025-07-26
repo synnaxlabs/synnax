@@ -9,10 +9,9 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
 import { linePlot } from "@/workspace/lineplot";
@@ -44,6 +43,7 @@ const retrieveReqZ = z.object({
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
@@ -53,7 +53,10 @@ const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
 const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, Key, Workspace> {
+export const SET_CHANNEL_NAME = "sy_workspace_set";
+export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
+
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
@@ -105,12 +108,17 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
 
   async retrieve(key: Key): Promise<Workspace>;
   async retrieve(keys: Key[]): Promise<Workspace[]>;
-  async retrieve(keys: Params): Promise<Workspace | Workspace[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(req: RetrieveRequest): Promise<Workspace[]>;
+  async retrieve(keys: Params | RetrieveRequest): Promise<Workspace | Workspace[]> {
+    let req: RetrieveRequest;
+    const isMany: boolean = typeof keys !== "string";
+    if (typeof keys === "string" || Array.isArray(keys))
+      req = { keys: array.toArray(keys) };
+    else req = keys;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      req,
       retrieveReqZ,
       retrieveResZ,
     );
@@ -163,5 +171,4 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

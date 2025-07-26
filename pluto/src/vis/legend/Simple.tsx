@@ -15,6 +15,7 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { type state } from "@/state";
 import { Text } from "@/text";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 
@@ -36,7 +37,7 @@ export interface SimpleProps extends Omit<ContainerProps, "value" | "onChange"> 
 interface LegendSwatchesProps {
   data: Optional<SimpleEntry, "visible">[];
   onEntryChange: SimpleProps["onEntryChange"];
-  onVisibleChange?: (visible: boolean) => void;
+  onVisibleChange?: state.Setter<boolean>;
   allowVisibleChange?: boolean;
   shade?: Text.Shade;
 }
@@ -55,7 +56,7 @@ export const LegendSwatches = memo(
         .map(({ key, color, label, visible = true }) => (
           <Align.Space
             key={key}
-            style={{ cursor: "pointer" }}
+            style={{ cursor: "pointer", height: "3rem" }}
             x
             align="center"
             size="small"

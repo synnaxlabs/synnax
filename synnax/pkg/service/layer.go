@@ -17,12 +17,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/effect"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -110,7 +113,10 @@ type Layer struct {
 	Hardware *hardware.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
-	Framer *framer.Service
+	Framer     *framer.Service
+	Effect     *effect.Service
+	Slate      *slate.Service
+	Annotation *annotation.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -153,25 +159,35 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	if l.Label, err = label.OpenService(ctx, label.Config{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
+	}); !ok(err, l.Label) {
+		return nil, err
+	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Label:    l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.NewService(ctx, workspace.Config{
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
@@ -192,14 +208,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Label, err = label.OpenService(ctx, label.Config{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, l.Label) {
-		return nil, err
-	}
+
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
 		Instrumentation: cfg.Instrumentation.Child("hardware"),
 		DB:              cfg.Distribution.DB,
@@ -222,5 +231,39 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
+	if l.Slate, err = slate.OpenService(
+		ctx,
+		slate.ServiceConfig{
+			DB:       cfg.Distribution.DB,
+			Ontology: cfg.Distribution.Ontology,
+		},
+	); !ok(err, l.Slate) {
+		return nil, err
+	}
+	if l.Annotation, err = annotation.OpenService(
+		ctx,
+		annotation.ServiceConfig{
+			DB:       cfg.Distribution.DB,
+			Ontology: cfg.Distribution.Ontology,
+			Signals:  cfg.Distribution.Signals,
+		},
+	); !ok(err, l.Annotation) {
+		return nil, err
+	}
+	if l.Effect, err = effect.OpenService(
+		ctx,
+		effect.ServiceConfig{
+			DB:              cfg.Distribution.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Ranger:          l.Ranger,
+			Slate:           l.Slate,
+			Channel:         cfg.Distribution.Channel,
+			Annotation:      l.Annotation,
+			Instrumentation: cfg.Instrumentation.Child("effect"),
+		}); !ok(err, l.Effect) {
+		return nil, err
+	}
+
 	return l, nil
 }

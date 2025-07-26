@@ -9,7 +9,13 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  type rack,
+  type Synnax,
+  task,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -24,7 +30,6 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
@@ -163,7 +168,7 @@ export const useForm = <
 
   const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (initialTask.snapshot) return;
       if (!(await methods.validateAsync())) return;
       const { name, config } = methods.value() as {
@@ -176,7 +181,7 @@ export const useForm = <
         config as z.infer<Config>,
         name,
       );
-      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
+      if (task_.key != "" && rackKey != task.rackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:
@@ -185,7 +190,7 @@ export const useForm = <
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;
-        await client.hardware.tasks.delete(BigInt(task_.key));
+        await client.hardware.tasks.delete(task_.key);
       }
 
       methods.setCurrentStateAsInitialValues();

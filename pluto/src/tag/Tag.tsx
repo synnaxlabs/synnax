@@ -13,17 +13,17 @@ import { color, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
   icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;
-  size?: ComponentSize;
+  size?: Component.Size;
   variant?: "filled" | "outlined";
 }
 
@@ -66,7 +66,7 @@ export const Tag = ({
         CSS.size(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
-      level={Text.ComponentSizeLevels[size]}
+      level={Text.COMPONENT_SIZE_LEVELS[size]}
       noWrap
       align="center"
       size="small"

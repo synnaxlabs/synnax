@@ -12,10 +12,10 @@ import "@/align/Space.css";
 import { direction } from "@synnaxlabs/x/spatial";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type Theming } from "@/theming";
-import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -70,7 +70,7 @@ export interface CoreExtensionProps {
 
 export interface SpaceExtensionProps extends CoreExtensionProps {
   empty?: boolean;
-  size?: ComponentSize | number;
+  size?: Component.Size | number;
   direction?: direction.Crude;
   x?: boolean;
   y?: boolean;
