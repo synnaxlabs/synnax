@@ -11,8 +11,9 @@ package observe
 
 import (
 	"context"
-	"go/types"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // Disconnect is a function that can be called to disconnect a handler from an
@@ -24,7 +25,7 @@ type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes. The returned
 	// function can be used to disconnect the handler, stopping it from being called
 	// when the observable changes.
-	OnChange(handler func(context.Context, T)) Disconnect
+	OnChange(func(context.Context, T)) Disconnect
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
@@ -41,8 +42,10 @@ type Observer[T any] interface {
 
 type base[T any] struct {
 	mu       sync.RWMutex
-	handlers map[*func(context.Context, T)]struct{}
+	handlers set.Set[*func(context.Context, T)]
 }
+
+var _ Observer[any] = &base[any]{}
 
 // New creates a new observer with the given options.
 func New[T any]() Observer[T] { return &base[T]{} }
@@ -53,13 +56,13 @@ func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
 	defer b.mu.Unlock()
 	p := &handler
 	if b.handlers == nil {
-		b.handlers = make(map[*func(context.Context, T)]struct{})
+		b.handlers = set.New[*func(context.Context, T)]()
 	}
-	b.handlers[p] = struct{}{}
+	b.handlers.Add(p)
 	return func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-		delete(b.handlers, p)
+		b.handlers.Remove(p)
 	}
 }
 
@@ -84,15 +87,15 @@ func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 // GoNotify implements the Observer interface.
 func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }
 
-// Noop is an observable that never calls its OnChange function and does
-// not store any handlers. Use this when you want to implement the Observable
-// interface and do nothing.
+// Noop is an observable that never calls its OnChange function and does not store any
+// handlers. Use this when you want to implement the Observable interface and do
+// nothing.
 type Noop[T any] struct{}
 
 var _ Observable[any] = Noop[any]{}
 
 // OnChange implements Observable.
-func (Noop[T]) OnChange(_ func(context.Context, T)) Disconnect { return func() {} }
+func (Noop[T]) OnChange(func(context.Context, T)) Disconnect { return func() {} }
 
 // Translator converts the emitted value of an observable using the given Translate
 // function. The new observable implements the Observable[O] interface.
@@ -101,9 +104,11 @@ type Translator[I any, O any] struct {
 	Translate func(I) O
 }
 
-var _ Observable[types.Nil] = Translator[any, types.Nil]{}
+var _ Observable[any] = Translator[any, any]{}
 
 // OnChange implements Observable.
 func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect {
-	return t.Observable.OnChange(func(ctx context.Context, v I) { handler(ctx, t.Translate(v)) })
+	return t.Observable.OnChange(
+		func(ctx context.Context, v I) { handler(ctx, t.Translate(v)) },
+	)
 }

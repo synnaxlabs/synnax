@@ -51,7 +51,7 @@ func (p Policy) SetOptions() []any { return nil }
 //     object that is either a type object with the correct type, or an object that
 //     exactly matches one of the requested objects.
 func allowRequest(req access.Request, policies []Policy) bool {
-	requestedObjects := set.FromSlice(req.Objects)
+	requestedObjects := set.New(req.Objects...)
 
 	for _, policy := range policies {
 		if !lo.Contains(policy.Subjects, req.Subject) {
@@ -85,13 +85,13 @@ func allowRequest(req access.Request, policies []Policy) bool {
 				// that type may be satisfied.
 				for requestedO := range requestedObjects {
 					if requestedO.Type == o.Type {
-						delete(requestedObjects, requestedO)
+						requestedObjects.Remove(requestedO)
 					}
 				}
 			} else {
 				// If o is one of the requested objects, it will be removed from the
 				// set. If it is not, then this is a no-op.
-				delete(requestedObjects, o)
+				requestedObjects.Remove(o)
 			}
 		}
 	}

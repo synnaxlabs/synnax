@@ -153,8 +153,8 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
-		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
+		calculated = make(map[channel.Key]channel.Channel, len(channels))
+		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
@@ -173,23 +173,26 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, nil
 	}
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculated.Contains(item)
+		_, ok := calculated[item]
+		return ok
 	})
-	cfg.Keys = append(cfg.Keys, required.Keys()...)
+	cfg.Keys = append(cfg.Keys, required.Elements()...)
 	var requiredCh []channel.Channel
 	err := s.cfg.Channel.NewRetrieve().
-		WhereKeys(required.Keys()...).
+		WhereKeys(required.Elements()...).
 		Entries(&requiredCh).
 		Exec(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	calculators := make([]*calculation.Calculator, len(calculated))
-	for i, v := range calculated.Values() {
+	i := 0
+	for _, v := range calculated {
 		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 		if err != nil {
 			return nil, err
 		}
+		i++
 	}
 	return newCalculationTransform(calculators), nil
 }
