@@ -148,7 +148,7 @@ const DateTimeModal = ({
       </Align.Space>
     </Align.Space>
     <Nav.Bar location="bottom" size="7rem">
-      <Nav.Bar.Start size="small">
+      <Nav.Bar.Start gap="small">
         <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
         <Text.Text shade={11} level="small">
           To Finish
@@ -249,7 +249,7 @@ const AISelector = ({
         data={entries}
         emptyContent={
           <Align.Center empty grow>
-            <Align.Space y size="tiny">
+            <Align.Space y gap="tiny">
               <Text.Text level="small" color="var(--pluto-gray-l7)">
                 "April 1 at 2PM"
               </Text.Text>
@@ -356,7 +356,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Icon.Caret.Right />
           </Button.Icon>
         </Align.Pack>
-        <Align.Space x wrap size="tiny" style={{ padding: "0.5rem", height: "100%" }}>
+        <Align.Space x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
           {Array.from({ length: MONTHS[month].days }).map((_, i) => (
             <Button.Icon
               key={i}

@@ -88,7 +88,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
             size="medium"
             tooltip={
               hasTriggers ? (
-                <Align.Space x align="center" size="small">
+                <Align.Space x align="center" gap="small">
                   <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
                   <Text.Text level="small" shade={11}>
                     To Configure

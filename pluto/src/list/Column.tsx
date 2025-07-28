@@ -147,7 +147,7 @@ const Header = <K extends record.Key, E extends record.Keyed<K>>({
       {!hide && (
         <Align.Space
           x
-          size="medium"
+          gap="medium"
           className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
         >
           {ctxValue.columns
@@ -206,7 +206,7 @@ const Item = <
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
       )}
       align="center"
-      size="medium"
+      gap="medium"
       {...rest}
     >
       {columns

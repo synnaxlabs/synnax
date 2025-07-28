@@ -146,7 +146,7 @@ export const LinePlotAxisControls = ({
   };
 
   return (
-    <Align.Space y style={{ padding: "2rem" }} size="small">
+    <Align.Space y style={{ padding: "2rem" }} gap="small">
       <Align.Space x>
         <Input.Item label="Lower Bound" y grow>
           <Input.Numeric

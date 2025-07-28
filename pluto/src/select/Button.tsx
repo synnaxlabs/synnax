@@ -120,7 +120,6 @@ export const Button = <
     <Align.Pack
       borderShade={5}
       className={CSS(CSS.B("select-button"), className)}
-      size={size}
       {...rest}
     >
       {mapped}

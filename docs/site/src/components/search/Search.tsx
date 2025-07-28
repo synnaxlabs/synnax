@@ -66,7 +66,7 @@ export const Search = (): ReactElement => {
           variant="outlined"
           justify="center"
           size="large"
-          endContent={<Triggers.Text level="small" trigger={["Control", "K"]} />}
+          endIcon={<Triggers.Text level="small" trigger={["Control", "K"]} />}
         >
           Search
         </Button.Button>
@@ -114,7 +114,7 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
       el="a"
       direction="y"
       style={{ padding: "2.5rem 3rem" }}
-      size="medium"
+      gap="medium"
       className={`search-result ${hovered ? "hovered" : ""}`}
       aria-selected={true}
       href={href}
