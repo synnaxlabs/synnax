@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package base64 provides utilities for encoding and decoding to Base64
+// Package base64 provides utilities for encoding and decoding to Base64.
 package base64
 
 import (
