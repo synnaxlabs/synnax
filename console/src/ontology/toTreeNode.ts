@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { type Tree as Core } from "@synnaxlabs/pluto";
 import { isValidElement } from "react";
 
@@ -20,7 +20,7 @@ export const toTreeNode = (
   const { id, name } = resource;
   const { icon, hasChildren, haulItems } = services[id.type];
   return {
-    key: id.toString(),
+    key: ontology.idToString(id),
     name,
     icon: isValidElement(icon) ? icon : icon(resource),
     hasChildren,

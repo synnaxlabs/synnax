@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type change, record } from "@synnaxlabs/x";
+import { array, type change, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -67,65 +67,38 @@ export const resourceTypeZ = z.enum([
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
-export const idZ = z.object({ type: resourceTypeZ, key: z.string() });
-export interface IDPayload extends z.infer<typeof idZ> {}
-
-export const stringIDZ = z.string().transform((v) => {
+const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
   return { type: resourceTypeZ.parse(type), key: key ?? "" };
 });
 
-export const crudeIDZ = z.union([stringIDZ, idZ]);
-export type CrudeID = z.input<typeof crudeIDZ>;
+export const idZ = z.object({ type: resourceTypeZ, key: z.string() }).or(stringIDZ);
 
-export class ID {
-  type: ResourceType;
-  key: string;
+export type ID = z.infer<typeof idZ>;
 
-  constructor(args: z.input<typeof crudeIDZ> | ID) {
-    if (args instanceof ID) {
-      this.type = args.type;
-      this.key = args.key;
-      return;
-    }
-    if (typeof args === "string") {
-      const [type, key] = args.split(":");
-      this.type = type as ResourceType;
-      this.key = key ?? "";
-      return;
-    }
-    this.type = args.type;
-    this.key = args.key;
-  }
+export const ROOT_ID: ID = { type: BUILTIN_TYPE, key: "root" };
 
-  toString(): string {
-    return `${this.type}:${this.key}`;
-  }
+export const idToString = (id: ID) => `${id.type}:${id.key}`;
 
-  isType(): boolean {
-    return this.key === "";
-  }
+export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
 
-  equals(other: CrudeID): boolean {
-    return this.toString() === new ID(other).toString();
-  }
-
-  get payload(): IDPayload {
-    return { type: this.type, key: this.key };
-  }
-
-  static readonly z = z.union([z.instanceof(ID), crudeIDZ.transform((v) => new ID(v))]);
-}
-
-export const ROOT_ID = new ID({ type: BUILTIN_TYPE, key: "root" });
+export const parseIDs = (
+  ids: ID | ID[] | string | string[] | Resource | Resource[],
+): ID[] => {
+  const arr = array.toArray(ids);
+  if (arr.length === 0) return [];
+  if (typeof arr[0] === "object" && "id" in arr[0])
+    return (arr as Resource[]).map(({ id }) => id);
+  return arr.map((id) => idZ.parse(id));
+};
 
 export const resourceZ = z
   .object({
-    id: ID.z,
+    id: idZ,
     name: z.string(),
     data: record.unknownZ.optional().nullable(),
   })
-  .transform((resource) => ({ key: resource.id.toString(), ...resource }));
+  .transform((resource) => ({ key: idToString(resource.id), ...resource }));
 export interface Resource<T extends record.Unknown = record.Unknown>
   extends Omit<z.infer<typeof resourceZ>, "data"> {
   data?: T | null;
@@ -137,12 +110,12 @@ export const oppositeRelationshipDirection = (
   direction: RelationshipDirection,
 ): RelationshipDirection => (direction === "to" ? "from" : "to");
 
-export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
-export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}
-
-export const parseRelationship = (str: string): Relationship => {
-  const [from, type, to] = str.split("->");
-  return { from: new ID(from), type, to: new ID(to) };
-};
+export const relationshipZ = z.object({ from: idZ, type: z.string(), to: idZ }).or(
+  z.string().transform((v) => {
+    const [from, type, to] = v.split("->");
+    return { from: idZ.parse(from), type, to: idZ.parse(to) };
+  }),
+);
+export type Relationship = z.infer<typeof relationshipZ>;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";

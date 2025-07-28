@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { ontology, task } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -47,7 +47,7 @@ const useDelete = () => {
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
@@ -93,8 +93,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         services: props.services,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     rangeSnapshot: () => snap(props.selection.resources),
     group: () => group(props),
   };
@@ -164,7 +163,9 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Task />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
+  haulItems: ({ id }) => [
+    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
+  ],
   allowRename: () => true,
   onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,

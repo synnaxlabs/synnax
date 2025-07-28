@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DisconnectedError } from "@synnaxlabs/client";
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
@@ -56,7 +56,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
     mutationFn: async () => {
       if (!methods.validate()) return;
       const values = methods.value();
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       await client.user.create({ ...values });
       onClose();
     },

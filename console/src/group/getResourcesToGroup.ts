@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Tree } from "@synnaxlabs/pluto";
 
 import { type Ontology } from "@/ontology";
@@ -18,6 +18,6 @@ export const getResourcesToGroup = (
   const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(selection.nodes);
   const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
   return selection.resources
-    .filter(({ id }) => nodesOfMinDepthKeys.includes(id.toString()))
+    .filter(({ id }) => nodesOfMinDepthKeys.includes(ontology.idToString(id)))
     .map(({ id }) => id);
 };

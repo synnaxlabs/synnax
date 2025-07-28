@@ -56,7 +56,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
-import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
+import { useMemoCompare, useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -233,7 +233,7 @@ const Core = ({
   dragHandleSelector,
   ...rest
 }: DiagramProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ visible });
+  const memoProps = useMemoDeepEqual({ visible });
   const [{ path }, , setState] = Aether.use({
     aetherKey,
     type: diagram.Diagram.TYPE,
