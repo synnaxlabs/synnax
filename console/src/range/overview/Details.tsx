@@ -40,7 +40,7 @@ const ParentRangeButton = ({
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
   return (
-    <Align.Space x size="small" align="center">
+    <Align.Space x gap="small" align="center">
       <Text.Text level="p" shade={11} weight={450}>
         Child Range of
       </Text.Text>
@@ -49,7 +49,7 @@ const ParentRangeButton = ({
         shade={11}
         weight={400}
         startIcon={<Icon.Range />}
-        iconSpacing="small"
+        gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
           placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
@@ -114,7 +114,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   return (
     <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
-      <Align.Space y size="large">
+      <Align.Space y gap="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
@@ -135,7 +135,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             x
             className={CSS.B("copy-buttons")}
             style={{ height: "fit-content" }}
-            size="small"
+            gap="small"
           >
             <Align.Space x>
               <Button.Icon
@@ -168,7 +168,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             </Button.Icon>
           </Align.Space>
         </Align.Space>
-        <Align.Space className={CSS.B("time-range")} x size="medium" align="center">
+        <Align.Space className={CSS.B("time-range")} x gap="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
               <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />

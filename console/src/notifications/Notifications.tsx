@@ -39,7 +39,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
   });
   return createPortal(
     <List.List<string, Status.NotificationSpec | Sugared> data={sugared}>
-      <List.Core<string, Sugared> className={CSS(CSS.B("notifications"))} size="medium">
+      <List.Core<string, Sugared> className={CSS(CSS.B("notifications"))} gap="medium">
         {({ entry }) => (
           <Status.Notification
             key={entry.key}

@@ -104,7 +104,7 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Align.Space x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
@@ -126,7 +126,7 @@ export const Create: Layout.Renderer = (props) => {
                       level="p"
                       shade={11}
                       startIcon={<ParentRangeIcon />}
-                      size="small"
+                      gap="small"
                     >
                       {e.name}
                     </Text.WithIcon>
@@ -138,7 +138,7 @@ export const Create: Layout.Renderer = (props) => {
                       level="p"
                       shade={11}
                       startIcon={<ParentRangeIcon />}
-                      size="small"
+                      gap="small"
                     >
                       Parent Range
                     </Text.WithIcon>

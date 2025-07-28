@@ -70,7 +70,7 @@ export interface CoreExtensionProps {
 
 export interface SpaceExtensionProps extends CoreExtensionProps {
   empty?: boolean;
-  size?: ComponentSize | number;
+  gap?: ComponentSize | number;
   direction?: direction.Crude;
   x?: boolean;
   y?: boolean;
@@ -150,7 +150,7 @@ export const Space = <E extends ElementType = "div">({
   grow,
   shrink,
   empty = false,
-  size = "medium",
+  gap = "medium",
   justify = "start",
   reverse,
   wrap = false,
@@ -162,12 +162,12 @@ export const Space = <E extends ElementType = "div">({
   const dir = parseDirection(propsDir, x, y, "y");
   reverse = shouldReverse(dir, reverse);
 
-  let gap: number | string | undefined;
-  if (empty) [size, gap] = [0, 0];
-  else if (typeof size === "number") gap = `${size}rem`;
+  let parsedGap: number | string | undefined;
+  if (empty) parsedGap = 0;
+  else if (typeof gap === "number") parsedGap = `${gap}rem`;
 
   style = {
-    gap,
+    gap: parsedGap,
     flexDirection: flexDirection(dir, reverse),
     justifyContent: CSS_JUSTIFICATIONS[justify],
     alignItems: align,
@@ -184,7 +184,7 @@ export const Space = <E extends ElementType = "div">({
       className={CSS(
         CSS.B("space"),
         CSS.dir(dir),
-        typeof size === "string" && CSS.BM("space", size),
+        typeof gap === "string" && CSS.BM("space", gap),
         className,
       )}
       style={style}

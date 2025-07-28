@@ -67,24 +67,24 @@ export const Info: Layout.Renderer = () => {
   });
 
   let updateContent = (
-    <Status.Text level="h4" weight={350} variant="loading" size="medium">
+    <Status.Text level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
     </Status.Text>
   );
   if (updateMutation.isPending)
     if (progressPercent === 100)
       updateContent = (
-        <Status.Text level="h4" variant="loading" size="medium">
+        <Status.Text level="h4" variant="loading" gap="medium">
           Update downloaded. Restarting
         </Status.Text>
       );
     else
       updateContent = (
-        <Align.Space y size="medium">
-          <Status.Text variant="loading" level="h4" size="medium">
+        <Align.Space y gap="medium">
+          <Status.Text variant="loading" level="h4" gap="medium">
             Downloading update
           </Status.Text>
-          <Align.Space x size="medium" align="center" justify="center">
+          <Align.Space x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
             <Text.Text level="p" shade={10} noWrap>
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
@@ -130,8 +130,8 @@ export const Info: Layout.Renderer = () => {
     );
 
   return (
-    <Align.Space align="center" y size="large" style={{ paddingTop: "6rem" }}>
-      <Align.Space y size="small" justify="center" align="center">
+    <Align.Space align="center" y gap="large" style={{ paddingTop: "6rem" }}>
+      <Align.Space y gap="small" justify="center" align="center">
         <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
           <Logo variant="title" style={{ height: "10rem" }} />
         </a>

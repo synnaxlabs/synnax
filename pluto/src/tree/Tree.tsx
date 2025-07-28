@@ -308,7 +308,7 @@ export const DefaultItem = memo(
         [CSS.var("tree-indicator-offset")]: `${offset - 1.5}rem`,
       },
       startIcon: startIcons,
-      iconSpacing: "small",
+      gap: "small",
       noWrap: true,
       endIcon: endIcons,
       onDoubleClick: (e) => onDoubleClick?.(key, e),

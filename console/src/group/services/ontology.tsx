@@ -43,7 +43,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
   const singleResource = resources.length === 1;
   return (
-    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={onSelect} level="small" gap="small">
       {singleResource && (
         <>
           <Menu.RenameItem />

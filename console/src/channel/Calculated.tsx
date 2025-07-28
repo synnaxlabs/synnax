@@ -165,9 +165,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
       </Align.Space>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
-        <Nav.Bar.End align="center" size="large">
+        <Nav.Bar.End align="center" gap="large">
           {isEdit && (
-            <Align.Space x align="center" size="small">
+            <Align.Space x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
               <Text.Text level="p" shade={11}>
                 Create More

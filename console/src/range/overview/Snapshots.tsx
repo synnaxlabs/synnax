@@ -74,7 +74,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
   return (
     <List.ItemFrame
       style={{ padding: "1.5rem" }}
-      size="tiny"
+      gap="tiny"
       {...props}
       onSelect={handleSelect}
     >

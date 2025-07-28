@@ -143,7 +143,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const isPending = testConnectionMutation.isPending || connectMutation.isPending;
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
-      <Align.Space className={CSS.B("content")} grow size="small">
+      <Align.Space className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
@@ -210,7 +210,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         </Form.Form>
       </Align.Space>
       <Modals.BottomNavBar>
-        <Nav.Bar.Start size="small">
+        <Nav.Bar.Start gap="small">
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (

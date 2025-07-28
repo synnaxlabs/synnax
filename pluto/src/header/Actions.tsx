@@ -36,7 +36,7 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
   return (
     <Align.Space
       x
-      size="small"
+      gap="small"
       align="center"
       className={CSS.BE("header", "actions")}
       {...rest}

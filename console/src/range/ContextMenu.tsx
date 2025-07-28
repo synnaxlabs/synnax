@@ -113,13 +113,13 @@ export const deleteMenuItem = (
 );
 
 export const setAsActiveMenuItem = (
-  <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+  <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} gap="small">
     Set as Active Range
   </PMenu.Item>
 );
 
 export const clearActiveMenuItem = (
-  <PMenu.Item itemKey="clearActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+  <PMenu.Item itemKey="clearActive" startIcon={<Icon.Dynamic />} gap="small">
     Clear Active Range
   </PMenu.Item>
 );
@@ -273,7 +273,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     clearActive: handleClearActive,
   };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
         Create New
       </PMenu.Item>

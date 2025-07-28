@@ -32,7 +32,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
       x
-      size="tiny"
+      gap="tiny"
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.5rem" }}
@@ -43,11 +43,11 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
         level="p"
         weight={450}
         shade={11}
-        size="small"
+        gap="small"
       >
         {entry.name}
       </Text.WithIcon>
-      <Align.Space x size="small">
+      <Align.Space x gap="small">
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
       </Align.Space>
     </List.ItemFrame>
@@ -79,7 +79,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         weight={500}
         startIcon={<Icon.Add />}
         style={{ width: "fit-content" }}
-        iconSpacing="small"
+        gap="small"
         variant="text"
         onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
       >

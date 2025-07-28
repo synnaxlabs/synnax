@@ -44,7 +44,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
       justify="spaceBetween"
       {...props}
     >
-      <Align.Space x size="small">
+      <Align.Space x gap="small">
         <Form.Field<string>
           hideIfNull
           path={`labels.${index}.color`}
@@ -158,7 +158,7 @@ export const Edit: Layout.Renderer = () => {
               }}
               startIcon={<Icon.Add />}
               style={{ width: "fit-content" }}
-              iconSpacing="small"
+              gap="small"
             >
               Add Label
             </Button.Button>
