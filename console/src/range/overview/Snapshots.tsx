@@ -77,7 +77,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
   return (
     <List.Item
       style={{ padding: "1.5rem" }}
-      size="tiny"
+      gap="tiny"
       {...props}
       onSelect={handleSelect}
     >

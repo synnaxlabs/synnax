@@ -107,7 +107,7 @@ const ChannelListItem = ({
                 path={`${path}.type`}
                 showLabel={false}
                 hideIfNull
-                size="large"
+                gap="large"
                 onChange={(value) => {
                   if (type === value) return;
                   const port = Device.PORTS[device.model][value][0].key;

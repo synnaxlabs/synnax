@@ -75,7 +75,7 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemProps) => {
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
     <Tree.Item {...props} hasChildren draggable onDragStart={handleDragStart}>
-      <Text.WithIcon level="p" shade={10} size="small" startIcon={icon}>
+      <Text.WithIcon level="p" shade={10} gap="small" startIcon={icon}>
         {node.name}
       </Text.WithIcon>
     </Tree.Item>

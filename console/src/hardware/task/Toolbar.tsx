@@ -45,7 +45,7 @@ const EmptyContent = () => {
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center y style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} gap="small">
         <Text.Text level="p">No existing tasks.</Text.Text>
         <Text.Link level="p" onClick={handleClick}>
           Add a task
@@ -247,8 +247,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   );
   return (
     <Select.ListItem {...rest} justify="spaceBetween" align="center">
-      <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
-        <Align.Space x align="center" size="small">
+      <Align.Space y gap="small" grow className={CSS.BE("task", "metadata")}>
+        <Align.Space x align="center" gap="small">
           <Status.Indicator
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
@@ -372,7 +372,7 @@ const ContextMenu = ({
   const showSnapshotToActiveRange =
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
-    <PMenu.Menu level="small" iconSpacing="small" onChange={handleChange}>
+    <PMenu.Menu level="small" gap="small" onChange={handleChange}>
       {canStart && (
         <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
           Start

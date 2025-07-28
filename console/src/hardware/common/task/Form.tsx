@@ -264,7 +264,7 @@ export const wrapForm = <
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
-              <Align.Space align="end" size="small">
+              <Align.Space align="end" gap="small">
                 <CopyButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}

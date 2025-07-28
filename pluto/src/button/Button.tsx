@@ -59,7 +59,6 @@ export type ButtonProps = Omit<
     level?: Text.Level;
     startIcon?: Icon.ReactElement | Icon.ReactElement[];
     endIcon?: Icon.ReactElement | Icon.ReactElement[];
-    iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
   };
@@ -93,7 +92,7 @@ export const Button = Tooltip.wrap(
     type = "button",
     className,
     children,
-    iconSpacing,
+    gap,
     sharp = false,
     disabled = false,
     loading = false,
@@ -116,7 +115,7 @@ export const Button = Tooltip.wrap(
     if (loading)
       startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
-    iconSpacing ??= size === "small" ? "small" : "medium";
+    gap ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
@@ -198,7 +197,7 @@ export const Button = Tooltip.wrap(
         tabIndex={tabIndex}
         type={type}
         level={level ?? Text.COMPONENT_SIZE_LEVELS[size]}
-        size={iconSpacing}
+        gap={gap}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         noWrap

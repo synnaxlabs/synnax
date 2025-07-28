@@ -69,7 +69,7 @@ export const Tag = ({
       level={Text.COMPONENT_SIZE_LEVELS[size]}
       noWrap
       align="center"
-      size="small"
+      gap="small"
       onDragStart={onDragStart}
       {...rest}
     >

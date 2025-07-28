@@ -159,7 +159,7 @@ const SymbolRenderer = ({
 const edgeRenderer = Component.renderProp(Core.Edge);
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
+  <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
   </PMenu.Menu>
 );

@@ -279,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
-    <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {isCalc && (
@@ -335,7 +335,7 @@ export const Item = ({
   const I = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <Align.Space size="small" x align="center">
+      <Align.Space gap="small" x align="center">
         <I style={{ color: "var(--pluto-gray-l10" }} />
         <Text.MaybeEditable
           id={ontology.idToString(id)}

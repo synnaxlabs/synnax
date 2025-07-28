@@ -29,12 +29,12 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const { key, name } = parentRange;
   const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
   return (
-    <Align.Space x align="center" size="small">
+    <Align.Space x align="center" gap="small">
       <Text.Text level="p" shade={11}>
         Snapshotted to
       </Text.Text>
       <Button.Button
-        iconSpacing="small"
+        gap="small"
         onClick={handleClick}
         shade={11}
         startIcon={<Icon.Range />}

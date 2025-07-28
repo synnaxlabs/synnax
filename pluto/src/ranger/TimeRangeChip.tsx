@@ -49,7 +49,7 @@ export const TimeRangeChip = ({
   const span = startTS.span(endTS);
 
   let startTime = (
-    <Align.Space x align="center" size="small">
+    <Align.Space x align="center" gap="small">
       {startTS.isToday && (
         <Text.Text level={level} shade={shade} weight={450}>
           Today
@@ -150,7 +150,7 @@ export const TimeRangeChip = ({
   return (
     <Align.Space
       x
-      size="small"
+      gap="small"
       className={CSS(CSS.B("time-range-chip"))}
       align="center"
       {...rest}

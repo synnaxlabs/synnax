@@ -142,7 +142,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 const EmptyContent = () => (
-  <Align.Center x size="small" style={{ width: "100%", height: "100%" }}>
+  <Align.Center x gap="small" style={{ width: "100%", height: "100%" }}>
     <Status.Text variant="disabled" hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>

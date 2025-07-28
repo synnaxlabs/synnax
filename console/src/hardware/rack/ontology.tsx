@@ -121,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const isSingle = resourceIDs.length === 1;
   return (
-    <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
+    <PMenu.Menu level="small" gap="small" onChange={onSelect}>
       <Group.MenuItem resourceIDs={resourceIDs} shape={shape} showBottomDivider />
       {isSingle && (
         <>

@@ -351,7 +351,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x size="small">
+      <Align.Space x gap="small">
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
@@ -360,7 +360,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
       </Align.Space>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x size="small">
+      <Align.Space x gap="small">
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -874,7 +874,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
       </Align.Space>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x size="small">
+      <Align.Space x gap="small">
         <TorqueUnitsField
           path={prefix}
           fieldKey="physicalUnits"

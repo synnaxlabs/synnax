@@ -53,7 +53,7 @@ export const Notification = ({
       {...rest}
     >
       <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
-        <Align.Space x align="center" size="small">
+        <Align.Space x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
           <Text.Text level="small" shade={11}>
             {`x${count}`}
@@ -79,7 +79,7 @@ export const Notification = ({
         y
         align="start"
         className={CSS(CSS.BE("notification", "content"))}
-        size="small"
+        gap="small"
       >
         {children != null ? (
           children

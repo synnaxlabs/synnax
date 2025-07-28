@@ -59,11 +59,11 @@ export const LegendSwatches = memo(
             style={{ cursor: "pointer", height: "3rem" }}
             x
             align="center"
-            size="small"
+            gap="small"
             justify="spaceBetween"
             grow
           >
-            <Align.Space direction="x" align="center" size="small">
+            <Align.Space direction="x" align="center" gap="small">
               <Color.Swatch
                 value={color}
                 onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
@@ -122,7 +122,7 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      size={allowVisibleChange ? 0 : "tiny"}
+      gap={allowVisibleChange ? 0 : "tiny"}
     >
       <LegendSwatches
         data={data}

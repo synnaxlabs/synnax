@@ -65,7 +65,7 @@ export const WithIcon = <
         className,
       )}
       x
-      size={level === "small" ? "tiny" : "small"}
+      gap={level === "small" ? "tiny" : "small"}
       align="center"
       {...rest}
       style={{ ...rest.style, color }}

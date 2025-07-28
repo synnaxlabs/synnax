@@ -24,7 +24,7 @@ export interface ContextValue {
   onClick: (key: string) => void;
   selected: string;
   level?: Text.Level;
-  iconSpacing?: Component.Size;
+  gap?: Component.Size;
   shade?: Text.Shade;
 }
 
@@ -32,7 +32,7 @@ const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" })
 
 export interface MenuProps
   extends PropsWithChildren,
-    Pick<ContextValue, "level" | "iconSpacing" | "shade"> {
+    Pick<ContextValue, "level" | "gap" | "shade"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
@@ -53,7 +53,7 @@ export const Menu = ({
   children,
   onChange,
   level,
-  iconSpacing,
+  gap,
   shade = 1,
   value: selected = "",
 }: MenuProps): ReactElement => {
@@ -69,10 +69,10 @@ export const Menu = ({
       onClick,
       selected,
       level,
-      iconSpacing,
+      gap,
       shade,
     }),
-    [selected, onClick, level, iconSpacing, shade],
+    [selected, onClick, level, gap, shade],
   );
   return <Context value={ctxValue}>{children}</Context>;
 };

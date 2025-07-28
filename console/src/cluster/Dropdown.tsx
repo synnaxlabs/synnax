@@ -67,7 +67,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       onSelect={onSelect}
       {...rest}
     >
-      <Align.Space y justify="spaceBetween" size="tiny" grow>
+      <Align.Space y justify="spaceBetween" gap="tiny" grow>
         <Text.MaybeEditable
           level="p"
           id={`cluster-dropdown-${item.key}`}
@@ -111,7 +111,7 @@ export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElem
       style={{ height: "100%", position: "relative", ...style }}
       {...rest}
     >
-      <Align.Center y style={{ height: "100%" }} size="small">
+      <Align.Center y style={{ height: "100%" }} gap="small">
         <Text.Text level="p">No cluster connected.</Text.Text>
         <Text.Link level="p" onClick={handleCluster}>
           Connect a cluster
@@ -243,7 +243,7 @@ export const Dropdown = (): ReactElement => {
         <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
           <Align.Pack x>
-            <Header.Header grow bordered borderShade={6} size="small" x>
+            <Header.Header grow bordered borderShade={6} gap="small" x>
               <Header.Title level="h5" startIcon={<Icon.Cluster />}>
                 Clusters
               </Header.Title>
@@ -251,7 +251,7 @@ export const Dropdown = (): ReactElement => {
             <Button.Button
               variant="filled"
               size="large"
-              iconSpacing="small"
+              gap="small"
               startIcon={<Icon.Connect />}
               onClick={() => {
                 placeLayout(CONNECT_LAYOUT);

@@ -57,7 +57,7 @@ const FormWrapper: FC<FormWrapperProps> = ({
     direction={direction}
     align="stretch"
     className={CSS(CSS.B("symbol-form"), className)}
-    size={direction === "x" ? "large" : "medium"}
+    gap={direction === "x" ? "large" : "medium"}
     {...rest}
   />
 );
@@ -835,7 +835,7 @@ export const SetpointForm = (): ReactElement => {
       default:
         return (
           <FormWrapper x align="stretch">
-            <Align.Space y align="stretch" grow size="small">
+            <Align.Space y align="stretch" grow gap="small">
               <LabelControls path="label" />
               <Align.Space x>
                 <Form.TextField
