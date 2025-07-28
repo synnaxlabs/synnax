@@ -37,7 +37,7 @@ export const Tags = ({
       )}
       onClick={onClick}
       align="center"
-      size="small"
+      gap="small"
       style={{ padding: "0rem 0.5rem" }}
       rounded
       {...rest}

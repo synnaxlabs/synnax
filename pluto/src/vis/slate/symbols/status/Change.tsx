@@ -28,7 +28,7 @@ export const Symbol = ({ message, variant }: SymbolProps) => (
     textColor={color.cssString(RED_HEX)}
     sinks={[{ key: "value", Icon: Icon.Number }]}
   >
-    <Align.Space x align="center" justify="center" size="tiny">
+    <Align.Space x align="center" justify="center" gap="tiny">
       <Status.Indicator variant={variant} size="2.5em" />
       <Text.Text level="p" weight={500} shade={11}>
         {message}

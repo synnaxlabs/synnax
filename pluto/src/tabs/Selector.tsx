@@ -228,7 +228,7 @@ const SelectorButton = ({
 
   return (
     <Align.Pack
-      size={size}
+      gap={size}
       id={tabKey}
       className={CSS(
         CSS.BE(CLS, "btn"),

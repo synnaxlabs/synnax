@@ -33,7 +33,7 @@ const BaseItems = <
   emptyContent,
   displayItems = 10,
   style,
-  size = 0,
+  gap = 0,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
@@ -59,7 +59,7 @@ const BaseItems = <
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
       style={{ height: minHeight, ...style }}
-      size={size}
+      gap={gap}
       {...rest}
     >
       {content}

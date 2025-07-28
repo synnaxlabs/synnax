@@ -27,7 +27,7 @@ export interface TypeTextProps {
 export const TypeText = ({ type, icon, color, textColor }: TypeTextProps) => (
   <Text.WithIcon
     level="small"
-    size="tiny"
+    gap="tiny"
     weight={500}
     shade={9}
     bordered
@@ -94,7 +94,7 @@ const createHandles = (
       <Align.Space
         y
         align="center"
-        size={0.5}
+        gap={0.5}
         background={2}
         bordered
         borderShade={6}
@@ -192,7 +192,7 @@ export const Minimal = ({
         background={0}
         bordered
         borderShade={6}
-        size="small"
+        gap="small"
         justify="center"
         style={adjustedStyle}
         align="start"

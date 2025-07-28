@@ -37,7 +37,7 @@ export const Item = <K extends record.Key>({
       [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
       ...style,
     }}
-    size="small"
+    gap="small"
     align="center"
     {...rest}
   >

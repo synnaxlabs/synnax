@@ -171,7 +171,7 @@ const Internal = ({
         close();
         onClick?.(e);
       }}
-      size="tiny"
+      gap="tiny"
       {...rest}
     >
       {menu?.({ keys })}

@@ -42,7 +42,7 @@ export const Create = ({ range }: CreateProps) => (
       },
     ]}
   >
-    <Align.Space direction="x" align="center" size="small">
+    <Align.Space direction="x" align="center" gap="small">
       {range.color != null && <Color.Swatch value={range.color} size="tiny" />}
       <Text.Text level="p" weight={500}>
         {range.name}

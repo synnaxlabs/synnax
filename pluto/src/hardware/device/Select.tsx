@@ -45,7 +45,7 @@ const listItemRenderProp = Component.renderProp(
           shade={9}
           weight={450}
           style={{ marginTop: "0.25rem" }}
-          size="tiny"
+          gap="tiny"
         >
           {item?.location ?? ""}
         </Breadcrumb.Breadcrumb>
