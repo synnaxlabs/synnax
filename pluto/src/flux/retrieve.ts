@@ -338,12 +338,10 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
  *
  * This function creates a set of React hooks that handle data retrieval with
  * proper loading states, error handling, caching, and real-time updates. It provides
- * four hook variants for different use cases:
+ * two hook variants for different use cases:
  *
  * - `useDirect`: Automatically fetches data when parameters change. Best for most use cases.
  * - `useEffect`: Triggers data fetching as a side effect without returning state. Use when handling results externally.
- * - `useObservable`: Provides retrieve functions for external state management. Use when integrating with external state systems.
- * - `useStateful`: Provides manual control over when data is fetched, with internal state management. Use for user-triggered actions.
  *
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
@@ -387,7 +385,6 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
  * const { data, variant, error } = userRetrieve.useDirect({
  *   params: { userId: 123, includeProfile: true }
  * });
- *
  *
  * // Side effect only - trigger fetching but handle result elsewhere
  * userRetrieve.useEffect({

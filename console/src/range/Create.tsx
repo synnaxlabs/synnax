@@ -31,7 +31,7 @@ import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.rangeFormSchema>>;
+export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
@@ -94,7 +94,7 @@ export const Create: Layout.Renderer = (props) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+        <Form.Form<typeof Ranger.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text

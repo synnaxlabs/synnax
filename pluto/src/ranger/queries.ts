@@ -167,14 +167,14 @@ export const retrieveQuery = Flux.createRetrieve<QueryParams, ranger.Range>({
 
 export const useRetrieve = retrieveQuery.useDirect;
 
-export const rangeFormSchema = z.object({
+export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
   timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
-export const rangeToFormValues = async (
+export const toFormValues = async (
   range: ranger.Range,
   labels?: label.Key[],
   parent?: ranger.Key,
@@ -187,20 +187,20 @@ export const rangeToFormValues = async (
 
 export interface UseFormQueryParams extends Optional<QueryParams, "key"> {}
 
-const ZERO_FORM_VALUES: z.infer<typeof rangeFormSchema> = {
+const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   labels: [],
   parent: "",
   timeRange: { start: 0, end: 0 },
 };
 
-export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchema>({
+export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema>({
   name: "Range",
-  schema: rangeFormSchema,
+  schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, params: { key } }) => {
     if (key == null) return null;
-    return await rangeToFormValues(await client.ranges.retrieve(key));
+    return await toFormValues(await client.ranges.retrieve(key));
   },
   update: async ({ client, value, onChange }) => {
     const parentID = primitive.isZero(value.parent)
@@ -208,7 +208,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
       : ranger.ontologyID(value.parent as string);
     const rng = await client.ranges.create(value, { parent: parentID });
     await client.labels.label(rng.ontologyID, value.labels, { replace: true });
-    onChange(await rangeToFormValues(rng, value.labels, value.parent));
+    onChange(await toFormValues(rng, value.labels, value.parent));
   },
   listeners: [
     {
@@ -216,7 +216,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
         async ({ client, changed, onChange }) => {
-          const values = await rangeToFormValues(client.ranges.sugarOne(changed));
+          const values = await toFormValues(client.ranges.sugarOne(changed));
           onChange((prev) => {
             if (prev?.key !== changed.key) return prev;
             return values;
