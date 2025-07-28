@@ -274,7 +274,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" shade={1} iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" shade={1} gap="small">
       {singleResource && (
         <>
           <Menu.RenameItem />

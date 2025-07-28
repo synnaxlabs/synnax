@@ -19,6 +19,11 @@ export const consoleNav: PageNavNode = {
       name: "Get Started",
     },
     {
+      key: "/reference/console/requirements",
+      href: "/reference/console/requirements",
+      name: "Requirements",
+    },
+    {
       key: "/reference/console/clusters",
       href: "/reference/console/clusters",
       name: "Clusters",

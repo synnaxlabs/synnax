@@ -16,8 +16,8 @@
     "build": "tsc --noEmit && vite build",
     "check-types": "tsc --noEmit",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "madge": "madge --circular src"
   },
   "dependencies": {

@@ -93,7 +93,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
       <Form.Form<typeof formSchema> {...methods}>
-        <Align.Space className="console-form" grow size="tiny" justify="center">
+        <Align.Space className="console-form" grow gap="tiny" justify="center">
           <Form.TextField
             path="name"
             inputProps={{
@@ -123,7 +123,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
         </Align.Space>
       </Form.Form>
       <Modals.BottomNavBar>
-        <Nav.Bar.Start size="small">
+        <Nav.Bar.Start gap="small">
           {connState != null ? (
             <Status.Text variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}>
               {connState.status === "connected"

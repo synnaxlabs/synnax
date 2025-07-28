@@ -34,7 +34,7 @@ export const FeedbackButton = (): ReactElement => {
       <Button.Button
         className="feedback-button"
         size="medium"
-        iconSpacing="small"
+        gap="small"
         onClick={toggle}
         startIcon={<Icon.Feedback />}
         variant="outlined"
@@ -67,7 +67,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
     void (async () => {
       if (!methods.validate()) return;
       const data = new FormData();
-      const value = await methods.value();
+      const value = methods.value();
       data.append("name", value.name ?? "");
       data.append("email", value.email ?? "");
       data.append("description", value.description);
@@ -128,7 +128,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         <Align.Space
           direction="y"
           style={{ width: "100%", padding: "4rem 3rem 2rem 3rem" }}
-          size="small"
+          gap="small"
         >
           <Form.Field<string>
             style={{ width: "100%" }}
@@ -175,7 +175,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
-              size="medium"
+              gap="medium"
               form="my-form"
               onClick={() => handleSuccessfulSubmit()}
               startIcon={softSuccess ? <Icon.Check /> : undefined}

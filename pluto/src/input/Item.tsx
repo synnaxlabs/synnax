@@ -46,7 +46,7 @@ export const Item = ({
   children,
   required,
   align,
-  size = "small",
+  gap = "small",
   padHelpText = false,
   helpTextVariant,
   showHelpText = true,
@@ -59,7 +59,7 @@ export const Item = ({
   if (!showHelpText_ && !showLabel_) return <>{children}</>;
   if (dir === "x")
     inputAndHelp = (
-      <Align.Space y size="small">
+      <Align.Space y gap="small">
         {children}
         {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
@@ -68,7 +68,7 @@ export const Item = ({
     );
   else
     inputAndHelp = (
-      <Align.Space y size={1 / 3}>
+      <Align.Space y gap={1 / 3}>
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
@@ -80,7 +80,7 @@ export const Item = ({
     <Align.Space
       className={CSS(CSS.B("input-item"), className)}
       direction={dir}
-      size={size}
+      gap={gap}
       align={maybeDefaultAlignment(align, dir)}
       {...rest}
     >

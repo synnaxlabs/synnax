@@ -121,7 +121,7 @@ const SymbolsButton = ({
       className={CSS(CSS.BE("schematic-symbols", "button"))}
       justify="spaceBetween"
       align="center"
-      size="tiny"
+      gap="tiny"
       draggable
       {...rest}
       onDragStart={() => startDrag(key)}

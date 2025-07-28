@@ -262,7 +262,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   }
 
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key
@@ -301,7 +301,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
   return (
     <List.ItemFrame
       y
-      size="tiny"
+      gap="tiny"
       style={{ padding: "1.5rem" }}
       highlightHovered
       {...props}
@@ -311,7 +311,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         level="p"
         weight={450}
         shade={11}
-        size="medium"
+        gap="medium"
       >
         {entry.name}{" "}
       </Text.WithIcon>

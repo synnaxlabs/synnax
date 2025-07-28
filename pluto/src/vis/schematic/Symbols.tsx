@@ -107,7 +107,7 @@ const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
         direction={direction.swap(orientation)}
         align="center"
         className={CSS(CSS.B("control-state"))}
-        size="small"
+        gap="small"
       >
         {show && showChip && <Control.Chip size="small" {...chip} />}
         {show && showIndicator && <Control.Indicator {...indicator} />}

@@ -167,7 +167,7 @@ const Internal = ({
           <Align.Space
             y
             style={{ padding: "2rem", paddingBottom: "3rem" }}
-            size="medium"
+            gap="medium"
           >
             <Align.Space x>
               <Form.Field<rack.Key>
