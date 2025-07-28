@@ -189,9 +189,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       (opts?: FetchOptions) =>
         void (async () => {
           try {
-            console.log("form.value()", form.value());
             if (!(await form.validateAsync())) return;
-            console.log("form.value()", form.value());
             await updateAsync(form.value(), opts);
             afterSave?.({ form, params });
           } catch (error) {

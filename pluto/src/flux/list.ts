@@ -36,21 +36,9 @@ import {
   useInitializerRef,
   useSyncedRef,
 } from "@/hooks";
+import { type List } from "@/list";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
-
-/**
- * Function interface for getting items from a list by key(s).
- *
- * @template K The type of the key (must be a record key)
- * @template E The type of the entity (must be keyed by K)
- */
-interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
-  /** Get a single item by key, returns undefined if not found */
-  (key: K): E | undefined;
-  /** Get multiple items by an array of keys */
-  (keys: K[]): E[];
-}
 
 /**
  * Options for async list operations.
@@ -89,7 +77,7 @@ export type UseListReturn<
   /** Array of keys for the items currently in the list */
   data: K[];
   /** Function to get items by key, with automatic lazy loading */
-  getItem: GetItem<K, E>;
+  getItem: List.GetItem<K, E>;
   /** Function to subscribe to changes for specific items */
   subscribe: (callback: () => void, key: K) => Destructor;
 };
@@ -423,8 +411,6 @@ export const createList =
                       onChange: (k, setter, opts = {}) => {
                         const { mode = "append" } = opts;
                         const prev = dataRef.current.get(k) ?? null;
-                        console.log("prev", prev);
-                        if (prev != null && !filterRef.current(prev)) return;
                         const res = state.executeSetter(setter, prev);
                         if (res == null || !filterRef.current(res)) return;
 
@@ -520,7 +506,7 @@ export const createList =
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
-      }) as GetItem<K, E>,
+      }) as List.GetItem<K, E>,
       [retrieveSingle],
     );
 

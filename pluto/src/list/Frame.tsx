@@ -14,6 +14,19 @@ import {
 import { Dialog } from "@/dialog";
 import { useRequiredContext, useSyncedRef } from "@/hooks";
 
+/**
+ * Function interface for getting items from a list by key(s).
+ *
+ * @template K The type of the key (must be a record key)
+ * @template E The type of the entity (must be keyed by K)
+ */
+export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined> {
+  /** Get a single item by key, returns undefined if not found */
+  (key: K): E | undefined;
+  /** Get multiple items by an array of keys */
+  (keys: K[]): E[];
+}
+
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
   index: number;
@@ -32,7 +45,7 @@ export interface UtilContextValue<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
   ref: RefCallback<HTMLDivElement | null>;
-  getItem?: (key: K) => E | undefined;
+  getItem?: GetItem<K, E>;
   subscribe?: (callback: () => void, key: K) => () => void;
   scrollToIndex: (index: number, direction?: location.Y) => void;
 }

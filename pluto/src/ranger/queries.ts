@@ -218,7 +218,6 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof rangeFormSchem
     return await rangeToFormValues(await client.ranges.retrieve(key));
   },
   update: async ({ client, value, onChange }) => {
-    console.log("value", value);
     const parentID = primitive.isZero(value.parent)
       ? undefined
       : ranger.ontologyID(value.parent as string);
@@ -315,25 +314,54 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
     }),
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   listeners: [
+    // {
+    //   channel: ranger.SET_CHANNEL_NAME,
+    //   onChange: Sync.parsedHandler(
+    //     ranger.payloadZ,
+    //     async ({ changed, onChange, client }) =>
+    //       onChange(changed.key, (prev) => {
+    //         const next = {
+    //           ...prev?.payload,
+    //           ...changed,
+    //           parent: prev?.parent ?? changed.parent,
+    //           labels: prev?.labels ?? [],
+    //         };
+    //         return client.ranges.sugarOne(next);
+    //       }),
+    //   ),
+    // },
+    // {
+    //   channel: ranger.DELETE_CHANNEL_NAME,
+    //   onChange: Sync.parsedHandler(ranger.keyZ, async ({ changed, onDelete }) =>
+    //     onDelete(changed),
+    //   ),
+    // },
     {
-      channel: ranger.SET_CHANNEL_NAME,
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
-        ranger.payloadZ,
-        async ({ changed, onChange, client }) =>
-          onChange(changed.key, (prev) => {
-            const next = {
-              ...prev?.payload,
-              ...changed,
-              parent: prev?.parent ?? changed.parent,
-            };
-            return client.ranges.sugarOne(next);
-          }),
-      ),
-    },
-    {
-      channel: ranger.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(ranger.keyZ, async ({ changed, onDelete }) =>
-        onDelete(changed),
+        ontology.relationshipZ,
+        async ({ changed, onChange, client }) => {
+          console.log(changed, changed.from.key);
+          if (changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
+            const label = await client.labels.retrieve(changed.to.key);
+            return onChange(changed.from.key, (prev) => {
+              if (prev == null) return prev;
+              console.log(prev);
+              return client.ranges.sugarOne({
+                ...prev,
+                labels: [...prev.labels.filter((l) => l.key !== changed.to.key), label],
+              });
+            });
+          }
+          // if (changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
+          //   return onChange(changed.to.key, (prev) => {
+          //     if (prev == null) return prev;
+          //     return client.ranges.sugarOne({
+          //       ...prev,
+          //       parent: await client.ranges.retrieve(changed.from.key),
+          //     });
+          //   });
+        },
       ),
     },
   ],

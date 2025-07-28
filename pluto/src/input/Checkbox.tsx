@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
+import { preventDefault, stopPropagation } from "@/util/event";
 
 export interface CheckboxProps extends Omit<BaseProps<boolean>, "placeholder"> {}
 
@@ -49,14 +50,12 @@ export const Checkbox = ({
           type="checkbox"
           ref={ref}
           checked={value}
+          onMouseDown={preventDefault}
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
           {...rest}
         />
-        <span
-          className={CSS.BE(CLS, "checkmark")}
-          onClick={(e) => e.stopPropagation()}
-        />
+        <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
       </label>
     </div>
   );

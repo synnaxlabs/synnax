@@ -97,7 +97,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const handleOpen: ContextMenuOpen = (e, keys) => {
     const p = xy.construct(e);
     if (typeof e === "object" && "preventDefault" in e) {
-      console.log("open", e.target);
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();

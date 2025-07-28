@@ -124,10 +124,7 @@ const LabelListItem = ({
           <Button.Icon
             variant="filled"
             size="small"
-            onClick={() => {
-              save();
-              console.log("saved");
-            }}
+            onClick={() => save()}
             triggers={visible ? [["Enter"]] : undefined}
           >
             <Icon.Check />

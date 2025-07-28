@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 
-import { type FrameProps } from "@/list/Frame";
+import { type FrameProps, type GetItem } from "@/list/Frame";
 import { type state } from "@/state";
 
 export interface UseStaticDataReturn<
@@ -55,8 +55,11 @@ export const useStaticData = <
     });
   }, [filteredData]);
   const [params, setParams] = useState<RetrieveParams>({});
-  const getItem = useCallback(
-    (key?: K) => filteredData.find((d) => d.key === key),
+  const getItem = useCallback<GetItem<K, E>>(
+    ((key: K | K[]) => {
+      if (Array.isArray(key)) return filteredData.filter((d) => key.includes(d.key));
+      return filteredData.find((d) => d.key === key);
+    }) as GetItem<K, E>,
     [filteredData],
   );
   const res = useMemo(() => {

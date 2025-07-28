@@ -1,5 +1,12 @@
 import { type ranger } from "@synnaxlabs/client";
-import { Divider, Form, Icon, Menu as PMenu, Ranger } from "@synnaxlabs/pluto";
+import {
+  Divider,
+  Form,
+  Icon,
+  type List,
+  Menu as PMenu,
+  Ranger,
+} from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
@@ -9,7 +16,7 @@ import { addChildRangeMenuItem, deleteMenuItem } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
-  getItem: (keys: string[]) => ranger.Range[];
+  getItem: List.GetItem<string, ranger.Range>;
 }
 
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
@@ -48,7 +55,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   };
 
   return (
-    <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {isSingle && <Menu.RenameItem />}
       {!isEmpty && deleteMenuItem}
       <Divider.Divider x />

@@ -388,8 +388,12 @@ const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
-  const getItem = (key?: number): record.KeyedNamed<number> | undefined =>
-    key == null ? undefined : { key, name: key.toString() };
+  const getItem = ((key) => {
+    if (key == null) return undefined;
+    if (Array.isArray(key))
+      return key.map((k) => ({ key: k, name: k.toString() })).filter((d) => d != null);
+    return { key, name: key.toString() };
+  }) as List.GetItem<number, record.KeyedNamed<number>>;
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
     <Select.Frame<number, record.KeyedNamed<number>>

@@ -13,6 +13,8 @@ import {
   Select,
   stopPropagation,
   Tag,
+  Text,
+  Tooltip,
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 import { useDispatch } from "react-redux";
@@ -30,6 +32,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
+  if (getItem == null) throw new Error("getItem is null");
   const dispatch = useDispatch();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
@@ -59,6 +62,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
     else dispatch(remove({ keys: [itemKey] }));
   };
   const menuProps = Menu.useContextMenu();
+  console.log(labels);
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
@@ -81,7 +85,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
             onChange={onSelect}
             onClick={stopPropagation}
           />
-          <Align.Space x align="center" size="tiny">
+          <Align.Space x align="center" gap="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
               {({ value, onChange }) => (
                 <Ranger.SelectStage
@@ -106,16 +110,21 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
             ))}
           </Tag.Tags>
           <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
-          <Button.Icon
-            className={CSS(CSS.B("star-button"))}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStar();
-            }}
-            size="small"
-          >
-            {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-          </Button.Icon>
+          <Tooltip.Dialog>
+            <Text.Text level="small" shade={10}>
+              {starred ? "Remove from" : "Add to"} Workspace Favorites
+            </Text.Text>
+            <Button.Icon
+              className={CSS(CSS.B("star-button"))}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStar();
+              }}
+              size="small"
+            >
+              {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}
+            </Button.Icon>
+          </Tooltip.Dialog>
         </Align.Space>
       </Form.Form>
     </List.Item>

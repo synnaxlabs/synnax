@@ -175,13 +175,21 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
-      <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
+      <Toolbar.Header align="center">
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Align.Pack>
-          <Button.Icon onClick={() => placeLayout(CREATE_LAYOUT)} variant="outlined">
+          <Button.Icon
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+            variant="outlined"
+            size="small"
+          >
             <Icon.Add />
           </Button.Icon>
-          <Button.Icon onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
+          <Button.Icon
+            onClick={() => placeLayout(EXPLORER_LAYOUT)}
+            variant="filled"
+            size="small"
+          >
             <Icon.Explore />
           </Button.Icon>
         </Align.Pack>
