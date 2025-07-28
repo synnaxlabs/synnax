@@ -77,7 +77,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       labels: [],
     },
   });
-  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>("name", {
+  const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -113,7 +113,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+    <Form.Form<typeof Ranger.formSchema> {...form}>
       <Align.Space y gap="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
