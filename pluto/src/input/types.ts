@@ -43,4 +43,4 @@ export interface ExtensionProps<I = unknown, O = I> extends Control<I, O> {
 export interface BaseProps<I = unknown, O = I>
   extends HTMLInputProps,
     ExtensionProps<I, O>,
-    Pick<Align.PackProps, "borderWidth" | "borderShade"> {}
+    Pick<Align.PackProps, "borderWidth" | "borderShade" | "size"> {}

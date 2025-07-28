@@ -17,10 +17,15 @@ import {
   Space,
   type SpaceProps,
 } from "@/align/Space";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 
-export type PackProps<E extends ElementType = "div"> = Omit<SpaceProps<E>, "empty"> & {
+export type PackProps<E extends ElementType = "div"> = Omit<
+  SpaceProps<E>,
+  "empty" | "gap"
+> & {
+  size?: Component.Size;
   shadow?: boolean;
   borderWidth?: number;
 };
@@ -43,7 +48,7 @@ export type PackProps<E extends ElementType = "div"> = Omit<SpaceProps<E>, "empt
  */
 export const Pack = <E extends ElementType = "div">({
   className,
-  gap: size = "medium",
+  size = "medium",
   reverse = false,
   direction,
   bordered = false,
