@@ -20,5 +20,5 @@ export const ListItem = <K extends record.Key = record.Key>(
 ) => {
   const { itemKey } = props;
   const selectProps = useItemState(itemKey);
-  return <List.Item {...selectProps} {...props} />;
+  return <List.Item {...selectProps} {...props} allowSelect />;
 };

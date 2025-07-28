@@ -75,7 +75,7 @@ export const formSchema = z.object({
       end: z.number().optional(),
     })
     .optional(),
-  message: z.string(),
+  message: z.string().nonempty(),
 });
 
 const ZERO_FORM_VALUES = {

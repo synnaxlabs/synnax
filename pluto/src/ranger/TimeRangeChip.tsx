@@ -14,6 +14,7 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Divider } from "@/divider";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
@@ -27,6 +28,7 @@ export interface TimeRangeChipProps
   collapseZero?: boolean;
   offsetFrom?: TimeStamp;
   showAgo?: boolean;
+  variant?: "text" | "outlined";
 }
 
 export const TimeRangeChip = ({
@@ -38,6 +40,7 @@ export const TimeRangeChip = ({
   collapseZero = false,
   offsetFrom,
   showAgo = false,
+  variant = "text",
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -130,7 +133,7 @@ export const TimeRangeChip = ({
     }
     offset = (
       <Text.Text level={level} shade={shade} weight={450}>
-        T{character} {offsetSpan.toString()}
+        T{character} {offsetSpan.truncate(TimeSpan.MILLISECOND).toString()}
       </Text.Text>
     );
   }
@@ -151,15 +154,25 @@ export const TimeRangeChip = ({
     <Align.Space
       x
       gap="small"
-      className={CSS(CSS.B("time-range-chip"))}
+      className={CSS(CSS.B("time-range-chip"), CSS.M(variant))}
       align="center"
       {...rest}
     >
       {startTime}
       {arrow}
       {endTime}
-      {offset}
-      {ago}
+      {offset && (
+        <>
+          <Divider.Divider y />
+          {offset}
+        </>
+      )}
+      {ago && (
+        <>
+          <Divider.Divider y />
+          {ago}
+        </>
+      )}
     </Align.Space>
   );
 };

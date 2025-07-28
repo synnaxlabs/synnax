@@ -25,23 +25,16 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
-  const { selected, onSelect, hovered } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <List.Item
-      itemKey={itemKey}
-      onSelect={onSelect}
-      selected={selected}
-      hovered={hovered}
-      {...rest}
-    >
+    <Select.ListItem itemKey={itemKey} {...rest}>
       <Text.WithIcon
         level="p"
         startIcon={<Icon.Circle color={item?.color} size="2.5em" />}
       >
         {item?.name}
       </Text.WithIcon>
-    </List.Item>
+    </Select.ListItem>
   );
 };
 

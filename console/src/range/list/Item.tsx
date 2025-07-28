@@ -65,6 +65,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
+      allowSelect
       onSelect={handleSelect}
       justify="spaceBetween"
       onContextMenu={menuProps.open}

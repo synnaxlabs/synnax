@@ -22,7 +22,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     y
     style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
-    size="large"
+    gap="large"
   >
     <Details rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />

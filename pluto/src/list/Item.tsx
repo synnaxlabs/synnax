@@ -49,7 +49,7 @@ export const Item = <K extends record.Key>({
   draggingOver = false,
   rightAligned = false,
   highlightHovered = false,
-  allowSelect = true,
+  allowSelect = false,
   selected = false,
   translate,
   onSelect,

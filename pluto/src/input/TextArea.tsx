@@ -60,7 +60,6 @@ export const TextArea = ({
     )}
     ref={ref}
     value={value}
-    // remove newlines
     onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
     onFocus={(e) => {
       if (selectOnFocus) e.target.select();

@@ -105,6 +105,7 @@ import {
   MdKeyboardTab,
   MdLabel,
   MdLink,
+  MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
@@ -483,6 +484,7 @@ export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
+export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
