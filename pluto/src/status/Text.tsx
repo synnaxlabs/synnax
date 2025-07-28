@@ -49,7 +49,7 @@ const Core = ({
     </BaseText.Text>
   );
   return (
-    <Align.Space y align="start" size="small">
+    <Align.Space y align="start" gap="small">
       {baseText}
       {descriptionText}
     </Align.Space>

@@ -51,7 +51,7 @@ export const ListItem = ({
     });
   return (
     <Select.ListItem itemKey={itemKey} justify="spaceBetween" {...rest}>
-      <Align.Space y size="small">
+      <Align.Space y gap="small">
         <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
         <TimeRangeChip level="small" timeRange={timeRange} />
       </Align.Space>
