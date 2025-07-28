@@ -163,7 +163,7 @@ export const Space = <E extends ElementType = "div">({
   reverse = shouldReverse(dir, reverse);
 
   let parsedGap: number | string | undefined;
-  if (empty) [parsedGap, parsedGap] = [0, 0];
+  if (empty) parsedGap = 0;
   else if (typeof gap === "number") parsedGap = `${gap}rem`;
 
   style = {

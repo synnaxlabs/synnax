@@ -46,7 +46,7 @@ export const Item = ({
   children,
   required,
   align,
-  gap: size = "small",
+  gap = "small",
   padHelpText = false,
   helpTextVariant,
   showHelpText = true,
@@ -80,7 +80,7 @@ export const Item = ({
     <Align.Space
       className={CSS(CSS.B("input-item"), className)}
       direction={dir}
-      gap={size}
+      gap={gap}
       align={maybeDefaultAlignment(align, dir)}
       {...rest}
     >

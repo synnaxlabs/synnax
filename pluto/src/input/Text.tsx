@@ -63,6 +63,7 @@ export const Text = ({
   resetOnBlurIfEmpty = false,
   status,
   shade,
+  gap,
   weight,
   style,
   outlineColor,
@@ -148,7 +149,7 @@ export const Text = ({
       borderShade={borderShade}
       borderWidth={borderWidth}
       align="center"
-      gap={size}
+      gap={gap}
     >
       <div
         className={CSS(
