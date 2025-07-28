@@ -15,7 +15,7 @@ import { Align } from "@/align";
 describe("Space", () => {
   it("should render items with a space between them", () => {
     const c = render(
-      <Align.Space size="small">
+      <Align.Space gap="small">
         <div>Hello</div>
         <div>World</div>
       </Align.Space>,
@@ -41,7 +41,7 @@ describe("Space", () => {
   });
   it("should render items with a multiple of the base size", () => {
     const c = render(
-      <Align.Space size={2}>
+      <Align.Space gap={2}>
         <div>Hello</div>
         <div>World</div>
       </Align.Space>,

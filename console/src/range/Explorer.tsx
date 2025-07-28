@@ -96,7 +96,7 @@ const ExplorerListItem = ({
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
       x
-      size="tiny"
+      gap="tiny"
       justify="spaceBetween"
       align="center"
       className={CSS(CSS.B("range-explorer-item"))}
@@ -135,7 +135,7 @@ const ExplorerListItem = ({
           level="p"
           weight={450}
           shade={11}
-          size="small"
+          gap="small"
           grow
           shrink={0}
         >
@@ -152,7 +152,7 @@ const ExplorerListItem = ({
               weight={450}
               startIcon={<Icon.Caret.Right />}
               style={{ marginTop: "1px" }}
-              size="tiny"
+              gap="tiny"
             >
               {parent.name}
             </Text.WithIcon>
@@ -160,7 +160,7 @@ const ExplorerListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space x className={CSS.B("range-explorer-item-content")} align="center">
-        <Align.Stack x size="small">
+        <Align.Stack x gap="small">
           {labels.map((l) => (
             <Tag.Tag key={l.key} color={l.color} size="small">
               {l.name}

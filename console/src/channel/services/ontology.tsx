@@ -245,7 +245,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
-    <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+    <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.MenuItem selection={selection} />
       {isCalc && (

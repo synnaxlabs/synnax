@@ -59,7 +59,7 @@ const ChannelListItem = <C extends Channel>({
   const { key: channel, id } = getChannelKeyAndID(rest.entry);
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="y" size="small">
+      <Align.Space direction="y" gap="small">
         <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
         <Text.WithIcon
           startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
@@ -67,7 +67,7 @@ const ChannelListItem = <C extends Channel>({
           weight={350}
           shade={9}
           color={opcNodeColor}
-          size="small"
+          gap="small"
         >
           {nodeName} {opcNode}
         </Text.WithIcon>

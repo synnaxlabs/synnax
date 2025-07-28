@@ -76,7 +76,7 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
       align="center"
       style={{ padding: "1.25rem 2rem" }}
     >
-      <Align.Space direction="x" size="small" align="center">
+      <Align.Space direction="x" gap="small" align="center">
         <Text.Text
           level="p"
           shade={8}
@@ -98,7 +98,7 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
           </Tooltip.Dialog>
         )}
         {hasStateChannel ? (
-          <Align.Space direction="y" size="small">
+          <Align.Space direction="y" gap="small">
             <WriteChannelNames
               cmdChannel={channel}
               stateChannel={stateChannel}
@@ -113,7 +113,7 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
           />
         )}
       </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
+      <Align.Pack direction="x" align="center">
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}

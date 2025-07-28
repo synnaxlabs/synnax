@@ -28,6 +28,6 @@ var _ = Describe("Storage", func() {
 		Expect(b.Close()).To(Succeed())
 	},
 		Entry("Memory-backed storage implementation"),
-		Entry("Stamp-backed storage implementation", storage.Config{InMemory: config.False(), Dirname: "./tmp"}),
+		Entry("FS-backed storage implementation", storage.Config{InMemory: config.False(), Dirname: "./tmp"}),
 	)
 })
