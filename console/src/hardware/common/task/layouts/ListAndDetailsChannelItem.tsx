@@ -113,7 +113,7 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
           />
         )}
       </Align.Space>
-      <Align.Pack direction="x" align="center" gap="small">
+      <Align.Pack direction="x" align="center">
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}

@@ -137,7 +137,7 @@ export const List = (): ReactElement => {
 
   return (
     <Align.Pack className={CSS.B("cluster-list")} y>
-      <Align.Pack x justify="spaceBetween" gap="large" grow>
+      <Align.Pack x justify="spaceBetween" size="large" grow>
         <Header.Header grow bordered borderShade={5} gap="small">
           <Header.Title level="h5" startIcon={<Icon.Cluster />}>
             Clusters

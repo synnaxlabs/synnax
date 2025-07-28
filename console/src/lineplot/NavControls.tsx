@@ -74,7 +74,7 @@ export const NavControls = (): ReactElement => {
         value={mode}
         onChange={handleModeChange}
         triggers={triggers}
-        gap="medium"
+        size="medium"
       />
       <Button.Icon
         onClick={handleZoomReset}
