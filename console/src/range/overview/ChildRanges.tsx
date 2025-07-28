@@ -35,7 +35,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string>) => {
       }
       x
       showParent={false}
-      size="tiny"
+      gap="tiny"
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.5rem" }}

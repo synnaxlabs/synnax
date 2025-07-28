@@ -43,7 +43,7 @@ export type PackProps<E extends ElementType = "div"> = Omit<SpaceProps<E>, "empt
  */
 export const Pack = <E extends ElementType = "div">({
   className,
-  size = "medium",
+  gap: size = "medium",
   reverse = false,
   direction,
   bordered = false,

@@ -62,10 +62,10 @@ const NoCluster = (): ReactElement => {
   );
 
   return (
-    <Align.Center className="console-get-started" align="center" size={6}>
+    <Align.Center className="console-get-started" align="center" gap={6}>
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
-      <Align.Space x size="large" justify="center" wrap>
+      <Align.Space x gap="large" justify="center" wrap>
         <Button.Button
           startIcon={<Icon.Cluster />}
           onClick={handleCluster}
@@ -100,12 +100,12 @@ const Overview = (): ReactElement => {
     <Eraser.Eraser>
       <Align.Center
         className="console-get-started"
-        size={6}
+        gap={6}
         y
         style={{ padding: "200px" }}
       >
         <Logo variant="title" className="console-get-started__logo" />
-        <Align.Space x style={{ width: "100%" }} justify="center" size={30} wrap>
+        <Align.Space x style={{ width: "100%" }} justify="center" gap={30} wrap>
           <Align.Space y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
             <Button.Button

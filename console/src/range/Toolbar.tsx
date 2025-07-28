@@ -48,7 +48,7 @@ const NoRanges = (): ReactElement => {
       style={{ height: "100%", position: "relative", padding: "1rem" }}
       className={CSS.B("range-toolbar-no-ranges")}
     >
-      <Align.Center y style={{ height: "100%" }} size="medium">
+      <Align.Center y style={{ height: "100%" }} gap="medium">
         <Text.Text level="p">No ranges loaded.</Text.Text>
         <Text.Link level="p" onClick={handleLinkClick}>
           Create a Range
@@ -130,7 +130,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const { key, name, timeRange, persisted } = entry;
 
   return (
-    <Select.ListItem className={CSS.B("range-list-item")} {...props} size="small" y>
+    <Select.ListItem className={CSS.B("range-list-item")} {...props} gap="small" y>
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
@@ -150,7 +150,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {labels.length > 0 && (
         <Align.Space
           x
-          size="small"
+          gap="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
         >

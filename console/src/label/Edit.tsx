@@ -90,7 +90,7 @@ const LabelListItem = ({
       justify="spaceBetween"
       {...rest}
     >
-      <Align.Space x size="small" align="center">
+      <Align.Space x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
@@ -194,7 +194,7 @@ export const Edit: Layout.Renderer = () => {
             variant="filled"
             startIcon={<Icon.Add />}
             style={{ width: "fit-content" }}
-            iconSpacing="small"
+            gap="small"
             onClick={() => setNewFormVisible(true)}
           >
             Add Label

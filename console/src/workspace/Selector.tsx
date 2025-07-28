@@ -123,7 +123,7 @@ export const Selector = (): ReactElement => {
                   handleChange(null);
                   setDialogVisible(false);
                 }}
-                iconSpacing="small"
+                gap="small"
                 tooltip="Switch to no workspace"
               >
                 Clear
@@ -136,7 +136,7 @@ export const Selector = (): ReactElement => {
                   setDialogVisible(false);
                   placeLayout(CREATE_LAYOUT);
                 }}
-                iconSpacing="small"
+                gap="small"
                 tooltip="Create a new workspace"
                 tooltipLocation={{ y: "bottom" }}
               >

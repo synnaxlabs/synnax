@@ -146,7 +146,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         deleteCol: () => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
         toggleEdit: () => syncDispatch(setEditable({ key: layoutKey })),
       }}
-      iconSpacing="small"
+      gap="small"
       level="small"
     >
       {keys.length > 0 && (

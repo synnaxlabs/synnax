@@ -142,7 +142,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     first.data?.configured === true &&
     hasIdentifier(getMake(first.data?.make));
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {singleResource && (
         <>

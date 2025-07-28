@@ -59,7 +59,7 @@ export const NavControls = (): ReactElement => {
     <Align.Space
       className={CSS.BE("line-plot", "nav-controls")}
       x
-      size="small"
+      gap="small"
       style={{ zIndex: 500 }}
     >
       <Viewport.SelectMode
@@ -123,7 +123,7 @@ export const NavControls = (): ReactElement => {
         tooltipLocation={TOOLTIP_LOCATION}
         size="small"
         tooltip={
-          <Align.Space x align="center" size="small">
+          <Align.Space x align="center" gap="small">
             <Text.Text level="small">
               {control.hold ? "Resume live plotting" : "Pause live plotting"}
             </Text.Text>

@@ -130,7 +130,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const canEditSchematic = Schematic.useSelectHasPermission();
   const isSingle = resourceIDs.length === 1;
   return (
-    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={onSelect} level="small" gap="small">
       {canEditSchematic && (
         <>
           <Menu.RenameItem />

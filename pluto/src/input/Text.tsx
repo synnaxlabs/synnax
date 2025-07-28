@@ -147,7 +147,7 @@ export const Text = ({
       borderShade={borderShade}
       borderWidth={borderWidth}
       align="center"
-      size={size}
+      gap={size}
     >
       <div
         className={CSS(

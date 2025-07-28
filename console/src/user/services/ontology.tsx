@@ -77,7 +77,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const canEditOrDelete = useSelectHasPermission();
 
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       {singleResource && isNotCurrentUser && (
         <>
           {canEditPermissions && !hasRootUser && (

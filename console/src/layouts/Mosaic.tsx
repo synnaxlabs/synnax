@@ -52,9 +52,9 @@ import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Align.Center size={5}>
+    <Align.Center gap={5}>
       <Logo className="synnax-logo-watermark" />
-      <Align.Space x size="small" align="center">
+      <Align.Space x gap="small" align="center">
         <Text.Text level="h5" weight={450} shade={10}>
           New Component
         </Text.Text>
@@ -71,7 +71,7 @@ export const MOSAIC_LAYOUT_TYPE = "mosaic";
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
     return (
-      <PMenu.Menu level="small" iconSpacing="small">
+      <PMenu.Menu level="small" gap="small">
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );
@@ -80,7 +80,7 @@ const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null 
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout.type);
   return C == null ? (
-    <PMenu.Menu level="small" iconSpacing="small">
+    <PMenu.Menu level="small" gap="small">
       <Layout.MenuItems layoutKey={layoutKey} />
     </PMenu.Menu>
   ) : (
@@ -394,7 +394,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
         <NavTop />
         <Align.Space
           y
-          size="tiny"
+          gap="tiny"
           grow
           className={CSS.B("mosaic-window")}
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
