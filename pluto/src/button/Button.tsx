@@ -19,7 +19,6 @@ import {
   useRef,
 } from "react";
 
-import { type Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";

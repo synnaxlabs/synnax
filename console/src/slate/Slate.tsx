@@ -105,7 +105,7 @@ const SymbolRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
+  <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
   </PMenu.Menu>
 );

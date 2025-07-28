@@ -168,7 +168,7 @@ interface ListenerOnChangeOptions {
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-interface ListListenerExtraArgs<
+export interface ListListenerExtraArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,

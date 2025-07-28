@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger } from "@synnaxlabs/client";
-import { type Optional, primitive } from "@synnaxlabs/x";
+import {
+  type MultiSeries,
+  type Optional,
+  primitive,
+  type TelemValue,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -46,6 +51,45 @@ export interface ChildrenParams {
   key: ranger.Key;
 }
 
+const handleLabelRelationshipSet: Sync.ListenerHandler<
+  ontology.Relationship,
+  Flux.ListListenerExtraArgs<{}, string, ranger.Range>
+> = async ({ changed, onChange, client }) => {
+  const isLabel = ontology.matchRelationship(changed, {
+    from: { type: ranger.ONTOLOGY_TYPE },
+    type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+    to: { type: label.ONTOLOGY_TYPE },
+  });
+  if (isLabel) {
+    const label = await client.labels.retrieve(changed.to.key);
+    onChange(changed.from.key, (prev) => {
+      if (prev == null) return prev;
+      return client.ranges.sugarOne({
+        ...prev,
+        labels: [...prev.labels, label],
+      });
+    });
+  }
+};
+
+const handleParentRelationshipSet: Sync.ListenerHandler<
+  ontology.Relationship,
+  Flux.ListListenerExtraArgs<{}, string, ranger.Range>
+> = async ({ changed, onChange, client }) => {
+  const isParent = ontology.matchRelationship(changed, {
+    from: { type: ranger.ONTOLOGY_TYPE },
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: { type: ranger.ONTOLOGY_TYPE },
+  });
+  if (isParent) {
+    const parent = await client.ranges.retrieve(changed.from.key);
+    onChange(changed.to.key, (prev) => {
+      if (prev == null) return prev;
+      return client.ranges.sugarOne({ ...prev, parent });
+    });
+  }
+};
+
 export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Range>({
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
@@ -67,6 +111,8 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
         ranger.payloadZ,
         async ({ changed, onChange, client }) => {
           onChange(changed.key, (prev) => {
+            // If the range doesn't exist in the list, don't add it, as it may not
+            // be a child of the range.
             if (prev == null) return prev;
             return client.ranges.sugarOne({
               ...prev.payload,
@@ -86,44 +132,25 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
     },
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange, params, client }) => {
-          if (!("key" in params)) return;
-          const isChild = matchRelationshipAndID(
-            changed,
-            "to",
-            ranger.ontologyID(params.key),
-          );
-          if (isChild) {
-            const range = await client.ranges.retrieve({
-              keys: [changed.to.key],
-              includeParent: true,
-              includeLabels: true,
-            });
-            return onChange(changed.to.key, range[0]);
-          }
-          const isLabel = changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
-          if (isLabel) {
-            const label = await client.labels.retrieve(changed.to.key);
-            onChange(changed.from.key, (prev) => {
-              if (prev == null) return prev;
-              return client.ranges.sugarOne({
-                ...prev,
-                labels: [...prev.labels, label],
-              });
-            });
-          }
-          const isParent = changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE;
-          if (isParent) {
-            const parent = await client.ranges.retrieve(changed.from.key);
-            onChange(changed.to.key, (prev) => {
-              if (prev == null) return prev;
-              return client.ranges.sugarOne({ ...prev, parent });
-            });
-          }
-        },
-      ),
+      onChange: Sync.parsedHandler(ontology.relationshipZ, async (args) => {
+        const { changed, onChange, client, params } = args;
+        if (!("key" in params)) return;
+        const isChild = ontology.matchRelationship(changed, {
+          from: ranger.ontologyID(params.key),
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: { type: ranger.ONTOLOGY_TYPE },
+        });
+        if (isChild) {
+          const range = await client.ranges.retrieve({
+            keys: [changed.to.key],
+            includeParent: true,
+            includeLabels: true,
+          });
+          return onChange(changed.to.key, range[0]);
+        }
+        await handleLabelRelationshipSet(args);
+        await handleParentRelationshipSet(args);
+      }),
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
@@ -131,10 +158,7 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
         ontology.relationshipZ,
         async ({ changed, onDelete, onChange, client, params: { key } }) => {
           const isChild = matchRelationshipAndID(changed, "to", ranger.ontologyID(key));
-          if (isChild) {
-            onDelete(changed.to.key);
-            return;
-          }
+          if (isChild) return onDelete(changed.to.key);
           const isLabel = changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
           if (isLabel)
             onChange(changed.from.key, (prev) => {
@@ -375,32 +399,10 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
     },
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange, client }) => {
-          if (changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
-            const label = await client.labels.retrieve(changed.to.key);
-            return onChange(changed.from.key, (prev) => {
-              if (prev == null) return prev;
-              console.log(prev);
-              return client.ranges.sugarOne({
-                ...prev,
-                labels: [...prev.labels.filter((l) => l.key !== changed.to.key), label],
-              });
-            });
-          }
-          if (changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE) {
-            const parent = await client.ranges.retrieve(changed.from.key);
-            return onChange(changed.to.key, (prev) => {
-              if (prev == null) return prev;
-              return client.ranges.sugarOne({
-                ...prev,
-                parent,
-              });
-            });
-          }
-        },
-      ),
+      onChange: Sync.parsedHandler(ontology.relationshipZ, async (args) => {
+        await handleLabelRelationshipSet(args);
+        await handleParentRelationshipSet(args);
+      }),
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,

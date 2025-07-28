@@ -62,7 +62,6 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
     else dispatch(remove({ keys: [itemKey] }));
   };
   const menuProps = Menu.useContextMenu();
-  console.log(labels);
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
@@ -70,6 +69,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
       justify="spaceBetween"
       onContextMenu={menuProps.open}
       selected={selected}
+      rounded={!selected}
       {...selectProps}
       {...props}
     >

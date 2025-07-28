@@ -130,7 +130,7 @@ export const Annotations = ({ rangeKey }: AnnotationsProps) => {
         subscribe={subscribe}
         virtual={false}
       >
-        <List.Items<annotation.Key> size="medium">
+        <List.Items<annotation.Key> gap="medium">
           {({ key, ...rest }) => (
             <AnnotationListItem
               key={key}

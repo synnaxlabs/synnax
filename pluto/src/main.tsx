@@ -13,7 +13,9 @@ import "@/main.css";
 import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
+import { Button } from "@/button";
 import { Component } from "@/component";
+import { Icon } from "@/icon";
 import { Pluto } from "@/pluto";
 import { Tree } from "@/tree";
 
@@ -50,7 +52,9 @@ const Main = (): ReactElement => (
       password: "seldon",
     }}
   >
-    <Content />
+    <Button.Button startIcon={<Icon.InProgress />} gap="tiny" variant="text">
+      Hello
+    </Button.Button>
   </Pluto.Provider>
 );
 
