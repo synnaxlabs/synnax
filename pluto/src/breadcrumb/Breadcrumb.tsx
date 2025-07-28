@@ -131,7 +131,7 @@ export const Breadcrumb = <
   icon,
   shade = 9,
   weight,
-  gap: size = 0.5,
+  gap = 0.5,
   url,
   level = "p",
   separator = ".",
@@ -148,7 +148,7 @@ export const Breadcrumb = <
       level={level}
       shade={shade}
       weight={weight}
-      gap={size}
+      gap={gap}
       x
       {...rest}
     >
