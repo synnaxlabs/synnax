@@ -74,7 +74,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
       {...selectProps}
       {...props}
     >
-      <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+      <Form.Form<typeof Ranger.formSchema> {...form}>
         <Menu.ContextMenu
           menu={(p) => <ContextMenu {...p} getItem={getItem} />}
           onClick={stopPropagation}

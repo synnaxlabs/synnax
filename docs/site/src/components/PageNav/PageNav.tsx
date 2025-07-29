@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Align, Icon } from "@synnaxlabs/pluto";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Dropdown } from "@synnaxlabs/pluto/dropdown";
+import { Align, Component, Dialog, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
-import { componentsPages, guidesPages } from "@/pages/_nav";
+import { GUIDES_PAGES, REFERENCE_PAGES } from "@/pages/_nav";
 
-export type PageNavNode = Tree.Node;
+export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
+  name: string;
+  href?: string;
+  children?: PageNavNode[];
+};
 
 export interface TOCProps {
   currentPage: string;
@@ -26,14 +28,52 @@ interface ReferenceTreeProps {
   currentPage: string;
 }
 
+const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
+  const { itemKey } = props;
+  const item = List.useItem<string, PageNavNode>(itemKey);
+  if (item == null) return null;
+  return (
+    <Tree.Item<string, "a">
+      {...props}
+      style={{
+        textDecoration: "none",
+        paddingLeft: "2.5rem",
+        paddingRight: "0.5rem",
+      }}
+      offsetMultiplier={3.5}
+      el="a"
+      href={item.href}
+      useMargin
+    >
+      <Text.Text level="p" shade={11} weight={450}>
+        {item.name}
+      </Text.Text>
+    </Tree.Item>
+  );
+};
+
+const item = Component.renderProp(Item);
+
+const flatten = (nodes: PageNavNode[]): PageNavNode[] => {
+  const flattened: PageNavNode[] = [];
+  nodes.forEach((node) => {
+    flattened.push(node);
+    if (node.children != null) flattened.push(...flatten(node.children));
+  });
+  return flattened;
+};
+
+const REFERENCE_DATA = flatten(REFERENCE_PAGES);
+
 const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length <= 1) parts = componentsPages.map((p) => p.key);
+  if (parts.length <= 1) parts = REFERENCE_PAGES.map((p) => p.key);
   if (currentPage === "/guides/") currentPage = "/reference/";
+  const nodesStore = List.useMapData({ initialData: REFERENCE_DATA });
   const treeProps = Tree.use({
-    nodes: componentsPages,
+    nodes: REFERENCE_PAGES,
     initialExpanded: parts,
-    sort: false,
+    sort: (a, b) => a.key.localeCompare(b.key),
   });
   return (
     <Tree.Tree
@@ -41,19 +81,25 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
       className="tree reference-tree styled-scrollbar"
       virtual={false}
       selected={[currentPage]}
-      useMargin
-    />
+      getItem={nodesStore.getItem}
+      subscribe={nodesStore.subscribe}
+    >
+      {item}
+    </Tree.Tree>
   );
 };
 
+const GUIDES_DATA = flatten(GUIDES_PAGES);
+
 const Guides = ({ currentPage }: TOCProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length <= 1) parts = guidesPages.map((p) => p.key);
+  if (parts.length <= 1) parts = GUIDES_PAGES.map((p) => p.key);
   if (currentPage === "/reference/") currentPage = "/guides/";
+  const nodesStore = List.useMapData({ initialData: GUIDES_DATA });
   const treeProps = Tree.use({
-    nodes: guidesPages,
+    nodes: GUIDES_PAGES,
     initialExpanded: parts,
-    sort: false,
+    sort: (a, b) => a.key.localeCompare(b.key),
   });
   return (
     <Tree.Tree
@@ -61,8 +107,11 @@ const Guides = ({ currentPage }: TOCProps): ReactElement => {
       className="tree role-tree styled-scrollbar"
       virtual={false}
       selected={[currentPage]}
-      useMargin
-    />
+      getItem={nodesStore.getItem}
+      subscribe={nodesStore.subscribe}
+    >
+      {item}
+    </Tree.Tree>
   );
 };
 
@@ -77,37 +126,32 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
   let tree = <Reference currentPage={currentPage} />;
   if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
-  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
   return (
-    <Dropdown.Dialog
-      visible={visible}
-      close={close}
-      variant="modal"
-      location="top"
-      className="page-nav-mobile"
-    >
-      <Button.Icon onClick={toggle} size="large" variant="outlined">
+    <Dialog.Frame variant="modal" location="top" className="page-nav-mobile">
+      <Dialog.Trigger size="large" variant="outlined">
         <Icon.Menu />
-      </Button.Icon>
-      <Align.Space
-        borderShade={5}
-        background={0}
-        bordered
-        rounded
-        className="page-nav-mobile-content"
-      >
+      </Dialog.Trigger>
+      <Dialog.Dialog>
         <Align.Space
-          style={{
-            width: "100%",
-            padding: "2rem 2rem",
-            borderBottom: "var(--pluto-border)",
-          }}
-          direction="x"
+          borderShade={5}
+          background={0}
+          bordered
+          rounded
+          className="page-nav-mobile-content"
         >
-          <Logo variant="title" />
+          <Align.Space
+            style={{
+              width: "100%",
+              padding: "2rem 2rem",
+              borderBottom: "var(--pluto-border)",
+            }}
+            direction="x"
+          >
+            <Logo variant="title" />
+          </Align.Space>
+          {tree}
         </Align.Space>
-        {tree}
-      </Align.Space>
-    </Dropdown.Dialog>
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

@@ -485,6 +485,7 @@ export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
 export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
 export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
+export const Annotation = wrapSVGIcon(MdLabel, "annotation");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -624,6 +625,7 @@ const icons = {
   ToDo,
   Constant,
   Boolean,
+  Annotation,
 };
 
 export const resolve = ((

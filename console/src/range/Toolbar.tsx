@@ -97,10 +97,7 @@ const List = (): ReactElement => {
       value={activeRange?.key}
       onChange={handleSelect}
     >
-      <PMenu.ContextMenu
-        menu={(p) => <ContextMenu {...p} range={select(store.getState(), p.keys[0])} />}
-        {...menuProps}
-      />
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <CoreList.Items
         emptyContent={<NoRanges />}
         {...dropProps}

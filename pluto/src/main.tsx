@@ -14,34 +14,8 @@ import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Button } from "@/button";
-import { Component } from "@/component";
 import { Icon } from "@/icon";
 import { Pluto } from "@/pluto";
-import { Tree } from "@/tree";
-
-const nodes: Tree.Node[] = [
-  {
-    key: "1",
-    children: [
-      {
-        key: "1.1",
-      },
-    ],
-  },
-];
-
-const treeItem = Component.renderProp((props: Tree.ItemProps<string>) => (
-  <Tree.Item {...props}>
-    {/* <Text.Text level="p">{data[props.itemKey].name}</Text.Text> */}
-  </Tree.Item>
-));
-
-const Content = () => {
-  const treeProps = Tree.use({
-    nodes,
-  });
-  return <Tree.Tree {...treeProps}>{treeItem}</Tree.Tree>;
-};
 
 const Main = (): ReactElement => (
   <Pluto.Provider

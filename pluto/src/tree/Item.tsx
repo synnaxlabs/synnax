@@ -11,13 +11,26 @@ import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
 
+import { type Align } from "@/align";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { type List } from "@/list";
 import { Select } from "@/select";
-import { type ItemProps } from "@/tree/Tree";
+import { type ItemRenderProps } from "@/tree/Tree";
 
-export const Item = <K extends record.Key>({
+export type ItemProps<
+  K extends record.Key,
+  E extends Align.ElementType = "div",
+> = List.ItemProps<K, E> &
+  ItemRenderProps<K> &
+  Omit<Align.SpaceProps<E>, "onSelect" | "translate"> & {
+    loading?: boolean;
+    useMargin?: boolean;
+    offsetMultiplier?: number;
+  };
+
+export const Item = <K extends record.Key, E extends Align.ElementType = "div">({
   depth,
   hasChildren,
   expanded,
@@ -25,16 +38,20 @@ export const Item = <K extends record.Key>({
   style,
   className,
   loading = false,
+  useMargin = false,
+  offsetMultiplier = 2.5,
   ...rest
-}: ItemProps<K>) => (
-  <Select.ListItem
+}: ItemProps<K, E>) => (
+  // @ts-expect-error - generic element issues
+  <Select.ListItem<K, E>
     className={CSS(
       CSS.BE("tree", "item"),
       depth !== 0 && CSS.M("show-rules"),
+      useMargin && CSS.M("margin"),
       className,
     )}
     style={{
-      [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
+      [CSS.var("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
       ...style,
     }}
     gap="small"

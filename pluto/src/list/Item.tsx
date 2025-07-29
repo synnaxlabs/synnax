@@ -26,22 +26,24 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
   translate?: number;
 }
 
-export interface ItemProps<K extends record.Key>
-  extends Omit<Align.SpaceProps, "key" | "onSelect" | "translate">,
-    ItemRenderProps<K> {
-  draggingOver?: boolean;
-  rightAligned?: boolean;
-  highlightHovered?: boolean;
-  allowSelect?: boolean;
-  onSelect?: (key: K) => void;
-  selected?: boolean;
-  hovered?: boolean;
+export type ItemProps<K extends record.Key, E extends Align.ElementType = "div"> = Omit<
+  Align.SpaceProps<E>,
+  "key" | "onSelect" | "translate"
+> &
+  ItemRenderProps<K> & {
+    draggingOver?: boolean;
+    rightAligned?: boolean;
+    highlightHovered?: boolean;
+    allowSelect?: boolean;
+    onSelect?: (key: K) => void;
+    selected?: boolean;
+    hovered?: boolean;
   variant?: Button.ButtonProps["variant"];
-}
+  };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
-export const Item = <K extends record.Key>({
+export const Item = <K extends record.Key, E extends Align.ElementType = "div">({
   itemKey,
   className,
   index,
@@ -58,11 +60,12 @@ export const Item = <K extends record.Key>({
   style,
   variant = "text",
   ...rest
-}: ItemProps<K>): ReactElement => (
-  <Align.Space
+}: ItemProps<K, E>): ReactElement => (
+  // @ts-expect-error - generic element issues
+  <Align.Space<E>
     id={itemKey.toString()}
     direction={direction}
-    onClick={(e) => {
+    onClick={(e: any) => {
       onSelect?.(itemKey);
       onClick?.(e);
     }}

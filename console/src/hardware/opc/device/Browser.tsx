@@ -60,7 +60,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
   bottomRight: Icon.Array,
 });
 
-const itemRenderProp = Component.renderProp((props: Tree.ItemProps) => {
+const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
   const { startDrag } = Haul.useDrag({
     type: HAUL_TYPE,
@@ -149,10 +149,11 @@ export const Browser = ({ device }: BrowserProps) => {
     },
     onError: (error) => handleError(error, "Error loading nodes"),
   });
-  const { selected, onSelect, shape, clearExpanded } = Tree.use({
+  const treeProps = Tree.use({
     nodes: treeNodes,
     onExpand: expand.mutate,
   });
+  const { clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
     if (scanTask == null) return;
@@ -170,10 +171,8 @@ export const Browser = ({ device }: BrowserProps) => {
       Error loading nodes. {expand.error.message}
     </Status.Text.Centered>
   ) : (
-    <Tree.Tree
-      selected={selected}
-      onSelect={onSelect}
-      shape={shape}
+    <Tree.Tree<string, ScannedNode>
+      {...treeProps}
       getItem={opcNodesStore.getItem}
       subscribe={opcNodesStore.subscribe}
     >

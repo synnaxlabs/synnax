@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Form, Icon, Nav, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Dialog, Form, Icon, Nav, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
-import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Input } from "@synnaxlabs/pluto/input";
-import { z } from "astro/zod";
 import { type ReactElement, useState } from "react";
+import { z } from "zod";
 
 const formSchema = z.object({
   name: z.string().optional(),
@@ -21,30 +20,22 @@ const formSchema = z.object({
   description: z.string().min(1, "Please enter a message"),
 });
 
-export const FeedbackButton = (): ReactElement => {
-  const { close, toggle, visible } = Dropdown.use();
-  return (
-    <Dropdown.Dialog
-      className="feedback-modal"
-      variant="modal"
-      keepMounted={false}
-      close={close}
-      visible={visible}
+export const FeedbackButton = (): ReactElement => (
+  <Dialog.Frame className="feedback-modal" variant="modal">
+    <Dialog.Trigger
+      className="feedback-button"
+      size="medium"
+      gap="small"
+      startIcon={<Icon.Feedback />}
+      variant="outlined"
     >
-      <Button.Button
-        className="feedback-button"
-        size="medium"
-        gap="small"
-        onClick={toggle}
-        startIcon={<Icon.Feedback />}
-        variant="outlined"
-      >
-        Stuck? Let us know!
-      </Button.Button>
+      Stuck? Let us know!
+    </Dialog.Trigger>
+    <Dialog.Dialog>
       <FeedbackForm close={close} />
-    </Dropdown.Dialog>
-  );
-};
+    </Dialog.Dialog>
+  </Dialog.Frame>
+);
 
 interface FeedbackFormProps {
   close: () => void;
@@ -54,7 +45,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
 
-  const methods = Form.use({
+  const methods = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       name: "",
@@ -91,7 +82,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
   };
 
   return (
-    <Form.Form {...methods}>
+    <Form.Form<typeof formSchema> {...methods}>
       <Align.Space
         el="form"
         id="my-form"

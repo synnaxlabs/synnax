@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const sysAdminNav: PageNavNode = {
+export const SYS_ADMIN_NAV: PageNavNode = {
   key: "sys-admin",
   name: "System Administrators",
   children: [

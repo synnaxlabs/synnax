@@ -31,11 +31,23 @@ export interface UseMapDataReturn<
   getItem: GetItem<K, E>;
 }
 
+export interface UseMapDataProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
+  initialData?: E[];
+}
+
 export const useMapData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
->(): UseMapDataReturn<K, E> => {
-  const dataRef = useInitializerRef(() => new Map<K, E>());
+>({ initialData }: UseMapDataProps<K, E> = {}): UseMapDataReturn<K, E> => {
+  const dataRef = useInitializerRef(() => {
+    const data = new Map<K, E>();
+    if (initialData == null) return data;
+    initialData.forEach((i) => data.set(i.key, i));
+    return data;
+  });
   const listenersRef = useInitializerRef(() => new Map<() => void, K>());
   const notifyListeners = useCallback((keys: K[]) => {
     const keysSet = new Set(keys);

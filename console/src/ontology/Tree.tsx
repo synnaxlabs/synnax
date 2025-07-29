@@ -25,7 +25,7 @@ import {
   useRequiredContext,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, deep, type observe } from "@synnaxlabs/x";
+import { array, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import {
   createContext,
@@ -308,13 +308,14 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [getResource],
   );
 
-  const { shape, expand, contract, onSelect } = Core.use({
+  const treeProps = Core.use({
     nodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
     sort,
   });
+  const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
 
   const getState = useCallback(
@@ -600,9 +601,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
         showRules
-        shape={deep.copy(shape)}
-        selected={selected}
-        onSelect={onSelect}
+        {...treeProps}
         subscribe={resourceStore.subscribe}
         getItem={resourceStore.getItem}
         onContextMenu={menuProps.open}

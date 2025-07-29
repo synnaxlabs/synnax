@@ -110,7 +110,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
     if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);
     await client.annotations.create(
       {
-        key: params.key,
+        key: params.key ?? value.key,
         message: value.message,
         timeRange,
       },
@@ -118,3 +118,12 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
     );
   },
 });
+
+export interface UseDeleteParams {
+  key: annotation.Key;
+}
+
+export const useDelete = Flux.createUpdate<UseDeleteParams, void>({
+  name: "Annotation",
+  update: async ({ params, client }) => await client.annotations.delete(params.key),
+}).useDirect;

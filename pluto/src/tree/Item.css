@@ -24,10 +24,12 @@
 
     .pluto-tree__item {
         min-height: 4.5rem;
-        padding: 0;
         padding-right: 1.5rem;
-        padding-left: var(--pluto-tree-item-offset);
         will-change: transform;
+
+        &a {
+            text-decoration: none;
+        }
 
         & .pluto-icon {
             width: 2.5rem;
@@ -36,6 +38,14 @@
 
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
             color: var(--pluto-gray-l10);
+        }
+
+        &.pluto--margin {
+            margin-left: var(--pluto-tree-item-offset);
+        }
+        &:not(.pluto--margin) {
+            padding: 0;
+            padding-left: var(--pluto-tree-item-offset);
         }
     }
 

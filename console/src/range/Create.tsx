@@ -31,7 +31,7 @@ import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.rangeFormSchema>>;
+export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
@@ -95,7 +95,7 @@ export const Create: Layout.Renderer = (props) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+        <Form.Form<typeof Ranger.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -108,11 +108,16 @@ export const Create: Layout.Renderer = (props) => {
             )}
           </Form.Field>
           <Form.Field<ranger.Stage> path="stage" required={false}>
-            {(p) => (
-              <Ranger.SelectStage {...p} variant="outlined" style={{ width: 150 }} />
+            {({ value, onChange }) => (
+              <Ranger.SelectStage
+                value={value}
+                onChange={onChange}
+                style={{ width: 150 }}
+                triggerProps={{ variant: "outlined" }}
+              />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Align.Space x gap="large">
             <Form.Field<number> path="timeRange.start" label="From" required={false}>
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
