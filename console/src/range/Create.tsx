@@ -120,7 +120,7 @@ export const Create: Layout.Renderer = (props) => {
               {({ onChange, value }) => (
                 <Ranger.SelectSingle
                   style={{ width: "fit-content" }}
-                  zIndex={100}
+                  zIndex={-1}
                   filter={recursiveParentFilter}
                   value={value}
                   onChange={(v: ranger.Key) => onChange(v ?? "")}

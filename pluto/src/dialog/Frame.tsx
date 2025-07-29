@@ -24,6 +24,7 @@ import {
 import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { positionDialog, type Variant } from "@/dialog/position";
 import {
   useClickOutside,
@@ -34,7 +35,6 @@ import {
 } from "@/hooks";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
-import { findParent } from "@/util/findParent";
 
 /** Props for the {@link Frame} component. */
 export interface FrameProps
@@ -121,7 +121,9 @@ export const Frame = ({
     value: propsVisible,
     onChange: propsOnVisibleChange,
   });
-  const close = useCallback(() => setVisible(false), [setVisible]);
+  const close = useCallback(() => {
+    setVisible(false);
+  }, [setVisible]);
   const open = useCallback(() => setVisible(true), [setVisible]);
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
   const visibleRef = useSyncedRef(visible);
@@ -143,23 +145,20 @@ export const Frame = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
-    const rounded = adjustedDialog;
     const nextState: State = {
       dialogLoc: location,
-      width: box.width(rounded),
-      left: box.left(rounded),
+      width: box.width(adjustedDialog),
+      left: box.left(adjustedDialog),
     };
-    if (location.y === "bottom") nextState.top = box.top(rounded);
+    if (location.y === "bottom") nextState.top = box.top(adjustedDialog);
     else {
       const windowBox = box.construct(window.document.documentElement);
-      nextState.bottom = box.height(windowBox) - box.bottom(rounded);
+      nextState.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
     }
     setState(nextState);
   }, [propsLocation, variant]);
 
   useLayoutEffect(() => calculatePosition(), [visible, calculatePosition]);
-
-  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
 
   let dialogStyle: CSSProperties = {};
   if (variant !== "modal" && parentRef.current != null) {
@@ -177,21 +176,27 @@ export const Frame = ({
   const combinedParentRef = useCombinedRefs(parentRef, resizeParentRef);
 
   const exclude = useCallback(
-    (e: { target: EventTarget | null }) => {
-      if (parentRef.current?.contains(e.target as Node)) return true;
-      // If the target has a parent with the role of dialog, don't close the dialog.
-      const parent = findParent(e.target as HTMLElement, (el) => {
-        const isDialog = el?.getAttribute("role") === "dialog";
-        if (!isDialog) return false;
-        const zi = el.style.zIndex;
-        return Number(zi) > Number(dialogRef.current?.style.zIndex);
-      });
-      return parent != null;
+    (e: MouseEvent) => {
+      if (!visibleRef.current || dialogRef.current == null) return true;
+      if (variant !== "modal") {
+        const dialog = dialogRef.current;
+        const visibleChildren = dialog.getElementsByClassName(CSS.visible(true));
+        const exclude = visibleChildren != null && visibleChildren.length > 0;
+        if (!exclude) e.stopImmediatePropagation();
+        return exclude;
+      }
+      if (!(e.target instanceof HTMLElement)) return true;
+      let dialog = e.target;
+      if (dialog.className.includes(BACKGROUND_CLASS))
+        dialog = dialog.children[0] as HTMLElement;
+      return dialog !== dialogRef.current;
     },
-    [zIndex],
+    [zIndex, visibleRef],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
+  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
+
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,

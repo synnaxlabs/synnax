@@ -1,4 +1,4 @@
-import { box, invert, position, xy } from "@synnaxlabs/x";
+import { box, invert, position } from "@synnaxlabs/x";
 
 export type Variant = "connected" | "floating" | "modal";
 
@@ -53,46 +53,21 @@ const positionConnectedDialog = ({
   prefer = CONNECTED_PROPS.prefer,
 }: CalcDialogProps): position.DialogReturn => {
   const targetBox = box.construct(target);
-  const win = box.construct(0, 0, window.innerWidth, window.innerHeight);
-  let container = win;
-
   const props: position.DialogProps = {
     target: targetBox,
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
-    container,
+    container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     ...CONNECTED_PROPS,
     initial,
     prefer,
   };
   const res = position.dialog(props);
   const { location } = res;
-  let adjustedDialog = box.translate(
+  const adjustedDialog = box.translate(
     res.adjustedDialog,
     "y",
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
-
-  const stylePropertyValueFilter = (v: string) => ["inline-size", "size"].includes(v);
-
-  let parent: HTMLElement | null = target.parentElement;
-  while (parent != null) {
-    const style = window.getComputedStyle(parent);
-    if (stylePropertyValueFilter(style.getPropertyValue("container-type"))) {
-      container = box.construct(parent);
-      if (location.y === "bottom")
-        adjustedDialog = box.translate(
-          adjustedDialog,
-          xy.scale(box.topLeft(container), -1),
-        );
-      else
-        adjustedDialog = box.translate(adjustedDialog, {
-          x: -box.left(container),
-          y: -(box.bottom(container) - box.bottom(win)),
-        });
-      break;
-    }
-    parent = parent.parentElement;
-  }
   return { adjustedDialog, location };
 };
 
