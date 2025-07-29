@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ranger/Breadcrumb";
+export * from "@/ranger/Icon";
 export * from "@/ranger/queries";
 export * from "@/ranger/Select";
 export * from "@/ranger/TimeRangeChip";

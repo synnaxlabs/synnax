@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ranger } from "@synnaxlabs/pluto";
+import { Annotation } from "@synnaxlabs/pluto";
 
+import { Annotation as AnnotationServices } from "@/annotation";
 import { type Palette } from "@/palette";
-import { Range } from "@/range";
 
 const CREATE_COMMAND: Palette.Command = {
-  key: "define-range",
-  name: "Create a Range",
-  icon: <Ranger.CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
+  key: "create-annotation",
+  name: "Create an Annotation",
+  icon: <Annotation.CreateIcon />,
+  onSelect: ({ placeLayout }) => placeLayout(AnnotationServices.CREATE_LAYOUT),
 };
 
 export const COMMANDS = [CREATE_COMMAND];

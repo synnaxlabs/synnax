@@ -23,6 +23,7 @@ import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { LinePlot as Core } from "@/vis/lineplot";
+import { Annotation } from "@/vis/lineplot/annotation";
 import { Range } from "@/vis/lineplot/range";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
@@ -98,7 +99,8 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   // Annotation
-  rangeAnnotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
+  annotationProviderProps?: Annotation.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -132,7 +134,8 @@ export const LinePlot = ({
   legendVariant,
   onViewportChange,
   viewportTriggers,
-  rangeAnnotationProvider: annotationProvider,
+  rangeProviderProps,
+  annotationProviderProps,
   onSelectRule,
   children,
   ...rest
@@ -165,7 +168,8 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
-            annotationProvider={annotationProvider}
+            rangeProviderProps={rangeProviderProps}
+            annotationProviderProps={annotationProviderProps}
             onRuleChange={onRuleChange}
             onSelectRule={onSelectRule}
           />
@@ -209,7 +213,8 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
-  annotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
+  annotationProviderProps?: Annotation.ProviderProps;
 }
 
 const XAxis = ({
@@ -222,7 +227,8 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
-  annotationProvider,
+  rangeProviderProps,
+  annotationProviderProps,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -281,7 +287,8 @@ const XAxis = ({
           onSelect={() => onSelectRule?.(rule.key)}
         />
       ))}
-      <Range.Provider {...annotationProvider} />
+      <Range.Provider {...rangeProviderProps} />
+      {annotationProviderProps && <Annotation.Provider {...annotationProviderProps} />}
     </Core.XAxis>
   );
 };

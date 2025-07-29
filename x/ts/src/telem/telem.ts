@@ -1218,12 +1218,12 @@ export class TimeRange implements primitive.Stringer {
   }
 
   /**
-   * Checks if the TimeRange has a zero span.
+   * Checks if the TimeRange is zero (both start and end are TimeStamp.ZERO).
    *
-   * @returns True if the TimeRange has a zero span.
+   * @returns True if both start and end are TimeStamp.ZERO, false otherwise.
    */
   get isZero(): boolean {
-    return this.span.isZero;
+    return this.start.isZero && this.end.isZero;
   }
 
   /**

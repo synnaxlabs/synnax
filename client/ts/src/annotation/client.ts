@@ -39,10 +39,12 @@ const retrieveResZ = z.object({ annotations: z.array(annotationZ) });
 const emptyResZ = z.object({});
 
 const retrieveReqZ = z.object({
+  parent: ontology.idZ.optional(),
   keys: z.array(keyZ).optional(),
   term: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  includeCreator: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 

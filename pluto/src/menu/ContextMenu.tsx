@@ -136,7 +136,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   };
 };
 
-export interface ContextMenuMenuProps {
+export interface ContextMenuMenuProps extends ContextMenuState {
   keys: string[];
 }
 
@@ -155,7 +155,7 @@ const Internal = ({
   position,
   keys,
   className,
-  cursor: _,
+  cursor,
   style,
   onClick,
   ...rest
@@ -173,7 +173,7 @@ const Internal = ({
       gap="tiny"
       {...rest}
     >
-      {menu?.({ keys })}
+      {menu?.({ keys, visible, position, cursor })}
     </Align.Space>,
     document.body,
   );

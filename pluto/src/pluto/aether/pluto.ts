@@ -25,6 +25,7 @@ import { eraser } from "@/vis/eraser/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
+import { annotation } from "@/vis/lineplot/annotation/aether";
 import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { log } from "@/vis/log/aether";
@@ -49,6 +50,7 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
+    ...annotation.REGISTRY,
     ...measure.REGISTRY,
     ...range.REGISTRY,
     ...rule.REGISTRY,

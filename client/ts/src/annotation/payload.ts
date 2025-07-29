@@ -11,6 +11,7 @@ import { TimeRange } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
 
 import { type ontology } from "@/ontology";
+import { user } from "@/user";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -20,6 +21,7 @@ export const annotationZ = z.object({
   key: keyZ,
   timeRange: TimeRange.z,
   message: z.string(),
+  creator: user.userZ.optional(),
 });
 export interface Annotation extends z.infer<typeof annotationZ> {}
 

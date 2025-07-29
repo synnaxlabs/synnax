@@ -24,6 +24,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Annotation } from "@/annotation";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
@@ -72,6 +73,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Effect.LAYOUTS,
+  ...Annotation.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

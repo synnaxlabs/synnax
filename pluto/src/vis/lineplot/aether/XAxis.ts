@@ -16,6 +16,7 @@ import {
   coreAxisStateZ,
 } from "@/vis/lineplot/aether/axis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
+import { annotation } from "@/vis/lineplot/annotation/aether";
 import { range } from "@/vis/lineplot/range/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
@@ -24,7 +25,10 @@ export interface XAxisRenderProps extends AxisRenderProps {
   exposure: number;
 }
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
+export class XAxis extends CoreAxis<
+  typeof coreAxisStateZ,
+  YAxis | range.Provider | annotation.Provider
+> {
   static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
@@ -37,7 +41,8 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     );
     this.renderAxis(props, dataToDecimal.reverse());
     this.renderYAxes(props, dataToDecimal);
-    this.renderRangeAnnotations(props, dataToDecimal);
+    this.renderRanges(props, dataToDecimal);
+    this.renderAnnotations(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -78,8 +83,12 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return this.childrenOfType<YAxis>(YAxis.TYPE);
   }
 
-  get rangeAnnotations(): readonly range.Provider[] {
+  get ranges(): readonly range.Provider[] {
     return this.childrenOfType<range.Provider>(range.Provider.TYPE);
+  }
+
+  get annotations(): readonly annotation.Provider[] {
+    return this.childrenOfType<annotation.Provider>(annotation.Provider.TYPE);
   }
 
   bounds(hold: boolean): bounds.Bounds {
@@ -88,13 +97,29 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  private renderRangeAnnotations(
+  private renderRanges(
     props: XAxisRenderProps,
     xDataToDecimalScale: scale.Scale,
   ): void {
     const bound = this.bounds(props.hold);
-    this.rangeAnnotations.forEach((el) =>
+    this.ranges.forEach((el) =>
       el.render({
+        dataToDecimalScale: xDataToDecimalScale,
+        region: props.plot,
+        viewport: props.viewport,
+        timeRange: new TimeRange(bound.lower, bound.upper),
+      }),
+    );
+  }
+
+  private renderAnnotations(
+    props: XAxisRenderProps,
+    xDataToDecimalScale: scale.Scale,
+  ): void {
+    const bound = this.bounds(props.hold);
+    this.annotations.forEach((el) =>
+      el.render({
+        ...props,
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,

@@ -543,11 +543,25 @@ describe("TimeRange", () => {
     expect(tr2.isValid).toBeFalsy();
   });
 
-  test("isZero", () => {
+  test("spanIsZero", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(0));
-    expect(tr.isZero).toBeTruthy();
+    expect(tr.span.isZero).toBeTruthy();
     const tr2 = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(tr2.span.isZero).toBeFalsy();
+  });
+
+  test("isZero", () => {
+    const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+    expect(tr.isZero).toBeTruthy();
+    expect(TimeRange.ZERO.isZero).toBeTruthy();
+    const tr2 = new TimeRange(new TimeStamp(1000), TimeStamp.ZERO);
     expect(tr2.isZero).toBeFalsy();
+    const tr3 = new TimeRange(TimeStamp.ZERO, new TimeStamp(1000));
+    expect(tr3.isZero).toBeFalsy();
+    const tr4 = new TimeRange(new TimeStamp(1000), new TimeStamp(1000));
+    expect(tr4.isZero).toBeFalsy();
+    const tr5 = new TimeRange(new TimeStamp(500), new TimeStamp(1000));
+    expect(tr5.isZero).toBeFalsy();
   });
 
   test("swap", () => {

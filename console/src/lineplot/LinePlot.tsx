@@ -10,15 +10,17 @@
 import "@/lineplot/LinePlot.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel, type ranger } from "@synnaxlabs/client";
+import { type channel, ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Annotation,
   type axis,
   Channel,
   Icon,
   type Legend,
   LinePlot as Core,
   Menu as PMenu,
+  Ranger,
   Status,
   Synnax,
   useAsyncEffect,
@@ -48,6 +50,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
+import { Annotation as AnnotationServices } from "@/annotation";
 import { Menu } from "@/components";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -123,6 +126,7 @@ const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
   python: "Failed to copy Python time range",
   typescript: "Failed to copy TypeScript time range",
   range: "Failed to create range from selection",
+  annotation: "Failed to create annotation from selection",
   download: "Failed to download region as CSV",
 };
 
@@ -318,7 +322,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
       else
         syncDispatch(
-          storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
+          storeViewport({
+            key: layoutKey,
+            pan: box.bottomLeft(b),
+            zoom: box.dims(b),
+          }),
         );
     },
     100,
@@ -364,7 +372,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const props = PMenu.useContextMenu();
 
-  interface ContextMenuContentProps {
+  interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
   }
 
@@ -380,7 +388,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       if (bounds == null) return null;
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
-    }, []);
+    }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
 
@@ -407,6 +415,18 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           case "range":
             placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
             break;
+          case "annotation": {
+            // Get the first available range key as the default parent
+            const firstRange = ranges.x1[0] || ranges.x2[0];
+            const parentRangeKey = firstRange?.key;
+            placeLayout(
+              AnnotationServices.createCreateLayout({
+                timeRange: tr.numeric,
+                parent: parentRangeKey,
+              }),
+            );
+            break;
+          }
           case "download":
             if (client == null) return;
             downloadAsCSV({ timeRange: tr, lines, name });
@@ -429,21 +449,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
               Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create Range from Selection
+            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+              Download CSV
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download Region as CSV
+
+            <PMenu.Item itemKey="range" startIcon={<Ranger.CreateIcon />}>
+              Create Range
             </PMenu.Item>
           </>
         )}
+        <PMenu.Item itemKey="annotation" startIcon={<Annotation.CreateIcon />}>
+          Create Annotation
+        </PMenu.Item>
+        <PMenu.Divider />
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );
   };
 
-  const rangeAnnotationProvider: Channel.LinePlotProps["rangeAnnotationProvider"] = {
+  const rangeProviderProps: Channel.LinePlotProps["rangeProviderProps"] = {
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
@@ -454,7 +479,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     >
       <PMenu.ContextMenu
         {...props}
-        menu={() => <ContextMenuContent layoutKey={layoutKey} />}
+        menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
           aetherKey={layoutKey}
@@ -487,7 +512,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
           }
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-          rangeAnnotationProvider={rangeAnnotationProvider}
+          rangeProviderProps={rangeProviderProps}
+          annotationProviderProps={{ parent: ranger.ontologyID(vis.ranges.x1[0]) }}
         >
           {!focused && <NavControls />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

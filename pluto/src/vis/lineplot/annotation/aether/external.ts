@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ranger } from "@synnaxlabs/pluto";
+import { type aether } from "@/aether/aether";
+import { Provider } from "@/vis/lineplot/annotation/aether/provider";
 
-import { type Palette } from "@/palette";
-import { Range } from "@/range";
+export * from "@/vis/lineplot/annotation/aether/provider";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "define-range",
-  name: "Create a Range",
-  icon: <Ranger.CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
+export const REGISTRY: aether.ComponentRegistry = {
+  [Provider.TYPE]: Provider,
 };
-
-export const COMMANDS = [CREATE_COMMAND];
