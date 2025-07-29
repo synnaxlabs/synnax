@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const embeddedSequencesNav: PageNavNode = {
+export const EMBEDDED_SEQUENCES_NAV: PageNavNode = {
   key: "embedded",
   name: "Embedded Sequences",
   children: [

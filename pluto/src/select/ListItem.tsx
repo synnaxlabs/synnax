@@ -9,16 +9,23 @@
 
 import { type record } from "@synnaxlabs/x";
 
+import { type Align } from "@/align";
 import { List } from "@/list";
 import { useItemState } from "@/select/Frame";
 
-export interface ListItemProps<K extends record.Key = record.Key>
-  extends List.ItemProps<K> {}
+export type ListItemProps<
+  K extends record.Key = record.Key,
+  E extends Align.ElementType = "div",
+> = List.ItemProps<K, E>;
 
-export const ListItem = <K extends record.Key = record.Key>(
-  props: ListItemProps<K>,
+export const ListItem = <
+  K extends record.Key = record.Key,
+  E extends Align.ElementType = "div",
+>(
+  props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
   const selectProps = useItemState(itemKey);
-  return <List.Item {...selectProps} {...props} />;
+  // @ts-expect-error - generic element issues
+  return <List.Item<E> {...selectProps} {...props} />;
 };

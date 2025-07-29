@@ -133,21 +133,18 @@ export const use = <K extends record.Key = string>({
   };
 };
 
-export interface ItemProps<K extends record.Key = string>
-  extends List.ItemProps<K>,
-    NodeShape {
-  loading?: boolean;
-}
+export interface ItemRenderProps<K extends record.Key = string>
+  extends List.ItemRenderProps<K>,
+    NodeShape {}
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<
       Select.FrameProps<K, E>,
       "children" | "ref" | "virtualizer" | "data" | "onChange"
     >,
-    Omit<List.ItemsProps<K>, "children" | "onSelect"> {
-  selected: Select.UseMultipleProps<K>["value"];
-  onSelect: Select.UseMultipleProps<K>["onChange"];
-  children: Component.RenderProp<ItemProps<K>>;
+    Omit<List.ItemsProps<K>, "children" | "onSelect">,
+    UseReturn<K> {
+  children: Component.RenderProp<ItemRenderProps<K>>;
   showRules?: boolean;
   shape: Shape<K>;
 }
@@ -160,7 +157,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   getItem,
   subscribe,
   className,
+  contract: _,
+  expanded: __,
   showRules = false,
+  virtual = false,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -174,7 +174,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       getItem={getItem}
       subscribe={subscribe}
       itemHeight={27}
-      virtual={false}
+      virtual={virtual}
     >
       <List.Items<K, E>
         className={CSS(CSS.B("tree"), className, showRules && CSS.M("show-rules"))}

@@ -48,7 +48,11 @@ export const DownloadButton = (): ReactElement | null => {
   const suffix = SUFFIXES[os];
   if (suffix == null) return null;
   return (
-    <Button.Link href={`${baseURL}${suffix}`} startIcon={<Icon.Download />}>
+    <Button.Link
+      href={`${baseURL}${suffix}`}
+      startIcon={<Icon.Download />}
+      variant="filled"
+    >
       Download {version} for {os}
     </Button.Link>
   );

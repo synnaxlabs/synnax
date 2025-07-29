@@ -31,7 +31,8 @@
     "posthog-js": "^1.257.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "shiki": "^1.29.2"
+    "shiki": "^1.29.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:^",
