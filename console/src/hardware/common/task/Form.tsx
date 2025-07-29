@@ -31,13 +31,13 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
-import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
 import { type Command } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { useStatus } from "@/hardware/common/task/useStatus";
+import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
@@ -265,7 +265,7 @@ export const wrapForm = <
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
               <Align.Space align="end" gap="small">
-                <CopyButtons
+                <UtilityButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
                   taskKey={task.key}
