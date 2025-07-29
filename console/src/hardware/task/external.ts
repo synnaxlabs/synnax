@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -28,6 +29,13 @@ export const COMMANDS: Palette.Command[] = [
   ...OPC.Task.COMMANDS,
   ...Sequence.COMMANDS,
 ];
+
+export const EXTRACTORS: Export.Extractors = {
+  ...LabJack.Task.EXTRACTORS,
+  ...NI.Task.EXTRACTORS,
+  ...OPC.Task.EXTRACTORS,
+  ...Sequence.EXTRACTORS,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Task.LAYOUTS,

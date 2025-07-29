@@ -9,6 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 
+import { type Export } from "@/export";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { type Layout } from "@/layout";
@@ -22,6 +23,8 @@ export * from "@/hardware/rack";
 export * from "@/hardware/task";
 
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
+
+export const EXTRACTORS: Export.Extractors = Task.EXTRACTORS;
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Device.LAYOUTS,

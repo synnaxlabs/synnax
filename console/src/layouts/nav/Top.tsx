@@ -17,15 +17,20 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
+import { type Export } from "@/export";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot";
 import { LinePlotServices } from "@/lineplot/services";
+import { Log } from "@/log";
 import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
+import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
+import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 import { Version } from "@/version";
@@ -55,11 +60,20 @@ const COMMANDS: Palette.Command[] = [
   ...WorkspaceServices.COMMANDS,
 ];
 
+const EXTRACTORS: Export.Extractors = {
+  ...Hardware.EXTRACTORS,
+  ...LinePlot.EXTRACTORS,
+  ...Log.EXTRACTORS,
+  ...Schematic.EXTRACTORS,
+  ...Table.EXTRACTORS,
+};
+
 const TopPalette = (): ReactElement => (
   <Palette.Palette
     commands={COMMANDS}
     commandSymbol=">"
     triggerConfig={PALETTE_TRIGGER_CONFIG}
+    extractors={EXTRACTORS}
   />
 );
 

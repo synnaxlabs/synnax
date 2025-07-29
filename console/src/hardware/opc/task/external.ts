@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
+import { Common } from "@/hardware/common";
 import { Read, READ_SELECTABLE } from "@/hardware/opc/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
 import { Write, WRITE_SELECTABLE } from "@/hardware/opc/task/Write";
@@ -17,6 +19,11 @@ export * from "@/hardware/opc/task/palette";
 export * from "@/hardware/opc/task/Read";
 export * from "@/hardware/opc/task/types";
 export * from "@/hardware/opc/task/Write";
+
+export const EXTRACTORS: Export.Extractors = {
+  [READ_TYPE]: Common.Task.extract,
+  [WRITE_TYPE]: Common.Task.extract,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [READ_TYPE]: Read,

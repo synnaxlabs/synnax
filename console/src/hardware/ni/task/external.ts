@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
+import { Common } from "@/hardware/common";
 import { ANALOG_READ_SELECTABLE, AnalogRead } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_SELECTABLE, AnalogWrite } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_SELECTABLE, DigitalRead } from "@/hardware/ni/task/DigitalRead";
@@ -29,6 +31,13 @@ export * from "@/hardware/ni/task/DigitalRead";
 export * from "@/hardware/ni/task/DigitalWrite";
 export * from "@/hardware/ni/task/palette";
 export * from "@/hardware/ni/task/types";
+
+export const EXTRACTORS: Export.Extractors = {
+  [ANALOG_READ_TYPE]: Common.Task.extract,
+  [ANALOG_WRITE_TYPE]: Common.Task.extract,
+  [DIGITAL_READ_TYPE]: Common.Task.extract,
+  [DIGITAL_WRITE_TYPE]: Common.Task.extract,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [ANALOG_READ_TYPE]: AnalogRead,

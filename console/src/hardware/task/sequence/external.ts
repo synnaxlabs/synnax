@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
+import { Common } from "@/hardware/common";
 import { SELECTABLE, Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
 import { type Layout } from "@/layout";
@@ -20,8 +22,8 @@ export {
 } from "@/hardware/task/sequence/Sequence";
 export * from "@/hardware/task/sequence/types";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [TYPE]: Sequence,
-};
+export const EXTRACTORS: Export.Extractors = { [TYPE]: Common.Task.extract };
+
+export const LAYOUTS: Record<string, Layout.Renderer> = { [TYPE]: Sequence };
 
 export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];
