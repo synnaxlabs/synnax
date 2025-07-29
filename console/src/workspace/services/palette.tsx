@@ -32,7 +32,7 @@ const EXPORT_COMMAND: Palette.Command = {
   key: "workspace-export",
   name: "Export Current Workspace",
   icon: <Icon.Workspace />,
-  onSelect: (ctx) => void Workspace.export_(null, ctx),
+  onSelect: (ctx) => Workspace.export_(null, ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, EXPORT_COMMAND];

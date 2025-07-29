@@ -31,12 +31,12 @@ export interface ExportContext {
   extractors: Record<string, Export.Extractor>;
 }
 
-export const export_ = async (
+export const export_ = (
   key: string | null,
   { client, store, confirm, handleError, extractors }: ExportContext,
-): Promise<void> => {
+): void => {
   let name: string = "workspace"; // default name for error message
-  try {
+  handleError(async () => {
     const storeState = store.getState();
     const activeKey = selectActiveKey(storeState);
     let toExport: Layout.SliceState;
@@ -93,16 +93,14 @@ export const export_ = async (
         await writeTextFile(await join(directory, name), data);
       }),
     );
-  } catch (e) {
-    handleError(e, `Failed to export ${name}`);
-  }
+  }, `Failed to export ${name}`);
 };
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
 export const useExport = (
   extractors: Record<string, Export.Extractor>,
-): ((key: string) => Promise<void>) => {
+): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const store = useStore<RootState, RootAction>();
