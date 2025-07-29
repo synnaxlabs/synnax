@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  annotation,
   channel,
   device,
   effect,
@@ -21,6 +22,7 @@ import {
   rack,
   ranger,
   schematic,
+  slate,
   table,
   task,
   user,
@@ -30,7 +32,6 @@ import {
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
-import { EffectServices } from "@/effect/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
@@ -68,4 +69,7 @@ export const SERVICES: Ontology.Services = {
   [policy.ALLOW_ALL_ONTOLOGY_TYPE]: createEmptyService(policy.ALLOW_ALL_ONTOLOGY_TYPE),
   [log.ONTOLOGY_TYPE]: LogServices.ONTOLOGY_SERVICE,
   [table.ONTOLOGY_TYPE]: TableServices.ONTOLOGY_SERVICE,
+  [annotation.ONTOLOGY_TYPE]: createEmptyService(annotation.ONTOLOGY_TYPE),
+  [slate.ONTOLOGY_TYPE]: createEmptyService(slate.ONTOLOGY_TYPE),
+  [effect.ONTOLOGY_TYPE]: createEmptyService(effect.ONTOLOGY_TYPE),
 };

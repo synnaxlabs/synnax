@@ -77,7 +77,6 @@ export const Dialog = <K extends record.Key>({
         emptyContent={emptyContent}
         bordered
         borderShade={6}
-        grow
         style={{ maxHeight: DEFAULT_HEIGHT }}
       >
         {children}

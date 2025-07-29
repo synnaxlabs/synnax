@@ -15,7 +15,6 @@ import {
   Form,
   Icon,
   Input,
-  Label,
   Ranger,
   Text,
   usePrevious,
@@ -25,7 +24,9 @@ import { type FC, type ReactElement, useEffect } from "react";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
+import { FavoriteButton } from "@/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 interface ParentRangeButtonProps {
@@ -68,6 +69,7 @@ export interface DetailsProps {
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
+  const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
   const { form } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
@@ -166,6 +168,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.Link />
             </Button.Icon>
+            <Divider.Divider y />
+            {range != null && <FavoriteButton range={range} />}
           </Align.Space>
         </Align.Space>
         <Align.Space className={CSS.B("time-range")} x gap="medium" align="center">

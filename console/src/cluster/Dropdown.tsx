@@ -16,7 +16,7 @@ import {
   Dialog,
   Header,
   Icon,
-  List as CoreList,
+  type List as CoreList,
   Menu as PMenu,
   Select,
   Status,
@@ -51,7 +51,6 @@ interface ListItemProps extends CoreList.ItemProps<string> {
 const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = useDispatch();
   const item = useSelect(rest.itemKey);
-  const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
     dispatch(rename({ key: item.key, name: value }));
@@ -59,12 +58,10 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
 
   if (item == null) return null;
   return (
-    <CoreList.Item
+    <Select.ListItem
       className={CSS(CSS.B("cluster-list-item"))}
       x
       align="center"
-      selected={selected}
-      onSelect={onSelect}
       {...rest}
     >
       <Align.Space y justify="spaceBetween" gap="tiny" grow>
@@ -80,7 +77,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
           {item.host}:{item.port}
         </Text.Text>
       </Align.Space>
-    </CoreList.Item>
+    </Select.ListItem>
   );
 };
 

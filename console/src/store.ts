@@ -33,6 +33,7 @@ import { RUNTIME } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Slate } from "@/slate";
 import { Table } from "@/table";
+import * as User from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -52,6 +53,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [User.slice.SLICE_NAME]: User.slice.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Slate.SLICE_NAME]: Slate.ZERO_SLICE_STATE,
@@ -69,6 +71,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
+  [User.slice.SLICE_NAME]: User.slice.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Slate.SLICE_NAME]: Slate.reducer,
@@ -86,6 +89,7 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [User.slice.SLICE_NAME]: User.slice.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Slate.SLICE_NAME]: Slate.SliceState;
@@ -103,6 +107,7 @@ export type RootAction =
   | Range.Action
   | Schematic.Action
   | Table.Action
+  | User.slice.Action
   | Version.Action
   | Workspace.Action
   | Slate.Action
@@ -127,6 +132,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
+  const user = User.slice.migrateSlice(prev.user);
   const slate = Slate.migrateSlice(prev.slate);
   const effect = Effect.migrateSlice(prev.effect);
   console.log("Migrated State");
@@ -142,6 +148,7 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
+    user,
     slate,
     effect,
   };

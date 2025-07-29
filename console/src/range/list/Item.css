@@ -5,16 +5,16 @@
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
     }
-    &.console--starred .console-star-button {
-        color: goldenrod;
+
+    .console-range__favorite-button {
+        opacity: 0;
     }
 
-    &:is(:hover) :is(.console-star-button, .pluto-input-checkbox__checkmark) {
+    &:is(:hover)
+        :is(.console-range__favorite-button, .pluto-input-checkbox__checkmark) {
         opacity: 1;
     }
-    &.console--starred .console-star-button {
-        opacity: 1;
-    }
+
     &.pluto--selected {
         .pluto-input-checkbox__checkmark {
             opacity: 1;

@@ -101,7 +101,7 @@ export const SelectSingle = ({
       onSearch={search}
       emptyContent={emptyContent}
       icon={<Icon.Range />}
-      itemHeight={56}
+      itemHeight={45}
       dialogProps={{ style: { width: 800 } }}
       {...rest}
     >

@@ -23,6 +23,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { fromClientRange } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/external";
+import { FavoriteButton } from "@/range/FavoriteButton";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
@@ -54,17 +55,13 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
     sync: true,
     autoSave: true,
   });
-  const sliceRange = useSelect(itemKey);
-  const starred = sliceRange != null;
+
   const handleSelect = () => placeLayout({ ...OVERVIEW_LAYOUT, name, key: itemKey });
-  const handleStar = () => {
-    if (!starred) dispatch(add({ ranges: fromClientRange(item) }));
-    else dispatch(remove({ keys: [itemKey] }));
-  };
+
   const menuProps = Menu.useContextMenu();
   return (
     <List.Item
-      className={CSS(CSS.BE("range", "list-item"), starred && CSS.M("starred"))}
+      className={CSS(CSS.BE("range", "list-item"))}
       allowSelect
       onSelect={handleSelect}
       justify="spaceBetween"
@@ -111,21 +108,7 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
             ))}
           </Tag.Tags>
           <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
-          <Tooltip.Dialog>
-            <Text.Text level="small" shade={10}>
-              {starred ? "Remove from" : "Add to"} Workspace Favorites
-            </Text.Text>
-            <Button.Icon
-              className={CSS(CSS.B("star-button"))}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStar();
-              }}
-              size="small"
-            >
-              {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-            </Button.Icon>
-          </Tooltip.Dialog>
+          <FavoriteButton range={item} />
         </Align.Space>
       </Form.Form>
     </List.Item>

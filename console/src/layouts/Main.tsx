@@ -74,7 +74,7 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useFetchPermissions();
+  Permissions.useRetrieve();
   Layout.useDropOutside();
   return null;
 };

@@ -17,7 +17,7 @@ export const ContextMenu = ({ onEdit, onDelete }: ContextMenuProps) => {
       <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
         Edit
       </PMenu.Item>
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Close />}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
       <Menu.HardReloadItem />

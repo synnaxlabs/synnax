@@ -34,6 +34,7 @@ import { ContextMenu } from "@/annotation/list/ContextMenu";
 import { CSS } from "@/css";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Triggers } from "@/triggers";
+import { User } from "@/user";
 
 export interface AnnotationListItemProps extends List.ItemProps<annotation.Key> {
   parent?: ontology.ID;
@@ -79,6 +80,7 @@ export const ListItem = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [edit, setEdit] = useState(isCreate);
   const [focused, setFocused] = useState(false);
+  const currentUser = User.useSelect();
   const values = useMemo(
     () => ({
       key: itemKey.length > 0 ? itemKey : undefined,
@@ -123,7 +125,7 @@ export const ListItem = ({
     confirmDelete({
       name: "This annotation",
     })
-      .then(() => del())
+      .then((confirmed) => confirmed && del())
       .catch(console.error);
   }, [confirmDelete, del]);
 
@@ -151,7 +153,7 @@ export const ListItem = ({
             style={{ background: usernameToGradient("synnax") }}
           />
           <Text.Text level="h5" shade={9} weight={450}>
-            {creator?.username}
+            {creator?.username ?? currentUser.username}
           </Text.Text>
         </Align.Space>
         <Align.Space x gap="small">
@@ -168,8 +170,8 @@ export const ListItem = ({
           {!edit && (
             <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
               <Dialog.Trigger iconOnly hideCaret startIcon={<Icon.KebabMenu />} />
-              <Dialog.Dialog bordered style={{ padding: "1rem" }}>
-                <Align.Space gap="tiny">
+              <Dialog.Dialog bordered borderShade={5} rounded={1}>
+                <Align.Space gap="tiny" background={1} style={{ padding: "0.5rem" }}>
                   <ContextMenu
                     keys={[]}
                     onEdit={startEditing}
