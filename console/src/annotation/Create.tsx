@@ -9,7 +9,7 @@
 
 import "@/annotation/Create.css";
 
-import { type ranger, TimeStamp } from "@synnaxlabs/client";
+import { type ontology, ranger, TimeStamp } from "@synnaxlabs/client";
 import {
   Align,
   Annotation,
@@ -64,6 +64,8 @@ export const Create: Layout.Renderer = (props) => {
   const client = Synnax.use();
   const clientExists = client != null;
 
+  console.log(args);
+
   const { form, save, variant } = Annotation.useForm({
     params: { key: args?.key },
     autoSave: false,
@@ -71,7 +73,7 @@ export const Create: Layout.Renderer = (props) => {
       key: uuid.create(),
       message: "",
       timeRange: { start: now, end: now },
-      parent: "",
+      parent: args?.parent,
       ...args,
     },
     afterSave: () => onClose(),
@@ -87,22 +89,26 @@ export const Create: Layout.Renderer = (props) => {
       >
         <Form.Form<typeof Annotation.formSchema> {...form}>
           <Align.Space direction="y" gap="small">
-            <Form.Field<string> path="parent" label="Parent Range">
-              {({ onChange, value }) => (
-                <Ranger.SelectSingle
-                  style={{ width: "100%" }}
-                  value={value}
-                  onChange={(v: ranger.Key) => onChange(v ?? "")}
-                  allowNone={false}
-                />
-              )}
-            </Form.Field>
             <Form.Field<string> path="message">
               {(p) => (
                 <Input.TextArea
                   placeholder="Enter annotation message..."
                   style={{ minHeight: "100px" }}
+                  autoFocus
                   {...p}
+                />
+              )}
+            </Form.Field>
+            <Form.Field<ontology.ID> path="parent" label="Parent Range">
+              {({ onChange, value }) => (
+                <Ranger.SelectSingle
+                  style={{ width: "100%" }}
+                  value={value?.key}
+                  onChange={(v: ranger.Key) => {
+                    if (v == null) return;
+                    onChange(ranger.ontologyID(v));
+                  }}
+                  allowNone={false}
                 />
               )}
             </Form.Field>

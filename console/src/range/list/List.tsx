@@ -1,7 +1,6 @@
 import { type ranger } from "@synnaxlabs/client";
 import {
   Align,
-  Component,
   type Flux,
   Icon,
   Input,
@@ -11,15 +10,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { ListItem } from "@/range/list/Item";
-
-const listItem = Component.renderProp(ListItem);
+import { Item, type ItemProps } from "@/range/list/Item";
 
 export interface ListProps
   extends Pick<
-    Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
-    "data" | "getItem" | "subscribe" | "retrieve"
-  > {
+      Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
+      "data" | "getItem" | "subscribe" | "retrieve"
+    >,
+    Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
 }
 
@@ -29,6 +27,10 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
+  showParent = true,
+  showLabels = true,
+  showTimeRange = true,
+  showFavorite = true,
 }: ListProps) => {
   const { fetchMore, search } = PList.usePager({ retrieve });
   const [value, setValue] = useState<ranger.Key[]>([]);
@@ -62,7 +64,18 @@ export const List = ({
           />
         </Align.Space>
       )}
-      <PList.Items>{listItem}</PList.Items>
+      <PList.Items<string>>
+        {({ key, ...rest }) => (
+          <Item
+            key={key}
+            {...rest}
+            showParent={showParent}
+            showLabels={showLabels}
+            showTimeRange={showTimeRange}
+            showFavorite={showFavorite}
+          />
+        )}
+      </PList.Items>
     </Select.Frame>
   );
 };

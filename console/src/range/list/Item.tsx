@@ -3,9 +3,7 @@ import "@/range/list/Item.css";
 import { type ranger } from "@synnaxlabs/client";
 import {
   Align,
-  Button,
   Form,
-  Icon,
   Input,
   List,
   Menu,
@@ -13,28 +11,34 @@ import {
   Select,
   stopPropagation,
   Tag,
-  Text,
-  Tooltip,
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { fromClientRange } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/external";
 import { FavoriteButton } from "@/range/FavoriteButton";
 import { ContextMenu } from "@/range/list/ContextMenu";
-import { useSelect } from "@/range/selectors";
-import { add, remove } from "@/range/slice";
 
-export const ListItem = (props: List.ItemProps<ranger.Key>) => {
+export interface ItemProps extends List.ItemProps<ranger.Key> {
+  showParent?: boolean;
+  showLabels?: boolean;
+  showTimeRange?: boolean;
+  showFavorite?: boolean;
+}
+
+export const Item = ({
+  showParent = true,
+  showLabels = true,
+  showTimeRange = true,
+  showFavorite = true,
+  ...props
+}: ItemProps) => {
   const { itemKey } = props;
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null) throw new Error("getItem is null");
-  const dispatch = useDispatch();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return null;
@@ -96,19 +100,22 @@ export const ListItem = (props: List.ItemProps<ranger.Key>) => {
                 />
               )}
             </Form.Field>
-            <Ranger.Breadcrumb name={name} parent={parent} />
+            <Ranger.Breadcrumb name={name} parent={parent} showParent={showParent} />
           </Align.Space>
         </Align.Space>
         <Align.Space x align="center">
           <Tag.Tags>
-            {labels?.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small" shade={9}>
-                {name}
-              </Tag.Tag>
-            ))}
+            {showLabels &&
+              labels?.map(({ key, name, color }) => (
+                <Tag.Tag key={key} color={color} size="small" shade={9}>
+                  {name}
+                </Tag.Tag>
+              ))}
           </Tag.Tags>
-          <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
-          <FavoriteButton range={item} />
+          {showTimeRange && (
+            <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
+          )}
+          {showFavorite && <FavoriteButton range={item} />}
         </Align.Space>
       </Form.Form>
     </List.Item>

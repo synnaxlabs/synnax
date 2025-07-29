@@ -422,7 +422,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             placeLayout(
               AnnotationServices.createCreateLayout({
                 timeRange: tr.numeric,
-                parent: parentRangeKey,
+                parent: ranger.ontologyID(parentRangeKey),
               }),
             );
             break;

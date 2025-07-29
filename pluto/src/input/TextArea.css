@@ -14,8 +14,8 @@
     border: none;
     background: var(--pluto-background-color);
     resize: none;
-    white-space: nowrap;
     overflow-x: hidden;
+    height: fit-content;
 
     &::placeholder {
         padding-left: 1px;

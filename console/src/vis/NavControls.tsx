@@ -11,6 +11,7 @@ import { Align } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Effect } from "@/effect";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -23,6 +24,7 @@ const REGISTRY: Record<LayoutType, FC> = {
   [Log.LAYOUT_TYPE]: () => null,
   [Schematic.LAYOUT_TYPE]: Schematic.NavControls,
   [Table.LAYOUT_TYPE]: () => null,
+  [Effect.EDIT_LAYOUT_TYPE]: () => null,
 };
 
 export const NavControls = (): ReactElement | null => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { annotation, ontology, ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { annotation, ontology, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import z from "zod";
 
 import { Flux } from "@/flux";
@@ -76,14 +76,14 @@ export const formSchema = z.object({
     })
     .optional(),
   message: z.string().nonempty(),
-  parent: z.string().optional(),
+  parent: ontology.idZ.optional(),
 });
 
 const ZERO_FORM_VALUES = {
   key: undefined,
   timeRange: undefined,
   message: "",
-  parent: "",
+  parent: undefined,
 };
 
 interface UseFormParams {
@@ -94,7 +94,7 @@ const annotationToFormValues = (annotation: annotation.Annotation) => ({
   key: annotation.key,
   timeRange: annotation.timeRange.numeric,
   message: annotation.message,
-  parent: "",
+  parent: undefined,
 });
 
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
@@ -107,17 +107,16 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
     return annotationToFormValues(annotation);
   },
   update: async ({ params, client, value }) => {
-    if (!value.parent) return;
+    if (value.parent == null) return;
     let timeRange = TimeRange.z.parse(value.timeRange);
     if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);
-    const parentID = ranger.ontologyID(value.parent);
     await client.annotations.create(
       {
         key: params.key ?? value.key,
         message: value.message,
         timeRange,
       },
-      parentID,
+      value.parent,
     );
   },
 });

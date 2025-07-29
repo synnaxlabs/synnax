@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/annotation/list/Item.css";
-
 import {
   annotation,
   type ontology,
@@ -69,7 +67,7 @@ export const usernameToGradient = (username: string): string => {
   return `linear-gradient(135deg, ${color1}, ${color2}, ${color3})`;
 };
 
-export const ListItem = ({
+export const Item = ({
   parent,
   parentStart,
   isCreate,
@@ -83,6 +81,7 @@ export const ListItem = ({
   const currentUser = User.useSelect();
   const values = useMemo(
     () => ({
+      parent,
       key: itemKey.length > 0 ? itemKey : undefined,
       message: initialValues?.message ?? "",
       timeRange: initialValues?.timeRange.numeric ?? TimeRange.ZERO.numeric,
@@ -90,7 +89,7 @@ export const ListItem = ({
     [initialValues],
   );
   const { form, save } = Annotation.useForm({
-    params: { parent },
+    params: {},
     initialValues: values,
     sync: !isCreate,
     afterSave: ({ form }) => {
@@ -171,12 +170,8 @@ export const ListItem = ({
             <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
               <Dialog.Trigger iconOnly hideCaret startIcon={<Icon.KebabMenu />} />
               <Dialog.Dialog bordered borderShade={5} rounded={1}>
-                <Align.Space gap="tiny" background={1} style={{ padding: "0.5rem" }}>
-                  <ContextMenu
-                    keys={[]}
-                    onEdit={startEditing}
-                    onDelete={handleDelete}
-                  />
+                <Align.Space gap="tiny" background={1} style={{ padding: "1rem" }}>
+                  <ContextMenu onEdit={startEditing} onDelete={handleDelete} />
                 </Align.Space>
               </Dialog.Dialog>
             </Dialog.Frame>

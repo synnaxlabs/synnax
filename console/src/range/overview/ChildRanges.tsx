@@ -39,7 +39,13 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
           </Button.Icon>
         </Header.Actions>
       </Header.Header>
-      <List data={data} getItem={getItem} subscribe={subscribe} retrieve={retrieve} />
+      <List
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        retrieve={retrieve}
+        showParent={false}
+      />
     </Align.Space>
   );
 };

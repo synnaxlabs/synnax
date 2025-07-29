@@ -9,12 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-annotation__list {
+    overflow-y: hidden;
+}
+
 .console-annotation__list-item {
-    max-height: 100%;
+    transition:
+        max-height 0.2s ease-in-out,
+        opacity 0.2s ease-in-out;
+    max-height: 500px;
     height: fit-content;
     min-height: fit-content;
     background-color: var(--pluto-gray-l1);
     border-radius: 1rem;
+    @starting-style {
+        max-height: 0;
+        opacity: 0;
+    }
 
     & .console-annotation__list-item__avatar {
         width: 2.5rem;

@@ -2,7 +2,7 @@ import { Icon, Menu as PMenu } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 
-export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
+export interface ContextMenuProps {
   onEdit: () => void;
   onDelete: () => void;
 }
