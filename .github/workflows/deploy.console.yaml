@@ -81,22 +81,15 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      - run: go build
-        working-directory: freighter/integration
-      - run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-client-windows-amd64.exe
+      - run: gcc hello.c -o hello
       - run: |
           mkdir relic-bin
           mv relic.exe relic-bin\
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
+      - name: Show relic help to github output
+        run: relic --help
       - name: Test Relic
-        working-directory: freighter/integration
-        run:
-          relic sign --file integration --key azure --config
-          ../../console/src-tauri/relic.conf
+        run: relic sign --file hello --key azure --config console/src-tauri/relic.conf
 
   # create-release:
   #   name: Create Release
