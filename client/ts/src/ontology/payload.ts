@@ -98,7 +98,7 @@ export type Relationship = z.infer<typeof relationshipZ>;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 
-interface MatchRelationshipArgs {
+export interface MatchRelationshipArgs {
   from?: Partial<ID>;
   type: string;
   to?: Partial<ID>;

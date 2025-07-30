@@ -160,6 +160,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.0.12
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.0.12)(jsdom@26.1.0)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0))
       eslint:
         specifier: 'catalog:'
         version: 9.30.1
