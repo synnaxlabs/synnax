@@ -18,7 +18,6 @@ on:
       - vendor/**
       - x/media/**
       - x/ts/**
-
   pull_request:
     branches:
       - main
@@ -230,6 +229,17 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-client-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir C:\tools
+          mv relic.exe C:\tools\relic.exe
+          echo "C:\tools" >> $env:GITHUB_PATH
+
+      - name: Check if relic is in PATH
+        if: matrix.os == 'windows-latest'
+        run: relic --version
 
       - name: Build
         env:
