@@ -232,6 +232,16 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
+      - name: Install go for Windows signing
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install relic for Windows signing
+        if: matrix.os == 'windows-latest'
+        run: go install github.com/sassoftware/relic/v8@latest
+
       - name: Build
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
