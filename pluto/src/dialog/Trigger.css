@@ -16,3 +16,15 @@
         margin-left: auto;
     }
 }
+
+.pluto-dialog__frame {
+    .pluto-dialog__trigger .pluto-caret-animated {
+        transform: rotate(270deg) scale(0.8);
+    }
+    &.pluto--top.pluto--visible .pluto-dialog__trigger .pluto-caret-animated {
+        transform: rotate(360deg) scale(0.8);
+    }
+    &.pluto--bottom.pluto--visible .pluto-caret-animated {
+        transform: rotate(180deg) scale(0.8);
+    }
+}

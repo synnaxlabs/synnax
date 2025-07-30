@@ -25,7 +25,7 @@ export const Tags = ({
   variant = "outlined",
   ...rest
 }: TagsProps) => (
-  <Align.Pack {...rest}>
+  <Align.Pack className={className} {...rest}>
     <Align.Space
       x
       className={CSS(
@@ -33,7 +33,6 @@ export const Tags = ({
         CSS.M(variant),
         CSS.shade(0),
         CSS.size("medium"),
-        className,
       )}
       onClick={onClick}
       align="center"

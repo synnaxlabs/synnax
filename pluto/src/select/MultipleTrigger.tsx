@@ -150,7 +150,7 @@ export const MultipleTrigger = <K extends record.Key>({
       {...dropProps}
       className={CSS(
         CSS.dropRegion(canDrop(dragging)),
-        CSS.BE("select", "trigger"),
+        CSS.BE("dialog", "trigger"),
         CSS.BM("variant", variant),
       )}
       variant={variant}
