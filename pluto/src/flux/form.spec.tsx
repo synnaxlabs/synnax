@@ -418,7 +418,6 @@ describe("useForm", () => {
         expect(result.current.listenersMounted).toEqual(true);
       });
 
-      // Trigger a channel name change which should invoke the listener
       await act(async () => {
         await client.channels.rename(ch.key, "Updated Channel Name");
       });

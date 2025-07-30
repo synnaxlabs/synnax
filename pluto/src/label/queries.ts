@@ -26,7 +26,8 @@ export const retrieveLabelsOf = Flux.createRetrieve<
   label.Label[]
 >({
   name: "Labels",
-  retrieve: async ({ client, params: { id } }) => await client.labels.retrieveFor(id),
+  retrieve: async ({ client, params: { id } }) =>
+    await client.labels.retrieve({ for: id }),
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
@@ -47,7 +48,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
-          const l = await client.labels.retrieve(key);
+          const l = await client.labels.retrieve({ key });
           onChange((prev) => [...prev.filter((l) => l.key !== key), l]);
         },
       ),
@@ -76,7 +77,7 @@ export const useLabelsOfForm = Flux.createForm<
   initialValues: { labels: [] },
   retrieve: async ({ client, params: { id } }) => {
     if (id == null) return null;
-    const labels = await client.labels.retrieveFor(id);
+    const labels = await client.labels.retrieve({ for: id });
     return { labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, params: { id } }) => {
@@ -90,7 +91,7 @@ export const useLabelsOfForm = Flux.createForm<
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
           const { key } = changed.to;
-          const l = await client.labels.retrieve(key);
+          const l = await client.labels.retrieve({ key });
           onChange((prev) => {
             if (prev == null) return { labels: [l.key] };
             return { labels: [...prev.labels.filter((l) => l !== key), l.key] };
@@ -143,7 +144,7 @@ export const useList = Flux.createList<ListParams, label.Key, label.Label>({
       ...params,
       search: params.term,
     }),
-  retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
+  retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
@@ -175,7 +176,7 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema>({
   schema: formSchema,
   retrieve: async ({ client, params: { key } }) => {
     if (key == null) return null;
-    const label = await client.labels.retrieve(key);
+    const label = await client.labels.retrieve({ key });
     return label;
   },
   update: async ({ client, value, onChange }) =>

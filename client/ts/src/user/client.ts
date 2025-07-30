@@ -7,77 +7,161 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type ontology } from "@/ontology";
-import { type Key, type New, ONTOLOGY_TYPE, type User } from "@/user/payload";
-import { Retriever } from "@/user/retriever";
-import { Writer } from "@/user/writer";
+import {
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  ONTOLOGY_TYPE,
+  type User,
+  userZ,
+} from "@/user/payload";
+import { nullableArrayZ } from "@/util/zod";
+
+const retrieveRequestZ = z.object({
+  keys: keyZ.array().optional(),
+  usernames: z.string().array().optional(),
+});
+
+const keyRetrieveRequestZ = z
+  .object({
+    key: keyZ,
+  })
+  .transform(({ key }) => ({ keys: [key] }));
+
+const usernameRetrieveRequestZ = z
+  .object({
+    username: z.string(),
+  })
+  .transform(({ username }) => ({ usernames: [username] }));
+
+const usernamesRetrieveRequestZ = z
+  .object({
+    usernames: z.string().array(),
+  })
+  .transform(({ usernames }) => ({ usernames }));
+
+export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
+export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
+export type UsernamesRetrieveRequest = z.input<typeof usernamesRetrieveRequestZ>;
+
+const retrieveArgsZ = z.union([
+  keyRetrieveRequestZ,
+  usernameRetrieveRequestZ,
+  usernamesRetrieveRequestZ,
+  retrieveRequestZ,
+]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
+export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+
+const retrieveResZ = z.object({ users: nullableArrayZ(userZ) });
+
+const createReqZ = z.object({ users: newZ.array() });
+const createResZ = z.object({ users: userZ.array() });
+const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
+const changeUsernameResZ = z.object({});
+const renameReqZ = z.object({
+  key: keyZ,
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+});
+const renameResZ = z.object({});
+const deleteReqZ = z.object({ keys: keyZ.array() });
+const deleteResZ = z.object({});
+
+const RETRIEVE_ENDPOINT = "/user/retrieve";
+const CREATE_ENDPOINT = "/user/create";
+const CHANGE_USERNAME_ENDPOINT = "/user/change-username";
+const RENAME_ENDPOINT = "/user/rename";
+const DELETE_ENDPOINT = "/user/delete";
 
 export class Client {
-  private readonly reader: Retriever;
-  private readonly writer: Writer;
+  private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
-    this.writer = new Writer(client);
-    this.reader = new Retriever(client);
+    this.client = client;
   }
 
   async create(user: New): Promise<User>;
-
   async create(users: New[]): Promise<User[]>;
-
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.writer.create(users);
-    return isMany ? res : res[0];
+    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+      this.client,
+      CREATE_ENDPOINT,
+      { users: array.toArray(users) },
+      createReqZ,
+      createResZ,
+    );
+    return isMany ? res.users : res.users[0];
   }
 
   async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.writer.changeUsername(key, newUsername);
+    await sendRequired<typeof changeUsernameReqZ, typeof changeUsernameResZ>(
+      this.client,
+      CHANGE_USERNAME_ENDPOINT,
+      { key, username: newUsername },
+      changeUsernameReqZ,
+      changeUsernameResZ,
+    );
   }
 
-  async retrieve(key: Key): Promise<User>;
+  async retrieve(args: KeyRetrieveRequest): Promise<User>;
+  async retrieve(args: UsernameRetrieveRequest): Promise<User>;
+  async retrieve(args: RetrieveArgs): Promise<User[]>;
+  async retrieve(args: RetrieveArgs): Promise<User | User[]> {
+    const isSingle = "key" in args || "username" in args;
+    const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      args,
+      retrieveArgsZ,
+      retrieveResZ,
+    );
 
-  async retrieve(keys: Key[]): Promise<User[]>;
+    if (!isSingle) return res.users;
 
-  async retrieve(keys: Key | Key[]): Promise<User | User[]> {
-    const isMany = Array.isArray(keys);
-    const res = await this.reader.retrieve({ keys: array.toArray(keys) });
-    if (isMany) return res;
-    if (res.length === 0) throw new NotFoundError(`No user with key ${keys} found`);
-    if (res.length > 1)
-      throw new MultipleFoundError(`Multiple users found with key ${keys}`);
-    return res[0];
-  }
-
-  async retrieveByName(username: string): Promise<User>;
-
-  async retrieveByName(usernames: string[]): Promise<User[]>;
-
-  async retrieveByName(usernames: string | string[]): Promise<User | User[]> {
-    const isMany = Array.isArray(usernames);
-    const res = await this.reader.retrieve({ usernames: array.toArray(usernames) });
-    if (isMany) return res;
-    if (res.length === 0)
-      throw new NotFoundError(`No user with username ${usernames} found`);
-    if (res.length > 1)
-      throw new MultipleFoundError(`Multiple users found with username ${usernames}`);
-    return res[0];
+    if (res.users.length === 0) {
+      const identifier =
+        "key" in args ? `key ${args.key}` : `username ${args.username}`;
+      throw new NotFoundError(`No user with ${identifier} found`);
+    }
+    if (res.users.length > 1) {
+      const identifier =
+        "key" in args ? `key ${args.key}` : `username ${args.username}`;
+      throw new MultipleFoundError(`Multiple users found with ${identifier}`);
+    }
+    return res.users[0];
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await this.writer.rename(key, firstName, lastName);
+    await sendRequired<typeof renameReqZ, typeof renameResZ>(
+      this.client,
+      RENAME_ENDPOINT,
+      { key, firstName, lastName },
+      renameReqZ,
+      renameResZ,
+    );
   }
 
   async delete(key: Key): Promise<void>;
-
   async delete(keys: Key[]): Promise<void>;
-
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.writer.delete(keys);
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      DELETE_ENDPOINT,
+      { keys: array.toArray(keys) },
+      deleteReqZ,
+      deleteResZ,
+    );
   }
 }
 

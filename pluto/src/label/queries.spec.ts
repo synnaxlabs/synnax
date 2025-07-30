@@ -502,7 +502,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       await expect(
-        async () => await client.labels.retrieve(labelToDelete.key),
+        async () => await client.labels.retrieve({ key: labelToDelete.key }),
       ).rejects.toThrow();
     });
 
@@ -535,12 +535,11 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
 
-      // Verify both labels were deleted
       await expect(
-        async () => await client.labels.retrieve(label1.key),
+        async () => await client.labels.retrieve({ key: label1.key }),
       ).rejects.toThrow();
       await expect(
-        async () => await client.labels.retrieve(label2.key),
+        async () => await client.labels.retrieve({ key: label2.key }),
       ).rejects.toThrow();
     });
   });
