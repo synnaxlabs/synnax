@@ -90,6 +90,8 @@ jobs:
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
       - name: Show relic help to github output
         run: relic --help
+      - name: Show relic version to github output
+        run: relic --version
       - name: Test Relic
         run: relic sign --file hello --key azure --config console/src-tauri/relic.conf
 
