@@ -83,6 +83,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: gcc hello.c -o hello
       - run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-client-windows-amd64.exe
+      - run: |
           mkdir relic-bin
           mv relic.exe relic-bin\
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
