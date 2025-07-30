@@ -11,7 +11,6 @@ import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Sync } from "@/flux/sync";
-import { Mutex } from "async-mutex";
 
 /**
  * Internal reference object for managing synchronizer lifecycle.

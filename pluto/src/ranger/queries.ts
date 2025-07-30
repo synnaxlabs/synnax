@@ -309,7 +309,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema>({
             if (prev == null || prev.key == null) return prev;
             const otgID = ranger.ontologyID(prev.key);
             const isLabelChange = Label.matchRelationship(changed, otgID);
-            if (isLabelChange) {
+            if (isLabelChange)
               return {
                 ...prev,
                 labels: [
@@ -317,7 +317,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema>({
                   changed.to.key,
                 ],
               };
-            }
+
             const isParentChange = ontology.matchRelationship(changed, {
               type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
               to: otgID,
