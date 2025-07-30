@@ -22,9 +22,10 @@
     ],
     "createUpdaterArtifacts": true,
     "windows": {
+      "signCommand": "relic sign --file %1 --key azure --config relic.conf",
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "http://timestamp.digicert.com"
     },
     "longDescription": "",
     "macOS": {
