@@ -193,10 +193,8 @@ jobs:
           rm tauri.conf.json
           mv temp.json tauri.conf.json
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Install Rust
+        run: rustup update
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
