@@ -15,7 +15,7 @@ on:
       - drift/**
       - freighter/ts/**
       - pluto/**
-      - vendor/**
+      - vendor/lua-language-server/**
       - x/media/**
       - x/ts/**
   pull_request:
@@ -32,7 +32,7 @@ on:
       - drift/**
       - freighter/ts/**
       - pluto/**
-      - vendor/**
+      - vendor/lua-language-server/**
       - x/media/**
       - x/ts/**
   workflow_dispatch:
@@ -232,10 +232,7 @@ jobs:
 
       - name: Add relic to PATH
         if: matrix.os == 'windows-latest'
-        run: |
-          mkdir C:\tools
-          mv relic.exe C:\tools\relic.exe
-          echo "C:\tools" >> $env:GITHUB_PATH
+        run: mv relic.exe C:\tools\relic.exe
 
       - name: Check if relic is in PATH
         if: matrix.os == 'windows-latest'
