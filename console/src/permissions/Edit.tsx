@@ -60,7 +60,9 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
     values: { ...INITIAL_PERMISSIONS, keys: {} },
     queryFn: async ({ client }) => {
       if (client == null) throw new DisconnectedError();
-      const policies = await client.access.policy.retrieveFor(user.ontologyID(key));
+      const policies = await client.access.policy.retrieve({
+        for: user.ontologyID(key),
+      });
       const userSpecificPolicies = policies.filter(
         ({ subjects }) => subjects.length === 1 && subjects[0].key === key,
       );

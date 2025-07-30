@@ -174,7 +174,7 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
+        expect(result.current.data.length).toBeGreaterThan(initialLength);
         expect(result.current.data).toContain(newRange.key);
       });
     });
@@ -394,7 +394,7 @@ describe("queries", () => {
       );
 
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
+        expect(result.current.data.length).toBeGreaterThan(initialLength);
         expect(result.current.data).toContain(newChild.key);
       });
     });

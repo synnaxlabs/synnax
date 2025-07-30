@@ -34,7 +34,6 @@ export const Tags = ({
         CSS.M(variant),
         CSS.shade(0),
         CSS.size("medium"),
-        className,
       )}
       onClick={onClick}
       align="center"
@@ -48,7 +47,7 @@ export const Tags = ({
   );
   if (actions == null) return tags;
   return (
-    <Align.Pack {...rest}>
+    <Align.Pack className={className} {...rest}>
       {tags}
       {actions}
     </Align.Pack>

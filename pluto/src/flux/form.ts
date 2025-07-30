@@ -169,6 +169,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       useCallback(
         (setter) => {
           const nextStatus = state.executeSetter(setter, resultRef.current);
+          resultRef.current = nextStatus;
           if (nextStatus.data != null) {
             form.set("", nextStatus.data);
             form.setCurrentStateAsInitialValues();

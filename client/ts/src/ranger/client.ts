@@ -157,7 +157,7 @@ export class Range {
   }
 
   async retrieveLabels(): Promise<label.Label[]> {
-    return await this.labelClient.retrieveFor(ontologyID(this.key));
+    return await this.labelClient.retrieve({ for: ontologyID(this.key) });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {
@@ -165,7 +165,7 @@ export class Range {
   }
 
   async removeLabel(...labels: label.Key[]): Promise<void> {
-    await this.labelClient.removeLabels(ontologyID(this.key), labels);
+    await this.labelClient.remove(ontologyID(this.key), labels);
   }
 
   static sort(a: Range, b: Range): number {

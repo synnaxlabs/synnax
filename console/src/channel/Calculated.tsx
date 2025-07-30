@@ -178,6 +178,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               disabled={variant === "loading"}
               loading={variant === "loading"}
               triggers={Triggers.SAVE}
+              variant="filled"
               onClick={() => save()}
             >
               {isEdit ? "Save" : "Create"}

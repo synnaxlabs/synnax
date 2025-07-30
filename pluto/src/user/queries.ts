@@ -8,7 +8,8 @@ interface RetrieveParams {
 
 export const retrieve = Flux.createRetrieve<RetrieveParams, user.User>({
   name: "User",
-  retrieve: async ({ params, client }) => await client.user.retrieve(params.key),
+  retrieve: async ({ params, client }) =>
+    await client.user.retrieve({ key: params.key }),
 });
 
 interface RetrieveCreator {
@@ -24,6 +25,6 @@ export const retrieveCreator = Flux.createRetrieve<RetrieveCreator, user.User>({
     });
     if (user.length === 0)
       throw new NotFoundError(`No user with id ${params.id.key} found`);
-    return await client.user.retrieve(user[0].id.key);
+    return await client.user.retrieve({ key: user[0].id.key });
   },
 });

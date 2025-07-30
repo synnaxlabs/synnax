@@ -13,6 +13,7 @@
     transition: transform 0.2s ease;
     transform-origin: center;
     color: var(--pluto-gray-l8);
+    will-change: transform;
 
     &.pluto--left {
         transform: rotate(270deg) scale(0.8);
@@ -31,18 +32,14 @@
     }
 }
 
-.pluto-dialog__trigger {
-    .pluto-caret-animated {
+.pluto-dialog__frame {
+    .pluto-dialog__trigger .pluto-caret-animated {
         transform: rotate(270deg) scale(0.8);
     }
-    &.pluto--top.pluto--visible {
-        .pluto-caret-animated {
-            transform: rotate(360deg) scale(0.8);
-        }
+    &.pluto--top.pluto--visible .pluto-dialog__trigger .pluto-caret-animated {
+        transform: rotate(360deg) scale(0.8);
     }
-    &.pluto--bottom.pluto--visible {
-        .pluto-caret-animated {
-            transform: rotate(180deg) scale(0.8);
-        }
+    &.pluto--bottom.pluto--visible .pluto-caret-animated {
+        transform: rotate(180deg) scale(0.8);
     }
 }

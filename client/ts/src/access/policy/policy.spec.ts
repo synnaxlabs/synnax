@@ -41,6 +41,7 @@ describe("Policy", () => {
         expect(policy.actions).toEqual(["delete"]);
         await client.access.policy.delete(policy.key);
       });
+
       test("missing subjects", async () => {
         const policy = await client.access.policy.create({
           subjects: [],
@@ -51,7 +52,9 @@ describe("Policy", () => {
         expect(policy.subjects).toHaveLength(0);
         expect(policy.objects).toHaveLength(0);
         expect(policy.actions).toHaveLength(0);
-        const retrievedPolicy = await client.access.policy.retrieve(policy.key);
+        const retrievedPolicy = await client.access.policy.retrieve({
+          key: policy.key,
+        });
         expect(retrievedPolicy).toMatchObject(policy);
       });
       test("missing objects", async () => {
@@ -66,7 +69,9 @@ describe("Policy", () => {
         expect(policy.subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
         expect(policy.objects).toHaveLength(0);
         expect(policy.actions).toHaveLength(0);
-        const retrievedPolicy = await client.access.policy.retrieve(policy.key);
+        const retrievedPolicy = await client.access.policy.retrieve({
+          key: policy.key,
+        });
         expect(retrievedPolicy).toMatchObject(policy);
       });
       test("with key", async () => {
@@ -171,12 +176,11 @@ describe("Policy", () => {
           actions: "retrieve",
         },
       ]);
-      const result = await client.access.policy.retrieve(policies[0].key);
+      const result = await client.access.policy.retrieve({ key: policies[0].key });
       expect(result).toMatchObject(policies[0]);
-      const results = await client.access.policy.retrieve([
-        policies[0].key,
-        policies[1].key,
-      ]);
+      const results = await client.access.policy.retrieve({
+        keys: [policies[0].key, policies[1].key],
+      });
       expect(results).toHaveLength(2);
       expect(results[0]).toMatchObject(policies[0]);
       expect(results[1]).toMatchObject(policies[1]);
@@ -207,7 +211,9 @@ describe("Policy", () => {
           actions: "delete",
         },
       ]);
-      const received = await client.access.policy.retrieveFor(user.ontologyID(key2));
+      const received = await client.access.policy.retrieve({
+        for: user.ontologyID(key2),
+      });
       const newReceived = received.filter((p) => created.some((c) => c.key === p.key));
       expect(created[0]).toMatchObject(newReceived[0]);
       await client.access.policy.delete([created[0].key, created[1].key]);
@@ -245,7 +251,9 @@ describe("Policy", () => {
 
       const created = await client.access.policy.create(policies);
       await client.access.policy.delete(created[0].key);
-      await expect(client.access.policy.retrieve(created[0].key)).rejects.toThrow();
+      await expect(
+        client.access.policy.retrieve({ key: created[0].key }),
+      ).rejects.toThrow();
       await client.access.policy.delete(created[1].key);
     });
     test("many", async () => {
@@ -279,8 +287,12 @@ describe("Policy", () => {
 
       const created = await client.access.policy.create(policies);
       await client.access.policy.delete([created[0].key, created[1].key]);
-      await expect(client.access.policy.retrieve(created[0].key)).rejects.toThrow();
-      await expect(client.access.policy.retrieve(created[1].key)).rejects.toThrow();
+      await expect(
+        client.access.policy.retrieve({ key: created[0].key }),
+      ).rejects.toThrow();
+      await expect(
+        client.access.policy.retrieve({ key: created[1].key }),
+      ).rejects.toThrow();
     });
   });
 });

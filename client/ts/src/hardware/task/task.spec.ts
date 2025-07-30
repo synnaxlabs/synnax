@@ -116,10 +116,8 @@ describe("Task", async () => {
       let secondRack: any;
 
       beforeAll(async () => {
-        // Create a second rack for testing rack-based queries
         secondRack = await client.hardware.racks.create({ name: "test-rack-2" });
 
-        // Create test tasks with different properties for comprehensive testing
         const taskConfigs = [
           { name: "sensor_task1", type: "ni", rack: testRack },
           { name: "sensor_task2", type: "ni", rack: testRack },
@@ -196,7 +194,6 @@ describe("Task", async () => {
             offset: 2,
           });
 
-          // Ensure no overlap between pages
           const firstPageKeys = firstPage.map((t) => t.key);
           const secondPageKeys = secondPage.map((t) => t.key);
           expect(
@@ -256,7 +253,6 @@ describe("Task", async () => {
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
 
-        // Poll for status to be populated
         await expect
           .poll(async () => {
             const tasks = await client.hardware.tasks.retrieve({

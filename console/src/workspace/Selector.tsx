@@ -91,7 +91,6 @@ export const Selector = (): ReactElement => {
       >
         <Dialog.Trigger
           startIcon={<Icon.Workspace key="workspace" />}
-          variant="text"
           size="medium"
           className={CSS.B("trigger")}
           shade={2}
@@ -108,7 +107,7 @@ export const Selector = (): ReactElement => {
                   Search Workspaces
                 </Text.WithIcon>
               }
-              shade={0}
+              shade={3}
               value={search}
               onChange={(v) => {
                 setSearch(v);
@@ -119,6 +118,7 @@ export const Selector = (): ReactElement => {
                 startIcon={<Icon.Close />}
                 size="large"
                 variant="outlined"
+                shade={3}
                 onClick={() => {
                   handleChange(null);
                   setDialogVisible(false);
@@ -132,6 +132,7 @@ export const Selector = (): ReactElement => {
                 size="large"
                 startIcon={<Icon.Add />}
                 variant="outlined"
+                shade={3}
                 onClick={() => {
                   setDialogVisible(false);
                   placeLayout(CREATE_LAYOUT);

@@ -101,10 +101,10 @@ export type Relationship = z.infer<typeof relationshipZ>;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 
-interface MatchRelationshipArgs {
-  from: Partial<ID>;
+export interface MatchRelationshipArgs {
+  from?: Partial<ID>;
   type: string;
-  to: Partial<ID>;
+  to?: Partial<ID>;
 }
 
 export const matchRelationship = (
@@ -112,10 +112,10 @@ export const matchRelationship = (
   match: MatchRelationshipArgs,
 ) => {
   if (match.type != null && match.type !== relationship.type) return false;
-  if (match.from.type != null && match.from.type !== relationship.from.type)
+  if (match.from?.type != null && match.from.type !== relationship.from.type)
     return false;
-  if (match.to.type != null && match.to.type !== relationship.to.type) return false;
-  if (match.from.key != null && match.from.key !== relationship.from.key) return false;
-  if (match.to.key != null && match.to.key !== relationship.to.key) return false;
+  if (match.to?.type != null && match.to.type !== relationship.to.type) return false;
+  if (match.from?.key != null && match.from.key !== relationship.from.key) return false;
+  if (match.to?.key != null && match.to.key !== relationship.to.key) return false;
   return true;
 };

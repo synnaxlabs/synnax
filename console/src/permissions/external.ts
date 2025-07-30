@@ -13,7 +13,7 @@ import { Edit, EDIT_LAYOUT_TYPE } from "@/permissions/Edit";
 export * from "@/permissions/Edit";
 export * from "@/permissions/selectors";
 export * from "@/permissions/slice";
-export * from "@/user/use";
+export * from "@/user/useSync";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,

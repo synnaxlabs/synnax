@@ -12,39 +12,32 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { giveAll, set } from "@/permissions/slice";
-import { clear as clearUser, set as setUser } from "@/user/slice";
+import { Permissions } from "@/permissions";
+import { set } from "@/user/slice";
 
-export const useRetrieve = (): void => {
+export const useSync = (): void => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       if (client == null) {
-        dispatch(giveAll());
-        dispatch(clearUser());
+        dispatch(Permissions.giveAll());
         return;
       }
       const username = client.props.username;
       try {
-        const user = await client.user.retrieveByName(username);
+        const user = await client.user.retrieve({ username });
+        dispatch(set({ user }));
         if (signal.aborted) return;
-
-        // Store the user data
-        dispatch(setUser({ user }));
-
-        // Retrieve and store permissions
-        const policies = await client.access.policy.retrieveFor(
-          clientUser.ontologyID(user.key),
-        );
+        const policies = await client.access.policy.retrieve({
+          for: clientUser.ontologyID(user.key),
+        });
         if (signal.aborted) return;
-        dispatch(set({ policies }));
+        dispatch(Permissions.set({ policies }));
       } catch (e) {
         if (Unreachable.matches(e)) return;
         handleError(e, `Failed to fetch permissions for ${username}`);
-        // Clear user data on error
-        dispatch(clearUser());
       }
     },
     [client],

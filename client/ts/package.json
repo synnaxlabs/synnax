@@ -41,6 +41,7 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
+    "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",

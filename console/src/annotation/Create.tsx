@@ -64,8 +64,6 @@ export const Create: Layout.Renderer = (props) => {
   const client = Synnax.use();
   const clientExists = client != null;
 
-  console.log(args);
-
   const { form, save, variant } = Annotation.useForm({
     params: { key: args?.key },
     autoSave: false,
