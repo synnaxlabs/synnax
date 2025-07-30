@@ -30,21 +30,15 @@ const retrieveRequestZ = z.object({
 });
 
 const keyRetrieveRequestZ = z
-  .object({
-    key: keyZ,
-  })
+  .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
 const subjectRetrieveRequestZ = z
-  .object({
-    for: ontology.idZ,
-  })
+  .object({ for: ontology.idZ })
   .transform(({ for: forId }) => ({ subjects: [forId] }));
 
 const subjectsRetrieveRequestZ = z
-  .object({
-    for: ontology.idZ.array(),
-  })
+  .object({ for: ontology.idZ.array() })
   .transform(({ for: forIds }) => ({ subjects: forIds }));
 
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;

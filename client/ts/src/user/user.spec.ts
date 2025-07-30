@@ -191,7 +191,6 @@ describe("User", () => {
           await expect(
             client.user.retrieve({ keys: userArray.map((u) => u.key as string) }),
           ).rejects.toThrow(NotFoundError);
-          // cleanup
           const users = await client.user.create(userArray);
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
