@@ -75,10 +75,6 @@ jobs:
   test-relic:
     name: Test Relic
     runs-on: windows-latest
-    env:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - uses: actions/checkout@v4
       - run: gcc hello.c -o hello
@@ -87,7 +83,12 @@ jobs:
       - run: relic --help
       - run: relic --version
       - name: Test Relic
-        run: relic sign --file hello --key azure --config console/src-tauri/relic.conf
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          relic sign --file hello.exe --key azure --config console/src-tauri/relic.conf
 
   # create-release:
   #   name: Create Release
