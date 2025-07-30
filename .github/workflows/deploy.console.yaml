@@ -14,7 +14,11 @@ on:
       - console/**
       - drift/**
       - freighter/ts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - pluto/**
+      - turbo.json
       - vendor/lua-language-server/**
       - x/media/**
       - x/ts/**
@@ -31,7 +35,11 @@ on:
       - console/**
       - drift/**
       - freighter/ts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - pluto/**
+      - turbo.json
       - vendor/lua-language-server/**
       - x/media/**
       - x/ts/**
@@ -232,7 +240,10 @@ jobs:
 
       - name: Add relic to PATH
         if: matrix.os == 'windows-latest'
-        run: mv relic.exe C:\tools\relic.exe
+        run: |
+          mkdir relic-bin
+          mv relic.exe relic-bin\
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
 
       - name: Check if relic is in PATH
         if: matrix.os == 'windows-latest'
