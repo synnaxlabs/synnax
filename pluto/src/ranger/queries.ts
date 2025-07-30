@@ -307,21 +307,23 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema>({
         async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null || prev.key == null) return prev;
-            let next = prev;
-            if (Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
-              next = {
+            const otgID = ranger.ontologyID(prev.key);
+            const isLabelChange = Label.matchRelationship(changed, otgID);
+            if (isLabelChange) {
+              return {
                 ...prev,
                 labels: [
                   ...prev.labels.filter((l) => l !== changed.to.key),
                   changed.to.key,
                 ],
               };
-            if (
-              changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-              ontology.idsEqual(changed.to, ranger.ontologyID(prev.key))
-            )
-              return { ...prev, parent: changed.from.key };
-            return next;
+            }
+            const isParentChange = ontology.matchRelationship(changed, {
+              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+              to: otgID,
+            });
+            if (isParentChange) return { ...prev, parent: changed.from.key };
+            return prev;
           });
         },
       ),

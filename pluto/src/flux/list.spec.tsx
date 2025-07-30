@@ -578,15 +578,14 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data).toEqual([rng2.key, rng1.key]); // A Range, B Range
+        expect(result.current.data).toEqual([rng2.key, rng1.key]);
         expect(result.current.listenersMounted).toEqual(true);
       });
 
-      // Rename B Range to Z Range - should move to end
       await act(async () => await client.ranges.rename(rng1.key, "Z Range"));
 
       await waitFor(() => {
-        expect(result.current.data).toEqual([rng2.key, rng1.key]); // A Range, Z Range
+        expect(result.current.data).toEqual([rng2.key, rng1.key]);
       });
     });
 
@@ -622,7 +621,6 @@ describe("list", () => {
                 onChange: Sync.parsedHandler(
                   ranger.payloadZ,
                   async ({ onChange, changed }) => {
-                    // Simulate adding a B Range
                     if (changed.name === "B Range")
                       onChange(changed.key, () => changed);
                   },
@@ -642,7 +640,6 @@ describe("list", () => {
         expect(result.current.listenersMounted).toEqual(true);
       });
 
-      // Create and trigger B Range through listener
       const rng3 = await client.ranges.create({
         name: "B Range",
         timeRange: new TimeRange({

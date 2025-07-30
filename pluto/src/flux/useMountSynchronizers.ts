@@ -11,6 +11,7 @@ import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Sync } from "@/flux/sync";
+import { Mutex } from "async-mutex";
 
 /**
  * Internal reference object for managing synchronizer lifecycle.
@@ -69,12 +70,14 @@ export const useMountSynchronizers = (): ((
     ({ listeners, onOpen }: UseMountSynchronizersProps) => {
       if (listeners == null || listeners.length === 0 || ref.current.mountCalled)
         return;
+
       ref.current.mountCalled = true;
       let openCount = 0;
       const handleOpen = () => {
         openCount++;
         if (openCount === listeners.length) onOpen?.();
       };
+
       const destructors = listeners.map(({ channel, handler }) =>
         addListener({ channel, handler, onOpen: handleOpen }),
       );

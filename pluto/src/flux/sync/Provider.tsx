@@ -31,6 +31,14 @@ interface MutexValue {
   streamer: framer.ObservableStreamer | null;
 }
 
+const channelNameSort = (a: string, b: string) => {
+  const aHasDelete = a.includes("delete");
+  const bHasDelete = b.includes("delete");
+  if (aHasDelete && !bHasDelete) return -1;
+  if (!aHasDelete && bHasDelete) return 1;
+  return 0;
+};
+
 export const Provider = ({
   children,
   openStreamer: propsOpenStreamer,
@@ -53,14 +61,20 @@ export const Provider = ({
 
   const handleChange = useCallback(
     (frame: framer.Frame) => {
-      const namesInFrame = new Set([...frame.uniqueNames]);
-      handlersRef.current.forEach((channel, handler) => {
-        if (!namesInFrame.has(channel)) return;
-        try {
-          handler(frame);
-        } catch (e) {
-          handleError(e, `Error calling Sync Frame Handler on channel(s): ${channel}`);
-        }
+      const namesInFrame = [...frame.uniqueNames];
+      namesInFrame.sort(channelNameSort);
+      namesInFrame.forEach((name) => {
+        handlersRef.current.forEach((channel, handler) => {
+          if (channel !== name) return;
+          try {
+            handler(frame);
+          } catch (e) {
+            handleError(
+              e,
+              `Error calling Sync Frame Handler on channel(s): ${channel}`,
+            );
+          }
+        });
       });
     },
     [handleError],

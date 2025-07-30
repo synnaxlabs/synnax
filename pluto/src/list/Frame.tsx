@@ -1,5 +1,5 @@
 import { bounds, type location, type record } from "@synnaxlabs/x";
-import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer, Virtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
   memo,
