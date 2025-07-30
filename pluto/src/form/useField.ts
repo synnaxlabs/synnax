@@ -185,13 +185,13 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   add: (value, start) => {
     const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.splice(start, 0, ...array.toArray(value));
-    ctx.set(path, copy, { validateChildren: false });
+    ctx.set(path, copy);
   },
   push: (value, sort) => {
     const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
-    ctx.set(path, copy, { validateChildren: false });
+    ctx.set(path, copy);
   },
   remove: (key) => {
     const val = ctx.get<E[]>(path).value;

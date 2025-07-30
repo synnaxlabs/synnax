@@ -178,6 +178,8 @@ export const Button = Tooltip.wrap(
     else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
     else size ??= "medium";
 
+    if (disabled) textShade = 6;
+
     return (
       <Text.WithIcon<"button", any>
         el="button"

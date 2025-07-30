@@ -25,6 +25,7 @@
 
 .console-range__overview {
     height: 100%;
+    container-type: size;
     .console-metadata__item {
         .console-metadata__delete {
             opacity: 0;

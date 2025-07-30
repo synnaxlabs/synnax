@@ -64,6 +64,7 @@ export const SingleTrigger = <K extends record.Key>({
       gap="small"
       startIcon={icon ?? baseIcon}
       className={CSS(CSS.dropRegion(canDrop(dragging)))}
+      disabled={disabled}
       {...dropProps}
       {...rest}
       textShade={name == null ? 8 : undefined}

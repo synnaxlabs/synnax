@@ -72,7 +72,7 @@ export const SelectSingle = ({
   icon = <Icon.Device />,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, ...status } = useList({
+  const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
     initialParams,
   });

@@ -48,7 +48,6 @@
 
     &.pluto--disabled {
         cursor: not-allowed;
-        --pluto-btn-text-color: var(--pluto-gray-l6) !important;
         --pluto-border-color: var(--pluto-gray-l4) !important;
     }
 

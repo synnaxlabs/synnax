@@ -78,13 +78,13 @@ export const wrap = <
       store.getState(),
       layoutKey,
     );
-    const { data, variant, message, description } = useRetrieve({
+    const { data, variant, status } = useRetrieve({
       params: { key: taskKey },
     });
     if (variant !== "success")
       return (
         <Status.Text variant={variant}>
-          {message} {description}
+          {status.message} {status.description}
         </Status.Text>
       );
     return (

@@ -10,9 +10,10 @@
 import "@/ranger/Select.css";
 
 import { type ranger } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Component } from "@/component";
+import { type Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
@@ -30,6 +31,8 @@ export interface SelectMultipleProps
     >,
     Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
+const ICON = <Icon.Range />;
+
 export const SelectMultiple = ({
   onChange,
   value,
@@ -38,7 +41,7 @@ export const SelectMultiple = ({
   initialParams,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, ...status } = useList({
+  const { data, retrieve, getItem, subscribe, status } = useList({
     filter,
     initialParams,
   });
@@ -51,7 +54,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       data={data}
       getItem={getItem}
-      icon={<Icon.Range />}
+      icon={ICON}
       subscribe={subscribe}
       onFetchMore={fetchMore}
       onSearch={search}
@@ -71,6 +74,10 @@ export interface SelectSingleProps
     >,
     Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
+const DIALOG_PROPS: Dialog.DialogProps = {
+  style: { width: 800 },
+};
+
 export const SelectSingle = ({
   onChange,
   value,
@@ -80,7 +87,7 @@ export const SelectSingle = ({
   initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem, ...status } = useList({
+  const { data, retrieve, subscribe, getItem, status } = useList({
     filter,
     initialParams,
   });
@@ -100,9 +107,9 @@ export const SelectSingle = ({
       status={status}
       onSearch={search}
       emptyContent={emptyContent}
-      icon={<Icon.Range />}
+      icon={ICON}
       itemHeight={45}
-      dialogProps={{ style: { width: 800 } }}
+      dialogProps={DIALOG_PROPS}
       {...rest}
     >
       {listItemRenderProp}

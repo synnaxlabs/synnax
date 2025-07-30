@@ -100,7 +100,12 @@ export const Item = ({
                 />
               )}
             </Form.Field>
-            <Ranger.Breadcrumb name={name} parent={parent} showParent={showParent} />
+            <Ranger.Breadcrumb
+              name={name}
+              parent={parent}
+              showParent={showParent}
+              noWrap
+            />
           </Align.Space>
         </Align.Space>
         <Align.Space x align="center">

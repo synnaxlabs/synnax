@@ -24,12 +24,13 @@ export const Tags = ({
   className,
   variant = "outlined",
   ...rest
-}: TagsProps) => (
-  <Align.Pack {...rest}>
+}: TagsProps) => {
+  const tags = (
     <Align.Space
       x
       className={CSS(
         onClick && CSS.M("clickable"),
+        CSS.B("tags"),
         CSS.M(variant),
         CSS.shade(0),
         CSS.size("medium"),
@@ -44,6 +45,12 @@ export const Tags = ({
     >
       {children}
     </Align.Space>
-    {actions}
-  </Align.Pack>
-);
+  );
+  if (actions == null) return tags;
+  return (
+    <Align.Pack {...rest}>
+      {tags}
+      {actions}
+    </Align.Pack>
+  );
+};

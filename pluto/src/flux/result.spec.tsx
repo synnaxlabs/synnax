@@ -28,14 +28,14 @@ describe("result", () => {
       const result = pendingResult<TestState>("user", "fetch", null, false);
 
       expect(result.variant).toBe("loading");
-      expect(result.message).toBe("Fetch user");
+      expect(result.status.message).toBe("Fetch user");
       expect(result.data).toBeNull();
     });
 
     it("should capitalize the operation name", () => {
       const result = pendingResult<TestState>("channel", "create", null, false);
 
-      expect(result.message).toBe("Create channel");
+      expect(result.status.message).toBe("Create channel");
     });
 
     it("should handle complex operation names", () => {
@@ -46,7 +46,7 @@ describe("result", () => {
         false,
       );
 
-      expect(result.message).toBe("Establish database connection");
+      expect(result.status.message).toBe("Establish database connection");
     });
   });
 
@@ -61,7 +61,7 @@ describe("result", () => {
       const result = successResult<TestState>("user", "fetch", testData, false);
 
       expect(result.variant).toBe("success");
-      expect(result.message).toBe("Fetch user");
+      expect(result.status.message).toBe("Fetch user");
       expect(result.data).toEqual(testData);
     });
 
@@ -89,7 +89,7 @@ describe("result", () => {
 
       const result = successResult<TestState>("item", "update", testData, false);
 
-      expect(result.message).toBe("Update item");
+      expect(result.status.message).toBe("Update item");
     });
   });
 
@@ -100,7 +100,7 @@ describe("result", () => {
       const result = errorResult<TestState>("user", "fetch", testError, false);
 
       expect(result.variant).toBe("error");
-      expect(result.message).toBe("Failed to fetch user");
+      expect(result.status.message).toBe("Failed to fetch user");
       expect(result.data).toBeNull();
     });
 
@@ -108,7 +108,7 @@ describe("result", () => {
       const error = new Error("Database connection timeout");
       const result = errorResult<TestState>("connection", "establish", error, false);
       expect(result.variant).toBe("error");
-      expect(result.description).toBe("Database connection timeout");
+      expect(result.status.description).toBe("Database connection timeout");
     });
   });
 
@@ -117,14 +117,14 @@ describe("result", () => {
       const result = nullClientResult<TestState>("user", "fetch", false);
 
       expect(result.variant).toBe("error");
-      expect(result.message).toBe("Failed to fetch user");
+      expect(result.status.message).toBe("Failed to fetch user");
       expect(result.data).toBeNull();
     });
 
     it("should include correct disconnection message", () => {
       const result = nullClientResult<TestState>("channel", "create", false);
 
-      expect(result.description).toBe(
+      expect(result.status.description).toBe(
         "Cannot create channel because no cluster is connected.",
       );
     });
@@ -132,8 +132,8 @@ describe("result", () => {
     it("should handle different operation names", () => {
       const result = nullClientResult<TestState>("database", "query", false);
 
-      expect(result.message).toBe("Failed to query database");
-      expect(result.description).toBe(
+      expect(result.status.message).toBe("Failed to query database");
+      expect(result.status.description).toBe(
         "Cannot query database because no cluster is connected.",
       );
     });
@@ -143,7 +143,7 @@ describe("result", () => {
 
       expect(result.variant).toBe("error");
       expect(result.data).toBeNull();
-      expect(result.description).toBeDefined();
+      expect(result.status.description).toBeDefined();
     });
   });
 });

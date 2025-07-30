@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/dialog/Background.css";
-
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -18,13 +16,15 @@ export interface BackgroundProps extends Align.SpaceProps {
   visible: boolean;
 }
 
+export const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
+
 export const Background = ({
   children,
   visible,
   ...rest
 }: BackgroundProps): ReactElement => (
   <Align.Space
-    className={CSS(CSS.BE("dialog", "bg"), CSS.visible(visible))}
+    className={CSS(BACKGROUND_CLASS, CSS.visible(visible))}
     empty
     align="center"
     {...rest}

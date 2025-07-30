@@ -22,9 +22,8 @@ import { type ItemRenderProps } from "@/tree/Tree";
 export type ItemProps<
   K extends record.Key,
   E extends Align.ElementType = "div",
-> = List.ItemProps<K, E> &
-  ItemRenderProps<K> &
-  Omit<Align.SpaceProps<E>, "onSelect" | "translate"> & {
+> = ItemRenderProps<K> &
+  Select.ListItemProps<K, E> & {
     loading?: boolean;
     useMargin?: boolean;
     offsetMultiplier?: number;

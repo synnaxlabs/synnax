@@ -21,3 +21,11 @@
         }
     }
 }
+
+@container (max-width: 500px) {
+    .console-range__list-item {
+        .pluto-tags {
+            display: none;
+        }
+    }
+}

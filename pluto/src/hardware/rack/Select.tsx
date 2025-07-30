@@ -52,7 +52,7 @@ export const SelectSingle = ({
   initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, ...status } = useList({
+  const { data, retrieve, getItem, subscribe, status } = useList({
     initialParams: { includeStatus: true, ...initialParams },
     filter,
   });

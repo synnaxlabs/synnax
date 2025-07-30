@@ -46,7 +46,7 @@
 .pluto-theme-synnax-light {
     --pluto-shadow-v1:
         0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
-        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
+        0px 8px 24px -8px rgba(0, 0, 0, 0.12);
 
     --pluto-shadow-v2:
         lch(0 0 0 / 0.022) 0px 6px 18px, lch(0 0 0 / 0.044) 0px 3px 9px,

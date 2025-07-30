@@ -33,7 +33,7 @@ describe("retrieve", () => {
         );
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(null);
-        expect(result.current.message).toEqual("Retrieving Resource");
+        expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
       it("should return a success result when the data is fetched", async () => {
@@ -48,7 +48,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.message).toEqual("Retrieved Resource");
+          expect(result.current.status.message).toEqual("Retrieved Resource");
         });
       });
 
@@ -66,8 +66,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(null);
-          expect(result.current.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.description).toEqual("test");
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual("test");
         });
       });
 
@@ -83,8 +83,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(null);
-          expect(result.current.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.description).toEqual(
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual(
             "Cannot retrieve Resource because no cluster is connected.",
           );
         });
@@ -130,7 +130,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(
             result.current.variant,
-            `${result.current.message}:${result.current.description}`,
+            `${result.current.status.message}:${result.current.status.description}`,
           ).toEqual("success");
           expect(result.current.data?.name).toEqual("Test Channel 2");
         });

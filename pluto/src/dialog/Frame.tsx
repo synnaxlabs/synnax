@@ -15,7 +15,6 @@ import {
   type RefCallback,
   useCallback,
   useContext as reactUseContext,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,6 +23,7 @@ import {
 import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { positionDialog, type Variant } from "@/dialog/position";
 import {
   useClickOutside,
@@ -34,7 +34,6 @@ import {
 } from "@/hooks";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
-import { findParent } from "@/util/findParent";
 
 /** Props for the {@link Frame} component. */
 export interface FrameProps
@@ -50,17 +49,13 @@ export interface FrameProps
 }
 
 interface State {
-  left: number;
-  width: number;
-  dialogLoc: xlocation.XY;
-  top?: number;
-  bottom?: number;
+  location: xlocation.XY;
+  style: CSSProperties;
 }
 
 const ZERO_STATE: State = {
-  width: 0,
-  left: 0,
-  dialogLoc: xlocation.BOTTOM_LEFT,
+  location: xlocation.BOTTOM_LEFT,
+  style: {},
 };
 
 export interface ContextValue {
@@ -123,12 +118,16 @@ export const Frame = ({
   });
   const close = useCallback(() => setVisible(false), [setVisible]);
   const open = useCallback(() => setVisible(true), [setVisible]);
-  const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
+  const toggle = useCallback(() => {
+    setVisible((prev) => !prev);
+  }, [setVisible]);
+
   const visibleRef = useSyncedRef(visible);
   const parentRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<xlocation.XY | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [{ dialogLoc, width, ...stateDialogStyle }, setState] = useState<State>({
+
+  const [{ location, style }, setState] = useState<State>({
     ...ZERO_STATE,
   });
 
@@ -143,32 +142,21 @@ export const Frame = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
-    const rounded = adjustedDialog;
-    const nextState: State = {
-      dialogLoc: location,
-      width: box.width(rounded),
-      left: box.left(rounded),
-    };
-    if (location.y === "bottom") nextState.top = box.top(rounded);
-    else {
-      const windowBox = box.construct(window.document.documentElement);
-      nextState.bottom = box.height(windowBox) - box.bottom(rounded);
-    }
-    setState(nextState);
+    const style: CSSProperties = {};
+    if (variant !== "modal" && parentRef.current != null) {
+      style.left = box.left(adjustedDialog);
+      if (location.y === "bottom") style.top = box.top(adjustedDialog);
+      else {
+        const windowBox = box.construct(window.document.documentElement);
+        style.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
+      }
+      if (variant === "connected") style.width = box.width(adjustedDialog);
+    } else if (variant === "modal") style.top = `${modalOffset}%`;
+    if (typeof maxHeight === "number") style.maxHeight = maxHeight;
+    if (visible) style.zIndex = zIndex;
+
+    setState({ location, style });
   }, [propsLocation, variant]);
-
-  useLayoutEffect(() => calculatePosition(), [visible, calculatePosition]);
-
-  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
-
-  let dialogStyle: CSSProperties = {};
-  if (variant !== "modal" && parentRef.current != null) {
-    dialogStyle = { ...stateDialogStyle };
-    if (variant === "connected") dialogStyle.width = width;
-  } else if (variant === "modal") dialogStyle = { top: `${modalOffset}%` };
-
-  if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
-  if (visible) dialogStyle = { ...dialogStyle, zIndex } as CSSProperties;
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
@@ -177,28 +165,39 @@ export const Frame = ({
   const combinedParentRef = useCombinedRefs(parentRef, resizeParentRef);
 
   const exclude = useCallback(
-    (e: { target: EventTarget | null }) => {
-      if (parentRef.current?.contains(e.target as Node)) return true;
-      // If the target has a parent with the role of dialog, don't close the dialog.
-      const parent = findParent(e.target as HTMLElement, (el) => {
-        const isDialog = el?.getAttribute("role") === "dialog";
-        if (!isDialog) return false;
-        const zi = el.style.zIndex;
-        return Number(zi) > Number(dialogRef.current?.style.zIndex);
-      });
-      return parent != null;
+    (e: MouseEvent) => {
+      if (!visibleRef.current || dialogRef.current == null || parentRef.current == null)
+        return true;
+      if (variant !== "modal") {
+        const dialog = dialogRef.current;
+        const visibleChildren = dialog.getElementsByClassName(CSS.visible(true));
+        let exclude = visibleChildren != null && visibleChildren.length > 0;
+        if (!exclude) {
+          const isTrigger = parentRef.current.contains(e.target as Node);
+          exclude = isTrigger;
+        }
+        if (!exclude) e.stopImmediatePropagation();
+        return exclude;
+      }
+      if (!(e.target instanceof HTMLElement)) return true;
+      let dialog = e.target;
+      if (dialog.className.includes(BACKGROUND_CLASS))
+        dialog = dialog.children[0] as HTMLElement;
+      return dialog !== dialogRef.current;
     },
-    [zIndex],
+    [zIndex, visibleRef],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
+  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
+
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,
-      location: dialogLoc,
-      style: dialogStyle,
+      location,
+      style,
     }),
-    [combinedDialogRef, dialogLoc, dialogStyle],
+    [combinedDialogRef, location, style],
   );
 
   const ctxValue = useMemo(
@@ -209,9 +208,9 @@ export const Frame = ({
       visible,
       onPointerEnter,
       variant,
-      location: dialogLoc,
+      location,
     }),
-    [close, open, toggle, visible, dialogLoc],
+    [close, open, toggle, visible, location],
   );
 
   return (
@@ -225,11 +224,11 @@ export const Frame = ({
             CSS.BE("dialog", "frame"),
             CSS.visible(visible),
             CSS.M(variant),
-            CSS.loc(dialogLoc.x),
-            CSS.loc(dialogLoc.y),
+            CSS.loc(location.x),
+            CSS.loc(location.y),
           )}
           y
-          reverse={dialogLoc.y === "top"}
+          reverse={location.y === "top"}
         >
           {children}
         </Align.Space>

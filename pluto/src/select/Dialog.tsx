@@ -10,6 +10,7 @@
 import "@/select/Dialog.css";
 
 import { type record, type status } from "@synnaxlabs/x";
+import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
@@ -24,63 +25,55 @@ export interface DialogProps<K extends record.Key>
   status?: status.Status;
 }
 
-const DEFAULT_HEIGHT = 250;
-
 const DefaultEmptyContent = () => (
-  <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
-    No results
-  </Status.Text.Centered>
+  <Status.Text.Centered variant="disabled">No results</Status.Text.Centered>
 );
 
-export const Dialog = <K extends record.Key>({
-  onSearch,
-  children,
-  emptyContent = <DefaultEmptyContent />,
-  searchPlaceholder,
-  style,
-  status,
-  actions,
-  ...rest
-}: DialogProps<K>) => {
-  const { variant } = CoreDialog.useContext();
-  if (status != null && status.variant !== "success")
-    emptyContent = (
-      <Status.Text.Centered
-        variant={status?.variant}
-        style={{ height: DEFAULT_HEIGHT }}
-        description={status?.description}
-      >
-        {status?.message}
-      </Status.Text.Centered>
+export const Core = memo(
+  <K extends record.Key>({
+    onSearch,
+    children,
+    emptyContent,
+    searchPlaceholder,
+    status,
+    actions,
+    ...rest
+  }: DialogProps<K>) => {
+    emptyContent = useMemo(() => {
+      if (status != null && status.variant !== "success")
+        return (
+          <Status.Text.Centered
+            variant={status?.variant}
+            description={status?.description}
+          >
+            {status?.message}
+          </Status.Text.Centered>
+        );
+      if (typeof emptyContent === "string")
+        return (
+          <Status.Text.Centered variant="disabled">{emptyContent}</Status.Text.Centered>
+        );
+      if (emptyContent == null) return <DefaultEmptyContent />;
+      return emptyContent;
+    }, [status?.key, emptyContent]);
+    return (
+      <CoreDialog.Dialog {...rest} className={CSS.BE("select", "dialog")}>
+        {onSearch != null && (
+          <SearchInput
+            dialogVariant="floating"
+            onSearch={onSearch}
+            searchPlaceholder={searchPlaceholder}
+            actions={actions}
+          />
+        )}
+        <List.Items emptyContent={emptyContent} bordered borderShade={6} grow>
+          {children}
+        </List.Items>
+      </CoreDialog.Dialog>
     );
-  else if (typeof emptyContent === "string")
-    emptyContent = (
-      <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
-        {emptyContent}
-      </Status.Text.Centered>
-    );
-  return (
-    <CoreDialog.Dialog
-      {...rest}
-      style={{ ...style }}
-      className={CSS.BE("select", "dialog")}
-    >
-      {onSearch != null && (
-        <SearchInput
-          dialogVariant={variant}
-          onSearch={onSearch}
-          searchPlaceholder={searchPlaceholder}
-          actions={actions}
-        />
-      )}
-      <List.Items
-        emptyContent={emptyContent}
-        bordered
-        borderShade={6}
-        style={{ maxHeight: DEFAULT_HEIGHT }}
-      >
-        {children}
-      </List.Items>
-    </CoreDialog.Dialog>
-  );
-};
+  },
+);
+Core.displayName = "Select.Dialog";
+export const Dialog = Core as <K extends record.Key>(
+  props: DialogProps<K>,
+) => ReactElement;
