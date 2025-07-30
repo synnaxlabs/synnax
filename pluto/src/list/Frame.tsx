@@ -155,10 +155,10 @@ const VirtualFrame = <
       subscribe,
       getTotalSize: () => virtualizer.getTotalSize(),
       getItems: () =>
-        items.map((item) => ({
-          key: data[item.index],
-          index: item.index,
-          translate: item.start,
+        items.map(({ index, start }) => ({
+          key: data[index],
+          index,
+          translate: start,
         })),
       itemHeight,
     }),
