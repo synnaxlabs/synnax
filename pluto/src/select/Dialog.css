@@ -1,9 +1,16 @@
-.pluto-select__dialog.pluto--modal {
-    border: none !important;
-    overflow: visible !important;
+.pluto-select__dialog.pluto--visible {
+    max-height: 250px;
+    & .pluto-space--centered {
+        height: 250px;
+    }
 
-    .pluto-input:first-child .pluto-input__internal {
-        border-top-left-radius: 1rem !important;
-        border-top-right-radius: 1rem !important;
+    &.pluto--modal {
+        border: none !important;
+        overflow: visible !important;
+
+        .pluto-input:first-child .pluto-input__internal {
+            border-top-left-radius: 1rem !important;
+            border-top-right-radius: 1rem !important;
+        }
     }
 }

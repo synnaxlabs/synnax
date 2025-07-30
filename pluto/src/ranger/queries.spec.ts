@@ -55,7 +55,7 @@ describe("queries", () => {
       await waitFor(() =>
         expect(
           result.current.variant,
-          `${result.current.message}:${result.current.description}`,
+          `${result.current.status.message}:${result.current.status.description}`,
         ).toEqual("success"),
       );
 
@@ -130,7 +130,7 @@ describe("queries", () => {
       await waitFor(() =>
         expect(
           result.current.variant,
-          `${result.current.message}:${result.current.description}`,
+          `${result.current.status.message}:${result.current.status.description}`,
         ).toEqual("success"),
       );
 

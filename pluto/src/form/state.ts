@@ -132,46 +132,35 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.cachedRefs.delete(path);
   }
 
-  validate(path: string = "", validateChildren: boolean = true): boolean {
+  validate(validateUntouched?: boolean): boolean {
     if (this.schema == null) return true;
     const result = this.schema.safeParse(this.values);
-    return this.processValidation(path, validateChildren, result);
+    return this.processValidation(validateUntouched, result);
   }
 
-  async validateAsync(
-    path: string = "",
-    validateChildren: boolean = true,
-  ): Promise<boolean> {
+  async validateAsync(validateUntouched?: boolean): Promise<boolean> {
     if (this.schema == null) return true;
     const result = await this.schema.safeParseAsync(this.values);
-    return this.processValidation(path, validateChildren, result);
+    return this.processValidation(validateUntouched, result);
   }
 
   private processValidation(
-    path: string = "",
-    validateChildren: boolean = true,
+    validateUntouched: boolean = false,
     result: z.ZodSafeParseResult<z.infer<Z>>,
   ): boolean {
     if (this.schema == null) return true;
     const cachedRefsToClear = new Set<string>();
     this.statuses.forEach((status, childPath) => {
-      if (deep.pathsMatch(childPath, path) && status.variant !== "success")
-        cachedRefsToClear.add(childPath);
+      if (status.variant !== "success") cachedRefsToClear.add(childPath);
     });
     cachedRefsToClear.forEach((path) => this.clearStatus(path));
     // Parse was a complete success. No errors encountered.
     if (result.success) return true;
-
     let success = true;
-    let matcher = (a: string, b: string) => a === b;
-    if (validateChildren) matcher = (a: string, b: string) => deep.pathsMatch(a, b);
-
     result.error.issues.forEach((issue) => {
       const { message } = issue;
       const issuePath = issue.path.join(".");
-      // If we're only validating a sub-path and it doesn't match a particular issue,
-      // skip it.
-      if (!matcher(issuePath, path)) return;
+      if (!validateUntouched && !this.touched.has(issuePath)) return;
       const variant = getVariant(issue);
       if (variant !== "warning") success = false;
       this.setStatus(issuePath, { key: issuePath, variant, message });

@@ -10,10 +10,16 @@
 import "@/index.css";
 import "@/main.css";
 
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Pluto } from "@/pluto";
+import { Ranger } from "@/ranger";
+
+const SelectSingleRanger = (): ReactElement => {
+  const [value, setValue] = useState<string[]>([]);
+  return <Ranger.SelectMultiple value={value} onChange={setValue} />;
+};
 
 const Main = (): ReactElement => (
   <Pluto.Provider
@@ -23,7 +29,9 @@ const Main = (): ReactElement => (
       username: "synnax",
       password: "seldon",
     }}
-  ></Pluto.Provider>
+  >
+    <SelectSingleRanger />
+  </Pluto.Provider>
 );
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

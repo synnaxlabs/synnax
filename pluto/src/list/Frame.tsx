@@ -2,6 +2,7 @@ import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
+  memo,
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
@@ -121,13 +122,14 @@ const VirtualFrame = <
   const ref = useRef<HTMLDivElement>(null);
   const onFetchMoreRef = useSyncedRef(onFetchMore);
   const { visible } = Dialog.useContext();
+  const hasData = data.length > 0;
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
-      if (ref.current == null) return;
+      if (ref.current == null || hasData) return;
       onFetchMoreRef.current?.();
     },
-    [onFetchMoreRef, visible],
+    [onFetchMoreRef, visible, hasData],
   );
   const virtualizer = useVirtualizer({
     count: data.length,
@@ -143,11 +145,8 @@ const VirtualFrame = <
       [data.length, onFetchMore],
     ),
   });
-  const items = virtualizer.getVirtualItems().map((item) => ({
-    key: data[item.index],
-    index: item.index,
-    translate: item.start,
-  }));
+
+  const items = virtualizer.getVirtualItems();
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
       ref: refCallback,
@@ -155,10 +154,15 @@ const VirtualFrame = <
       data,
       subscribe,
       getTotalSize: () => virtualizer.getTotalSize(),
-      getItems: () => items,
+      getItems: () =>
+        items.map((item) => ({
+          key: data[item.index],
+          index: item.index,
+          translate: item.start,
+        })),
       itemHeight,
     }),
-    [refCallback, virtualizer, data, getItem, items, itemHeight],
+    [refCallback, virtualizer, data, getItem, itemHeight, items],
   );
 
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
@@ -194,7 +198,7 @@ const StaticFrame = <
   const ref = useRef<HTMLDivElement>(null);
   const { visible } = Dialog.useContext();
   const onFetchMoreRef = useSyncedRef(onFetchMore);
-
+  const hasData = data.length > 0;
   const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
     const container = ref.current?.children[0];
     if (!container) return;
@@ -206,20 +210,16 @@ const StaticFrame = <
     else scrollTo = index;
     const child = container.children[scrollTo] as HTMLElement | undefined;
     if (child != null)
-      child.scrollIntoView({
-        block: "nearest",
-        inline: "nearest",
-        behavior: "smooth",
-      });
+      child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
 
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
-      if (ref.current == null) return;
+      if (ref.current == null || hasData) return;
       onFetchMoreRef.current?.();
     },
-    [onFetchMoreRef, visible],
+    [onFetchMoreRef, visible, hasData],
   );
   const items = data.map((key, index) => ({ key, index }));
   const dataCtxValue = useMemo<DataContextValue<K>>(
@@ -252,7 +252,7 @@ const StaticFrame = <
   );
 };
 
-export const Frame = <
+export const CoreFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
@@ -260,3 +260,5 @@ export const Frame = <
   ...rest
 }: FrameProps<K, E>): ReactElement =>
   virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;
+
+export const Frame = memo(CoreFrame) as typeof CoreFrame;

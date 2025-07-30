@@ -308,13 +308,14 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [getResource],
   );
 
-  const { shape, expand, contract, onSelect } = Core.use({
+  const treeProps = Core.use({
     nodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
     sort,
   });
+  const { shape, expand, contract } = treeProps;
   const shapeRef = useSyncedRef(shape);
 
   const getState = useCallback(
@@ -599,10 +600,9 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     <Context.Provider value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
+        {...treeProps}
         showRules
         shape={deep.copy(shape)}
-        selected={selected}
-        onSelect={onSelect}
         subscribe={resourceStore.subscribe}
         getItem={resourceStore.getItem}
         onContextMenu={menuProps.open}

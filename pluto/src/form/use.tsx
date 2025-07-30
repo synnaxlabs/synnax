@@ -79,28 +79,36 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const reset = useCallback((values?: z.infer<Z>) => {
+    const prevValues = ref.current.values;
+    const prevHasTouched = ref.current.hasBeenTouched;
     ref.current.reset(values);
+    const valuesChanged = prevValues !== ref.current.values;
+    if (valuesChanged)
+      onChangeRef.current?.({
+        values: ref.current.values,
+        path: "",
+        prev: prevValues,
+        valid: true,
+      });
     ref.current.notify();
+    const hasTouched = ref.current.hasBeenTouched;
+    if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   }, []);
 
-  const validateAsync = useCallback(
-    async (path?: string, validateChildren?: boolean): Promise<boolean> => {
-      const valid = await ref.current.validateAsync(path, validateChildren);
-      ref.current.notify();
-      return valid;
-    },
-    [],
-  );
-
-  const validate = useCallback((path?: string, validateChildren?: boolean): boolean => {
-    const valid = ref.current.validate(path, validateChildren);
+  const validateAsync = useCallback(async (): Promise<boolean> => {
+    const valid = await ref.current.validateAsync(true);
     ref.current.notify();
     return valid;
   }, []);
 
-  const set: SetFunc = useCallback((path, value, opts = {}): void => {
+  const validate = useCallback((): boolean => {
+    const valid = ref.current.validate(true);
+    ref.current.notify();
+    return valid;
+  }, []);
+
+  const set: SetFunc = useCallback((path, value): void => {
     const prev = deep.get(ref.current.values, path, { optional: true });
-    const { validateChildren = true } = opts;
     const prevHasTouched = ref.current.hasBeenTouched;
     ref.current.setValue(path, value);
     const finish = () => {
@@ -110,10 +118,10 @@ export const use = <Z extends z.ZodType>({
       if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
     };
     try {
-      ref.current.validate(path, validateChildren);
+      ref.current.validate();
     } catch (_) {
       return handleError(async () => {
-        await ref.current.validateAsync(path, validateChildren);
+        await ref.current.validateAsync();
         finish();
       }, "Failed to validate form");
     }

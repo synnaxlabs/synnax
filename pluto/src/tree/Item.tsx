@@ -22,7 +22,7 @@ export type ItemProps<
   K extends record.Key,
   E extends Align.ElementType = "div",
 > = ItemRenderProps<K> &
-  Omit<Align.SpaceProps<E>, "onSelect"> & {
+  Select.ListItemProps<K, E> & {
     loading?: boolean;
     useMargin?: boolean;
     offsetMultiplier?: number;

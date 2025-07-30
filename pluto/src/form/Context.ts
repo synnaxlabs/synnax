@@ -17,12 +17,8 @@ export interface RemoveFunc {
   (path: string): void;
 }
 
-export interface SetOptions {
-  validateChildren?: boolean;
-}
-
 export interface SetFunc {
-  (path: string, value: unknown, opts?: SetOptions): void;
+  (path: string, value: unknown): void;
 }
 
 export interface Listener {

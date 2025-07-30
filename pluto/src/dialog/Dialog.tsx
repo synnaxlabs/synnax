@@ -51,7 +51,7 @@ export const Dialog = ({
     />
   );
   if (variant === "floating") dialog = createPortal(dialog, getRootElement());
-  else if (variant === "modal")
+  if (variant === "modal")
     dialog = createPortal(
       <Background empty align="center" visible={visible}>
         {dialog}

@@ -17,6 +17,7 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -86,6 +87,7 @@ export const MultipleTrigger = <K extends record.Key>({
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {
   const value = Select.useSelection<K>();
+  const valueRef = useSyncedRef(value);
   const { setSelected } = Select.useContext<K>();
   const { toggle, visible } = Dialog.useContext();
   const canDrop = useCallback(
@@ -99,12 +101,13 @@ export const MultipleTrigger = <K extends record.Key>({
     onDrop: Haul.useFilterByTypeCallback(
       haulType,
       ({ items }) => {
+        const v = array.toArray(valueRef.current);
         setSelected(
-          unique.unique([...array.toArray(value), ...(items.map((c) => c.key) as K[])]),
+          unique.unique([...array.toArray(v), ...(items.map((c) => c.key) as K[])]),
         );
         return items;
       },
-      [setSelected, value],
+      [setSelected],
     ),
   });
 
@@ -141,7 +144,9 @@ export const MultipleTrigger = <K extends record.Key>({
     );
   return (
     <Tag.Tags
-      onClick={variant !== "text" || value.length == 0 ? toggle : undefined}
+      onClick={() => {
+        if (variant !== "text" || value.length == 0) toggle();
+      }}
       {...dropProps}
       className={CSS(
         CSS.dropRegion(canDrop(dragging)),

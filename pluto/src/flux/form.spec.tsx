@@ -470,7 +470,7 @@ describe("useForm", () => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(
           result.current.variant,
-          `${result.current.message}:${result.current.description}`,
+          `${result.current.status.message}:${result.current.status.description}`,
         ).toEqual("success");
         expect(result.current.listenersMounted).toEqual(true);
       });
@@ -483,7 +483,7 @@ describe("useForm", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.description).toEqual("Listener error");
+        expect(result.current.status.description).toEqual("Listener error");
       });
     });
   });
