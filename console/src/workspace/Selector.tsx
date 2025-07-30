@@ -90,11 +90,11 @@ export const Selector = (): ReactElement => {
         allowNone
       >
         <Dialog.Trigger
-          startIcon={<Icon.Workspace key="workspace" />}
           size="medium"
           className={CSS.B("trigger")}
           shade={2}
           weight={400}
+          startIcon={<Icon.Workspace key="workspace" />}
         >
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>

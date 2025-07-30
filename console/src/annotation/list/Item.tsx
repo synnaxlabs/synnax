@@ -40,33 +40,6 @@ export interface AnnotationListItemProps extends List.ItemProps<annotation.Key> 
   parentStart?: TimeStamp;
 }
 
-// Hash a string into a deterministic 32-bit integer
-const stringToHash = (str: string): number => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    hash |= 0; // Convert to 32-bit integer
-  }
-  return Math.abs(hash);
-};
-
-// Convert a hash into an HSL color
-const hashToHSL = (hash: number, offset: number = 0): string => {
-  const hue = (hash + offset) % 360;
-  const saturation = 60 + (hash % 30); // Range: 60–89%
-  const lightness = 50 + (hash % 10); // Range: 50–59%
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-};
-
-// Generate a consistent linear gradient for a username
-export const usernameToGradient = (username: string): string => {
-  const baseHash = stringToHash(username);
-  const color1 = hashToHSL(baseHash, 0);
-  const color2 = hashToHSL(baseHash, 120);
-  const color3 = hashToHSL(baseHash, 240);
-  return `linear-gradient(135deg, ${color1}, ${color2}, ${color3})`;
-};
-
 export const Item = ({
   parent,
   parentStart,
@@ -128,6 +101,8 @@ export const Item = ({
       .catch(console.error);
   }, [confirmDelete, del]);
 
+  const username = creator?.username ?? currentUser.username;
+
   return (
     <List.Item
       {...rest}
@@ -149,10 +124,10 @@ export const Item = ({
         <Align.Space x align="center" gap="small">
           <div
             className={CSS.BE("annotation", "list-item__avatar")}
-            style={{ background: usernameToGradient("synnax") }}
+            style={{ background: PUser.avatar(username) }}
           />
           <Text.Text level="h5" shade={9} weight={450}>
-            {creator?.username ?? currentUser.username}
+            {username}
           </Text.Text>
         </Align.Space>
         <Align.Space x gap="small">

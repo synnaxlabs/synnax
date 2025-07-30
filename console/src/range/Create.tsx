@@ -23,12 +23,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
+import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
 export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
@@ -63,6 +65,7 @@ export const Create: Layout.Renderer = (props) => {
   const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const dispatch = useDispatch();
 
   const client = Synnax.use();
   const clientExists = client != null;
@@ -78,7 +81,24 @@ export const Create: Layout.Renderer = (props) => {
       parent: "",
       ...args,
     },
-    afterSave: () => onClose(),
+    afterSave: ({ form }) => {
+      onClose();
+      const { name, key, timeRange } = form.value();
+      if (key == null) return;
+      dispatch(
+        add({
+          ranges: [
+            {
+              name,
+              key,
+              persisted: true,
+              variant: "static",
+              timeRange,
+            },
+          ],
+        }),
+      );
+    },
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
