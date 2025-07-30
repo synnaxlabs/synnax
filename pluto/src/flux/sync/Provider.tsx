@@ -31,6 +31,9 @@ interface MutexValue {
   streamer: framer.ObservableStreamer | null;
 }
 
+// This is a hack to ensure that deletions are processed before other changes, which
+// ensures that modifications to things like relationships, which are a delete
+// followed by a create, are processed in the correct order.
 const channelNameSort = (a: string, b: string) => {
   const aHasDelete = a.includes("delete");
   const bHasDelete = b.includes("delete");
