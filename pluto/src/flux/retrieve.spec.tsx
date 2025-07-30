@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, newTestClient } from "@synnaxlabs/client";
+import { label, newTestClient } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
@@ -93,25 +93,24 @@ describe("retrieve", () => {
 
     describe("listeners", () => {
       it("should correctly update the resource when the listener changes", async () => {
-        const ch = await client.channels.create({
-          name: "Test Channel",
-          virtual: true,
-          dataType: "float32",
+        const ch = await client.labels.create({
+          name: "Test Label",
+          color: "#000000",
         });
         const { result } = renderHook(
           () =>
-            Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
+            Flux.createRetrieve<{ key: label.Key }, label.Label>({
               name: "Resource",
               retrieve: async ({ client, params: { key } }) =>
-                await client.channels.retrieve(key),
+                await client.labels.retrieve({ key }),
               listeners: [
                 {
-                  channel: channel.SET_CHANNEL_NAME,
+                  channel: label.SET_CHANNEL_NAME,
                   onChange: Sync.parsedHandler(
-                    channel.keyZ,
-                    async ({ client, params: { key }, onChange, changed }) => {
-                      if (key !== changed) return;
-                      onChange(await client.channels.retrieve(key));
+                    label.labelZ,
+                    async ({ params: { key }, onChange, changed }) => {
+                      if (key !== changed.key) return;
+                      onChange(changed);
                     },
                   ),
                 },
@@ -125,15 +124,21 @@ describe("retrieve", () => {
           expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
-          await client.channels.rename(ch.key, "Test Channel 2");
+          await client.labels.create({
+            ...ch,
+            name: "Test Label 2",
+          });
         });
-        await waitFor(() => {
-          expect(
-            result.current.variant,
-            `${result.current.status.message}:${result.current.status.description}`,
-          ).toEqual("success");
-          expect(result.current.data?.name).toEqual("Test Channel 2");
-        });
+        await waitFor(
+          () => {
+            expect(result.current.data?.name).toEqual("Test Label 2");
+            expect(
+              result.current.variant,
+              `${result.current.status.message}:${result.current.status.description}`,
+            ).toEqual("success");
+          },
+          { timeout: 1000 },
+        );
       });
 
       it("should move the query into an error state when the listener throws an error", async () => {
