@@ -117,7 +117,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toBeTruthy();
+      });
       const initialLength = result.current.data.length;
 
       const newChannel = await client.channels.create({
@@ -145,7 +148,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toBeTruthy();
+      });
       expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
 
       await client.channels.rename(testChannel.key, "updated");
@@ -168,7 +174,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toBeTruthy();
+      });
       expect(result.current.data).toContain(testChannel.key);
 
       await client.channels.delete(testChannel.key);
@@ -561,7 +570,10 @@ describe("queries", () => {
         () => Channel.useCalculatedForm({ params: { key: testCalculated.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.listenersMounted).toBeTruthy();
+      });
       expect(result.current.form.value().name).toEqual("updateCalculated");
 
       await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");

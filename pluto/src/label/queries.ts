@@ -14,8 +14,10 @@ import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
 export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =>
-  rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-  ontology.idsEqual(rel.from, id);
+  ontology.matchRelationship(rel, {
+    from: id,
+    type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+  });
 
 interface UseLabelsOfQueryParams {
   id: ontology.ID;
