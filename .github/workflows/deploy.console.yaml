@@ -248,8 +248,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        working-directory: console
-        run: pnpm build
+        run: pnpm build:console
 
       - name: Upload macOS Release Asset
         if:
