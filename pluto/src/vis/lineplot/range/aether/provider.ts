@@ -48,7 +48,7 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  removeListener: Destructor | null;
+  removeListeners: Destructor | null;
 }
 
 interface ProviderProps {
@@ -75,7 +75,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (client == null) return;
     i.client = client;
 
-    i.removeListener = flux.useListener(
+    i.removeListeners = flux.useListener(
       ctx,
       [
         {
@@ -97,7 +97,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           }),
         },
       ],
-      i.removeListener,
+      i.removeListeners,
     );
   }
 

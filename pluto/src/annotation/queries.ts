@@ -11,7 +11,6 @@ import { annotation, ontology, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import z from "zod";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export interface UseListParams extends annotation.RetrieveRequest {
   parent: ontology.ID;
@@ -33,7 +32,7 @@ export const useList = Flux.createList<
   listeners: [
     {
       channel: annotation.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(annotation.annotationZ, ({ changed, onChange }) =>
+      onChange: Flux.parsedHandler(annotation.annotationZ, ({ changed, onChange }) =>
         onChange(changed.key, (prev) => {
           if (prev == null) return null;
           return changed;
@@ -42,13 +41,13 @@ export const useList = Flux.createList<
     },
     {
       channel: annotation.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(annotation.keyZ, ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(annotation.keyZ, ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { parent }, client }) => {
           if (

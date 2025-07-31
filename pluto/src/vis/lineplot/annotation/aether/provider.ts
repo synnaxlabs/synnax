@@ -8,10 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { annotation, ontology, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, color, scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  color,
+  type Destructor,
+  scale,
+  TimeRange,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -46,6 +56,7 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
+  removeListeners: Destructor | null;
 }
 
 interface ProviderProps {
@@ -71,6 +82,29 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
     if (client == null) return;
     i.client = client;
+
+    i.removeListeners = flux.useListener(
+      ctx,
+      [
+        {
+          channel: annotation.SET_CHANNEL_NAME,
+          onChange: flux.parsedHandler(annotation.annotationZ, async ({ changed }) => {
+            i.annotations.set(changed.key, changed);
+            this.setState((s) => ({ ...s, count: i.annotations.size }));
+            i.requestRender("tool");
+          }),
+        },
+        {
+          channel: annotation.DELETE_CHANNEL_NAME,
+          onChange: flux.parsedHandler(annotation.keyZ, async ({ changed }) => {
+            i.annotations.delete(changed);
+            this.setState((s) => ({ ...s, count: i.annotations.size }));
+            i.requestRender("tool");
+          }),
+        },
+      ],
+      i.removeListeners,
+    );
   }
 
   private fetchInitial(timeRange: TimeRange): void {
