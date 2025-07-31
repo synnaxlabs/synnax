@@ -151,7 +151,7 @@ export class Range {
     const wrapper = new observe.Observer<Range[]>();
     const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
       const id = ontologyID(r.key);
-      return { id, key: id.toString(), name: r.name, data: r.payload };
+      return { id, key: ontology.idToString(id), name: r.name, data: r.payload };
     });
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
@@ -170,7 +170,12 @@ export class Range {
     const p = await this.retrieveParent();
     if (p == null) return null;
     const id = ontologyID(p.key);
-    const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
+    const resourceP = {
+      id,
+      key: ontology.idToString(id),
+      name: p.name,
+      data: p.payload,
+    };
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
       dependents: [resourceP],
@@ -261,9 +266,14 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
   async retrieve(range: Key | Name): Promise<Range>;
   async retrieve(range: Keys | Names): Promise<Range[]>;
-  async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
+  async retrieve(req: RetrieveRequest): Promise<Range[]>;
+  async retrieve(
+    ranges: Params | CrudeTimeRange | RetrieveRequest,
+  ): Promise<Range | Range[]> {
     if (typeof ranges === "object" && "start" in ranges)
       return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
+    if (typeof ranges === "object" && !Array.isArray(ranges))
+      return await this.execRetrieve(ranges);
     const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
     if (empty) return [];
     const retrieved = await this.execRetrieve({ [variant]: normalized });
@@ -331,7 +341,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       DELETE_CHANNEL_NAME,
       (variant, data) => {
         if (variant === "delete")
-          return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
+          return Array.from(data.as("string")).map((k) => ({
+            variant,
+            key: k,
+            value: undefined,
+          }));
         const sugared = this.sugarMany(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },
@@ -352,11 +366,12 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
-export const aliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+export const aliasOntologyID = (key: Key): ontology.ID => ({
+  type: ALIAS_ONTOLOGY_TYPE,
+  key,
+});
 
 export const convertOntologyResourceToPayload = ({
   data,

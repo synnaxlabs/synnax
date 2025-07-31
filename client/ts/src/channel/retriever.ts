@@ -14,7 +14,6 @@ import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
-  channelZ,
   type Key,
   type KeyOrName,
   type Keys,
@@ -24,6 +23,7 @@ import {
   type Names,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
 import {
@@ -51,7 +51,7 @@ interface Request extends z.input<typeof reqZ> {}
 export interface RetrieveOptions extends Omit<Request, "keys" | "names" | "search"> {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-const resZ = z.object({ channels: nullableArrayZ(channelZ) });
+const resZ = z.object({ channels: nullableArrayZ(payloadZ) });
 
 export const analyzeParams = (
   channels: Params,

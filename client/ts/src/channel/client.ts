@@ -21,7 +21,6 @@ import {
 import { z } from "zod";
 
 import {
-  channelZ,
   type Key,
   type KeyOrName,
   type Name,
@@ -29,6 +28,7 @@ import {
   ONTOLOGY_TYPE,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import {
   analyzeParams,
@@ -41,13 +41,16 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
 }
+
+export const SET_CHANNEL_NAME = "sy_channel_set";
+export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
@@ -153,7 +156,7 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return channelZ.parse({
+    return payloadZ.parse({
       key: this.key,
       name: this.name,
       dataType: this.dataType.valueOf(),
@@ -455,5 +458,7 @@ export const resolveCalculatedIndex = async (
   return null;
 };
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: ONTOLOGY_TYPE,
+  key: key.toString(),
+});

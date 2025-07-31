@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { DisconnectedError, user } from "@synnaxlabs/client";
 import { Align, Divider, Form, Icon, Nav, Status, Text } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import {
@@ -60,7 +59,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
     name: "Permissions",
     values: { ...INITIAL_PERMISSIONS, keys: {} },
     queryFn: async ({ client }) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const policies = await client.access.policy.retrieveFor(user.ontologyID(key));
       const userSpecificPolicies = policies.filter(
         ({ subjects }) => subjects.length === 1 && subjects[0].key === key,

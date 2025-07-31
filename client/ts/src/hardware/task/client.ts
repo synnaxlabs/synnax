@@ -31,7 +31,7 @@ import {
   statusZ,
   taskZ,
 } from "@/hardware/task/payload";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
@@ -44,7 +44,7 @@ export const DELETE_CHANNEL_NAME = "sy_task_delete";
 const NOT_CREATED_ERROR = new Error("Task not created");
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const parents = await ontologyClient.retrieveParents(taskKey);
+  const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
   if (parents.length === 0) return null;
   return parents[0];
 };
@@ -587,8 +587,7 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
 const executeCommand = async (
   frameClient: framer.Client | null,

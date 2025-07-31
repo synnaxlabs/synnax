@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, task } from "@synnaxlabs/client";
-import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Status, Task } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 import { useStore } from "react-redux";
 import { type z } from "zod";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
@@ -73,57 +71,22 @@ export const wrap = <
   options: WrapOptions<Type, Config, StatusData>,
 ): Layout.Renderer => {
   const { schemas, getInitialPayload } = options;
+  const useRetrieve = Task.createRetrieveQuery(schemas).useDirect;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
       store.getState(),
       layoutKey,
     );
-    const taskKeyRef = useSyncedRef(taskKey);
-    const client = Synnax.use();
-    const { data, error, isError, isPending } = useQuery<
-      TaskProps<Type, Config, StatusData>
-    >({
-      queryFn: async () => {
-        if (taskKeyRef.current == null)
-          return {
-            configured: false,
-            task: getInitialPayload({ deviceKey }),
-            layoutKey,
-            rackKey,
-          };
-        if (client == null) throw NULL_CLIENT_ERROR;
-        const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
-          key: taskKeyRef.current,
-          includeStatus: true,
-          schemas,
-        });
-        return {
-          configured: true,
-          task: tsk,
-          layoutKey,
-          rackKey: task.getRackKey(tsk.key),
-        };
-      },
-      queryKey: [deviceKey, client?.key, layoutKey],
-    });
-    const content = isPending ? (
-      <Status.Text.Centered level="h4" variant="loading">
-        Fetching task from server
-      </Status.Text.Centered>
-    ) : isError ? (
-      <Align.Space align="center" grow justify="center">
-        <Text.Text color={Status.VARIANT_COLORS.error} level="h2">
-          Failed to load data for task with key {taskKey}
-        </Text.Text>
-        <Text.Text color={Status.VARIANT_COLORS.error} level="p">
-          {error.message}
-        </Text.Text>
-      </Align.Space>
-    ) : (
-      <Wrapped {...data} />
+    const res = useRetrieve({ params: { key: taskKey } });
+    if (res.variant !== "success") return <Status.Text {...res} />;
+    return (
+      <Wrapped
+        rackKey={res.data ? task.getRackKey(res.data.key) : rackKey}
+        task={res.data ?? getInitialPayload({ deviceKey })}
+        layoutKey={layoutKey}
+      />
     );
-    return <Eraser.Eraser>{content}</Eraser.Eraser>;
   };
   Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;

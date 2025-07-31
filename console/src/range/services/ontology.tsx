@@ -179,7 +179,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
       const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
       const descendants = Tree.getDescendants(...nodesOfMinDepth).map(
-        (n) => new ontology.ID(n.key).key,
+        (n) => ontology.idZ.parse(n.key).key,
       );
       setNodes([
         ...Tree.removeNode({
@@ -188,7 +188,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         }),
       ]);
       const keys = descendants.concat(
-        nodesOfMinDepth.map(({ key }) => new ontology.ID(key).key),
+        nodesOfMinDepth.map(({ key }) => ontology.idZ.parse(key).key),
       );
       store.dispatch(remove({ keys }));
       removeLayout(...keys);
@@ -247,8 +247,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToNewPlot: () => addToNewPlot(props),
     group: () => groupFromSelection(props),
     details: () => viewDetails(props),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     addChildRange: handleAddChildRange,
     clearActive: clearActiveRange,
   };

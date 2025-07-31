@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	channelsignals "github.com/synnaxlabs/synnax/pkg/distribution/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -96,6 +97,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
 	GorpCodec binary.Codec
+	// EnableChannelSignals sets whether to enable CDC signal propagation for changes
+	// to channel data structures.
+	//
+	// [OPTIONAL] - Defaults to true.
+	EnableChannelSignals *bool
 }
 
 var (
@@ -104,8 +110,9 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultConfig = Config{
-		EnableSearch: config.True(),
-		GorpCodec:    &binary.MsgPackCodec{},
+		EnableSearch:         config.True(),
+		GorpCodec:            &binary.MsgPackCodec{},
+		EnableChannelSignals: config.True(),
 	}
 )
 
@@ -123,6 +130,7 @@ func (c Config) Override(other Config) Config {
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
+	c.EnableChannelSignals = override.Nil(c.EnableChannelSignals, other.EnableChannelSignals)
 	return c
 }
 
@@ -137,6 +145,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
+	validate.NotNil(v, "enable_channel_signals", c.EnableChannelSignals)
 	return v.Error()
 }
 
@@ -294,9 +303,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
+	if *cfg.EnableChannelSignals {
+		var channelSignalsCloser io.Closer
+		if channelSignalsCloser, err = channelsignals.Publish(
+			ctx,
+			l.Signals,
+			l.DB,
+		); !ok(err, channelSignalsCloser) {
+			return nil, err
+		}
+	}
+
 	if l.Cluster.HostKey() == cluster.Bootstrapper {
 		var ontologyCDCCloser io.Closer
-		if ontologyCDCCloser, err = ontologycdc.Publish(
+		if ontologyCDCCloser, err = ontologysignals.Publish(
 			ctx,
 			l.Signals,
 			l.Ontology,
