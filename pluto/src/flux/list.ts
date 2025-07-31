@@ -29,7 +29,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { type CreateRetrieveArgs } from "@/flux/retrieve";
-import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
+import { useMountListeners } from "@/flux/useMountListeners";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -323,7 +323,7 @@ export const createList =
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
-    const mountSynchronizers = useMountSynchronizers();
+    const mountSynchronizers = useMountListeners();
 
     const notifyListeners = useCallback(
       (changed: K) =>

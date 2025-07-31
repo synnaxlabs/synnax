@@ -56,9 +56,7 @@ export interface UseMountSynchronizersProps {
  * mountSynchronizers(listeners);
  * ```
  */
-export const useMountSynchronizers = (): ((
-  props: UseMountSynchronizersProps,
-) => void) => {
+export const useMountListeners = (): ((props: UseMountSynchronizersProps) => void) => {
   const ref = useRef<SynchronizerRef>({
     mountCalled: false,
     destructor: () => {},
@@ -70,7 +68,6 @@ export const useMountSynchronizers = (): ((
       if (listeners == null || listeners.length === 0 || ref.current.mountCalled)
         return;
       ref.current.mountCalled = true;
-
       let openCount = 0;
       const handleOpen = () => {
         openCount++;

@@ -20,7 +20,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
+import { useMountListeners } from "@/flux/useMountListeners";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
@@ -208,7 +208,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = PSynnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const mountListeners = useMountSynchronizers();
+  const mountListeners = useMountListeners();
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,

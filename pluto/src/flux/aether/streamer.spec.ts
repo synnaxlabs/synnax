@@ -15,7 +15,6 @@ import { Streamer } from "@/flux/aether/streamer";
 import { type FrameHandler } from "@/flux/aether/types";
 import { type Status } from "@/status";
 
-// Mock implementations
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
