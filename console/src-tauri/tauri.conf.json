@@ -3,6 +3,7 @@
   "productName": "Synnax",
   "version": "../package.json",
   "build": {
+    "beforeBuildCommand": "pnpm build-vite",
     "beforeDevCommand": "pnpm dev-vite",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173"
