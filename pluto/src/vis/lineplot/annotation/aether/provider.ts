@@ -16,6 +16,7 @@ import {
   scale,
   TimeRange,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -33,6 +34,13 @@ const COMMENT_BOX_PADDING: xy.XY = xy.construct(8, 6);
 const COMMENT_LINE_HEIGHT: number = 16;
 const COMMENT_MAX_WIDTH: number = 200;
 const COMMENT_CHARS_PER_LINE: number = 25;
+const ANNOTATION_MIN_SPACING: number = 10;
+
+interface AnnotationLayout {
+  region: box.Box;
+  position: number;
+  markerPosition: xy.XY;
+}
 
 export const selectedStateZ = annotation.annotationZ.extend({
   viewport: bounds.bounds,
@@ -89,7 +97,13 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         {
           channel: annotation.SET_CHANNEL_NAME,
           onChange: flux.parsedHandler(annotation.annotationZ, async ({ changed }) => {
-            i.annotations.set(changed.key, changed);
+            i.annotations.set(
+              changed.key,
+              await client.annotations.retrieve({
+                key: changed.key,
+                includeCreator: true,
+              }),
+            );
             this.setState((s) => ({ ...s, count: i.annotations.size }));
             i.requestRender("tool");
           }),
@@ -120,6 +134,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       });
       const annotations = await client.annotations.retrieve({
         keys: children.map((c) => c.id.key),
+        includeCreator: true,
       });
       annotations.forEach((a) => {
         i.annotations.set(a.key, a);
@@ -143,7 +158,16 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       ),
     );
 
-    annotations.forEach((a) => {
+    // Track occupied regions for collision avoidance
+    const occupiedLayouts: AnnotationLayout[] = [];
+
+    // Sort annotations by time to ensure consistent collision resolution
+    const sortedAnnotations = Array.from(annotations.values()).sort(
+      (a, b) =>
+        Number(a.timeRange.start.valueOf()) - Number(b.timeRange.start.valueOf()),
+    );
+
+    sortedAnnotations.forEach((a) => {
       const startTime = Number(a.timeRange.start.valueOf());
       const position = regionScale.pos(startTime);
 
@@ -188,11 +212,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       const markerPosition = xy.construct(position, markerTop);
       const relativePosition = reverseScale.pos(markerPosition);
 
-      const messageLines = this.wrapText(a.message, COMMENT_CHARS_PER_LINE);
+      // Create annotation content with timing and creator info
+      const annotationContent = this.createAnnotationContent(a);
+      const messageLines = this.wrapText(annotationContent, COMMENT_CHARS_PER_LINE);
+
       const boxWidth = Math.min(
         Math.max(
           messageLines.reduce((max, line) => Math.max(max, line.length), 0) * 8 + 16,
-          120,
+          140,
         ),
         COMMENT_MAX_WIDTH,
       );
@@ -206,10 +233,23 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
       if (relativePosition.y < 0.3) commentY = markerTop + COMMENT_BOX_OFFSET.y;
 
-      const commentRegion = box.construct(
+      // Create initial comment region
+      let commentRegion = box.construct(
         { x: commentX, y: commentY },
         { width: boxWidth, height: boxHeight },
       );
+
+      // Apply collision avoidance
+      commentRegion = this.avoidCollisions(commentRegion, occupiedLayouts, region);
+      commentX = box.left(commentRegion);
+      commentY = box.top(commentRegion);
+
+      // Add this layout to occupied regions
+      occupiedLayouts.push({
+        region: commentRegion,
+        position,
+        markerPosition,
+      });
 
       draw.container({
         region: commentRegion,
@@ -237,6 +277,82 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     clearScissor();
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
     else if (this.state.hovered) this.setState((s) => ({ ...s, hovered: null }));
+  }
+
+  private createAnnotationContent(annotation: annotation.Annotation): string {
+    const timestamp = new TimeStamp(annotation.timeRange.start);
+    const timeStr = timestamp.fString("time");
+
+    let creatorStr = "";
+    if (annotation.creator) {
+      const { firstName, lastName, username } = annotation.creator;
+      const displayName = firstName && lastName ? `${firstName} ${lastName}` : username;
+      creatorStr = ` - ${displayName}`;
+    }
+
+    return `${timeStr}${creatorStr}\n${annotation.message}`;
+  }
+
+  private avoidCollisions(
+    targetRegion: box.Box,
+    occupiedLayouts: AnnotationLayout[],
+    plotRegion: box.Box,
+  ): box.Box {
+    let adjustedRegion = targetRegion;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      let hasCollision = false;
+
+      for (const layout of occupiedLayouts)
+        if (this.regionsOverlap(adjustedRegion, layout.region)) {
+          hasCollision = true;
+
+          // Try to move the box vertically to avoid collision
+          const moveUp =
+            box.top(layout.region) -
+            box.height(adjustedRegion) -
+            ANNOTATION_MIN_SPACING;
+          const moveDown = box.bottom(layout.region) + ANNOTATION_MIN_SPACING;
+
+          // Choose the direction that keeps the annotation more visible
+          const currentY = box.top(adjustedRegion);
+          const upDistance = Math.abs(currentY - moveUp);
+          const downDistance = Math.abs(currentY - moveDown);
+
+          let newY = upDistance < downDistance ? moveUp : moveDown;
+
+          // Ensure the annotation stays within the plot region bounds
+          const topBound = box.top(plotRegion) - 100; // Allow some overlap above
+          const bottomBound = box.bottom(plotRegion) - box.height(adjustedRegion);
+
+          newY = Math.max(topBound, Math.min(newY, bottomBound));
+
+          adjustedRegion = box.construct(
+            { x: box.left(adjustedRegion), y: newY },
+            { width: box.width(adjustedRegion), height: box.height(adjustedRegion) },
+          );
+
+          break;
+        }
+
+      if (!hasCollision) break;
+      attempts++;
+    }
+
+    return adjustedRegion;
+  }
+
+  private regionsOverlap(region1: box.Box, region2: box.Box): boolean {
+    const margin = ANNOTATION_MIN_SPACING;
+
+    return !(
+      box.right(region1) + margin < box.left(region2) ||
+      box.left(region1) > box.right(region2) + margin ||
+      box.bottom(region1) + margin < box.top(region2) ||
+      box.top(region1) > box.bottom(region2) + margin
+    );
   }
 
   private wrapText(text: string, maxLength: number): string[] {

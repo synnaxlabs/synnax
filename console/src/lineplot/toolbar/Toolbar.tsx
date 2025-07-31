@@ -38,7 +38,7 @@ const TABS: Tab[] = [
   { tabKey: "lines", name: "Lines" },
   { tabKey: "axes", name: "Axes" },
   { tabKey: "properties", name: "Properties" },
-  { tabKey: "annotations", name: "Annotations" },
+  { tabKey: "annotations", name: "Rules" },
 ];
 
 export interface ToolbarProps {

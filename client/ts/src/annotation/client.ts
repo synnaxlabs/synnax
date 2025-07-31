@@ -49,8 +49,8 @@ const retrieveReqZ = z.object({
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 const keyRetrieveReqZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+  .object({ key: keyZ, includeCreator: z.boolean().optional() })
+  .transform(({ key, includeCreator }) => ({ keys: [key], includeCreator }));
 
 type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
 
