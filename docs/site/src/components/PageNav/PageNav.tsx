@@ -45,7 +45,7 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
       href={item.href}
       useMargin
     >
-      <Text.Text level="p" shade={11} weight={450}>
+      <Text.Text level="p" weight={450}>
         {item.name}
       </Text.Text>
     </Tree.Item>

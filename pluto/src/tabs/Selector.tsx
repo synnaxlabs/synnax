@@ -235,6 +235,7 @@ const SelectorButton = ({
         Menu.CONTEXT_TARGET,
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
+        CSS.size(size),
         CSS.altColor(altColor),
         closable && onClose != null && CSS.M("closable"),
         CSS.editable(editable && onRename != null),
