@@ -77,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: setup
+    permissions:
+      contents: write
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
     outputs:
@@ -114,6 +116,8 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: [setup, create-release]
+    permissions:
+      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
