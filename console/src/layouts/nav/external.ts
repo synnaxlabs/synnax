@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layouts/nav/drawerItems";
+export * from "@/layouts/nav/ingestors";
 export * from "@/layouts/nav/Left";
 export * from "@/layouts/nav/Menu";
 export * from "@/layouts/nav/Top";

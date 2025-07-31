@@ -369,6 +369,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         services,
         placeLayout,
         handleError,
+        extractors,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) =>
@@ -420,6 +421,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         removeLayout,
         handleError,
         addStatus,
+        extractors,
         selection: {
           rootID: root,
           parentID,

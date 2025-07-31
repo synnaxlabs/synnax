@@ -74,7 +74,7 @@ const useDelete = () => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleError } = props;
+  const { selection } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -84,17 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const onSelect = {
     delete: () => del(props),
-    edit: () =>
-      handleSelect({
-        selection: resources,
-        placeLayout: props.placeLayout,
-        client,
-        addStatus,
-        store,
-        handleError,
-        removeLayout: props.removeLayout,
-        services: props.services,
-      }),
+    edit: () => handleSelect({ ...props, selection: resources }),
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(resources[0].id.key),

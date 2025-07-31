@@ -23,9 +23,11 @@ export interface FileIngestor {
   (data: string, ctx: FileIngestorContext): void;
 }
 
+export interface FileIngestors extends Record<string, FileIngestor> {}
+
 interface DirectoryIngestorContext {
   client: Synnax | null;
-  ingestors: Record<string, FileIngestor>;
+  fileIngestors: FileIngestors;
   placeLayout: Layout.Placer;
   store: Store;
 }

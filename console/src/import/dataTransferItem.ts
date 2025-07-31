@@ -118,7 +118,7 @@ export const dataTransferItem = async (
   );
   await ingestDirectory(entry.name, parsedFiles, {
     client,
-    ingestors: fileIngestors,
+    fileIngestors: fileIngestors,
     placeLayout,
     store,
   });

@@ -162,12 +162,12 @@ const PaletteDialog = ({
       confirm,
       extractors,
       handleError,
-      ingestors: INGESTORS,
+      fileIngestors: INGESTORS,
       placeLayout,
       rename,
       store,
     }),
-    [addStatus, client, confirm, handleError, placeLayout, rename, store],
+    [addStatus, client, confirm, extractors, handleError, placeLayout, rename, store],
   );
 
   const services = Ontology.useServices();
