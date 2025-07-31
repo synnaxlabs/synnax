@@ -34,7 +34,7 @@ export const providerStateZ = z.object({
   cursor: xy.xy.or(z.null()),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
-  parent: ontology.idZ,
+  parents: ontology.idZ.array(),
 });
 
 export type ProviderState = z.infer<typeof providerStateZ>;
@@ -81,7 +81,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
     this.fetchedInitial = timeRange;
     runAsync(async () => {
-      const children = await client.ontology.retrieveChildren(this.state.parent, {
+      const children = await client.ontology.retrieveChildren(this.state.parents, {
         types: [annotation.ONTOLOGY_TYPE],
       });
       const annotations = await client.annotations.retrieve({
@@ -137,7 +137,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       const markerTop = box.top(region);
       const markerBottom = box.bottom(region);
 
-      // Draw the annotation marker line
       draw.line({
         start: xy.construct(position, markerTop),
         end: xy.construct(position, markerBottom - markerRadius),
@@ -165,7 +164,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       );
       const boxHeight = messageLines.length * COMMENT_LINE_HEIGHT + 12;
 
-      // Smart positioning to avoid going off-screen
       let commentX = position + COMMENT_BOX_OFFSET.x;
       let commentY = markerTop + COMMENT_BOX_OFFSET.y + boxHeight;
 
@@ -179,8 +177,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         { width: boxWidth, height: boxHeight },
       );
 
-      console.log(commentRegion);
-
       draw.container({
         region: commentRegion,
         backgroundColor: (t) => t.colors.gray.l0,
@@ -190,7 +186,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         borderColor: (t) => t.colors.border,
       });
 
-      // Draw the comment text lines
       messageLines.forEach((line, i) => {
         draw.text({
           position: xy.construct(

@@ -472,6 +472,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
+  const parents = useMemo(
+    () => [...ranges.x1, ...ranges.x2].map((r) => ranger.ontologyID(r.key)),
+    [ranges],
+  );
+
   return (
     <div
       style={{ height: "100%", width: "100%", padding: "2rem" }}
@@ -513,7 +518,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           }
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           rangeProviderProps={rangeProviderProps}
-          annotationProviderProps={{ parent: ranger.ontologyID(vis.ranges.x1[0]) }}
+          annotationProviderProps={{ parents }}
         >
           {!focused && <NavControls />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

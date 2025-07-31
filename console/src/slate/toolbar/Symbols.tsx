@@ -126,7 +126,7 @@ const SymbolsButton = ({
       className={CSS(CSS.BE("slate-symbols", "button"))}
       justify="spaceBetween"
       align="center"
-      size="tiny"
+      gap="tiny"
       draggable
       {...rest}
       onDragStart={() => startDrag(key)}
@@ -151,7 +151,7 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       {...selectProps}
       style={{ minHeight: "5rem", padding: "0 2rem" }}
     >
-      <Text.WithIcon level="p" startIcon={group.icon} size="medium">
+      <Text.WithIcon level="p" startIcon={group.icon} gap="medium">
         {group.name}
       </Text.WithIcon>
     </List.Item>

@@ -41,7 +41,7 @@ const NotEditableContent = ({
   const hasEditingPermissions = useSelectHasPermission();
   const isEditable = hasEditingPermissions;
   return (
-    <Align.Center x size="small">
+    <Align.Center x gap="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}

@@ -64,7 +64,6 @@ const List = (): ReactElement => {
   const dispatch = useDispatch();
   const activeRange = useSelect();
   const data = useSelectKeys();
-  const store = useStore<RootState>();
 
   const handleSelect = (key: string): void => {
     dispatch(setActive(key));
