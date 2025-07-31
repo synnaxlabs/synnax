@@ -13,6 +13,7 @@ import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { type FileIngestor } from "@/import/ingestor";
@@ -34,7 +35,7 @@ export interface Importer {
 }
 
 export interface ImporterCreator {
-  (ingest: FileIngestor, type?: string): Importer;
+  (ingest: FileIngestor, type: string): Importer;
 }
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
@@ -85,5 +86,8 @@ export const use = (
   const store = useStore<RootState>();
   const client = PSynnax.use();
   const handleError = Status.useErrorHandler();
-  return () => import_({ store, placeLayout, client, handleError, workspaceKey });
+  return useCallback(
+    () => import_({ store, placeLayout, client, handleError, workspaceKey }),
+    [import_, store, placeLayout, client, handleError, workspaceKey],
+  );
 };

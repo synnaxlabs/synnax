@@ -14,7 +14,7 @@ import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 
 interface FileIngestorContext {
-  layout?: Partial<Layout.State>;
+  layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
   store: Store;
 }
