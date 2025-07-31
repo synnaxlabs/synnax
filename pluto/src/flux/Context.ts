@@ -9,10 +9,9 @@
 
 import { createContext } from "react";
 
-import { type ListenerAdder } from "@/flux/sync/types";
+import { type ListenerAdder } from "@/flux/aether/types";
 import { useRequiredContext } from "@/hooks";
 
-export const AddListenerContext = createContext<ListenerAdder | null>(null);
+export const Context = createContext<ListenerAdder | null>(null);
 
-export const useAddListener = (): ListenerAdder =>
-  useRequiredContext(AddListenerContext);
+export const useAddListener = (): ListenerAdder => useRequiredContext(Context);

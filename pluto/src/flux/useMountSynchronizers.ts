@@ -10,7 +10,8 @@
 import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Sync } from "@/flux/sync";
+import { type Subscriber } from "@/flux/aether/types";
+import { useAddListener } from "@/flux/Context";
 
 /**
  * Internal reference object for managing synchronizer lifecycle.
@@ -25,7 +26,7 @@ interface SynchronizerRef {
 
 export interface UseMountSynchronizersProps {
   onOpen?: () => void;
-  listeners?: Sync.Subscriber[];
+  listeners?: Subscriber[];
 }
 
 /**
@@ -62,14 +63,14 @@ export const useMountSynchronizers = (): ((
     mountCalled: false,
     destructor: () => {},
   });
-  const addListener = Sync.useAddListener();
-  // Clean up listeners when component unmounts
+  const addListener = useAddListener();
   useEffect(() => () => ref.current.destructor(), []);
   return useCallback(
     ({ listeners, onOpen }: UseMountSynchronizersProps) => {
       if (listeners == null || listeners.length === 0 || ref.current.mountCalled)
         return;
       ref.current.mountCalled = true;
+
       let openCount = 0;
       const handleOpen = () => {
         openCount++;
