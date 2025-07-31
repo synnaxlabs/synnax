@@ -11,14 +11,13 @@ import { channel, DataType } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const useCalculationStatusSynchronizer = (
   onStatusChange: (status: channel.CalculationStatus) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: channel.CALCULATION_STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(channel.calculationStatusZ, async (args) => {
+    onChange: Flux.parsedHandler(channel.calculationStatusZ, async (args) => {
       onStatusChange(args.changed);
     }),
   });

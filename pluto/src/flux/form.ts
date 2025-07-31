@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import { type FetchOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/aether/params";
 import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
