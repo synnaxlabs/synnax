@@ -113,7 +113,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: setup
+    needs: [setup, create-release]
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -261,8 +261,8 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
-          relic sign --file ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi --key azure --config relic.conf
-          relic sign --file ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe --key azure --config relic.conf
+          relic sign --file ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi --key azure --config console/src-tauri/relic.conf
+          relic sign --file ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe --key azure --config console/src-tauri/relic.conf
 
       - name: Upload Windows Release Asset
         if:
