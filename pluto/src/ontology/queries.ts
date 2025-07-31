@@ -10,20 +10,19 @@
 import { NotFoundError, ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.idZ, async ({ changed }) => onSet(changed)),
+    onChange: Flux.parsedHandler(ontology.idZ, async ({ changed }) => onSet(changed)),
   });
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.idZ, async ({ changed }) => {
+    onChange: Flux.parsedHandler(ontology.idZ, async ({ changed }) => {
       onDelete(changed);
     }),
   });
@@ -31,9 +30,9 @@ export const useResourceDeleteSynchronizer = (
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
+    onChange: Flux.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onSet(changed);
     }),
   });
@@ -41,9 +40,9 @@ export const useRelationshipSetSynchronizer = (
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
+    onChange: Flux.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
       onDelete(changed);
     }),
   });
@@ -76,7 +75,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
     listeners: [
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.relationshipZ,
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
@@ -89,7 +88,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.relationshipZ,
           async ({ changed, params, onDelete }) => {
             if (!("id" in params)) return;
@@ -101,7 +100,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       },
       {
         channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.idZ,
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
@@ -131,7 +130,7 @@ export const useResource = Flux.createRetrieve<
   listeners: [
     {
       channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.idZ,
         async ({ client, changed, params: { id }, onChange }) => {
           if (!ontology.idsEqual(id, changed)) return;
@@ -142,7 +141,7 @@ export const useResource = Flux.createRetrieve<
     },
     {
       channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(ontology.idZ, async ({ params: { id } }) => {
+      onChange: Flux.parsedHandler(ontology.idZ, async ({ params: { id } }) => {
         throw new NotFoundError(
           `Resource with ID ${ontology.idToString(id)} not found`,
         );
@@ -179,7 +178,7 @@ export const retrieveParentID = Flux.createRetrieve<
   listeners: [
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (
@@ -193,7 +192,7 @@ export const retrieveParentID = Flux.createRetrieve<
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (

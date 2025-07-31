@@ -10,7 +10,6 @@
 import { rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export interface ListParams {
   term?: string;
@@ -27,7 +26,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
   listeners: [
     {
       channel: rack.STATUS_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(rack.statusZ, async ({ changed, onChange }) =>
+      onChange: Flux.parsedHandler(rack.statusZ, async ({ changed, onChange }) =>
         onChange(changed.details.rack, (prev) =>
           prev == null ? prev : { ...prev, status: changed },
         ),
@@ -35,7 +34,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
     },
     {
       channel: rack.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         rack.keyZ,
         async ({ changed: key, onChange, client }) =>
           onChange(key, (await client.hardware.racks.retrieve({ key })).payload),
@@ -43,7 +42,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
     },
     {
       channel: rack.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(rack.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(rack.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },

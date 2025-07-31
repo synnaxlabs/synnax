@@ -11,14 +11,13 @@ import { channel, DataType } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const useCalculationStatusSynchronizer = (
   onStatusChange: (status: channel.CalculationStatus) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: channel.CALCULATION_STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(channel.calculationStatusZ, async (args) => {
+    onChange: Flux.parsedHandler(channel.calculationStatusZ, async (args) => {
       onStatusChange(args.changed);
     }),
   });
@@ -109,7 +108,7 @@ export const useForm = (args: Flux.UseFormArgs<FluxParams, typeof formSchema>) =
     listeners: [
       {
         channel: channel.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           channel.keyZ,
           async ({ changed, onChange, params, client }) => {
             if (params.key !== changed) return;
@@ -132,7 +131,7 @@ export const useCalculatedForm = (
     listeners: [
       {
         channel: channel.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           channel.keyZ,
           async ({ changed, onChange, params, client }) => {
             if (params.key !== changed) return;
@@ -162,7 +161,7 @@ export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>
   listeners: [
     {
       channel: channel.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         channel.keyZ,
         async ({ changed, onChange, client }) => {
           onChange(changed, await client.channels.retrieve(changed));
@@ -171,7 +170,7 @@ export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>
     },
     {
       channel: channel.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },

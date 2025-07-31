@@ -19,7 +19,8 @@ import {
 } from "@synnaxlabs/x";
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/params";
+import { type flux } from "@/flux/aether";
+import { type FetchOptions, type Params } from "@/flux/aether/params";
 import {
   errorResult,
   nullClientResult,
@@ -28,8 +29,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { type CreateRetrieveArgs } from "@/flux/retrieve";
-import { type Sync } from "@/flux/sync";
-import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
+import { useMountListeners } from "@/flux/useMountListeners";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -199,7 +199,7 @@ export interface ListListenerConfig<
   /** The channel to listen to for real-time updates */
   channel: string;
   /** The function to call when a new value is received from the channel */
-  onChange: Sync.ListenerHandler<
+  onChange: flux.ListenerHandler<
     MultiSeries,
     ListListenerExtraArgs<RetrieveParams, K, E>
   >;
@@ -321,7 +321,7 @@ export const createList =
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
-    const mountSynchronizers = useMountSynchronizers();
+    const mountSynchronizers = useMountListeners();
 
     const notifyListeners = useCallback(
       (changed: K) =>

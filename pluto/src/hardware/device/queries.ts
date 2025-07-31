@@ -11,12 +11,11 @@ import { device } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: device.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.deviceZ, async ({ changed }) =>
+    onChange: Flux.parsedHandler(device.deviceZ, async ({ changed }) =>
       onSet(changed as device.Device),
     ),
   });
@@ -37,13 +36,13 @@ export const retrieve = <
     listeners: [
       {
         channel: device.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
+        onChange: Flux.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
           onChange(changed as device.Device<Properties, Make, Model>),
         ),
       },
       {
         channel: device.STATUS_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
+        onChange: Flux.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
           onChange((p) => {
             p.status = changed;
             return p;
@@ -63,19 +62,19 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   listeners: [
     {
       channel: device.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
+      onChange: Flux.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
         onChange(changed.key, changed),
       ),
     },
     {
       channel: device.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(device.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(device.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },
     {
       channel: device.STATUS_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) => {
+      onChange: Flux.parsedHandler(device.statusZ, async ({ changed, onChange }) => {
         onChange(changed.details.device, (p) =>
           p == null ? p : { ...p, status: changed },
         );

@@ -13,10 +13,10 @@ import { render, renderHook, waitFor } from "@testing-library/react";
 import { act, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Sync } from "@/flux/sync";
+import { Flux } from "@/flux";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
-describe("sync", () => {
+describe("flux listeners", () => {
   describe("nominal path", () => {
     it("should add a basic listener", async () => {
       const client = newTestClient();
@@ -31,7 +31,7 @@ describe("sync", () => {
         () => {
           const [data, setData] = useState<string[]>([]);
           const [open, setOpen] = useState(false);
-          const addListener = Sync.useAddListener();
+          const addListener = Flux.useAddListener();
           useEffect(
             () =>
               addListener({
@@ -120,7 +120,7 @@ describe("sync", () => {
     it("should not open the streamer if no listeners are added", () => {
       const openStreamer = vi.fn();
       render(
-        <Sync.Provider
+        <Flux.Provider
           openStreamer={async () => {
             openStreamer();
             throw new Error("should not be called");
@@ -136,16 +136,16 @@ describe("sync", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return { done: false, value: new framer.Frame([]) };
       });
-      const { result } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Sync.Provider
+          <Flux.Provider
             openStreamer={async () => {
               openStreamer();
               return streamer;
             }}
           >
             {children}
-          </Sync.Provider>
+          </Flux.Provider>
         ),
       });
       expect(openStreamer).toHaveBeenCalledTimes(0);
@@ -167,16 +167,16 @@ describe("sync", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return { done: false, value: new framer.Frame([]) };
       });
-      const { result } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Sync.Provider
+          <Flux.Provider
             openStreamer={async () => {
               openStreamer();
               return streamer;
             }}
           >
             {children}
-          </Sync.Provider>
+          </Flux.Provider>
         ),
       });
       expect(openStreamer).toHaveBeenCalledTimes(0);
@@ -203,9 +203,9 @@ describe("sync", () => {
         return { done: false, value: new framer.Frame([]) };
       });
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
-      const { result } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Sync.Provider openStreamer={openStreamer}>{children}</Sync.Provider>
+          <Flux.Provider openStreamer={openStreamer}>{children}</Flux.Provider>
         ),
       });
       const addListener = result.current;
@@ -217,6 +217,9 @@ describe("sync", () => {
         });
       });
       expect(mockStreamer.updateVi).toHaveBeenCalledTimes(0);
+      await waitFor(async () => {
+        expect(openStreamer).toHaveBeenCalledTimes(1);
+      });
       act(() => {
         addListener({
           channel: "test_channel_2",
@@ -238,9 +241,9 @@ describe("sync", () => {
         return { done: false, value: new framer.Frame([]) };
       });
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
-      const { result } = renderHook(() => Sync.useAddListener(), {
+      const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Sync.Provider openStreamer={openStreamer}>{children}</Sync.Provider>
+          <Flux.Provider openStreamer={openStreamer}>{children}</Flux.Provider>
         ),
       });
       const addListener = result.current;
@@ -274,9 +277,9 @@ describe("sync", () => {
         return { done: false, value: new framer.Frame([]) };
       });
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
-      const { result, unmount } = renderHook(() => Sync.useAddListener(), {
+      const { result, unmount } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Sync.Provider openStreamer={openStreamer}>{children}</Sync.Provider>
+          <Flux.Provider openStreamer={openStreamer}>{children}</Flux.Provider>
         ),
       });
       const addListener = result.current;
