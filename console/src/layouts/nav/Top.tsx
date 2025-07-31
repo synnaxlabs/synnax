@@ -17,7 +17,6 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
-import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
@@ -61,7 +60,6 @@ const TopPalette = (): ReactElement => (
     commands={COMMANDS}
     commandSymbol=">"
     triggerConfig={PALETTE_TRIGGER_CONFIG}
-    extractors={EXTRACTORS}
   />
 );
 

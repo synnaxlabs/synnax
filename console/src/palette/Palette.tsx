@@ -28,7 +28,7 @@ import { type FC, type ReactElement, useCallback, useMemo, useState } from "reac
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { type Export } from "@/export";
+import { EXTRACTORS } from "@/extractors";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -50,14 +50,12 @@ export interface PaletteProps {
   commands: Command[];
   commandSymbol: string;
   triggerConfig: TriggerConfig;
-  extractors: Export.Extractors;
 }
 
 export const Palette = ({
   commands,
   commandSymbol,
   triggerConfig,
-  extractors,
 }: PaletteProps): ReactElement => {
   const { close, open, visible } = Dropdown.use();
 
@@ -119,7 +117,6 @@ export const Palette = ({
             onChange={setValue}
             commandSymbol={commandSymbol}
             close={close}
-            extractors={extractors}
           />
         </Dropdown.Dialog>
       </Tooltip.Dialog>
@@ -133,13 +130,11 @@ export interface PaletteDialogProps
   extends Input.Control<string>,
     Pick<Dropdown.DialogProps, "close"> {
   commandSymbol: string;
-  extractors: Export.Extractors;
 }
 
 const PaletteDialog = ({
   close,
   commandSymbol,
-  extractors,
   onChange,
   value,
 }: PaletteDialogProps): ReactElement => {
@@ -160,14 +155,14 @@ const PaletteDialog = ({
       addStatus,
       client,
       confirm,
-      extractors,
+      extractors: EXTRACTORS,
       handleError,
       fileIngestors: INGESTORS,
       placeLayout,
       rename,
       store,
     }),
-    [addStatus, client, confirm, extractors, handleError, placeLayout, rename, store],
+    [addStatus, client, confirm, handleError, placeLayout, rename, store],
   );
 
   const services = Ontology.useServices();
