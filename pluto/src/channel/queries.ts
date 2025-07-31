@@ -108,7 +108,7 @@ export const useForm = (args: Flux.UseFormArgs<FluxParams, typeof formSchema>) =
     listeners: [
       {
         channel: channel.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           channel.keyZ,
           async ({ changed, onChange, params, client }) => {
             if (params.key !== changed) return;
@@ -131,7 +131,7 @@ export const useCalculatedForm = (
     listeners: [
       {
         channel: channel.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           channel.keyZ,
           async ({ changed, onChange, params, client }) => {
             if (params.key !== changed) return;
@@ -161,7 +161,7 @@ export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>
   listeners: [
     {
       channel: channel.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         channel.keyZ,
         async ({ changed, onChange, client }) => {
           onChange(changed, await client.channels.retrieve(changed));
@@ -170,7 +170,7 @@ export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>
     },
     {
       channel: channel.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },

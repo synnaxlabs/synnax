@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
+import { ranger, type Synnax } from "@synnaxlabs/client";
 import {
   bounds,
   box,
@@ -47,7 +47,6 @@ interface InternalState {
   render: render.Context;
   requestRender: render.Requestor;
   draw: Draw2D;
-  tracker: signals.Observable<string, ranger.Range>;
   runAsync: status.ErrorHandler;
   removeListener: Destructor | null;
 }
@@ -145,6 +144,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (hovered)
         hoveredState = {
           key: r.key,
+          parent: r.parent,
           name: r.name,
           color: r.color,
           timeRange: r.timeRange,

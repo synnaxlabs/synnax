@@ -10,7 +10,6 @@
 import { workspace } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export interface RetrieveParams {
   key: workspace.Key;
@@ -33,14 +32,14 @@ export const useList = Flux.createList<ListParams, workspace.Key, workspace.Work
   listeners: [
     {
       channel: workspace.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         workspace.workspaceZ,
         async ({ onChange, changed }) => onChange(changed.key, changed),
       ),
     },
     {
       channel: workspace.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(workspace.keyZ, async ({ onDelete, changed }) =>
+      onChange: Flux.parsedHandler(workspace.keyZ, async ({ onDelete, changed }) =>
         onDelete(changed),
       ),
     },

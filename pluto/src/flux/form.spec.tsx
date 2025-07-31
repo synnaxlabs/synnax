@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
@@ -395,7 +394,7 @@ describe("useForm", () => {
             listeners: [
               {
                 channel: label.SET_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
+                onChange: Flux.parsedHandler(
                   label.labelZ,
                   async ({ params, onChange, changed }) => {
                     if (changed.key !== params.key) return;

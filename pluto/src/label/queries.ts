@@ -149,13 +149,13 @@ export const useList = Flux.createList<ListParams, label.Key, label.Label>({
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
+      onChange: Flux.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
         onChange(changed.key, changed, { mode: "prepend" });
       }),
     },
     {
       channel: label.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(label.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(label.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },
@@ -185,7 +185,7 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema>({
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         label.labelZ,
         async ({ changed, onChange, params }) => {
           if (params.key == null || changed.key !== params.key) return;

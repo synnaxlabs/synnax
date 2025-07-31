@@ -87,7 +87,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task>({
   listeners: [
     {
       channel: task.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         task.keyZ,
         async ({ client, changed: key, onChange }) =>
           onChange(key, await client.hardware.tasks.retrieve({ key })),
@@ -95,13 +95,13 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task>({
     },
     {
       channel: task.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(task.keyZ, async ({ changed, onDelete }) =>
+      onChange: Flux.parsedHandler(task.keyZ, async ({ changed, onDelete }) =>
         onDelete(changed),
       ),
     },
     {
       channel: task.STATUS_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         task.statusZ(z.unknown()),
         async ({ changed, onChange, client }) => {
           onChange(changed.details.task, (prev) => {
@@ -113,7 +113,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task>({
     },
     {
       channel: task.COMMAND_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         task.commandZ,
         async ({ changed, onChange, client }) => {
           onChange(changed.task, (prev) => {

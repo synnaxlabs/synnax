@@ -562,7 +562,7 @@ describe("list", () => {
             listeners: [
               {
                 channel: ranger.SET_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
+                onChange: Flux.parsedHandler(
                   ranger.payloadZ,
                   async ({ onChange, changed }) => onChange(changed.key, () => changed),
                 ),
@@ -617,7 +617,7 @@ describe("list", () => {
             listeners: [
               {
                 channel: ranger.SET_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
+                onChange: Flux.parsedHandler(
                   ranger.payloadZ,
                   async ({ onChange, changed }) => {
                     if (changed.name === "B Range")

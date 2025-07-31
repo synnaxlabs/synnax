@@ -75,7 +75,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
     listeners: [
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.relationshipZ,
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
@@ -88,7 +88,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.relationshipZ,
           async ({ changed, params, onDelete }) => {
             if (!("id" in params)) return;
@@ -100,7 +100,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
       },
       {
         channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           ontology.idZ,
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
@@ -178,7 +178,7 @@ export const retrieveParentID = Flux.createRetrieve<
   listeners: [
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (
@@ -192,7 +192,7 @@ export const retrieveParentID = Flux.createRetrieve<
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, params: { id, type }, onChange }) => {
           if (

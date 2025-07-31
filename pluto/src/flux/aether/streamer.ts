@@ -17,6 +17,17 @@ interface MutexValue {
   streamer: framer.ObservableStreamer | null;
 }
 
+// This is a hack to ensure that deletions are processed before other changes, which
+// ensures that modifications to things like relationships, which are a delete
+// followed by a create, are processed in the correct order.
+const channelNameSort = (a: string, b: string) => {
+  const aHasDelete = a.includes("delete");
+  const bHasDelete = b.includes("delete");
+  if (aHasDelete && !bHasDelete) return -1;
+  if (!aHasDelete && bHasDelete) return 1;
+  return 0;
+};
+
 export class Streamer {
   private readonly handlers: Map<FrameHandler, channel.Name> = new Map();
   private readonly streamerMutex: sync.Mutex<MutexValue> = sync.newMutex({
@@ -30,17 +41,20 @@ export class Streamer {
   }
 
   private handleChange(frame: framer.Frame) {
-    const namesInFrame = new Set([...frame.uniqueNames]);
-    this.handlers.forEach((channel, handler) => {
-      if (!namesInFrame.has(channel)) return;
-      try {
-        handler(frame);
-      } catch (e) {
-        this.handleError(
-          e,
-          `Error calling Flux Frame Handler on channel(s): ${channel}`,
-        );
-      }
+    const namesInFrame = [...frame.uniqueNames];
+    namesInFrame.sort(channelNameSort);
+    namesInFrame.forEach((name) => {
+      this.handlers.forEach((channel, handler) => {
+        if (channel !== name) return;
+        try {
+          handler(frame);
+        } catch (e) {
+          this.handleError(
+            e,
+            `Error calling Sync Frame Handler on channel(s): ${channel}`,
+          );
+        }
+      });
     });
   }
 

@@ -105,7 +105,7 @@ describe("retrieve", () => {
               listeners: [
                 {
                   channel: label.SET_CHANNEL_NAME,
-                  onChange: Sync.parsedHandler(
+                  onChange: Flux.parsedHandler(
                     label.labelZ,
                     async ({ params: { key }, onChange, changed }) => {
                       if (key !== changed.key) return;
