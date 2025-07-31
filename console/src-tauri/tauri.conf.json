@@ -21,9 +21,7 @@
       "icons/icon.ico"
     ],
     "createUpdaterArtifacts": true,
-    "windows": {
-      "signCommand": "relic sign --file %1 --key azure --config relic.conf"
-    },
+    "windows": {},
     "longDescription": "",
     "macOS": {
       "entitlements": null,
