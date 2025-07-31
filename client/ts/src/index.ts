@@ -15,7 +15,6 @@ export { Channel, isCalculated } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
-export { effect } from "@/effect";
 export {
   AuthError,
   ContiguityError,
@@ -38,7 +37,6 @@ export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
 export { newTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
-export { slate } from "@/slate";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
 export { linePlot } from "@/workspace/lineplot";

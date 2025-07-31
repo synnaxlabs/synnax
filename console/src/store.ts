@@ -21,7 +21,6 @@ import { type deep, type record } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { Effect } from "@/effect";
 import { isMainWindow } from "@/isMainWindow";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -31,7 +30,6 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { RUNTIME } from "@/runtime";
 import { Schematic } from "@/schematic";
-import { Slate } from "@/slate";
 import { Table } from "@/table";
 import * as User from "@/user";
 import { Version } from "@/version";
@@ -56,8 +54,6 @@ const ZERO_STATE: RootState = {
   [User.slice.SLICE_NAME]: User.slice.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Slate.SLICE_NAME]: Slate.ZERO_SLICE_STATE,
-  [Effect.SLICE_NAME]: Effect.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -74,8 +70,6 @@ const reducer = combineReducers({
   [User.slice.SLICE_NAME]: User.slice.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Slate.SLICE_NAME]: Slate.reducer,
-  [Effect.SLICE_NAME]: Effect.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -92,8 +86,6 @@ export interface RootState {
   [User.slice.SLICE_NAME]: User.slice.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Slate.SLICE_NAME]: Slate.SliceState;
-  [Effect.SLICE_NAME]: Effect.SliceState;
 }
 
 export type RootAction =
@@ -109,9 +101,7 @@ export type RootAction =
   | Table.Action
   | User.slice.Action
   | Version.Action
-  | Workspace.Action
-  | Slate.Action
-  | Effect.Action;
+  | Workspace.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -133,8 +123,6 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
   const user = User.slice.migrateSlice(prev.user);
-  const slate = Slate.migrateSlice(prev.slate);
-  const effect = Effect.migrateSlice(prev.effect);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -149,8 +137,6 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     permissions,
     user,
-    slate,
-    effect,
   };
 };
 

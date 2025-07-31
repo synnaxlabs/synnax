@@ -50,8 +50,6 @@ func maybeSetBasePermissions(
 			"task":        access.All,
 			"table":       access.All,
 			"annotation":  access.All,
-			"effect":      access.All,
-			"slate":       access.All,
 			"user":        access.Retrieve,
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,

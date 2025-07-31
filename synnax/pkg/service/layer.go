@@ -20,12 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/service/effect"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -114,8 +112,6 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer     *framer.Service
-	Effect     *effect.Service
-	Slate      *slate.Service
 	Annotation *annotation.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
@@ -231,15 +227,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
-	if l.Slate, err = slate.OpenService(
-		ctx,
-		slate.ServiceConfig{
-			DB:       cfg.Distribution.DB,
-			Ontology: cfg.Distribution.Ontology,
-		},
-	); !ok(err, l.Slate) {
-		return nil, err
-	}
 	if l.Annotation, err = annotation.OpenService(
 		ctx,
 		annotation.ServiceConfig{
@@ -248,20 +235,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Signals:  cfg.Distribution.Signals,
 		},
 	); !ok(err, l.Annotation) {
-		return nil, err
-	}
-	if l.Effect, err = effect.OpenService(
-		ctx,
-		effect.ServiceConfig{
-			DB:              cfg.Distribution.DB,
-			Ontology:        cfg.Distribution.Ontology,
-			Framer:          cfg.Distribution.Framer,
-			Ranger:          l.Ranger,
-			Slate:           l.Slate,
-			Channel:         cfg.Distribution.Channel,
-			Annotation:      l.Annotation,
-			Instrumentation: cfg.Instrumentation.Child("effect"),
-		}); !ok(err, l.Effect) {
 		return nil, err
 	}
 

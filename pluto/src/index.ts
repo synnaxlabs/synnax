@@ -84,7 +84,6 @@ export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
-export { Slate } from "@/vis/slate";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";

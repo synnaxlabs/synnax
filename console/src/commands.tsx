@@ -2,7 +2,6 @@ import { AnnotationServices } from "@/annotation/services";
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
-import { EffectServices } from "@/effect/services";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
@@ -31,6 +30,5 @@ export const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
-  ...EffectServices.COMMANDS,
   ...AnnotationServices.COMMANDS,
 ];

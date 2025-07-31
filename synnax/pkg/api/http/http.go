@@ -129,16 +129,6 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.AccessDeletePolicy = fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete")
 	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve")
 
-	// EFFECT
-	t.EffectCreate = fhttp.UnaryServer[api.EffectCreateRequest, api.EffectCreateResponse](router, "/api/v1/effect/create")
-	t.EffectDelete = fhttp.UnaryServer[api.EffectDeleteRequest, types.Nil](router, "/api/v1/effect/delete")
-	t.EffectRetrieve = fhttp.UnaryServer[api.EffectRetrieveRequest, api.EffectRetrieveResponse](router, "/api/v1/effect/retrieve")
-
-	// SLATE
-	t.SlateCreate = fhttp.UnaryServer[api.SlateCreateRequest, api.SlateCreateResponse](router, "/api/v1/slate/create")
-	t.SlateDelete = fhttp.UnaryServer[api.SlateDeleteRequest, types.Nil](router, "/api/v1/slate/delete")
-	t.SlateRetrieve = fhttp.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse](router, "/api/v1/slate/retrieve")
-
 	// ANNOTATION
 	t.AnnotationCreate = fhttp.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse](router, "/api/v1/annotation/create")
 	t.AnnotationDelete = fhttp.UnaryServer[api.AnnotationDeleteRequest, types.Nil](router, "/api/v1/annotation/delete")

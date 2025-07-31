@@ -11,7 +11,6 @@ import {
   annotation,
   channel,
   device,
-  effect,
   framer,
   group,
   label,
@@ -22,7 +21,6 @@ import {
   rack,
   ranger,
   schematic,
-  slate,
   table,
   task,
   user,
@@ -70,6 +68,4 @@ export const SERVICES: Ontology.Services = {
   [log.ONTOLOGY_TYPE]: LogServices.ONTOLOGY_SERVICE,
   [table.ONTOLOGY_TYPE]: TableServices.ONTOLOGY_SERVICE,
   [annotation.ONTOLOGY_TYPE]: createEmptyService(annotation.ONTOLOGY_TYPE),
-  [slate.ONTOLOGY_TYPE]: createEmptyService(slate.ONTOLOGY_TYPE),
-  [effect.ONTOLOGY_TYPE]: createEmptyService(effect.ONTOLOGY_TYPE),
 };
