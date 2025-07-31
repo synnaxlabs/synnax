@@ -146,6 +146,7 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 		} else {
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
+		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
 		return pld, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {

@@ -37,7 +37,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
@@ -127,7 +127,7 @@ export const LinePlot = ({
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
-  const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
   const [{ path }, { grid }, setState] = Aether.use({
     aetherKey,

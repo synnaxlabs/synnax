@@ -9,7 +9,7 @@
 
 import "@/range/Create.css";
 
-import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -18,34 +18,19 @@ import {
   Input,
   Nav,
   Ranger,
-  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitive, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useRef } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { useCallback, useRef } from "react";
+import { type z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
-const formSchema = z.object({
-  key: z.string().optional(),
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
-  labels: z.string().array(),
-  parent: z.string().optional(),
-});
-
-export type FormProps = z.infer<typeof formSchema>;
-
-export type CreateLayoutArgs = Partial<FormProps>;
+export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
@@ -77,64 +62,26 @@ export const Create: Layout.Renderer = (props) => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const initialValues: FormProps = {
-    name: "",
-    labels: [],
-    timeRange: { start: now, end: now },
-    parent: "",
-    ...args,
-  };
 
-  return <CreateLayoutForm initialValues={initialValues} {...props} />;
-};
-
-interface CreateLayoutFormProps extends Layout.RendererProps {
-  initialValues: FormProps;
-  onClose: () => void;
-}
-
-const CreateLayoutForm = ({
-  initialValues,
-  onClose,
-}: CreateLayoutFormProps): ReactElement => {
-  const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const dispatch = useDispatch();
   const client = Synnax.use();
   const clientExists = client != null;
-  const handleError = Status.useErrorHandler();
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (persisted: boolean) => {
-      if (!methods.validate()) return;
-      const values = methods.value();
-      const { timeRange: tr, parent } = values;
-      const timeRange = new TimeRange(tr);
-      const name = values.name.trim();
-      const key = initialValues.key ?? uuid.create();
-      const parentID = primitive.isZero(parent)
-        ? undefined
-        : ranger.ontologyID(parent as string);
-      const otgID = ranger.ontologyID(key);
-      if (persisted && clientExists) {
-        await client.ranges.create({ key, name, timeRange }, { parent: parentID });
-        await client.labels.label(otgID, values.labels, { replace: true });
-      }
-      dispatch(
-        add({
-          ranges: [
-            { variant: "static", name, timeRange: timeRange.numeric, key, persisted },
-          ],
-        }),
-      );
-      onClose();
+  const { form, save, variant } = Ranger.useForm({
+    params: { key: args.key },
+    autoSave: false,
+    initialValues: {
+      key: "",
+      name: "",
+      labels: [],
+      timeRange: { start: now, end: now },
+      parent: "",
+      ...args,
     },
-    onError: (e) => handleError(e, "Failed to create range"),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== initialValues.key),
-    [initialValues.key],
+    (data: ranger.Payload[]) => data.filter((r) => r.key !== args.key),
+    [args.key],
   );
 
   return (
@@ -145,7 +92,7 @@ const CreateLayoutForm = ({
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Ranger.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -220,17 +167,17 @@ const CreateLayoutForm = ({
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            onClick={() => mutate(false)}
-            disabled={isPending}
+            onClick={() => save()}
+            disabled={variant === "loading"}
           >
             Save Locally
           </Button.Button>
           <Button.Button
-            onClick={() => mutate(true)}
-            disabled={!clientExists || isPending}
+            onClick={() => save()}
+            disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={isPending}
+            loading={variant === "loading"}
             triggers={Triggers.SAVE}
           >
             Save to Synnax

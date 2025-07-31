@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { type Channel, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { type TimeRange } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
-
-import { NULL_CLIENT_ERROR } from "@/errors";
 
 export interface DownloadArgs {
   timeRange: TimeRange;
@@ -28,7 +26,7 @@ export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
   return useCallback(
     ({ timeRange, lines, name }: DownloadArgs) =>
       handleError(async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
+        if (client == null) throw new DisconnectedError();
         const channelNames: Record<channel.Key, string> = {};
         const channelKeys: channel.Key[] = [];
         lines.forEach(({ channels, label, variant }) => {

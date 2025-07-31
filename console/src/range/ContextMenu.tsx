@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Label, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { DisconnectedError, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -17,7 +17,6 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
@@ -75,7 +74,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const res = await fetchIfNotInState(store, client, key);
       placeLayout(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
@@ -161,15 +160,13 @@ export const addChildRangeMenuItem = (
   </PMenu.Item>
 );
 
-export const useLabels = (key: string) => Label.use(ranger.ontologyID(key));
-
 export const useViewDetails = (): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const rng = await client.ranges.retrieve(key);
       placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },

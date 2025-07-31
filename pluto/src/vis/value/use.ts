@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { text } from "@/text/core";
 import { Value } from "@/vis/value/aether/value";
 
@@ -39,7 +39,7 @@ export const use = ({
   notation,
   location,
 }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqualProps({
+  const memoProps = useMemoDeepEqual({
     box,
     telem,
     color,

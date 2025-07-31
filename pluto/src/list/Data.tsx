@@ -35,10 +35,10 @@ export interface DataUtilsContextValue<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > extends Omit<UseTransformsReturn<E>, "transform"> {
-  setSourceData: state.Set<E[]>;
+  setSourceData: state.Setter<E[]>;
   getSourceData: () => E[];
   getTransformedData: () => E[];
-  setEmptyContent: state.Set<React.ReactElement | undefined>;
+  setEmptyContent: state.Setter<React.ReactElement | undefined>;
   getEmptyContent: () => React.ReactElement | undefined;
   getDefaultEmptyContent: () => React.ReactElement | undefined;
   getTransformed: () => boolean;
@@ -90,7 +90,7 @@ export const useGetTransformedData = <
 export const useSetSourceData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
->(): state.Set<E[]> => useDataUtils<K, E>().setSourceData;
+>(): state.Setter<E[]> => useDataUtils<K, E>().setSourceData;
 
 export interface DataProviderProps<K extends record.Key, E extends record.Keyed<K>>
   extends PropsWithChildren<{}> {

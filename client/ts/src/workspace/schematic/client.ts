@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { nullableArrayZ } from "@/util/zod";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
@@ -127,5 +127,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

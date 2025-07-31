@@ -18,7 +18,7 @@ import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
 import { Icon } from "@/icon";
 import { type List } from "@/list";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
@@ -94,7 +94,7 @@ export const SelectMultiple = ({
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
+  const memoSearchOptions = useMemoDeepEqual(searchOptions);
   const searcher = useMemo(
     () =>
       client?.channels.newSearcherWithOptions({
@@ -203,7 +203,7 @@ export const SelectSingle = ({
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
+  const memoSearchOptions = useMemoDeepEqual(searchOptions);
   const searcher = useMemo(() => {
     if (data != null && data.length > 0) return undefined;
     return client?.channels.newSearcherWithOptions({
