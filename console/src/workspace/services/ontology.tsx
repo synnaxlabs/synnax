@@ -25,6 +25,7 @@ import { useDispatch, useStore } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Export } from "@/export";
+import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -240,7 +241,6 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
-    extractors,
     selection,
     selection: { resources },
   } = props;
@@ -253,7 +253,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport(extractors);
+  const handleExport = useExport(EXTRACTORS);
   const importLog = LogServices.useImport(selection.resources[0].id.key);
   const importTable = TableServices.useImport(selection.resources[0].id.key);
   const handleSelect = {

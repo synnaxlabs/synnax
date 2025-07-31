@@ -18,7 +18,6 @@ import {
 import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
@@ -30,7 +29,6 @@ export interface BaseProps {
   services: Services;
   addStatus: Status.Adder;
   handleError: Status.ErrorHandler;
-  extractors: Export.Extractors;
 }
 
 export interface HandleSelectProps extends BaseProps {

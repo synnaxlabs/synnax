@@ -190,7 +190,6 @@ const PaletteDialog = ({
         handleError,
         client,
         selection: entries as ontology.Resource[],
-        extractors,
       });
     },
     [
