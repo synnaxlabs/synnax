@@ -28,7 +28,7 @@ export interface ExportContext {
   store: RootStore;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
-  extractors: Record<string, Export.Extractor>;
+  extractors: Export.Extractors;
 }
 
 export const export_ = (
@@ -98,9 +98,7 @@ export const export_ = (
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
-export const useExport = (
-  extractors: Record<string, Export.Extractor>,
-): ((key: string) => void) => {
+export const useExport = (extractors: Export.Extractors): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const store = useStore<RootState, RootAction>();

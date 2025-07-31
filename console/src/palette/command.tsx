@@ -48,7 +48,7 @@ export interface CommandSelectionContext {
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
   fileIngestors: Import.FileIngestors;
-  extractors: Record<string, Export.Extractor>;
+  extractors: Export.Extractors;
 }
 
 export interface Command {
