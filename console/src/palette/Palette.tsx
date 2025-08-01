@@ -29,7 +29,7 @@ import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { EXTRACTORS } from "@/extractors";
-import { INGESTORS } from "@/ingestors";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
@@ -157,7 +157,7 @@ const PaletteDialog = ({
       confirm,
       extractors: EXTRACTORS,
       handleError,
-      fileIngestors: INGESTORS,
+      fileIngestors: FILE_INGESTORS,
       placeLayout,
       rename,
       store,

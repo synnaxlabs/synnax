@@ -67,18 +67,14 @@ export const createImporter: ImporterCreator =
           }),
         );
       }
-      await Promise.allSettled(
-        paths.map(async (path) => {
-          try {
-            const data = await readTextFile(path);
-            let name = path.split(sep()).pop();
-            if (name == null) throw new Error(`Cannot read file located at ${path}`);
-            name = trimFileName(name);
-            ingest(data, { layout: { name }, placeLayout, store });
-          } catch (e) {
-            handleError(e, `Failed to import ${type} at ${path}`);
-          }
-        }),
+      paths.forEach((path) =>
+        handleError(async () => {
+          const data = await readTextFile(path);
+          const fileName = path.split(sep()).pop();
+          if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
+          const name = trimFileName(fileName);
+          ingest(data, { layout: { name }, placeLayout, store });
+        }, `Failed to import ${type} at ${path}`),
       );
     });
   };

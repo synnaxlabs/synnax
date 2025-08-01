@@ -21,7 +21,7 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
     const layoutState = Layout.select(store.getState(), key);
     if (layoutState == null)
       throw new Error(
-        `Cannot fetch export task with key ${key}. This is neither the key of a task nor the key of a task layout.`,
+        `Cannot export task with key ${key}. This is neither the key of a task nor the key of a task layout.`,
       );
     const args = layoutState.args;
     if (
@@ -31,7 +31,7 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
       typeof args.taskKey !== "string"
     )
       throw new Error(
-        `Cannot fetch export task with key ${key}. You should configure the task before exporting it.`,
+        `Cannot export task with key ${key}. You should configure the task before exporting it.`,
       );
     keyToFetch = args.taskKey;
   }

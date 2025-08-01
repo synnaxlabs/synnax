@@ -14,7 +14,7 @@ import { LogServices } from "@/log/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 
-export const INGESTORS: Import.FileIngestors = {
+export const FILE_INGESTORS: Import.FileIngestors = {
   ...Hardware.FILE_INGESTORS,
   ...LinePlotServices.FILE_INGESTORS,
   ...LogServices.FILE_INGESTORS,
