@@ -10,12 +10,12 @@
 import "@/align/Space.css";
 
 import { direction } from "@synnaxlabs/x/spatial";
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type Theming } from "@/theming";
+import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
@@ -28,19 +28,10 @@ export const JUSTIFICATIONS = [
   "start",
   "center",
   "end",
-  "spaceBetween",
-  "spaceAround",
-  "spaceEvenly",
+  "between",
+  "around",
+  "evenly",
 ] as const;
-
-const CSS_JUSTIFICATIONS: Record<Justification, CSSProperties["justifyContent"]> = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  spaceBetween: "space-between",
-  spaceAround: "space-around",
-  spaceEvenly: "space-evenly",
-};
 
 /** The justification for the main axis of a space */
 export type Justification = (typeof JUSTIFICATIONS)[number];
@@ -57,7 +48,16 @@ export type ElementType =
   | "dialog"
   | "a"
   | "form"
-  | "main";
+  | "main"
+  | "p"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "h5"
+  | "h6"
+  | "span"
+  | "small";
 
 export interface CoreExtensionProps {
   el?: ElementType;
@@ -70,7 +70,7 @@ export interface CoreExtensionProps {
 
 export interface SpaceExtensionProps extends CoreExtensionProps {
   empty?: boolean;
-  gap?: Component.Size | number;
+  gap?: ComponentSize | number;
   direction?: direction.Crude;
   x?: boolean;
   y?: boolean;
@@ -90,16 +90,6 @@ export type SpaceProps<E extends ElementType = "div"> = Omit<
 
 export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
   reverse ?? (direction === "right" || direction === "bottom");
-
-type FlexDirection = CSSProperties["flexDirection"];
-
-const flexDirection = (
-  direction: direction.Direction,
-  reverse: boolean,
-): FlexDirection => {
-  const base = direction === "x" ? "row" : "column";
-  return reverse ? (`${base}-reverse` as FlexDirection) : base;
-};
 
 export const parseDirection = (
   dir?: direction.Crude,
@@ -150,8 +140,8 @@ export const Space = <E extends ElementType = "div">({
   grow,
   shrink,
   empty = false,
-  gap = "medium",
-  justify = "start",
+  gap,
+  justify,
   reverse,
   wrap = false,
   direction: propsDir,
@@ -161,35 +151,24 @@ export const Space = <E extends ElementType = "div">({
 }: SpaceProps<E>): ReactElement => {
   const dir = parseDirection(propsDir, x, y, "y");
   reverse = shouldReverse(dir, reverse);
-
-  let parsedGap: number | string | undefined;
-  if (empty) [parsedGap, parsedGap] = [0, 0];
-  else if (typeof gap === "number") parsedGap = `${gap}rem`;
-
-  style = {
-    gap: parsedGap,
-    flexDirection: flexDirection(dir, reverse),
-    justifyContent: CSS_JUSTIFICATIONS[justify],
-    alignItems: align,
-    flexWrap: wrap ? "wrap" : "nowrap",
-    ...style,
-  };
-
+  const classNames = [
+    CSS.B("space"),
+    CSS.dir(dir),
+    reverse && CSS.M("reverse"),
+    justify != null && CSS.BM("justify", justify),
+    align != null && CSS.BM("align", align),
+    wrap && CSS.M("wrap"),
+    empty && CSS.M("empty"),
+    className,
+  ];
+  style ??= {};
+  if (typeof gap === "number") style.gap = `${gap}rem`;
+  else if (gap != null) classNames.push(CSS.BM("gap", gap));
   if (grow != null) style.flexGrow = Number(grow);
   if (shrink != null) style.flexShrink = Number(shrink);
-
   return (
     // @ts-expect-error - TODO: fix generic element props
-    <Core<E>
-      className={CSS(
-        CSS.B("space"),
-        CSS.dir(dir),
-        typeof gap === "string" && CSS.BM("space", gap),
-        className,
-      )}
-      style={style}
-      {...rest}
-    />
+    <Core<E> className={CSS(...classNames)} style={style} {...rest} />
   );
 };
 
@@ -219,7 +198,6 @@ export const Core = <E extends ElementType = "div">({
     ...style,
   };
   if (background != null) style.backgroundColor = CSS.shadeVar(background);
-
   return (
     // @ts-expect-error - TODO: fix generic element props
     <Generic.Element<E>

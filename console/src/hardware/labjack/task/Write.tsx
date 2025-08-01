@@ -67,13 +67,7 @@ const ChannelListItem = ({
   const item = PForm.useFieldValue<OutputChannel>(path);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.Item
-      {...rest}
-      style={{ width: "100%" }}
-      justify="spaceBetween"
-      align="center"
-      x
-    >
+    <List.Item {...rest} style={{ width: "100%" }} justify="between" align="center">
       <Align.Pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}
@@ -132,7 +126,7 @@ const ChannelListItem = ({
           )}
         </PForm.Field>
       </Align.Pack>
-      <Align.Space x align="center" justify="spaceEvenly">
+      <Align.Space x align="center" justify="evenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
           itemKey={item.key}

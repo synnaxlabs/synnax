@@ -177,7 +177,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
             <Button.Button
               disabled={variant === "loading"}
               loading={variant === "loading"}
-              triggers={Triggers.SAVE}
+              trigger={Triggers.SAVE}
               variant="filled"
               onClick={() => save()}
             >

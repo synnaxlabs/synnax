@@ -33,6 +33,7 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
             key: "add",
             onClick: onAdd,
             children: <Icon.Add />,
+            variant: "text",
             size: "medium",
             shade: 2,
             sharp: true,

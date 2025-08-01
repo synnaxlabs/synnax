@@ -144,7 +144,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             loading={variant === "loading"}
             variant="filled"
             onClick={() => save()}
-            triggers={[Triggers.SAVE]}
+            trigger={Triggers.SAVE}
           >
             Create
           </Button.Button>

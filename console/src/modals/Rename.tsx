@@ -49,7 +49,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
                 return setError(`${label} is required`);
               return onFinish(name);
             }}
-            triggers={SAVE_TRIGGER}
+            trigger={SAVE_TRIGGER}
           >
             Create
           </Button.Button>

@@ -30,16 +30,20 @@ interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"
 
 const SelectWaveType = (props: SelectWaveTypeProps) => (
   <Select.Buttons {...props} keys={WAVE_TYPES}>
-    <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
+    <Select.Button itemKey={SINE_WAVE_TYPE}>
+      <Icon.Wave.Sine />
       Sine
     </Select.Button>
-    <Select.Button itemKey={TRIANGLE_WAVE_TYPE} startIcon={<Icon.Wave.Triangle />}>
+    <Select.Button itemKey={TRIANGLE_WAVE_TYPE}>
+      <Icon.Wave.Triangle />
       Triangle
     </Select.Button>
-    <Select.Button itemKey={SQUARE_WAVE_TYPE} startIcon={<Icon.Wave.Square />}>
+    <Select.Button itemKey={SQUARE_WAVE_TYPE}>
+      <Icon.Wave.Square />
       Square
     </Select.Button>
-    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE} startIcon={<Icon.Wave.Sawtooth />}>
+    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE}>
+      <Icon.Wave.Sawtooth />
       Sawtooth
     </Select.Button>
   </Select.Buttons>

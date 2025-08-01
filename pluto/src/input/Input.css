@@ -102,9 +102,7 @@
         align-items: center;
         pointer-events: none;
         white-space: nowrap;
-        & * {
-            color: var(--pluto-gray-l8);
-        }
+        color: var(--pluto-gray-l8);
     }
 
     .pluto-input__placeholder {

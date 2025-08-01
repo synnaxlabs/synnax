@@ -15,4 +15,3 @@ export * from "@/text/Keyboard";
 export * from "@/text/Link";
 export * from "@/text/symbols";
 export * from "@/text/Text";
-export * from "@/text/WithIcon";

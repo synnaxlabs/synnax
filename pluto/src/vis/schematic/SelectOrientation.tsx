@@ -152,16 +152,16 @@ const InternalOrientation = ({
   );
 };
 
-export interface ButtonProps extends Omit<CoreButton.IconProps, "children"> {
+export interface ButtonProps extends Omit<CoreButton.ButtonProps, "children"> {
   selected: boolean;
 }
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
-  <CoreButton.Icon
+  <CoreButton.Button
     variant="text"
     className={CSS(className, CSS.selected(selected))}
     {...rest}
   >
     <div className="symbol" />
-  </CoreButton.Icon>
+  </CoreButton.Button>
 );

@@ -111,9 +111,9 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Icon variant="text" size="small">
+            <Button.Button variant="text" size="small">
               <Icon.Close style={{ color: "var(--color-pluto-gray-l10)" }} />
-            </Button.Icon>
+            </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
         <Align.Space

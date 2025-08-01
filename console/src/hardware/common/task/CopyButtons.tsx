@@ -22,14 +22,14 @@ interface CopyButtonProps {
 }
 
 const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
-  <Button.Icon
+  <Button.Button
     tooltip={<Text.Text level="small">{`Copy ${tooltip}`}</Text.Text>}
     tooltipLocation="left"
     variant="text"
     {...rest}
   >
     <Icon style={{ color: "var(--pluto-gray-l9)" }} />
-  </Button.Icon>
+  </Button.Button>
 );
 
 export interface CopyButtonsProps {

@@ -53,7 +53,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
       </Status.Text>
       {isEditable && (
         <Text.Link
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
             e.stopPropagation();
             dispatch(setEditable({ key: layoutKey, editable: true }));
           }}

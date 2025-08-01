@@ -17,7 +17,7 @@ import { Divider } from "@/divider";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export type ActionSpec = Button.IconProps | ReactElement;
+export type ActionSpec = Button.ButtonProps | ReactElement;
 
 export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direction"> {
   children?: ActionSpec | ActionSpec[];
@@ -53,7 +53,7 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
 interface ActionProps {
   index: number;
   level: Text.Level;
-  children: ReactElement | Button.IconProps;
+  children: ReactElement | Button.ButtonProps;
   divided: boolean;
 }
 
@@ -62,7 +62,7 @@ const Action = ({ index, level, children, divided }: ActionProps): ReactElement 
   if (!isValidElement(children)) {
     const { onClick, key, ...rest } = children;
     content = (
-      <Button.Icon
+      <Button.Button
         key={key ?? index}
         onClick={(e) => {
           e.stopPropagation();

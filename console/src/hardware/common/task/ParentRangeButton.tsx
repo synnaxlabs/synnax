@@ -37,11 +37,11 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
         gap="small"
         onClick={handleClick}
         shade={11}
-        startIcon={<Icon.Range />}
         style={{ padding: "1rem" }}
         variant="text"
         weight={400}
       >
+        <Icon.Range />
         {name}
       </Button.Button>
     </Align.Space>

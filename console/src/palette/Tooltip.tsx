@@ -20,13 +20,13 @@ export const TooltipContent = ({
   triggerConfig: { command, search },
 }: TooltipContentProps): ReactElement => (
   <Align.Space gap="small">
-    <Align.Space x justify="spaceBetween" align="center">
+    <Align.Space x justify="between" align="center">
       <Text.Text level="small">Search</Text.Text>
       <Align.Space x empty gap="tiny">
         <Triggers.Text trigger={search[0]} level="small" />
       </Align.Space>
     </Align.Space>
-    <Align.Space x justify="spaceBetween" align="center">
+    <Align.Space x justify="between" align="center">
       <Text.Text level="small">Command Palette</Text.Text>
       <Align.Space x gap="tiny">
         <Triggers.Text trigger={command[0]} level="small" />

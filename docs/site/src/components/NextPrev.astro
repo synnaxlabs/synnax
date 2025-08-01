@@ -5,7 +5,7 @@ const { next, prev, nextURL, prevURL } = Astro.props;
 
 <Align.Space className="next-prev" empty>
     {(next != null || prev != null) && <Divider.Divider direction="x" />}
-    <Align.Space direction="x" justify="spaceBetween">
+    <Align.Space direction="x" justify="between">
         <Align.Space direction="x" el="a" className="link" href={prevURL}>
             {
                 prev != null && (

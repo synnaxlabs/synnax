@@ -50,7 +50,7 @@ export const Header = ({
     <Align.Space
       el="header"
       x
-      justify="spaceBetween"
+      justify="between"
       className={CSS(
         CSS.B("header"),
         CSS.bordered("bottom"),

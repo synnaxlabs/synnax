@@ -110,7 +110,9 @@ export const Create: Layout.Renderer = (props) => {
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
-            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
+            <Text.Text level="h4">
+              <Icon.Arrow.Right />
+            </Text.Text>
             <Form.Field<number> path="timeRange.end" label="To">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
@@ -150,7 +152,7 @@ export const Create: Layout.Renderer = (props) => {
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
             loading={variant === "loading"}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
           >
             Save to Synnax
           </Button.Button>

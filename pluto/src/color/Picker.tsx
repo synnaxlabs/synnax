@@ -66,16 +66,16 @@ export const Picker = ({
     >
       {position != null ||
         (onDelete != null && (
-          <Align.Space x justify="spaceBetween">
+          <Align.Space x justify="between">
             {position != null && (
               <Text.Text level="small" shade={11}>
                 {position} %
               </Text.Text>
             )}
             {onDelete != null && (
-              <Button.Icon name="close" onClick={onDelete} size="small">
+              <Button.Button name="close" onClick={onDelete} size="small">
                 <Icon.Delete />
-              </Button.Icon>
+              </Button.Button>
             )}
           </Align.Space>
         ))}

@@ -44,7 +44,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
         No lines plotted. Use the
       </Status.Text>
       <Text.Link
-        onClick={(e) => {
+        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
           e.stopPropagation();
           onSelect?.("data");
         }}

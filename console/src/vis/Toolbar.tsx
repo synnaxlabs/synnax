@@ -36,7 +36,7 @@ const NoVis = (): ReactElement => {
     placeLayout(createSelectorLayout());
   };
   return (
-    <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
+    <Align.Space justify="between" style={{ height: "100%" }} empty>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>

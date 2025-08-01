@@ -493,7 +493,7 @@ export const Controls = (props: ControlsProps): ReactElement => (
 );
 
 export interface ToggleEditControlProps
-  extends Omit<Button.ToggleIconProps, "value" | "onChange" | "children"> {}
+  extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
 
 export const ToggleEditControl = ({
   onClick,
@@ -501,7 +501,7 @@ export const ToggleEditControl = ({
 }: ToggleEditControlProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onChange={() => onEditableChange(!editable)}
       value={editable}
       uncheckedVariant="outlined"
@@ -512,12 +512,12 @@ export const ToggleEditControl = ({
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };
 
 export interface FitViewControlProps
-  extends Omit<Button.IconProps, "children" | "onChange"> {}
+  extends Omit<Button.ButtonProps, "children" | "onChange"> {}
 
 export const FitViewControl = ({
   onClick,
@@ -526,7 +526,7 @@ export const FitViewControl = ({
   const { fitView } = useReactFlow();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onClick={(e) => {
         void fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
@@ -542,7 +542,7 @@ export const FitViewControl = ({
       {...rest}
     >
       <Icon.Expand />
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };
 

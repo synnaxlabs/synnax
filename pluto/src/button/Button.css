@@ -38,23 +38,20 @@
     stacking context even when increasing the z-index on hover. This prevents strange
     layout shifting of internal content (especially icons) */
     z-index: 1;
-    font-family: var(--pluto-font-family);
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
-    padding: 0 2rem;
-    &.pluto--small {
-        padding: 0 1.5rem;
-    }
+    padding: 0 1.5rem;
 
     &.pluto--disabled {
         cursor: not-allowed;
-        --pluto-border-color: var(--pluto-gray-l4) !important;
+        color: var(--pluto-gray-l6);
+        border-color: var(--pluto-gray-l4);
     }
 
     &.pluto--filled,
     &.pluto--outlined {
         &.pluto--disabled {
-            --pluto-bg: var(--pluto-gray-l2) !important;
+            --pluto-bg: var(--pluto-gray-l2);
         }
     }
 
@@ -87,9 +84,7 @@
     }
 
     &.pluto--filled {
-        & * {
-            color: var(--pluto-btn-text-color, var(--pluto-text-on-primary)) !important;
-        }
+        color: var(--pluto-btn-text-color, var(--pluto-text-on-primary)) !important;
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);
@@ -155,19 +150,19 @@
     }
 }
 
-.pluto-btn-icon {
+    &.pluto-btn--icon {
+        padding: 0 !important;
+        aspect-ratio: 1;
+        color: var(--pluto-gray-l11);
+        font-weight: 500;
+    }
+}
+
+/* .pluto-btn-icon {
     padding: 0 !important;
     aspect-ratio: 1;
     color: var(--pluto-gray-l11);
     font-weight: 600;
-
-    & > * {
-        position: absolute;
-        top: 22.5%;
-        left: 22.5%;
-        width: 55%;
-        height: 55%;
-    }
 
     .pluto-trigger-indicator {
         opacity: 0;
@@ -188,15 +183,23 @@
     &:hover .pluto-trigger-indicator {
         opacity: 1;
     }
-}
+} */
 
-.pluto--clickable {
+.pluto-clickable {
     transition: var(--pluto-btn-transition);
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
     cursor: pointer;
     &.pluto--outlined {
-        &.pluto--shade-0 {
+        --pluto-bg: var(--pluto-gray-l2);
+        --pluto-hover-bg: var(--pluto-gray-l3);
+        --pluto-active-bg: var(--pluto-gray-l4);
+
+        --pluto-border-color: var(--pluto-gray-l5);
+        --pluto-hover-border-color: var(--pluto-gray-l6);
+        --pluto-active-border-color: var(--pluto-gray-l7);
+
+        &.pluto-clickable--shade-1 {
             --pluto-bg: var(--pluto-gray-l2);
             --pluto-hover-bg: var(--pluto-gray-l3);
             --pluto-active-bg: var(--pluto-gray-l4);
@@ -206,17 +209,7 @@
             --pluto-active-border-color: var(--pluto-gray-l7);
         }
 
-        &.pluto--shade-1 {
-            --pluto-bg: var(--pluto-gray-l2);
-            --pluto-hover-bg: var(--pluto-gray-l3);
-            --pluto-active-bg: var(--pluto-gray-l4);
-
-            --pluto-border-color: var(--pluto-gray-l5);
-            --pluto-hover-border-color: var(--pluto-gray-l6);
-            --pluto-active-border-color: var(--pluto-gray-l7);
-        }
-
-        &.pluto--shade-2 {
+        &.pluto-clickable--shade-2 {
             --pluto-bg: var(--pluto-gray-l0);
             --pluto-hover-bg: var(--pluto-gray-l1);
             --pluto-active-bg: var(--pluto-gray-l2);
@@ -268,26 +261,26 @@
     &.pluto--text {
         border: none !important;
 
-        &.pluto--shade-0 {
+        &.pluto-clickable--shade-0 {
             --pluto-hover-bg: var(--pluto-gray-l2);
             --pluto-active-bg: var(--pluto-gray-l3);
             --pluto-border-color: var(--pluto-gray-l0);
         }
 
-        &.pluto--shade-1 {
+        &.pluto-clickable--shade-1 {
             --pluto-bg: var(--pluto-gray-l1);
             --pluto-hover-bg: var(--pluto-gray-l3);
             --pluto-active-bg: var(--pluto-gray-l2);
         }
 
-        &.pluto--shade-2 {
+        &.pluto-clickable--shade-2 {
             --pluto-bg: var(--pluto-gray-l2);
             --pluto-hover-bg: var(--pluto-gray-l3);
             --pluto-active-bg: var(--pluto-gray-l4);
             --pluto-active-border-color: var(--pluto-gray-l5);
         }
 
-        &.pluto--shade-3 {
+        &.pluto-clickable--shade-3 {
             --pluto-bg: var(--pluto-gray-l3);
             --pluto-hover-bg: var(--pluto-gray-l6);
             --pluto-active-border-color: var(--pluto-gray-l8);

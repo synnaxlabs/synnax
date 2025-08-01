@@ -1910,10 +1910,7 @@ export const Button = ({
 
 export interface TextBoxProps
   extends Omit<DivProps, "onChange">,
-    Optional<
-      Pick<Text.EditableProps<Text.Level>, "level" | "value" | "onChange">,
-      "onChange"
-    > {
+    Optional<Pick<Text.EditableProps, "level" | "value" | "onChange">, "onChange"> {
   color?: color.Crude;
   width?: number;
   align?: Align.Alignment;

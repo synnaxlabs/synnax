@@ -315,15 +315,10 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
       highlightHovered
       {...props}
     >
-      <Text.WithIcon
-        startIcon={<Icon.Range />}
-        level="p"
-        weight={450}
-        shade={11}
-        gap="medium"
-      >
+      <Text.Text level="p" weight={450} shade={11} gap="medium">
+        <Icon.Range />
         {resource?.name}
-      </Text.WithIcon>
+      </Text.Text>
       <Ranger.TimeRangeChip
         level="small"
         timeRange={resource?.data?.timeRange as CrudeTimeRange}

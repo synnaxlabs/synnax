@@ -10,6 +10,87 @@
  */
 
 .pluto-text {
-    width: fit-content;
     margin: 0;
+}
+
+.pluto--h1 {
+    font-size: var(--pluto-h1-size);
+    line-height: var(--pluto-h1-line-height);
+    font-weight: var(--pluto-h1-weight);
+}
+
+.pluto--h2 {
+    font-size: var(--pluto-h2-size);
+    line-height: var(--pluto-h2-line-height);
+    font-weight: var(--pluto-h2-weight);
+}
+
+.pluto--h3 {
+    font-size: var(--pluto-h3-size);
+    line-height: var(--pluto-h3-line-height);
+    font-weight: var(--pluto-h3-weight);
+}
+
+.pluto--h4 {
+    font-size: var(--pluto-h4-size);
+    line-height: var(--pluto-h4-line-height);
+    font-weight: var(--pluto-h4-weight);
+}
+
+.pluto--h5 {
+    font-size: var(--pluto-h5-size);
+    line-height: var(--pluto-h5-line-height);
+    font-weight: var(--pluto-h5-weight);
+}
+
+.pluto--p {
+    font-size: var(--pluto-p-size);
+}
+
+.pluto-text--shade-0 {
+    color: var(--pluto-gray-l0);
+}
+
+.pluto-text--shade-1 {
+    color: var(--pluto-gray-l1);
+}
+
+.pluto-text--shade-2 {
+    color: var(--pluto-gray-l2);
+}
+
+.pluto-text--shade-3 {
+    color: var(--pluto-gray-l3);
+}
+
+.pluto-text--shade-4 {
+    color: var(--pluto-gray-l4);
+}
+
+.pluto-text--shade-5 {
+    color: var(--pluto-gray-l5);
+}
+
+.pluto-text--shade-6 {
+    color: var(--pluto-gray-l6);
+}
+
+.pluto-text--shade-7 {
+    color: var(--pluto-gray-l7);
+}
+
+.pluto-text--shade-8 {
+    color: var(--pluto-gray-l8);
+}
+
+.pluto-text--shade-9 {
+    color: var(--pluto-gray-l9);
+}
+
+.pluto-text--shade-10 {
+    color: var(--pluto-gray-l10);
+}
+
+.pluto-text--shade-11 {
+    color: var(--pluto-gray-l11);
 }

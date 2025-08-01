@@ -60,7 +60,7 @@ export const LegendSwatches = memo(
             x
             align="center"
             gap="small"
-            justify="spaceBetween"
+            justify="between"
             grow
           >
             <Align.Space direction="x" align="center" gap="small">
@@ -82,7 +82,7 @@ export const LegendSwatches = memo(
               />
             </Align.Space>
             {allowVisibleChange && (
-              <Button.Icon
+              <Button.Button
                 className={CSS.B("visible-toggle")}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -93,7 +93,7 @@ export const LegendSwatches = memo(
                 shade={shade}
               >
                 {visible ? <Icon.Visible /> : <Icon.Hidden />}
-              </Button.Icon>
+              </Button.Button>
             )}
           </Align.Space>
         ))}

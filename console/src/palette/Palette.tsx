@@ -79,11 +79,11 @@ export const Palette = ({
           align="center"
           size="medium"
           justify="center"
-          startIcon={<Icon.Search />}
           shade={2}
           textShade={9}
           gap="small"
         >
+          <Icon.Search />
           Search & Command
         </Button.Button>
         <Dialog.Dialog
@@ -146,9 +146,10 @@ const DialogContent = ({
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={
-          <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+          <Text.Text level="h3">
+            <Icon.Search />
             Type to search or {commandSymbol} to view commands
-          </Text.WithIcon>
+          </Text.Text>
         }
         size="huge"
         autoFocus

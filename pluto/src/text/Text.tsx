@@ -12,13 +12,16 @@ import "@/text/Text.css";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Generic } from "@/generic";
 import { type text } from "@/text/core";
 
-export interface CoreProps<L extends text.Level = text.Level> {
+export type TextProps<E extends Align.ElementType = Align.ElementType> = Omit<
+  Align.SpaceProps<E>,
+  "color" | "children" | "direction" | "x" | "y"
+> & {
   /* The level of text to display i.e. p, h1, h2 */
-  level: L;
+  level: text.Level;
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
@@ -30,38 +33,40 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* Weight sets the weight of the text */
   weight?: text.Weight;
   code?: boolean;
-}
+  /* Ellipsis sets whether to truncate the text */
+  ellipsis?: boolean;
+};
 
-export type TextProps<L extends text.Level = text.Level> = Omit<
-  Generic.ElementProps<L>,
-  "el" | "color" | "children"
-> &
-  CoreProps<L>;
-
-export const Text = <L extends text.Level = text.Level>({
+export const Text = <E extends Align.ElementType = Align.ElementType>({
   ref,
-  level = "p" as L,
+  level = "p",
+  el,
   color,
   className,
   style,
   noWrap = false,
   code = false,
-  shade,
   weight,
+  ellipsis = false,
+  shade,
   ...rest
-}: TextProps<L>): ReactElement => (
+}: TextProps<E>): ReactElement => (
   // @ts-expect-error - TODO: Generic Elements are weird
-  <Generic.Element<L>
-    el={level}
+  <Align.Space<E>
+    el={el ?? level}
     ref={ref}
-    style={{ color: parseColor(color, shade), fontWeight: weight, ...style }}
+    x
+    style={{ color: parseColor(color), fontWeight: weight, ...style }}
     className={CSS(
       CSS.B("text"),
       code && CSS.M("code"),
-      CSS.BM("text", level),
       CSS.noWrap(noWrap),
+      ellipsis && CSS.M("ellipsis"),
+      shade != null && CSS.BM("text", `shade-${shade}`),
       className,
     )}
+    gap="small"
+    align="center"
     {...rest}
   />
 );

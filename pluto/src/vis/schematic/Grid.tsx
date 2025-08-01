@@ -215,14 +215,14 @@ export const Grid = ({
         />
       )}
       {editable && allowRotate && (
-        <Button.Icon
+        <Button.Button
           className={CSS.BE("grid", "rotate")}
           size="small"
           variant="filled"
           onClick={onRotate}
         >
           <Icon.Rotate />
-        </Button.Icon>
+        </Button.Button>
       )}
       <div className={DRAG_HANDLE_CLASS}>{children}</div>
     </>

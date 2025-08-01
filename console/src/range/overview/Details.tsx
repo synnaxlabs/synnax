@@ -47,13 +47,13 @@ const ParentRangeButton = ({
       <Button.Button
         variant="text"
         weight={400}
-        startIcon={<Icon.Range />}
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
           placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
+        <Icon.Range />
         {parent.name}
       </Button.Button>
     </Align.Space>
@@ -115,7 +115,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
       <Align.Space y gap="large">
-        <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
+        <Align.Space x justify="between" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
               path="name"
@@ -138,7 +138,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             gap="small"
           >
             <Align.Space x>
-              <Button.Icon
+              <Button.Button
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
@@ -147,25 +147,25 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                   onClick={handleCopyPythonCode}
                   style={{ color: "var(--pluto-gray-l9)" }}
                 />
-              </Button.Icon>
-              <Button.Icon
+              </Button.Button>
+              <Button.Button
                 variant="text"
                 tooltip={`Copy TypeScript code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
                 <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
-              </Button.Icon>
+              </Button.Button>
             </Align.Space>
             <Divider.Divider y />
-            <Button.Icon
+            <Button.Button
               variant="text"
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
               <Icon.Link />
-            </Button.Icon>
+            </Button.Button>
           </Align.Space>
         </Align.Space>
         <Align.Space className={CSS.B("time-range")} x gap="medium" align="center">
@@ -174,11 +174,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Text.WithIcon
-            className={CSS.B("time-range-divider")}
-            level="h4"
-            startIcon={<Icon.Arrow.Right />}
-          />
+          <Text.Text className={CSS.B("time-range-divider")} level="h4">
+            <Icon.Arrow.Right />
+          </Text.Text>
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />

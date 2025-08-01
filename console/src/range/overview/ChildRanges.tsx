@@ -36,7 +36,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string>) => {
       x
       showParent={false}
       gap="tiny"
-      justify="spaceBetween"
+      justify="between"
       align="center"
       style={{ padding: "1.5rem" }}
       {...props}
@@ -60,13 +60,13 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
           Child Ranges
         </Header.Title>
         <Header.Actions>
-          <Button.Icon
+          <Button.Button
             size="medium"
             shade={0}
             onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
           >
             <Icon.Add />
-          </Button.Icon>
+          </Button.Button>
         </Header.Actions>
       </Header.Header>
       <List.Frame

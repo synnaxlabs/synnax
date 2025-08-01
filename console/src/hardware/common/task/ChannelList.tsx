@@ -81,13 +81,15 @@ const ContextMenu = <C extends Channel>({
       {!isSnapshot && (
         <>
           {canDuplicate && (
-            <PMenu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+            <PMenu.Item itemKey="duplicate">
+              <Icon.Copy />
               Duplicate
             </PMenu.Item>
           )}
           {canRemove && (
             <>
-              <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
+              <PMenu.Item itemKey="remove">
+                <Icon.Close />
                 Remove
               </PMenu.Item>
             </>
@@ -95,19 +97,22 @@ const ContextMenu = <C extends Channel>({
           {(canDuplicate || canRemove) && <PMenu.Divider />}
           {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
-            <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+            <PMenu.Item itemKey="disable">
+              <Icon.Disable />
               Disable
             </PMenu.Item>
           )}
           {canEnable && (
-            <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+            <PMenu.Item itemKey="enable">
+              <Icon.Enable />
               Enable
             </PMenu.Item>
           )}
           {(canDisable || canEnable) && <PMenu.Divider />}
           {canTare && (
             <>
-              <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+              <PMenu.Item itemKey="tare">
+                <Icon.Tare />
                 Tare
               </PMenu.Item>
               <PMenu.Divider />

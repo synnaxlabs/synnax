@@ -36,11 +36,8 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     >
       <>
-        <Menu.Item
-          itemKey="opc.connect"
-          startIcon={<Icon.Connect />}
-          onClick={handleEditConnection}
-        >
+        <Menu.Item itemKey="opc.connect" onClick={handleEditConnection}>
+          <Icon.Connect />
           Edit Connection
         </Menu.Item>
         <Menu.Divider />

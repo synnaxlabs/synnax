@@ -7,12 +7,7 @@ const { headings } = Astro.props;
 
 <Root frontmatter={{ title: "Releases" }}>
     <Align.Space direction="y" className="releases" el="article" grow>
-        <Align.Space
-            direction="x"
-            className="header"
-            justify="spaceBetween"
-            align="center"
-        >
+        <Align.Space direction="x" className="header" justify="between" align="center">
             <Align.Space direction="y" justify="center" size="large">
                 <Text.Text level="h1">Releases</Text.Text>
                 <Align.Space direction="y" size="small">

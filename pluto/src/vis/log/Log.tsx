@@ -87,7 +87,7 @@ export const Log = ({
       {empty ? (
         emptyContent
       ) : (
-        <Button.Icon
+        <Button.Button
           className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
           variant="outlined"
           onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
@@ -95,7 +95,7 @@ export const Log = ({
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Dynamic />
-        </Button.Icon>
+        </Button.Button>
       )}
     </div>
   );

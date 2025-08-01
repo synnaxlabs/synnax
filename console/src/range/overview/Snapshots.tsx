@@ -80,9 +80,10 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       {...props}
       onSelect={handleSelect}
     >
-      <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={11}>
+      <Text.Text level="p" weight={450} shade={11}>
+        {svc.icon}
         {name}
-      </Text.WithIcon>
+      </Text.Text>
     </List.Item>
   );
 };

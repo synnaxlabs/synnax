@@ -66,13 +66,14 @@ export const listItem = Component.renderProp(
       <Select.ListItem
         highlightHovered
         style={{ height: "6.5rem" }}
-        justify="spaceBetween"
+        justify="between"
         align="center"
         {...props}
       >
-        <Text.WithIcon startIcon={icon} level="p" weight={400} shade={11} gap="medium">
+        <Text.Text level="p" weight={400} shade={11} gap="medium">
+          {icon}
           {name}
-        </Text.WithIcon>
+        </Text.Text>
         {endContent != null && <Align.Space x>{endContent}</Align.Space>}
       </Select.ListItem>
     );

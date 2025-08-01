@@ -149,19 +149,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.RenameItem />
           {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
           {showConfigure && (
-            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+            <PMenu.Item itemKey="configure">
+              <Icon.Hardware />
               Configure
             </PMenu.Item>
           )}
           {showChangeIdentifier && (
-            <PMenu.Item itemKey="changeIdentifier" startIcon={<Icon.Hardware />}>
+            <PMenu.Item itemKey="changeIdentifier">
+              <Icon.Hardware />
               Change Identifier
             </PMenu.Item>
           )}
         </>
       )}
       <PMenu.Divider />
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       {customMenuItems != null && (

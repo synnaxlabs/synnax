@@ -117,7 +117,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             }
             tooltipLocation="bottom"
             loading={isPending}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
           >
             Register
           </Button.Button>

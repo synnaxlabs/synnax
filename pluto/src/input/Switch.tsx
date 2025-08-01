@@ -41,7 +41,11 @@ export const Switch = ({
   if (variant === "preview") disabled = true;
   return (
     <div
-      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
+      className={CSS(
+        CSS.BE(CLS, "container"),
+        CSS.disabled(disabled),
+        CSS.height(size),
+      )}
     >
       <label className={CSS(CSS.BE(CLS, "track"), className)}>
         <input

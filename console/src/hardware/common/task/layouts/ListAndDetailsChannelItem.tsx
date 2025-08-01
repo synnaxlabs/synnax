@@ -70,7 +70,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   return (
     <Select.ListItem
       {...rest}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       style={{ padding: "1.25rem 2rem" }}
     >

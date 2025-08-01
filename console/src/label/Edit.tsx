@@ -79,7 +79,7 @@ const LabelListItem = ({
   });
   return (
     <List.Item
-      ref={ref}
+      ref={ref as any}
       highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),
@@ -87,7 +87,7 @@ const LabelListItem = ({
         PCSS.visible(visible),
       )}
       align="center"
-      justify="spaceBetween"
+      justify="between"
       {...rest}
     >
       <Align.Space x gap="small" align="center">
@@ -122,27 +122,27 @@ const LabelListItem = ({
       </Align.Space>
       {isCreate ? (
         <Align.Pack>
-          <Button.Icon
+          <Button.Button
             variant="filled"
             size="small"
             onClick={() => save()}
-            triggers={visible ? [["Enter"]] : undefined}
+            trigger={visible ? ["Enter"] : undefined}
           >
             <Icon.Check />
-          </Button.Icon>
-          <Button.Icon variant="outlined" size="small" onClick={onClose}>
+          </Button.Button>
+          <Button.Button variant="outlined" size="small" onClick={onClose}>
             <Icon.Close />
-          </Button.Icon>
+          </Button.Button>
         </Align.Pack>
       ) : (
-        <Button.Icon
+        <Button.Button
           className={CSS.BE("label", "delete")}
           variant="outlined"
           size="small"
           onClick={() => handleDelete()}
         >
           <Icon.Delete />
-        </Button.Icon>
+        </Button.Button>
       )}
     </List.Item>
   );
@@ -174,12 +174,13 @@ export const Edit: Layout.Renderer = () => {
         onFetchMore={fetchMore}
         subscribe={subscribe}
       >
-        <Align.Space x justify="spaceBetween" style={{ padding: "2rem" }}>
+        <Align.Space x justify="between" style={{ padding: "2rem" }}>
           <Input.Text
             placeholder={
-              <Text.WithIcon level="p" startIcon={<Icon.Search />}>
+              <Text.Text level="p">
+                <Icon.Search />
                 Search Labels
-              </Text.WithIcon>
+              </Text.Text>
             }
             value={searchTerm}
             onChange={(v) => {
@@ -189,11 +190,11 @@ export const Edit: Layout.Renderer = () => {
           />
           <Button.Button
             variant="filled"
-            startIcon={<Icon.Add />}
             style={{ width: "fit-content" }}
             gap="small"
             onClick={() => setNewFormVisible(true)}
           >
+            <Icon.Add />
             Add Label
           </Button.Button>
         </Align.Space>

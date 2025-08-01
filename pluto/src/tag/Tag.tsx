@@ -41,7 +41,7 @@ export const Tag = ({
   if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
-      <Button.Icon
+      <Button.Button
         aria-label="close"
         size="small"
         className={CSS.BE("tag", "close")}
@@ -53,17 +53,14 @@ export const Tag = ({
         }}
       >
         <Icon.Close />
-      </Button.Icon>
+      </Button.Button>
     );
   return (
-    // @ts-expect-error - TODO: Generic Elements are weird
-    <Text.WithIcon
-      startIcon={icon}
-      endIcon={closeIcon}
+    <Text.Text
       className={CSS(
         className,
         CSS.B("tag"),
-        CSS.size(size),
+        CSS.height(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       level={Text.COMPONENT_SIZE_LEVELS[size]}
@@ -74,6 +71,7 @@ export const Tag = ({
       {...rest}
     >
       {children}
-    </Text.WithIcon>
+      {closeIcon}
+    </Text.Text>
   );
 };

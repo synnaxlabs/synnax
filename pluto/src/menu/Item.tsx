@@ -11,11 +11,9 @@ import "@/menu/Item.css";
 
 import { type FunctionComponent, type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useContext } from "@/menu/Menu";
-import { Text as TriggersText } from "@/triggers/Text";
 import { type Trigger } from "@/triggers/triggers";
 
 export interface MenuItemExtraProps {
@@ -39,8 +37,8 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
 
   return (
     <Button.Button
-      level={level}
       {...rest}
+      level={level}
       noWrap={true}
       onClick={handleClick}
       variant="text"
@@ -48,18 +46,11 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
       shade={shade}
       size={size}
       gap={gap}
-      endIcon={
-        trigger && (
-          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x gap="tiny">
-            <TriggersText level={level} trigger={trigger} />
-          </Align.Space>
-        )
-      }
     />
   );
 };
 
-export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
+export interface ItemIconProps extends Button.ButtonProps, MenuItemExtraProps {}
 
 export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
   const { itemKey, trigger, className, onClick, size, ...rest } = props;
@@ -74,7 +65,7 @@ export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement 
   const _selected = selected === itemKey;
 
   return (
-    <Button.Icon
+    <Button.Button
       {...rest}
       onClick={handleClick}
       variant="text"
@@ -110,13 +101,7 @@ export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement 
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size}
       gap={gap}
-      endIcon={
-        trigger && (
-          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x gap="tiny">
-            <TriggersText level={level} trigger={trigger} />
-          </Align.Space>
-        )
-      }
+      trigger={trigger}
     />
   );
 };

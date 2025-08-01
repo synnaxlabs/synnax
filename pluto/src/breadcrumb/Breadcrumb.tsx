@@ -10,7 +10,7 @@
 import "@/breadcrumb/Breadcrumb.css";
 
 import { array, caseconv, type Optional } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -34,10 +34,10 @@ export type Segments = string | Segment | (string | Segment)[];
  * @template E - The type of the space element.
  * @template L - The text level.
  */
-export type BreadcrumbProps<
-  E extends Align.ElementType = "div",
-  L extends Text.Level = Text.Level,
-> = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
+export type BreadcrumbProps<L extends Text.Level = Text.Level> = Optional<
+  Omit<Text.TextProps<L>, "children">,
+  "level"
+> & {
   /** Icon to display in the breadcrumb. */
   icon?: string | Icon.ReactElement;
   /** The breadcrumb items, either a single string or an array of strings. */
@@ -71,6 +71,7 @@ interface GetContentArgs {
   weight?: Text.Weight;
   separator: string;
   transform?: (segment: Segment, index: number) => Segment;
+  hideFirst?: boolean;
 }
 
 const getContent = ({
@@ -80,13 +81,15 @@ const getContent = ({
   weight,
   separator,
   transform,
-}: GetContentArgs): (ReactElement | string)[] => {
+  hideFirst,
+}: GetContentArgs): ReactNode[] => {
   const normalized = normalizeSegments(segments, separator);
   let content: Segment[] = normalized;
   if (transform != null) content = content.map(transform);
+  if (hideFirst) content.shift();
   return content
     .map(({ label, icon, href, ...overrides }, index) => {
-      const base: ReactElement[] = [
+      const base: ReactNode[] = [
         <Icon.Caret.Right
           key={`${label}-${index}`}
           style={{
@@ -123,10 +126,7 @@ const getContent = ({
  * @param props - The props for the Breadcrumb component.
  * @returns The Breadcrumb component.
  */
-export const Breadcrumb = <
-  E extends Align.ElementType = "div",
-  L extends Text.Level = Text.Level,
->({
+export const Breadcrumb = <L extends Text.Level = Text.Level>({
   children: segments,
   icon,
   shade = 9,
@@ -138,12 +138,11 @@ export const Breadcrumb = <
   className,
   hideFirst = true,
   ...rest
-}: BreadcrumbProps<E, L>): ReactElement => {
+}: BreadcrumbProps<L>): ReactElement => {
   if (url != null) segments = url;
-  const content = getContent({ segments, separator, shade, level, weight });
-  if (hideFirst) content.shift();
+  const content = getContent({ segments, separator, shade, level, weight, hideFirst });
   return (
-    <Text.WithIcon
+    <Text.Text
       className={CSS(className, CSS.B("breadcrumb"), hideFirst && CSS.M("hide-first"))}
       level={level}
       shade={shade}
@@ -154,7 +153,7 @@ export const Breadcrumb = <
     >
       {Icon.resolve(icon)}
       {...content}
-    </Text.WithIcon>
+    </Text.Text>
   );
 };
 

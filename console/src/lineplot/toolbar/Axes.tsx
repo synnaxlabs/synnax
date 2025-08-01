@@ -69,12 +69,12 @@ export interface LinePlotAxisControlsProps {
   layoutKey: string;
 }
 
-export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children"> {
+export interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
   enabled: boolean;
 }
 
 const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
-  <Button.Icon
+  <Button.Button
     {...rest}
     variant="outlined"
     disabled={enabled}
@@ -83,7 +83,7 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
     }
   >
     <Icon.Auto />
-  </Button.Icon>
+  </Button.Button>
 );
 
 export const LinePlotAxisControls = ({

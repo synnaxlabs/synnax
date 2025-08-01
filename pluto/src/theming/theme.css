@@ -115,24 +115,24 @@ html {
     border-top: var(--pluto-border);
 }
 
-.pluto--huge {
-    min-height: var(--pluto-height-huge);
+.pluto-height--huge {
+    height: var(--pluto-height-huge);
 }
 
-.pluto--large {
-    min-height: var(--pluto-height-large);
+.pluto-height--large {
+    height: var(--pluto-height-large);
 }
 
-.pluto--medium {
-    min-height: var(--pluto-height-medium);
+.pluto-height--medium {
+    height: var(--pluto-height-medium);
 }
 
-.pluto--tiny {
-    min-height: var(--pluto-height-tiny);
+.pluto-height--tiny {
+    height: var(--pluto-height-tiny);
 }
 
-.pluto--small {
-    min-height: var(--pluto-height-small);
+.pluto-height--small {
+    height: var(--pluto-height-small);
 }
 
 .pluto--no-select {

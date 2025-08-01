@@ -9,11 +9,11 @@ if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    <Button.Icon variant="outlined" size="medium">
+    <Button.Button variant="outlined" size="medium">
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
         </Fragment>
-    </Button.Icon>
+    </Button.Button>
     <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 

@@ -41,6 +41,7 @@ const Content = (): ReactElement => {
                 key: "create",
                 children: <Icon.Add />,
                 onClick: () => placeLayout(CREATE_LAYOUT),
+                variant: "text",
               },
             ]}
           </Toolbar.Actions>

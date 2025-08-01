@@ -211,7 +211,7 @@ const MultiElementProperties = ({
       </Input.Item>
       <Input.Item label="Align">
         <Align.Space x>
-          <Button.Icon
+          <Button.Button
             tooltip="Align nodes vertically"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "x");
@@ -226,8 +226,8 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.YCenter />
-          </Button.Icon>
-          <Button.Icon
+          </Button.Button>
+          <Button.Button
             tooltip="Align nodes horizontally"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "y");
@@ -242,7 +242,7 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.XCenter />
-          </Button.Icon>
+          </Button.Button>
         </Align.Space>
       </Input.Item>
     </Align.Space>

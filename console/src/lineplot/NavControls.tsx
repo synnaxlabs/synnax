@@ -67,7 +67,7 @@ export const NavControls = (): ReactElement => {
         onChange={handleModeChange}
         triggers={triggers}
       />
-      <Button.Icon
+      <Button.Button
         onClick={handleZoomReset}
         variant="outlined"
         tooltipLocation={TOOLTIP_LOCATION}
@@ -85,8 +85,8 @@ export const NavControls = (): ReactElement => {
         size="small"
       >
         <Icon.Expand />
-      </Button.Icon>
-      <Button.ToggleIcon
+      </Button.Button>
+      <Button.Toggle
         value={control.enableTooltip}
         onChange={handleTooltipChange}
         checkedVariant="filled"
@@ -100,8 +100,8 @@ export const NavControls = (): ReactElement => {
         tooltipLocation={TOOLTIP_LOCATION}
       >
         <Icon.Tooltip />
-      </Button.ToggleIcon>
-      <Button.ToggleIcon
+      </Button.Toggle>
+      <Button.Toggle
         value={control.clickMode != null}
         tooltip={
           <Align.Space x align="center">
@@ -114,8 +114,8 @@ export const NavControls = (): ReactElement => {
         size="small"
       >
         <Icon.Rule />
-      </Button.ToggleIcon>
-      <Button.ToggleIcon
+      </Button.Toggle>
+      <Button.Toggle
         className={CSS.BE("control", "pause")}
         value={control.hold}
         onChange={handleHoldChange}
@@ -132,7 +132,7 @@ export const NavControls = (): ReactElement => {
         }
       >
         {control.hold ? <Icon.Play /> : <Icon.Pause />}
-      </Button.ToggleIcon>
+      </Button.Toggle>
     </Align.Space>
   );
 };

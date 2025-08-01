@@ -113,14 +113,10 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
           <Align.Space y gap="large">
             <Align.Space x align="center" gap={8}>
               <Align.Space y>
-                <Text.WithIcon
-                  startIcon={<Icon.Access />}
-                  level="h4"
-                  shade={10}
-                  weight={450}
-                >
+                <Text.Text level="h4" shade={10} weight={450}>
+                  <Icon.Access />
                   Admin
-                </Text.WithIcon>
+                </Text.Text>
                 <Text.Text level="p" shade={11}>
                   Allows the user to manage other users, including registering users and
                   setting permissions for those users.
@@ -130,14 +126,10 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
             </Align.Space>
             <Divider.Divider x />
             <Align.Space y>
-              <Text.WithIcon
-                startIcon={<Icon.Schematic />}
-                level="h4"
-                shade={10}
-                weight={450}
-              >
+              <Text.Text level="h4" shade={10} weight={450}>
+                <Icon.Schematic />
                 Schematics
-              </Text.WithIcon>
+              </Text.Text>
               <Align.Space x gap={8} align="center" style={{ marginLeft: "2rem" }}>
                 <Align.Space y>
                   <Text.Text level="h5" shade={10}>

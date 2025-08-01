@@ -71,7 +71,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
     <Align.Space
       className={CSS.B("task-controls")}
       x
-      justify="spaceBetween"
+      justify="between"
       empty
       bordered
       {...props}
@@ -96,12 +96,12 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
                 </Align.Space>
               ) : undefined
             }
-            triggers={hasTriggers ? [CONFIGURE_TRIGGER] : undefined}
+            trigger={hasTriggers ? CONFIGURE_TRIGGER : undefined}
             variant="outlined"
           >
             Configure
           </Button.Button>
-          <Button.Icon
+          <Button.Button
             disabled={!canStartOrStop}
             loading={isLoading}
             onClick={handleStartStop}
@@ -109,7 +109,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
             variant="filled"
           >
             {running ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
+          </Button.Button>
         </Align.Space>
       )}
     </Align.Space>

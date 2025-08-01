@@ -54,7 +54,7 @@ const NoCluster = (): ReactElement => {
   );
 
   const handleDocs = useCallback<NonNullable<Text.LinkProps["onClick"]>>(
-    (e) => {
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
       e.stopPropagation();
       placeLayout(Docs.LAYOUT);
     },
@@ -66,20 +66,12 @@ const NoCluster = (): ReactElement => {
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
       <Align.Space x gap="large" justify="center" wrap>
-        <Button.Button
-          startIcon={<Icon.Cluster />}
-          onClick={handleCluster}
-          size="large"
-          variant="filled"
-        >
+        <Button.Button onClick={handleCluster} size="large" variant="filled">
+          <Icon.Cluster />
           Connect a Cluster
         </Button.Button>
-        <Button.Button
-          startIcon={<Icon.Visualize />}
-          onClick={handleVisualize}
-          size="large"
-          variant="filled"
-        >
+        <Button.Button onClick={handleVisualize} size="large" variant="filled">
+          <Icon.Visualize />
           Create a Visualization
         </Button.Button>
       </Align.Space>
@@ -108,11 +100,8 @@ const Overview = (): ReactElement => {
         <Align.Space x style={{ width: "100%" }} justify="center" gap={30} wrap>
           <Align.Space y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
-            <Button.Button
-              startIcon={<Icon.Add />}
-              onClick={handleWorkspace}
-              style={{ width: "fit-content" }}
-            >
+            <Button.Button onClick={handleWorkspace} style={{ width: "fit-content" }}>
+              <Icon.Add />
               Create a Workspace
             </Button.Button>
           </Align.Space>

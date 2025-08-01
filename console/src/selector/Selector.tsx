@@ -64,9 +64,9 @@ export const Selector = ({
                   if (layout != null) place(layout);
                 }, `Failed to create ${title}`)
               }
-              startIcon={icon}
               style={{ flexBasis: "185px" }}
             >
+              {icon}
               {title}
             </Button.Button>
           ))}

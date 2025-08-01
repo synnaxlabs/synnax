@@ -13,25 +13,35 @@ import "@/main.css";
 import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
+import { Align } from "@/align";
+import { Button } from "@/button";
+import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { Pluto } from "@/pluto";
-import { Ranger } from "@/ranger";
+import { Text } from "@/text";
 
-const SelectSingleRanger = (): ReactElement => {
-  const [value, setValue] = useState<string[]>([]);
-  return <Ranger.SelectMultiple value={value} onChange={setValue} />;
+const Main = (): ReactElement => {
+  const [value, setValue] = useState("");
+  return (
+    <Pluto.Provider>
+      <Align.Center x>
+        <Input.Text
+          value={value}
+          onChange={setValue}
+          placeholder={
+            <>
+              <Icon.Search />
+              Search
+            </>
+          }
+        >
+          <Button.Button variant="outlined">
+            <Icon.Search />
+          </Button.Button>
+        </Input.Text>
+      </Align.Center>
+    </Pluto.Provider>
+  );
 };
-
-const Main = (): ReactElement => (
-  <Pluto.Provider
-    connParams={{
-      host: "localhost",
-      port: 9090,
-      username: "synnax",
-      password: "seldon",
-    }}
-  >
-    <SelectSingleRanger />
-  </Pluto.Provider>
-);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

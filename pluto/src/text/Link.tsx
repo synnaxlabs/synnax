@@ -11,18 +11,19 @@ import "@/text/Link.css";
 
 import { type ReactElement } from "react";
 
+import { type Align } from "@/align";
 import { CSS } from "@/css";
-import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
 
-export type LinkProps<L extends text.Level = "h1"> = TextProps<L> & {
-  href?: string;
-  download?: string;
-  target?: string;
-  rel?: string;
-};
+export type LinkProps<E extends Align.ElementType = Align.ElementType> =
+  TextProps<E> & {
+    href?: string;
+    download?: string;
+    target?: string;
+    rel?: string;
+  };
 
-export const Link = <L extends text.Level = "h1">({
+export const Link = <E extends Align.ElementType = Align.ElementType>({
   ref,
   href,
   download,
@@ -30,9 +31,9 @@ export const Link = <L extends text.Level = "h1">({
   rel,
   className,
   ...rest
-}: LinkProps<L>): ReactElement => (
+}: LinkProps<E>): ReactElement => (
   // @ts-expect-error - generic component errors
-  <Text<L>
+  <Text<E>
     el="a"
     ref={ref}
     href={href}

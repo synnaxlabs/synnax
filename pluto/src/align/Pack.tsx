@@ -81,7 +81,7 @@ export const Pack = <E extends ElementType = "div">({
         CSS.B("pack"),
         shadow && CSS.BM("pack", "shadow"),
         CSS.dir(direction),
-        typeof size !== "number" && CSS.BM("pack", size),
+        typeof size !== "number" && CSS.height(size),
         reverse && CSS.BM("pack", "reverse"),
         className,
       )}

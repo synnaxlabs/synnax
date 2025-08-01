@@ -47,16 +47,18 @@ export const InputFilePath = ({
         shade={0}
         grow
         onClick={handleClick}
-        startIcon={
-          path == null ? undefined : (
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
-          )
-        }
         size="medium"
         textShade={8}
         weight={450}
       >
-        {path == null ? "No file selected" : path}
+        {path == null ? (
+          "No file selected"
+        ) : (
+          <>
+            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
+            {path}
+          </>
+        )}
       </Button.Button>
       <Button.Button
         variant="outlined"

@@ -131,12 +131,12 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
               </Breadcrumb.Breadcrumb>
             </PNav.Bar.Start>
             <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-              <Button.Icon onClick={handleOpenInNewWindow} size="small">
+              <Button.Button onClick={handleOpenInNewWindow} size="small">
                 <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
-              <Button.Icon onClick={handleClose} size="small">
+              </Button.Button>
+              <Button.Button onClick={handleClose} size="small">
                 <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
+              </Button.Button>
             </PNav.Bar.End>
           </>
         )}
@@ -328,18 +328,13 @@ const NavTop = (): ReactElement | null => {
       className={CSS.BE("mosaic", "controls-button")}
       onClick={() => onSelect("visualization")}
       justify="center"
-      x
       size="small"
       shade={2}
       textShade={9}
       weight={450}
-      startIcon={<Icon.Visualize />}
-      endIcon={
-        <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
-          <Triggers.Text level="small" shade={9} weight={450} trigger={["V"]} />
-        </Align.Space>
-      }
+      trigger={["V"]}
     >
+      <Icon.Visualize />
       Controls
     </Button.Button>
   );

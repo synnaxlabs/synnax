@@ -908,7 +908,7 @@ export const TextBoxForm = (): ReactElement => {
                 dragScale={5}
                 endContent="px"
               >
-                <Button.Icon
+                <Button.Button
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
                   variant="outlined"
@@ -919,7 +919,7 @@ export const TextBoxForm = (): ReactElement => {
                   }
                 >
                   <Icon.AutoFitWidth />
-                </Button.Icon>
+                </Button.Button>
               </Input.Numeric>
             )}
           </Form.Field>

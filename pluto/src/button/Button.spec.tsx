@@ -24,9 +24,9 @@ describe("Button", () => {
   describe("Icon", () => {
     it("should render a button with the provided icon", () => {
       const c = render(
-        <Button.Icon size="small">
+        <Button.Button size="small">
           <svg aria-label="icon" />
-        </Button.Icon>,
+        </Button.Button>,
       );
       expect(c.getByLabelText("icon")).toBeTruthy();
     });

@@ -33,7 +33,13 @@ const Content = (): ReactElement => {
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
           <Toolbar.Actions>
-            {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
+            {[
+              {
+                children: <Icon.Add />,
+                onClick: () => placeLayout(CREATE_LAYOUT),
+                variant: "text",
+              },
+            ]}
           </Toolbar.Actions>
         </Toolbar.Header>
         <Ontology.Tree root={group.data?.ontologyID} />

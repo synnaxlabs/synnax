@@ -90,13 +90,13 @@ export const Selector = (): ReactElement => {
         allowNone
       >
         <Dialog.Trigger
-          startIcon={<Icon.Workspace key="workspace" />}
           variant="text"
           size="medium"
           className={CSS.B("trigger")}
           shade={2}
           weight={400}
         >
+          <Icon.Workspace key="workspace" />
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
         <Dialog.Dialog style={{ minHeight: 200, minWidth: 400 }}>
@@ -104,9 +104,10 @@ export const Selector = (): ReactElement => {
             <Input.Text
               size="large"
               placeholder={
-                <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                <Text.Text level="p">
+                  <Icon.Search key="search" />
                   Search Workspaces
-                </Text.WithIcon>
+                </Text.Text>
               }
               shade={0}
               value={search}
@@ -116,7 +117,6 @@ export const Selector = (): ReactElement => {
               }}
             >
               <Button.Button
-                startIcon={<Icon.Close />}
                 size="large"
                 variant="outlined"
                 onClick={() => {
@@ -126,11 +126,11 @@ export const Selector = (): ReactElement => {
                 gap="small"
                 tooltip="Switch to no workspace"
               >
+                <Icon.Close />
                 Clear
               </Button.Button>
               <Button.Button
                 size="large"
-                startIcon={<Icon.Add />}
                 variant="outlined"
                 onClick={() => {
                   setDialogVisible(false);
@@ -140,6 +140,7 @@ export const Selector = (): ReactElement => {
                 tooltip="Create a new workspace"
                 tooltipLocation={{ y: "bottom" }}
               >
+                <Icon.Add />
                 New
               </Button.Button>
             </Input.Text>

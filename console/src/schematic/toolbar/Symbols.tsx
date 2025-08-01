@@ -113,7 +113,7 @@ const ListItem = ({
   return (
     <Align.Space
       className={CSS(CSS.BE("schematic-symbols", "button"))}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       gap="tiny"
       draggable

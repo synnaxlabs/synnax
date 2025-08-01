@@ -60,9 +60,9 @@ const Button = ({
   disabled = false,
   className,
   ...rest
-}: CoreButton.IconProps): ReactElement | null =>
+}: CoreButton.ButtonProps): ReactElement | null =>
   !disabled ? (
-    <CoreButton.Icon
+    <CoreButton.Button
       className={CSS(CSS.B("windows-control"), className)}
       tabIndex={-1}
       {...rest}

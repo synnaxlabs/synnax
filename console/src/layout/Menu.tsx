@@ -29,10 +29,10 @@ const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   return (
     <Menu.Item
       itemKey="focus"
-      startIcon={<Icon.Focus />}
       onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
       trigger={["Control", "L"]}
     >
+      <Icon.Focus />
       Focus
     </Menu.Item>
   );
@@ -54,10 +54,10 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
   return (
     <Menu.Item
       itemKey="openInNewWindow"
-      startIcon={<Icon.OpenInNewWindow />}
       onClick={() => openInNewWindow(layoutKey)}
       trigger={["Control", "O"]}
     >
+      <Icon.OpenInNewWindow />
       Open in New Window
     </Menu.Item>
   );
@@ -72,9 +72,9 @@ const MoveToMainWindowMenuItem = ({
   return (
     <Menu.Item
       itemKey="moveIntoMainWindow"
-      startIcon={<Icon.OpenInNewWindow />}
       onClick={() => moveIntoMainWindow(layoutKey)}
     >
+      <Icon.OpenInNewWindow />
       Move to Main Window
     </Menu.Item>
   );
@@ -85,10 +85,10 @@ const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   return (
     <Menu.Item
       itemKey="close"
-      startIcon={<Icon.Close />}
       onClick={() => remove(layoutKey)}
       trigger={["Control", "W"]}
     >
+      <Icon.Close />
       Close
     </Menu.Item>
   );
@@ -97,10 +97,10 @@ const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
 const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
   <Menu.Item
     itemKey="rename"
-    startIcon={<Icon.Rename />}
     onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
     trigger={["Control", "E"]}
   >
+    <Icon.Rename />
     Rename
   </Menu.Item>
 );
@@ -123,11 +123,11 @@ const splitMenuItemFactory = (
         {children}
         <Menu.Item
           itemKey={`split${direction}`}
-          startIcon={direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
           onClick={() =>
             dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
           }
         >
+          {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
           Split {direction === "x" ? "Horizontally" : "Vertically"}
         </Menu.Item>
       </>

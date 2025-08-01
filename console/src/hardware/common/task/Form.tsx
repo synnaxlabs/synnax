@@ -260,7 +260,7 @@ export const wrapForm = <
             {...methods}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            <Align.Space x justify="spaceBetween">
+            <Align.Space x justify="between">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>

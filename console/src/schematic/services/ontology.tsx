@@ -142,7 +142,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {resources.every((r) => r.data?.snapshot === false) && (
         <>
           <Range.SnapshotMenuItem range={activeRange} />
-          <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+          <PMenu.Item itemKey="copy">
+            <Icon.Copy />
             Copy
           </PMenu.Item>
           <PMenu.Divider />

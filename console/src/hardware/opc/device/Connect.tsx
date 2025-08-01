@@ -164,7 +164,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             )}
           </Form.Field>
           <Divider.Divider x padded="bottom" />
-          <Align.Space x justify="spaceBetween">
+          <Align.Space x justify="between">
             <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
@@ -228,7 +228,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
             loading={testConnectionMutation.isPending}
             disabled={isPending}
             onClick={() => testConnectionMutation.mutate()}

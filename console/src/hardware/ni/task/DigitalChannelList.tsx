@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
 interface ListItemProps<C extends DigitalChannel>
-  extends Common.Task.ChannelListItemProps {
+  extends Omit<Common.Task.ChannelListItemProps, "name"> {
   name: RenderProp<C>;
 }
 
@@ -33,11 +33,10 @@ const ListItem = <C extends DigitalChannel>({
     <Select.ListItem
       {...rest}
       align="center"
-      x
-      justify="spaceBetween"
+      justify="between"
       style={{ width: "100%" }}
     >
-      <Align.Space align="center" x justify="spaceEvenly">
+      <Align.Space align="center" x justify="evenly">
         <Align.Pack
           align="center"
           className="port-line-input"
@@ -71,7 +70,7 @@ const ListItem = <C extends DigitalChannel>({
           Port/Line
         </Text.Text>
       </Align.Space>
-      <Align.Space x align="center" justify="spaceEvenly">
+      <Align.Space x align="center" justify="evenly">
         {name(channel)}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}

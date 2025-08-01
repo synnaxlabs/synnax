@@ -57,9 +57,9 @@ export const Modal = ({ state, remove }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              <Button.Icon onClick={() => remove(key)} size="small">
+              <Button.Button onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
+              </Button.Button>
             </Nav.Bar.End>
           </Nav.Bar>
         )}

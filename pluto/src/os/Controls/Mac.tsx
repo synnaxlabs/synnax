@@ -119,7 +119,7 @@ export const MacOS = ({
   </Align.Space>
 );
 
-interface TrafficLightProps extends Button.IconProps {}
+interface TrafficLightProps extends Button.ButtonProps {}
 
 const TrafficLight = ({
   className,

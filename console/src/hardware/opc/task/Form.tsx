@@ -57,19 +57,19 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <Select.ListItem {...rest} justify="spaceBetween" align="center" rightAligned>
+    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Align.Space direction="y" gap="small">
         <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
-        <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
+        <Text.Text
           level="small"
           weight={350}
           shade={9}
           color={opcNodeColor}
           gap="small"
         >
+          <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
-        </Text.WithIcon>
+        </Text.Text>
       </Align.Space>
       <Align.Space direction="x" align="center">
         {children({ path, snapshot: isSnapshot })}

@@ -97,9 +97,9 @@ const List = ({
   const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
     <Align.Space x empty style={{ width: "20%" }} align="start">
-      <Button.Icon tooltip="Add Rule" onClick={onCreate}>
+      <Button.Button tooltip="Add Rule" onClick={onCreate}>
         <Icon.Add />
-      </Button.Icon>
+      </Button.Button>
       <Divider.Divider y />
       <Select.Frame<string, RuleState>
         multiple
@@ -115,7 +115,8 @@ const List = ({
               onChange={{ remove: () => onRemoveAnnotations(keys) }}
               level="small"
             >
-              <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
+              <PMenu.Item itemKey="remove" size="small">
+                <Icon.Delete />
                 Delete
               </PMenu.Item>
               <Divider.Divider x />

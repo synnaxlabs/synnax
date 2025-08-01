@@ -22,9 +22,10 @@ const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
   const make = getMake(status.details?.make);
   const startIcon = getIcon(make);
   sugared.content = (
-    <Text.WithIcon level="p" startIcon={startIcon}>
+    <Text.Text level="p">
+      {startIcon}
       {status.message}
-    </Text.WithIcon>
+    </Text.Text>
   );
   if (make)
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;

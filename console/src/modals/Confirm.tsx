@@ -60,7 +60,7 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
             variant="filled"
             status={confirmVariant}
             onClick={() => onFinish(true)}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
             onClickDelay={confirmDelay}
           >
             {confirmLabel}

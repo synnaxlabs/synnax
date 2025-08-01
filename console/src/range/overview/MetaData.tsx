@@ -43,9 +43,9 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
       placeholder="Value"
       color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
+      <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
-      </Button.Icon>
+      </Button.Button>
       {isLink && (
         <Button.Link
           variant="outlined"
@@ -92,14 +92,14 @@ const MetaDataListItem = (props: List.ItemProps<string>) => {
             value={value}
             onChange={(value) => update.update({ ...pair, value })}
           />
-          <Button.Icon
+          <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
             variant="text"
             onClick={() => {}}
           >
             <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
-          </Button.Icon>
+          </Button.Button>
         </>
       )}
     </List.Item>

@@ -75,9 +75,10 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
     <Tree.Item {...props} hasChildren draggable onDragStart={handleDragStart}>
-      <Text.WithIcon level="p" shade={10} gap="small" startIcon={icon}>
+      <Text.Text level="p" shade={10} gap="small">
+        {icon}
         {node.name}
-      </Text.WithIcon>
+      </Text.Text>
     </Tree.Item>
   );
 });
@@ -187,14 +188,14 @@ export const Browser = ({ device }: BrowserProps) => {
           Browser
         </Header.Title>
         <Header.Actions>
-          <Button.Icon
+          <Button.Button
             onClick={refresh}
             disabled={scanTask == null || initialLoading}
             sharp
             shade={2}
           >
             <Icon.Refresh />
-          </Button.Icon>
+          </Button.Button>
         </Header.Actions>
       </Header.Header>
       {content}

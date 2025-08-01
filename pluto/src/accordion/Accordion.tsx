@@ -35,7 +35,7 @@ export interface Entry {
    * A list of actions to display in the entry's header. See the {@link Header.Actions}
    * component for more details.
    */
-  actions?: Array<Button.IconProps | ReactElement>;
+  actions?: Array<Button.ButtonProps | ReactElement>;
 }
 
 /** The props for the {@link Accordion} component. */
@@ -135,7 +135,8 @@ const EntryC = ({
   return (
     <>
       <Header.Header level="p" className={CSS.expanded(expanded)} empty>
-        <Header.ButtonTitle startIcon={icon} onClick={() => onExpand(index)}>
+        <Header.ButtonTitle onClick={() => onExpand(index)}>
+          {icon}
           {name}
         </Header.ButtonTitle>
         {actions != null && <Header.Actions>{actions}</Header.Actions>}

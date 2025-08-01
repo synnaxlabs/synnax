@@ -44,9 +44,10 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
         {name}
       </Text.Text>
       {variant === "dynamic" ? (
-        <Text.WithIcon level="p" shade={11} startIcon={dynamicIcon}>
+        <Text.Text level="p" shade={11}>
+          {dynamicIcon}
           {new TimeSpan(range.span).toString()}
-        </Text.WithIcon>
+        </Text.Text>
       ) : (
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       )}

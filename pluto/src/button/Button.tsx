@@ -10,15 +10,16 @@
 import "@/button/Button.css";
 
 import { color, type status } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import {
+  Children,
   type ComponentPropsWithRef,
   type ReactElement,
   useCallback,
   useRef,
 } from "react";
 
+import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -42,22 +43,17 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   size?: Component.Size;
   sharp?: boolean;
   loading?: boolean;
-  triggers?: Triggers.Trigger | Triggers.Trigger[];
+  trigger?: Triggers.Trigger;
   status?: status.Variant;
   color?: color.Crude;
   textShade?: Text.Shade;
 }
 
 /** The props for the {@link Button} component. */
-export type ButtonProps = Omit<
-  Text.WithIconProps<"button">,
-  "size" | "startIcon" | "endIcon" | "level"
-> &
+export type ButtonProps = Omit<Text.TextProps<"button">, "size" | "endIcon" | "level"> &
   Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: Icon.ReactElement | Icon.ReactElement[];
-    endIcon?: Icon.ReactElement | Icon.ReactElement[];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
   };
@@ -90,14 +86,12 @@ export const Button = Tooltip.wrap(
     variant = "outlined",
     type = "button",
     className,
-    children,
     gap,
     sharp = false,
     disabled = false,
     loading = false,
     level,
-    triggers,
-    startIcon = [],
+    trigger: triggers,
     onClickDelay = 0,
     onClick,
     color: colorVal,
@@ -107,14 +101,15 @@ export const Button = Tooltip.wrap(
     shade = 0,
     textShade,
     tabIndex,
+    children,
+    justify = "center",
+    align = "center",
     ...rest
   }: ButtonProps): ReactElement => {
     if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    if (loading)
-      startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
-    gap ??= size === "small" ? "small" : "medium";
+    gap ??= size === "huge" ? "medium" : "small";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
@@ -178,17 +173,20 @@ export const Button = Tooltip.wrap(
     else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
     else size ??= "medium";
 
-    if (disabled) textShade = 6;
+    level ??= Text.ComponentSizeLevels[size];
+
+    const isIconOnly = Children.count(children) === 1 && typeof children !== "string";
 
     return (
-      <Text.WithIcon<"button", any>
+      <Text.Text<"button">
         el="button"
         className={CSS(
           CSS.B("btn"),
-          CSS.M("clickable"),
-          CSS.size(size),
+          isIconOnly && CSS.BM("btn", "icon"),
+          CSS.clickable(shade),
           CSS.sharp(sharp),
-          CSS.shade(shade),
+          CSS.height(size),
+          CSS.level(level),
           variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
           CSS.M(variant),
@@ -197,19 +195,26 @@ export const Button = Tooltip.wrap(
         )}
         tabIndex={tabIndex}
         type={type}
-        level={level ?? Text.COMPONENT_SIZE_LEVELS[size]}
+        level={level}
         gap={gap}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         noWrap
         style={pStyle}
-        startIcon={startIcon}
         color={colorVal}
+        justify={justify}
+        align={align}
         {...rest}
         shade={textShade}
       >
         {children}
-      </Text.WithIcon>
+        {loading && <Icon.Loading />}
+        {triggers && (
+          <Align.Space className={CSS(CSS.BE("menu-item", "trigger"))} x gap="tiny">
+            <Triggers.Text level={level} trigger={triggers} />
+          </Align.Space>
+        )}
+      </Text.Text>
     );
   },
 );

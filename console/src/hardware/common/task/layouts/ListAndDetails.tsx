@@ -94,7 +94,7 @@ export const ListAndDetails = <C extends Channel>({
             Details
           </Header.Title>
           <Header.Actions>
-            <Button.Icon
+            <Button.Button
               disabled={selected.length === 0}
               tooltip="Copy channel details as JSON"
               tooltipLocation="left"
@@ -103,7 +103,7 @@ export const ListAndDetails = <C extends Channel>({
               shade={2}
             >
               <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
-            </Button.Icon>
+            </Button.Button>
           </Header.Actions>
         </Header.Header>
         {selected.length > 0 && (

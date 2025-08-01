@@ -137,9 +137,9 @@ const Internal = <
                   path="identifier"
                 />
                 <Align.Space x>
-                  <Button.Icon disabled size="small" variant="text">
+                  <Button.Button disabled size="small" variant="text">
                     <Icon.Bolt />
-                  </Button.Icon>
+                  </Button.Button>
                   {recommendedIds.map((id) => (
                     <Button.Button
                       key={id}
@@ -167,7 +167,7 @@ const Internal = <
             loading={isPending}
             onClick={() => mutate()}
             variant="filled"
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
             type="submit"
           >
             {triggerAction}

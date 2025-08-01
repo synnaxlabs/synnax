@@ -30,7 +30,7 @@ export interface DragButtonExtraProps {
 
 export interface DragButtonProps
   extends Omit<
-      Button.IconProps,
+      Button.ButtonProps,
       | "direction"
       | "onChange"
       | "onDragStart"
@@ -146,7 +146,7 @@ export const DragButton = ({
   }, [onChange, resetValue]);
 
   return (
-    <Button.Icon
+    <Button.Button
       ref={elRef}
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
@@ -156,6 +156,6 @@ export const DragButton = ({
       {...rest}
     >
       <Icon.Drag />
-    </Button.Icon>
+    </Button.Button>
   );
 };

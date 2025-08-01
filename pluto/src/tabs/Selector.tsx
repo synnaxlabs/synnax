@@ -72,13 +72,13 @@ export const Selector = ({
       <Align.Space
         className={CSS(
           CSS.B(CLS),
-          CSS.size(size),
+          CSS.height(size),
           className,
           menuProps.className,
           draggingOver && CSS.M("drag-over"),
         )}
         align="center"
-        justify="spaceBetween"
+        justify="between"
         empty
         direction={direction}
         onContextMenu={menuProps.open}
@@ -114,9 +114,15 @@ export const Selector = ({
 
         {onCreate != null && (
           <Align.Space className={CSS.BE(CLS, "actions")}>
-            <Button.Icon size={size} sharp onClick={onCreate} tooltip={addTooltip}>
+            <Button.Button
+              size={size}
+              sharp
+              onClick={onCreate}
+              tooltip={addTooltip}
+              variant="text"
+            >
               <Icon.Add />
-            </Button.Icon>
+            </Button.Button>
           </Align.Space>
         )}
       </Align.Space>
@@ -267,13 +273,14 @@ const SelectorButton = ({
         level={Text.COMPONENT_SIZE_LEVELS[size]}
       />
       {closable && onClose != null && (
-        <Button.Icon
+        <Button.Button
           aria-label="pluto-tabs__close"
           onClick={handleClose}
           className={CSS.E("close")}
+          variant="text"
         >
           <CloseIcon unsavedChanges={unsavedChanges} />
-        </Button.Icon>
+        </Button.Button>
       )}
     </Align.Pack>
   );
@@ -291,7 +298,7 @@ export interface SelectorButtonProps extends Spec {
   size: Component.Size;
 }
 
-interface NameProps extends Text.CoreProps<Text.Level> {
+interface NameProps extends Pick<Text.EditableProps, "level"> {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
@@ -303,21 +310,21 @@ const Name = ({
   name,
   tabKey,
   editable = true,
-  ...rest
+  level,
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text noWrap {...rest}>
+      <Text.Text noWrap level={level}>
         {name}
       </Text.Text>
     );
   return (
-    <Text.Editable<Text.Level>
+    <Text.Editable
+      level={level}
       id={CSS.B(`tab-${tabKey}`)}
-      onChange={(newText: string) => onRename(tabKey, newText)}
+      onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
       noWrap
-      {...rest}
     />
   );
 };

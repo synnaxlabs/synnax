@@ -24,10 +24,11 @@ interface ListItemProps {
 }
 
 const ListItem = ({ name, timeRange }: ListItemProps) => (
-  <Align.Space x justify="spaceBetween">
-    <Text.WithIcon startIcon={<Icon.Range />} level="p">
+  <Align.Space x justify="between">
+    <Text.Text level="p">
+      <Icon.Range />
       {name}
-    </Text.WithIcon>
+    </Text.Text>
     {timeRange != null && (
       <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
     )}
@@ -71,7 +72,7 @@ export const ChildRanges = () => (
       <ListItem name="Test 1" />
       <Align.Space
         y
-        justify="spaceBetween"
+        justify="between"
         style={{
           marginLeft: "1rem",
           marginTop: "1rem",

@@ -52,7 +52,7 @@ export const Notification = ({
       ref={ref}
       {...rest}
     >
-      <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
+      <Align.Space x justify="between" grow style={{ width: "100%" }}>
         <Align.Space x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
           <Text.Text level="small" shade={11}>
@@ -66,14 +66,14 @@ export const Notification = ({
             {time}
           </Text.DateTime>
         </Align.Space>
-        <Button.Icon
+        <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}
           variant="outlined"
           size="small"
           onClick={() => silence(key)}
         >
           <Icon.Close />
-        </Button.Icon>
+        </Button.Button>
       </Align.Space>
       <Align.Space
         y

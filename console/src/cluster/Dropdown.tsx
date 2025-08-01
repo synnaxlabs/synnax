@@ -61,13 +61,12 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
   return (
     <CoreList.Item
       className={CSS(CSS.B("cluster-list-item"))}
-      x
       align="center"
       selected={selected}
       onSelect={onSelect}
       {...rest}
     >
-      <Align.Space y justify="spaceBetween" gap="tiny" grow>
+      <Align.Space y justify="between" gap="tiny" grow>
         <Text.MaybeEditable
           level="p"
           id={`cluster-dropdown-${item.key}`}
@@ -193,21 +192,20 @@ export const Dropdown = (): ReactElement => {
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
           {key === active?.key ? (
-            <PMenu.Item
-              startIcon={<Icon.Disconnect />}
-              size="small"
-              itemKey="disconnect"
-            >
+            <PMenu.Item size="small" itemKey="disconnect">
+              <Icon.Disconnect />
               Disconnect
             </PMenu.Item>
           ) : (
-            <PMenu.Item startIcon={<Icon.Connect />} size="small" itemKey="connect">
+            <PMenu.Item size="small" itemKey="connect">
+              <Icon.Connect />
               Connect
             </PMenu.Item>
           )}
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+          <PMenu.Item size="small" itemKey="remove">
+            <Icon.Delete />
             Remove
           </PMenu.Item>
           <Link.CopyMenuItem />
@@ -230,12 +228,12 @@ export const Dropdown = (): ReactElement => {
       >
         <Align.Pack>
           <Dialog.Trigger
-            startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
             justify="center"
             shade={2}
             variant={disconnected ? "filled" : "outlined"}
             hideCaret
           >
+            {disconnected ? <Icon.Connect /> : <Icon.Cluster />}
             {cluster?.name ?? "Connect Cluster"}
           </Dialog.Trigger>
           <ConnectionBadge />
@@ -244,7 +242,8 @@ export const Dropdown = (): ReactElement => {
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
           <Align.Pack x>
             <Header.Header grow bordered borderShade={6} gap="small" x>
-              <Header.Title level="h5" startIcon={<Icon.Cluster />}>
+              <Header.Title level="h5">
+                <Icon.Cluster />
                 Clusters
               </Header.Title>
             </Header.Header>
@@ -252,13 +251,13 @@ export const Dropdown = (): ReactElement => {
               variant="filled"
               size="large"
               gap="small"
-              startIcon={<Icon.Connect />}
               onClick={() => {
                 placeLayout(CONNECT_LAYOUT);
                 setDialogVisible(false);
               }}
               className={CSS.B("cluster-list-add")}
             >
+              <Icon.Connect />
               Connect
             </Button.Button>
           </Align.Pack>

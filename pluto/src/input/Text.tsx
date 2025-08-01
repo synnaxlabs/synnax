@@ -56,13 +56,12 @@ export const Text = ({
   placeholder,
   variant = "outlined",
   sharp = false,
-  children,
   level,
   onBlur,
   disabled,
   resetOnBlurIfEmpty = false,
   status,
-  shade = 1,
+  shade,
   weight,
   style,
   outlineColor,
@@ -71,6 +70,7 @@ export const Text = ({
   endContent,
   borderWidth,
   borderShade = 4,
+  children,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
@@ -92,7 +92,7 @@ export const Text = ({
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
-    if (onlyChangeOnBlur && value.length > 0) setTempValue(value);
+    if (onlyChangeOnBlur) setTempValue(value);
     onFocus?.(e);
     cachedFocusRef.current = e.target.value;
   };
@@ -137,7 +137,7 @@ export const Text = ({
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
-        level == null && CSS.size(size),
+        size == null && CSS.height(size),
         CSS.M(variant),
         CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
@@ -147,30 +147,26 @@ export const Text = ({
       borderShade={borderShade}
       borderWidth={borderWidth}
       align="center"
-      gap={size}
+      size={size}
     >
       <div
         className={CSS(
           CSS.BE("input", "internal"),
-          CSS.BM("text", level ?? CoreText.COMPONENT_SIZE_LEVELS[size]),
-          CSS.size(size),
-          CSS.M("clickable"),
+          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
           CSS.M("outlined"),
-          shade != null && CSS.shade(shade),
+          CSS.clickable(shade),
         )}
       >
         {showPlaceholder && (
-          <div
+          <CoreText.Text
             className={CSS(
               CSS.BE("input", "placeholder"),
               centerPlaceholder && CSS.M("centered"),
             )}
+            level={level ?? CoreText.ComponentSizeLevels[size]}
           >
-            {CoreText.formatChildren(
-              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
-              placeholder,
-            )}
-          </div>
+            {placeholder}
+          </CoreText.Text>
         )}
         <input
           ref={combinedRef}
@@ -190,12 +186,12 @@ export const Text = ({
           {...rest}
         />
         {endContent != null && (
-          <div className={CSS.BE("input", "end-content")}>
-            {CoreText.formatChildren(
-              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
-              endContent,
-            )}
-          </div>
+          <CoreText.Text
+            className={CSS.BE("input", "end-content")}
+            level={level ?? CoreText.ComponentSizeLevels[size]}
+          >
+            {endContent}
+          </CoreText.Text>
         )}
       </div>
       {children}

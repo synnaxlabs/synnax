@@ -89,7 +89,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             disabled={isPending || client == null}
             tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
             onClick={() => mutate()}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
           >
             Create
           </Button.Button>

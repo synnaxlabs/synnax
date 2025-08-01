@@ -126,7 +126,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       {singleResource && (
         <>
-          <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
             {`${resources[0].data?.snapshot ? "View" : "Edit"} Configuration`}
           </PMenu.Item>
           <Menu.RenameItem />
@@ -134,7 +135,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       <PMenu.Divider />

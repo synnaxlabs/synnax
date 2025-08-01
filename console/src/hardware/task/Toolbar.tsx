@@ -237,7 +237,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleClick = useCallback<NonNullable<Button.IconProps["onClick"]>>(
+  const handleClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
       const command = isRunning ? "stop" : "start";
@@ -246,20 +246,15 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <Select.ListItem {...rest} justify="spaceBetween" align="center">
+    <Select.ListItem {...rest} justify="between" align="center">
       <Align.Space y gap="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" gap="small">
           <Status.Indicator
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.WithIcon
-            className={CSS.BE("task", "title")}
-            level="p"
-            startIcon={icon}
-            weight={500}
-            noWrap
-          >
+          <Text.Text className={CSS.BE("task", "title")} level="p" weight={500} noWrap>
+            {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               level="p"
@@ -267,20 +262,20 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
               onChange={onRename}
               allowDoubleClick={false}
             />
-          </Text.WithIcon>
+          </Text.Text>
         </Align.Space>
         <Text.Text level="small" shade={10}>
           {parseType(task?.type ?? "")}
         </Text.Text>
       </Align.Space>
-      <Button.Icon
+      <Button.Button
         variant="outlined"
         loading={isLoading}
         onClick={handleClick}
         tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Icon>
+      </Button.Button>
     </Select.ListItem>
   );
 };
@@ -374,19 +369,22 @@ const ContextMenu = ({
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
       {canStart && (
-        <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
+        <PMenu.Item itemKey="start">
+          <Icon.Play />
           Start
         </PMenu.Item>
       )}
       {canStop && (
-        <PMenu.Item startIcon={<Icon.Pause />} itemKey="stop">
+        <PMenu.Item itemKey="stop">
+          <Icon.Pause />
           Stop
         </PMenu.Item>
       )}
       {(canStart || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
             Edit Configuration
           </PMenu.Item>
           <PMenu.Divider />
@@ -403,7 +401,8 @@ const ContextMenu = ({
       )}
       {someSelected && (
         <>
-          <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
             Delete
           </PMenu.Item>
           <PMenu.Divider />

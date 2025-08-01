@@ -13,15 +13,17 @@ import { type Component } from "@/component";
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type Shade } from "@/text/external";
+import { type text } from "@/text/core";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
   expanded: (expanded: boolean) => string;
+  level: (level: text.Level) => string;
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  size: (size: Component.Size | number) => string | false;
+  height: (height: ComponentSize | number) => string | false;
+  clickable: (shade?: text.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
@@ -38,7 +40,7 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: ((value: Shade) => string) & ((value?: Shade) => string | false);
+  shade: ((value: text.Shade) => string) & ((value?: text.Shade) => string | false);
   shadeVar: (value?: number) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
@@ -51,13 +53,15 @@ const newCSS = (prefix: string): CSSType => {
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
   CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));
-  CSS.size = (size) => typeof size === "string" && CSS.M(size);
+  CSS.height = (height) => typeof height === "string" && CSS.BM("height", height);
   CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (loc) => {
     if (typeof loc === "boolean") return loc && CSS.M("bordered");
     return loc != null ? CSS.M(`bordered-${loc.toString()}`) : CSS.M("bordered");
   };
+  CSS.clickable = (shade) =>
+    CSS(CSS.B("clickable"), shade != null && CSS.BM("clickable", `shade-${shade}`));
   CSS.selected = (selected) => selected && CSS.M("selected");
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
@@ -75,6 +79,7 @@ const newCSS = (prefix: string): CSSType => {
     return `var(--${prefix}-gray-l${value})`;
   };
   CSS.levelSizeVar = (value) => `var(--${prefix}-${value}-size)`;
+  CSS.level = (level) => CSS.M(level);
   return CSS;
 };
 
