@@ -176,11 +176,7 @@ export const useForm = <
         config: z.infer<Config>;
       };
       if (config == null) throw new Error("Config is required");
-      const [newConfig, rackKey] = await onConfigure(
-        client,
-        config as z.infer<Config>,
-        name,
-      );
+      const [newConfig, rackKey] = await onConfigure(client, config, name);
       if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
