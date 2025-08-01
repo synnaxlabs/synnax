@@ -13,7 +13,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -25,6 +27,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	label     *label.Service
 }
 
 // Create creates the given effect. If the effect does not have a key,
@@ -49,7 +52,20 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(c.Key)
-	return w.otgWriter.DefineResource(ctx, otgID)
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		return
+	}
+
+	// Create labels if provided
+	if len(c.Labels) > 0 {
+		labelKeys := lo.Map(c.Labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
+		labelWriter := w.label.NewWriter(w.tx)
+		if err = labelWriter.Label(ctx, otgID, labelKeys); err != nil {
+			return
+		}
+	}
+
+	return nil
 }
 
 // Delete deletes the effects with the given keys.

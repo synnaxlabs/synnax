@@ -29,6 +29,8 @@ const Core = ({
   description,
   hideIcon = false,
   className,
+  message,
+  children,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
@@ -40,7 +42,9 @@ const Core = ({
       level={level}
       startIcon={icon}
       {...rest}
-    />
+    >
+      {children ?? message}
+    </BaseText.WithIcon>
   );
   if (description == null) return baseText;
   const descriptionText = (

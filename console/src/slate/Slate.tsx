@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
+import { type slate } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Diagram,
@@ -296,7 +297,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const Slate: Layout.Renderer = ({ layoutKey, ...rest }) => {
+export interface SlateProps extends Layout.RendererProps {
+  validate?: (graph: slate.Graph) => Promise<Error | null>;
+}
+
+export const Slate = (({ layoutKey, validate, ...rest }: SlateProps) => {
   const loaded = useLoadRemote({
     name: "slate",
     targetVersion: ZERO_STATE.version,
@@ -314,4 +319,4 @@ export const Slate: Layout.Renderer = ({ layoutKey, ...rest }) => {
   });
   if (!loaded) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
-};
+}) satisfies Layout.Renderer;

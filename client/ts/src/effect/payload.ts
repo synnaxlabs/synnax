@@ -10,28 +10,30 @@
 import { status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { label } from "@/label";
 import { type ontology } from "@/ontology";
 import { slate } from "@/slate";
+import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
+
+const effectDetailsZ = z.object({ effect: keyZ });
+
+export const statusZ = status.statusZ(effectDetailsZ);
+
+export interface Status extends z.infer<typeof statusZ> {}
 
 export const effectZ = z.object({
   key: keyZ,
   name: z.string(),
   enabled: z.boolean(),
   slate: slate.keyZ,
+  labels: nullableArrayZ(label.labelZ).optional(),
+  status: statusZ.optional(),
 });
 export interface Effect extends z.infer<typeof effectZ> {}
-
-const effectDetailsZ = z.object({
-  effect: keyZ,
-});
-
-export const statusZ = status.statusZ(effectDetailsZ);
-
-export interface Status extends z.infer<typeof statusZ> {}
 
 export const newZ = effectZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}

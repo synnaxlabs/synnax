@@ -11,8 +11,11 @@ package spec
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -43,11 +46,22 @@ func telemSource(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, err
 		return ns, true, err
 	}
 	var ch channel.Channel
+	if tCfg.Channel == 0 {
+		return ns, true, validate.PathedError(
+			validate.RequiredError,
+			n.Key,
+			strconv.Itoa(int(tCfg.Channel)),
+		)
+	}
 	if err := cfg.Channel.NewRetrieve().
 		WhereKeys(tCfg.Channel).
 		Entry(&ch).
 		Exec(ctx, nil); err != nil {
-		return ns, true, err
+		return ns, true, validate.PathedError(
+			query.NotFound,
+			n.Key,
+			strconv.Itoa(int(tCfg.Channel)),
+		)
 	}
 	ns.Outputs = []Output{{Key: "value", DataType: zyn.DataType(ch.DataType)}}
 	ns.Type = TelemSourceType

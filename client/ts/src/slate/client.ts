@@ -22,6 +22,7 @@ import {
   type Slate,
   slateZ,
 } from "@/slate/payload";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/slate/retrieve";
@@ -35,6 +36,20 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ slates: nullableArrayZ(slateZ) });
 const createResZ = z.object({ slates: slateZ.array() });
 const emptyResZ = z.object({});
+
+export type RetrieveRequest = z.input<typeof retrieveReqZ>;
+
+const keyRetrieveRequestZ = z
+  .object({
+    key: keyZ,
+  })
+  .transform(({ key }) => ({ keys: [key] }));
+
+export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
+
+const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveReqZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
@@ -57,18 +72,19 @@ export class Client {
     return isMany ? res.slates : res.slates[0];
   }
 
-  async retrieve(key: Key): Promise<Slate>;
-  async retrieve(keys: Key[]): Promise<Slate[]>;
-  async retrieve(keys: Params): Promise<Slate | Slate[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: KeyRetrieveRequest): Promise<Slate>;
+  async retrieve(args: RetrieveArgs): Promise<Slate[]>;
+  async retrieve(args: RetrieveArgs): Promise<Slate | Slate[]> {
+    const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.slates : res.slates[0];
+    checkForMultipleOrNoResults("Slate", args, res.slates, isSingle);
+    return isSingle ? res.slates[0] : res.slates;
   }
 
   async delete(key: Key): Promise<void>;

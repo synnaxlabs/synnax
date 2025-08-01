@@ -260,6 +260,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Slate:           l.Slate,
 			Channel:         cfg.Distribution.Channel,
 			Annotation:      l.Annotation,
+			Label:           l.Label,
+			Signals:         cfg.Distribution.Signals,
 			Instrumentation: cfg.Instrumentation.Child("effect"),
 		}); !ok(err, l.Effect) {
 		return nil, err

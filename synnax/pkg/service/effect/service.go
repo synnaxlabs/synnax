@@ -11,6 +11,7 @@ package effect
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	"github.com/google/uuid"
@@ -18,9 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/slate"
+	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -43,6 +47,10 @@ type ServiceConfig struct {
 	Channel    channel.Service
 	Annotation *annotation.Service
 	Ranger     *ranger.Service
+	Label      *label.Service
+	// Signals is used to propagate changes to effects.
+	// [OPTIONAL]
+	Signals *signals.Provider
 }
 
 var (
@@ -60,6 +68,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Slate = override.Nil(c.Slate, other.Slate)
 	c.Annotation = override.Nil(c.Annotation, other.Annotation)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Label = override.Nil(c.Label, other.Label)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
@@ -73,6 +83,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "annotation", c.Annotation)
 	validate.NotNil(v, "ranger", c.Ranger)
+	validate.NotNil(v, "label", c.Label)
 	return v.Error()
 }
 
@@ -80,14 +91,20 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg ServiceConfig
 	mu  struct {
-		sync.Mutex
+		sync.RWMutex
 		entries map[uuid.UUID]*entry
 	}
 	effectStateChannelKey channel.Key
 	effectStateWriter     *framer.Writer
+	signals               io.Closer
 }
 
-func (s *Service) Close() error { return nil }
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
+}
 
 // OpenService instantiates a new effect service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
@@ -101,6 +118,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	s.mu.entries = make(map[uuid.UUID]*entry)
 
 	cfg.Ontology.RegisterService(ctx, s)
+	if cfg.Signals != nil {
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Effect](cfg.DB))
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	obs := gorp.Observe[uuid.UUID, Effect](cfg.DB)
 	obs.OnChange(s.handleChange)
@@ -137,13 +160,35 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
+		label:     s.cfg.Label,
 	}
 }
 
 // NewRetrieve opens a new query builder for retrieving effects from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Effect](),
-		baseTX: s.cfg.DB,
+		gorp:                  gorp.NewRetrieve[uuid.UUID, Effect](),
+		baseTX:                s.cfg.DB,
+		label:                 s.cfg.Label,
+		otg:                   s.cfg.Ontology,
+		effectService:         s,
+		effectStateChannelKey: s.effectStateChannelKey,
 	}
+}
+
+// GetStatus returns the current status of an effect by its key. If the effect status
+// is not found, the second return value will be false.
+func (s *Service) GetStatus(_ context.Context, key uuid.UUID) (Status, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entry, exists := s.mu.entries[key]
+	if !exists {
+		return Status{}, false
+	}
+	return entry.status, true
+}
+
+func (s *Service) Validate(ctx context.Context, graph spec.Graph) error {
+	_, err := spec.Validate(ctx, s.specConfig(Effect{}), graph)
+	return err
 }

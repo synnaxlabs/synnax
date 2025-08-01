@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/effect"
+	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -90,7 +91,12 @@ func (s *EffectService) DeleteEffect(ctx context.Context, req EffectDeleteReques
 
 type (
 	EffectRetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
+		Term          string      `json:"term" msgpack:"term"`
+		Limit         int         `json:"limit" msgpack:"limit"`
+		Offset        int         `json:"offset" msgpack:"offset"`
+		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
+		IncludeLabels bool        `json:"include_labels" msgpack:"include_labels"`
 	}
 	EffectRetrieveResponse struct {
 		Effects []effect.Effect `json:"effects" msgpack:"effects"`
@@ -98,16 +104,69 @@ type (
 )
 
 func (s *EffectService) RetrieveEffect(ctx context.Context, req EffectRetrieveRequest) (res EffectRetrieveResponse, err error) {
-	err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Effects).Exec(ctx, nil)
-	if err != nil {
+	var (
+		resEffects []effect.Effect
+		q          = s.internal.NewRetrieve().Entries(&resEffects)
+		hasKeys    = len(req.Keys) > 0
+		hasSearch  = req.Term != ""
+	)
+
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasSearch {
+		q = q.Search(req.Term)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+
+	if err = q.Exec(ctx, nil); err != nil {
 		return res, err
 	}
+
+	if req.IncludeLabels {
+		for i, eff := range resEffects {
+			if eff.Labels, err = eff.RetrieveLabels(ctx); err != nil {
+				return res, err
+			}
+			resEffects[i] = eff
+		}
+	}
+
+	if req.IncludeStatus {
+		for i, eff := range resEffects {
+			if status, exists := s.internal.GetStatus(ctx, eff.Key); exists {
+				eff.Status = &status
+			}
+			resEffects[i] = eff
+		}
+	}
+
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: effect.OntologyIDsFromEffects(res.Effects),
+		Objects: effect.OntologyIDsFromEffects(resEffects),
 	}); err != nil {
-		res.Effects = nil
+		return res, err
 	}
+
+	return EffectRetrieveResponse{Effects: resEffects}, nil
+}
+
+type (
+	EffectValidateRequest struct {
+		Graph spec.Graph `json:"graph" msgpack:"graph"`
+	}
+	EffectValidateResponse struct {
+		Error error `json:"error" msgpack:"error"`
+	}
+)
+
+func (s *EffectService) Validate(ctx context.Context, req EffectValidateRequest) (res EffectValidateResponse, err error) {
+	res.Error = s.internal.Validate(ctx, req.Graph)
 	return res, nil
 }

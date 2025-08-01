@@ -29,6 +29,43 @@ import (
 
 type entry struct {
 	shutdown io.Closer
+	status   Status
+}
+
+func (s *Service) specConfig(effect Effect) spec.Config {
+	return spec.Config{
+		Channel:    s.cfg.Channel,
+		Framer:     s.cfg.Framer,
+		Annotation: s.cfg.Annotation,
+		Ranger:     s.cfg.Ranger,
+		OnStatusChange: func(
+			ctx context.Context,
+			stat status.Status[any],
+		) {
+			os := Status{
+				Key:         stat.Key,
+				Variant:     stat.Variant,
+				Message:     stat.Message,
+				Description: stat.Description,
+				Details:     StatusDetails{Effect: effect.Key},
+			}
+
+			// Store status in the entry
+			s.mu.Lock()
+			if entry, exists := s.mu.entries[effect.Key]; exists {
+				entry.status = os
+			}
+			s.mu.Unlock()
+
+			// Also write to channel for streaming subscribers
+			if _, err := s.effectStateWriter.Write(core.UnaryFrame(
+				s.effectStateChannelKey,
+				telem.NewSeriesStaticJSONV(os),
+			)); err != nil {
+				s.cfg.L.Error("effect status writer error", zap.Error(err))
+			}
+		},
+	}
 }
 
 func (s *Service) handleChange(
@@ -56,30 +93,7 @@ func (s *Service) handleChange(
 			Exec(ctx, nil); err != nil {
 			return
 		}
-		specCfg := spec.Config{
-			Channel:    s.cfg.Channel,
-			Framer:     s.cfg.Framer,
-			Annotation: s.cfg.Annotation,
-			Ranger:     s.cfg.Ranger,
-			OnStatusChange: func(
-				ctx context.Context,
-				stat status.Status[any],
-			) {
-				os := Status{
-					Key:         stat.Key,
-					Variant:     stat.Variant,
-					Message:     stat.Message,
-					Description: stat.Description,
-					Details:     StatusDetails{Effect: e.Key},
-				}
-				if _, err := s.effectStateWriter.Write(core.UnaryFrame(
-					s.effectStateChannelKey,
-					telem.NewSeriesStaticJSONV(os),
-				)); err != nil {
-					s.cfg.L.Error("effect status writer error", zap.Error(err))
-				}
-			},
-		}
+		specCfg := s.specConfig(e.Value)
 		if _, err := spec.Validate(ctx, specCfg, slt.Graph); err != nil {
 			return
 		}
@@ -90,6 +104,9 @@ func (s *Service) handleChange(
 		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(
 			s.cfg.Instrumentation.Child(fmt.Sprintf("%s<%s>", e.Value.Name, e.Value.Key))))
 		cfs.Flow(sCtx)
-		s.mu.entries[e.Key] = &entry{shutdown: signal.NewHardShutdown(sCtx, cancel)}
+		s.mu.entries[e.Key] = &entry{
+			shutdown: signal.NewHardShutdown(sCtx, cancel),
+			status:   Status{},
+		}
 	}
 }

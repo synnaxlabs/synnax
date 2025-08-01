@@ -11,31 +11,56 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import {
-  type Effect,
-  effectZ,
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  type Params,
-  type Status,
-  statusZ,
-} from "@/effect/payload";
-import { framer } from "@/framer";
+import { type Effect, effectZ, keyZ, type New, newZ } from "@/effect/payload";
+import { type framer } from "@/framer";
+import { slate } from "@/slate";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { nullableArrayZ } from "@/util/zod";
 
-const STATUS_CHANNEL_NAME = "sy_effect_status";
+export const STATUS_CHANNEL_NAME = "sy_effect_status";
+export const SET_CHANNEL_NAME = "sy_effect_set";
+export const DELETE_CHANNEL_NAME = "sy_effect_delete";
 
 const CREATE_ENDPOINT = "/effect/create";
 const DELETE_ENDPOINT = "/effect/delete";
 const RETRIEVE_ENDPOINT = "/effect/retrieve";
+const VALIDATE_ENDPOINT = "/effect/validate";
 
 const createReqZ = z.object({ effects: z.array(newZ) });
 const createResZ = z.object({ effects: z.array(effectZ) });
 const deleteReqZ = z.object({ effects: z.array(effectZ) });
-const retrieveReqZ = z.object({ keys: z.array(keyZ) });
-const retrieveResZ = z.object({ effects: z.array(effectZ) });
+const retrieveReqZ = z.object({
+  keys: z.array(keyZ).optional(),
+  term: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+  includeStatus: z.boolean().optional(),
+  includeLabels: z.boolean().optional(),
+});
+const retrieveResZ = z.object({ effects: nullableArrayZ(effectZ) });
 const emptyResZ = z.object({});
+
+export const validateReqZ = z.object({ graph: slate.graphZ });
+
+export type RetrieveRequest = z.input<typeof retrieveReqZ>;
+
+const keyRetrieveRequestZ = z
+  .object({
+    key: keyZ,
+    includeStatus: z.boolean().optional(),
+    includeLabels: z.boolean().optional(),
+  })
+  .transform(({ key, includeStatus, includeLabels }) => ({
+    keys: [key],
+    includeStatus,
+    includeLabels,
+  }));
+
+export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
+
+const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveReqZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
@@ -72,29 +97,28 @@ export class Client {
     );
   }
 
-  async retrieve(key: Key): Promise<Effect>;
-  async retrieve(keys: Key[]): Promise<Effect[]>;
-  async retrieve(keys: Params): Promise<Effect | Effect[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(args: KeyRetrieveRequest): Promise<Effect>;
+  async retrieve(args: RetrieveArgs): Promise<Effect[]>;
+  async retrieve(args: RetrieveArgs): Promise<Effect | Effect[]> {
+    const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    return isMany ? res.effects : res.effects[0];
+    checkForMultipleOrNoResults("Effect", args, res.effects, isSingle);
+    return isSingle ? res.effects[0] : res.effects;
   }
 
-  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
-    return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(STATUS_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const statuses = s.parseJSON(statusZ);
-        return [statuses as Status[], true];
-      },
+  async validate(graph: slate.Graph): Promise<void> {
+    await sendRequired(
+      this.client,
+      VALIDATE_ENDPOINT,
+      { graph },
+      validateReqZ,
+      emptyResZ,
     );
   }
 }

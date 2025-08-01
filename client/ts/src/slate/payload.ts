@@ -33,6 +33,8 @@ export const graphZ = z.object({
   edges: edgeZ.array(),
 });
 
+export interface Graph extends z.infer<typeof graphZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];

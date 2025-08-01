@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { Effect } from "@/effect";
 import { createEditLayout } from "@/effect/edit/layout";
 import { type Palette } from "@/palette";
 
@@ -19,4 +20,11 @@ const CREATE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(createEditLayout()),
 };
 
-export const COMMANDS = [CREATE_COMMAND];
+const OPEN_EXPLORER_COMMAND: Palette.Command = {
+  key: "open_effect_explorer",
+  name: "Open Effect Explorer",
+  icon: <Icon.Explore />,
+  onSelect: ({ placeLayout }) => placeLayout(Effect.EXPLORER_LAYOUT),
+};
+
+export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
