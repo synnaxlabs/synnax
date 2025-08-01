@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type Synnax as CSynnax } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -24,7 +24,7 @@ import { select, selectActiveKey } from "@/workspace/selectors";
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
 export interface ExportContext {
-  client: CSynnax | null;
+  client: Client | null;
   store: RootStore;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;

@@ -9,8 +9,10 @@
 
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
+import { ingest } from "@/hardware/task/sequence/import";
 import { SELECTABLE, Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
+import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
@@ -23,6 +25,8 @@ export {
 export * from "@/hardware/task/sequence/types";
 
 export const EXTRACTORS: Export.Extractors = { [TYPE]: Common.Task.extract };
+
+export const FILE_INGESTORS: Import.FileIngestors = { [TYPE]: ingest };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [TYPE]: Sequence };
 

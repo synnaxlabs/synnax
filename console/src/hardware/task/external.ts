@@ -14,6 +14,7 @@ import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { Sequence } from "@/hardware/task/sequence";
 import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
+import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -35,6 +36,13 @@ export const EXTRACTORS: Export.Extractors = {
   ...NI.Task.EXTRACTORS,
   ...OPC.Task.EXTRACTORS,
   ...Sequence.EXTRACTORS,
+};
+
+export const FILE_INGESTORS: Import.FileIngestors = {
+  ...LabJack.Task.FILE_INGESTORS,
+  ...NI.Task.FILE_INGESTORS,
+  ...OPC.Task.FILE_INGESTORS,
+  ...Sequence.FILE_INGESTORS,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

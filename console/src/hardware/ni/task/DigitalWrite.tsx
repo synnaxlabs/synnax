@@ -23,7 +23,7 @@ import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannel
 import {
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
-  type digitalWriteConfigZ,
+  digitalWriteConfigZ,
   type digitalWriteStatusDataZ,
   type digitalWriteTypeZ,
   type DOChannel,
@@ -87,13 +87,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof digitalWriteTypeZ,
   typeof digitalWriteConfigZ,
   typeof digitalWriteStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalWriteConfigZ.parse(config)
+      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,

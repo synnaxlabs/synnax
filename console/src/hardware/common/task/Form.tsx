@@ -12,17 +12,11 @@ import "@/hardware/common/task/Form.css";
 import {
   DisconnectedError,
   type rack,
-  type Synnax,
+  type Synnax as Client,
   task,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import {
-  Align,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-} from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
@@ -70,7 +64,7 @@ const COMMAND_MESSAGES: Record<Command, string> = {
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
-    client: Synnax,
+    client: Client,
     config: z.infer<Config>,
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
@@ -128,7 +122,7 @@ export const useForm = <
   schemas,
 }: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
   const schema = z.object({ name: nameZ, config: schemas.configSchema });
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError_ = Status.useErrorHandler();
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(

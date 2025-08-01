@@ -17,11 +17,18 @@ import {
   DigitalWrite,
 } from "@/hardware/ni/task/DigitalWrite";
 import {
+  ingestAnalogRead,
+  ingestAnalogWrite,
+  ingestDigitalRead,
+  ingestDigitalWrite,
+} from "@/hardware/ni/task/import";
+import {
   ANALOG_READ_TYPE,
   ANALOG_WRITE_TYPE,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/types";
+import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
@@ -37,6 +44,13 @@ export const EXTRACTORS: Export.Extractors = {
   [ANALOG_WRITE_TYPE]: Common.Task.extract,
   [DIGITAL_READ_TYPE]: Common.Task.extract,
   [DIGITAL_WRITE_TYPE]: Common.Task.extract,
+};
+
+export const FILE_INGESTORS: Import.FileIngestors = {
+  [ANALOG_READ_TYPE]: ingestAnalogRead,
+  [ANALOG_WRITE_TYPE]: ingestAnalogWrite,
+  [DIGITAL_READ_TYPE]: ingestDigitalRead,
+  [DIGITAL_WRITE_TYPE]: ingestDigitalWrite,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

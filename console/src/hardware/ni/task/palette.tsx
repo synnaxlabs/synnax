@@ -14,6 +14,12 @@ import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
+import {
+  importAnalogRead,
+  importAnalogWrite,
+  importDigitalRead,
+  importDigitalWrite,
+} from "@/hardware/ni/task/import";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
@@ -43,6 +49,34 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_READ_LAYOUT),
+};
+
+const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
+  key: "ni-import-analog-read-task",
+  name: "Import an NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: importAnalogRead,
+};
+
+const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
+  key: "ni-import-analog-write-task",
+  name: "Import an NI Analog Write Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: importAnalogWrite,
+};
+
+const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
+  key: "ni-import-digital-read-task",
+  name: "Import an NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: importDigitalRead,
+};
+
+const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
+  key: "ni-import-digital-write-task",
+  name: "Import an NI Digital Write Task",
+  icon: <Icon.Import />,
+  onSelect: importDigitalWrite,
 };
 
 const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
@@ -81,5 +115,9 @@ export const COMMANDS = [
   CREATE_ANALOG_WRITE_COMMAND,
   CREATE_DIGITAL_WRITE_COMMAND,
   CREATE_DIGITAL_READ_COMMAND,
+  IMPORT_ANALOG_READ_COMMAND,
+  IMPORT_ANALOG_WRITE_COMMAND,
+  IMPORT_DIGITAL_READ_COMMAND,
+  IMPORT_DIGITAL_WRITE_COMMAND,
   TOGGLE_SCAN_TASK_COMMAND,
 ];

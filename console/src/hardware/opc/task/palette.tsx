@@ -9,22 +9,42 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { importRead, importWrite } from "@/hardware/opc/task/import";
 import { READ_LAYOUT } from "@/hardware/opc/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/opc/task/Write";
 import { type Palette } from "@/palette";
 
-const CREATE_READ_TASK_COMMAND: Palette.Command = {
+const CREATE_READ_COMMAND: Palette.Command = {
   key: "opc-ua-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
-const CREATE_WRITE_TASK_COMMAND: Palette.Command = {
+const CREATE_WRITE_COMMAND: Palette.Command = {
   key: "opc-ua-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_READ_TASK_COMMAND, CREATE_WRITE_TASK_COMMAND];
+const IMPORT_READ_COMMAND: Palette.Command = {
+  key: "opc-ua-import-read-task",
+  name: "Import an OPC UA Read Task",
+  icon: <Icon.Logo.OPC />,
+  onSelect: importRead,
+};
+
+const IMPORT_WRITE_COMMAND: Palette.Command = {
+  key: "opc-ua-import-write-task",
+  name: "Import an OPC UA Write Task",
+  icon: <Icon.Logo.OPC />,
+  onSelect: importWrite,
+};
+
+export const COMMANDS = [
+  CREATE_READ_COMMAND,
+  CREATE_WRITE_COMMAND,
+  IMPORT_READ_COMMAND,
+  IMPORT_WRITE_COMMAND,
+];

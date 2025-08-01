@@ -50,21 +50,22 @@ export interface IngestContext {
   store: Store;
 }
 
-export const import_ = async ({
+export const import_ = ({
   handleError,
   client,
   fileIngestors,
   placeLayout,
   store,
 }: IngestContext) => {
-  const path = await open({
-    title: "Import a Workspace",
-    multiple: false,
-    directory: true,
-  });
-  if (path == null) return;
-  try {
-    const name = path.split(sep()).at(-1);
+  let name: string | undefined = "workspace";
+  handleError(async () => {
+    const path = await open({
+      title: "Import a Workspace",
+      multiple: false,
+      directory: true,
+    });
+    if (path == null) return;
+    name = path.split(sep()).at(-1);
     if (name == null) throw new Error("Cannot read workspace");
     const files = await readDir(path);
     const fileData = await Promise.all(
@@ -73,13 +74,6 @@ export const import_ = async ({
         data: await readTextFile(await join(path, file.name)),
       })),
     );
-    await ingest(name, fileData, {
-      client,
-      fileIngestors,
-      placeLayout,
-      store,
-    });
-  } catch (e) {
-    handleError(e, "Failed to import workspace");
-  }
+    await ingest(name, fileData, { client, fileIngestors, placeLayout, store });
+  }, `Failed to import ${name}`);
 };

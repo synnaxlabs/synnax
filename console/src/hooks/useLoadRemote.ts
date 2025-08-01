@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
-import { DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
@@ -19,7 +19,7 @@ export interface UseLoadRemoteProps<V extends migrate.Migratable> {
   targetVersion: string;
   layoutKey: string;
   useSelectVersion: (layoutKey: string) => string | undefined;
-  fetcher: (client: Synnax, layoutKey: string) => Promise<V>;
+  fetcher: (client: Client, layoutKey: string) => Promise<V>;
   actionCreator: (v: V) => PayloadAction<any>;
 }
 
@@ -34,7 +34,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   const dispatch = useDispatch();
   const version = useSelectVersion(layoutKey);
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const get = useMutation({
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();

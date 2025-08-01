@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { type FetchOptions, type Params } from "@/flux/params";
@@ -19,7 +19,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { type state } from "@/state";
-import { Synnax as PSynnax } from "@/synnax";
+import { Synnax } from "@/synnax";
 
 /**
  * Arguments passed to the update function.
@@ -33,7 +33,7 @@ export interface UpdateArgs<UpdateParams extends Params, Data extends state.Stat
   /** Parameters for the update operation */
   params: UpdateParams;
   /** The Synnax client instance for making requests */
-  client: Synnax;
+  client: Client;
   /** Function to update the form state with new data */
   onChange: state.PureSetter<Data>;
 }
@@ -129,7 +129,7 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   name,
 }: UseObservableUpdateArgs<UpdateParams, Data> &
   CreateUpdateArgs<UpdateParams, Data>): UseObservableUpdateReturn<Data> => {
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleUpdate = useCallback(
     async (value: Data, opts: FetchOptions = {}) => {
       const { signal } = opts;
