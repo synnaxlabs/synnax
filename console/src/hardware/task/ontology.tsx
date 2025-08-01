@@ -152,15 +152,12 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   location,
   handleError,
-}) => {
-  client.hardware.tasks
-    .retrieve({ key: id.key })
-    .then((task) => {
-      const layout = createLayout(task);
-      placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
-    })
-    .catch(handleError);
-};
+}) =>
+  handleError(async () => {
+    const task = await client.hardware.tasks.retrieve({ key: id.key });
+    const layout = createLayout(task);
+    placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+  }, "Failed to load task layout");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

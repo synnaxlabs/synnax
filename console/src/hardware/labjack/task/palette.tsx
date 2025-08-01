@@ -30,14 +30,14 @@ const CREATE_WRITE_COMMAND: Palette.Command = {
 
 const IMPORT_READ_COMMAND: Palette.Command = {
   key: "labjack-import-read-task",
-  name: "Import a LabJack Read Task",
+  name: "Import LabJack Read Task(s)",
   icon: <Icon.Logo.LabJack />,
   onSelect: importRead,
 };
 
 const IMPORT_WRITE_COMMAND: Palette.Command = {
   key: "labjack-import-write-task",
-  name: "Import a LabJack Write Task",
+  name: "Import LabJack Write Task(s)",
   icon: <Icon.Logo.LabJack />,
   onSelect: importWrite,
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type workspace } from "@synnaxlabs/client";
+import { DisconnectedError, type workspace } from "@synnaxlabs/client";
 import { List, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -33,16 +33,13 @@ export const Recent = (): ReactElement | null => {
 
   const handleError = Status.useErrorHandler();
 
-  const handleClick = (key: string): void => {
-    if (client == null) return;
-    client.workspaces
-      .retrieve(key)
-      .then((ws) => {
-        dispatch(add(ws));
-        dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
-      })
-      .catch((e) => handleError(e, "Failed to open workspace"));
-  };
+  const handleClick = (key: string): void =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const ws = await client.workspaces.retrieve(key);
+      dispatch(add(ws));
+      dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
+    }, "Failed to open workspace");
 
   if (client == null || key == null) return null;
 
