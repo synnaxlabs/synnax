@@ -12,15 +12,15 @@ import "@/note/Note.css";
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 
-export interface NoteProps extends Align.SpaceProps<"div"> {
+export interface NoteProps extends Flex.BoxProps<"div"> {
   variant: status.Variant;
 }
 
 export const Note = ({ variant, className, ...rest }: NoteProps): ReactElement => (
-  <Align.Space
+  <Flex.Box
     className={CSS(className, CSS.B("note"), CSS.M(variant))}
     align="stretch"
     empty

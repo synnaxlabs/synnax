@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import {
@@ -48,14 +48,14 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
-  <Align.Center grow>
+  <Flex.Box grow center>
     <Text.Text level="p">No channels in task.</Text.Text>
     {!isSnapshot && (
       <Text.Link level="p" onClick={onAdd}>
         Add a channel
       </Text.Link>
     )}
-  </Align.Center>
+  </Flex.Box>
 );
 
 export interface ChannelListProps<C extends Channel>

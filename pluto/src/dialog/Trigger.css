@@ -10,8 +10,6 @@
  */
 
 .pluto-dialog__trigger {
-    will-change: transform;
-
     .pluto-caret-animated {
         margin-left: auto;
     }

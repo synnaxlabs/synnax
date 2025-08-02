@@ -56,9 +56,9 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
           key: "icon",
           name: "icon",
           render: ({ entry: { name, icon } }) => (
-            <Text.WithIcon level="small" startIcon={icon}>
+            <Text.Text level="small" startIcon={icon}>
               {name}
-            </Text.WithIcon>
+            </Text.Text>
           ),
         },
       ]}

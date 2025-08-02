@@ -17,7 +17,7 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
-  Align,
+  Flex,
   Form as PForm,
   Input,
   Status,
@@ -249,35 +249,35 @@ export const wrapForm = <
       useForm({ ...rest, layoutKey, schemas, type, onConfigure });
     const { isSnapshot, methods, configured, task } = formProps;
     return (
-      <Align.Space
+      <Flex.Box
         y
         className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
-        <Align.Space grow>
+        <Flex.Box grow>
           <PForm.Form<FormSchema<Config>>
             {...methods}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            <Align.Space x justify="between">
+            <Flex.Box x justify="between">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
-              <Align.Space align="end" gap="small">
+              <Flex.Box align="end" gap="small">
                 <CopyButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
                   taskKey={task.key}
                 />
                 <Rack taskKey={task.key} />
-              </Align.Space>
-            </Align.Space>
+              </Flex.Box>
+            </Flex.Box>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} x wrap>
+            <Flex.Box className={CSS.B("task-properties")} x wrap>
               <Properties />
-            </Align.Space>
-            <Align.Space
+            </Flex.Box>
+            <Flex.Box
               x
               className={CSS.B("task-channel-form-container")}
               bordered
@@ -286,7 +286,7 @@ export const wrapForm = <
               empty
             >
               <Form {...formProps} />
-            </Align.Space>
+            </Flex.Box>
           </PForm.Form>
           <Controls
             layoutKey={layoutKey}
@@ -297,8 +297,8 @@ export const wrapForm = <
             isSnapshot={isSnapshot}
             hasBeenConfigured={configured}
           />
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;

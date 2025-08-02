@@ -11,11 +11,11 @@ import "@/header/Header.css";
 
 import { createContext, type ReactElement, type ReactNode, use } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { type Text } from "@/text";
 
-export interface HeaderProps extends Omit<Align.SpaceProps, "children" | "el"> {
+export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
@@ -47,9 +47,10 @@ export const Header = ({
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
-    <Align.Space
+    <Flex.Box
       el="header"
       x
+      align="center"
       justify="between"
       className={CSS(
         CSS.B("header"),

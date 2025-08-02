@@ -9,8 +9,8 @@
 
 import { table } from "@synnaxlabs/client";
 import {
-  Align,
   Breadcrumb,
+  Flex,
   Form,
   Icon,
   Status,
@@ -74,9 +74,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   };
   const handleExport = useExport();
   return (
-    <Align.Space empty style={{ width: "100%", height: "100%" }}>
+    <Flex.Box empty style={{ width: "100%", height: "100%" }}>
       <Core.Header>
-        <Align.Space x align="center">
+        <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
             <TableCells.SelectVariant
@@ -87,16 +87,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
               }
             />
           )}
-        </Align.Space>
-        <Align.Space x style={{ width: 66 }} empty>
+        </Flex.Box>
+        <Flex.Box x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}
           />
-        </Align.Space>
+        </Flex.Box>
       </Core.Header>
-      <Align.Space style={{ width: "100%", height: "100%" }}>
+      <Flex.Box style={{ width: "100%", height: "100%" }}>
         {selectedCells.length === 0 ? (
           <EmptyContent />
         ) : (
@@ -108,8 +108,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             onVariantChange={(variant) => handleVariantChange(variant, firstCell.key)}
           />
         )}
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -142,9 +142,9 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 const EmptyContent = () => (
-  <Align.Center x gap="small" style={{ width: "100%", height: "100%" }}>
+  <Flex.Box x gap="small" style={{ width: "100%", height: "100%" }}>
     <Status.Text variant="disabled" hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>
-  </Align.Center>
+  </Flex.Box>
 );

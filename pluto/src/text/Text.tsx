@@ -9,76 +9,62 @@
 
 import "@/text/Text.css";
 
-import { color } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
+import { type Generic } from "@/generic";
 import { type text } from "@/text/core";
 
-export type TextProps<E extends Align.ElementType = Align.ElementType> = Omit<
-  Align.SpaceProps<E>,
-  "color" | "children" | "direction" | "x" | "y"
-> & {
+export interface ExtensionProps extends Flex.BoxExtensionProps {
   /* The level of text to display i.e. p, h1, h2 */
-  level: text.Level;
+  level?: text.Level;
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
-  color?: color.Crude | false;
+  color?: text.Shade | color.Crude | false;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
   /* Shade sets the shade of the text */
-  shade?: text.Shade;
   /* Weight sets the weight of the text */
   weight?: text.Weight;
   code?: boolean;
   /* Ellipsis sets whether to truncate the text */
   ellipsis?: boolean;
-};
+}
 
-export const Text = <E extends Align.ElementType = Align.ElementType>({
-  ref,
+export type TextProps<E extends Generic.ElementType = "p"> = Omit<
+  Generic.OptionalElementProps<E>,
+  "color"
+> &
+  ExtensionProps;
+
+export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
-  el,
   color,
   className,
   style,
   noWrap = false,
   code = false,
   weight,
+  el,
   ellipsis = false,
-  shade,
   ...rest
 }: TextProps<E>): ReactElement => (
-  // @ts-expect-error - TODO: Generic Elements are weird
-  <Align.Space<E>
-    el={el ?? level}
-    ref={ref}
-    x
-    style={{ color: parseColor(color), fontWeight: weight, ...style }}
+  <Flex.Box<E>
+    direction="x"
+    el={(el ?? level) as E}
+    style={{ fontWeight: weight, color: CSS.colorVar(color), ...style }}
     className={CSS(
       CSS.B("text"),
       code && CSS.M("code"),
+      CSS.level(level),
       CSS.noWrap(noWrap),
       ellipsis && CSS.M("ellipsis"),
-      shade != null && CSS.BM("text", `shade-${shade}`),
       className,
     )}
     gap="small"
-    align="center"
-    {...rest}
+    {...(rest as Flex.BoxProps<E>)}
   />
 );
-
-export const parseColor = (
-  crudeColor?: color.Crude | false,
-  shade?: number,
-): string | undefined => {
-  if (crudeColor != null) {
-    if (typeof crudeColor === "boolean") return undefined;
-    return color.cssString(crudeColor);
-  }
-  if (shade != null) return `var(--pluto-gray-l${shade})`;
-  return undefined;
-};

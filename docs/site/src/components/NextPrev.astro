@@ -3,41 +3,41 @@ import { Align, Divider, Icon, Text } from "@synnaxlabs/pluto";
 const { next, prev, nextURL, prevURL } = Astro.props;
 ---
 
-<Align.Space className="next-prev" empty>
+<Flex.Box className="next-prev" empty>
     {(next != null || prev != null) && <Divider.Divider direction="x" />}
-    <Align.Space direction="x" justify="between">
-        <Align.Space direction="x" el="a" className="link" href={prevURL}>
+    <Flex.Box direction="x" justify="between">
+        <Flex.Box direction="x" el="a" className="link" href={prevURL}>
             {
                 prev != null && (
                     <>
                         <Icon.Caret.Left />
-                        <Align.Space direction="y" size="small">
+                        <Flex.Box direction="y" size="small">
                             <Text.Text level="small" shade={7} weight={400}>
                                 Previous
                             </Text.Text>
                             <Text.Text level="p">{prev}</Text.Text>
-                        </Align.Space>
+                        </Flex.Box>
                     </>
                 )
             }
-        </Align.Space>
-        <Align.Space direction="x" el="a" className="link" href={nextURL}>
+        </Flex.Box>
+        <Flex.Box direction="x" el="a" className="link" href={nextURL}>
             {
                 next != null && (
                     <>
-                        <Align.Space direction="y" size="small">
+                        <Flex.Box direction="y" size="small">
                             <Text.Text level="small" shade={8} weight={400}>
                                 Next
                             </Text.Text>
                             <Text.Text level="p">{next}</Text.Text>
-                        </Align.Space>
+                        </Flex.Box>
                         <Icon.Caret.Right />
                     </>
                 )
             }
-        </Align.Space>
-    </Align.Space>
-</Align.Space>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .next-prev {

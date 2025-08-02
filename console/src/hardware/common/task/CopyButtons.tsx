@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -60,7 +60,7 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   const hasDisabledButtons = taskKey === "";
   return (
-    <Align.Space x empty>
+    <Flex.Box x empty>
       <CopyButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}
@@ -74,6 +74,6 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
       <CopyButton disabled={hasDisabledButtons} onClick={handleCopyLink} tooltip="link">
         {Icon.Link}
       </CopyButton>
-    </Align.Space>
+    </Flex.Box>
   );
 };

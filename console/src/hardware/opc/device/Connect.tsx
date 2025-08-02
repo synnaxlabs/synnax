@@ -11,9 +11,9 @@ import "@/hardware/opc/device/Connect.css";
 
 import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Divider,
+  Flex,
   Form,
   Input,
   Nav,
@@ -142,8 +142,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     ) != NO_SECURITY_MODE;
   const isPending = testConnectionMutation.isPending || connectMutation.isPending;
   return (
-    <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
-      <Align.Space className={CSS.B("content")} grow gap="small">
+    <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
+      <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
@@ -164,7 +164,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             )}
           </Form.Field>
           <Divider.Divider x padded="bottom" />
-          <Align.Space x justify="between">
+          <Flex.Box x justify="between">
             <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
@@ -179,7 +179,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
                 <SelectSecurityMode value={value} onChange={onChange} />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
@@ -214,7 +214,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             </>
           )}
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
           {connectionState == null ? (
@@ -245,7 +245,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -276,14 +276,14 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (isError) {
     const color = Status.VARIANT_COLORS.error;
     return (
-      <Align.Center style={{ padding: "3rem" }}>
+      <Flex.Box style={{ padding: "3rem" }}>
         <Text.Text level="h2" color={color}>
           Failed to load configuration for server with key {layoutKey}
         </Text.Text>
         <Text.Text level="p" color={color}>
           {error.message}
         </Text.Text>
-      </Align.Center>
+      </Flex.Box>
     );
   }
   const [initialValues, properties] = data;

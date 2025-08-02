@@ -12,14 +12,14 @@ import "@/ranger/TimeRangeChip.css";
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
-  extends Align.SpaceProps<"div">,
+  extends Flex.BoxProps<"div">,
     Pick<Text.TextProps, "level" | "shade"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
@@ -42,7 +42,7 @@ export const TimeRangeChip = ({
   const span = startTS.span(endTS);
 
   let startTime = (
-    <Align.Space x align="center" gap="small">
+    <Flex.Box x align="center" gap="small">
       {startTS.isToday && (
         <Text.Text level={level} shade={shade} weight={450}>
           Today
@@ -57,7 +57,7 @@ export const TimeRangeChip = ({
       >
         {startTS}
       </Text.DateTime>
-    </Align.Space>
+    </Flex.Box>
   );
 
   let endTime = (
@@ -99,7 +99,7 @@ export const TimeRangeChip = ({
   const levelVar = CSS.levelSizeVar(level);
 
   return (
-    <Align.Space
+    <Flex.Box
       x
       gap="small"
       className={CSS(CSS.B("time-range-chip"))}
@@ -115,6 +115,6 @@ export const TimeRangeChip = ({
         }}
       />
       {endTime}
-    </Align.Space>
+    </Flex.Box>
   );
 };

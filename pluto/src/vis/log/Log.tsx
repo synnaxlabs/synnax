@@ -14,9 +14,9 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status";
@@ -31,7 +31,7 @@ export interface LogProps
       >,
       "visible"
     >,
-    Omit<Align.SpaceProps, "color">,
+    Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   emptyContent?: ReactElement;
 }

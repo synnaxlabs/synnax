@@ -14,11 +14,11 @@ import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type FC, type ReactElement, useState } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
@@ -101,12 +101,12 @@ export const DateTime = ({
         step={0.00001}
         {...rest}
       >
-        <Button.Icon
+        <Button.Button
           onClick={() => setVisible(!visible)}
           variant={variant === "natural" ? "text" : "outlined"}
         >
           <Icon.Calendar />
-        </Button.Icon>
+        </Button.Button>
       </InputText>
       <DateTimeModal
         value={tsValue}
@@ -133,21 +133,21 @@ const DateTimeModal = ({
   close,
 }: DateTimeModalProps): ReactElement => (
   <Dialog.Dialog>
-    <Align.Space className={CSS.B("datetime-modal")} empty>
-      <Align.Space className={CSS.B("content")}>
-        <Align.Space x className={CSS.B("header")}>
+    <Flex.Box className={CSS.B("datetime-modal")} empty>
+      <Flex.Box className={CSS.B("content")}>
+        <Flex.Box x className={CSS.B("header")}>
           <Text.DateTime level="h3" format="preciseDate">
             {value}
           </Text.DateTime>
-        </Align.Space>
-        <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
+        </Flex.Box>
+        <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
           <Icon.Close />
-        </Button.Icon>
-        <Align.Space x className={CSS.B("content")}>
+        </Button.Button>
+        <Flex.Box x className={CSS.B("content")}>
           <AISelector value={value} onChange={onChange} close={close} />
           <Calendar value={value} onChange={onChange} />
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
       <Nav.Bar location="bottom" size="7rem">
         <Nav.Bar.Start gap="small">
           <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
@@ -161,7 +161,7 @@ const DateTimeModal = ({
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Align.Space>
+    </Flex.Box>
   </Dialog.Dialog>
 );
 
@@ -244,7 +244,7 @@ const AISelector = ({
     setEntries([]);
   };
   return (
-    <Align.Pack y className={CSS.B("ai-selector")} background={1}>
+    <Flex.Box pack y className={CSS.B("ai-selector")} background={1}>
       <InputText
         value={value}
         onChange={handleChange}
@@ -255,8 +255,8 @@ const AISelector = ({
         <List.Items<string, AISuggestion>
           className={CSS.B("ai-list")}
           emptyContent={
-            <Align.Center empty grow>
-              <Align.Space y gap="tiny">
+            <Flex.Box empty grow align="center" justify="center">
+              <Flex.Box y gap="tiny">
                 <Text.Text level="small" color="var(--pluto-gray-l7)">
                   "April 1 at 2PM"
                 </Text.Text>
@@ -266,14 +266,14 @@ const AISelector = ({
                 <Text.Text level="small" color="var(--pluto-gray-l7)">
                   "Next Friday"
                 </Text.Text>
-              </Align.Space>
-            </Align.Center>
+              </Flex.Box>
+            </Flex.Box>
           }
         >
           {aiListItem}
         </List.Items>
       </Select.Frame>
-    </Align.Pack>
+    </Flex.Box>
   );
 };
 
@@ -325,48 +325,51 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const handleDayChange = (next: number): void => onChange(value.setDay(next));
 
   return (
-    <Align.Pack x className={CSS.B("datetime-picker")}>
-      <Align.Pack y align="stretch" className={CSS.B("calendar")}>
-        <Align.Pack x grow>
-          <Button.Icon onClick={() => handleMonthChange(month - 1)} variant="outlined">
+    <Flex.Box pack x className={CSS.B("datetime-picker")}>
+      <Flex.Box pack y align="stretch" className={CSS.B("calendar")}>
+        <Flex.Box pack x grow>
+          <Button.Button
+            onClick={() => handleMonthChange(month - 1)}
+            variant="outlined"
+          >
             <Icon.Caret.Left />
-          </Button.Icon>
-          <Text.WithIcon level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          </Button.Button>
+          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
             {MONTHS[month].name}
-          </Text.WithIcon>
-          <Button.Icon
+          </Text.Text>
+          <Button.Button
             onClick={() => handleMonthChange(month + 1)}
             style={{ borderTopRightRadius: 0 }}
             variant="outlined"
           >
             <Icon.Caret.Right />
-          </Button.Icon>
-        </Align.Pack>
-        <Align.Pack x grow>
-          <Button.Icon onClick={() => handleYearChange(year - 1)} variant="outlined">
+          </Button.Button>
+        </Flex.Box>
+        <Flex.Box pack x grow>
+          <Button.Button onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
-          </Button.Icon>
-          <Text.WithIcon level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          </Button.Button>
+          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
             {year}
-          </Text.WithIcon>
-          <Button.Icon onClick={() => handleYearChange(year + 1)} variant="outlined">
+          </Text.Text>
+          <Button.Button onClick={() => handleYearChange(year + 1)} variant="outlined">
             <Icon.Caret.Right />
-          </Button.Icon>
-        </Align.Pack>
-        <Align.Space x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
+          </Button.Button>
+        </Flex.Box>
+        <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
           {Array.from({ length: MONTHS[month].days }).map((_, i) => (
-            <Button.Icon
+            <Button.Button
               key={i}
               variant={i + 1 === day ? "outlined" : "text"}
               onClick={() => handleDayChange(i + 1)}
             >
               <Text.Text level="small">{i + 1}</Text.Text>
-            </Button.Icon>
+            </Button.Button>
           ))}
-        </Align.Space>
-      </Align.Pack>
+        </Flex.Box>
+      </Flex.Box>
       <TimeSelector value={value} onChange={onChange} />
-    </Align.Pack>
+    </Flex.Box>
   );
 };
 
@@ -417,8 +420,8 @@ interface TimeSelectorProps {
 }
 
 export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
-  <Align.Pack y className={CSS.B("time-selector")} style={{ height: "37rem" }}>
-    <Align.Pack x grow>
+  <Flex.Box pack y className={CSS.B("time-selector")} style={{ height: "37rem" }}>
+    <Flex.Box pack x grow>
       <HoursList
         value={value.hour}
         onChange={(next) => onChange(value.setHour(next))}
@@ -431,7 +434,7 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
         value={value.second}
         onChange={(next) => onChange(value.setSecond(next))}
       />
-    </Align.Pack>
+    </Flex.Box>
     <Numeric
       size="small"
       value={value.millisecond}
@@ -439,5 +442,5 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
       endContent="ms"
       showDragHandle={false}
     />
-  </Align.Pack>
+  </Flex.Box>
 );

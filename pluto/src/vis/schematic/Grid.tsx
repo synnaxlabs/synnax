@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -111,7 +111,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     const isDragging = canDrop(Haul.useDraggingState());
 
     return (
-      <Align.Space
+      <Flex.Box
         direction={location.direction(loc)}
         className={CSS(
           CSS.BE("grid", "item"),
@@ -134,7 +134,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
             })}
           </Fragment>
         ))}
-      </Align.Space>
+      </Flex.Box>
     );
   };
 
@@ -145,7 +145,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     const items = fItems.filter((i) => i.location === loc);
     if (items.length === 0) return null;
     return (
-      <Align.Space
+      <Flex.Box
         direction={location.direction(loc)}
         className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
         empty
@@ -153,7 +153,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
         {items.map(({ element, key }) => (
           <Fragment key={key}>{element}</Fragment>
         ))}
-      </Align.Space>
+      </Flex.Box>
     );
   };
   return GridEl;

@@ -12,7 +12,7 @@ import "@/breadcrumb/Breadcrumb.css";
 import { array, caseconv, type Optional } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
@@ -110,8 +110,9 @@ const getContent = ({
         children: label,
         ...overrides,
       };
-      if (href != null) base.push(<Text.Link key={label} {...baseProps} href={href} />);
-      else base.push(<Text.Text key={label} {...baseProps} />);
+      if (href != null)
+        base.push(<Text.Link el="a" key={label} {...baseProps} href={href} />);
+      else base.push(<Text.Text el="span" key={label} {...baseProps} />);
       return base;
     })
     .flat();
@@ -188,13 +189,13 @@ export const URL = ({
     }),
   });
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
       x
       gap="small"
       align="center"
     >
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };

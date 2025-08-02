@@ -7,42 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode } from "react";
+import { Button } from "@/button";
 
-import { Align } from "@/align";
-import { CSS } from "@/css";
-
-export interface TagsProps extends Align.SpaceProps {
-  actions?: ReactNode;
+export interface TagsProps extends Button.ButtonProps<"div"> {
   variant?: "text" | "outlined";
 }
 
 export const Tags = ({
   children,
   onClick,
-  actions,
-  className,
   variant = "outlined",
+  size = "medium",
   ...rest
 }: TagsProps) => (
-  <Align.Pack className={className} {...rest}>
-    <Align.Space
-      x
-      className={CSS(
-        onClick && CSS.M("clickable"),
-        CSS.M(variant),
-        CSS.shade(0),
-        CSS.size("medium"),
-      )}
-      onClick={onClick}
-      align="center"
-      gap="small"
-      style={{ padding: "0rem 0.5rem" }}
-      rounded
-      {...rest}
-    >
-      {children}
-    </Align.Space>
-    {actions}
-  </Align.Pack>
+  <Button.Button
+    el="div"
+    variant={variant}
+    size={size}
+    x
+    onClick={onClick}
+    align="center"
+    gap="small"
+    style={{ padding: "0rem 0.5rem", paddingRight: "2rem" }}
+    rounded
+    {...rest}
+  >
+    {children}
+  </Button.Button>
 );

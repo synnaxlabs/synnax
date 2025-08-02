@@ -12,7 +12,7 @@ import "@/status/Notification.css";
 import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -27,7 +27,7 @@ interface ActionProps {
 const Action = ({ action }: ActionProps): ReactElement =>
   isValidElement(action) ? action : <Button.Button {...action} key={action.key} />;
 
-export interface NotificationProps extends Align.SpaceProps {
+export interface NotificationProps extends Flex.BoxProps {
   status: NotificationSpec;
   silence: (key: string) => void;
   actions?: ReactElement | Button.ButtonProps[];
@@ -44,7 +44,7 @@ export const Notification = ({
   const ref = useRef<HTMLDivElement>(null);
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.B("notification"), className)}
       y
       key={time.toString()}
@@ -52,8 +52,8 @@ export const Notification = ({
       ref={ref}
       {...rest}
     >
-      <Align.Space x justify="between" grow style={{ width: "100%" }}>
-        <Align.Space x align="center" gap="small">
+      <Flex.Box x justify="between" grow style={{ width: "100%" }}>
+        <Flex.Box x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
           <Text.Text level="small" shade={11}>
             {`x${count}`}
@@ -65,7 +65,7 @@ export const Notification = ({
           >
             {time}
           </Text.DateTime>
-        </Align.Space>
+        </Flex.Box>
         <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}
           variant="outlined"
@@ -74,8 +74,8 @@ export const Notification = ({
         >
           <Icon.Close />
         </Button.Button>
-      </Align.Space>
-      <Align.Space
+      </Flex.Box>
+      <Flex.Box
         y
         align="start"
         className={CSS(CSS.BE("notification", "content"))}
@@ -101,9 +101,9 @@ export const Notification = ({
             {description}
           </Text.Text>
         )}
-      </Align.Space>
+      </Flex.Box>
       {actions != null && (
-        <Align.Space
+        <Flex.Box
           x
           align="center"
           justify="end"
@@ -112,8 +112,8 @@ export const Notification = ({
           {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
-        </Align.Space>
+        </Flex.Box>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

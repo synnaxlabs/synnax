@@ -9,9 +9,9 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Channel,
+  Flex,
   Form,
   Input,
   Nav,
@@ -95,8 +95,8 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   );
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
-      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
+    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
@@ -123,7 +123,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space x>
+          <Flex.Box x>
             <Form.Field<string>
               path="dataType"
               label="Output Data Type"
@@ -159,21 +159,21 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
-            <Align.Space x align="center" gap="small">
+            <Flex.Box x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
               <Text.Text level="p" shade={11}>
                 Create More
               </Text.Text>
-            </Align.Space>
+            </Flex.Box>
           )}
-          <Align.Space x align="center">
+          <Flex.Box x align="center">
             <Button.Button
               disabled={variant === "loading"}
               loading={variant === "loading"}
@@ -183,10 +183,10 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
             >
               {isEdit ? "Save" : "Create"}
             </Button.Button>
-          </Align.Space>
+          </Flex.Box>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

@@ -12,7 +12,7 @@ import "@/list/Item.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
@@ -25,10 +25,10 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
   translate?: number;
 }
 
-export type ItemProps<K extends record.Key, E extends Align.ElementType = "div"> = Omit<
-  Align.SpaceProps<E>,
-  "key" | "onSelect" | "translate"
-> &
+export type ItemProps<
+  K extends record.Key,
+  E extends Button.ElementType = "div",
+> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate"> &
   ItemRenderProps<K> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
@@ -41,15 +41,15 @@ export type ItemProps<K extends record.Key, E extends Align.ElementType = "div">
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
-export const Item = <K extends record.Key, E extends Align.ElementType = "div">({
+export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
   className,
   index,
-  direction = "x",
+  el,
   draggingOver = false,
   rightAligned = false,
   highlightHovered = false,
-  allowSelect = true,
+  // allowSelect = true,
   selected = false,
   translate,
   onSelect,
@@ -59,9 +59,11 @@ export const Item = <K extends record.Key, E extends Align.ElementType = "div">(
   ...rest
 }: ItemProps<K, E>): ReactElement => (
   // @ts-expect-error - generic element issues
-  <Align.Space<E>
+  <Button.Button<E>
+    el={el ?? "div"}
     id={itemKey.toString()}
-    direction={direction}
+    sharp
+    variant="text"
     onClick={(e: any) => {
       onSelect?.(itemKey);
       onClick?.(e);
@@ -77,9 +79,6 @@ export const Item = <K extends record.Key, E extends Align.ElementType = "div">(
       draggingOver && CSS.M("dragging-over"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
-      CSS.shade(0),
-      allowSelect && CSS.M("clickable"),
-      CSS.M("text"),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",

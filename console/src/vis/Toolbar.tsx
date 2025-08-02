@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -36,19 +36,19 @@ const NoVis = (): ReactElement => {
     placeLayout(createSelectorLayout());
   };
   return (
-    <Align.Space justify="between" style={{ height: "100%" }} empty>
+    <Flex.Box justify="between" style={{ height: "100%" }} empty>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
-      <Align.Center x gap="small">
+      <Flex.Box x gap="small" center>
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
         <Text.Link level="p" onClick={handleCreateNewVisualization}>
           create a new one.
         </Text.Link>
-      </Align.Center>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 

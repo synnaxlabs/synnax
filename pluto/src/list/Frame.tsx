@@ -117,7 +117,7 @@ const VirtualFrame = <
   children,
   onFetchMore,
   overscan = 10,
-  itemHeight = 36,
+  itemHeight = 33.5,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const onFetchMoreRef = useSyncedRef(onFetchMore);

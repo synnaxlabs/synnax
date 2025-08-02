@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -36,8 +36,9 @@ const ListItem = <C extends DigitalChannel>({
       justify="between"
       style={{ width: "100%" }}
     >
-      <Align.Space align="center" x justify="evenly">
-        <Align.Pack
+      <Flex.Box align="center" x justify="evenly">
+        <Flex.Box
+          pack
           align="center"
           className="port-line-input"
           x
@@ -60,7 +61,7 @@ const ListItem = <C extends DigitalChannel>({
             showHelpText={false}
             path={`${path}.line`}
           />
-        </Align.Pack>
+        </Flex.Box>
         <Text.Text
           level="small"
           className={CSS.BE("port-line-input", "label")}
@@ -69,14 +70,14 @@ const ListItem = <C extends DigitalChannel>({
         >
           Port/Line
         </Text.Text>
-      </Align.Space>
-      <Align.Space x align="center" justify="evenly">
+      </Flex.Box>
+      <Flex.Box x align="center" justify="evenly">
         {name(channel)}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };

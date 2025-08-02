@@ -19,7 +19,6 @@ import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Text } from "@/text";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
@@ -36,22 +35,14 @@ export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
     const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-    const { selected, onSelect, hovered } = Select.useItemState<channel.Key>(itemKey);
     const aliases = useAliases();
     const Icon = resolveIcon(item?.payload);
     const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
     return (
-      <List.Item
-        itemKey={itemKey}
-        onSelect={onSelect}
-        selected={selected}
-        hovered={hovered}
-        {...rest}
-      >
-        <Text.WithIcon startIcon={<Icon />} level="p" align="center">
-          {displayName}
-        </Text.WithIcon>
-      </List.Item>
+      <Select.ListItem itemKey={itemKey} {...rest}>
+        <Icon />
+        {displayName}
+      </Select.ListItem>
     );
   },
 );

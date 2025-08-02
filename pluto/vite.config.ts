@@ -40,7 +40,7 @@ export default defineConfig({
         theming: path.resolve(".", "src/theming/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),
         header: path.resolve(".", "src/header/index.ts"),
-        align: path.resolve(".", "src/align/index.ts"),
+        flex: path.resolve(".", "src/flex/index.ts"),
         tree: path.resolve(".", "src/tree/index.ts"),
         dialog: path.resolve(".", "src/dialog/index.ts"),
         button: path.resolve(".", "src/button/index.ts"),

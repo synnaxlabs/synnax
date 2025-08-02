@@ -10,7 +10,7 @@
 import "@/cluster/Badges.css";
 
 import { type connection } from "@synnaxlabs/client";
-import { Align, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -39,7 +39,7 @@ export const ConnectionStatusBadge = ({
   const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
   return (
     <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
-      <Align.Space y gap="tiny">
+      <Flex.Box y gap="tiny">
         <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
           {STATUS_MESSAGES[status]}
         </Status.Text>
@@ -48,7 +48,7 @@ export const ConnectionStatusBadge = ({
             {message}
           </Text.Text>
         )}
-      </Align.Space>
+      </Flex.Box>
       <Status.Text
         variant={variant}
         justify="center"

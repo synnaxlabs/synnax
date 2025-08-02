@@ -12,7 +12,7 @@ import "@/vis/schematic/Symbols.css";
 import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
 import { type CSSProperties, type FC, type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
@@ -30,7 +30,7 @@ import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
-export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
+export interface ControlStateProps extends Omit<Flex.BoxProps, "direction"> {
   show?: boolean;
   showChip?: boolean;
   showIndicator?: boolean;
@@ -45,7 +45,7 @@ export interface LabelExtensionProps {
   orientation?: location.Location;
   direction?: direction.Direction;
   maxInlineSize?: number;
-  align?: Align.Alignment;
+  align?: Flex.Alignment;
 }
 
 const labelGridItem = (
@@ -103,7 +103,7 @@ const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
   return {
     key: "control",
     element: (
-      <Align.Space
+      <Flex.Box
         direction={direction.swap(orientation)}
         align="center"
         className={CSS(CSS.B("control-state"))}
@@ -111,7 +111,7 @@ const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
       >
         {show && showChip && <Control.Chip size="small" {...chip} />}
         {show && showIndicator && <Control.Indicator {...indicator} />}
-      </Align.Space>
+      </Flex.Box>
     ),
     location: orientation,
   };

@@ -66,7 +66,7 @@ export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement 
       background={0}
       rounded={1}
       bordered
-      borderShade={5}
+      borderColor={5}
     />
   );
 };

@@ -9,10 +9,10 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Component,
   Divider,
+  Flex,
   Icon,
   Input,
   List,
@@ -117,13 +117,13 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
     initialParams: { rangeKey },
   });
   return (
-    <Align.Space y>
+    <Flex.Box y>
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
       <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items>{metaDataItem}</List.Items>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

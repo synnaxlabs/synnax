@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -29,7 +29,7 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const { key, name } = parentRange;
   const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
   return (
-    <Align.Space x align="center" gap="small">
+    <Flex.Box x align="center" gap="small">
       <Text.Text level="p" shade={11}>
         Snapshotted to
       </Text.Text>
@@ -44,6 +44,6 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
         <Icon.Range />
         {name}
       </Button.Button>
-    </Align.Space>
+    </Flex.Box>
   );
 };

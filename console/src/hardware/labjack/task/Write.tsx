@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -46,10 +46,10 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -68,7 +68,7 @@ const ChannelListItem = ({
   const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item {...rest} style={{ width: "100%" }} justify="between" align="center">
-      <Align.Pack x align="center">
+      <Flex.Box pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}
           showLabel={false}
@@ -125,8 +125,8 @@ const ChannelListItem = ({
             </Device.SelectPort>
           )}
         </PForm.Field>
-      </Align.Pack>
-      <Align.Space x align="center" justify="evenly">
+      </Flex.Box>
+      <Flex.Box x align="center" justify="evenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
           itemKey={item.key}
@@ -136,7 +136,7 @@ const ChannelListItem = ({
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
+      </Flex.Box>
     </List.Item>
   );
 };

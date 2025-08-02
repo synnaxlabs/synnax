@@ -8,15 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Component,
-  Header,
-  Icon,
-  List,
-  Ranger,
-} from "@synnaxlabs/pluto";
+import { Button, Component, Flex, Header, Icon, List, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";
@@ -54,8 +46,8 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const { getItem, subscribe, data, retrieve } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5}>
+    <Flex.Box y>
+      <Header.Header level="h4" bordered={false} borderColor={5}>
         <Header.Title shade={11} weight={450}>
           Child Ranges
         </Header.Title>
@@ -79,6 +71,6 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       >
         <List.Items>{childRangeListItem}</List.Items>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

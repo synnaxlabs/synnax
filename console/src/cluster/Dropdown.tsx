@@ -11,9 +11,9 @@ import "@/cluster/Dropdown.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Dialog,
+  Flex,
   Header,
   Icon,
   List as CoreList,
@@ -61,24 +61,22 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
   return (
     <CoreList.Item
       className={CSS(CSS.B("cluster-list-item"))}
-      align="center"
+      y
       selected={selected}
       onSelect={onSelect}
       {...rest}
     >
-      <Align.Space y justify="between" gap="tiny" grow>
-        <Text.MaybeEditable
-          level="p"
-          id={`cluster-dropdown-${item.key}`}
-          weight={450}
-          value={item.name}
-          onChange={handleChange}
-          allowDoubleClick={false}
-        />
-        <Text.Text level="p" shade={10}>
-          {item.host}:{item.port}
-        </Text.Text>
-      </Align.Space>
+      <Text.MaybeEditable
+        level="p"
+        id={`cluster-dropdown-${item.key}`}
+        weight={450}
+        value={item.name}
+        onChange={handleChange}
+        allowDoubleClick={false}
+      />
+      <Text.Text level="p" shade={10}>
+        {item.host}:{item.port}
+      </Text.Text>
     </CoreList.Item>
   );
 };
@@ -94,29 +92,23 @@ export const NoneConnectedBoundary = ({
   return <NoneConnected {...rest} />;
 };
 
-export interface NoneConnectedProps extends Align.SpaceProps<"div"> {}
+export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 
-export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
+export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
-  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
+  const handleCluster: Text.LinkProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
     placeLayout(CONNECT_LAYOUT);
   };
 
   return (
-    <Align.Space
-      empty
-      style={{ height: "100%", position: "relative", ...style }}
-      {...rest}
-    >
-      <Align.Center y style={{ height: "100%" }} gap="small">
-        <Text.Text level="p">No cluster connected.</Text.Text>
-        <Text.Link level="p" onClick={handleCluster}>
-          Connect a cluster
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+    <Flex.Box empty center {...rest}>
+      <Text.Text level="p">No cluster connected.</Text.Text>
+      <Text.Link level="p" onClick={handleCluster}>
+        Connect a cluster
+      </Text.Link>
+    </Flex.Box>
   );
 };
 
@@ -226,7 +218,7 @@ export const Dropdown = (): ReactElement => {
         itemHeight={54}
         allowNone
       >
-        <Align.Pack>
+        <Flex.Box pack>
           <Dialog.Trigger
             justify="center"
             shade={2}
@@ -237,11 +229,11 @@ export const Dropdown = (): ReactElement => {
             {cluster?.name ?? "Connect Cluster"}
           </Dialog.Trigger>
           <ConnectionBadge />
-        </Align.Pack>
+        </Flex.Box>
         <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-          <Align.Pack x>
-            <Header.Header grow bordered borderShade={6} gap="small" x>
+          <Flex.Box pack x>
+            <Header.Header grow bordered borderColor={6} gap="small" x>
               <Header.Title level="h5">
                 <Icon.Cluster />
                 Clusters
@@ -260,12 +252,12 @@ export const Dropdown = (): ReactElement => {
               <Icon.Connect />
               Connect
             </Button.Button>
-          </Align.Pack>
-          <Align.Space empty bordered borderShade={6} style={{ height: 190 }}>
+          </Flex.Box>
+          <Flex.Box empty bordered borderColor={6} style={{ height: 190 }}>
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}
-          </Align.Space>
+          </Flex.Box>
         </Dialog.Dialog>
       </Select.Frame>
     </Dialog.Frame>

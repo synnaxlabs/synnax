@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { type z } from "zod";
 
@@ -17,7 +17,7 @@ import { type Command } from "@/hardware/common/task/types";
 import { Layout } from "@/layout";
 
 export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
-  extends Align.SpaceProps {
+  extends Flex.BoxProps {
   layoutKey: string;
   status: task.Status<StatusData>;
   onCommand: (command: Command) => void;
@@ -68,7 +68,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
     [running, onCommand],
   );
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS.B("task-controls")}
       x
       justify="between"
@@ -76,11 +76,11 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
       bordered
       {...props}
     >
-      <Align.Space className={CSS.B("task-state")} x>
+      <Flex.Box className={CSS.B("task-state")} x>
         {content}
-      </Align.Space>
+      </Flex.Box>
       {!isSnapshot && (
-        <Align.Space align="center" x justify="end">
+        <Flex.Box align="center" x justify="end">
           <Button.Button
             disabled={!canConfigure}
             loading={isConfiguring}
@@ -88,12 +88,12 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
             size="medium"
             tooltip={
               hasTriggers ? (
-                <Align.Space x align="center" gap="small">
+                <Flex.Box x align="center" gap="small">
                   <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
                   <Text.Text level="small" shade={11}>
                     To Configure
                   </Text.Text>
-                </Align.Space>
+                </Flex.Box>
               ) : undefined
             }
             trigger={hasTriggers ? CONFIGURE_TRIGGER : undefined}
@@ -110,8 +110,8 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
           >
             {running ? <Icon.Pause /> : <Icon.Play />}
           </Button.Button>
-        </Align.Space>
+        </Flex.Box>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

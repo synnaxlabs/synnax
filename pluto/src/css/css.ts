@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { direction, location, type spatial } from "@synnaxlabs/x/spatial";
 
 import { type Component } from "@/component";
@@ -22,7 +23,7 @@ export interface CSSType extends BEM {
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  height: (height: ComponentSize | number) => string | false;
+  height: (height: Component.Size | number) => string | false;
   clickable: (shade?: text.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
@@ -41,7 +42,7 @@ export interface CSSType extends BEM {
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
   shade: ((value: text.Shade) => string) & ((value?: text.Shade) => string | false);
-  shadeVar: (value?: number) => string | undefined;
+  colorVar: (value?: false | text.Shade | color.Crude) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
 
@@ -60,8 +61,6 @@ const newCSS = (prefix: string): CSSType => {
     if (typeof loc === "boolean") return loc && CSS.M("bordered");
     return loc != null ? CSS.M(`bordered-${loc.toString()}`) : CSS.M("bordered");
   };
-  CSS.clickable = (shade) =>
-    CSS(CSS.B("clickable"), shade != null && CSS.BM("clickable", `shade-${shade}`));
   CSS.selected = (selected) => selected && CSS.M("selected");
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
@@ -74,12 +73,13 @@ const newCSS = (prefix: string): CSSType => {
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
   CSS.shade = ((value) => value != null && CSS.M(`shade-${value}`)) as CSSType["shade"];
-  CSS.shadeVar = (value) => {
-    if (value == null) return undefined;
-    return `var(--${prefix}-gray-l${value})`;
+  CSS.colorVar = (value) => {
+    if (value == null || value === false) return undefined;
+    if (typeof value === "number") return `var(--${prefix}-gray-l${value})`;
+    return color.cssString(value);
   };
   CSS.levelSizeVar = (value) => `var(--${prefix}-${value}-size)`;
-  CSS.level = (level) => CSS.M(level);
+  CSS.level = (level) => CSS.M(`level-${level}`);
   return CSS;
 };
 

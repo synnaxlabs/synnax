@@ -16,10 +16,12 @@ import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { Text } from "@/text";
 
 export interface TagProps
-  extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
+  extends Optional<
+    Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
+    "level"
+  > {
   icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;
@@ -43,9 +45,9 @@ export const Tag = ({
     onClose == null ? undefined : (
       <Button.Button
         aria-label="close"
-        size="small"
+        size={size === "tiny" ? "small" : size}
+        variant="text"
         className={CSS.BE("tag", "close")}
-        shade={1}
         sharp
         onClick={(e) => {
           e.stopPropagation();
@@ -56,22 +58,23 @@ export const Tag = ({
       </Button.Button>
     );
   return (
-    <Text.Text
+    <Button.Button
+      el="div"
       className={CSS(
         className,
         CSS.B("tag"),
-        CSS.height(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
-      level={Text.COMPONENT_SIZE_LEVELS[size]}
+      size={size}
       noWrap
       align="center"
       gap="small"
       onDragStart={onDragStart}
       {...rest}
     >
-      {children}
+      {icon}
       {closeIcon}
-    </Text.Text>
+      {children}
+    </Button.Button>
   );
 };

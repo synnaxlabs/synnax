@@ -32,7 +32,9 @@ export const SearchInput = ({
       autoFocus
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
-      shade={3}
+      contrast={3}
+      grow
+      fullWidth
       onChange={(v) => {
         setTerm(v);
         onSearch?.(v);

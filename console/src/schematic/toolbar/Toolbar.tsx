@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Align, Breadcrumb, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -46,7 +46,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Align.Center x gap="small">
+    <Flex.Box x gap="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
@@ -64,7 +64,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
             : "enable editing."}
         </Text.Link>
       )}
-    </Align.Center>
+    </Flex.Box>
   );
 };
 
@@ -127,16 +127,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <Core.Header>
         <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        <Align.Space x align="center" empty>
-          <Align.Space x empty style={{ height: "100%", width: 66 }}>
+        <Flex.Box x align="center" empty>
+          <Flex.Box x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={schematic.ontologyID(layoutKey)}
             />
-          </Align.Space>
+          </Flex.Box>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
-        </Align.Space>
+        </Flex.Box>
       </Core.Header>
       <Tabs.Content />
     </Tabs.Provider>

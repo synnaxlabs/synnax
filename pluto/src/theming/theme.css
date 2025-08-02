@@ -35,7 +35,7 @@
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
-    --pluto-height-tiny: 3rem;
+    --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         fill 0.15s ease-in-out;
@@ -116,23 +116,23 @@ html {
 }
 
 .pluto-height--huge {
-    height: var(--pluto-height-huge);
+    min-height: var(--pluto-height-huge);
 }
 
 .pluto-height--large {
-    height: var(--pluto-height-large);
+    min-height: var(--pluto-height-large);
 }
 
 .pluto-height--medium {
-    height: var(--pluto-height-medium);
+    min-height: var(--pluto-height-medium);
 }
 
 .pluto-height--tiny {
-    height: var(--pluto-height-tiny);
+    min-height: var(--pluto-height-tiny);
 }
 
 .pluto-height--small {
-    height: var(--pluto-height-small);
+    min-height: var(--pluto-height-small);
 }
 
 .pluto--no-select {

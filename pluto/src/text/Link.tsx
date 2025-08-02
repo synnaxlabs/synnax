@@ -11,36 +11,24 @@ import "@/text/Link.css";
 
 import { type ReactElement } from "react";
 
-import { type Align } from "@/align";
 import { CSS } from "@/css";
+import { type Generic } from "@/generic";
 import { Text, type TextProps } from "@/text/Text";
 
-export type LinkProps<E extends Align.ElementType = Align.ElementType> =
-  TextProps<E> & {
-    href?: string;
-    download?: string;
-    target?: string;
-    rel?: string;
-  };
+export type LinkProps<E extends Generic.ElementType = "a"> = TextProps<E> & {
+  href?: string;
+  download?: string;
+  target?: string;
+  rel?: string;
+};
 
-export const Link = <E extends Align.ElementType = Align.ElementType>({
-  ref,
-  href,
-  download,
-  target,
-  rel,
+export const Link = <E extends Generic.ElementType = "a">({
   className,
   ...rest
 }: LinkProps<E>): ReactElement => (
-  // @ts-expect-error - generic component errors
   <Text<E>
     el="a"
-    ref={ref}
-    href={href}
-    download={download}
-    target={target}
-    rel={rel}
     className={CSS(className, CSS.B("text-link"))}
-    {...rest}
+    {...(rest as TextProps<E>)}
   />
 );

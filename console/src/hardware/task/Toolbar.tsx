@@ -11,8 +11,8 @@ import "@/hardware/task/Toolbar.css";
 
 import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Icon,
   List,
   Menu as PMenu,
@@ -44,14 +44,14 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center y style={{ height: "100%" }} gap="small">
+    <Flex.Box empty style={{ height: "100%", position: "relative" }}>
+      <Flex.Box y style={{ height: "100%" }} gap="small">
         <Text.Text level="p">No existing tasks.</Text.Text>
         <Text.Link level="p" onClick={handleClick}>
           Add a task
         </Text.Link>
-      </Align.Center>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -176,7 +176,7 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Align.Space
+      <Flex.Box
         empty
         style={{ height: "100%" }}
         className={CSS(CSS.B("task-toolbar"), menuProps.className)}
@@ -207,7 +207,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Align.Space>
+      </Flex.Box>
     </PMenu.ContextMenu>
   );
 };
@@ -247,8 +247,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   );
   return (
     <Select.ListItem {...rest} justify="between" align="center">
-      <Align.Space y gap="small" grow className={CSS.BE("task", "metadata")}>
-        <Align.Space x align="center" gap="small">
+      <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
+        <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
@@ -263,11 +263,11 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
               allowDoubleClick={false}
             />
           </Text.Text>
-        </Align.Space>
+        </Flex.Box>
         <Text.Text level="small" shade={10}>
           {parseType(task?.type ?? "")}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
       <Button.Button
         variant="outlined"
         loading={isLoading}

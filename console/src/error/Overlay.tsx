@@ -11,10 +11,10 @@ import "@/error/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
 import {
-  Align,
   Button,
   Component,
   CSS as PCSS,
+  Flex,
   Nav,
   OS,
   Status,
@@ -90,7 +90,7 @@ const FallBackRenderContent = ({
     if (RUNTIME === "tauri") void getCurrentWindow().show();
   }, []);
   return (
-    <Align.Space y className={CSS.B("error-overlay")}>
+    <Flex.Box y className={CSS.B("error-overlay")}>
       <Nav.Bar
         location="top"
         size="6.5rem"
@@ -136,10 +136,10 @@ const FallBackRenderContent = ({
         </Nav.Bar.End>
       </Nav.Bar>
 
-      <Align.Center role="alert">
-        <Align.Space x className={CSS.B("dialog")} gap={20}>
+      <Flex.Box role="alert" center>
+        <Flex.Box x className={CSS.B("dialog")} gap={20}>
           <Logo variant="icon" />
-          <Align.Space y align="start" className={CSS.B("details")}>
+          <Flex.Box y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
               {error.name} - {messageTranslation[error.message] ?? error.message}
@@ -147,7 +147,7 @@ const FallBackRenderContent = ({
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
             </Text.Text>
-            <Align.Space x>
+            <Flex.Box x>
               {onTryAgain && (
                 <Button.Button variant="filled" onClick={onTryAgain}>
                   Try again
@@ -158,11 +158,11 @@ const FallBackRenderContent = ({
                   Clear Storage and Hard Reset
                 </Button.Button>
               )}
-            </Align.Space>
-          </Align.Space>
-        </Align.Space>
-      </Align.Center>
-    </Align.Space>
+            </Flex.Box>
+          </Flex.Box>
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 

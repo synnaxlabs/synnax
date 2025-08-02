@@ -11,6 +11,8 @@
 
 .pluto-icon {
     color: inherit;
+    width: 1em;
+    height: 1em;
 
     &.pluto-icon--composite {
         transform: scale(1.15);

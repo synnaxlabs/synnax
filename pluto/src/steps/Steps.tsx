@@ -9,7 +9,7 @@
 
 import { Fragment, type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -21,7 +21,7 @@ export interface Step {
 }
 
 export interface StepsProps
-  extends Omit<Align.SpaceProps, "children" | "onChange">,
+  extends Omit<Flex.BoxProps, "children" | "onChange">,
     Input.Control<string> {
   steps: Step[];
 }
@@ -34,7 +34,7 @@ export const Steps = ({
 }: StepsProps): ReactElement => {
   const selectedIdx = steps.findIndex((step) => step.key === value);
   return (
-    <Align.Space x align="center" className={CSS.B("steps")} {...rest}>
+    <Flex.Box x align="center" className={CSS.B("steps")} {...rest}>
       {steps.map((step, i) => (
         <Fragment key={step.key}>
           <Button.Button
@@ -52,6 +52,6 @@ export const Steps = ({
           )}
         </Fragment>
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };

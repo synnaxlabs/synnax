@@ -19,6 +19,7 @@
 
 .pluto-input__drag-btn {
     cursor: move !important;
+    background: none;
 }
 
 .pluto-input__drag-btn.pluto--x {

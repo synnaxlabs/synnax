@@ -35,7 +35,7 @@ const listItemRenderProp = Component.renderProp(
     const { itemKey } = props;
     const item = List.useItem<rack.Key, rack.Rack>(itemKey);
     return (
-      <Select.ListItem {...props} align="center" justify="spaceBetween">
+      <Select.ListItem {...props} align="center" justify="between">
         <Text.Text level="p">{item?.name}</Text.Text>
         <Rack.StatusIndicator status={item?.status} tooltipLocation="left" />
       </Select.ListItem>

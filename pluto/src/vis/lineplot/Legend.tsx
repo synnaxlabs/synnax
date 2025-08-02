@@ -11,7 +11,7 @@ import "@/vis/legend/Container.css";
 
 import { memo, type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Legend as Core } from "@/vis/legend";
@@ -41,7 +41,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
   );
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS.BE("legend", "container")}
       align="center"
       x
@@ -54,7 +54,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
       }}
     >
       <LegendSwatches data={lines} onEntryChange={onLineChange} shade={0} />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

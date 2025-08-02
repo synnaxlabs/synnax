@@ -10,7 +10,7 @@
 import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
-import { Align, Device, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
+import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -193,7 +193,7 @@ const Item = ({
     ?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
-      <Align.Space x grow align="center" className={CSS.B("name-location")}>
+      <Flex.Box x grow align="center" className={CSS.B("name-location")}>
         {icon(resource)}
         <Text.MaybeEditable
           id={itemKey}
@@ -207,7 +207,7 @@ const Item = ({
         <Text.Text level="small" shade={9} className={CSS.B("location")} noWrap>
           {resource.data?.location as string}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
       <Device.StatusIndicator status={devStatus} />
     </Tree.Item>
   );

@@ -9,7 +9,7 @@
 
 import "@/range/overview/Overview.css";
 
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -19,7 +19,7 @@ import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
-  <Align.Space
+  <Flex.Box
     y
     style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
@@ -29,5 +29,5 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     <MetaData rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />
-  </Align.Space>
+  </Flex.Box>
 );

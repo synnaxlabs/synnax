@@ -12,12 +12,12 @@ import "@/layouts/Mosaic.css";
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Align,
   Breadcrumb,
   Button,
   Component,
   Dialog,
   Eraser,
+  Flex,
   Icon,
   Menu as PMenu,
   Mosaic as Core,
@@ -52,17 +52,17 @@ import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Align.Center gap={5}>
+    <Flex.Box gap={5} center>
       <Logo className="synnax-logo-watermark" />
-      <Align.Space x gap="small" align="center">
+      <Flex.Box x gap="small">
         <Text.Text level="h5" weight={450} shade={10}>
           New Component
         </Text.Text>
-        <Align.Space x empty>
+        <Flex.Box x empty>
           <Triggers.Text level="h5" shade={11} trigger={["Control", "T"]} />
-        </Align.Space>
-      </Align.Space>
-    </Align.Center>
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
   </Eraser.Eraser>
 );
 
@@ -292,7 +292,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
       <Core.Mosaic
         rounded={1}
         bordered
-        borderShade={5}
+        borderColor={5}
         background={0}
         root={mosaic}
         onDrop={handleDrop}
@@ -387,7 +387,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
     return (
       <>
         <NavTop />
-        <Align.Space
+        <Flex.Box
           y
           gap="tiny"
           grow
@@ -396,7 +396,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
           <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
-        </Align.Space>
+        </Flex.Box>
       </>
     );
   },

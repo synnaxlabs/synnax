@@ -106,12 +106,12 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       href={href}
       {...props}
     >
-      <Align.Space direction="y" empty>
+      <Flex.Box direction="y" empty>
         <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
         <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
           {path}
         </Breadcrumb.Breadcrumb>
-      </Align.Space>
+      </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
     </Select.ListItem>
   );
@@ -200,14 +200,14 @@ const SearchDialogContent = () => {
         close();
       }}
     >
-      <Align.Pack className="search-results__content" direction="y">
+      <Flex.Box pack className="search-results__content" direction="y">
         <Input.Text
           className="search-results__input"
           ref={inputRef}
           placeholder={
-            <Text.WithIcon level="h2" startIcon={<Icon.Search />}>
+            <Text.Text level="h2" startIcon={<Icon.Search />}>
               Search
-            </Text.WithIcon>
+            </Text.Text>
           }
           autoFocus
           value={value}
@@ -218,7 +218,7 @@ const SearchDialogContent = () => {
           className="styled-scrollbar"
           background={0}
           bordered
-          borderShade={6}
+          borderColor={6}
           emptyContent={
             <Align.Center style={{ height: "100%" }}>
               <Text.Text level="p" shade={11} weight={400}>
@@ -229,7 +229,7 @@ const SearchDialogContent = () => {
         >
           {searchListItem}
         </List.Items>
-      </Align.Pack>
+      </Flex.Box>
     </Select.Frame>
   );
 };

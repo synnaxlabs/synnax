@@ -9,7 +9,6 @@
 
 export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
-export { Align } from "@/align";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
@@ -21,6 +20,7 @@ export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";
 export { Divider } from "@/divider";
+export { Flex } from "@/flex";
 export { Flux as Sync } from "@/flux";
 export { Flux } from "@/flux";
 export { Form } from "@/form";

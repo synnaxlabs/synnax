@@ -10,7 +10,7 @@
 import "@/cluster/Connect.css";
 
 import { type connection, Synnax as Client } from "@synnaxlabs/client";
-import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -91,9 +91,9 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     }, "Failed to connect to cluster");
 
   return (
-    <Align.Space grow className={CSS.B("connect-cluster")}>
+    <Flex.Box grow className={CSS.B("connect-cluster")}>
       <Form.Form<typeof formSchema> {...methods}>
-        <Align.Space className="console-form" grow gap="tiny" justify="center">
+        <Flex.Box className="console-form" grow gap="tiny" justify="center">
           <Form.TextField
             path="name"
             inputProps={{
@@ -103,24 +103,24 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
               placeholder: "My Synnax Cluster",
             }}
           />
-          <Align.Space x>
+          <Flex.Box x>
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Form.Field>
             <Form.Field<string> path="port" className={CSS.BE("input", "port")}>
               {(p) => <Input.Text placeholder="9090" {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Form.Field<string> path="username">
             {(p) => <Input.Text placeholder="synnax" {...p} />}
           </Form.Field>
-          <Align.Space x>
+          <Flex.Box x>
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
               {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
             <Form.SwitchField path="secure" label="Secure" />
-          </Align.Space>
-        </Align.Space>
+          </Flex.Box>
+        </Flex.Box>
       </Form.Form>
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
@@ -146,6 +146,6 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

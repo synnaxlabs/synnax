@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -62,7 +62,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   };
 
   return (
-    <Align.Space style={{ padding: "2rem", width: "100%" }}>
+    <Flex.Box style={{ padding: "2rem", width: "100%" }}>
       <SelectMultipleAxesInputItem
         axis="y1"
         onChange={handleYChannelSelect}
@@ -78,7 +78,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
         grow
         selectProps={SELECT_PROPS}
       />
-      <Align.Space x grow wrap>
+      <Flex.Box x grow wrap>
         <Range.SelectMultipleInputItem
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}
@@ -90,7 +90,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
           value={vis.channels.x1}
           selectProps={SELECT_PROPS}
         />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };

@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x";
 import { Fragment, isValidElement, type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
@@ -19,7 +19,7 @@ import { Text } from "@/text";
 
 export type ActionSpec = Button.ButtonProps | ReactElement;
 
-export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direction"> {
+export interface ActionsProps extends Omit<Flex.BoxProps, "children" | "direction"> {
   children?: ActionSpec | ActionSpec[];
 }
 
@@ -34,7 +34,7 @@ export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direc
 export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => {
   const { level, divided } = useContext();
   return (
-    <Align.Space
+    <Flex.Box
       x
       gap="small"
       align="center"
@@ -46,7 +46,7 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
           {action}
         </Action>
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

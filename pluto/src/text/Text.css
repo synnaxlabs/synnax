@@ -11,39 +11,48 @@
 
 .pluto-text {
     margin: 0;
+    &.pluto--x {
+        align-items: center;
+    }
 }
 
-.pluto--h1 {
+.pluto--level-h1 {
     font-size: var(--pluto-h1-size);
     line-height: var(--pluto-h1-line-height);
     font-weight: var(--pluto-h1-weight);
 }
 
-.pluto--h2 {
+.pluto--level-h2 {
     font-size: var(--pluto-h2-size);
     line-height: var(--pluto-h2-line-height);
     font-weight: var(--pluto-h2-weight);
 }
 
-.pluto--h3 {
+.pluto--level-h3 {
     font-size: var(--pluto-h3-size);
     line-height: var(--pluto-h3-line-height);
     font-weight: var(--pluto-h3-weight);
 }
 
-.pluto--h4 {
+.pluto--level-h4 {
     font-size: var(--pluto-h4-size);
     line-height: var(--pluto-h4-line-height);
     font-weight: var(--pluto-h4-weight);
 }
 
-.pluto--h5 {
+.pluto--level-h5 {
     font-size: var(--pluto-h5-size);
     line-height: var(--pluto-h5-line-height);
     font-weight: var(--pluto-h5-weight);
 }
 
-.pluto--p {
+.pluto--level-small {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    font-weight: var(--pluto-small-weight);
+}
+
+.pluto--level-p {
     font-size: var(--pluto-p-size);
 }
 

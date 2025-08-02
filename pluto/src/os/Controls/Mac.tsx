@@ -11,10 +11,10 @@ import "@/os/Controls/Mac.css";
 
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { type Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Icon = {
@@ -85,7 +85,7 @@ export const MacOS = ({
   onClose,
   ...rest
 }: InternalControlsProps): ReactElement => (
-  <Align.Space
+  <Flex.Box
     gap={1.5}
     x
     className={CSS(
@@ -116,7 +116,7 @@ export const MacOS = ({
     >
       {Icon.Maximize}
     </TrafficLight>
-  </Align.Space>
+  </Flex.Box>
 );
 
 interface TrafficLightProps extends Button.ButtonProps {}

@@ -10,16 +10,7 @@
 import "@/hardware/common/device/Configure.css";
 
 import { type device, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Form,
-  Icon,
-  Nav,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -99,9 +90,9 @@ const Internal = <
     },
   });
   return (
-    <Align.Space align="stretch" className={CSS.B("configure")} empty>
+    <Flex.Box align="stretch" className={CSS.B("configure")} empty>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
-        <Align.Space
+        <Flex.Box
           align="stretch"
           justify="center"
           grow
@@ -129,14 +120,14 @@ const Internal = <
                 channels associated with this device. We've given you some suggestions
                 below.
               </Text.Text>
-              <Align.Space gap="small">
+              <Flex.Box gap="small">
                 <Form.TextField
                   autoFocus
                   label="Identifier"
                   inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
                   path="identifier"
                 />
-                <Align.Space x>
+                <Flex.Box x>
                   <Button.Button disabled size="small" variant="text">
                     <Icon.Bolt />
                   </Button.Button>
@@ -153,11 +144,11 @@ const Internal = <
                       {id}
                     </Button.Button>
                   ))}
-                </Align.Space>
-              </Align.Space>
+                </Flex.Box>
+              </Flex.Box>
             </>
           )}
-        </Align.Space>
+        </Flex.Box>
       </Form.Form>
       <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
@@ -174,7 +165,7 @@ const Internal = <
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -210,14 +201,14 @@ export const Configure = <
   if (isError) {
     const color = Status.VARIANT_COLORS.error;
     return (
-      <Align.Space align="center" grow justify="center">
+      <Flex.Box align="center" grow justify="center">
         <Text.Text color={color} level="h2">
           Failed to load data for device with key {layoutKey}
         </Text.Text>
         <Text.Text color={color} level="p">
           {error.message}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
     );
   }
   return <Internal device={data} {...rest} />;

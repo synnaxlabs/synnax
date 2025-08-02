@@ -9,18 +9,18 @@
 
 import { type record } from "@synnaxlabs/x";
 
-import { type Align } from "@/align";
+import { type Button } from "@/button";
 import { List } from "@/list";
 import { useItemState } from "@/select/Frame";
 
 export type ListItemProps<
   K extends record.Key = record.Key,
-  E extends Align.ElementType = "div",
+  E extends Button.ElementType = "div",
 > = List.ItemProps<K, E>;
 
 export const ListItem = <
   K extends record.Key = record.Key,
-  E extends Align.ElementType = "div",
+  E extends Button.ElementType = "div",
 >(
   props: ListItemProps<K, E>,
 ) => {

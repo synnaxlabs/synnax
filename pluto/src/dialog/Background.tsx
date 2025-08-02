@@ -9,10 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 
-export interface BackgroundProps extends Align.SpaceProps {
+export interface BackgroundProps extends Flex.BoxProps {
   visible: boolean;
 }
 
@@ -23,12 +23,12 @@ export const Background = ({
   visible,
   ...rest
 }: BackgroundProps): ReactElement => (
-  <Align.Space
+  <Flex.Box
     className={CSS(BACKGROUND_CLASS, CSS.visible(visible))}
     empty
     align="center"
     {...rest}
   >
     {children}
-  </Align.Space>
+  </Flex.Box>
 );

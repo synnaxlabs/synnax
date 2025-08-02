@@ -132,14 +132,14 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
         <Icon.Menu />
       </Dialog.Trigger>
       <Dialog.Dialog>
-        <Align.Space
-          borderShade={5}
+        <Flex.Box
+          borderColor={5}
           background={0}
           bordered
           rounded
           className="page-nav-mobile-content"
         >
-          <Align.Space
+          <Flex.Box
             style={{
               width: "100%",
               padding: "2rem 2rem",
@@ -148,9 +148,9 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
             direction="x"
           >
             <Logo variant="title" />
-          </Align.Space>
+          </Flex.Box>
           {tree}
-        </Align.Space>
+        </Flex.Box>
       </Dialog.Dialog>
     </Dialog.Frame>
   );

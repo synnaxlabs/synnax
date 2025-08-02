@@ -7,9 +7,9 @@ import { PageNavMobile } from "@/components/PageNav/PageNav";
 const url = Astro.url.pathname;
 ---
 
-<Align.Space className="main-header" justify="center" align="center" el="header" empty>
-    <Align.Space className="top" justify="center" align="center">
-        <Align.Space
+<Flex.Box className="main-header" justify="center" align="center" el="header" empty>
+    <Flex.Box className="top" justify="center" align="center">
+        <Flex.Box
             className="header-content"
             direction="x"
             justify="between"
@@ -18,14 +18,14 @@ const url = Astro.url.pathname;
             <a href="https://synnaxlabs.com">
                 <Logo variant="title" />
             </a>
-            <Align.Space direction="x" align="center" justify="center">
-                <Align.Space direction="x" size="small">
+            <Flex.Box direction="x" align="center" justify="center">
+                <Flex.Box direction="x" size="small">
                     <Search />
                     <PageNavMobile
                         client:only="react"
                         currentPage={Astro.url.pathname}
                     />
-                </Align.Space>
+                </Flex.Box>
                 <Button.Link
                     className="version-button"
                     variant="text"
@@ -35,11 +35,11 @@ const url = Astro.url.pathname;
                     <Icon.Logo.Github slot="endIcon" />
                     <p class="version" transition:persist></p>
                 </Button.Link>
-            </Align.Space>
-        </Align.Space>
-    </Align.Space>
-    <Align.Space className="bottom" justify="center" align="center">
-        <Align.Space direction="x" className="header-content" size={5} justify="start">
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box className="bottom" justify="center" align="center">
+        <Flex.Box direction="x" className="header-content" size={5} justify="start">
             <Text.Link
                 href="/"
                 className={url === "/" ? "active" : ""}
@@ -64,9 +64,9 @@ const url = Astro.url.pathname;
                 level="h5"
                 noWrap>Releases</Text.Link
             >
-        </Align.Space>
-    </Align.Space>
-</Align.Space>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .main-header {

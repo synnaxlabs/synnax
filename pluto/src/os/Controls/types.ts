@@ -9,12 +9,12 @@
 
 import { type runtime } from "@synnaxlabs/x";
 
-import { type Align } from "@/align";
+import { type Flex } from "@/flex";
 import { type Text } from "@/text";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 
-export interface InternalControlsProps extends Align.SpaceProps {
+export interface InternalControlsProps extends Flex.BoxProps {
   forceOS?: runtime.OS;
   disabled?: ControlsAction[];
   focused?: boolean;

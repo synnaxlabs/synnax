@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Button,
   compareArrayDeps,
   Direction,
+  Flex,
   Icon,
   Input,
   Select,
@@ -147,8 +147,8 @@ export const LinePlotAxisControls = ({
   };
 
   return (
-    <Align.Space y style={{ padding: "2rem" }} gap="small">
-      <Align.Space x>
+    <Flex.Box y style={{ padding: "2rem" }} gap="small">
+      <Flex.Box x>
         <Input.Item label="Lower Bound" y grow>
           <Input.Numeric
             value={axis.bounds.lower}
@@ -185,8 +185,8 @@ export const LinePlotAxisControls = ({
             endContent="px"
           />
         </Input.Item>
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Input.Item label="Label" grow>
           <Input.Text
             placeholder={axisKey.toUpperCase()}
@@ -208,8 +208,8 @@ export const LinePlotAxisControls = ({
             onChange={handleLabelLevelChange}
           />
         </Input.Item>
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 

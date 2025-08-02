@@ -11,7 +11,7 @@ import "@/layouts/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
-import { Align, Button, Eraser, Icon, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, Flex, Icon, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -62,10 +62,10 @@ const NoCluster = (): ReactElement => {
   );
 
   return (
-    <Align.Center className="console-get-started" align="center" gap={6}>
+    <Flex.Box className="console-get-started" align="center" gap={6}>
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
-      <Align.Space x gap="large" justify="center" wrap>
+      <Flex.Box x gap="large" justify="center" wrap>
         <Button.Button onClick={handleCluster} size="large" variant="filled">
           <Icon.Cluster />
           Connect a Cluster
@@ -74,11 +74,11 @@ const NoCluster = (): ReactElement => {
           <Icon.Visualize />
           Create a Visualization
         </Button.Button>
-      </Align.Space>
+      </Flex.Box>
       <Text.Link target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
-    </Align.Center>
+    </Flex.Box>
   );
 };
 
@@ -90,26 +90,21 @@ const Overview = (): ReactElement => {
   );
   return (
     <Eraser.Eraser>
-      <Align.Center
-        className="console-get-started"
-        gap={6}
-        y
-        style={{ padding: "200px" }}
-      >
+      <Flex.Box className="console-get-started" gap={6} y style={{ padding: "200px" }}>
         <Logo variant="title" className="console-get-started__logo" />
-        <Align.Space x style={{ width: "100%" }} justify="center" gap={30} wrap>
-          <Align.Space y>
+        <Flex.Box x style={{ width: "100%" }} justify="center" gap={30} wrap>
+          <Flex.Box y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
             <Button.Button onClick={handleWorkspace} style={{ width: "fit-content" }}>
               <Icon.Add />
               Create a Workspace
             </Button.Button>
-          </Align.Space>
-          <Align.Space y align="center">
+          </Flex.Box>
+          <Flex.Box y align="center">
             <Text.Text level="h1">Recent Ranges</Text.Text>
-          </Align.Space>
-        </Align.Space>
-      </Align.Center>
+          </Flex.Box>
+        </Flex.Box>
+      </Flex.Box>
     </Eraser.Eraser>
   );
 };

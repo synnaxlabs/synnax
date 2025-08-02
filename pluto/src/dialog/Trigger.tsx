@@ -25,6 +25,7 @@ export const Trigger = ({
   onClick,
   className,
   hideCaret = false,
+  children,
   ...rest
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
@@ -40,8 +41,10 @@ export const Trigger = ({
         onClick?.(e);
         toggle();
       }}
-      endIcon={endIcon}
       {...rest}
-    />
+    >
+      {children}
+      {endIcon}
+    </Button.Button>
   );
 };

@@ -11,9 +11,9 @@ import "@/hardware/opc/device/Browser.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Component,
+  Flex,
   Haul,
   Header,
   Icon,
@@ -164,9 +164,9 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
-    <Align.Center>
+    <Flex.Box>
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
-    </Align.Center>
+    </Flex.Box>
   ) : expand.isError ? (
     <Status.Text.Centered level="p" shade={10} variant="error">
       Error loading nodes. {expand.error.message}
@@ -182,7 +182,7 @@ export const Browser = ({ device }: BrowserProps) => {
     </Tree.Tree>
   );
   return (
-    <Align.Space empty className={CSS.B("opc-browser")}>
+    <Flex.Box empty className={CSS.B("opc-browser")}>
       <Header.Header level="p">
         <Header.Title weight={500} shade={10}>
           Browser
@@ -199,6 +199,6 @@ export const Browser = ({ device }: BrowserProps) => {
         </Header.Actions>
       </Header.Header>
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };

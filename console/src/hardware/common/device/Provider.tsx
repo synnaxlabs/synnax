@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Flex, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -16,9 +16,9 @@ import { use } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
-  <Align.Center>
+  <Flex.Box center>
     <Text.Text level="p">No device selected.</Text.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 export interface ProviderChildProps<
@@ -57,14 +57,14 @@ export const Provider = <
     const { name } = device;
     const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
     return (
-      <Align.Center>
+      <Flex.Box>
         <Text.Text level="p">{`${name} is not configured.`}</Text.Text>
         {canConfigure && (
           <Text.Link level="p" onClick={handleConfigure}>
             {`Configure ${name}.`}
           </Text.Link>
         )}
-      </Align.Center>
+      </Flex.Box>
     );
   }
   return children({ device });

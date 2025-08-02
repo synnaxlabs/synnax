@@ -9,8 +9,8 @@
 
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
-  Align,
   Channel as PChannel,
+  Flex,
   type Haul,
   Icon,
   Menu as PMenu,
@@ -339,7 +339,7 @@ export const Item = ({
   const I = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <Align.Space gap="small" x align="center">
+      <Flex.Box gap="small" x align="center">
         <I style={{ color: "var(--pluto-gray-l10" }} />
         <Text.MaybeEditable
           id={ontology.idToString(id)}
@@ -349,7 +349,7 @@ export const Item = ({
           disabled={!allowRename(resource)}
           onChange={onRename}
         />
-      </Align.Space>
+      </Flex.Box>
       {data.virtual && (
         <Icon.Virtual
           style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}

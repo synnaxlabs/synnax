@@ -4,9 +4,9 @@ const { date, version, title, breakingChanges } = Astro.props;
 const firstPart = version.split(".").slice(0, 2).join(".");
 ---
 
-<Align.Space direction="x" id={version.split(".").join("-")} className="release" empty>
-    <Align.Space direction="y" className="meta" align="start" size="large">
-        <Align.Space direction="y" empty>
+<Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
+    <Flex.Box direction="y" className="meta" align="start" size="large">
+        <Flex.Box direction="y" empty>
             <Text.Text level="h3" weight={500}>Version {firstPart}</Text.Text>
             <Text.Text level="p" shade={8}>{date}</Text.Text>
             {
@@ -20,8 +20,8 @@ const firstPart = version.split(".").slice(0, 2).join(".");
                     </Text.Text>
                 )
             }
-        </Align.Space>
-        <Align.Space direction="x" align="center" size="large">
+        </Flex.Box>
+        <Flex.Box direction="x" align="center" size="large">
             <Text.Link
                 level="p"
                 href={`https://github.com/synnaxlabs/synnax/tree/synnax-v${version}`}
@@ -37,15 +37,15 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             >
                 <Icon.TypeScript className="link" />
             </Text.Link>
-        </Align.Space>
-    </Align.Space>
-    <Align.Space direction="y" className="details">
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box direction="y" className="details">
         <Text.Text level="h2" className="title">{title}</Text.Text>
         <article>
             <slot />
         </article>
-    </Align.Space>
-</Align.Space>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .release {

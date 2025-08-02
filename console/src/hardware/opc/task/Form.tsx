@@ -11,7 +11,7 @@ import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
+  Flex,
   Form as PForm,
   Haul,
   Header as PHeader,
@@ -58,7 +58,7 @@ const ChannelListItem = <C extends Channel>({
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
-      <Align.Space direction="y" gap="small">
+      <Flex.Box direction="y" gap="small">
         <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
         <Text.Text
           level="small"
@@ -70,14 +70,14 @@ const ChannelListItem = <C extends Channel>({
           <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
         </Text.Text>
-      </Align.Space>
-      <Align.Space direction="x" align="center">
+      </Flex.Box>
+      <Flex.Box direction="x" align="center">
         {children({ path, snapshot: isSnapshot })}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };
@@ -91,13 +91,13 @@ const Header = () => (
 );
 
 const EmptyContent = () => (
-  <Align.Center>
+  <Flex.Box>
     <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.
     </Text.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 const CHANNELS_PATH = "config.channels";

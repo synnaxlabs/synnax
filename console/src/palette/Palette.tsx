@@ -11,9 +11,9 @@ import "@/palette/Palette.css";
 
 import { type ontology } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Dialog,
+  Flex,
   Icon,
   Input,
   List,
@@ -107,9 +107,9 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const emptyContent = (
-  <Align.Center>
+  <Flex.Box center>
     <Status.Text variant="disabled">No results found.</Status.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 const DialogContent = ({

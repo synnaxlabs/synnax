@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/align/Space.css";
+import "@/flex/Box.css";
 
+import { type color } from "@synnaxlabs/x";
 import { direction } from "@synnaxlabs/x/spatial";
 import { type ReactElement } from "react";
+import z from "zod";
 
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type Theming } from "@/theming";
-import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
+export const alignmentZ = z.enum(ALIGNMENTS);
 
 /** The alignments for the cross axis of a space */
-export type Alignment = (typeof ALIGNMENTS)[number];
+export type Alignment = z.infer<typeof alignmentZ>;
 
 /** All possible justifications for the main axis of a space */
 export const JUSTIFICATIONS = [
@@ -32,61 +35,45 @@ export const JUSTIFICATIONS = [
   "around",
   "evenly",
 ] as const;
+export const justificationZ = z.enum(JUSTIFICATIONS);
 
 /** The justification for the main axis of a space */
-export type Justification = (typeof JUSTIFICATIONS)[number];
+export type Justification = z.infer<typeof justificationZ>;
 
-export type ElementType =
-  | "div"
-  | "header"
-  | "nav"
-  | "section"
-  | "article"
-  | "aside"
-  | "footer"
-  | "button"
-  | "dialog"
-  | "a"
-  | "form"
-  | "main"
-  | "p"
-  | "h1"
-  | "h2"
-  | "h3"
-  | "h4"
-  | "h5"
-  | "h6"
-  | "span"
-  | "small";
+export type BoxProps<E extends Generic.ElementType = "div"> =
+  Generic.OptionalElementProps<E> & BoxExtensionProps;
 
-export interface CoreExtensionProps {
-  el?: ElementType;
+export interface BoxExtensionProps {
+  // border
   bordered?: boolean;
-  borderShade?: Theming.Shade;
+  borderColor?: Theming.Shade | color.Crude;
   borderWidth?: number;
   rounded?: boolean | number;
+  // background
   background?: Theming.Shade;
-}
-
-export interface SpaceExtensionProps extends CoreExtensionProps {
+  // gap
   empty?: boolean;
-  gap?: ComponentSize | number;
+  gap?: Component.Size | number;
+  // direction
   direction?: direction.Crude;
   x?: boolean;
   y?: boolean;
   reverse?: boolean;
+  // popsitioning
   justify?: Justification;
   align?: Alignment;
+  // sizing
   grow?: boolean | number;
+  fullWidth?: boolean;
   shrink?: boolean | number;
+  center?: boolean;
+  // wrapping
   wrap?: boolean;
+  // packing
+  pack?: boolean;
+  // sizing
+  size?: Component.Size;
 }
-
-export type SpaceProps<E extends ElementType = "div"> = Omit<
-  Generic.ElementProps<E>,
-  "el"
-> &
-  SpaceExtensionProps;
 
 export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
   reverse ?? (direction === "right" || direction === "bottom");
@@ -95,12 +82,12 @@ export const parseDirection = (
   dir?: direction.Crude,
   x?: boolean,
   y?: boolean,
-  def: direction.Direction = "y",
+  pack?: boolean,
 ): direction.Direction => {
-  if (x) return "x";
-  if (y) return "y";
+  if (x === true) return "x";
+  if (y === true) return "y";
   if (dir != null) return direction.construct(dir);
-  return def;
+  return pack ? "x" : "y";
 };
 
 /**
@@ -133,82 +120,64 @@ export const parseDirection = (
  * vertically. If true, props.direction is ignored. props.x takes precedence over props.y.
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
-export const Space = <E extends ElementType = "div">({
+export const Box = <E extends Generic.ElementType = "div">({
   style,
   align,
   className,
   grow,
   shrink,
-  empty = false,
   gap,
   justify,
   reverse,
+  empty = false,
+  pack = false,
   wrap = false,
+  center = false,
   direction: propsDir,
+  rounded,
+  borderWidth,
+  borderColor,
+  fullWidth,
+  background,
+  bordered,
   x,
   y,
   ...rest
-}: SpaceProps<E>): ReactElement => {
-  const dir = parseDirection(propsDir, x, y, "y");
-  reverse = shouldReverse(dir, reverse);
+}: BoxProps<E>): ReactElement => {
+  const dir = parseDirection(propsDir, x, y, pack);
   const classNames = [
-    CSS.B("space"),
+    CSS.BE("flex", "box"),
     CSS.dir(dir),
-    reverse && CSS.M("reverse"),
+    pack && CSS.BM("flex", "pack"),
+    shouldReverse(dir, reverse) && CSS.M("reverse"),
     justify != null && CSS.BM("justify", justify),
     align != null && CSS.BM("align", align),
     wrap && CSS.M("wrap"),
     empty && CSS.M("empty"),
+    center && CSS.BM("flex", "center"),
+    fullWidth && CSS.BM("flex", "full-width"),
+    bordered != null && CSS.bordered(bordered),
+    typeof rounded === "boolean" && CSS.rounded(rounded),
     className,
   ];
-  style ??= {};
+  style = {
+    borderWidth,
+    borderColor: CSS.colorVar(borderColor),
+    ...style,
+  };
+  if (rounded != null && typeof rounded === "number")
+    style.borderRadius = `${rounded}rem`;
   if (typeof gap === "number") style.gap = `${gap}rem`;
   else if (gap != null) classNames.push(CSS.BM("gap", gap));
   if (grow != null) style.flexGrow = Number(grow);
   if (shrink != null) style.flexShrink = Number(shrink);
+  if (background != null) style.backgroundColor = CSS.colorVar(background);
   return (
-    // @ts-expect-error - TODO: fix generic element props
-    <Core<E> className={CSS(...classNames)} style={style} {...rest} />
-  );
-};
-
-export type CoreProps<E extends ElementType = "div"> = Omit<
-  Generic.ElementProps<E>,
-  "el"
-> &
-  CoreExtensionProps & { el?: E };
-
-export const Core = <E extends ElementType = "div">({
-  style,
-  el = "div" as E,
-  bordered = false,
-  borderShade,
-  borderWidth,
-  rounded = false,
-  background,
-  className,
-  ...rest
-}: CoreProps<E>): ReactElement => {
-  let borderRadius: string | undefined;
-  if (rounded != null && typeof rounded === "number") borderRadius = `${rounded}rem`;
-  style = {
-    borderWidth,
-    borderColor: CSS.shadeVar(borderShade),
-    borderRadius,
-    ...style,
-  };
-  if (background != null) style.backgroundColor = CSS.shadeVar(background);
-  return (
-    // @ts-expect-error - TODO: fix generic element props
     <Generic.Element<E>
-      el={el}
-      className={CSS(
-        CSS.bordered(bordered),
-        typeof rounded === "boolean" && CSS.rounded(rounded),
-        className,
-      )}
+      className={CSS(...classNames)}
       style={style}
-      {...rest}
+      {...(rest as Generic.ElementProps<E>)}
+      el={rest.el ?? "div"}
     />
   );
 };

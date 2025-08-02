@@ -35,12 +35,10 @@ const ListItem = ({
       hovered={hovered}
       {...rest}
     >
-      <Text.WithIcon
-        level="p"
-        startIcon={<Icon.Circle color={item?.color} size="2.5em" />}
-      >
+      <Text.Text level="p" align="center">
+        <Icon.Circle color={item?.color} size="2.5em" />
         {item?.name}
-      </Text.WithIcon>
+      </Text.Text>
     </List.Item>
   );
 };

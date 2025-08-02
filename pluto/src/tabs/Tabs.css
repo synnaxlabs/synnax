@@ -44,7 +44,7 @@
         box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
             var(--pluto-border-color);
         z-index: 3;
-        & .pluto-tabs-selector__btn {
+        & .pluto-tabs-selector__tabs > .pluto-btn {
             margin-bottom: -1px;
             height: 100% !important;
             font-weight: 450;
@@ -64,9 +64,10 @@
         height: 100%;
     }
 
-    .pluto-tabs-selector__btn {
+    & .pluto-tabs-selector__tabs > .pluto-btn {
         cursor: pointer;
         border: none;
+        padding: 0;
         transition:
             box-shadow 0.15s,
             background 0.15s ease-in-out,
@@ -199,7 +200,7 @@
         border-right: var(--pluto-border);
         height: 100%;
 
-        & .pluto-tabs-selector__btn {
+        & > .pluto-btn {
             justify-content: flex-start !important;
             margin-right: -1px;
             border-right: var(--pluto-border);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
@@ -57,8 +57,8 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   });
 
   return (
-    <Align.Space style={{ height: "100%" }}>
-      <Align.Space
+    <Flex.Box style={{ height: "100%" }}>
+      <Flex.Box
         className="console-form"
         style={{ padding: "1rem 3rem" }}
         justify="center"
@@ -77,7 +77,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             )}
           </Form.Field>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
@@ -95,6 +95,6 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

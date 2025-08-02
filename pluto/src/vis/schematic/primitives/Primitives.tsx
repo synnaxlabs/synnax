@@ -35,9 +35,9 @@ import {
   useState,
 } from "react";
 
-import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -1913,7 +1913,7 @@ export interface TextBoxProps
     Optional<Pick<Text.EditableProps, "level" | "value" | "onChange">, "onChange"> {
   color?: color.Crude;
   width?: number;
-  align?: Align.Alignment;
+  align?: Flex.Alignment;
   autoFit?: boolean;
 }
 

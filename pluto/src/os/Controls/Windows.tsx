@@ -11,7 +11,7 @@ import "@/os/Controls/Windows.css";
 
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -28,7 +28,7 @@ export const Windows = ({
   shade = 2,
   ...rest
 }: InternalControlsProps): ReactElement => (
-  <Align.Pack {...rest}>
+  <Flex.Box pack {...rest}>
     <Button
       className={CSS.BM("windows-control", "minimize")}
       onClick={onMinimize}
@@ -53,7 +53,7 @@ export const Windows = ({
     >
       <Icon.Close />
     </Button>
-  </Align.Pack>
+  </Flex.Box>
 );
 
 const Button = ({

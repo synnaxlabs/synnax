@@ -9,7 +9,7 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { Align, Haul, Input, List, Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import { Flex, Haul, Input, List, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -66,7 +66,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   const [search, setSearch] = useState("");
   return (
     <>
-      <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
+      <Flex.Box style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
         <Input.Text
           value={search}
           onChange={(v) => {
@@ -76,8 +76,8 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           placeholder="Type to search..."
           size="small"
         />
-      </Align.Space>
-      <Align.Space x className={CSS.B("schematic-symbols")} wrap>
+      </Flex.Box>
+      <Flex.Box x className={CSS.B("schematic-symbols")} wrap>
         {data.map((key: Schematic.Variant, i: number) => (
           <ListItem
             key={key}
@@ -89,7 +89,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
             onDragEnd={onDragEnd}
           />
         ))}
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };
@@ -111,7 +111,7 @@ const ListItem = ({
   if (spec == null) return null;
   const { name, Preview } = spec;
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.BE("schematic-symbols", "button"))}
       justify="between"
       align="center"
@@ -121,9 +121,9 @@ const ListItem = ({
       onDragEnd={onDragEnd}
     >
       <Text.Text level="small">{name}</Text.Text>
-      <Align.Space className="preview-wrapper" align="center" justify="center">
+      <Flex.Box className="preview-wrapper" align="center" justify="center">
         <Preview {...defaultProps_} scale={0.75} />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };

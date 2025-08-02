@@ -16,8 +16,8 @@ import {
   task,
 } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   Icon,
   List,
   Ontology,
@@ -106,13 +106,13 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
     filter: (item) => item.data?.snapshot === true,
   });
   return (
-    <Align.Space y>
+    <Flex.Box y>
       <Text.Text level="h4" shade={10} weight={500}>
         Snapshots
       </Text.Text>
       <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

@@ -10,8 +10,6 @@
  */
 
 .pluto-tag {
-    padding: 0rem 1.5rem 0rem 1rem;
-    border-radius: var(--pluto-border-radius);
     border: var(--pluto-border-l5);
     border-width: 0.5px;
     width: fit-content;
@@ -22,38 +20,24 @@
     white-space: nowrap;
     box-shadow: var(--pluto-shadow-v1);
     position: relative;
-    & .pluto-text {
-        text-overflow: ellipsis;
-        overflow: hidden;
-    }
 
     .pluto-tag__close {
         position: absolute;
         left: 0;
-        width: 0;
-        height: 0;
-        transition:
-            width 0.1s ease-in,
-            opacity 0.1s ease-in;
-
-        & svg {
-            transform: scale(0.9);
-        }
-    }
-
-    &:hover .pluto-tag__close {
-        opacity: 1;
-        width: var(--pluto-height-small);
         transition:
             width 0.1s ease-out,
             opacity 0.1s ease-out;
     }
-    &.pluto--small {
-        padding: 0rem 1.5rem 0rem 1rem;
-        min-height: 3.75rem;
-    }
-    &.pluto--medium {
-        padding: 0rem 1.5rem 0rem 1rem;
-        height: 4rem;
+
+    &:not(:hover) .pluto-tag__close {
+        width: 0;
+        height: 0;
+        overflow: hidden;
+        transition:
+            width 0.1s ease-in,
+            opacity 0.1s ease-in;
+        & svg {
+            transform: scale(0.9);
+        }
     }
 }

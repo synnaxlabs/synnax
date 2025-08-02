@@ -13,8 +13,8 @@ import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  Align,
   Button,
+  Flex,
   Icon,
   Menu as PMenu,
   Table as Core,
@@ -304,7 +304,7 @@ const TableControls = ({ tableKey }: TableControls) => {
   }, []);
 
   return (
-    <Align.Pack className={CSS.BE("table", "edit")}>
+    <Flex.Box pack className={CSS.BE("table", "edit")}>
       <Button.Toggle
         value={editable}
         onChange={handleEdit}
@@ -314,7 +314,7 @@ const TableControls = ({ tableKey }: TableControls) => {
       >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
-    </Align.Pack>
+    </Flex.Box>
   );
 };
 

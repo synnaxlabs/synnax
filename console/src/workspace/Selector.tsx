@@ -144,7 +144,7 @@ export const Selector = (): ReactElement => {
                 New
               </Button.Button>
             </Input.Text>
-            <List.Items bordered borderShade={6} grow>
+            <List.Items bordered borderColor={6} grow>
               {selectorListItem}
             </List.Items>
           </Cluster.NoneConnectedBoundary>

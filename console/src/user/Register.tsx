@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
@@ -64,16 +64,16 @@ export const Register: Layout.Renderer = ({ onClose }) => {
   });
 
   return (
-    <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
-      <Align.Space
+    <Flex.Box style={{ paddingTop: "2rem", height: "100%" }} grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1rem 3rem" }}
         grow
       >
         <Form.Form<typeof formSchema> {...methods}>
-          <Align.Space y>
-            <Align.Space x>
+          <Flex.Box y>
+            <Flex.Box x>
               <Form.Field<string> path="firstName" label="First Name">
                 {(p) => (
                   <Input.Text
@@ -94,16 +94,16 @@ export const Register: Layout.Renderer = ({ onClose }) => {
                   />
                 )}
               </Form.Field>
-            </Align.Space>
+            </Flex.Box>
             <Form.Field<string> path="username">
               {(p) => <Input.Text autoFocus placeholder="username" {...p} />}
             </Form.Field>
             <Form.Field<string> path="password">
               {(p) => <Input.Text placeholder="password" type="password" {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
@@ -123,6 +123,6 @@ export const Register: Layout.Renderer = ({ onClose }) => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

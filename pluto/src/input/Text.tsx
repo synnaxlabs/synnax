@@ -12,7 +12,7 @@ import "@/input/Input.css";
 import { color, type status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
-import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -24,10 +24,9 @@ export interface TextExtraProps {
   resetOnBlurIfEmpty?: boolean;
   status?: status.Variant;
   outlineColor?: color.Crude;
-  color?: color.Crude;
 }
 
-export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraProps {}
+export interface TextProps extends BaseProps<string>, TextExtraProps {}
 
 /**
  * A controlled string input component.
@@ -55,22 +54,26 @@ export const Text = ({
   centerPlaceholder = false,
   placeholder,
   variant = "outlined",
-  sharp = false,
   level,
   onBlur,
   disabled,
   resetOnBlurIfEmpty = false,
   status,
-  shade,
   weight,
   style,
   outlineColor,
+  contrast,
   color: pColor,
+  sharp,
+  loading,
   onlyChangeOnBlur = false,
   endContent,
-  borderWidth,
-  borderShade = 4,
+  fullWidth,
   children,
+  grow,
+  borderColor,
+  borderWidth,
+  bordered,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
@@ -127,10 +130,9 @@ export const Text = ({
 
   const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
-  const Wrapper = variant === "natural" ? Align.Space : Align.Pack;
-
   return (
-    <Wrapper
+    <Button.Button
+      el="div"
       x
       empty
       style={style}
@@ -139,62 +141,61 @@ export const Text = ({
         CSS.disabled(disabled),
         size == null && CSS.height(size),
         CSS.M(variant),
-        CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,
       )}
-      borderShade={borderShade}
-      borderWidth={borderWidth}
       align="center"
       size={size}
+      level={level}
+      color={pColor}
+      contrast={contrast}
+      sharp={sharp}
+      loading={loading}
+      bordered={bordered}
+      borderColor={borderColor}
+      borderWidth={borderWidth}
+      grow={grow}
+      pack
+      fullWidth={fullWidth}
     >
-      <div
-        className={CSS(
-          CSS.BE("input", "internal"),
-          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
-          CSS.M("outlined"),
-          CSS.clickable(shade),
-        )}
-      >
-        {showPlaceholder && (
-          <CoreText.Text
-            className={CSS(
-              CSS.BE("input", "placeholder"),
-              centerPlaceholder && CSS.M("centered"),
-            )}
-            level={level ?? CoreText.ComponentSizeLevels[size]}
-          >
-            {placeholder}
-          </CoreText.Text>
-        )}
-        <input
-          ref={combinedRef}
-          value={tempValue ?? value}
-          role="textbox"
-          onChange={handleChange}
-          autoCapitalize="off"
-          autoComplete="off"
-          autoCorrect="off"
-          onFocus={handleFocus}
-          onKeyDown={handleKeyDown}
-          onMouseUp={handleMouseUp}
-          onBlur={handleBlur}
-          disabled={disabled}
-          placeholder={typeof placeholder === "string" ? placeholder : undefined}
-          style={{ fontWeight: weight, color: color.cssString(pColor) }}
-          {...rest}
-        />
-        {endContent != null && (
-          <CoreText.Text
-            className={CSS.BE("input", "end-content")}
-            level={level ?? CoreText.ComponentSizeLevels[size]}
-          >
-            {endContent}
-          </CoreText.Text>
-        )}
-      </div>
+      {showPlaceholder && (
+        <CoreText.Text
+          className={CSS(
+            CSS.BE("input", "placeholder"),
+            centerPlaceholder && CSS.M("centered"),
+          )}
+          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+        >
+          {placeholder}
+        </CoreText.Text>
+      )}
+      <input
+        ref={combinedRef}
+        value={tempValue ?? value}
+        role="textbox"
+        onChange={handleChange}
+        autoCapitalize="off"
+        autoComplete="off"
+        autoCorrect="off"
+        onFocus={handleFocus}
+        onKeyDown={handleKeyDown}
+        onMouseUp={handleMouseUp}
+        onBlur={handleBlur}
+        disabled={disabled}
+        placeholder={typeof placeholder === "string" ? placeholder : undefined}
+        style={{ fontWeight: weight }}
+        {...rest}
+      />
+      {endContent != null && (
+        <CoreText.Text
+          className={CSS.BE("input", "end-content")}
+          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+        >
+          {endContent}
+        </CoreText.Text>
+      )}
       {children}
-    </Wrapper>
+    </Button.Button>
   );
 };

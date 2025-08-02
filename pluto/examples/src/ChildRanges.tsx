@@ -24,7 +24,7 @@ interface ListItemProps {
 }
 
 const ListItem = ({ name, timeRange }: ListItemProps) => (
-  <Align.Space x justify="between">
+  <Flex.Box x justify="between">
     <Text.Text level="p">
       <Icon.Range />
       {name}
@@ -32,7 +32,7 @@ const ListItem = ({ name, timeRange }: ListItemProps) => (
     {timeRange != null && (
       <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
     )}
-  </Align.Space>
+  </Flex.Box>
 );
 
 const start = TimeStamp.now();
@@ -59,7 +59,7 @@ export const ChildRanges = () => (
       width: "100vw",
     }}
   >
-    <Align.Space
+    <Flex.Box
       y
       style={{
         background: "var(--pluto-gray-l1)",
@@ -70,7 +70,7 @@ export const ChildRanges = () => (
       }}
     >
       <ListItem name="Test 1" />
-      <Align.Space
+      <Flex.Box
         y
         justify="between"
         style={{
@@ -86,7 +86,7 @@ export const ChildRanges = () => (
             {i !== TIME_RANGES.length - 1 && <Divider.Divider x />}
           </>
         ))}
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   </Align.Center>
 );

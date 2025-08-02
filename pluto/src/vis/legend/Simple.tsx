@@ -10,7 +10,7 @@
 import { type color, type Optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useState } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -54,7 +54,7 @@ export const LegendSwatches = memo(
       {data
         .sort((a, b) => a.label.localeCompare(b.label))
         .map(({ key, color, label, visible = true }) => (
-          <Align.Space
+          <Flex.Box
             key={key}
             style={{ cursor: "pointer", height: "3rem" }}
             x
@@ -63,7 +63,7 @@ export const LegendSwatches = memo(
             justify="between"
             grow
           >
-            <Align.Space direction="x" align="center" gap="small">
+            <Flex.Box direction="x" align="center" gap="small">
               <Color.Swatch
                 value={color}
                 onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
@@ -80,7 +80,7 @@ export const LegendSwatches = memo(
                 shade={visible ? 10 : 7}
                 onDoubleClick={(e) => e.stopPropagation()}
               />
-            </Align.Space>
+            </Flex.Box>
             {allowVisibleChange && (
               <Button.Button
                 className={CSS.B("visible-toggle")}
@@ -95,7 +95,7 @@ export const LegendSwatches = memo(
                 {visible ? <Icon.Visible /> : <Icon.Hidden />}
               </Button.Button>
             )}
-          </Align.Space>
+          </Flex.Box>
         ))}
     </>
   ),

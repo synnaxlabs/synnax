@@ -10,7 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { linePlot } from "@synnaxlabs/client";
-import { Align, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -76,7 +76,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   if (state == null) return null;
   return (
-    <Align.Space empty className={CSS.B("line-plot-toolbar")}>
+    <Flex.Box empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
         value={{
           tabs: TABS,
@@ -87,19 +87,19 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <Core.Header>
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
-          <Align.Space x align="center" empty>
-            <Align.Space x empty style={{ height: "100%", width: 66 }}>
+          <Flex.Box x align="center" empty>
+            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
               <Export.ToolbarButton onExport={() => handleExport(state.key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={linePlot.ontologyID(state.key)}
               />
-            </Align.Space>
+            </Flex.Box>
             <Tabs.Selector style={{ borderBottom: "none" }} />
-          </Align.Space>
+          </Flex.Box>
         </Core.Header>
         <Tabs.Content />
       </Tabs.Provider>
-    </Align.Space>
+    </Flex.Box>
   );
 };

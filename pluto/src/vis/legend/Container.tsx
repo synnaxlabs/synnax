@@ -20,7 +20,7 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -111,7 +111,7 @@ export const calcStickyPos = (
 };
 
 export interface ContainerProps
-  extends Omit<Align.SpaceProps, "onChange">,
+  extends Omit<Flex.BoxProps, "onChange">,
     Partial<OptionalControl<StickyXY>> {
   dragEnabled?: boolean;
   initial?: StickyXY;
@@ -190,14 +190,14 @@ export const Container = memo(
     });
 
     return (
-      <Align.Space
+      <Flex.Box
         className={CSS(className, CSS.B("legend"))}
         bordered
         rounded
         style={style}
         onDragStart={handleCursorDragStart}
         draggable={draggable}
-        borderShade={5}
+        borderColor={5}
         ref={ref}
         onDrag={preventDefault}
         onDragEnd={preventDefault}

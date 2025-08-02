@@ -11,8 +11,8 @@ import "@/range/Toolbar.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   Haul,
   Icon,
   List as CoreList,
@@ -43,18 +43,18 @@ const NoRanges = (): ReactElement => {
     placeLayout(CREATE_LAYOUT);
   };
   return (
-    <Align.Space
+    <Flex.Box
       empty
       style={{ height: "100%", position: "relative", padding: "1rem" }}
       className={CSS.B("range-toolbar-no-ranges")}
     >
-      <Align.Center y style={{ height: "100%" }} gap="medium">
+      <Flex.Box y style={{ height: "100%" }} gap="medium">
         <Text.Text level="p">No ranges loaded.</Text.Text>
         <Text.Link level="p" onClick={handleLinkClick}>
           Create a Range
         </Text.Link>
-      </Align.Center>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -148,7 +148,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       />
       <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
       {labels.length > 0 && (
-        <Align.Space
+        <Flex.Box
           x
           gap="small"
           wrap
@@ -159,7 +159,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
               {l.name}
             </Tag.Tag>
           ))}
-        </Align.Space>
+        </Flex.Box>
       )}
     </Select.ListItem>
   );
@@ -168,7 +168,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Space empty style={{ height: "100%" }}>
+    <Flex.Box empty style={{ height: "100%", width: "100%" }}>
       <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
@@ -177,12 +177,13 @@ const Content = (): ReactElement => {
               key: "create",
               children: <Icon.Add />,
               onClick: () => placeLayout(CREATE_LAYOUT),
+              variant: "text",
             },
           ]}
         </Toolbar.Actions>
       </Toolbar.Header>
       <List />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

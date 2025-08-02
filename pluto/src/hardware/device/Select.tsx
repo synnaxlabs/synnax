@@ -31,15 +31,13 @@ const listItemRenderProp = Component.renderProp(
         itemKey={itemKey}
         {...rest}
         className={CSS.BE("device", "list-item")}
-        justify="spaceBetween"
+        justify="between"
         align="center"
       >
-        <Text.WithIcon
-          level="p"
-          startIcon={<Device.StatusIndicator status={item?.status} />}
-        >
+        <Text.Text level="p" align="center">
+          <Device.StatusIndicator status={item?.status} />
           {item?.name}
-        </Text.WithIcon>
+        </Text.Text>
         <Breadcrumb.Breadcrumb
           level="small"
           shade={9}

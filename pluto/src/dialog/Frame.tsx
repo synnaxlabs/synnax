@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
@@ -37,7 +37,7 @@ import { Triggers } from "@/triggers";
 
 /** Props for the {@link Frame} component. */
 export interface FrameProps
-  extends Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
+  extends Omit<Flex.BoxProps, "ref" | "reverse" | "size" | "empty"> {
   initialVisible?: boolean;
   visible?: boolean;
   onVisibleChange?: state.Setter<boolean>;
@@ -216,7 +216,7 @@ export const Frame = ({
   return (
     <Context.Provider value={ctxValue}>
       <InternalContext.Provider value={internalContextValue}>
-        <Align.Space
+        <Flex.Box
           {...rest}
           ref={combinedParentRef}
           className={CSS(
@@ -231,7 +231,7 @@ export const Frame = ({
           reverse={location.y === "top"}
         >
           {children}
-        </Align.Space>
+        </Flex.Box>
       </InternalContext.Provider>
     </Context.Provider>
   );

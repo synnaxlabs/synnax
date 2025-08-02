@@ -9,7 +9,7 @@
 
 import "@/fs/LoadFileContents.css";
 
-import { Align, Button, Icon, type Input, Status } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -20,7 +20,7 @@ import { CSS } from "@/css";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
-    Omit<Align.PackProps, "value" | "onChange"> {
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   filters?: DialogFilter[];
 }
 
@@ -39,7 +39,7 @@ export const InputFilePath = ({
       onChange(path);
     }, "Failed to open file");
   return (
-    <Align.Pack className={CSS.B("input-file-path")} borderShade={5} {...rest}>
+    <Flex.Box pack className={CSS.B("input-file-path")} borderColor={5} {...rest}>
       <Button.Button
         level="small"
         className={CSS.B("path")}
@@ -67,7 +67,7 @@ export const InputFilePath = ({
       >
         Select file
       </Button.Button>
-    </Align.Pack>
+    </Flex.Box>
   );
 };
 

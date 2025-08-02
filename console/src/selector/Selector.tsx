@@ -9,7 +9,7 @@
 
 import "@/selector/Selector.css";
 
-import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, Flex, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -43,11 +43,11 @@ export const Selector = ({
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Align.Center className={CSS.B("vis-layout-selector")} gap="large" wrap>
+      <Flex.Box className={CSS.B("vis-layout-selector")} gap="large" wrap center>
         <Text.Text level="h4" shade={10} weight={400}>
           {text}
         </Text.Text>
-        <Align.Space
+        <Flex.Box
           x
           wrap
           style={{ maxWidth: "500px", width: "100%" }}
@@ -70,8 +70,8 @@ export const Selector = ({
               {title}
             </Button.Button>
           ))}
-        </Align.Space>
-      </Align.Center>
+        </Flex.Box>
+      </Flex.Box>
     </Eraser.Eraser>
   );
 };

@@ -9,8 +9,8 @@
 
 import { type channel, rack, task } from "@synnaxlabs/client";
 import {
-  Align,
   Channel,
+  Flex,
   Form,
   Icon,
   type Input,
@@ -142,7 +142,7 @@ const Internal = ({
   });
 
   return (
-    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
+    <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
       <Form.Form<FormSchema<typeof configZ>> {...methods}>
         <Form.Field<string>
           path="config.script"
@@ -153,7 +153,8 @@ const Internal = ({
         >
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
-        <Align.Pack
+        <Flex.Box
+          pack
           y
           bordered={false}
           style={{
@@ -164,12 +165,8 @@ const Internal = ({
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
-          <Align.Space
-            y
-            style={{ padding: "2rem", paddingBottom: "3rem" }}
-            gap="medium"
-          >
-            <Align.Space x>
+          <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
+            <Flex.Box x>
               <Form.Field<rack.Key>
                 path="config.rack"
                 label="Location"
@@ -195,7 +192,7 @@ const Internal = ({
                   dragScale: { x: 1, y: 1 },
                 }}
               />
-            </Align.Space>
+            </Flex.Box>
             <Form.Field<channel.Key[]>
               path="config.read"
               label="Read From"
@@ -248,7 +245,7 @@ const Internal = ({
                 />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Controls
             layoutKey={layoutKey}
             status={status}
@@ -263,9 +260,9 @@ const Internal = ({
               borderTop: "var(--pluto-border)",
             }}
           />
-        </Align.Pack>
+        </Flex.Box>
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

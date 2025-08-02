@@ -10,14 +10,14 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
 export interface TextProps
-  extends Omit<BaseText.WithIconProps, "level" | "wrap">,
+  extends Omit<BaseText.TextProps, "level" | "wrap">,
     Partial<Omit<status.Status, "key">> {
   level?: BaseText.Level;
   hideIcon?: boolean;
@@ -29,18 +29,21 @@ const Core = ({
   description,
   hideIcon = false,
   className,
+  children,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const baseText = (
-    <BaseText.WithIcon
+    <BaseText.Text
       color={VARIANT_COLORS[variant]}
       className={CSS(className, CSS.B("status-text"))}
       level={level}
-      startIcon={icon}
       {...rest}
-    />
+    >
+      {icon}
+      {children}
+    </BaseText.Text>
   );
   if (description == null) return baseText;
   const descriptionText = (
@@ -49,19 +52,19 @@ const Core = ({
     </BaseText.Text>
   );
   return (
-    <Align.Space y align="start" gap="small">
+    <Flex.Box y align="start" gap="small">
       {baseText}
       {descriptionText}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
 export interface TextCenteredProps extends TextProps {}
 
-const Centered = ({ style, ...rest }: TextCenteredProps): ReactElement => (
-  <Align.Center style={style} grow>
-    <Core {...rest} />
-  </Align.Center>
+const Centered = (props: TextCenteredProps): ReactElement => (
+  <Flex.Box grow center>
+    <Core {...props} />
+  </Flex.Box>
 );
 
 type CoreTextType = typeof Core;

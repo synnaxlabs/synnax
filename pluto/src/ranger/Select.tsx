@@ -10,7 +10,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import { memo, type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
@@ -52,9 +52,9 @@ export const ListItem = memo(
         shade: 8,
       });
     return (
-      <Select.ListItem x itemKey={itemKey} justify="spaceBetween" {...rest}>
+      <Select.ListItem itemKey={itemKey} justify="between" {...rest}>
         <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
-        <Align.Space x>
+        <Flex.Box x>
           <TimeRangeChip level="small" timeRange={timeRange} />
           {showLabels && (
             <Tag.Tags>
@@ -65,7 +65,7 @@ export const ListItem = memo(
               ))}
             </Tag.Tags>
           )}
-        </Align.Space>
+        </Flex.Box>
       </Select.ListItem>
     );
   },

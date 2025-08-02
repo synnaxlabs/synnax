@@ -11,13 +11,13 @@ import "@/dialog/Dialog.css";
 
 import { createPortal } from "react-dom";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
+import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
-export interface DialogProps extends Align.SpaceProps {}
+export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 export const Dialog = ({
   style,
@@ -31,7 +31,8 @@ export const Dialog = ({
   bordered ??= variant === "modal";
   if (!visible) return null;
   let dialog = (
-    <Align.Pack
+    <Flex.Box
+      pack
       ref={ref}
       y
       background={background}
@@ -46,6 +47,7 @@ export const Dialog = ({
       role="dialog"
       empty
       bordered={bordered}
+      align="stretch"
       style={{ ...ctxStyle, ...style }}
       {...rest}
     />

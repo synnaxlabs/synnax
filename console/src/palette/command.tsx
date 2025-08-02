@@ -9,8 +9,8 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   type Icon,
   List,
   Select,
@@ -74,7 +74,7 @@ export const listItem = Component.renderProp(
           {icon}
           {name}
         </Text.Text>
-        {endContent != null && <Align.Space x>{endContent}</Align.Space>}
+        {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
       </Select.ListItem>
     );
   },

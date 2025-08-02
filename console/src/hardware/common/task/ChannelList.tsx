@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
+  Flex,
   Form,
   Icon,
   List,
@@ -133,7 +133,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {
 
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
-    Pick<Align.SpaceProps, "onDragOver" | "onDrop" | "grow"> {
+    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
@@ -159,7 +159,7 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("channel-list")} empty grow={grow}>
+    <Flex.Box className={CSS.B("channel-list")} empty grow={grow}>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
@@ -187,6 +187,6 @@ export const ChannelList = <C extends Channel>({
           </List.Items>
         </Select.Frame>
       </PMenu.ContextMenu>
-    </Align.Space>
+    </Flex.Box>
   );
 };

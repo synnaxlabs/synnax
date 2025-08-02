@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -25,8 +25,8 @@ export const Title = ({ level = "h2", ...rest }: TitleProps): ReactElement => {
     "Title",
   );
   return (
-    <Align.Space justify="center" align="center" style={gridStyle}>
+    <Flex.Box justify="center" align="center" style={gridStyle}>
       <Text.MaybeEditable {...rest} level={level} />
-    </Align.Space>
+    </Flex.Box>
   );
 };

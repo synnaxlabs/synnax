@@ -18,7 +18,9 @@ type HTMlTextAreaProps = Omit<
   ComponentPropsWithRef<"textarea">,
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
-export interface TextAreaProps extends ExtensionProps<string>, HTMlTextAreaProps {
+export interface TextAreaProps
+  extends ExtensionProps<string>,
+    Omit<HTMlTextAreaProps, "wrap"> {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
 }
@@ -46,6 +48,7 @@ export const TextArea = ({
   variant = "outlined",
   sharp = false,
   children,
+  wrap,
   ...rest
 }: TextAreaProps): ReactElement => (
   <textarea
