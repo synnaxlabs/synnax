@@ -23,7 +23,6 @@ import (
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -115,15 +114,9 @@ var _ = Describe("Unary", func() {
 		It("should allow for adding response content type resolvers", func() {
 			app := fiber.New(fiber.Config{DisableStartupMessage: true})
 			router := MustSucceed(fhttp.NewRouter())
-			codecResolver := httputil.CodecResolver(
-				func(contentType string) (httputil.Codec, error) {
-					if contentType == "application/x-gob" {
-						return &gobCodec{}, nil
-					}
-					return nil, errors.Newf("unsupported content type: %s", contentType)
-				},
-			)
-			server := fhttp.NewUnaryServer[TestRequest, TestRequest](router, "/", fhttp.WithResponseCodecResolver(codecResolver, []string{"application/x-gob"}))
+			server := fhttp.NewUnaryServer[TestRequest, TestRequest](router, "/", fhttp.WithResponseEncoders(map[string]binary.Encoder{
+				"application/x-gob": &binary.GobCodec{},
+			}))
 			server.BindHandler(func(_ context.Context, req TestRequest) (TestRequest, error) {
 				return req, nil
 			})
@@ -144,7 +137,7 @@ var _ = Describe("Unary", func() {
 			Expect(c.Decode(context.Background(), body, &decodedRes)).To(Succeed())
 			Expect(decodedRes).To(Equal(testReq))
 		})
-		It("should allow sending direct io.Reader as response", Focus, func() {
+		It("should allow sending direct io.Reader as response", func() {
 			app := fiber.New(fiber.Config{DisableStartupMessage: true})
 			router := MustSucceed(fhttp.NewRouter())
 			server := fhttp.NewUnaryServer[TestRequest, io.Reader](router, "/")

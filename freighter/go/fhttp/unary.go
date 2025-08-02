@@ -22,14 +22,14 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
 )
 
 var unaryReporter = freighter.Reporter{
 	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
+	Encodings: defaultContentTypes,
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -62,16 +62,17 @@ func (us *unaryServer[RQ, RS]) BindHandler(
 }
 
 func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
-	reqCodec, err := us.reqCodecResolver(fiberCtx.Get(fiber.HeaderContentType))
-	if err != nil {
-		return errors.Combine(fiber.ErrUnsupportedMediaType, err)
+	codec, ok := us.reqDecoders[fiberCtx.Get(fiber.HeaderContentType)]
+	if !ok {
+		return fiber.ErrUnsupportedMediaType
 	}
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		parseRequestCtx(fiberCtx.Context(), fiberCtx, address.Address(fiberCtx.Path())),
 		func(freighterCtx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			if err := reqCodec.Decode(
+			var err error
+			if err := codec.Decode(
 				freighterCtx,
 				fiberCtx.BodyRaw(),
 				&req,
@@ -98,10 +99,46 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	return us.encodeAndWrite(fiberCtx, fErr)
 }
 
+func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
+	if reader, ok := v.(io.Reader); ok {
+		return ctx.SendStream(reader)
+	}
+	contentType := ctx.Accepts(us.resEncoders.Keys()...)
+	codec, ok := us.resEncoders[contentType]
+	if !ok {
+		return fiber.ErrNotAcceptable
+	}
+	ctx.Set(fiber.HeaderContentType, contentType)
+	if uReader, ok := v.(freighter.UnaryReadable); ok {
+		r, w := io.Pipe()
+		go func() {
+			for {
+				v, err := uReader.Read()
+				if err != nil {
+					w.CloseWithError(err)
+					return
+				}
+				if err := codec.EncodeStream(ctx.Context(), w, v); err != nil {
+					w.CloseWithError(err)
+					return
+				}
+			}
+		}()
+		return ctx.SendStream(r)
+	}
+	b, err := codec.Encode(ctx.Context(), v)
+	if err != nil {
+		return err
+	}
+	_, err = ctx.Write(b)
+	return err
+}
+
 type unaryClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	codec httputil.Codec
+	codec       binary.Codec
+	contentType string
 }
 
 var _ freighter.UnaryClient[any, any] = &unaryClient[any, any]{}
@@ -113,7 +150,7 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &unaryClient[RQ, RS]{codec: cfg.Codec}, nil
+	return &unaryClient[RQ, RS]{codec: cfg.Codec, contentType: cfg.contentType}, nil
 }
 
 func (uc *unaryClient[RQ, RS]) Send(
@@ -144,7 +181,7 @@ func (uc *unaryClient[RQ, RS]) Send(
 				return freighter.Context{}, err
 			}
 			setRequestCtx(httpReq, inCtx)
-			httpReq.Header.Set(fiber.HeaderContentType, uc.codec.ContentType())
+			httpReq.Header.Set(fiber.HeaderContentType, uc.contentType)
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
 			outCtx := parseResponseCtx(httpRes, target)
@@ -167,44 +204,6 @@ func (uc *unaryClient[RQ, RS]) Send(
 		},
 	)
 	return res, err
-}
-
-func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
-	if reader, ok := v.(io.Reader); ok {
-		return ctx.SendStream(reader)
-	}
-	resContentType := ctx.Accepts(us.supportedResponseContentTypes...)
-	resCodec, err := us.resCodecResolver(resContentType)
-	if err != nil {
-		return errors.Combine(fiber.ErrNotAcceptable, err)
-	}
-	ctx.Set(fiber.HeaderContentType, resCodec.ContentType())
-	if uReader, ok := v.(freighter.UnaryReadable); ok {
-		r, w := io.Pipe()
-		go func() {
-			for {
-				v, err := uReader.Read()
-				if err != nil {
-					w.CloseWithError(err)
-					return
-				}
-				if err := resCodec.EncodeStream(ctx.Context(), w, v); err != nil {
-					w.CloseWithError(err)
-					return
-				}
-			}
-		}()
-		return ctx.SendStream(r)
-	}
-	if r, ok := v.(io.Reader); ok {
-		return ctx.SendStream(r)
-	}
-	b, err := resCodec.Encode(ctx.Context(), v)
-	if err != nil {
-		return err
-	}
-	_, err = ctx.Write(b)
-	return err
 }
 
 func parseRequestCtx(

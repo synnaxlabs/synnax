@@ -25,13 +25,12 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
 
 var streamReporter = freighter.Reporter{
 	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
+	Encodings: defaultContentTypes,
 }
 
 var (
@@ -270,7 +269,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
-	codec  httputil.Codec
+	codec  binary.Codec
 	dialer ws.Dialer
 	freighter.Reporter
 	freighter.MiddlewareCollector

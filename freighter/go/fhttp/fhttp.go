@@ -12,8 +12,11 @@ package fhttp
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/binary"
+	xmap "github.com/synnaxlabs/x/map"
 )
+
+var defaultContentTypes = []string{"application/json", "application/msgpack"}
 
 type BindableTransport interface {
 	freighter.Transport
@@ -21,35 +24,39 @@ type BindableTransport interface {
 }
 
 type serverOptions struct {
-	reqCodecResolver              httputil.CodecResolver
-	resCodecResolver              httputil.CodecResolver
-	supportedResponseContentTypes []string
+	reqDecoders xmap.Map[string, binary.Decoder]
+	resEncoders xmap.Map[string, binary.Encoder]
 }
 
 type ServerOption func(*serverOptions)
 
-func WithCodecResolver(r httputil.CodecResolver) ServerOption {
-	return func(o *serverOptions) {
-		o.reqCodecResolver = r
-		o.resCodecResolver = r
-	}
+func WithRequestDecoders(decoders map[string]binary.Decoder) ServerOption {
+	return func(o *serverOptions) { o.reqDecoders = decoders }
 }
 
-func WithResponseCodecResolver(
-	resolver httputil.CodecResolver,
-	supportedContentTypes []string,
-) ServerOption {
+func WithResponseEncoders(encoders map[string]binary.Encoder) ServerOption {
+	return func(o *serverOptions) { o.resEncoders = encoders }
+}
+
+func WithRequestAndResponseCodecs(codecs map[string]binary.Codec) ServerOption {
 	return func(o *serverOptions) {
-		o.resCodecResolver = resolver
-		o.supportedResponseContentTypes = supportedContentTypes
+		for contentType, codec := range codecs {
+			o.reqDecoders[contentType] = codec
+			o.resEncoders[contentType] = codec
+		}
 	}
 }
 
 func newServerOptions(opts []ServerOption) serverOptions {
 	so := serverOptions{
-		reqCodecResolver:              httputil.ResolveCodec,
-		resCodecResolver:              httputil.ResolveCodec,
-		supportedResponseContentTypes: httputil.SupportedContentTypes(),
+		reqDecoders: xmap.Map[string, binary.Decoder]{
+			"application/json":    &binary.JSONCodec{},
+			"application/msgpack": &binary.MsgPackCodec{},
+		},
+		resEncoders: xmap.Map[string, binary.Encoder]{
+			"application/json":    &binary.JSONCodec{},
+			"application/msgpack": &binary.MsgPackCodec{},
+		},
 	}
 	for _, opt := range opts {
 		opt(&so)

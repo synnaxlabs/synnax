@@ -10,25 +10,33 @@
 package fhttp
 
 import (
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type ClientConfig struct{ httputil.Codec }
+type ClientConfig struct {
+	binary.Codec
+	contentType string
+}
 
 var _ config.Config[ClientConfig] = ClientConfig{}
 
 func (c ClientConfig) Validate() error {
-	v := validate.New("fhttp.ClientFactoryConfig")
+	v := validate.New("fhttp.ClientConfig")
 	validate.NotNil(v, "codec", c.Codec)
+	validate.NotEmptyString(v, "content_type", c.contentType)
 	return v.Error()
 }
 
 func (c ClientConfig) Override(other ClientConfig) ClientConfig {
 	c.Codec = override.Nil(c.Codec, other.Codec)
+	c.contentType = override.String(c.contentType, other.contentType)
 	return c
 }
 
-var DefaultClientConfig = ClientConfig{Codec: httputil.MsgPackCodec}
+var DefaultClientConfig = ClientConfig{
+	Codec:       &binary.MsgPackCodec{},
+	contentType: "application/msgpack",
+}
