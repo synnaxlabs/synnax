@@ -47,18 +47,4 @@ var _ = Describe("Must", func() {
 			Expect(err.Error()).To(ContainSubstring("test error"))
 		})
 	})
-	Describe("MustFail", func() {
-		It("should return the error when the first return value is zero", func() {
-			err := errors.New("test error")
-			Expect(testutil.MustFail(0, err)).To(Equal(err))
-		})
-		It("should panic when the first return value is not zero", func() {
-			err := InterceptGomegaFailure(func() {
-				testutil.MustFail(1, errors.New("test error"))
-				Fail("should not reach this line")
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("to be zero-valued"))
-		})
-	})
 })

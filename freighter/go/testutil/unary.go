@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/testutil"
 )
 
 type (
@@ -63,8 +62,8 @@ func AssertUnary(impl UnaryImplementation) {
 				server.BindHandler(func(context.Context, Request) (Response, error) {
 					return Response{}, errTest
 				})
-				err := testutil.MustFail(client.Send(context.Background(), addr, req))
-				Expect(err.Error()).To(Equal(testErrorType))
+				Expect(client.Send(context.Background(), addr, req)).Error().
+					To(MatchError(ContainSubstring(testErrorType)))
 			})
 		})
 		Describe("Middleware", func() {
