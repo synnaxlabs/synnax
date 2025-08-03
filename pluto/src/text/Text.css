@@ -39,7 +39,6 @@ a.pluto-text {
         width: fit-content;
         padding: 0.5rem;
         justify-content: center;
-        color: var(--pluto-gray-l11);
         font-weight: 500;
 
         &.pluto-height--huge {

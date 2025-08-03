@@ -164,6 +164,9 @@ const Core = <E extends ElementType = "button">({
   else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
   else size ??= "medium";
 
+  const isLoading = status === "loading";
+  const iconOnly = Text.isIconOnly(children);
+
   return (
     <Text.Text<E>
       direction="x"
@@ -191,8 +194,8 @@ const Core = <E extends ElementType = "button">({
       level={level}
       variant={textVariant}
     >
-      {children}
-      {status === "loading" && <Icon.Loading />}
+      {(!isLoading || !iconOnly) && children}
+      {isLoading && <Icon.Loading />}
     </Text.Text>
   );
 };

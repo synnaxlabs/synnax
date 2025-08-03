@@ -69,6 +69,12 @@
     &.pluto--rounded {
         border-radius: var(--pluto-flex-border-radius);
     }
+    &.pluto-gap--huge {
+        gap: 5rem;
+    }
+    &.pluto-gap--v {
+        gap: 1.5rem;
+    }
     &.pluto-gap--large {
         gap: 4rem;
     }

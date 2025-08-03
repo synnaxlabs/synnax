@@ -67,7 +67,7 @@ const formatHref = (
   return href;
 };
 
-const isIconOnly = (children: ReactNode): boolean => {
+export const isIconOnly = (children: ReactNode): boolean => {
   if (Children.count(children) !== 1) {
     const parsedChildren = Children.toArray(children).filter(
       (c) => typeof c !== "boolean",

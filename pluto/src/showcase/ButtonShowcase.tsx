@@ -189,6 +189,9 @@ export const ButtonShowcase = () => (
         <Flex.Box x>
           <Button.Button sharp>Hello</Button.Button>
           <Button.Button status="loading">Hello</Button.Button>
+          <Button.Button status="loading">
+            <Icon.Auto />
+          </Button.Button>
           <Button.Button href="https://www.google.com" variant="text">
             Link to Google
           </Button.Button>

@@ -34,14 +34,10 @@ const ShowcaseSection = ({
   <Flex.Box
     y
     gap="large"
-    style={{
-      marginBottom: "4rem",
-      padding: "2rem",
-      background: "var(--pluto-gray-l0-5)",
-      borderRadius: "1rem",
-      border: "1px solid var(--pluto-gray-l1)",
-      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-    }}
+    background={1}
+    bordered
+    rounded={2}
+    style={{ padding: "5rem" }}
   >
     <Flex.Box
       y
@@ -63,7 +59,9 @@ const ShowcaseSection = ({
         </Text.Text>
       )}
     </Flex.Box>
-    <Flex.Box style={{ overflow: "auto" }}>{children}</Flex.Box>
+    <Flex.Box style={{ overflow: "auto" }} background={0}>
+      {children}
+    </Flex.Box>
   </Flex.Box>
 );
 
@@ -143,24 +141,11 @@ export const Showcase = () => {
         padding: "min(5rem, 5vw)",
       }}
     >
-      <Flex.Box
-        y
-        gap="medium"
-        style={{
-          position: "sticky",
-          top: "1rem",
-          zIndex: 10,
-          background: "var(--pluto-gray-l0)",
-          padding: "1.5rem",
-          borderRadius: "0.75rem",
-          border: "1px solid var(--pluto-gray-l2)",
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-        }}
-      >
+      <Flex.Box y background={1} bordered rounded={2} style={{ padding: "5rem" }}>
         <Text.Text level="h1" style={{ marginBottom: "0.5rem" }}>
           Pluto Component Showcase
         </Text.Text>
-        <Text.Text level="p" style={{ opacity: 0.8, lineHeight: 1.5 }}>
+        <Text.Text level="p" color={10}>
           Interactive showcase of all Pluto design system components. Select components
           to view their variants and usage examples.
         </Text.Text>
