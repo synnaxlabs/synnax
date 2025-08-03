@@ -34,27 +34,4 @@ a.pluto-text {
         border-radius: var(--pluto-border-radius);
     }
 
-    &.pluto-text--square {
-        align-items: center;
-        width: fit-content;
-        padding: 0.5rem;
-        justify-content: center;
-        font-weight: 500;
-
-        &.pluto-height--huge {
-            min-width: var(--pluto-height-huge);
-        }
-        &.pluto-height--large {
-            min-width: var(--pluto-height-large);
-        }
-        &.pluto-height--small {
-            min-width: var(--pluto-height-small);
-        }
-        &.pluto-height--medium {
-            min-width: var(--pluto-height-medium);
-        }
-        &.pluto-height--tiny {
-            min-width: var(--pluto-height-tiny);
-        }
-    }
 }

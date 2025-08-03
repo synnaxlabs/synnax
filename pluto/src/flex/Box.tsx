@@ -40,43 +40,108 @@ export const justificationZ = z.enum(JUSTIFICATIONS);
 /** The justification for the main axis of a space */
 export type Justification = z.infer<typeof justificationZ>;
 
+/**
+ * Props for the Box component. Extends generic element props with flex layout
+ * capabilities.
+ *
+ * @template E - The HTML element type to render as
+ *
+ * @example
+ * ```tsx
+ * // Basic vertical layout with spacing
+ * <Box gap="medium">
+ *   <div>Item 1</div>
+ *   <div>Item 2</div>
+ * </Box>
+ *
+ * // Horizontal centered layout with border
+ * <Box x center bordered rounded>
+ *   <Button>Action</Button>
+ *   <Button>Cancel</Button>
+ * </Box>
+ *
+ * // Full-width container with custom styling
+ * <Box full background={11} gap={1.5}>
+ *   <Text.H3>Title</Text.H3>
+ *   <Text.P>Content goes here</Text.P>
+ * </Box>
+ * ```
+ */
 export type BoxProps<E extends Generic.ElementType = "div"> = Omit<
   Generic.OptionalElementProps<E>,
   "color"
 > &
   BoxExtensionProps;
 
+/**
+ * Extension props that provide flex layout capabilities to the Box component.
+ * These props control layout direction, alignment, spacing, styling, and sizing.
+ */
 export interface BoxExtensionProps {
-  // border
+  /** Whether to show a border around the container */
   bordered?: boolean;
+  /** Border color using Theming.Shade, color.Crude, or false to hide */
   borderColor?: Theming.Shade | color.Crude | false;
+  /** Border width in pixels */
   borderWidth?: number;
+  /** Border radius. true for default rounding, number for specific rem value */
   rounded?: boolean | number;
+  /** Whether to remove border radius (sharp corners) */
   sharp?: boolean;
-  // background
+
+  /** Background color using Theming.Shade values */
   background?: Theming.Shade;
-  // gap
+
+  /** Whether the container has no visible spacing/padding */
   empty?: boolean;
+  /** Spacing between children. Can be a Component.Size ('small', 'medium', 'large') or
+   * a number (in rem units) */
   gap?: Component.Size | number;
-  // direction
+
+  /** The flex direction of the container. Defaults to 'y' (column). Can be 'x', 'y',
+   * 'left', 'right', 'top', 'bottom' */
   direction?: direction.Crude;
+  /** Shorthand for setting direction to 'x' (row). Overrides direction */
   x?: boolean;
+  /** Shorthand for setting direction to 'y' (column). Overrides direction if x is
+   * not set */
   y?: boolean;
+  /** Whether to reverse the direction of children */
   reverse?: boolean;
-  // popsitioning
+
+  /** Main-axis justification of children. See {@link Justification} for options:
+   * 'start', 'center', 'end', 'between', 'around', 'evenly' */
   justify?: Justification;
+  /** Cross-axis alignment of children. See {@link Alignment} for options: 'start',
+   * 'center', 'end', 'stretch' */
   align?: Alignment;
-  // sizing
+
+  /** Flex grow behavior. true sets flex-grow: 1, false leaves unset, number sets
+   * specific flex-grow value */
   grow?: boolean | number;
+  /** Flex shrink behavior. true sets flex-shrink: 1, false leaves unset, number
+   * sets specific flex-shrink value */
   shrink?: boolean | number;
+  /** Shorthand for centering both axes (align: 'center', justify: 'center') */
   center?: boolean;
+  /** Whether the container should take full width/height. true for both, or specify
+   * a direction ('x', 'y') for single axis */
   full?: boolean | direction.Direction;
-  // wrapping
+
+  /** Whether children should wrap to new lines when they overflow */
   wrap?: boolean;
-  // sizing
+
+  /** Height of the container using Component.Size values */
   size?: Component.Size;
+  /**
+   * Whether to use horizontal layout optimized for packing items into
+   * visually consistent groups.
+   */
   pack?: boolean;
+  /** Text color using Theming.Shade, color.Crude, or false to inherit */
   color?: Theming.Shade | color.Crude | false;
+  /** Whether the container should maintain square aspect ratio */
+  square?: boolean;
 }
 
 export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
@@ -101,34 +166,8 @@ const parseFull = (full?: boolean | direction.Direction): string | false => {
 };
 
 /**
- * A component that orients its children in a row or column and adds
- * space between them. This is essentially a thin wrapped around a
- * flex component that makes it more 'reacty' to use.
- *
- * @param props - The props for the component. All unlisted props will be passed
- * to the underlying root element.
- * @param props.align - The off axis alignment of the children. The 'off' axis is the
- * opposite direction of props.direction. For example, if direction is 'x', then the
- * off axis is 'y'. See the {@link Alignment} for available options.
- * @param props.justify - The main axis justification of the children. The 'main' axis
- * is the same direction as props.direction. For example, if direction is 'x', then the
- * main axis is 'x'. See the {@link Justification} for available options.
- * @param props.grow - A boolean or number value that determines if the space should
- * grow in the flex-box sense. A value of true will set css flex-grow to 1. A value of
- * false will leave the css flex-grow unset. A number value will set the css flex-grow
- * to that number.
- * @param props.size - A string or number value that determines the amount of spacing
- * between items. If set to "small", "medium", or "large", the spacing will be determined
- * by the theme. If set to a number, the spacing will be that number of rem.
- * @param props.wrap - A boolean value that determines if the space should wrap its
- * children.
- * @param props.direction - The direction of the space. Defaults to 'y'. If props.x or
- * props.y are true, this prop is ignored.
- * @param props.x - A boolean value that determines if the space should be oriented
- * horizontally. If true, props.y and props.direction are ignored.
- * @param props.y - A boolean value that determines if the space should be oriented
- * vertically. If true, props.direction is ignored. props.x takes precedence over props.y.
- * @param props.el - The element type to render as. Defaults to 'div'.
+ * A flexible container component that arranges its children using CSS flexbox.
+ * See {@link BoxProps} for all available props and examples.
  */
 export const Box = <E extends Generic.ElementType = "div">({
   style,
@@ -140,10 +179,10 @@ export const Box = <E extends Generic.ElementType = "div">({
   color,
   justify,
   reverse,
-  empty = false,
-  pack = false,
-  wrap = false,
-  center = false,
+  empty,
+  pack,
+  wrap,
+  center,
   direction: propsDir,
   rounded,
   sharp,
@@ -155,6 +194,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   x,
   y,
   size,
+  square = false,
   ...rest
 }: BoxProps<E>): ReactElement => {
   const dir = parseDirection(propsDir, x, y, pack);
@@ -165,14 +205,15 @@ export const Box = <E extends Generic.ElementType = "div">({
     shouldReverse(dir, reverse) && CSS.M("reverse"),
     justify != null && CSS.BM("justify", justify),
     align != null && CSS.BM("align", align),
-    wrap && CSS.M("wrap"),
-    empty && CSS.M("empty"),
-    center && CSS.BM("flex", "center"),
+    wrap === true && CSS.M("wrap"),
+    empty === true && CSS.M("empty"),
+    center === true && CSS.BM("flex", "center"),
     parseFull(full),
-    bordered != null && CSS.bordered(bordered),
-    rounded != null && rounded !== false && CSS.rounded(true),
-    sharp != null && sharp !== false && CSS.M("sharp"),
+    bordered === true && CSS.bordered(bordered),
+    rounded === true && CSS.rounded(true),
+    sharp === true && CSS.M("sharp"),
     size != null && CSS.height(size),
+    square === true && CSS.BM("flex", "square"),
     className,
   ];
   style = {

@@ -110,11 +110,11 @@ export const Text = <E extends Generic.ElementType = "p">({
       CSS.B("text"),
       CSS.BM("text", variant),
       CSS.BM("text", level),
-      isIconOnly(rest.children) && CSS.BM("text", "square"),
       CSS.noWrap(noWrap),
       ellipsis && CSS.M("ellipsis"),
       className,
     )}
+    square={isIconOnly(rest.children)}
     gap="small"
     href={formatHref(href, autoFormatHref)}
     {...(rest as Flex.BoxProps<E>)}

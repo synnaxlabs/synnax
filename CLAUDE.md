@@ -160,3 +160,6 @@ Node A ←→ Aspen Gossip ←→ Node B (metadata sync)
 - Freighter connection pooling - reuse clients rather than creating new instances
 - Aspen gossip intervals are configurable but default to 1Hz for cluster coordination
 - Driver tasks should minimize blocking operations in real-time acquisition loops
+
+### Code Style Guidelines
+- All lines in our codebase are 88 characters
