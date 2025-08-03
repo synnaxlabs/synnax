@@ -41,6 +41,14 @@ export const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
   return <Input.Switch {...props} value={value} onChange={setValue} />;
 };
 
+export interface InputShowcaseCheckboxProps
+  extends Optional<Input.CheckboxProps, "value" | "onChange"> {}
+
+export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
+  const [value, setValue] = useState(props.value ?? false);
+  return <Input.Checkbox {...props} value={value} onChange={setValue} />;
+};
+
 const INPUT_PLACEHOLDER = (
   <>
     <Icon.Search />
@@ -139,6 +147,56 @@ export const InputShowcase = () => (
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">On</Text.Text>
               <InputShowcaseSwitch value={true} />
+            </Flex.Box>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Checkbox Controls"
+        description="Checkbox inputs for boolean selection with different sizes and states"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>Checkbox Sizes</Text.Text>
+            <Flex.Box x gap="medium" align="center">
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Huge</Text.Text>
+                <InputShowcaseCheckbox size="huge" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Large</Text.Text>
+                <InputShowcaseCheckbox size="large" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Medium</Text.Text>
+                <InputShowcaseCheckbox size="medium" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Small</Text.Text>
+                <InputShowcaseCheckbox size="small" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Tiny</Text.Text>
+                <InputShowcaseCheckbox size="tiny" />
+              </Flex.Box>
+            </Flex.Box>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>Checkbox States</Text.Text>
+            <Flex.Box x gap="medium" align="center">
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Unchecked</Text.Text>
+                <InputShowcaseCheckbox value={false} />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Checked</Text.Text>
+                <InputShowcaseCheckbox value={true} />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">Disabled</Text.Text>
+                <InputShowcaseCheckbox disabled value={false} />
+              </Flex.Box>
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>

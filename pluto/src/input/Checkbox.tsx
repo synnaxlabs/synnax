@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/input/Switch.css";
+import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
+import { preventDefault, stopPropagation } from "@/util/event";
 
-export interface SwitchProps extends InputProps<boolean> {}
+export interface CheckboxProps extends InputProps<boolean> {}
 
-const CLS = "input-switch";
+const CLS = "input-checkbox";
 
 /**
- * A controlled boolean Switch input component.
+ * A controlled boolean Checkbox input component.
  *
  * @param props - The props for the input component. Unlisted props are passed to the
  * underlying input element.
@@ -28,7 +29,7 @@ const CLS = "input-switch";
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  */
-export const Switch = ({
+export const Checkbox = ({
   ref,
   className,
   value,
@@ -37,18 +38,18 @@ export const Switch = ({
   size = "medium",
   variant,
   ...rest
-}: SwitchProps): ReactElement => (
+}: CheckboxProps): ReactElement => (
   <label className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.height(size), className)}>
     <input
       className={CSS.BE(CLS, "input")}
       type="checkbox"
       ref={ref}
       checked={value}
-      onChange={(e) => onChange(e.target.checked)}
-      value=""
+      onMouseDown={preventDefault}
+      onChange={(e) => onChange?.(e.target.checked)}
       disabled={disabled}
       {...rest}
     />
-    <span className={CSS(CSS.BE(CLS, "track"))} />
+    <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
   </label>
 );
