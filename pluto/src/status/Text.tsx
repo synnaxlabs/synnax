@@ -17,27 +17,28 @@ import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
 export interface TextProps
-  extends Omit<BaseText.TextProps, "level" | "wrap">,
+  extends Omit<BaseText.TextProps, "level" | "wrap" | "variant">,
     Partial<Omit<status.Status, "key">> {
   level?: BaseText.Level;
   hideIcon?: boolean;
 }
 
-const Core = ({
+export const Text = ({
   variant = "info",
   level = "p",
   description,
   hideIcon = false,
   className,
   children,
+  color,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const baseText = (
     <BaseText.Text
-      color={VARIANT_COLORS[variant]}
-      className={CSS(className, CSS.B("status-text"))}
+      color={color ?? VARIANT_COLORS[variant]}
+      className={CSS(className, CSS.BE("status", "text"))}
       level={level}
       {...rest}
     >
@@ -47,7 +48,7 @@ const Core = ({
   );
   if (description == null) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" {...rest} shade={8} style={{ maxWidth: 150 }}>
+    <BaseText.Text level="small" {...rest} color={8} style={{ maxWidth: 150 }}>
       {description}
     </BaseText.Text>
   );
@@ -58,19 +59,3 @@ const Core = ({
     </Flex.Box>
   );
 };
-
-export interface TextCenteredProps extends TextProps {}
-
-const Centered = (props: TextCenteredProps): ReactElement => (
-  <Flex.Box grow center>
-    <Core {...props} />
-  </Flex.Box>
-);
-
-type CoreTextType = typeof Core;
-
-export interface TextType extends CoreTextType {
-  Centered: typeof Centered;
-}
-
-export const Text: TextType = Object.assign(Core, { Centered });

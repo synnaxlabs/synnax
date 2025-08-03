@@ -32,7 +32,7 @@ const Content = (): ReactElement => {
 
   return (
     <Cluster.NoneConnectedBoundary>
-      <Flex.Box empty style={{ height: "100%" }}>
+      <Flex.Box empty full>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
           <Toolbar.Actions>
@@ -40,6 +40,7 @@ const Content = (): ReactElement => {
               {
                 key: "create",
                 children: <Icon.Add />,
+                variant: "text",
                 onClick: () => placeLayout(REGISTER_LAYOUT),
               },
             ]}

@@ -35,7 +35,7 @@ const ListItem = ({
       hovered={hovered}
       {...rest}
     >
-      <Text.Text level="p" align="center">
+      <Text.Text align="center">
         <Icon.Circle color={item?.color} size="2.5em" />
         {item?.name}
       </Text.Text>

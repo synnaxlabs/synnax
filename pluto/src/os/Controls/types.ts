@@ -10,7 +10,7 @@
 import { type runtime } from "@synnaxlabs/x";
 
 import { type Flex } from "@/flex";
-import { type Text } from "@/text";
+import { type Theming } from "@/theming";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 
@@ -22,5 +22,5 @@ export interface InternalControlsProps extends Flex.BoxProps {
   onMaximize?: () => void;
   onFullscreen?: () => void;
   onClose?: () => void;
-  shade?: Text.Shade;
+  contrast?: Theming.Shade;
 }

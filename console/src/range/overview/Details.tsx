@@ -41,9 +41,7 @@ const ParentRangeButton = ({
   const parent = res.data;
   return (
     <Flex.Box x gap="small" align="center">
-      <Text.Text level="p" shade={11} weight={450}>
-        Child Range of
-      </Text.Text>
+      <Text.Text weight={450}>Child Range of</Text.Text>
       <Button.Button
         variant="text"
         weight={400}
@@ -121,7 +119,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               path="name"
               showLabel={false}
               inputProps={{
-                variant: "natural",
+                variant: "text",
                 level: "h1",
                 placeholder: "Name",
                 onlyChangeOnBlur: true,
@@ -171,7 +169,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
-              <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
+              <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
           <Text.Text className={CSS.B("time-range-divider")} level="h4">
@@ -179,7 +177,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Text.Text>
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
-              <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
+              <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
             )}
           </Form.Field>
         </Flex.Box>

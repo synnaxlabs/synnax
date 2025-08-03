@@ -29,10 +29,6 @@ textarea,
     fill: var(--pluto-text-color);
     --webkit-font-smoothing: antialiased;
     margin: 0;
-
-    &.pluto--code {
-        font-family: var(--pluto-code-font-family);
-    }
 }
 
 h1,

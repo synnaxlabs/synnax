@@ -343,7 +343,6 @@ export const Item = ({
         <I style={{ color: "var(--pluto-gray-l10" }} />
         <Text.MaybeEditable
           id={ontology.idToString(id)}
-          level="p"
           allowDoubleClick={false}
           value={alias ?? resource.name}
           disabled={!allowRename(resource)}

@@ -29,7 +29,7 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Cluster.NoneConnectedBoundary>
-      <Flex.Box empty grow>
+      <Flex.Box empty full>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
           <Toolbar.Actions>

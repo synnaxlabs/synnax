@@ -23,12 +23,12 @@ export const Dialog = ({
   style,
   background = 0,
   className,
-  bordered,
+  bordered = true,
+  rounded = 1,
   ...rest
 }: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
-  bordered ??= variant === "modal";
   if (!visible) return null;
   let dialog = (
     <Flex.Box
@@ -44,6 +44,7 @@ export const Dialog = ({
         CSS.M(variant),
         className,
       )}
+      rounded={rounded}
       role="dialog"
       empty
       bordered={bordered}
@@ -52,13 +53,11 @@ export const Dialog = ({
       {...rest}
     />
   );
-  if (variant === "floating") dialog = createPortal(dialog, getRootElement());
   if (variant === "modal")
-    dialog = createPortal(
+    dialog = (
       <Background empty align="center" visible={visible}>
         {dialog}
-      </Background>,
-      getRootElement(),
+      </Background>
     );
-  return dialog;
+  return createPortal(dialog, getRootElement());
 };

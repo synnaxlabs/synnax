@@ -48,13 +48,11 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   return (
     <Flex.Box y>
       <Header.Header level="h4" bordered={false} borderColor={5}>
-        <Header.Title shade={11} weight={450}>
-          Child Ranges
-        </Header.Title>
+        <Header.Title weight={450}>Child Ranges</Header.Title>
         <Header.Actions>
           <Button.Button
             size="medium"
-            shade={0}
+            contrast={0}
             onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
           >
             <Icon.Add />

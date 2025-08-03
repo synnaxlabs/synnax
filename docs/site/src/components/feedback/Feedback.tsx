@@ -101,12 +101,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
       >
         <Nav.Bar location="top" size="5rem">
           <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-            <Breadcrumb.Breadcrumb
-              level="p"
-              weight={450}
-              shade={11}
-              icon={<Icon.Feedback />}
-            >
+            <Breadcrumb.Breadcrumb weight={450} icon={<Icon.Feedback />}>
               Feedback
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
@@ -158,7 +153,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" shade={10}>
+            <Text.Text level="small" color={10}>
               If you'd like a response, please include your name and email.
             </Text.Text>
           </Flex.Box>

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/Badges.css";
-
 import { type connection } from "@synnaxlabs/client";
 import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -44,7 +42,7 @@ export const ConnectionStatusBadge = ({
           {STATUS_MESSAGES[status]}
         </Status.Text>
         {message != null && (
-          <Text.Text level="p" shade={9} weight={450}>
+          <Text.Text color={9} weight={450}>
             {message}
           </Text.Text>
         )}
@@ -53,6 +51,11 @@ export const ConnectionStatusBadge = ({
         variant={variant}
         justify="center"
         className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
+        background={status === "disconnected" ? 2 : 0}
+        bordered
+        borderColor={5}
+        color={status === "disconnected" ? 5 : undefined}
+        size="medium"
       />
     </Tooltip.Dialog>
   );

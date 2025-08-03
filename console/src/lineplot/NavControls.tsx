@@ -75,10 +75,12 @@ export const NavControls = (): ReactElement => {
           <Flex.Box x align="center">
             <Text.Text level="small">Reset Zoom</Text.Text>
             <Flex.Box x empty>
-              <Text.Keyboard level="small">
+              <Text.Text level="small" variant="keyboard">
                 <Text.Symbols.Meta />
-              </Text.Keyboard>
-              <Text.Keyboard level="small">Click</Text.Keyboard>
+              </Text.Text>
+              <Text.Text level="small" variant="keyboard">
+                Click
+              </Text.Text>
             </Flex.Box>
           </Flex.Box>
         }

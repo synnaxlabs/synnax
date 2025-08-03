@@ -12,9 +12,9 @@ import "@/input/Switch.css";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type BaseProps } from "@/input/types";
+import { type InputProps } from "@/input/types";
 
-export interface SwitchProps extends Omit<BaseProps<boolean>, "placeholder"> {}
+export interface SwitchProps extends InputProps<boolean> {}
 
 const CLS = "input-switch";
 
@@ -37,29 +37,22 @@ export const Switch = ({
   size = "medium",
   variant,
   ...rest
-}: SwitchProps): ReactElement => {
-  if (variant === "preview") disabled = true;
-  return (
-    <div
-      className={CSS(
-        CSS.BE(CLS, "container"),
-        CSS.disabled(disabled),
-        CSS.height(size),
-      )}
-    >
-      <label className={CSS(CSS.BE(CLS, "track"), className)}>
-        <input
-          className={CSS.BE(CLS, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onChange={(e) => onChange(e.target.checked)}
-          value=""
-          disabled={disabled}
-          {...rest}
-        />
-        <span className="pluto-input-switch__slider" />
-      </label>
-    </div>
-  );
-};
+}: SwitchProps): ReactElement => (
+  <div
+    className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.height(size))}
+  >
+    <label className={CSS(CSS.BE(CLS, "track"), className)}>
+      <input
+        className={CSS.BE(CLS, "input")}
+        type="checkbox"
+        ref={ref}
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        value=""
+        disabled={disabled}
+        {...rest}
+      />
+      <span className="pluto-input-switch__slider" />
+    </label>
+  </div>
+);

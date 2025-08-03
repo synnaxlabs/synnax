@@ -86,7 +86,7 @@ export const Info: Layout.Renderer = () => {
           </Status.Text>
           <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
-            <Text.Text level="p" shade={10} noWrap>
+            <Text.Text color={10} noWrap>
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
               {Math.ceil(updateSize.megabytes)} MB
             </Text.Text>
@@ -142,7 +142,7 @@ export const Info: Layout.Renderer = () => {
       {updateContent}
       <Text.Text
         level="small"
-        shade={10}
+        color={10}
         weight={350}
         style={{ position: "absolute", bottom: "3rem" }}
       >

@@ -75,7 +75,6 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
       <Icon.Rack />
       <Text.MaybeEditable
         id={itemKey}
-        level="p"
         allowDoubleClick={false}
         value={resource.name}
         onChange={(name) => onRename?.(name)}

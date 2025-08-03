@@ -9,20 +9,25 @@
 
 import "@/input/TextArea.css";
 
-import { type ComponentPropsWithRef, type ReactElement } from "react";
+import { type ComponentPropsWithRef, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
-import { type ExtensionProps } from "@/input/types";
+import { type Control, type Variant } from "@/input/types";
 
 type HTMlTextAreaProps = Omit<
   ComponentPropsWithRef<"textarea">,
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
+
 export interface TextAreaProps
-  extends ExtensionProps<string>,
-    Omit<HTMlTextAreaProps, "wrap"> {
+  extends Omit<HTMlTextAreaProps, "wrap">,
+    Control<string> {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
+  variant?: Variant;
+  sharp?: boolean;
+  children?: ReactNode;
+  wrap?: boolean;
 }
 
 /**
@@ -44,7 +49,6 @@ export const TextArea = ({
   className,
   onFocus,
   selectOnFocus = false,
-  placeholder,
   variant = "outlined",
   sharp = false,
   children,
@@ -61,13 +65,11 @@ export const TextArea = ({
     )}
     ref={ref}
     value={value}
-    // remove newlines
     onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
     onFocus={(e) => {
       if (selectOnFocus) e.target.select();
       onFocus?.(e);
     }}
-    placeholder={placeholder as string}
     {...rest}
   />
 );

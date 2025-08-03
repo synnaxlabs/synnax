@@ -128,7 +128,7 @@ export const MultipleTrigger = <K extends record.Key>({
   const dragging = Haul.useDraggingState();
   return (
     <Tag.Tags
-      fullWidth
+      full="x"
       onClick={() => {
         if (variant !== "text" || value.length == 0) toggle();
       }}
@@ -142,7 +142,7 @@ export const MultipleTrigger = <K extends record.Key>({
       grow
     >
       {value.length === 0 && (
-        <Text.Text level="p" color={8} weight={400} style={{ padding: "0 1rem" }}>
+        <Text.Text color={8} weight={400} style={{ padding: "0 1rem" }}>
           {icon}
           {placeholder}
         </Text.Text>

@@ -69,7 +69,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             {(p) => (
               <Input.Text
                 placeholder="Workspace Name"
-                variant="natural"
+                variant="text"
                 autoFocus
                 level="h3"
                 {...p}
@@ -85,8 +85,8 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             type="submit"
             variant="filled"
             form="create-workspace"
-            loading={isPending}
-            disabled={isPending || client == null}
+            status={isPending ? "loading" : undefined}
+            disabled={client == null}
             tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
             onClick={() => mutate()}
             trigger={Triggers.SAVE}

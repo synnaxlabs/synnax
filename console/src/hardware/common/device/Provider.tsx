@@ -17,7 +17,7 @@ import { Layout } from "@/layout";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
   <Flex.Box center>
-    <Text.Text level="p">No device selected.</Text.Text>
+    <Text.Text>No device selected.</Text.Text>
   </Flex.Box>
 );
 
@@ -58,11 +58,9 @@ export const Provider = <
     const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
     return (
       <Flex.Box>
-        <Text.Text level="p">{`${name} is not configured.`}</Text.Text>
+        <Text.Text>{`${name} is not configured.`}</Text.Text>
         {canConfigure && (
-          <Text.Link level="p" onClick={handleConfigure}>
-            {`Configure ${name}.`}
-          </Text.Link>
+          <Text.Text onClick={handleConfigure}>{`Configure ${name}.`}</Text.Text>
         )}
       </Flex.Box>
     );

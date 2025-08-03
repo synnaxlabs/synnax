@@ -10,23 +10,28 @@
 import "@/input/Input.css";
 
 import { color, type status } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
-import { type BaseProps } from "@/input/types";
+import { type InputProps, type Variant } from "@/input/types";
 import { Text as CoreText } from "@/text";
 
-export interface TextExtraProps {
+export interface TextProps
+  extends InputProps<string>,
+    Omit<Button.ExtensionProps, "variant"> {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: status.Variant;
   outlineColor?: color.Crude;
+  variant?: Variant;
+  placeholder?: ReactNode;
+  children?: ReactNode;
+  endContent?: ReactNode;
+  onlyChangeOnBlur?: boolean;
 }
-
-export interface TextProps extends BaseProps<string>, TextExtraProps {}
 
 /**
  * A controlled string input component.
@@ -65,15 +70,15 @@ export const Text = ({
   contrast,
   color: pColor,
   sharp,
-  loading,
   onlyChangeOnBlur = false,
   endContent,
-  fullWidth,
+  full,
   children,
   grow,
   borderColor,
   borderWidth,
   bordered,
+  rounded,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
@@ -121,14 +126,17 @@ export const Text = ({
   const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
   const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
 
-  if (variant === "preview") disabled = true;
   if (hasCustomColor)
     style = {
       ...style,
       [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
     };
 
-  const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
+  const showPlaceholder =
+    (value == null || value.length === 0) &&
+    tempValue == null &&
+    placeholder != null &&
+    typeof placeholder !== "string";
 
   return (
     <Button.Button
@@ -140,7 +148,6 @@ export const Text = ({
         CSS.B("input"),
         CSS.disabled(disabled),
         size == null && CSS.height(size),
-        CSS.M(variant),
         hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,
@@ -151,17 +158,20 @@ export const Text = ({
       color={pColor}
       contrast={contrast}
       sharp={sharp}
-      loading={loading}
+      status={status}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
       grow={grow}
       pack
-      fullWidth={fullWidth}
+      full={full}
+      variant={variant}
+      rounded={rounded}
     >
       {showPlaceholder && (
         <CoreText.Text
           className={CSS(
+            CSS.visible(false),
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
           )}

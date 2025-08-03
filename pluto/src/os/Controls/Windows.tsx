@@ -11,9 +11,9 @@ import "@/os/Controls/Windows.css";
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
@@ -25,7 +25,7 @@ export const Windows = ({
   // no-ops on windows
   onFullscreen: _,
   focused: __,
-  shade = 2,
+  contrast = 2,
   ...rest
 }: InternalControlsProps): ReactElement => (
   <Flex.Box pack {...rest}>
@@ -33,7 +33,7 @@ export const Windows = ({
       className={CSS.BM("windows-control", "minimize")}
       onClick={onMinimize}
       disabled={disabled.includes("minimize")}
-      shade={shade}
+      contrast={contrast}
     >
       <Icon.Subtract />
     </Button>
@@ -41,7 +41,7 @@ export const Windows = ({
       className={CSS.BM("windows-control", "maximize")}
       onClick={onMaximize}
       disabled={disabled.includes("maximize")}
-      shade={shade}
+      contrast={contrast}
     >
       <Icon.Box />
     </Button>
@@ -49,7 +49,7 @@ export const Windows = ({
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
-      shade={shade}
+      contrast={contrast}
     >
       <Icon.Close />
     </Button>

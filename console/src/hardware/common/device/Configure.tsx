@@ -101,20 +101,20 @@ const Internal = <
         >
           {isNameStep ? (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
               <Form.TextField
                 autoFocus
-                inputProps={{ autoFocus: true, level: "h2", variant: "natural" }}
+                inputProps={{ autoFocus: true, level: "h2", variant: "text" }}
                 label="Name"
                 path="name"
               />
             </>
           ) : (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
                 channels associated with this device. We've given you some suggestions
@@ -124,7 +124,7 @@ const Internal = <
                 <Form.TextField
                   autoFocus
                   label="Identifier"
-                  inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
+                  inputProps={{ level: "h2", ref: identifierRef, variant: "text" }}
                   path="identifier"
                 />
                 <Flex.Box x>
@@ -154,8 +154,7 @@ const Internal = <
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
-            disabled={isPending}
-            loading={isPending}
+            status={isPending ? "loading" : undefined}
             onClick={() => mutate()}
             variant="filled"
             trigger={Triggers.SAVE}
@@ -194,9 +193,9 @@ export const Configure = <
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text center level="h4" variant="loading">
         Fetching device from server
-      </Status.Text.Centered>
+      </Status.Text>
     );
   if (isError) {
     const color = Status.VARIANT_COLORS.error;
@@ -205,9 +204,7 @@ export const Configure = <
         <Text.Text color={color} level="h2">
           Failed to load data for device with key {layoutKey}
         </Text.Text>
-        <Text.Text color={color} level="p">
-          {error.message}
-        </Text.Text>
+        <Text.Text color={color}>{error.message}</Text.Text>
       </Flex.Box>
     );
   }

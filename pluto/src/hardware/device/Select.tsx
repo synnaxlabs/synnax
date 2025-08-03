@@ -34,18 +34,22 @@ const listItemRenderProp = Component.renderProp(
         justify="between"
         align="center"
       >
-        <Text.Text level="p" align="center">
+        <Text.Text align="center">
           <Device.StatusIndicator status={item?.status} />
           {item?.name}
         </Text.Text>
         <Breadcrumb.Breadcrumb
           level="small"
-          shade={9}
+          color={9}
           weight={450}
           style={{ marginTop: "0.25rem" }}
           gap="tiny"
         >
-          {item?.location ?? ""}
+          {Breadcrumb.mapURLSegments(item?.location ?? "", ({ href, segment }) => (
+            <Breadcrumb.Segment key={segment} href={href}>
+              {segment}
+            </Breadcrumb.Segment>
+          ))}
         </Breadcrumb.Breadcrumb>
       </Select.ListItem>
     );

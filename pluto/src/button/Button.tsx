@@ -9,15 +9,9 @@
 
 import "@/button/Button.css";
 
-import { color, type status } from "@synnaxlabs/x";
+import { color, record, type status } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import {
-  Children,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useRef,
-} from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -39,14 +33,16 @@ export type Variant =
   | "preview"
   | "shadow";
 
-export interface ExtensionProps extends Text.ExtensionProps, Tooltip.WrapProps {
+export interface ExtensionProps
+  extends Omit<Text.ExtensionProps, "variant">,
+    Tooltip.WrapProps {
   variant?: Variant;
   size?: Component.Size;
   sharp?: boolean;
-  loading?: boolean;
   trigger?: Triggers.Trigger;
   status?: status.Variant;
   textColor?: Text.Shade;
+  textVariant?: Text.Variant;
   contrast?: Text.Shade;
   disabled?: boolean;
   allowClick?: boolean;
@@ -59,12 +55,6 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   "color"
 > &
   ExtensionProps;
-
-const isIconOnly = (children: ReactNode): boolean => {
-  if (Children.count(children) !== 1) return false;
-  if (typeof children === "string") return children.length === 1;
-  return true;
-};
 
 /**
  * Use is a basic button component.
@@ -85,8 +75,6 @@ const isIconOnly = (children: ReactNode): boolean => {
  * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
- * @param props.loading - Whether the button is in a loading state. This will cause the
- * button to render a loading spinner.
  */
 const Core = <E extends ElementType = "button">({
   size,
@@ -95,7 +83,6 @@ const Core = <E extends ElementType = "button">({
   sharp = false,
   disabled = false,
   allowClick = true,
-  loading = false,
   level,
   trigger: triggers,
   onClickDelay = 0,
@@ -105,13 +92,14 @@ const Core = <E extends ElementType = "button">({
   style,
   onMouseDown,
   textColor,
+  textVariant,
   tabIndex,
   contrast,
   children,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const isDisabled = disabled || loading;
+  const isDisabled = disabled || status === "loading" || status === "disabled";
   // We implement the shadow variant to maintain compatibility with the input
   // component API.
   if (variant == "shadow") variant = "text";
@@ -176,23 +164,20 @@ const Core = <E extends ElementType = "button">({
   else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
   else size ??= "medium";
 
-  const iconOnly = isIconOnly(children);
-
   return (
     <Text.Text<E>
       direction="x"
       className={CSS(
         CSS.B("btn"),
-        iconOnly && CSS.BM("btn", "icon"),
-        allowClick && CSS.BM("btn", `shade-${contrast}`),
+        allowClick && contrast != null && CSS.BM("btn", `contrast-${contrast}`),
         CSS.sharp(sharp),
-        CSS.height(size),
         variant !== "preview" && CSS.disabled(isDisabled),
         status != null && CSS.M(status),
-        CSS.M(variant),
+        CSS.BM("btn", variant),
         hasCustomColor && CSS.BM("btn", "custom-color"),
         className,
       )}
+      size={size}
       tabIndex={tabIndex}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
@@ -200,12 +185,14 @@ const Core = <E extends ElementType = "button">({
       style={pStyle}
       color={colorVal}
       gap={size === "small" || size === "tiny" ? "small" : "medium"}
-      {...(rest as Text.TextProps<E>)}
-      el={rest.el ?? "button"}
+      bordered={variant !== "text"}
+      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
+      defaultEl={"button"}
       level={level}
+      variant={textVariant}
     >
       {children}
-      {loading && <Icon.Loading />}
+      {status === "loading" && <Icon.Loading />}
     </Text.Text>
   );
 };

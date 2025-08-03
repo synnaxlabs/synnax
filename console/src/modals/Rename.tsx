@@ -70,7 +70,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             autoFocus
             placeholder={label}
             level="h2"
-            variant="natural"
+            variant="text"
             value={name}
             onChange={setName}
           />

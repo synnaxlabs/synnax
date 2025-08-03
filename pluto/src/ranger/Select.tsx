@@ -10,10 +10,10 @@
 import { type ranger } from "@synnaxlabs/client";
 import { memo, type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
@@ -38,22 +38,18 @@ export const ListItem = memo(
     const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
     if (item == null) return null;
     const { name, parent, timeRange, labels } = item;
-    const breadcrumbSegments: Breadcrumb.Segments = [
-      {
-        label: name,
-        weight: 450,
-        shade: 10,
-      },
-    ];
-    if (parent != null && showParent)
-      breadcrumbSegments.push({
-        label: parent.name,
-        weight: 400,
-        shade: 8,
-      });
     return (
       <Select.ListItem itemKey={itemKey} justify="between" {...rest}>
-        <Breadcrumb.Breadcrumb>{breadcrumbSegments}</Breadcrumb.Breadcrumb>
+        <Breadcrumb.Breadcrumb>
+          <Breadcrumb.Segment weight={450} color={10}>
+            {name}
+          </Breadcrumb.Segment>
+          {parent != null && showParent && (
+            <Breadcrumb.Segment weight={400} color={8}>
+              {parent.name}
+            </Breadcrumb.Segment>
+          )}
+        </Breadcrumb.Breadcrumb>
         <Flex.Box x>
           <TimeRangeChip level="small" timeRange={timeRange} />
           {showLabels && (

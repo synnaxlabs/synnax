@@ -13,6 +13,7 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
+  type Header,
   Icon,
   List,
   Menu as PMenu,
@@ -44,12 +45,12 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
-    <Flex.Box empty style={{ height: "100%", position: "relative" }}>
-      <Flex.Box y style={{ height: "100%" }} gap="small">
-        <Text.Text level="p">No existing tasks.</Text.Text>
-        <Text.Link level="p" onClick={handleClick}>
+    <Flex.Box empty center>
+      <Flex.Box y gap="small">
+        <Text.Text>No existing tasks.</Text.Text>
+        <Button.Button variant="text" onClick={handleClick} href="">
           Add a task
-        </Text.Link>
+        </Button.Button>
       </Flex.Box>
     </Flex.Box>
   );
@@ -128,8 +129,14 @@ const Content = () => {
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;
-  const actions = useMemo(
-    () => [{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }],
+  const actions: Header.ActionSpec[] = useMemo(
+    () => [
+      {
+        children: <Icon.Add />,
+        onClick: () => placeLayout(SELECTOR_LAYOUT),
+        variant: "text",
+      },
+    ],
     [placeLayout],
   );
   const startOrStop = useMutation({
@@ -178,7 +185,7 @@ const Content = () => {
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Flex.Box
         empty
-        style={{ height: "100%" }}
+        full
         className={CSS(CSS.B("task-toolbar"), menuProps.className)}
         onContextMenu={menuProps.open}
       >
@@ -253,24 +260,23 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.Text className={CSS.BE("task", "title")} level="p" weight={500} noWrap>
+          <Text.Text className={CSS.BE("task", "title")} weight={500} noWrap>
             {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
-              level="p"
               value={task?.name ?? ""}
               onChange={onRename}
               allowDoubleClick={false}
             />
           </Text.Text>
         </Flex.Box>
-        <Text.Text level="small" shade={10}>
+        <Text.Text level="small" color={10}>
           {parseType(task?.type ?? "")}
         </Text.Text>
       </Flex.Box>
       <Button.Button
         variant="outlined"
-        loading={isLoading}
+        status={isLoading ? "loading" : undefined}
         onClick={handleClick}
         tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >

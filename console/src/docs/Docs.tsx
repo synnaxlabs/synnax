@@ -100,7 +100,6 @@ export const OpenButton = (): ReactElement => {
     <Button.Button
       size="small"
       variant="text"
-      shade={2}
       onClick={handleDocs}
       className={CSS.BE("docs", "open-button")}
       tooltip={<Text.Text level="small">Open Documentation</Text.Text>}

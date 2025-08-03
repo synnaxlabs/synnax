@@ -33,8 +33,9 @@ export const SearchInput = ({
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
       contrast={3}
+      rounded
       grow
-      fullWidth
+      full="x"
       onChange={(v) => {
         setTerm(v);
         onSearch?.(v);

@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto-flex--pack button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
-.pluto-input__internal {
-    z-index: 3;
+.pluto-input {
+    z-index: 4;
 }
 
 @keyframes fade-in-zoom {
@@ -65,14 +65,6 @@
 
 html {
     font-size: var(--pluto-base-size);
-}
-
-.pluto--sharp {
-    border-radius: 0 !important;
-}
-
-.pluto--rounded {
-    border-radius: var(--pluto-border-radius);
 }
 
 .pluto--no-wrap {

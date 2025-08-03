@@ -113,11 +113,11 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
           <Flex.Box y gap="large">
             <Flex.Box x align="center" gap={8}>
               <Flex.Box y>
-                <Text.Text level="h4" shade={10} weight={450}>
+                <Text.Text level="h4" color={10} weight={450}>
                   <Icon.Access />
                   Admin
                 </Text.Text>
-                <Text.Text level="p" shade={11}>
+                <Text.Text>
                   Allows the user to manage other users, including registering users and
                   setting permissions for those users.
                 </Text.Text>
@@ -126,16 +126,16 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
             </Flex.Box>
             <Divider.Divider x />
             <Flex.Box y>
-              <Text.Text level="h4" shade={10} weight={450}>
+              <Text.Text level="h4" color={10} weight={450}>
                 <Icon.Schematic />
                 Schematics
               </Text.Text>
               <Flex.Box x gap={8} align="center" style={{ marginLeft: "2rem" }}>
                 <Flex.Box y>
-                  <Text.Text level="h5" shade={10}>
+                  <Text.Text level="h5" color={10}>
                     Edit
                   </Text.Text>
-                  <Text.Text level="p" shade={11}>
+                  <Text.Text>
                     Allow the user to create and edit schematics. If the user does not
                     have this permission, they will still be able to control symbols on
                     the schematic.

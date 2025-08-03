@@ -41,6 +41,7 @@ export const Trigger = ({
         onClick?.(e);
         toggle();
       }}
+      full="x"
       {...rest}
     >
       {children}

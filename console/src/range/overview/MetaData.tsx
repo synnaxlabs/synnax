@@ -36,7 +36,6 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
         width: "unset",
         flexGrow: 2,
       }}
-      variant="shadow"
       selectOnFocus={true}
       resetOnBlurIfEmpty={true}
       onlyChangeOnBlur={true}
@@ -47,15 +46,15 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
         <Icon.Copy />
       </Button.Button>
       {isLink && (
-        <Button.Link
+        <Button.Button
           variant="outlined"
           href={value}
           target="_blank"
-          autoFormat
+          autoFormatHref
           style={{ padding: "1rem" }}
         >
           <Icon.LinkExternal />
-        </Button.Link>
+        </Button.Button>
       )}
     </Input.Text>
   );
@@ -76,7 +75,6 @@ const MetaDataListItem = (props: List.ItemProps<string>) => {
     >
       <Input.Text
         style={{ flexBasis: "30%", width: 250 }}
-        variant="shadow"
         value={key}
         selectOnFocus={true}
         resetOnBlurIfEmpty={true}
@@ -118,7 +116,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
   });
   return (
     <Flex.Box y>
-      <Text.Text level="h4" shade={11} weight={450}>
+      <Text.Text level="h4" weight={450}>
         Metadata
       </Text.Text>
       <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>

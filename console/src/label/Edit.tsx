@@ -111,7 +111,6 @@ const LabelListItem = ({
             inputProps={{
               ref: inputRef,
               placeholder: "Label Name",
-              variant: "shadow",
               selectOnFocus: true,
               autoFocus: isCreate,
               resetOnBlurIfEmpty: true,
@@ -177,7 +176,7 @@ export const Edit: Layout.Renderer = () => {
         <Flex.Box x justify="between" style={{ padding: "2rem" }}>
           <Input.Text
             placeholder={
-              <Text.Text level="p">
+              <Text.Text>
                 <Icon.Search />
                 Search Labels
               </Text.Text>
@@ -220,7 +219,7 @@ export const Edit: Layout.Renderer = () => {
             emptyContent={
               !newFormVisible && (
                 <Flex.Box center>
-                  <Text.Text level="h4" shade={8}>
+                  <Text.Text level="h4" color={8}>
                     No labels created
                   </Text.Text>
                 </Flex.Box>

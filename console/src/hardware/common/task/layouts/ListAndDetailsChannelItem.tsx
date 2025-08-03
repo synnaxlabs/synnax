@@ -39,7 +39,7 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
 
 const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
   level: "p",
-  shade: 9,
+  color: 9,
   weight: 450,
   style: {
     maxWidth: hasIcon ? 100 : 150,
@@ -76,8 +76,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
     >
       <Flex.Box direction="x" gap="small" align="center">
         <Text.Text
-          level="p"
-          shade={8}
+          color={8}
           weight={500}
           style={{ width: `${portMaxChars * 1.25}rem` }}
         >

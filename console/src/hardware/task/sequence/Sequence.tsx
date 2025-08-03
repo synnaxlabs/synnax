@@ -157,8 +157,8 @@ const Internal = ({
           pack
           y
           bordered={false}
+          full="x"
           style={{
-            width: "100%",
             background: "var(--pluto-gray-l0)",
             boxShadow: "var(--pluto-shadow-v1)",
             borderTop: "var(--pluto-border)",

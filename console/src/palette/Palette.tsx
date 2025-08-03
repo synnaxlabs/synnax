@@ -79,18 +79,15 @@ export const Palette = ({
           align="center"
           size="medium"
           justify="center"
-          shade={2}
-          textShade={9}
+          contrast={2}
+          color={9}
           gap="small"
+          full="x"
         >
           <Icon.Search />
           Search & Command
         </Button.Button>
-        <Dialog.Dialog
-          className={CSS.BE("palette", "content")}
-          rounded={1}
-          bordered={false}
-        >
+        <Dialog.Dialog className={CSS.BE("palette", "content")} bordered={false}>
           <DialogContent
             value={value}
             onChange={setValue}
@@ -153,13 +150,20 @@ const DialogContent = ({
         }
         size="huge"
         autoFocus
-        shade={3}
+        contrast={3}
         onChange={handleSearch}
         value={value}
+        rounded
         autoComplete="off"
         onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        full="x"
       />
-      <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+      <List.Items
+        className={CSS.BE("palette", "list")}
+        emptyContent={emptyContent}
+        bordered
+        borderColor={7}
+      >
         {listItem}
       </List.Items>
     </Select.Frame>

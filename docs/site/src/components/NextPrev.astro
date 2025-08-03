@@ -15,7 +15,7 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                             <Text.Text level="small" shade={7} weight={400}>
                                 Previous
                             </Text.Text>
-                            <Text.Text level="p">{prev}</Text.Text>
+                            <Text.Text>{prev}</Text.Text>
                         </Flex.Box>
                     </>
                 )
@@ -26,10 +26,10 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                 next != null && (
                     <>
                         <Flex.Box direction="y" size="small">
-                            <Text.Text level="small" shade={8} weight={400}>
+                            <Text.Text level="small" color={8} weight={400}>
                                 Next
                             </Text.Text>
-                            <Text.Text level="p">{next}</Text.Text>
+                            <Text.Text>{next}</Text.Text>
                         </Flex.Box>
                         <Icon.Caret.Right />
                     </>

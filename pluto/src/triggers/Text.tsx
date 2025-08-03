@@ -9,11 +9,12 @@
 
 import { type ReactElement } from "react";
 
+import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text as Core } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
 
-export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
+export type TextProps<E extends Generic.ElementType = "p"> = Core.TextProps<E> & {
   trigger: Trigger;
 };
 
@@ -48,19 +49,18 @@ const sortTriggers = (trigger: Trigger): Trigger =>
 export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   trigger.map((t) => getCustomText(t));
 
-export const Text = <L extends Core.Level>({
-  className,
-  style,
+export const Text = <E extends Generic.ElementType = "p">({
   trigger,
   children,
+  level,
   ...rest
-}: TextProps<L>): ReactElement => (
-  <>
+}: TextProps<E>): ReactElement => (
+  <Core.Text level={level} {...rest}>
     {sortTriggers(trigger).map((t) => (
-      // @ts-expect-error - issues with generic element types
-      <Core.Keyboard<L> key={t} {...rest}>
+      <Core.Text key={t} el="span" variant="keyboard" level={level}>
         {getCustomText(t)}
-      </Core.Keyboard>
+      </Core.Text>
     ))}
-  </>
+    {children}
+  </Core.Text>
 );

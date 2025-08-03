@@ -16,6 +16,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
+import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { Vis } from "@/vis";
@@ -53,8 +54,8 @@ const NoCluster = (): ReactElement => {
     [placeLayout, dispatch, windowKey],
   );
 
-  const handleDocs = useCallback<NonNullable<Text.LinkProps["onClick"]>>(
-    (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleDocs = useCallback<NonNullable<Text.TextProps["onClick"]>>(
+    (e) => {
       e.stopPropagation();
       placeLayout(Docs.LAYOUT);
     },
@@ -62,7 +63,7 @@ const NoCluster = (): ReactElement => {
   );
 
   return (
-    <Flex.Box className="console-get-started" align="center" gap={6}>
+    <Flex.Box className={CSS.B("get-started")} gap={4} full align="center">
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
       <Flex.Box x gap="large" justify="center" wrap>
@@ -75,9 +76,9 @@ const NoCluster = (): ReactElement => {
           Create a Visualization
         </Button.Button>
       </Flex.Box>
-      <Text.Link target="_blank" level="h4" onClick={handleDocs}>
+      <Text.Text target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
-      </Text.Link>
+      </Text.Text>
     </Flex.Box>
   );
 };
@@ -90,9 +91,9 @@ const Overview = (): ReactElement => {
   );
   return (
     <Eraser.Eraser>
-      <Flex.Box className="console-get-started" gap={6} y style={{ padding: "200px" }}>
+      <Flex.Box y full className={CSS.B("get-started")} align="center">
         <Logo variant="title" className="console-get-started__logo" />
-        <Flex.Box x style={{ width: "100%" }} justify="center" gap={30} wrap>
+        <Flex.Box x full="x" justify="center" gap={30} wrap>
           <Flex.Box y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
             <Button.Button onClick={handleWorkspace} style={{ width: "fit-content" }}>

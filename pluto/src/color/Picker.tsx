@@ -13,11 +13,11 @@ import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
-import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Input } from "@/input";
@@ -67,11 +67,7 @@ export const Picker = ({
       {position != null ||
         (onDelete != null && (
           <Flex.Box x justify="between">
-            {position != null && (
-              <Text.Text level="small" shade={11}>
-                {position} %
-              </Text.Text>
-            )}
+            {position != null && <Text.Text level="small">{position} %</Text.Text>}
             {onDelete != null && (
               <Button.Button name="close" onClick={onDelete} size="small">
                 <Icon.Delete />

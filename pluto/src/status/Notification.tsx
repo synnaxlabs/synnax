@@ -12,9 +12,9 @@ import "@/status/Notification.css";
 import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
-import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/Aggregator";
 import { Indicator } from "@/status/Indicator";
@@ -55,9 +55,7 @@ export const Notification = ({
       <Flex.Box x justify="between" grow style={{ width: "100%" }}>
         <Flex.Box x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
-          <Text.Text level="small" shade={11}>
-            {`x${count}`}
-          </Text.Text>
+          <Text.Text level="small">{`x${count}`}</Text.Text>
           <Text.DateTime
             className={CSS(CSS.BE("notification", "time"))}
             level="small"
@@ -86,7 +84,6 @@ export const Notification = ({
         ) : (
           <Text.Text
             className={CSS(CSS.BE("notification", "message"))}
-            level="p"
             style={{ flexGrow: 1 }}
           >
             {message}

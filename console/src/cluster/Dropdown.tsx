@@ -67,14 +67,13 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       {...rest}
     >
       <Text.MaybeEditable
-        level="p"
         id={`cluster-dropdown-${item.key}`}
         weight={450}
         value={item.name}
         onChange={handleChange}
         allowDoubleClick={false}
       />
-      <Text.Text level="p" shade={10}>
+      <Text.Text color={10}>
         {item.host}:{item.port}
       </Text.Text>
     </CoreList.Item>
@@ -97,17 +96,15 @@ export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
-  const handleCluster: Text.LinkProps["onClick"] = (e: MouseEvent) => {
+  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
     placeLayout(CONNECT_LAYOUT);
   };
 
   return (
     <Flex.Box empty center {...rest}>
-      <Text.Text level="p">No cluster connected.</Text.Text>
-      <Text.Link level="p" onClick={handleCluster}>
-        Connect a cluster
-      </Text.Link>
+      <Text.Text>No cluster connected.</Text.Text>
+      <Text.Text onClick={handleCluster}>Connect a cluster</Text.Text>
     </Flex.Box>
   );
 };
@@ -221,7 +218,7 @@ export const Dropdown = (): ReactElement => {
         <Flex.Box pack>
           <Dialog.Trigger
             justify="center"
-            shade={2}
+            contrast={2}
             variant={disconnected ? "filled" : "outlined"}
             hideCaret
           >
@@ -230,10 +227,10 @@ export const Dropdown = (): ReactElement => {
           </Dialog.Trigger>
           <ConnectionBadge />
         </Flex.Box>
-        <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
+        <Dialog.Dialog style={{ minWidth: 300, width: 400 }} bordered borderColor={6}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
           <Flex.Box pack x>
-            <Header.Header grow bordered borderColor={6} gap="small" x>
+            <Header.Header grow borderColor={6} gap="small" x>
               <Header.Title level="h5">
                 <Icon.Cluster />
                 Clusters
@@ -253,7 +250,7 @@ export const Dropdown = (): ReactElement => {
               Connect
             </Button.Button>
           </Flex.Box>
-          <Flex.Box empty bordered borderColor={6} style={{ height: 190 }}>
+          <Flex.Box empty style={{ height: 190 }}>
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}

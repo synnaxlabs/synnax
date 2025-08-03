@@ -59,14 +59,8 @@ const ChannelListItem = <C extends Channel>({
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Flex.Box direction="y" gap="small">
-        <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
-        <Text.Text
-          level="small"
-          weight={350}
-          shade={9}
-          color={opcNodeColor}
-          gap="small"
-        >
+        <ChannelName weight={500} color={10} channel={channel} id={id} />
+        <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
           <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
         </Text.Text>
@@ -83,8 +77,8 @@ const ChannelListItem = <C extends Channel>({
 };
 
 const Header = () => (
-  <PHeader.Header level="p" style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
-    <PHeader.Title weight={500} shade={10}>
+  <PHeader.Header style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
+    <PHeader.Title weight={500} color={10} level="p">
       Channels
     </PHeader.Title>
   </PHeader.Header>
@@ -92,7 +86,7 @@ const Header = () => (
 
 const EmptyContent = () => (
   <Flex.Box>
-    <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+    <Text.Text color={6} style={{ maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.

@@ -262,7 +262,7 @@ export const wrapForm = <
           >
             <Flex.Box x justify="between">
               <PForm.Field<string> path="name">
-                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
+                {(p) => <Input.Text variant="text" level="h2" {...p} />}
               </PForm.Field>
               <Flex.Box align="end" gap="small">
                 <CopyButtons

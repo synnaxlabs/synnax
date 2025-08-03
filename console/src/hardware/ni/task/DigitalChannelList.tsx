@@ -30,12 +30,7 @@ const ListItem = <C extends DigitalChannel>({
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem
-      {...rest}
-      align="center"
-      justify="between"
-      style={{ width: "100%" }}
-    >
+    <Select.ListItem {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
         <Flex.Box
           pack
@@ -51,7 +46,7 @@ const ListItem = <C extends DigitalChannel>({
             showHelpText={false}
             path={`${path}.port`}
           />
-          <Text.Text level="p" shade={9} weight={550}>
+          <Text.Text color={9} weight={550}>
             /
           </Text.Text>
           <Form.NumericField
@@ -65,7 +60,6 @@ const ListItem = <C extends DigitalChannel>({
         <Text.Text
           level="small"
           className={CSS.BE("port-line-input", "label")}
-          shade={11}
           weight={450}
         >
           Port/Line

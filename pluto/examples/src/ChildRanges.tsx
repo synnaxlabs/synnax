@@ -25,13 +25,11 @@ interface ListItemProps {
 
 const ListItem = ({ name, timeRange }: ListItemProps) => (
   <Flex.Box x justify="between">
-    <Text.Text level="p">
+    <Text.Text>
       <Icon.Range />
       {name}
     </Text.Text>
-    {timeRange != null && (
-      <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
-    )}
+    {timeRange != null && <Ranger.TimeRangeChip timeRange={timeRange} showSpan />}
   </Flex.Box>
 );
 

@@ -315,7 +315,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
       highlightHovered
       {...props}
     >
-      <Text.Text level="p" weight={450} shade={11} gap="medium">
+      <Text.Text weight={450} gap="medium">
         <Icon.Range />
         {resource?.name}
       </Text.Text>

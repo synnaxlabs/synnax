@@ -49,10 +49,8 @@ const NoRanges = (): ReactElement => {
       className={CSS.B("range-toolbar-no-ranges")}
     >
       <Flex.Box y style={{ height: "100%" }} gap="medium">
-        <Text.Text level="p">No ranges loaded.</Text.Text>
-        <Text.Link level="p" onClick={handleLinkClick}>
-          Create a Range
-        </Text.Link>
+        <Text.Text>No ranges loaded.</Text.Text>
+        <Text.Text onClick={handleLinkClick}>Create a Range</Text.Text>
       </Flex.Box>
     </Flex.Box>
   );
@@ -134,14 +132,13 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small" shade={11}>
+          <Text.Text className="save-button" weight={700} level="small">
             L
           </Text.Text>
         </Tooltip.Dialog>
       )}
       <Text.MaybeEditable
         id={`text-${key}`}
-        level="p"
         value={name}
         onChange={onRename}
         allowDoubleClick={false}
@@ -168,7 +165,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Flex.Box empty style={{ height: "100%", width: "100%" }}>
+    <Flex.Box empty full>
       <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>

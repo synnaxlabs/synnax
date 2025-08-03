@@ -11,21 +11,16 @@ const { headings } = Astro.props;
             <Flex.Box direction="y" justify="center" size="large">
                 <Text.Text level="h1">Releases</Text.Text>
                 <Flex.Box direction="y" size="small">
-                    <Text.Text level="p" shade={8}>
+                    <Text.Text color={8}>
                         Latest updates and improvements to Synnax.
                     </Text.Text>
                     <Flex.Box direction="x" align="center" wrap>
-                        <Text.Link
-                            level="p"
-                            href="https://www.linkedin.com/company/synnaxlabs/"
-                        >
+                        <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
                             Follow us on LinkedIn
-                        </Text.Link>
+                        </Text.Text>
                         <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
-                        <Text.Link
-                            level="p"
-                            href="https://github.com/synnaxlabs/synnax/releases"
-                            >View releases on GitHub</Text.Link
+                        <Text.Text href="https://github.com/synnaxlabs/synnax/releases"
+                            >View releases on GitHub</Text.Text
                         >
                     </Flex.Box>
                 </Flex.Box>

@@ -31,9 +31,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Status.Text variant="disabled" hideIcon>
         No labels created.
       </Status.Text>
-      <Text.Link level="p" onClick={add}>
-        Create a Label
-      </Text.Link>
+      <Text.Text onClick={add}>Create a Label</Text.Text>
     </Flex.Box>
   );
 };
@@ -49,7 +47,7 @@ export const SelectSingle = (props: SelectSingleProps) => (
 const AddButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Button onClick={onClick} variant="outlined" shade={3}>
+    <Button.Button onClick={onClick} variant="outlined" contrast={3}>
       <Icon.Add />
     </Button.Button>
   );

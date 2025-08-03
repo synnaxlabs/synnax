@@ -59,6 +59,16 @@
             flex-direction: column-reverse;
         }
     }
+    &:not(.pluto--rounded) {
+        --pluto-flex-border-radius: var(--pluto-border-radius);
+    }
+    &.pluto--sharp {
+        --pluto-flex-border-radius: 0;
+        border-radius: 0;
+    }
+    &.pluto--rounded {
+        border-radius: var(--pluto-flex-border-radius);
+    }
     &.pluto-gap--large {
         gap: 4rem;
     }
@@ -72,8 +82,15 @@
     &.pluto-flex--pack {
         gap: 0;
     }
-    &.pluto-flex--full-width {
+    &.pluto-flex--full-x {
         width: 100%;
+    }
+    &.pluto-flex--full-y {
+        height: 100%;
+    }
+    &.pluto-flex--full {
+        width: 100%;
+        height: 100%;
     }
     &.pluto-flex--center {
         align-items: center;
@@ -81,191 +98,112 @@
         width: 100%;
         height: 100%;
     }
+}
 
-    &.pluto-flex--pack {
-        --t: var(--pluto-pack-br) var(--pluto-pack-br) 0 0;
-        --b: 0 0 var(--pluto-pack-br) var(--pluto-pack-br);
-        --l: var(--pluto-pack-br) 0 0 var(--pluto-pack-br);
-        --r: 0 var(--pluto-pack-br) var(--pluto-pack-br) 0;
-        --tr: 0 var(--pluto-pack-br) 0 0;
-        --br: 0 0 var(--pluto-pack-br) 0;
-        --bl: 0 0 0 var(--pluto-pack-br);
-        --tl: var(--pluto-pack-br) 0 0 0;
-        --pluto-pack--middle: 0 !important;
-        --all: var(--pluto-pack-br);
-        --pluto-pack-border-width: var(--pluto-border-width);
-        --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
+.pluto-flex--pack {
+    --pluto-rounded-top: var(--pluto-flex-border-radius) var(--pluto-flex-border-radius)
+        0 0;
+    --pluto-rounded-bottom: 0 0 var(--pluto-flex-border-radius)
+        var(--pluto-flex-border-radius);
+    --pluto-rounded-left: var(--pluto-flex-border-radius) 0 0
+        var(--pluto-flex-border-radius);
+    --pluto-rounded-right: 0 var(--pluto-flex-border-radius)
+        var(--pluto-flex-border-radius) 0;
+    --pluto-rounded-top-right: 0 var(--pluto-flex-border-radius) 0 0;
+    --pluto-rounded-bottom-right: 0 0 var(--pluto-flex-border-radius) 0;
+    --pluto-rounded-bottom-left: 0 0 0 var(--pluto-flex-border-radius);
+    --pluto-rounded-top-left: var(--pluto-flex-border-radius) 0 0 0;
+    --pluto-pack--middle: 0;
+    --pluto-rounded-all: var(--pluto-flex-border-radius);
 
-        &.pluto--bordered {
-            &.pluto-flex--pack--shadow {
-                &:is(:hover, :focus-within) > * {
-                    opacity: 1 !important;
-                }
+    &.pluto--x {
+        --pluto-rounded-first: var(--pluto-rounded-left);
+        --pluto-rounded-last: var(--pluto-rounded-right);
+    }
 
-                & > .pluto-btn {
-                    opacity: 0;
-                }
-            }
+    &.pluto--y {
+        --pluto-rounded-first: var(--pluto-rounded-top);
+        --pluto-rounded-last: var(--pluto-rounded-bottom);
+    }
+
+    & > :only-child {
+        border-radius: var(--pluto-rounded-all);
+    }
+
+    & > :first-child:not(:only-child) {
+        border-radius: var(--pluto-rounded-first);
+    }
+
+    & > :last-child:not(:only-child) {
+        border-radius: var(--pluto-rounded-last);
+    }
+
+    & > :not(:first-child):not(:last-child) {
+        border-radius: var(--pluto-pack--middle);
+    }
+
+    & > .pluto-flex--pack:not(:first-child):not(:last-child) {
+        --pluto-rounded-first: 0;
+        --pluto-rounded-last: 0;
+    }
+
+    &.pluto--y {
+        & > :not(:first-child) {
+            margin-top: -1px;
         }
 
-        &.pluto--x {
-            --pluto-pack--first: var(--l);
-            --pluto-pack--last: var(--r);
-            --pluto-pack--only: var(--all);
-            --pluto-pack--x-margin: 0 0 0 calc(-1 * var(--pluto-pack-border-width)) !important;
-            --pluto-pack--x-first-y-first: var(--tl);
-            --pluto-pack--x-first-y-last: var(--bl);
-            --pluto-pack--x-first-y-only: var(--l);
-            --pluto-pack--x-last-y-first: var(--tr);
-            --pluto-pack--x-last-y-last: var(--br);
-            --pluto-pack--x-last-y-only: var(--r);
-
-            &.pluto-flex--pack--reverse {
-                --pluto-pack--first: var(--r);
-                --pluto-pack--last: var(--l);
-                --pluto-pack--x-margin: 0 calc(-1 * var(--pluto-pack-border-width)) 0 0 !important;
-                --pluto-pack--x-first-y-first: var(--tr);
-                --pluto-pack--x-first-y-last: var(--br);
-                --pluto-pack--x-first-y-only: var(--r);
-                --pluto-pack--x-last-y-first: var(--tl);
-                --pluto-pack--x-last-y-last: var(--bl);
-                --pluto-pack--x-last-y-only: var(--l);
-            }
-
-            > *:not(:first-child) {
-                margin: var(--pluto-pack--x-margin);
-            }
-
-            > .pluto-flex--pack.pluto--y {
-                &:first-child:not(:only-child) {
-                    &:not(:has(+ .pluto--hidden)) > *:first-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--x-first-y-first);
-                    }
-
-                    &:not(:has(+ .pluto--hidden)) > *:last-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--x-first-y-last);
-                    }
-
-                    > *:only-child {
-                        border-radius: var(--pluto-pack--x-first-y-only);
-                    }
+        & > .pluto-flex--pack {
+            &.pluto--x {
+                &:first-child {
+                    border-radius: var(--pluto-rounded-top);
+                    --pluto-rounded-first: var(--pluto-rounded-top-left);
+                    --pluto-rounded-last: var(--pluto-rounded-top-right);
                 }
-
-                &:not(:last-child):not(:first-child) > * {
-                    border-radius: 0 !important;
-                }
-
                 &:last-child {
-                    &:not(:only-child) > *:first-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--x-last-y-first);
-                    }
-
-                    &:not(:only-child) > *:last-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--x-last-y-last);
-                    }
+                    border-radius: var(--pluto-rounded-bottom);
+                    --pluto-rounded-first: var(--pluto-rounded-bottom-left);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
                 }
             }
-        }
-
-        &.pluto--y {
-            > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
-                border-radius: var(--pluto-pack--middle);
-            }
-
-            > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
-                border-radius: var(--pluto-pack--first);
-            }
-        }
-
-        &.pluto--x {
-            > *:not(:first-child):not(:last-child) {
-                border-radius: var(--pluto-pack--middle);
-            }
-
-            > *:first-child:not(:only-child) {
-                border-radius: var(--pluto-pack--first);
-            }
-        }
-
-        > *:last-child:not(:only-child) {
-            border-radius: var(--pluto-pack--last);
-        }
-
-        > *:only-child {
-            border-radius: var(--pluto-pack--only);
-        }
-
-        > .pluto-flex--pack {
-            border: none;
-        }
-
-        &.pluto--y {
-            --pluto-pack--first: var(--t);
-            --pluto-pack--last: var(--b);
-            --pluto-pack--only: var(--all);
-            --pluto-pack--y-margin: calc(-1 * var(--pluto-pack-border-width)) 0 0 0 !important;
-            --pluto-pack--y-first-x-first: var(--tl);
-            --pluto-pack--y-first-x-last: var(--tr);
-            --pluto-pack--y-first-x-only: var(--t);
-            --pluto-pack--y-last-x-first: var(--bl);
-            --pluto-pack--y-last-x-last: var(--br);
-            --pluto-pack--y-last-x-only: var(--b);
-
-            &.pluto-flex--pack--reverse {
-                --pluto-pack--first: 0 0 var(--pluto-pack-br) var(--pluto-pack-br) !important;
-                --pluto-pack--last: var(--pluto-pack-br) var(--pluto-pack-br) 0 0 !important;
-                --pluto-pack--y-margin: 0 0 calc(-1 * var(--pluto-pack-border-width)) 0 !important;
-                --pluto-pack--y-first-x-first: var(--bl);
-                --pluto-pack--y-first-x-last: var(--br);
-                --pluto-pack--y-first-x-only: var(--b);
-                --pluto-pack--y-last-x-first: var(--tl);
-                --pluto-pack--y-last-x-last: var(--tr);
-                --pluto-pack--y-last-x-only: var(--t);
-            }
-
-            > *:not(:first-child) {
-                margin: var(--pluto-pack--y-margin);
-            }
-
-            > .pluto-flex--pack.pluto--x {
+            &.pluto--y {
                 &:first-child:not(:only-child) {
-                    &:not(:has(+ .pluto--hidden)) > *:only-child {
-                        border-radius: var(--pluto-pack--y-first-x-only);
-                    }
-
-                    &:not(:has(+ .pluto--hidden)) > *:first-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--y-first-x-first);
-                    }
-
-                    &:not(:has(+ .pluto--hidden)) > *:last-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--y-first-x-last);
-                    }
+                    --pluto-rounded-last: 0;
                 }
-
-                &:not(:last-child):not(:first-child) > * {
-                    border-radius: 0 !important;
-                }
-
-                &:last-child:not(:only-child) > * {
-                    &:first-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--y-last-x-first);
-                    }
-
-                    &:last-child:not(:only-child) {
-                        border-radius: var(--pluto-pack--y-last-x-last);
-                    }
-
-                    &:only-child {
-                        border-radius: var(--pluto-pack--y-last-x-only);
-                    }
+                &:last-child:not(:only-child) {
+                    --pluto-rounded-first: 0;
+                    --pluto-rounded-all: var(--pluto-rounded-bottom);
                 }
             }
         }
     }
 
-    .pluto-flex--pack {
-        & .pluto--filled {
-            z-index: 4;
+    &.pluto--x {
+        & > :not(:first-child) {
+            margin-left: -1px;
+        }
+
+        & > .pluto-flex--pack {
+            &.pluto--y {
+                &:first-child {
+                    border-radius: var(--pluto-rounded-top);
+                    --pluto-rounded-first: var(--pluto-rounded-top-left);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-left);
+                }
+                &:last-child:not(:only-child) {
+                    border-radius: var(--pluto-rounded-bottom);
+                    --pluto-rounded-first: var(--pluto-rounded-top-right);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
+                }
+            }
+            &.pluto--x {
+                &:first-child:not(:only-child) {
+                    --pluto-rounded-last: 0;
+                }
+                &:last-child:not(:only-child) {
+                    --pluto-rounded-first: 0;
+                    --pluto-rounded-all: var(--pluto-rounded-right);
+                }
+            }
         }
     }
 }

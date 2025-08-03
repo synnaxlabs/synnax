@@ -21,8 +21,8 @@ import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
-import { Text as InputText } from "@/input/Text";
-import { type BaseProps } from "@/input/types";
+import { Text as InputText, type TextProps } from "@/input/Text";
+import { type Control } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Select } from "@/select";
@@ -35,7 +35,9 @@ const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
       TimeSpan.MINUTE.valueOf(),
   );
 
-export interface DateTimeProps extends BaseProps<number> {}
+export interface DateTimeProps
+  extends Omit<TextProps, "type" | "value" | "onChange">,
+    Control<number> {}
 
 export const DateTime = ({
   value,
@@ -101,10 +103,7 @@ export const DateTime = ({
         step={0.00001}
         {...rest}
       >
-        <Button.Button
-          onClick={() => setVisible(!visible)}
-          variant={variant === "natural" ? "text" : "outlined"}
-        >
+        <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
           <Icon.Calendar />
         </Button.Button>
       </InputText>
@@ -150,10 +149,8 @@ const DateTimeModal = ({
       </Flex.Box>
       <Nav.Bar location="bottom" size="7rem">
         <Nav.Bar.Start gap="small">
-          <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={11} level="small">
-            To Finish
-          </Text.Text>
+          <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text level="small">To Finish</Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button onClick={close} variant="outlined">
@@ -175,7 +172,7 @@ const AIListItem = (props: List.ItemRenderProps<string>): ReactElement => {
   const item = List.useItem<string, AISuggestion>(props.key);
   return (
     <List.Item {...props}>
-      <Text.Text level="p">{item?.name}</Text.Text>
+      <Text.Text>{item?.name}</Text.Text>
     </List.Item>
   );
 };

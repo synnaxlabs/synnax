@@ -44,11 +44,10 @@ export const InputFilePath = ({
         level="small"
         className={CSS.B("path")}
         variant="outlined"
-        shade={0}
         grow
         onClick={handleClick}
         size="medium"
-        textShade={8}
+        textColor={8}
         weight={450}
       >
         {path == null ? (

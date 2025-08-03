@@ -29,7 +29,7 @@ const Content = (): ReactElement => {
   });
   return (
     <Cluster.NoneConnectedBoundary>
-      <Flex.Box empty style={{ height: "100%" }}>
+      <Flex.Box empty grow>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
         </Toolbar.Header>

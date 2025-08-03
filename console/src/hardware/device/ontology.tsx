@@ -197,14 +197,13 @@ const Item = ({
         {icon(resource)}
         <Text.MaybeEditable
           id={itemKey}
-          level="p"
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}
           onChange={onRename}
           noWrap
         />
-        <Text.Text level="small" shade={9} className={CSS.B("location")} noWrap>
+        <Text.Text level="small" color={9} className={CSS.B("location")} noWrap>
           {resource.data?.location as string}
         </Text.Text>
       </Flex.Box>

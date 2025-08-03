@@ -42,18 +42,9 @@ export interface ToolbarProps {
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
-  const breadCrumbs: Breadcrumb.Segments = [
-    { label: name, icon: <Icon.Table />, level: "h5", weight: 500, shade: 8 },
-  ];
   const selectedCells = useSelectSelectedCells(layoutKey);
   const selectedCellMeta = useSelectSelectedCellPos(layoutKey);
-  if (selectedCellMeta != null)
-    breadCrumbs.push({
-      label: `${Table.getCellColumn(selectedCellMeta.x)}${selectedCellMeta.y + 1}`,
-      level: "p",
-      weight: 400,
-      shade: 7,
-    });
+
   const isSingleCellSelected = selectedCells.length === 1;
   const firstCell = selectedCells[0];
   const dispatch = useDispatch();
@@ -74,10 +65,21 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   };
   const handleExport = useExport();
   return (
-    <Flex.Box empty style={{ width: "100%", height: "100%" }}>
+    <Flex.Box empty full>
       <Core.Header>
         <Flex.Box x align="center">
-          <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
+          <Breadcrumb.Breadcrumb>
+            <Breadcrumb.Segment weight={500} color={8} level="h5">
+              <Icon.Table />
+              {name}
+            </Breadcrumb.Segment>
+            {selectedCellMeta != null && (
+              <Breadcrumb.Segment>
+                {Table.getCellColumn(selectedCellMeta.x)}
+                {selectedCellMeta.y + 1}
+              </Breadcrumb.Segment>
+            )}
+          </Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
             <TableCells.SelectVariant
               allowNone={false}
@@ -96,7 +98,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           />
         </Flex.Box>
       </Core.Header>
-      <Flex.Box style={{ width: "100%", height: "100%" }}>
+      <Flex.Box full>
         {selectedCells.length === 0 ? (
           <EmptyContent />
         ) : (
@@ -142,7 +144,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 const EmptyContent = () => (
-  <Flex.Box x gap="small" style={{ width: "100%", height: "100%" }}>
+  <Flex.Box x gap="small" full>
     <Status.Text variant="disabled" hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>

@@ -10,17 +10,14 @@
 import "@/divider/Divider.css";
 
 import { type location } from "@synnaxlabs/x";
-import { type HTMLAttributes, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 
 /** The props for the {@link Divider} component. */
-export interface DividerProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "children">,
-    Pick<Flex.BoxProps, "x" | "y" | "direction"> {
+export interface DividerProps extends Flex.BoxProps {
   padded?: boolean | location.Location;
-  shade?: number;
 }
 
 /**
@@ -33,7 +30,7 @@ export const Divider = ({
   direction,
   className,
   padded = false,
-  shade = 3,
+  color,
   style,
   ...rest
 }: DividerProps): ReactElement => {
@@ -46,7 +43,7 @@ export const Divider = ({
         typeof padded === "string" && CSS.loc(padded),
         className,
       )}
-      style={{ borderColor: CSS.colorVar(shade), ...style }}
+      borderColor={color}
       {...rest}
     />
   );

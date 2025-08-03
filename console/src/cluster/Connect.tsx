@@ -93,30 +93,39 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   return (
     <Flex.Box grow className={CSS.B("connect-cluster")}>
       <Form.Form<typeof formSchema> {...methods}>
-        <Flex.Box className="console-form" grow gap="tiny" justify="center">
+        <Flex.Box
+          className="console-form"
+          grow
+          gap="tiny"
+          justify="center"
+          align="stretch"
+        >
           <Form.TextField
             path="name"
             inputProps={{
               autoFocus: true,
-              variant: "natural",
+              variant: "text",
               level: "h2",
               placeholder: "My Synnax Cluster",
+              grow: true,
             }}
           />
-          <Flex.Box x>
+          <Flex.Box x align="stretch">
             <Form.Field<string> path="host" grow>
-              {(p) => <Input.Text placeholder="localhost" {...p} />}
+              {(p) => <Input.Text placeholder="localhost" {...p} full="x" />}
             </Form.Field>
-            <Form.Field<string> path="port" className={CSS.BE("input", "port")}>
+            <Form.Field<string> path="port">
               {(p) => <Input.Text placeholder="9090" {...p} />}
             </Form.Field>
           </Flex.Box>
           <Form.Field<string> path="username">
-            {(p) => <Input.Text placeholder="synnax" {...p} />}
+            {(p) => <Input.Text placeholder="synnax" {...p} full="x" />}
           </Form.Field>
-          <Flex.Box x>
-            <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
-              {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
+          <Flex.Box x align="stretch">
+            <Form.Field<string> path="password" grow>
+              {(p) => (
+                <Input.Text {...p} placeholder="seldon" type="password" full="x" />
+              )}
             </Form.Field>
             <Form.SwitchField path="secure" label="Secure" />
           </Flex.Box>
@@ -137,8 +146,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
         <Nav.Bar.End>
           <Button.Button
             onClick={handleSubmit}
-            loading={loading === "submit"}
-            disabled={loading !== null}
+            status={loading === "submit" ? "loading" : "disabled"}
             trigger={Triggers.SAVE}
             variant="filled"
           >

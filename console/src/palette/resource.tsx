@@ -40,7 +40,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
     <PaletteListItem {...props} />
   ) : (
     <Select.ListItem style={{ padding: "1.5rem" }} highlightHovered {...props}>
-      <Text.Text level="p" weight={450} shade={11} gap="medium">
+      <Text.Text weight={450} gap="medium">
         {isValidElement(icon) ? icon : icon(item)}
         {name}
       </Text.Text>

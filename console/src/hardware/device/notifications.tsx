@@ -22,7 +22,7 @@ const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
   const make = getMake(status.details?.make);
   const startIcon = getIcon(make);
   sugared.content = (
-    <Text.Text level="p">
+    <Text.Text>
       {startIcon}
       {status.message}
     </Text.Text>

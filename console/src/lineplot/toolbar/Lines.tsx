@@ -43,15 +43,14 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
       <Status.Text variant="disabled" hideIcon>
         No lines plotted. Use the
       </Status.Text>
-      <Text.Link
-        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+      <Text.Text
+        onClick={(e) => {
           e.stopPropagation();
           onSelect?.("data");
         }}
-        level="p"
       >
         data
-      </Text.Link>
+      </Text.Text>
       <Status.Text variant="disabled" hideIcon>
         tab to select channels on an axis.
       </Status.Text>
@@ -105,13 +104,12 @@ const Line = ({
   } = typedLineKeyFromString(line.key);
 
   return (
-    <Flex.Box style={{ padding: "0.5rem", width: "100%" }} x>
+    <Flex.Box style={{ padding: "0.5rem" }} x full="x">
       <Channel.AliasInput
         channelKey={yChannel}
         style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}
-        variant="shadow"
       />
       <Input.Numeric
         value={line.strokeWidth}
@@ -119,13 +117,11 @@ const Line = ({
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
         style={{ width: 140, marginRight: "2rem" }}
-        variant="shadow"
       />
       <Input.Numeric
         style={{ width: 100, marginRight: "2rem" }}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
-        variant="shadow"
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 51 }}
       />

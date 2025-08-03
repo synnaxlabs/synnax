@@ -14,7 +14,7 @@ export interface TitleProps extends Pick<Header.TitleProps, "children"> {
 }
 
 export const Title = ({ icon, children }: TitleProps): ReactElement => (
-  <Header.Title shade={10} weight={500}>
+  <Header.Title color={10} weight={500}>
     {icon}
     {children}
   </Header.Title>

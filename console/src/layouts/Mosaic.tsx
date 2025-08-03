@@ -55,11 +55,11 @@ const EmptyContent = (): ReactElement => (
     <Flex.Box gap={5} center>
       <Logo className="synnax-logo-watermark" />
       <Flex.Box x gap="small">
-        <Text.Text level="h5" weight={450} shade={10}>
+        <Text.Text level="h5" weight={450} color={10}>
           New Component
         </Text.Text>
         <Flex.Box x empty>
-          <Triggers.Text level="h5" shade={11} trigger={["Control", "T"]} />
+          <Triggers.Text level="h5" trigger={["Control", "T"]} />
         </Flex.Box>
       </Flex.Box>
     </Flex.Box>
@@ -108,7 +108,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     <Dialog.Frame
       onVisibleChange={handleClose}
       visible={focused}
-      style={{ width: "100%", height: "100%" }}
+      full
       modalOffset={0}
       variant="modal"
       background={focused ? 0 : undefined}
@@ -126,8 +126,11 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
         {focused && (
           <>
             <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb icon={layout.icon}>
-                {layout.name}
+              <Breadcrumb.Breadcrumb>
+                <Breadcrumb.Segment>
+                  {Icon.resolve(layout.icon)}
+                  {layout.name}
+                </Breadcrumb.Segment>
               </Breadcrumb.Breadcrumb>
             </PNav.Bar.Start>
             <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
@@ -329,8 +332,8 @@ const NavTop = (): ReactElement | null => {
       onClick={() => onSelect("visualization")}
       justify="center"
       size="small"
-      shade={2}
-      textShade={9}
+      contrast={2}
+      color={9}
       weight={450}
       trigger={["V"]}
     >
@@ -355,7 +358,7 @@ const NavTop = (): ReactElement | null => {
         <Text.Text
           level="small"
           weight={500}
-          shade={10}
+          color={10}
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >

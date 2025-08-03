@@ -100,7 +100,7 @@ export const Create: Layout.Renderer = (props) => {
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Range Name"
                 {...p}
               />
@@ -108,13 +108,13 @@ export const Create: Layout.Renderer = (props) => {
           </Form.Field>
           <Flex.Box x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
             <Text.Text level="h4">
               <Icon.Arrow.Right />
             </Text.Text>
             <Form.Field<number> path="timeRange.end" label="To">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
           </Flex.Box>
           <Flex.Box x>
@@ -148,10 +148,10 @@ export const Create: Layout.Renderer = (props) => {
           <Button.Button
             variant="filled"
             onClick={() => save()}
-            disabled={!clientExists || variant === "loading"}
+            disabled={!clientExists}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={variant === "loading"}
+            status={variant}
             trigger={Triggers.SAVE}
           >
             Save to Synnax

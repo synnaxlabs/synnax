@@ -18,6 +18,7 @@ import { type Text } from "@/text";
 export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
+  bordered?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
 }
 
@@ -42,8 +43,9 @@ export const useContext = () => use(Context);
  */
 export const Header = ({
   className,
-  level = "h1",
+  level = "p",
   divided = false,
+  bordered = true,
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
@@ -54,7 +56,7 @@ export const Header = ({
       justify="between"
       className={CSS(
         CSS.B("header"),
-        CSS.bordered("bottom"),
+        bordered && CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
         className,
       )}

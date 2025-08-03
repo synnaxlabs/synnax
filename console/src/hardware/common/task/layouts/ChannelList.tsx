@@ -22,8 +22,8 @@ interface HeaderProps {
 }
 
 const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header level="p">
-    <PHeader.Title weight={500} shade={10}>
+  <PHeader.Header>
+    <PHeader.Title weight={500} color={10}>
       Channels
     </PHeader.Title>
     {!isSnapshot && (
@@ -35,7 +35,7 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
             children: <Icon.Add />,
             variant: "text",
             size: "medium",
-            shade: 2,
+            contrast: 2,
             sharp: true,
             tooltip: "Add Channel",
           },
@@ -49,12 +49,8 @@ interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
   <Flex.Box grow center>
-    <Text.Text level="p">No channels in task.</Text.Text>
-    {!isSnapshot && (
-      <Text.Link level="p" onClick={onAdd}>
-        Add a channel
-      </Text.Link>
-    )}
+    <Text.Text>No channels in task.</Text.Text>
+    {!isSnapshot && <Text.Text onClick={onAdd}>Add a channel</Text.Text>}
   </Flex.Box>
 );
 

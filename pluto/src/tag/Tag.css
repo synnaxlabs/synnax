@@ -25,16 +25,18 @@
         position: absolute;
         left: 0;
         transition:
-            width 0.1s ease-out,
+            min-width 0.1s ease-out,
             opacity 0.1s ease-out;
     }
 
     &:not(:hover) .pluto-tag__close {
+        min-width: 0;
+        min-height: 0;
         width: 0;
         height: 0;
         overflow: hidden;
         transition:
-            width 0.1s ease-in,
+            min-width 0.1s ease-in,
             opacity 0.1s ease-in;
         & svg {
             transform: scale(0.9);

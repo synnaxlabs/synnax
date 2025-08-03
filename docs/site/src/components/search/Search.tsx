@@ -221,7 +221,7 @@ const SearchDialogContent = () => {
           borderColor={6}
           emptyContent={
             <Align.Center style={{ height: "100%" }}>
-              <Text.Text level="p" shade={11} weight={400}>
+              <Text.Text weight={400}>
                 {value.length === 0 ? "Type to search..." : "No Results"}
               </Text.Text>
             </Align.Center>

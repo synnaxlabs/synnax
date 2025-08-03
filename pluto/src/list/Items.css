@@ -15,6 +15,10 @@
     -webkit-user-select: none;
     transition: height 0.1s ease;
     height: 100%;
+
+    .pluto-status__text {
+        min-height: 8rem;
+    }
 }
 
 .pluto-list__items > .pluto-list__virtualizer {

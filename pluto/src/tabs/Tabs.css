@@ -100,7 +100,6 @@
             color: var(--pluto-gray-l9);
             margin: 0 2rem;
             padding: 0 0.25rem;
-            width: unset;
             overflow: hidden;
             text-overflow: ellipsis;
         }

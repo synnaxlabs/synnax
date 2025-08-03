@@ -103,7 +103,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
@@ -168,15 +168,12 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
           {isEdit && (
             <Flex.Box x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text level="p" shade={11}>
-                Create More
-              </Text.Text>
+              <Text.Text>Create More</Text.Text>
             </Flex.Box>
           )}
           <Flex.Box x align="center">
             <Button.Button
-              disabled={variant === "loading"}
-              loading={variant === "loading"}
+              status={variant}
               trigger={Triggers.SAVE}
               variant="filled"
               onClick={() => save()}

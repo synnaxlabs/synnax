@@ -33,7 +33,7 @@ describe("Button", () => {
   });
   describe("Link", () => {
     it("should render a link with the provided text", () => {
-      const c = render(<Button.Link size="small">Hello</Button.Link>);
+      const c = render(<Button.Button size="small">Hello</Button.Button>);
       expect(c.getByText("Hello")).toBeTruthy();
     });
   });

@@ -52,17 +52,16 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
         {isEditable ? " To make changes," : ""}
       </Status.Text>
       {isEditable && (
-        <Text.Link
-          onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+        <Text.Text
+          onClick={(e) => {
             e.stopPropagation();
             dispatch(setEditable({ key: layoutKey, editable: true }));
           }}
-          level="p"
         >
           {controlState === "acquired"
             ? "release control and enable editing."
             : "enable editing."}
-        </Text.Link>
+        </Text.Text>
       )}
     </Flex.Box>
   );
@@ -100,22 +99,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
   const canEdit = useSelectHasPermission();
-  const breadCrumbSegments: Breadcrumb.Segments = [
-    {
-      label: name,
-      weight: 500,
-      shade: 10,
-      level: "h5",
-      icon: <Icon.Schematic />,
-    },
-  ];
-  if (selectedNames.length === 1 && selectedNames[0] !== null)
-    breadCrumbSegments.push({
-      label: selectedNames[0],
-      weight: 400,
-      shade: 8,
-      level: "p",
-    });
   return (
     <Tabs.Provider
       value={{
@@ -126,7 +109,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <Core.Header>
-        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
+        <Breadcrumb.Breadcrumb level="h5">
+          <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Icon.Schematic />
+            {name}
+          </Breadcrumb.Segment>
+          {selectedNames.length === 1 && selectedNames[0] !== null && (
+            <Breadcrumb.Segment weight={400} color={8} level="p">
+              {selectedNames[0]}
+            </Breadcrumb.Segment>
+          )}
+        </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />

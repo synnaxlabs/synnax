@@ -67,7 +67,7 @@ const ChannelListItem = ({
   const item = PForm.useFieldValue<OutputChannel>(path);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.Item {...rest} style={{ width: "100%" }} justify="between" align="center">
+    <List.Item {...rest} full="x">
       <Flex.Box pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}

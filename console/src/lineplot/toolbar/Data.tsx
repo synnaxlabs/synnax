@@ -62,7 +62,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   };
 
   return (
-    <Flex.Box style={{ padding: "2rem", width: "100%" }}>
+    <Flex.Box style={{ padding: "2rem" }} full="x">
       <SelectMultipleAxesInputItem
         axis="y1"
         onChange={handleYChannelSelect}

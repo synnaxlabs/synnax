@@ -80,7 +80,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       {...props}
       onSelect={handleSelect}
     >
-      <Text.Text level="p" weight={450} shade={11}>
+      <Text.Text weight={450}>
         {svc.icon}
         {name}
       </Text.Text>
@@ -91,7 +91,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
 const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
-  <Text.Text level="p" weight={400} shade={10}>
+  <Text.Text weight={400} color={10}>
     No Snapshots.
   </Text.Text>
 );
@@ -107,7 +107,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   });
   return (
     <Flex.Box y>
-      <Text.Text level="h4" shade={10} weight={500}>
+      <Text.Text level="h4" color={10} weight={500}>
         Snapshots
       </Text.Text>
       <List.Frame data={data} getItem={getItem} subscribe={subscribe}>

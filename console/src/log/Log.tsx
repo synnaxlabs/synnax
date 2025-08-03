@@ -92,17 +92,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Flex.Box>
           {zeroChannel ? (
             <Flex.Box x gap="small" align="center">
-              <Text.Text level="p" shade={10}>
-                No channel configured for {name}.
-              </Text.Text>
-              <Text.Link level="p" onClick={handleDoubleClick}>
-                Configure here.
-              </Text.Link>
+              <Text.Text color={10}>No channel configured for {name}.</Text.Text>
+              <Text.Text onClick={handleDoubleClick}>Configure here.</Text.Text>
             </Flex.Box>
           ) : (
-            <Text.Text level="p" shade={10}>
-              No data received yet.
-            </Text.Text>
+            <Text.Text color={10}>No data received yet.</Text.Text>
           )}
         </Flex.Box>
       }

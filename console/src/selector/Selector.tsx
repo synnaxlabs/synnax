@@ -44,13 +44,14 @@ export const Selector = ({
   return (
     <Eraser.Eraser>
       <Flex.Box className={CSS.B("vis-layout-selector")} gap="large" wrap center>
-        <Text.Text level="h4" shade={10} weight={400}>
+        <Text.Text level="h4" color={10} weight={400}>
           {text}
         </Text.Text>
         <Flex.Box
           x
           wrap
-          style={{ maxWidth: "500px", width: "100%" }}
+          style={{ maxWidth: "500px" }}
+          full="x"
           justify="center"
           gap={2.5}
         >

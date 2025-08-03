@@ -70,7 +70,7 @@ export const listItem = Component.renderProp(
         align="center"
         {...props}
       >
-        <Text.Text level="p" weight={400} shade={11} gap="medium">
+        <Text.Text weight={400} gap="medium">
           {icon}
           {name}
         </Text.Text>

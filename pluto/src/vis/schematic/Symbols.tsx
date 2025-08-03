@@ -703,7 +703,7 @@ export const SetpointPreview = ({
     disabled
     {...rest}
   >
-    <Text.Text level="p">10.0</Text.Text>
+    <Text.Text>10.0</Text.Text>
   </Primitives.Setpoint>
 );
 
@@ -781,7 +781,7 @@ export const Value = ({
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => (
   <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units="psi">
-    <Text.Text level="p">50.00</Text.Text>
+    <Text.Text>50.00</Text.Text>
   </Primitives.Value>
 );
 

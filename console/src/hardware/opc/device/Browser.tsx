@@ -75,7 +75,7 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
     <Tree.Item {...props} hasChildren draggable onDragStart={handleDragStart}>
-      <Text.Text level="p" shade={10} gap="small">
+      <Text.Text color={10} gap="small">
         {icon}
         {node.name}
       </Text.Text>
@@ -168,9 +168,9 @@ export const Browser = ({ device }: BrowserProps) => {
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Flex.Box>
   ) : expand.isError ? (
-    <Status.Text.Centered level="p" shade={10} variant="error">
+    <Status.Text center color={10} variant="error">
       Error loading nodes. {expand.error.message}
-    </Status.Text.Centered>
+    </Status.Text>
   ) : (
     <Tree.Tree
       {...treeProps}
@@ -183,8 +183,8 @@ export const Browser = ({ device }: BrowserProps) => {
   );
   return (
     <Flex.Box empty className={CSS.B("opc-browser")}>
-      <Header.Header level="p">
-        <Header.Title weight={500} shade={10}>
+      <Header.Header>
+        <Header.Title weight={500} color={10}>
           Browser
         </Header.Title>
         <Header.Actions>
@@ -192,7 +192,7 @@ export const Browser = ({ device }: BrowserProps) => {
             onClick={refresh}
             disabled={scanTask == null || initialLoading}
             sharp
-            shade={2}
+            contrast={2}
           >
             <Icon.Refresh />
           </Button.Button>

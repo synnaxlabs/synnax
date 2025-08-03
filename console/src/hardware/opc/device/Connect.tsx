@@ -140,7 +140,10 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       "connection.securityMode",
       { ctx: methods },
     ) != NO_SECURITY_MODE;
-  const isPending = testConnectionMutation.isPending || connectMutation.isPending;
+  const status =
+    testConnectionMutation.isPending || connectMutation.isPending
+      ? "loading"
+      : undefined;
   return (
     <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
       <Flex.Box className={CSS.B("content")} grow gap="small">
@@ -149,7 +152,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             inputProps={{
               level: "h2",
               placeholder: "OPC UA Server",
-              variant: "natural",
+              variant: "text",
             }}
             path="name"
           />
@@ -220,24 +223,21 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant}>
+            <Status.Text variant={connectionState.variant}>
               {connectionState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant="outlined"
             trigger={Triggers.SAVE}
-            loading={testConnectionMutation.isPending}
-            disabled={isPending}
+            status={status}
             onClick={() => testConnectionMutation.mutate()}
           >
             Test Connection
           </Button.Button>
           <Button.Button
-            disabled={isPending}
-            loading={connectMutation.isPending}
+            status={status}
             onClick={() => connectMutation.mutate()}
             variant="filled"
           >
@@ -269,9 +269,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text center level="h4" variant="loading">
         Loading Configuration from Synnax Server
-      </Status.Text.Centered>
+      </Status.Text>
     );
   if (isError) {
     const color = Status.VARIANT_COLORS.error;
@@ -280,9 +280,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
         <Text.Text level="h2" color={color}>
           Failed to load configuration for server with key {layoutKey}
         </Text.Text>
-        <Text.Text level="p" color={color}>
-          {error.message}
-        </Text.Text>
+        <Text.Text color={color}>{error.message}</Text.Text>
       </Flex.Box>
     );
   }

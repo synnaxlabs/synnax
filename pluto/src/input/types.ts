@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithRef, type ReactNode } from "react";
+import { type ComponentPropsWithRef } from "react";
 
-import { type Button } from "@/button";
-import { type Text } from "@/text";
+import { type Component } from "@/component";
 
 export interface Control<I = unknown, O = I> {
   value: I;
@@ -19,25 +18,14 @@ export interface Control<I = unknown, O = I> {
 
 export interface OptionalControl<I = unknown, O = I> extends Partial<Control<I, O>> {}
 
-type HTMLInputProps = Omit<
+export type HTMLInputProps = Omit<
   ComponentPropsWithRef<"input">,
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
+export type Variant = "outlined" | "text";
 
-export interface ExtensionProps<I = unknown, O = I>
-  extends Control<I, O>,
-    Omit<Button.ExtensionProps, "variant"> {
+export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;
-  placeholder?: ReactNode;
-  children?: ReactNode;
-  level?: Text.Level;
-  weight?: Text.Weight;
-  endContent?: ReactNode;
-  onlyChangeOnBlur?: boolean;
+  size?: Component.Size;
 }
-
-export interface BaseProps<I = unknown, O = I>
-  extends HTMLInputProps,
-    ExtensionProps<I, O> {}

@@ -30,13 +30,10 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
   return (
     <Flex.Box x align="center" gap="small">
-      <Text.Text level="p" shade={11}>
-        Snapshotted to
-      </Text.Text>
+      <Text.Text>Snapshotted to</Text.Text>
       <Button.Button
         gap="small"
         onClick={handleClick}
-        shade={11}
         style={{ padding: "1rem" }}
         variant="text"
         weight={400}

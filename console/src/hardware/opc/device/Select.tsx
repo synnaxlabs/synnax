@@ -18,12 +18,10 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   return (
     <Flex.Box>
-      <Text.Text level="p" shade={10}>
-        No OPC UA servers connected.
-      </Text.Text>
-      <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>
+      <Text.Text color={10}>No OPC UA servers connected.</Text.Text>
+      <Text.Text onClick={() => placeLayout(CONNECT_LAYOUT)}>
         Connect a new server.
-      </Text.Link>
+      </Text.Text>
     </Flex.Box>
   );
 };

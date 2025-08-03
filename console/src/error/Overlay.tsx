@@ -122,7 +122,7 @@ const FallBackRenderContent = ({
             className="console-controls--windows"
             visibleIfOS="Windows"
             forceOS={os}
-            shade={0}
+            contrast={0}
             onClose={() => {
               if (RUNTIME === "tauri") void getCurrentWindow().close();
             }}
@@ -144,9 +144,7 @@ const FallBackRenderContent = ({
             <Status.Text variant="error" hideIcon level="h3">
               {error.name} - {messageTranslation[error.message] ?? error.message}
             </Status.Text>
-            <Text.Text className={CSS.B("stack")} level="p">
-              {error.stack}
-            </Text.Text>
+            <Text.Text className={CSS.B("stack")}>{error.stack}</Text.Text>
             <Flex.Box x>
               {onTryAgain && (
                 <Button.Button variant="filled" onClick={onTryAgain}>

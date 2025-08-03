@@ -34,11 +34,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { alias, key } = port;
   return (
     <Select.ListItem {...props} align="center">
-      <Text.Text level="p" shade={11} style={{ width: 50 }}>
-        {alias ?? key}
-      </Text.Text>
+      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
       {alias != null && (
-        <Text.Text level="small" shade={10}>
+        <Text.Text level="small" color={10}>
           {key}
         </Text.Text>
       )}

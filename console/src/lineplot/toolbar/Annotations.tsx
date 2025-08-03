@@ -35,13 +35,11 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
-  <Flex.Box x gap="small">
-    <Status.Text level="p" variant="disabled" hideIcon>
+  <Flex.Box x gap="small" center>
+    <Status.Text variant="disabled" hideIcon>
       No annotations added.
     </Status.Text>
-    <Text.Link level="p" onClick={onCreateRule}>
-      Create a new one.
-    </Text.Link>
+    <Text.Text onClick={onCreateRule}>Create a new one.</Text.Text>
   </Flex.Box>
 );
 
@@ -63,9 +61,8 @@ const ListItem = ({
     <Select.ListItem {...rest} style={{ padding: "0.5rem 1.5rem" }} align="center">
       <Text.Editable
         value={label}
-        level="p"
         noWrap
-        shade={10}
+        color={10}
         weight={500}
         style={{ overflow: "hidden", textOverflow: "ellipsis" }}
         onChange={onChangeLabel}

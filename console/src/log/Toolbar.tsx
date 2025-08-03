@@ -44,7 +44,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Flex.Box>
       </Core.Header>
-      <Flex.Box style={{ padding: "2rem", width: "100%" }} x>
+      <Flex.Box style={{ padding: "2rem" }} x full="x">
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
             value={state.channels[0]}

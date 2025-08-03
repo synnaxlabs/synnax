@@ -38,7 +38,7 @@ describe("Select.Single", () => {
     const item = testData.find((i) => i.key === itemKey);
     return (
       <Select.ListItem {...props}>
-        <Text.Text level="p">{item?.name} Option</Text.Text>
+        <Text.Text>{item?.name} Option</Text.Text>
       </Select.ListItem>
     );
   });

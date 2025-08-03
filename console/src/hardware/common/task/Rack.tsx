@@ -22,13 +22,13 @@ export const Rack = ({ taskKey }: RackProps) => {
   if (rack == null) return null;
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={10} weight={450}>
+      <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
       <Text.Text
         className={CSS.B("rack-name")}
         level="small"
-        shade={9}
+        color={9}
         weight={350}
         style={{ paddingRight: "0.5rem" }}
         ellipsis

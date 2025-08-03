@@ -44,9 +44,9 @@ export const PropertiesControls = memo(
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
-        <Status.Text.Centered variant="disabled" hideIcon>
+        <Status.Text center variant="disabled" hideIcon>
           Select a Schematic element to configure its properties.
-        </Status.Text.Centered>
+        </Status.Text>
       );
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;

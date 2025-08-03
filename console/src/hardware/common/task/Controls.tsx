@@ -45,17 +45,19 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
     details: { running },
   } = status ?? {};
   const content = isSnapshot ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Text center hideIcon variant="disabled">
       This task is a snapshot and cannot be modified or started.
-    </Status.Text.Centered>
+    </Status.Text>
   ) : message != null ? (
     <Status.Text variant={variant}>{message}</Status.Text>
   ) : isConfiguring ? (
-    <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
+    <Status.Text center variant="loading">
+      Configuring...
+    </Status.Text>
   ) : !hasBeenConfigured ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Text center hideIcon variant="disabled">
       Task must be configured to start.
-    </Status.Text.Centered>
+    </Status.Text>
   ) : null;
   const isLoading = variant === "loading";
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
@@ -67,6 +69,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
     () => onCommand(running ? "stop" : "start"),
     [running, onCommand],
   );
+  if (isConfiguring) status.variant = "loading";
   return (
     <Flex.Box
       className={CSS.B("task-controls")}
@@ -83,16 +86,14 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
         <Flex.Box align="center" x justify="end">
           <Button.Button
             disabled={!canConfigure}
-            loading={isConfiguring}
+            status={status.variant}
             onClick={onConfigure}
             size="medium"
             tooltip={
               hasTriggers ? (
                 <Flex.Box x align="center" gap="small">
-                  <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small" shade={11}>
-                    To Configure
-                  </Text.Text>
+                  <Triggers.Text level="small" trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small">To Configure</Text.Text>
                 </Flex.Box>
               ) : undefined
             }
@@ -103,7 +104,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
           </Button.Button>
           <Button.Button
             disabled={!canStartOrStop}
-            loading={isLoading}
+            status={status.variant}
             onClick={handleStartStop}
             size="medium"
             variant="filled"

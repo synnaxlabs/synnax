@@ -12,15 +12,15 @@ import "@/ranger/TimeRangeChip.css";
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
   extends Flex.BoxProps<"div">,
-    Pick<Text.TextProps, "level" | "shade"> {
+    Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
   labeled?: boolean;
@@ -29,7 +29,7 @@ export interface TimeRangeChipProps
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
-  shade = 9,
+  color = 9,
   showSpan = false,
   labeled = false,
   ...rest
@@ -44,7 +44,7 @@ export const TimeRangeChip = ({
   let startTime = (
     <Flex.Box x align="center" gap="small">
       {startTS.isToday && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           Today
         </Text.Text>
       )}
@@ -52,7 +52,7 @@ export const TimeRangeChip = ({
         level={level}
         displayTZ="local"
         format={startFormat}
-        shade={shade}
+        color={color}
         weight={450}
       >
         {startTS}
@@ -69,14 +69,14 @@ export const TimeRangeChip = ({
           level={level}
           displayTZ="local"
           format={endFormat}
-          shade={shade}
+          color={color}
           weight={450}
         >
           {endTS}
         </Text.DateTime>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}

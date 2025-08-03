@@ -73,7 +73,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
@@ -112,6 +112,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
                   disabled={isIndex}
                   zIndex={100}
                   hideVariableDensity={!isVirtual}
+                  full="x"
                 />
               )}
             </Form.Field>
@@ -135,13 +136,10 @@ export const Create: Layout.Renderer = ({ onClose }) => {
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text level="p" shade={11}>
-              Create More
-            </Text.Text>
+            <Text.Text>Create More</Text.Text>
           </Flex.Box>
           <Button.Button
-            disabled={variant === "loading"}
-            loading={variant === "loading"}
+            status={variant}
             variant="filled"
             onClick={() => save()}
             trigger={Triggers.SAVE}
