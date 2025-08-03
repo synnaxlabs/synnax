@@ -10,6 +10,10 @@
  */
 
 .pluto-menu-item {
+    &:not(.pluto-text--square) {
+        width: 100%;
+    }
+
     &.pluto--selected {
         background: var(--pluto-primary-z-40);
     }
