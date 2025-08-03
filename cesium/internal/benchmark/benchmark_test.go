@@ -59,7 +59,7 @@ var (
 	numGoRoutines     = flag.Int64("g", 1, "goroutine count")
 	streamOnly        = flag.Bool("only_stream", false, "writer streamOnly mode")
 	commitInterval    = flag.Int("commit", -1, "writer commit interval")
-	ctx               = context.TODO()
+	ctx               = context.Background()
 )
 
 func BenchmarkCesium(b *testing.B) {

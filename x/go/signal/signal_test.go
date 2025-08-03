@@ -215,7 +215,7 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should not send a value to the channel if the context is cancelled", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(context.Background(), 500*time.Microsecond)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
@@ -235,7 +235,10 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should return context error if context is cancelled before receive", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(
+				context.Background(),
+				500*time.Microsecond,
+			)
 			v := make(chan int)
 			cancel()
 			val, err := signal.RecvUnderContext(ctx, v)
@@ -244,7 +247,10 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should receive value even if context is cancelled after value is available", func() {
-			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(
+				context.Background(),
+				500*time.Microsecond,
+			)
 			v := make(chan int, 1)
 			v <- 1
 			val, err := signal.RecvUnderContext(ctx, v)
@@ -376,9 +382,9 @@ var _ = Describe("Signal", func() {
 
 	Describe("Regression", func() {
 		// This test was added to address the bug where if maxRestart is set, even in
-		// the case where the goroutine did not panic, it would attempt to restart.
-		// This is not the desired behaviour since a goroutine should not attempt to
-		// restart if it did not panic.
+		// the case where the goroutine did not panic, it would attempt to restart. This
+		// is not the desired behavior since a goroutine should not attempt to restart
+		// if it did not panic.
 		It("Should NOT restart if there was not a panic - definite restart", func() {
 			var (
 				counter = 0
