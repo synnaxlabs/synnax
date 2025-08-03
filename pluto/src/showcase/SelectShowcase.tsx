@@ -59,13 +59,17 @@ export const SelectShowcase = () => (
         title="Channel Selection"
         description="Dropdown selectors for single and multiple channel selection with search capabilities"
       >
-        <Flex.Box y gap="medium">
+        <Flex.Box y gap="huge">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Multiple Selection</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Multiple Selection
+            </Text.Text>
             <SelectMultiple />
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Single Selection</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Single Selection
+            </Text.Text>
             <SelectSingle />
           </Flex.Box>
         </Flex.Box>
@@ -76,7 +80,9 @@ export const SelectShowcase = () => (
         description="Toggle button groups for selecting from predefined options with visual icons"
       >
         <Flex.Box y gap="small">
-          <Text.Text level="small" weight={500}>Icon Button Group</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Icon Button Group
+          </Text.Text>
           <SelectButton />
         </Flex.Box>
       </SubcategorySection>
