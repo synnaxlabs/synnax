@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto-flex--pack button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
-.pluto-input__internal {
-    z-index: 3;
+.pluto-input {
+    z-index: 4;
 }
 
 @keyframes fade-in-zoom {
@@ -35,7 +35,7 @@
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
-    --pluto-height-tiny: 3rem;
+    --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         fill 0.15s ease-in-out;
@@ -65,14 +65,6 @@
 
 html {
     font-size: var(--pluto-base-size);
-}
-
-.pluto--sharp {
-    border-radius: 0 !important;
-}
-
-.pluto--rounded {
-    border-radius: var(--pluto-border-radius);
 }
 
 .pluto--no-wrap {
@@ -115,24 +107,29 @@ html {
     border-top: var(--pluto-border);
 }
 
-.pluto--huge {
+.pluto-height--huge {
     min-height: var(--pluto-height-huge);
+    height: fit-content;
 }
 
-.pluto--large {
+.pluto-height--large {
     min-height: var(--pluto-height-large);
+    height: fit-content;
 }
 
-.pluto--medium {
+.pluto-height--medium {
     min-height: var(--pluto-height-medium);
+    height: fit-content;
 }
 
-.pluto--tiny {
+.pluto-height--tiny {
     min-height: var(--pluto-height-tiny);
+    height: fit-content;
 }
 
-.pluto--small {
+.pluto-height--small {
     min-height: var(--pluto-height-small);
+    height: fit-content;
 }
 
 .pluto--no-select {

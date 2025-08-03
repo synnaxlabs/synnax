@@ -12,9 +12,9 @@ import "@/vis/schematic/OrientationControl.css";
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { type Input } from "@/input";
 
 export interface OrientationValue {
@@ -24,7 +24,7 @@ export interface OrientationValue {
 
 export interface SelectOrientationProps
   extends Input.Control<OrientationValue>,
-    Omit<Align.SpaceProps, "value" | "onChange"> {
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;
@@ -51,14 +51,14 @@ export const SelectOrientation = ({
     );
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS.B("orientation-control")}
       align="center"
       justify="center"
       gap="tiny"
     >
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
-      <Align.Space x align="center" justify="center" gap="tiny">
+      <Flex.Box x align="center" justify="center" gap="tiny">
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
         <InternalOrientation
           hideInner={hideInner}
@@ -70,12 +70,12 @@ export const SelectOrientation = ({
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
         />
-      </Align.Space>
+      </Flex.Box>
       <Button
         selected={outer === "bottom"}
         onClick={handleChange({ outer: "bottom" })}
       />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -111,7 +111,7 @@ const InternalOrientation = ({
           selected={inner === "top"}
           onClick={handleChange({ inner: "top" })}
         />
-        <Align.Space x align="center" justify="center">
+        <Flex.Box x align="center" justify="center">
           <Button
             style={showStyle}
             disabled={hideInner}
@@ -124,7 +124,7 @@ const InternalOrientation = ({
             selected={inner === "right"}
             onClick={handleChange({ inner: "right" })}
           />
-        </Align.Space>
+        </Flex.Box>
         <Button
           style={showStyle}
           disabled={hideInner}
@@ -135,7 +135,7 @@ const InternalOrientation = ({
       </>
     );
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(
         className,
         CSS.B("value"),
@@ -148,20 +148,20 @@ const InternalOrientation = ({
       {...rest}
     >
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
-export interface ButtonProps extends Omit<CoreButton.IconProps, "children"> {
+export interface ButtonProps extends Omit<CoreButton.ButtonProps, "children"> {
   selected: boolean;
 }
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
-  <CoreButton.Icon
+  <CoreButton.Button
     variant="text"
     className={CSS(className, CSS.selected(selected))}
     {...rest}
   >
     <div className="symbol" />
-  </CoreButton.Icon>
+  </CoreButton.Button>
 );

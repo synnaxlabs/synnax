@@ -14,7 +14,7 @@ import { type Optional } from "@synnaxlabs/x";
 import { CSS } from "@/css";
 
 export interface ChannelNameProps
-  extends Optional<Omit<Text.MaybeEditableProps<Text.Level>, "value">, "level"> {
+  extends Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
   channel: channel.Key;
   defaultName?: string;
 }

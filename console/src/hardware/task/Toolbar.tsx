@@ -11,8 +11,9 @@ import "@/hardware/task/Toolbar.css";
 
 import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
+  type Header,
   Icon,
   List,
   Menu as PMenu,
@@ -44,14 +45,14 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center y style={{ height: "100%" }} gap="small">
-        <Text.Text level="p">No existing tasks.</Text.Text>
-        <Text.Link level="p" onClick={handleClick}>
+    <Flex.Box empty center>
+      <Flex.Box y gap="small">
+        <Text.Text>No existing tasks.</Text.Text>
+        <Button.Button variant="text" onClick={handleClick} href="">
           Add a task
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+        </Button.Button>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -128,8 +129,14 @@ const Content = () => {
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;
-  const actions = useMemo(
-    () => [{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }],
+  const actions: Header.ActionSpec[] = useMemo(
+    () => [
+      {
+        children: <Icon.Add />,
+        onClick: () => placeLayout(SELECTOR_LAYOUT),
+        variant: "text",
+      },
+    ],
     [placeLayout],
   );
   const startOrStop = useMutation({
@@ -176,9 +183,9 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Align.Space
+      <Flex.Box
         empty
-        style={{ height: "100%" }}
+        full
         className={CSS(CSS.B("task-toolbar"), menuProps.className)}
         onContextMenu={menuProps.open}
       >
@@ -207,7 +214,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Align.Space>
+      </Flex.Box>
     </PMenu.ContextMenu>
   );
 };
@@ -237,7 +244,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleClick = useCallback<NonNullable<Button.IconProps["onClick"]>>(
+  const handleClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
       const command = isRunning ? "stop" : "start";
@@ -246,41 +253,35 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <Select.ListItem {...rest} justify="spaceBetween" align="center">
-      <Align.Space y gap="small" grow className={CSS.BE("task", "metadata")}>
-        <Align.Space x align="center" gap="small">
+    <Select.ListItem {...rest} justify="between" align="center">
+      <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
+        <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.WithIcon
-            className={CSS.BE("task", "title")}
-            level="p"
-            startIcon={icon}
-            weight={500}
-            noWrap
-          >
+          <Text.Text className={CSS.BE("task", "title")} weight={500} noWrap>
+            {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
-              level="p"
               value={task?.name ?? ""}
               onChange={onRename}
               allowDoubleClick={false}
             />
-          </Text.WithIcon>
-        </Align.Space>
-        <Text.Text level="small" shade={10}>
+          </Text.Text>
+        </Flex.Box>
+        <Text.Text level="small" color={10}>
           {parseType(task?.type ?? "")}
         </Text.Text>
-      </Align.Space>
-      <Button.Icon
+      </Flex.Box>
+      <Button.Button
         variant="outlined"
-        loading={isLoading}
+        status={isLoading ? "loading" : undefined}
         onClick={handleClick}
         tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Icon>
+      </Button.Button>
     </Select.ListItem>
   );
 };
@@ -374,19 +375,22 @@ const ContextMenu = ({
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
       {canStart && (
-        <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
+        <PMenu.Item itemKey="start">
+          <Icon.Play />
           Start
         </PMenu.Item>
       )}
       {canStop && (
-        <PMenu.Item startIcon={<Icon.Pause />} itemKey="stop">
+        <PMenu.Item itemKey="stop">
+          <Icon.Pause />
           Stop
         </PMenu.Item>
       )}
       {(canStart || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
             Edit Configuration
           </PMenu.Item>
           <PMenu.Divider />
@@ -403,7 +407,8 @@ const ContextMenu = ({
       )}
       {someSelected && (
         <>
-          <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
             Delete
           </PMenu.Item>
           <PMenu.Divider />

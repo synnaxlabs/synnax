@@ -16,10 +16,10 @@ import {
   useState,
 } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
@@ -27,11 +27,11 @@ import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
 export interface SelectorProps
-  extends Omit<Align.SpaceProps, "children" | "contextMenu" | "onDrop"> {
+  extends Omit<Flex.BoxProps, "children" | "contextMenu" | "onDrop"> {
   size?: Component.Size;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
-  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
 }
 
@@ -69,23 +69,23 @@ export const Selector = ({
           menu={contextMenu}
         />
       )}
-      <Align.Space
+      <Flex.Box
         className={CSS(
           CSS.B(CLS),
-          CSS.size(size),
+          CSS.height(size),
           className,
           menuProps.className,
           draggingOver && CSS.M("drag-over"),
         )}
         align="center"
-        justify="spaceBetween"
+        justify="between"
         empty
         direction={direction}
         onContextMenu={menuProps.open}
         onDrop={onDrop}
         {...rest}
       >
-        <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
+        <Flex.Box direction={direction} className={CSS.BE(CLS, "tabs")} empty>
           {tabs.map((tab) => (
             <SelectorButton
               key={tab.tabKey}
@@ -102,7 +102,7 @@ export const Selector = ({
             />
           ))}
           {onDrop != null && (
-            <Align.Space
+            <Flex.Box
               onDragOver={() => setDraggingOver(true)}
               onDragLeave={() => setDraggingOver(false)}
               onDragEnd={() => setDraggingOver(false)}
@@ -110,16 +110,22 @@ export const Selector = ({
               grow
             />
           )}
-        </Align.Space>
+        </Flex.Box>
 
         {onCreate != null && (
-          <Align.Space className={CSS.BE(CLS, "actions")}>
-            <Button.Icon size={size} sharp onClick={onCreate} tooltip={addTooltip}>
+          <Flex.Box className={CSS.BE(CLS, "actions")}>
+            <Button.Button
+              size={size}
+              sharp
+              onClick={onCreate}
+              tooltip={addTooltip}
+              variant="text"
+            >
               <Icon.Add />
-            </Button.Icon>
-          </Align.Space>
+            </Button.Button>
+          </Flex.Box>
         )}
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };
@@ -140,7 +146,7 @@ const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement =
   return closeIcon;
 };
 
-const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location.X => {
+const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
   const b = box.construct(
     (e.target as HTMLElement).closest(".pluto-tabs-selector__btn"),
   );
@@ -161,7 +167,7 @@ const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
   return Icon.resolve(icon as Icon.ReactElement, {
     className: CSS.BE(CLS, "icon"),
     style: {
-      color: CSS.shadeVar(9),
+      color: CSS.colorVar(9),
       height: CSS.levelSizeVar(level),
       width: CSS.levelSizeVar(level),
     },
@@ -186,12 +192,12 @@ const SelectorButton = ({
   loading = false,
   onDrop,
 }: SelectorButtonProps): ReactElement => {
-  const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
+  const handleDragStart: DragEventHandler<HTMLElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
     [onDragStart, tabKey, name],
   );
 
-  const handleDragEnd: DragEventHandler<HTMLDivElement> = useCallback(
+  const handleDragEnd: DragEventHandler<HTMLElement> = useCallback(
     (e) => onDragEnd?.(e, { tabKey, name }),
     [onDragEnd, tabKey, name],
   );
@@ -208,7 +214,7 @@ const SelectorButton = ({
   const handleClick = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
   const [dragOverPosition, setDragOverPosition] = useState<location.X | null>(null);
 
-  const handleDragOver: DragEventHandler<HTMLDivElement> = useCallback(
+  const handleDragOver: DragEventHandler<HTMLElement> = useCallback(
     (e) => {
       setDragOverPosition(calculateDragOverPosition(e));
     },
@@ -216,7 +222,7 @@ const SelectorButton = ({
   );
 
   const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
+    (e: React.DragEvent<HTMLElement>) => {
       onDrop?.(e);
       setDragOverPosition(null);
     },
@@ -227,15 +233,16 @@ const SelectorButton = ({
   const level = Text.COMPONENT_SIZE_LEVELS[size];
 
   return (
-    <Align.Pack
+    <Button.Button
+      el="div"
       size={size}
       id={tabKey}
+      variant="text"
+      sharp
       className={CSS(
-        CSS.BE(CLS, "btn"),
         Menu.CONTEXT_TARGET,
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
-        CSS.size(size),
         CSS.altColor(altColor),
         closable && onClose != null && CSS.M("closable"),
         CSS.editable(editable && onRename != null),
@@ -243,9 +250,9 @@ const SelectorButton = ({
         dragOverPosition != null && CSS.loc(dragOverPosition),
       )}
       draggable
-      x
       justify="center"
       align="center"
+      empty
       onClick={handleClick}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -267,31 +274,33 @@ const SelectorButton = ({
         level={Text.COMPONENT_SIZE_LEVELS[size]}
       />
       {closable && onClose != null && (
-        <Button.Icon
+        <Button.Button
           aria-label="pluto-tabs__close"
           onClick={handleClose}
           className={CSS.E("close")}
+          variant="text"
+          sharp
         >
           <CloseIcon unsavedChanges={unsavedChanges} />
-        </Button.Icon>
+        </Button.Button>
       )}
-    </Align.Pack>
+    </Button.Button>
   );
 };
 
 export interface SelectorButtonProps extends Spec {
   selected?: string;
   altColor?: boolean;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
-  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragStart?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
   size: Component.Size;
 }
 
-interface NameProps extends Text.CoreProps<Text.Level> {
+interface NameProps extends Pick<Text.EditableProps, "level"> {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
@@ -303,21 +312,21 @@ const Name = ({
   name,
   tabKey,
   editable = true,
-  ...rest
+  level,
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text noWrap {...rest}>
+      <Text.Text noWrap level={level}>
         {name}
       </Text.Text>
     );
   return (
-    <Text.Editable<Text.Level>
+    <Text.Editable
+      level={level}
       id={CSS.B(`tab-${tabKey}`)}
-      onChange={(newText: string) => onRename(tabKey, newText)}
+      onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
       noWrap
-      {...rest}
     />
   );
 };

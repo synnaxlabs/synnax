@@ -24,16 +24,16 @@ describe("Button", () => {
   describe("Icon", () => {
     it("should render a button with the provided icon", () => {
       const c = render(
-        <Button.Icon size="small">
+        <Button.Button size="small">
           <svg aria-label="icon" />
-        </Button.Icon>,
+        </Button.Button>,
       );
       expect(c.getByLabelText("icon")).toBeTruthy();
     });
   });
   describe("Link", () => {
     it("should render a link with the provided text", () => {
-      const c = render(<Button.Link size="small">Hello</Button.Link>);
+      const c = render(<Button.Button size="small">Hello</Button.Button>);
       expect(c.getByText("Hello")).toBeTruthy();
     });
   });

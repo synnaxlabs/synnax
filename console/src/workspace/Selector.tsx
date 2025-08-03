@@ -14,6 +14,7 @@ import {
   Button,
   Component,
   Dialog,
+  Flex,
   Icon,
   Input,
   List,
@@ -40,7 +41,7 @@ export const selectorListItem = Component.renderProp(
     if (ws == null) return null;
     return (
       <Select.ListItem {...props}>
-        <Text.Text level="p">{ws.name}</Text.Text>
+        <Text.Text>{ws.name}</Text.Text>
       </Select.ListItem>
     );
   },
@@ -90,49 +91,54 @@ export const Selector = (): ReactElement => {
         allowNone
       >
         <Dialog.Trigger
+          variant="text"
           size="medium"
           className={CSS.B("trigger")}
-          shade={2}
+          contrast={2}
           weight={400}
-          startIcon={<Icon.Workspace key="workspace" />}
         >
+          <Icon.Workspace key="workspace" />
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
-        <Dialog.Dialog style={{ minHeight: 200, minWidth: 400 }}>
+        <Dialog.Dialog style={{ minHeight: 200, minWidth: 400 }} bordered={false}>
           <Cluster.NoneConnectedBoundary>
-            <Input.Text
-              size="large"
-              placeholder={
-                <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
-                  Search Workspaces
-                </Text.WithIcon>
-              }
-              shade={3}
-              value={search}
-              onChange={(v) => {
-                setSearch(v);
-                retrieve((p) => ({ ...p, search: v }));
-              }}
-            >
+            <Flex.Box pack rounded>
+              <Input.Text
+                size="large"
+                rounded
+                placeholder={
+                  <>
+                    <Icon.Search key="search" />
+                    Search Workspaces
+                  </>
+                }
+                contrast={0}
+                value={search}
+                onChange={(v) => {
+                  setSearch(v);
+                  retrieve((p) => ({ ...p, search: v }));
+                }}
+                full="x"
+                style={{ borderBottomLeftRadius: 0 }}
+                borderColor={6}
+              />
               <Button.Button
-                startIcon={<Icon.Close />}
                 size="large"
                 variant="outlined"
-                shade={3}
                 onClick={() => {
                   handleChange(null);
                   setDialogVisible(false);
                 }}
                 gap="small"
                 tooltip="Switch to no workspace"
+                borderColor={6}
               >
+                <Icon.Close />
                 Clear
               </Button.Button>
               <Button.Button
                 size="large"
-                startIcon={<Icon.Add />}
                 variant="outlined"
-                shade={3}
                 onClick={() => {
                   setDialogVisible(false);
                   placeLayout(CREATE_LAYOUT);
@@ -140,11 +146,13 @@ export const Selector = (): ReactElement => {
                 gap="small"
                 tooltip="Create a new workspace"
                 tooltipLocation={{ y: "bottom" }}
+                borderColor={6}
               >
+                <Icon.Add />
                 New
               </Button.Button>
-            </Input.Text>
-            <List.Items bordered borderShade={6} grow>
+            </Flex.Box>
+            <List.Items bordered borderColor={6} grow>
               {selectorListItem}
             </List.Items>
           </Cluster.NoneConnectedBoundary>

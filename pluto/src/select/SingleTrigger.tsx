@@ -62,13 +62,13 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      startIcon={icon ?? baseIcon}
       className={CSS(CSS.dropRegion(canDrop(dragging)))}
       disabled={disabled}
       {...dropProps}
       {...rest}
-      textShade={name == null ? 8 : undefined}
+      color={name == null ? 8 : undefined}
     >
+      {icon ?? baseIcon}
       {name ?? placeholder}
     </Dialog.Trigger>
   );

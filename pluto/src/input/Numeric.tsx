@@ -13,14 +13,14 @@ import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
-import { Text, type TextExtraProps } from "@/input/Text";
-import { type BaseProps } from "@/input/types";
+import { Text, type TextProps } from "@/input/Text";
+import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type" | "onBlur" | "color">,
+  extends Omit<TextProps, "type" | "onBlur" | "color" | "value" | "onChange">,
     DragButtonExtraProps,
-    TextExtraProps {
+    Control<number> {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
@@ -130,7 +130,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (variant === "preview" || disabled) showDragHandle = false;
+  if (disabled) showDragHandle = false;
 
   return (
     <Text

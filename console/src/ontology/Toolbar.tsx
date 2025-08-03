@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
+import { Flex, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
@@ -29,12 +29,12 @@ const Content = (): ReactElement => {
   });
   return (
     <Cluster.NoneConnectedBoundary>
-      <Align.Space empty style={{ height: "100%" }}>
+      <Flex.Box empty full>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>
         </Toolbar.Header>
         <Tree root={group.data} />
-      </Align.Space>
+      </Flex.Box>
     </Cluster.NoneConnectedBoundary>
   );
 };

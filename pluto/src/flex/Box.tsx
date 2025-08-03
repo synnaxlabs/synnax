@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/align/Space.css";
+import "@/flex/Box.css";
 
+import { type color } from "@synnaxlabs/x";
 import { direction } from "@synnaxlabs/x/spatial";
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
+import z from "zod";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -19,98 +21,83 @@ import { type Theming } from "@/theming";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
+export const alignmentZ = z.enum(ALIGNMENTS);
 
 /** The alignments for the cross axis of a space */
-export type Alignment = (typeof ALIGNMENTS)[number];
+export type Alignment = z.infer<typeof alignmentZ>;
 
 /** All possible justifications for the main axis of a space */
 export const JUSTIFICATIONS = [
   "start",
   "center",
   "end",
-  "spaceBetween",
-  "spaceAround",
-  "spaceEvenly",
+  "between",
+  "around",
+  "evenly",
 ] as const;
-
-const CSS_JUSTIFICATIONS: Record<Justification, CSSProperties["justifyContent"]> = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  spaceBetween: "space-between",
-  spaceAround: "space-around",
-  spaceEvenly: "space-evenly",
-};
+export const justificationZ = z.enum(JUSTIFICATIONS);
 
 /** The justification for the main axis of a space */
-export type Justification = (typeof JUSTIFICATIONS)[number];
+export type Justification = z.infer<typeof justificationZ>;
 
-export type ElementType =
-  | "div"
-  | "header"
-  | "nav"
-  | "section"
-  | "article"
-  | "aside"
-  | "footer"
-  | "button"
-  | "dialog"
-  | "a"
-  | "form"
-  | "main";
+export type BoxProps<E extends Generic.ElementType = "div"> = Omit<
+  Generic.OptionalElementProps<E>,
+  "color"
+> &
+  BoxExtensionProps;
 
-export interface CoreExtensionProps {
-  el?: ElementType;
+export interface BoxExtensionProps {
+  // border
   bordered?: boolean;
-  borderShade?: Theming.Shade;
+  borderColor?: Theming.Shade | color.Crude | false;
   borderWidth?: number;
   rounded?: boolean | number;
+  sharp?: boolean;
+  // background
   background?: Theming.Shade;
-}
-
-export interface SpaceExtensionProps extends CoreExtensionProps {
+  // gap
   empty?: boolean;
   gap?: Component.Size | number;
+  // direction
   direction?: direction.Crude;
   x?: boolean;
   y?: boolean;
   reverse?: boolean;
+  // popsitioning
   justify?: Justification;
   align?: Alignment;
+  // sizing
   grow?: boolean | number;
   shrink?: boolean | number;
+  center?: boolean;
+  full?: boolean | direction.Direction;
+  // wrapping
   wrap?: boolean;
+  // sizing
+  size?: Component.Size;
+  pack?: boolean;
+  color?: Theming.Shade | color.Crude | false;
 }
-
-export type SpaceProps<E extends ElementType = "div"> = Omit<
-  Generic.ElementProps<E>,
-  "el"
-> &
-  SpaceExtensionProps;
 
 export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
   reverse ?? (direction === "right" || direction === "bottom");
-
-type FlexDirection = CSSProperties["flexDirection"];
-
-const flexDirection = (
-  direction: direction.Direction,
-  reverse: boolean,
-): FlexDirection => {
-  const base = direction === "x" ? "row" : "column";
-  return reverse ? (`${base}-reverse` as FlexDirection) : base;
-};
 
 export const parseDirection = (
   dir?: direction.Crude,
   x?: boolean,
   y?: boolean,
-  def: direction.Direction = "y",
+  pack?: boolean,
 ): direction.Direction => {
-  if (x) return "x";
-  if (y) return "y";
+  if (x === true) return "x";
+  if (y === true) return "y";
   if (dir != null) return direction.construct(dir);
-  return def;
+  return pack ? "x" : "y";
+};
+
+const parseFull = (full?: boolean | direction.Direction): string | false => {
+  if (full == null || full === false) return false;
+  if (full === true) return CSS.BM("flex", "full");
+  return CSS.BM("flex", `full-${full}`);
 };
 
 /**
@@ -143,94 +130,72 @@ export const parseDirection = (
  * vertically. If true, props.direction is ignored. props.x takes precedence over props.y.
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
-export const Space = <E extends ElementType = "div">({
+export const Box = <E extends Generic.ElementType = "div">({
   style,
   align,
   className,
   grow,
   shrink,
-  empty = false,
-  gap = "medium",
-  justify = "start",
+  gap,
+  color,
+  justify,
   reverse,
+  empty = false,
+  pack = false,
   wrap = false,
+  center = false,
   direction: propsDir,
+  rounded,
+  sharp,
+  borderWidth,
+  borderColor,
+  full,
+  background,
+  bordered,
   x,
   y,
+  size,
   ...rest
-}: SpaceProps<E>): ReactElement => {
-  const dir = parseDirection(propsDir, x, y, "y");
-  reverse = shouldReverse(dir, reverse);
-
-  let parsedGap: number | string | undefined;
-  if (empty) [parsedGap, parsedGap] = [0, 0];
-  else if (typeof gap === "number") parsedGap = `${gap}rem`;
-
-  style = {
-    gap: parsedGap,
-    flexDirection: flexDirection(dir, reverse),
-    justifyContent: CSS_JUSTIFICATIONS[justify],
-    alignItems: align,
-    flexWrap: wrap ? "wrap" : "nowrap",
-    ...style,
-  };
-
-  if (grow != null) style.flexGrow = Number(grow);
-  if (shrink != null) style.flexShrink = Number(shrink);
-
-  return (
-    // @ts-expect-error - TODO: fix generic element props
-    <Core<E>
-      className={CSS(
-        CSS.B("space"),
-        CSS.dir(dir),
-        typeof gap === "string" && CSS.BM("space", gap),
-        className,
-      )}
-      style={style}
-      {...rest}
-    />
-  );
-};
-
-export type CoreProps<E extends ElementType = "div"> = Omit<
-  Generic.ElementProps<E>,
-  "el"
-> &
-  CoreExtensionProps & { el?: E };
-
-export const Core = <E extends ElementType = "div">({
-  style,
-  el = "div" as E,
-  bordered = false,
-  borderShade,
-  borderWidth,
-  rounded = false,
-  background,
-  className,
-  ...rest
-}: CoreProps<E>): ReactElement => {
-  let borderRadius: string | undefined;
-  if (rounded != null && typeof rounded === "number") borderRadius = `${rounded}rem`;
+}: BoxProps<E>): ReactElement => {
+  const dir = parseDirection(propsDir, x, y, pack);
+  const classNames = [
+    CSS.BE("flex", "box"),
+    CSS.dir(dir),
+    pack && CSS.BM("flex", "pack"),
+    shouldReverse(dir, reverse) && CSS.M("reverse"),
+    justify != null && CSS.BM("justify", justify),
+    align != null && CSS.BM("align", align),
+    wrap && CSS.M("wrap"),
+    empty && CSS.M("empty"),
+    center && CSS.BM("flex", "center"),
+    parseFull(full),
+    bordered != null && CSS.bordered(bordered),
+    rounded != null && rounded !== false && CSS.rounded(true),
+    sharp != null && sharp !== false && CSS.M("sharp"),
+    size != null && CSS.height(size),
+    className,
+  ];
   style = {
     borderWidth,
-    borderColor: CSS.shadeVar(borderShade),
-    borderRadius,
+    borderColor: CSS.colorVar(borderColor),
     ...style,
   };
-  if (background != null) style.backgroundColor = CSS.shadeVar(background);
+  if (rounded != null && typeof rounded === "number")
+    // @ts-expect-error - CSS.var returns a string, but we're using it as a CSS property
+    style[CSS.var("flex-border-radius")] = `${rounded}rem`;
 
+  if (typeof gap === "number") style.gap = `${gap}rem`;
+  else if (gap != null) classNames.push(CSS.BM("gap", gap));
+  if (grow != null) style.flexGrow = Number(grow);
+  if (shrink != null) style.flexShrink = Number(shrink);
+  if (background != null) style.backgroundColor = CSS.colorVar(background);
+  if (color != null && color !== false) style.color = CSS.colorVar(color);
   return (
-    // @ts-expect-error - TODO: fix generic element props
     <Generic.Element<E>
-      el={el}
-      className={CSS(
-        CSS.bordered(bordered),
-        typeof rounded === "boolean" && CSS.rounded(rounded),
-        className,
-      )}
+      className={CSS(...classNames)}
       style={style}
-      {...rest}
+      {...(rest as Generic.ElementProps<E>)}
+      el={rest.el ?? "div"}
     />
   );
 };

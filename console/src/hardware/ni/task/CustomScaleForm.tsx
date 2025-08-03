@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Input, Select, state } from "@synnaxlabs/pluto";
+import { Flex, Form, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
@@ -113,7 +113,7 @@ export interface CustomScaleFormProps {
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <Align.Space x>
+      <Flex.Box x>
         <UnitsField
           fieldKey="preScaledUnits"
           label="Prescaled Units"
@@ -126,8 +126,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           path={prefix}
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
         <Form.NumericField
           fieldKey="yIntercept"
@@ -135,13 +135,13 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           path={prefix}
           grow
         />
-      </Align.Space>
+      </Flex.Box>
     </>
   ),
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
       <UnitsField fieldKey="preScaledUnits" path={prefix} />
-      <Align.Space x>
+      <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
           label="Pre-Scaled Min"
@@ -153,11 +153,11 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           label="Pre-Scaled Max"
           path={prefix}
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
-      </Align.Space>
+      </Flex.Box>
     </>
   ),
   [TABLE_SCALE_TYPE]: ({ prefix }) => {
@@ -230,7 +230,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
-        <Align.Space x>
+        <Flex.Box x>
           <Input.Item label="Raw Column" padHelpText grow>
             <Select.Simple
               resourceName="Raw Column"
@@ -247,7 +247,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
               data={colOptions}
             />
           </Input.Item>
-        </Align.Space>
+        </Flex.Box>
       </>
     );
   },

@@ -10,12 +10,10 @@
 import { type Optional, type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
-// import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Single, type SingleProps } from "@/select/Single";
-import { Text } from "@/text";
 
 export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -37,9 +35,8 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { name, icon } = item;
   return (
     <Select.ListItem {...p}>
-      <Text.WithIcon level="p" startIcon={icon}>
-        {name}
-      </Text.WithIcon>
+      {icon}
+      {name}
     </Select.ListItem>
   );
 });

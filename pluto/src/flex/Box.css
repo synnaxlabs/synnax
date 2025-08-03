@@ -1,0 +1,215 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-flex__box {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+
+    &.pluto--wrap {
+        flex-wrap: wrap;
+    }
+    &.pluto-justify--start {
+        justify-content: flex-start;
+    }
+    &.pluto-justify--center {
+        justify-content: center;
+    }
+    &.pluto-justify--end {
+        justify-content: flex-end;
+    }
+    &.pluto-justify--between {
+        justify-content: space-between;
+    }
+    &.pluto-justify--around {
+        justify-content: space-around;
+    }
+    &.pluto-justify--evenly {
+        justify-content: space-evenly;
+    }
+    &.pluto-align--start {
+        align-items: flex-start;
+    }
+    &.pluto-align--center {
+        align-items: center;
+    }
+    &.pluto-align--end {
+        align-items: flex-end;
+    }
+    &.pluto-align--stretch {
+        align-items: stretch;
+    }
+    &.pluto--x {
+        flex-direction: row;
+        &.pluto--reverse {
+            flex-direction: row-reverse;
+        }
+    }
+    &.pluto--y {
+        flex-direction: column;
+        &.pluto--reverse {
+            flex-direction: column-reverse;
+        }
+    }
+    &:not(.pluto--rounded) {
+        --pluto-flex-border-radius: var(--pluto-border-radius);
+    }
+    &.pluto--sharp {
+        --pluto-flex-border-radius: 0;
+        border-radius: 0;
+    }
+    &.pluto--rounded {
+        border-radius: var(--pluto-flex-border-radius);
+    }
+    &.pluto-gap--huge {
+        gap: 5rem;
+    }
+    &.pluto-gap--v {
+        gap: 1.5rem;
+    }
+    &.pluto-gap--large {
+        gap: 4rem;
+    }
+    &.pluto-gap--small {
+        gap: 1rem;
+    }
+    &.pluto-gap--tiny {
+        gap: 0.5rem;
+    }
+    &.pluto--empty,
+    &.pluto-flex--pack {
+        gap: 0;
+    }
+    &.pluto-flex--full-x {
+        width: 100%;
+    }
+    &.pluto-flex--full-y {
+        height: 100%;
+    }
+    &.pluto-flex--full {
+        width: 100%;
+        height: 100%;
+    }
+    &.pluto-flex--center {
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+.pluto-flex--pack {
+    --pluto-rounded-top: var(--pluto-flex-border-radius) var(--pluto-flex-border-radius)
+        0 0;
+    --pluto-rounded-bottom: 0 0 var(--pluto-flex-border-radius)
+        var(--pluto-flex-border-radius);
+    --pluto-rounded-left: var(--pluto-flex-border-radius) 0 0
+        var(--pluto-flex-border-radius);
+    --pluto-rounded-right: 0 var(--pluto-flex-border-radius)
+        var(--pluto-flex-border-radius) 0;
+    --pluto-rounded-top-right: 0 var(--pluto-flex-border-radius) 0 0;
+    --pluto-rounded-bottom-right: 0 0 var(--pluto-flex-border-radius) 0;
+    --pluto-rounded-bottom-left: 0 0 0 var(--pluto-flex-border-radius);
+    --pluto-rounded-top-left: var(--pluto-flex-border-radius) 0 0 0;
+    --pluto-pack--middle: 0;
+    --pluto-rounded-all: var(--pluto-flex-border-radius);
+
+    &.pluto--x {
+        --pluto-rounded-first: var(--pluto-rounded-left);
+        --pluto-rounded-last: var(--pluto-rounded-right);
+    }
+
+    &.pluto--y {
+        --pluto-rounded-first: var(--pluto-rounded-top);
+        --pluto-rounded-last: var(--pluto-rounded-bottom);
+    }
+
+    & > :only-child {
+        border-radius: var(--pluto-rounded-all);
+    }
+
+    & > :first-child:not(:only-child) {
+        border-radius: var(--pluto-rounded-first);
+    }
+
+    & > :last-child:not(:only-child) {
+        border-radius: var(--pluto-rounded-last);
+    }
+
+    & > :not(:first-child):not(:last-child) {
+        border-radius: var(--pluto-pack--middle);
+    }
+
+    & > .pluto-flex--pack:not(:first-child):not(:last-child) {
+        --pluto-rounded-first: 0;
+        --pluto-rounded-last: 0;
+    }
+
+    &.pluto--y {
+        & > :not(:first-child) {
+            margin-top: calc(-1 * var(--pluto-border-width));
+        }
+
+        & > .pluto-flex--pack {
+            &.pluto--x {
+                &:first-child {
+                    border-radius: var(--pluto-rounded-top);
+                    --pluto-rounded-first: var(--pluto-rounded-top-left);
+                    --pluto-rounded-last: var(--pluto-rounded-top-right);
+                }
+                &:last-child {
+                    border-radius: var(--pluto-rounded-bottom);
+                    --pluto-rounded-first: var(--pluto-rounded-bottom-left);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
+                }
+            }
+            &.pluto--y {
+                &:first-child:not(:only-child) {
+                    --pluto-rounded-last: 0;
+                }
+                &:last-child:not(:only-child) {
+                    --pluto-rounded-first: 0;
+                    --pluto-rounded-all: var(--pluto-rounded-bottom);
+                }
+            }
+        }
+    }
+
+    &.pluto--x {
+        & > :not(:first-child) {
+            margin-left: calc(-1 * var(--pluto-border-width));
+        }
+
+        & > .pluto-flex--pack {
+            &.pluto--y {
+                &:first-child {
+                    border-radius: var(--pluto-rounded-top);
+                    --pluto-rounded-first: var(--pluto-rounded-top-left);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-left);
+                }
+                &:last-child:not(:only-child) {
+                    border-radius: var(--pluto-rounded-bottom);
+                    --pluto-rounded-first: var(--pluto-rounded-top-right);
+                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
+                }
+            }
+            &.pluto--x {
+                &:first-child:not(:only-child) {
+                    --pluto-rounded-last: 0;
+                }
+                &:last-child:not(:only-child) {
+                    --pluto-rounded-first: 0;
+                    --pluto-rounded-all: var(--pluto-rounded-right);
+                }
+            }
+        }
+    }
+}

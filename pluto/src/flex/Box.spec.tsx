@@ -10,15 +10,15 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 
 describe("Space", () => {
   it("should render items with a space between them", () => {
     const c = render(
-      <Align.Space gap="small">
+      <Flex.Box gap="small">
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>,
+      </Flex.Box>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -28,10 +28,10 @@ describe("Space", () => {
   });
   it("should render items with no gap", () => {
     const c = render(
-      <Align.Space empty>
+      <Flex.Box empty>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>,
+      </Flex.Box>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -41,10 +41,10 @@ describe("Space", () => {
   });
   it("should render items with a multiple of the base size", () => {
     const c = render(
-      <Align.Space gap={2}>
+      <Flex.Box gap={2}>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>,
+      </Flex.Box>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");

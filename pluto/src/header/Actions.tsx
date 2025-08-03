@@ -10,16 +10,16 @@
 import { array } from "@synnaxlabs/x";
 import { Fragment, isValidElement, type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export type ActionSpec = Button.IconProps | ReactElement;
+export type ActionSpec = Button.ButtonProps | ReactElement;
 
-export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direction"> {
+export interface ActionsProps extends Omit<Flex.BoxProps, "children" | "direction"> {
   children?: ActionSpec | ActionSpec[];
 }
 
@@ -34,7 +34,7 @@ export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direc
 export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => {
   const { level, divided } = useContext();
   return (
-    <Align.Space
+    <Flex.Box
       x
       gap="small"
       align="center"
@@ -46,14 +46,14 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
           {action}
         </Action>
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
 interface ActionProps {
   index: number;
   level: Text.Level;
-  children: ReactElement | Button.IconProps;
+  children: ReactElement | Button.ButtonProps;
   divided: boolean;
 }
 
@@ -62,7 +62,7 @@ const Action = ({ index, level, children, divided }: ActionProps): ReactElement 
   if (!isValidElement(children)) {
     const { onClick, key, ...rest } = children;
     content = (
-      <Button.Icon
+      <Button.Button
         key={key ?? index}
         onClick={(e) => {
           e.stopPropagation();

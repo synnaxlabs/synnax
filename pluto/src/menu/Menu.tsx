@@ -19,20 +19,21 @@ import {
 import { type Component } from "@/component";
 import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
+import { type Theming } from "@/theming";
 
 export interface ContextValue {
   onClick: (key: string) => void;
   selected: string;
   level?: Text.Level;
   gap?: Component.Size;
-  shade?: Text.Shade;
+  background?: Theming.Shade;
 }
 
 const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
 
 export interface MenuProps
   extends PropsWithChildren,
-    Pick<ContextValue, "level" | "gap" | "shade"> {
+    Pick<ContextValue, "level" | "gap" | "background"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
@@ -54,7 +55,7 @@ export const Menu = ({
   onChange,
   level,
   gap,
-  shade = 1,
+  background,
   value: selected = "",
 }: MenuProps): ReactElement => {
   const onClick = useCallback(
@@ -70,9 +71,9 @@ export const Menu = ({
       selected,
       level,
       gap,
-      shade,
+      background,
     }),
-    [selected, onClick, level, gap, shade],
+    [selected, onClick, level, gap, background],
   );
   return <Context value={ctxValue}>{children}</Context>;
 };

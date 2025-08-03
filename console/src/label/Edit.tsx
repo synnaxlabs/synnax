@@ -11,12 +11,12 @@ import "@/label/Edit.css";
 
 import { type label } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Color,
   Component,
   CSS as PCSS,
   Divider,
+  Flex,
   type Flux,
   Form,
   Icon,
@@ -86,10 +86,10 @@ const LabelListItem = ({
         PCSS.visible(visible),
       )}
       align="center"
-      justify="spaceBetween"
+      justify="between"
       {...rest}
     >
-      <Align.Space x gap="small" align="center">
+      <Flex.Box x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
           <Form.Field<string>
             hideIfNull
@@ -110,7 +110,7 @@ const LabelListItem = ({
             inputProps={{
               ref: inputRef,
               placeholder: "Label Name",
-              variant: "shadow",
+              variant: "text",
               selectOnFocus: true,
               autoFocus: isCreate,
               resetOnBlurIfEmpty: true,
@@ -118,30 +118,29 @@ const LabelListItem = ({
             }}
           />
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       {isCreate ? (
-        <Align.Pack>
-          <Button.Icon
+        <Flex.Box>
+          <Button.Button
             variant="filled"
-            size="small"
             onClick={() => save()}
-            triggers={visible ? [["Enter"]] : undefined}
+            trigger={visible ? ["Enter"] : undefined}
           >
             <Icon.Check />
-          </Button.Icon>
-          <Button.Icon variant="outlined" size="small" onClick={onClose}>
+          </Button.Button>
+          <Button.Button variant="outlined" size="small" onClick={onClose}>
             <Icon.Close />
-          </Button.Icon>
-        </Align.Pack>
+          </Button.Button>
+        </Flex.Box>
       ) : (
-        <Button.Icon
+        <Button.Button
           className={CSS.BE("label", "delete")}
           variant="outlined"
           size="small"
           onClick={() => handleDelete()}
         >
           <Icon.Delete />
-        </Button.Icon>
+        </Button.Button>
       )}
     </List.Item>
   );
@@ -166,19 +165,20 @@ export const Edit: Layout.Renderer = () => {
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Align.Space y grow empty>
+    <Flex.Box y grow empty>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
         onFetchMore={fetchMore}
         subscribe={subscribe}
       >
-        <Align.Space x justify="spaceBetween" style={{ padding: "2rem" }}>
+        <Flex.Box x justify="between" style={{ padding: "2rem" }}>
           <Input.Text
             placeholder={
-              <Text.WithIcon level="p" startIcon={<Icon.Search />}>
+              <>
+                <Icon.Search />
                 Search Labels
-              </Text.WithIcon>
+              </>
             }
             value={searchTerm}
             onChange={(v) => {
@@ -188,16 +188,16 @@ export const Edit: Layout.Renderer = () => {
           />
           <Button.Button
             variant="filled"
-            startIcon={<Icon.Add />}
             style={{ width: "fit-content" }}
             gap="small"
             onClick={() => setNewFormVisible(true)}
           >
+            <Icon.Add />
             Add Label
           </Button.Button>
-        </Align.Space>
+        </Flex.Box>
         <Divider.Divider x />
-        <Align.Space
+        <Flex.Box
           y
           style={{
             borderRadius: "1rem",
@@ -217,18 +217,18 @@ export const Edit: Layout.Renderer = () => {
             grow
             emptyContent={
               !newFormVisible && (
-                <Align.Center>
-                  <Text.Text level="h4" shade={8}>
+                <Flex.Box>
+                  <Text.Text level="h4" color={8}>
                     No labels created
                   </Text.Text>
-                </Align.Center>
+                </Flex.Box>
               )
             }
           >
             {listItem}
           </List.Items>
-        </Align.Space>
+        </Flex.Box>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

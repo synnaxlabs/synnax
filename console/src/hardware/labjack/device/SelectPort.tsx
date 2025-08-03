@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Component, Dialog, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
 import {
@@ -34,11 +34,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { alias, key } = port;
   return (
     <Select.ListItem {...props} align="center">
-      <Text.Text level="p" shade={11} style={{ width: 50 }}>
-        {alias ?? key}
-      </Text.Text>
+      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
       {alias != null && (
-        <Text.Text level="small" shade={10}>
+        <Text.Text level="small" color={10}>
           {key}
         </Text.Text>
       )}
@@ -65,10 +63,10 @@ export const SelectPort = ({
   return (
     <Dialog.Frame location="bottom" {...rest}>
       <Select.Frame data={data} getItem={getItem} onChange={onChange}>
-        <Align.Pack x>
+        <Flex.Box pack x>
           <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
           {children}
-        </Align.Pack>
+        </Flex.Box>
         <Select.Dialog<string>
           onSearch={(term) => retrieve({ term })}
           searchPlaceholder="Search Ports..."

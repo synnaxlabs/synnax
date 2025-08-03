@@ -79,10 +79,10 @@
       "import": "./dist/ether.js",
       "require": "./dist/ether.cjs"
     },
-    "./align": {
-      "types": "./dist/src/align/index.d.ts",
-      "import": "./dist/align.js",
-      "require": "./dist/align.cjs"
+    "./flex": {
+      "types": "./dist/src/flex/index.d.ts",
+      "import": "./dist/flex.js",
+      "require": "./dist/flex.cjs"
     },
     "./button": {
       "types": "./dist/src/button/index.d.ts",

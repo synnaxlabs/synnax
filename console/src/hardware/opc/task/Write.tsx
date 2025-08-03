@@ -83,7 +83,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+      <Menu.Item itemKey="rename" onClick={handleRename}>
+        <Icon.Rename />
         Rename
       </Menu.Item>
       <Menu.Divider />

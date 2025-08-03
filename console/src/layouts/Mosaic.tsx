@@ -12,12 +12,12 @@ import "@/layouts/Mosaic.css";
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Align,
   Breadcrumb,
   Button,
   Component,
   Dialog,
   Eraser,
+  Flex,
   Icon,
   Menu as PMenu,
   Mosaic as Core,
@@ -52,17 +52,17 @@ import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
-    <Align.Center gap={5}>
+    <Flex.Box gap={5} center>
       <Logo className="synnax-logo-watermark" />
-      <Align.Space x gap="small" align="center">
-        <Text.Text level="h5" weight={450} shade={10}>
+      <Flex.Box x gap="small">
+        <Text.Text level="h5" weight={450} color={10}>
           New Component
         </Text.Text>
-        <Align.Space x empty>
-          <Triggers.Text level="h5" shade={11} trigger={["Control", "T"]} />
-        </Align.Space>
-      </Align.Space>
-    </Align.Center>
+        <Flex.Box x empty>
+          <Triggers.Text level="h5" trigger={["Control", "T"]} />
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
   </Eraser.Eraser>
 );
 
@@ -108,7 +108,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     <Dialog.Frame
       onVisibleChange={handleClose}
       visible={focused}
-      style={{ width: "100%", height: "100%" }}
+      full
       modalOffset={0}
       variant="modal"
       background={focused ? 0 : undefined}
@@ -126,17 +126,20 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
         {focused && (
           <>
             <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb icon={layout.icon}>
-                {layout.name}
+              <Breadcrumb.Breadcrumb>
+                <Breadcrumb.Segment>
+                  {Icon.resolve(layout.icon)}
+                  {layout.name}
+                </Breadcrumb.Segment>
               </Breadcrumb.Breadcrumb>
             </PNav.Bar.Start>
             <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-              <Button.Icon onClick={handleOpenInNewWindow} size="small">
+              <Button.Button onClick={handleOpenInNewWindow} size="small">
                 <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
-              <Button.Icon onClick={handleClose} size="small">
+              </Button.Button>
+              <Button.Button onClick={handleClose} size="small">
                 <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
+              </Button.Button>
             </PNav.Bar.End>
           </>
         )}
@@ -292,7 +295,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
       <Core.Mosaic
         rounded={1}
         bordered
-        borderShade={5}
+        borderColor={5}
         background={0}
         root={mosaic}
         onDrop={handleDrop}
@@ -328,18 +331,13 @@ const NavTop = (): ReactElement | null => {
       className={CSS.BE("mosaic", "controls-button")}
       onClick={() => onSelect("visualization")}
       justify="center"
-      x
       size="small"
-      shade={2}
-      textShade={9}
+      contrast={2}
+      color={9}
       weight={450}
-      startIcon={<Icon.Visualize />}
-      endIcon={
-        <Align.Space style={{ marginLeft: "0.5rem", marginRight: "-1rem" }}>
-          <Triggers.Text level="small" shade={9} weight={450} trigger={["V"]} />
-        </Align.Space>
-      }
+      trigger={["V"]}
     >
+      <Icon.Visualize />
       Controls
     </Button.Button>
   );
@@ -360,7 +358,7 @@ const NavTop = (): ReactElement | null => {
         <Text.Text
           level="small"
           weight={500}
-          shade={10}
+          color={10}
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >
@@ -392,7 +390,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
     return (
       <>
         <NavTop />
-        <Align.Space
+        <Flex.Box
           y
           gap="tiny"
           grow
@@ -401,7 +399,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
           <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
-        </Align.Space>
+        </Flex.Box>
       </>
     );
   },

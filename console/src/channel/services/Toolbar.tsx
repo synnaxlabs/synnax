@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
+import { Flex, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
@@ -29,15 +29,21 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Cluster.NoneConnectedBoundary>
-      <Align.Space empty style={{ height: "100%", overflow: "hidden" }}>
+      <Flex.Box empty full>
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
           <Toolbar.Actions>
-            {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
+            {[
+              {
+                children: <Icon.Add />,
+                onClick: () => placeLayout(CREATE_LAYOUT),
+                variant: "text",
+              },
+            ]}
           </Toolbar.Actions>
         </Toolbar.Header>
         <Ontology.Tree root={group.data?.ontologyID} />
-      </Align.Space>
+      </Flex.Box>
     </Cluster.NoneConnectedBoundary>
   );
 };

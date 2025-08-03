@@ -16,8 +16,6 @@ import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
-  width: "100%",
-  height: "100%",
   maxWidth: window?.size?.width,
   maxHeight: window?.size?.height,
   minWidth: window?.minSize?.width,
@@ -46,20 +44,27 @@ export const Modal = ({ state, remove }: ModalProps) => {
       modalOffset={calculateOffset(window)}
       background={0}
     >
-      <Dialog.Dialog style={layoutCSS(window)}>
+      <Dialog.Dialog style={layoutCSS(window)} full>
         {window?.navTop && (
           <Nav.Bar location="top" size="6rem" bordered>
             {(window?.showTitle ?? true) && (
               <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-                <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
-                  {name}
+                <Breadcrumb.Breadcrumb gap="tiny">
+                  <Breadcrumb.Segment color={9}>
+                    {Icon.resolve(icon)}
+                  </Breadcrumb.Segment>
+                  {name.split(".").map((segment, i) => (
+                    <Breadcrumb.Segment color={9} key={segment} weight={400}>
+                      {segment}
+                    </Breadcrumb.Segment>
+                  ))}
                 </Breadcrumb.Breadcrumb>
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              <Button.Icon onClick={() => remove(key)} size="small">
-                <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
+              <Button.Button onClick={() => remove(key)} size="small" variant="text">
+                <Icon.Close />
+              </Button.Button>
             </Nav.Bar.End>
           </Nav.Bar>
         )}

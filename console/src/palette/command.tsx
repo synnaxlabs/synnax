@@ -9,8 +9,8 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   type Icon,
   List,
   Select,
@@ -66,14 +66,15 @@ export const listItem = Component.renderProp(
       <Select.ListItem
         highlightHovered
         style={{ height: "6.5rem" }}
-        justify="spaceBetween"
+        justify="between"
         align="center"
         {...props}
       >
-        <Text.WithIcon startIcon={icon} level="p" weight={400} shade={11} gap="medium">
+        <Text.Text weight={400} gap="medium">
+          {icon}
           {name}
-        </Text.WithIcon>
-        {endContent != null && <Align.Space x>{endContent}</Align.Space>}
+        </Text.Text>
+        {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
       </Select.ListItem>
     );
   },

@@ -10,7 +10,7 @@
 import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
-import { Align, Device, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
+import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -149,19 +149,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.RenameItem />
           {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
           {showConfigure && (
-            <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+            <PMenu.Item itemKey="configure">
+              <Icon.Hardware />
               Configure
             </PMenu.Item>
           )}
           {showChangeIdentifier && (
-            <PMenu.Item itemKey="changeIdentifier" startIcon={<Icon.Hardware />}>
+            <PMenu.Item itemKey="changeIdentifier">
+              <Icon.Hardware />
               Change Identifier
             </PMenu.Item>
           )}
         </>
       )}
       <PMenu.Divider />
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       {customMenuItems != null && (
@@ -190,21 +193,20 @@ const Item = ({
     ?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
-      <Align.Space x grow align="center" className={CSS.B("name-location")}>
+      <Flex.Box x grow align="center" className={CSS.B("name-location")}>
         {icon(resource)}
         <Text.MaybeEditable
           id={itemKey}
-          level="p"
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}
           onChange={onRename}
           noWrap
         />
-        <Text.Text level="small" shade={9} className={CSS.B("location")} noWrap>
+        <Text.Text level="small" color={9} className={CSS.B("location")} noWrap>
           {resource.data?.location as string}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
       <Device.StatusIndicator status={devStatus} />
     </Tree.Item>
   );

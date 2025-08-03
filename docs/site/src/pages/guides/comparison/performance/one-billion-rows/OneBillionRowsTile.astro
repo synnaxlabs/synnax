@@ -3,24 +3,24 @@ import { Align, Text } from "@synnaxlabs/pluto";
 import { Logo } from "@synnaxlabs/media";
 ---
 
-<Align.Space
+<Flex.Box
     el="a"
     href="/guides/comparison/one-billion-rows"
     className="one-billion-rows"
     direction="x"
-    justify="spaceBetween"
+    justify="between"
     size={8}
 >
-    <Align.Space direction="y">
-        <Text.Text level="h4" shade={10}>One Billion Rows</Text.Text>
-        <Text.Text level="small" shade={9} weight={500} style={{ maxWidth: 300 }}
+    <Flex.Box direction="y">
+        <Text.Text level="h4" color={10}>One Billion Rows</Text.Text>
+        <Text.Text level="small" color={9} weight={500} style={{ maxWidth: 300 }}
             >See how Synnax stacks up against InfluxDB and Timescale in a head to head
             ingestion and retrieval of 1 billion rows.
         </Text.Text>
         <Text.Text level="h1">1,000,000,000</Text.Text>
-    </Align.Space>
+    </Flex.Box>
 
-    <Align.Space direction="x" align="center" justify="spaceAround" grow>
+    <Flex.Box direction="x" align="center" justify="around" grow>
         <svg
             class="influx"
             xmlns="http://www.w3.org/2000/svg"
@@ -76,8 +76,8 @@ import { Logo } from "@synnaxlabs/media";
             </defs>
         </svg>
         <Logo variant="icon" color="white" />
-    </Align.Space>
-</Align.Space>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .one-billion-rows {

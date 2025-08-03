@@ -20,11 +20,11 @@ export interface SelectProps
 
 export const Select = ({ yDirection = "up", ...rest }: SelectProps): ReactElement => (
   <CoreSelect.Buttons {...rest} keys={direction.DIRECTIONS}>
-    <CoreSelect.ButtonIcon itemKey="x">
+    <CoreSelect.Button itemKey="x">
       <Icon.Arrow.Right />
-    </CoreSelect.ButtonIcon>
-    <CoreSelect.ButtonIcon itemKey="y">
+    </CoreSelect.Button>
+    <CoreSelect.Button itemKey="y">
       {yDirection === "up" ? <Icon.Arrow.Up /> : <Icon.Arrow.Down />}
-    </CoreSelect.ButtonIcon>
+    </CoreSelect.Button>
   </CoreSelect.Buttons>
 );

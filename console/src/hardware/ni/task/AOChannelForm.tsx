@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form, Icon, Select } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";
@@ -30,16 +30,20 @@ interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"
 
 const SelectWaveType = (props: SelectWaveTypeProps) => (
   <Select.Buttons {...props} keys={WAVE_TYPES}>
-    <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
+    <Select.Button itemKey={SINE_WAVE_TYPE}>
+      <Icon.Wave.Sine />
       Sine
     </Select.Button>
-    <Select.Button itemKey={TRIANGLE_WAVE_TYPE} startIcon={<Icon.Wave.Triangle />}>
+    <Select.Button itemKey={TRIANGLE_WAVE_TYPE}>
+      <Icon.Wave.Triangle />
       Triangle
     </Select.Button>
-    <Select.Button itemKey={SQUARE_WAVE_TYPE} startIcon={<Icon.Wave.Square />}>
+    <Select.Button itemKey={SQUARE_WAVE_TYPE}>
+      <Icon.Wave.Square />
       Square
     </Select.Button>
-    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE} startIcon={<Icon.Wave.Sawtooth />}>
+    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE}>
+      <Icon.Wave.Sawtooth />
       Sawtooth
     </Select.Button>
   </Select.Buttons>
@@ -58,8 +62,8 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
     </>
   ),
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
-    <Align.Space y align="center">
-      <Align.Space x grow>
+    <Flex.Box y align="center">
+      <Flex.Box x grow>
         <Form.NumericField
           path={`${path}.frequency`}
           label="Frequency"
@@ -78,11 +82,11 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
           inputProps={{ endContent: "V" }}
           grow
         />
-      </Align.Space>
+      </Flex.Box>
       <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
         {({ value, onChange }) => <SelectWaveType value={value} onChange={onChange} />}
       </Form.Field>
-    </Align.Space>
+    </Flex.Box>
   ),
   [AO_VOLTAGE_CHAN_TYPE]: ({ path }) => (
     <>

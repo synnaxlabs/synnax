@@ -14,14 +14,10 @@
     justify-content: center;
     align-items: center;
     position: relative;
+    cursor: pointer;
 
-    .pluto-input-switch__track {
-        position: relative;
-        display: inline-block;
-        width: 5rem;
-        height: 2.5rem;
-        border-radius: 1rem;
-        &:focus-within {
+    &:focus-within {
+        .pluto-input-switch__track {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l1),
                 0 0 0 3px var(--pluto-primary-z);
@@ -37,19 +33,18 @@
         z-index: 100;
     }
 
-    .pluto-input-switch__slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+    .pluto-input-switch__track {
+        position: relative;
+        display: inline-block;
+        width: 5rem;
+        height: 2.5rem;
+        border-radius: 1.5rem;
         background: var(--pluto-gray-l4);
+        cursor: pointer;
         transition: 0.15s;
-        border-radius: 4rem;
     }
 
-    .pluto-input-switch__slider::before {
+    .pluto-input-switch__track::before {
         position: absolute;
         content: "";
         height: 2rem;
@@ -61,11 +56,11 @@
         border-radius: 50%;
     }
 
-    .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+    .pluto-input-switch__input:checked ~ .pluto-input-switch__track {
         background: var(--pluto-primary-m1);
     }
 
-    .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+    .pluto-input-switch__input:checked ~ .pluto-input-switch__track::before {
         transform: translateX(2.5rem);
         background: var(--pluto-primary-p1);
     }
@@ -74,14 +69,14 @@
         * {
             cursor: not-allowed !important;
         }
-        .pluto-input-switch__slider {
+        .pluto-input-switch__track {
             background: var(--pluto-gray-l3-50);
         }
-        .pluto-input-switch__slider::before {
+        .pluto-input-switch__track::before {
             background: var(--pluto-gray-l6-70);
         }
 
-        .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+        .pluto-input-switch__input:checked ~ .pluto-input-switch__track {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -89,7 +84,7 @@
             );
         }
 
-        .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+        .pluto-input-switch__input:checked ~ .pluto-input-switch__track::before {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),

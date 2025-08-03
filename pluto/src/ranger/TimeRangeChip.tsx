@@ -12,16 +12,16 @@ import "@/ranger/TimeRangeChip.css";
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
-  extends Align.SpaceProps<"div">,
-    Pick<Text.TextProps, "level" | "shade"> {
+  extends Flex.BoxProps<"div">,
+    Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
   labeled?: boolean;
@@ -34,7 +34,7 @@ export interface TimeRangeChipProps
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
-  shade = 9,
+  color = 9,
   showSpan = false,
   labeled = false,
   collapseZero = false,
@@ -52,9 +52,9 @@ export const TimeRangeChip = ({
   const span = startTS.span(endTS);
 
   let startTime = (
-    <Align.Space x align="center" gap="small">
+    <Flex.Box x align="center" gap="small">
       {startTS.isToday && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           Today
         </Text.Text>
       )}
@@ -62,12 +62,12 @@ export const TimeRangeChip = ({
         level={level}
         displayTZ="local"
         format={startFormat}
-        shade={shade}
+        color={color}
         weight={450}
       >
         {startTS}
       </Text.DateTime>
-    </Align.Space>
+    </Flex.Box>
   );
 
   let endTime: ReactElement | null = (
@@ -79,14 +79,14 @@ export const TimeRangeChip = ({
           level={level}
           displayTZ="local"
           format={endFormat}
-          shade={shade}
+          color={color}
           weight={450}
         >
           {endTS}
         </Text.DateTime>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           ({span.truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
@@ -132,7 +132,7 @@ export const TimeRangeChip = ({
       offsetSpan = offsetSpan.mult(-1);
     }
     offset = (
-      <Text.Text level={level} shade={shade} weight={450}>
+      <Text.Text level={level} color={color} weight={450}>
         T{character} {offsetSpan.truncate(TimeSpan.MILLISECOND).toString()}
       </Text.Text>
     );
@@ -144,14 +144,14 @@ export const TimeRangeChip = ({
     if (agoSpan.lessThan(0)) agoSpan = agoSpan.mult(-1);
 
     ago = (
-      <Text.Text level={level} shade={shade} weight={450}>
+      <Text.Text level={level} color={color} weight={450}>
         {agoSpan.truncate(TimeSpan.MINUTE).toString()} ago
       </Text.Text>
     );
   }
 
   return (
-    <Align.Space
+    <Flex.Box
       x
       gap="small"
       className={CSS(CSS.B("time-range-chip"), CSS.M(variant))}
@@ -173,6 +173,6 @@ export const TimeRangeChip = ({
           {ago}
         </>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

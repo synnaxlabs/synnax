@@ -10,8 +10,8 @@
 import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Align } from "@/align";
 import { Color } from "@/color";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -30,20 +30,20 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
+          <Flex.Box y style={{ padding: "2rem" }}>
             <Value.TelemForm path="" />
-          </Align.Space>
+          </Flex.Box>
         );
       case "redline":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
+          <Flex.Box y style={{ padding: "2rem" }}>
             <RedlineForm />
-          </Align.Space>
+          </Flex.Box>
         );
       default:
         return (
-          <Align.Space y grow empty style={{ padding: "2rem" }}>
-            <Align.Space x>
+          <Flex.Box y grow empty style={{ padding: "2rem" }}>
+            <Flex.Box x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
               </Input.Item>
@@ -73,8 +73,8 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                   <Select.Text.Level value={value} onChange={onChange} {...rest} />
                 )}
               </Form.Field>
-            </Align.Space>
-          </Align.Space>
+            </Flex.Box>
+          </Flex.Box>
         );
     }
   }, []);
@@ -94,7 +94,7 @@ const RedlineForm = (): ReactElement => {
   const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
   const s = scale.Scale.scale<number>(0, 1).scale(b);
   return (
-    <Align.Space x grow>
+    <Flex.Box x grow>
       <Form.NumericField
         inputProps={{ size: "small", showDragHandle: false }}
         style={{ width: 60 }}
@@ -147,12 +147,12 @@ const RedlineForm = (): ReactElement => {
         label="Upper"
         path="redline.bounds.upper"
       />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Align.Space x grow style={{ padding: "2rem" }}>
+  <Flex.Box x grow style={{ padding: "2rem" }}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
@@ -167,9 +167,9 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
         <Select.Text.Weight value={value} onChange={onChange} {...rest} />
       )}
     </Form.Field>
-    <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
+    <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
       {({ value, onChange, variant: ___, ...rest }) => (
-        <Align.Select value={value} onChange={onChange} {...rest} />
+        <Flex.SelectAlignment value={value} onChange={onChange} {...rest} />
       )}
     </Form.Field>
     <Form.Field<color.Crude>
@@ -180,7 +180,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     >
       {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
     </Form.Field>
-  </Align.Space>
+  </Flex.Box>
 );
 
 export const VARIANT_DATA: Select.SimplyEntry<Variant>[] = [

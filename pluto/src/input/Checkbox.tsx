@@ -12,10 +12,10 @@ import "@/input/Checkbox.css";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type BaseProps } from "@/input/types";
+import { type InputProps } from "@/input/types";
 import { preventDefault, stopPropagation } from "@/util/event";
 
-export interface CheckboxProps extends Omit<BaseProps<boolean>, "placeholder"> {}
+export interface CheckboxProps extends InputProps<boolean> {}
 
 const CLS = "input-checkbox";
 
@@ -38,25 +38,18 @@ export const Checkbox = ({
   size = "medium",
   variant,
   ...rest
-}: CheckboxProps): ReactElement => {
-  if (variant === "preview") disabled = true;
-  return (
-    <div
-      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
-    >
-      <label className={CSS(CSS.BE(CLS, "label"), className)}>
-        <input
-          className={CSS.BE(CLS, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onMouseDown={preventDefault}
-          onChange={(e) => onChange(e.target.checked)}
-          disabled={disabled}
-          {...rest}
-        />
-        <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
-      </label>
-    </div>
-  );
-};
+}: CheckboxProps): ReactElement => (
+  <label className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.height(size), className)}>
+    <input
+      className={CSS.BE(CLS, "input")}
+      type="checkbox"
+      ref={ref}
+      checked={value}
+      onMouseDown={preventDefault}
+      onChange={(e) => onChange?.(e.target.checked)}
+      disabled={disabled}
+      {...rest}
+    />
+    <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
+  </label>
+);

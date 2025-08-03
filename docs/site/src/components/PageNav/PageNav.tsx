@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Align, Component, Dialog, Icon, List, Text } from "@synnaxlabs/pluto";
+import { Component, Dialog, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
@@ -45,9 +45,7 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
       href={item.href}
       useMargin
     >
-      <Text.Text level="p" weight={450}>
-        {item.name}
-      </Text.Text>
+      <Text.Text weight={450}>{item.name}</Text.Text>
     </Tree.Item>
   );
 };
@@ -132,14 +130,14 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
         <Icon.Menu />
       </Dialog.Trigger>
       <Dialog.Dialog>
-        <Align.Space
-          borderShade={5}
+        <Flex.Box
+          borderColor={5}
           background={0}
           bordered
           rounded
           className="page-nav-mobile-content"
         >
-          <Align.Space
+          <Flex.Box
             style={{
               width: "100%",
               padding: "2rem 2rem",
@@ -148,9 +146,9 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
             direction="x"
           >
             <Logo variant="title" />
-          </Align.Space>
+          </Flex.Box>
           {tree}
-        </Align.Space>
+        </Flex.Box>
       </Dialog.Dialog>
     </Dialog.Frame>
   );

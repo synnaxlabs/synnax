@@ -17,7 +17,7 @@ import {
   workspace,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -92,20 +92,15 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
-    <Align.Space
-      x
-      gap="tiny"
-      grow
-      style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
-    >
+    <Flex.Box x gap="tiny" grow style={{ paddingRight: "1rem", paddingBottom: "1rem" }}>
       <Nav.Left />
-      <Align.Space gap="tiny" grow style={{ width: 0 }}>
-        <Align.Space x gap="tiny" grow style={{ height: 0 }}>
+      <Flex.Box gap="tiny" grow style={{ width: 0 }}>
+        <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
           <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
           <Mosaic />
-        </Align.Space>
+        </Flex.Box>
         <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   </>
 );

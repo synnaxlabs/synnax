@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
+  Flex,
   Form,
   Icon,
   List,
@@ -81,13 +81,15 @@ const ContextMenu = <C extends Channel>({
       {!isSnapshot && (
         <>
           {canDuplicate && (
-            <PMenu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+            <PMenu.Item itemKey="duplicate">
+              <Icon.Copy />
               Duplicate
             </PMenu.Item>
           )}
           {canRemove && (
             <>
-              <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
+              <PMenu.Item itemKey="remove">
+                <Icon.Close />
                 Remove
               </PMenu.Item>
             </>
@@ -95,19 +97,22 @@ const ContextMenu = <C extends Channel>({
           {(canDuplicate || canRemove) && <PMenu.Divider />}
           {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
-            <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+            <PMenu.Item itemKey="disable">
+              <Icon.Disable />
               Disable
             </PMenu.Item>
           )}
           {canEnable && (
-            <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+            <PMenu.Item itemKey="enable">
+              <Icon.Enable />
               Enable
             </PMenu.Item>
           )}
           {(canDisable || canEnable) && <PMenu.Divider />}
           {canTare && (
             <>
-              <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+              <PMenu.Item itemKey="tare">
+                <Icon.Tare />
                 Tare
               </PMenu.Item>
               <PMenu.Divider />
@@ -128,7 +133,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {
 
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
-    Pick<Align.SpaceProps, "onDragOver" | "onDrop" | "grow"> {
+    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
@@ -154,7 +159,7 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("channel-list")} empty grow={grow}>
+    <Flex.Box className={CSS.B("channel-list")} empty grow={grow}>
       {header}
       <PMenu.ContextMenu
         {...menuProps}
@@ -182,6 +187,6 @@ export const ChannelList = <C extends Channel>({
           </List.Items>
         </Select.Frame>
       </PMenu.ContextMenu>
-    </Align.Space>
+    </Flex.Box>
   );
 };

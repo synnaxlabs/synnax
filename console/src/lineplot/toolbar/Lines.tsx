@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Channel,
   Color,
+  Flex,
   Input,
   List,
   Status,
@@ -39,23 +39,22 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
-    <Align.Center x gap="small">
+    <Flex.Box x gap="small" center>
       <Status.Text variant="disabled" hideIcon>
         No lines plotted. Use the
       </Status.Text>
-      <Text.Link
+      <Text.Text
         onClick={(e) => {
           e.stopPropagation();
           onSelect?.("data");
         }}
-        level="p"
       >
         data
-      </Text.Link>
+      </Text.Text>
       <Status.Text variant="disabled" hideIcon>
         tab to select channels on an axis.
       </Status.Text>
-    </Align.Center>
+    </Flex.Box>
   );
 
   return (
@@ -105,13 +104,12 @@ const Line = ({
   } = typedLineKeyFromString(line.key);
 
   return (
-    <Align.Space style={{ padding: "0.5rem", width: "100%" }} x>
+    <Flex.Box style={{ padding: "0.5rem" }} x full="x">
       <Channel.AliasInput
         channelKey={yChannel}
         style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}
-        variant="shadow"
       />
       <Input.Numeric
         value={line.strokeWidth}
@@ -119,17 +117,15 @@ const Line = ({
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
         style={{ width: 140, marginRight: "2rem" }}
-        variant="shadow"
       />
       <Input.Numeric
         style={{ width: 100, marginRight: "2rem" }}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
-        variant="shadow"
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 51 }}
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
-    </Align.Space>
+    </Flex.Box>
   );
 };

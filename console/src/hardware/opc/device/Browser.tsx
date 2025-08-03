@@ -11,9 +11,9 @@ import "@/hardware/opc/device/Browser.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Component,
+  Flex,
   Haul,
   Header,
   Icon,
@@ -75,9 +75,10 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
     <Tree.Item {...props} hasChildren draggable onDragStart={handleDragStart}>
-      <Text.WithIcon level="p" shade={10} gap="small" startIcon={icon}>
+      <Text.Text color={10} gap="small">
+        {icon}
         {node.name}
-      </Text.WithIcon>
+      </Text.Text>
     </Tree.Item>
   );
 });
@@ -163,13 +164,13 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
-    <Align.Center>
+    <Flex.Box>
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
-    </Align.Center>
+    </Flex.Box>
   ) : expand.isError ? (
-    <Status.Text.Centered level="p" shade={10} variant="error">
+    <Status.Text center color={10} variant="error">
       Error loading nodes. {expand.error.message}
-    </Status.Text.Centered>
+    </Status.Text>
   ) : (
     <Tree.Tree<string, ScannedNode>
       {...treeProps}
@@ -180,23 +181,23 @@ export const Browser = ({ device }: BrowserProps) => {
     </Tree.Tree>
   );
   return (
-    <Align.Space empty className={CSS.B("opc-browser")}>
-      <Header.Header level="p">
-        <Header.Title weight={500} shade={10}>
+    <Flex.Box empty className={CSS.B("opc-browser")}>
+      <Header.Header>
+        <Header.Title weight={500} color={10}>
           Browser
         </Header.Title>
         <Header.Actions>
-          <Button.Icon
+          <Button.Button
             onClick={refresh}
             disabled={scanTask == null || initialLoading}
             sharp
-            shade={2}
+            contrast={2}
           >
             <Icon.Refresh />
-          </Button.Icon>
+          </Button.Button>
         </Header.Actions>
       </Header.Header>
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };

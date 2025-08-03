@@ -16,10 +16,12 @@ import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { Text } from "@/text";
 
 export interface TagProps
-  extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
+  extends Optional<
+    Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
+    "level"
+  > {
   icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;
@@ -41,11 +43,11 @@ export const Tag = ({
   if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
-      <Button.Icon
+      <Button.Button
         aria-label="close"
-        size="small"
+        size={size === "tiny" ? "small" : size}
+        variant="text"
         className={CSS.BE("tag", "close")}
-        shade={1}
         sharp
         onClick={(e) => {
           e.stopPropagation();
@@ -53,27 +55,26 @@ export const Tag = ({
         }}
       >
         <Icon.Close />
-      </Button.Icon>
+      </Button.Button>
     );
   return (
-    // @ts-expect-error - TODO: Generic Elements are weird
-    <Text.WithIcon
-      startIcon={icon}
-      endIcon={closeIcon}
+    <Button.Button
+      el="div"
       className={CSS(
         className,
         CSS.B("tag"),
-        CSS.size(size),
         onClose != null && CSS.BM("tag", "closeable"),
       )}
-      level={Text.COMPONENT_SIZE_LEVELS[size]}
+      size={size}
       noWrap
       align="center"
       gap="small"
       onDragStart={onDragStart}
       {...rest}
     >
+      {icon}
+      {closeIcon}
       {children}
-    </Text.WithIcon>
+    </Button.Button>
   );
 };

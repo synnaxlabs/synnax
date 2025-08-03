@@ -14,24 +14,35 @@
     justify-content: center;
     align-items: center;
     position: relative;
+    cursor: pointer;
+
+    &:focus-within {
+        .pluto-input-checkbox__checkmark {
+            box-shadow:
+                0 0 0 2px var(--pluto-gray-l0),
+                0 0 0 3px var(--pluto-primary-z);
+        }
+    }
+
     .pluto-input-checkbox__input {
         position: relative;
         cursor: pointer;
         opacity: 0;
-        height: 4rem;
-        width: 4rem;
+        height: 8rem;
+        width: 8rem;
     }
 
     .pluto-input-checkbox__checkmark {
         position: absolute;
-        top: 1rem;
-        left: 1rem;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         display: inline-block;
-        width: 2.5rem;
-        height: 2.5rem;
+        width: 3rem;
+        height: 3rem;
         background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
-        border-radius: 0.3rem;
+        border-radius: 0.5rem;
         transition: all 0.15s ease;
         cursor: pointer;
     }
@@ -40,11 +51,11 @@
         content: "";
         position: absolute;
         display: none;
-        left: 5px;
-        top: 2px;
+        left: 1rem;
+        top: 0.5rem;
         width: 0.5rem;
         height: 1rem;
-        border: solid var(--pluto-gray-l1);
+        border: solid var(--pluto-text-on-primary);
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
     }
@@ -58,39 +69,82 @@
         display: block;
     }
 
-    &.pluto--small {
+    &.pluto-height--tiny {
+        .pluto-input-checkbox__input {
+            height: 7rem;
+            width: 7rem;
+        }
+        .pluto-input-checkbox__checkmark {
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 0.25rem;
+        }
+        .pluto-input-checkbox__checkmark::after {
+            left: 0.4rem;
+            top: 0.2rem;
+            width: 0.25rem;
+            height: 0.5rem;
+            border-width: 0 1.5px 1.5px 0;
+        }
+    }
+
+    &.pluto-height--small {
+        .pluto-input-checkbox__input {
+            height: 7.5rem;
+            width: 7.5rem;
+        }
         .pluto-input-checkbox__checkmark {
             width: 2rem;
             height: 2rem;
             border-radius: 0.25rem;
         }
-
         .pluto-input-checkbox__checkmark::after {
-            left: 3.5px;
-            top: 1px;
-            width: 0.4rem;
-            height: 0.8rem;
+            left: 0.5rem;
+            top: 0.25rem;
+            width: 0.5rem;
+            height: 0.75rem;
             border-width: 0 2px 2px 0;
         }
     }
 
-    &.pluto--large {
-        .pluto-input-checkbox__checkmark {
-            width: 2.4rem;
-            height: 2.4rem;
-            border-radius: 0.35rem;
+    &.pluto-height--large {
+        .pluto-input-checkbox__input {
+            height: 8.5rem;
+            width: 8.5rem;
         }
-
+        .pluto-input-checkbox__checkmark {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 0.5rem;
+        }
         .pluto-input-checkbox__checkmark::after {
-            left: 0.7rem;
-            top: 0.25rem;
-            width: 0.6rem;
-            height: 1.2rem;
+            left: 1.1rem;
+            top: 0.5rem;
+            width: 0.75rem;
+            height: 1.5rem;
+            border-width: 0 2.5px 2.5px 0;
+        }
+    }
+
+    &.pluto-height--huge {
+        .pluto-input-checkbox__input {
+            height: 9rem;
+            width: 9rem;
+        }
+        .pluto-input-checkbox__checkmark {
+            width: 4rem;
+            height: 4rem;
+            border-radius: 0.5rem;
+        }
+        .pluto-input-checkbox__checkmark::after {
+            left: 1.25rem;
+            top: 0.3rem;
+            width: 1rem;
+            height: 2rem;
             border-width: 0 3px 3px 0;
         }
     }
 
-    /* Disabled state */
     &.pluto--disabled {
         * {
             cursor: not-allowed !important;
@@ -118,7 +172,7 @@
             border-color: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),
-                var(--pluto-gray-l1)
+                var(--pluto-text-on-primary)
             );
         }
     }

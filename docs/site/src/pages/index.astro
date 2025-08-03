@@ -5,23 +5,23 @@ import { Align, Text, Icon } from "@synnaxlabs/pluto";
 ---
 
 <Root frontmatter={{ title: "Docs Home" }}>
-    <Align.Space className="hero-parent" direction="y" align="center">
-        <Align.Space className="hero" direction="x" size={10}>
-            <Align.Space direction="y" grow size={6}>
-                <Align.Space direction="y" align="start" size="large">
+    <Flex.Box className="hero-parent" direction="y" align="center">
+        <Flex.Box className="hero" direction="x" size={10}>
+            <Flex.Box direction="y" grow size={6}>
+                <Flex.Box direction="y" align="start" size="large">
                     <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
                     <Text.Text
                         level="h4"
-                        shade={9}
+                        color={9}
                         style={{ maxWidth: "500px" }}
                         weight={350}
                     >
                         Guides and references to instrument and operate hardware with
                         Synnax.
                     </Text.Text>
-                </Align.Space>
-                <Align.Space direction="y" size={4} grow>
-                    <Align.Space
+                </Flex.Box>
+                <Flex.Box direction="y" size={4} grow>
+                    <Flex.Box
                         className="chip guide"
                         el="a"
                         href="/guides/"
@@ -32,19 +32,19 @@ import { Align, Text, Icon } from "@synnaxlabs/pluto";
                         align="start"
                         justify="center"
                     >
-                        <Align.Space size="small">
-                            <Text.WithIcon level="h4" size="medium" shade={10}>
+                        <Flex.Box size="small">
+                            <Text.Text level="h4" size="medium" color={10}>
                                 <Icon.Guide slot="startIcon" />
-                                Guides</Text.WithIcon
+                                Guides</Text.Text
                             >
-                            <Text.Text level="small" shade={8} weight={400}>
+                            <Text.Text level="small" color={8} weight={400}>
                                 Thorough walkthroughs to teach every aspect of the
                                 Synnax platform.
                             </Text.Text>
                             <Icon.OpenExternal />
-                        </Align.Space>
-                    </Align.Space>
-                    <Align.Space
+                        </Flex.Box>
+                    </Flex.Box>
+                    <Flex.Box
                         grow
                         el="a"
                         href="/reference/"
@@ -54,23 +54,23 @@ import { Align, Text, Icon } from "@synnaxlabs/pluto";
                         justify="center"
                         className="chip reference"
                     >
-                        <Align.Space size="small">
-                            <Text.WithIcon level="h4" shade={10} size="medium">
+                        <Flex.Box size="small">
+                            <Text.Text level="h4" color={10} size="medium">
                                 <Icon.Reference slot="startIcon" />
-                                Reference</Text.WithIcon
+                                Reference</Text.Text
                             >
-                            <Text.Text level="small" shade={8} weight={400}>
+                            <Text.Text level="small" color={8} weight={400}>
                                 In-depth documentation on Synnax concepts and
                                 components.
                             </Text.Text>
                             <Icon.OpenExternal />
-                        </Align.Space>
-                    </Align.Space>
-                </Align.Space>
-            </Align.Space>
-            <Align.Space direction="y" grow size={10}>
-                <Align.Space borderShade={3} rounded={1}>
-                    <Align.Space
+                        </Flex.Box>
+                    </Flex.Box>
+                </Flex.Box>
+            </Flex.Box>
+            <Flex.Box direction="y" grow size={10}>
+                <Flex.Box borderColor={3} rounded={1}>
+                    <Flex.Box
                         direction="y"
                         className="get"
                         el="a"
@@ -80,16 +80,16 @@ import { Align, Text, Icon } from "@synnaxlabs/pluto";
                         bordered
                     >
                         <Logo variant="icon" color="white" />
-                        <Text.Text level="h3" shade={10}>Get Started</Text.Text>
+                        <Text.Text level="h3" color={10}>Get Started</Text.Text>
                         <Text.Text level="h5" shade={7}>
                             Start acquiring data in minutes
                         </Text.Text>
                         <Icon.OpenExternal />
-                    </Align.Space>
-                </Align.Space>
-            </Align.Space>
-        </Align.Space>
-    </Align.Space>
+                    </Flex.Box>
+                </Flex.Box>
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
 
     <style is:global>
         section {

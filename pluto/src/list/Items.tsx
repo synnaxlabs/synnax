@@ -12,13 +12,13 @@ import "@/list/Items.css";
 import { type record } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 
 export interface ItemsProps<K extends record.Key = record.Key>
-  extends Omit<Align.SpaceProps, "children" | "ref"> {
+  extends Omit<Flex.BoxProps, "children" | "ref"> {
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
   displayItems?: number;
@@ -55,7 +55,7 @@ const BaseItems = <
   if (itemHeight != null && isFinite(displayItems) && visibleData.length > 0)
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
-    <Align.Space
+    <Flex.Box
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
       style={{ height: minHeight, ...style }}
@@ -63,7 +63,7 @@ const BaseItems = <
       {...rest}
     >
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

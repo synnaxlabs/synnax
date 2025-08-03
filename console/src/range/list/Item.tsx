@@ -2,7 +2,7 @@ import "@/range/list/Item.css";
 
 import { type ranger } from "@synnaxlabs/client";
 import {
-  Align,
+  Flex,
   Form,
   Input,
   List,
@@ -68,7 +68,7 @@ export const Item = ({
       className={CSS(CSS.BE("range", "list-item"))}
       allowSelect
       onSelect={handleSelect}
-      justify="spaceBetween"
+      justify="between"
       onContextMenu={menuProps.open}
       selected={selected}
       rounded={!selected}
@@ -81,13 +81,13 @@ export const Item = ({
           onClick={stopPropagation}
           {...menuProps}
         />
-        <Align.Space x empty>
+        <Flex.Box x empty>
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
           />
-          <Align.Space x align="center" gap="tiny">
+          <Flex.Box x align="center" gap="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
               {({ value, onChange }) => (
                 <Ranger.SelectStage
@@ -96,7 +96,7 @@ export const Item = ({
                   variant="floating"
                   location="bottom"
                   onClick={stopPropagation}
-                  triggerProps={{ iconOnly: true, variant: "text" }}
+                  triggerProps={{ variant: "text" }}
                 />
               )}
             </Form.Field>
@@ -106,13 +106,13 @@ export const Item = ({
               showParent={showParent}
               noWrap
             />
-          </Align.Space>
-        </Align.Space>
-        <Align.Space x align="center">
+          </Flex.Box>
+        </Flex.Box>
+        <Flex.Box x align="center">
           <Tag.Tags>
             {showLabels &&
               labels?.map(({ key, name, color }) => (
-                <Tag.Tag key={key} color={color} size="small" shade={9}>
+                <Tag.Tag key={key} color={color} size="small">
                   {name}
                 </Tag.Tag>
               ))}
@@ -121,7 +121,7 @@ export const Item = ({
             <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
           )}
           {showFavorite && <FavoriteButton range={item} />}
-        </Align.Space>
+        </Flex.Box>
       </Form.Form>
     </List.Item>
   );

@@ -30,7 +30,7 @@ export interface DragButtonExtraProps {
 
 export interface DragButtonProps
   extends Omit<
-      Button.IconProps,
+      Button.ButtonProps,
       | "direction"
       | "onChange"
       | "onDragStart"
@@ -146,9 +146,12 @@ export const DragButton = ({
   }, [onChange, resetValue]);
 
   return (
-    <Button.Icon
+    <Button.Button
       ref={elRef}
-      variant="outlined"
+      variant="text"
+      style={{
+        borderLeft: "var(--pluto-border-l5)",
+      }}
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}
@@ -156,6 +159,6 @@ export const DragButton = ({
       {...rest}
     >
       <Icon.Drag />
-    </Button.Icon>
+    </Button.Button>
   );
 };

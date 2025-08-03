@@ -12,9 +12,9 @@ import "@/color/GradientPicker.css";
 import { box, clamp, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
-import { Align } from "@/align";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
@@ -155,7 +155,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
   });
 
   return (
-    <Align.Space
+    <Flex.Box
       ref={stopElRef}
       className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
       y
@@ -166,7 +166,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       empty
       onClick={(e) => e.stopPropagation()}
     >
-      <Align.Space
+      <Flex.Box
         y
         className={CSS.BE("gradient-picker", "drag-region")}
         draggable
@@ -181,7 +181,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
             onChange({ ...stop, position: scale.reverse().pos(Number(v)) });
           }}
         />
-      </Align.Space>
+      </Flex.Box>
       <Swatch
         size="small"
         draggable
@@ -191,6 +191,6 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         visible={visible}
         onChange={(v: color.Color) => onChange({ ...stop, color: v })}
       />
-    </Align.Space>
+    </Flex.Box>
   );
 };

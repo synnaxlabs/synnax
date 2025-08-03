@@ -9,110 +9,34 @@
 
 import "@/breadcrumb/Breadcrumb.css";
 
-import { array, caseconv, type Optional } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { Children, Fragment, type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
-export interface Segment {
-  label: string;
-  shade?: Text.Shade;
-  icon?: string | Icon.ReactElement;
-  weight?: Text.Weight;
-  level?: Text.Level;
-  href?: string;
-}
-
-export type Segments = string | Segment | (string | Segment)[];
-
-/**
- * Props for the Breadcrumb component.
- *
- * @template E - The type of the space element.
- * @template L - The text level.
- */
-export type BreadcrumbProps<
-  E extends Align.ElementType = "div",
-  L extends Text.Level = Text.Level,
-> = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
-  /** Icon to display in the breadcrumb. */
-  icon?: string | Icon.ReactElement;
-  /** The breadcrumb items, either a single string or an array of strings. */
-  children: Segments;
-  url?: string | string[];
-  /** Separator to use between breadcrumb items. Defaults to ".". */
-  separator?: string;
-  /** Whether to hide the first breadcrumb item. */
-  hideFirst?: boolean;
+export type BreadcrumbProps<E extends Generic.ElementType = "p"> = Omit<
+  Text.TextProps<E>,
+  "children"
+> & {
+  children: ReactNode;
 };
 
-const normalizeSegments = (
-  segments: string | Segment | (string | Segment)[],
-  separator: string,
-): Segment[] => {
-  const arr = array
-    .toArray(segments)
-    .map((segment) => {
-      if (typeof segment === "string")
-        return segment.split(separator).map((label) => ({ label }));
-      return segment;
-    })
-    .flat();
-  return arr;
-};
+const Separator = () => (
+  <Icon.Caret.Right className={CSS.BE("breadcrumb", "separator")} />
+);
 
-interface GetContentArgs {
-  segments: Segments;
-  shade: Text.Shade;
-  level: Text.Level;
-  weight?: Text.Weight;
-  separator: string;
-  transform?: (segment: Segment, index: number) => Segment;
-}
+export type SegmentProps<E extends Generic.ElementType = "span"> = Text.TextProps<E>;
 
-const getContent = ({
-  segments,
-  shade,
-  level,
-  weight,
-  separator,
-  transform,
-}: GetContentArgs): (ReactElement | string)[] => {
-  const normalized = normalizeSegments(segments, separator);
-  let content: Segment[] = normalized;
-  if (transform != null) content = content.map(transform);
-  return content
-    .map(({ label, icon, href, ...overrides }, index) => {
-      const base: ReactElement[] = [
-        <Icon.Caret.Right
-          key={`${label}-${index}`}
-          style={{
-            transform: "scale(0.8) translateY(0.5px)",
-            color: CSS.shade(shade),
-          }}
-        />,
-      ];
-      if (icon != null) {
-        const iconComponent = Icon.resolve(icon);
-        if (iconComponent != null) base.push(iconComponent);
-      }
-      const baseProps: Omit<Text.TextProps, "ref"> = {
-        weight,
-        shade,
-        level,
-        style: { marginLeft: icon != null ? "0.5rem" : "0" },
-        children: label,
-        ...overrides,
-      };
-      if (href != null) base.push(<Text.Link key={label} {...baseProps} href={href} />);
-      else base.push(<Text.Text key={label} {...baseProps} />);
-      return base;
-    })
-    .flat();
-};
+export const Segment = <E extends Generic.ElementType = "span">({
+  children,
+  ...rest
+}: SegmentProps<E>): ReactElement => (
+  <Text.Text className={CSS.BE("breadcrumb", "segment")} {...rest} defaultEl="span">
+    {children}
+  </Text.Text>
+);
 
 /**
  * Breadcrumb component for displaying a breadcrumb navigation.
@@ -123,79 +47,38 @@ const getContent = ({
  * @param props - The props for the Breadcrumb component.
  * @returns The Breadcrumb component.
  */
-export const Breadcrumb = <
-  E extends Align.ElementType = "div",
-  L extends Text.Level = Text.Level,
->({
-  children: segments,
-  icon,
-  shade = 9,
-  weight,
-  gap = 0.5,
-  url,
-  level = "p",
-  separator = ".",
-  className,
-  hideFirst = true,
-  ...rest
-}: BreadcrumbProps<E, L>): ReactElement => {
-  if (url != null) segments = url;
-  const content = getContent({ segments, separator, shade, level, weight });
-  if (hideFirst) content.shift();
-  return (
-    <Text.WithIcon
-      className={CSS(className, CSS.B("breadcrumb"), hideFirst && CSS.M("hide-first"))}
-      level={level}
-      shade={shade}
-      weight={weight}
-      gap={gap}
-      x
-      {...rest}
-    >
-      {Icon.resolve(icon)}
-      {...content}
-    </Text.WithIcon>
-  );
-};
+export const Breadcrumb = ({ children, ...rest }: BreadcrumbProps): ReactElement => (
+  <Text.Text
+    className={CSS(CSS.B("breadcrumb"))}
+    x
+    align="center"
+    gap="small"
+    {...rest}
+  >
+    {Children.map(children, (child, i) => {
+      if (child == null || typeof child === "boolean") return null;
+      return (
+        <Fragment key={i}>
+          {i > 0 && <Separator />}
+          {typeof child === "string" ? <Segment>{child}</Segment> : child}
+        </Fragment>
+      );
+    })}
+  </Text.Text>
+);
 
-export interface URLProps extends Omit<BreadcrumbProps, "children" | "url"> {
-  url: string;
+interface MapURLSegmentsProps {
+  href: string;
+  segment: string;
+  index: number;
 }
 
-export const URL = ({
-  url,
-  className,
-  level = "p",
-  separator = "/",
-  weight,
-  shade = 9,
-}: URLProps) => {
-  const content = getContent({
-    segments: url,
-    separator,
-    shade,
-    level,
-    weight,
-    transform: (el, idx) => ({
-      ...el,
-      label: el.label
-        .split("-")
-        .map((el) => caseconv.capitalize(el))
-        .join(" "),
-      href: `/${url
-        .split(separator)
-        .slice(0, idx + 1)
-        .join("/")}`,
-    }),
-  });
-  return (
-    <Align.Space
-      className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
-      x
-      gap="small"
-      align="center"
-    >
-      {content}
-    </Align.Space>
+export const mapURLSegments = (
+  url: string,
+  callback: (props: MapURLSegmentsProps) => ReactElement,
+) => {
+  const segments = url.split("/");
+  return segments.map((segment, i) =>
+    callback({ href: segments.slice(0, i + 1).join("/"), segment, index: i }),
   );
 };

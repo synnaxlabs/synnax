@@ -6,39 +6,29 @@ const { headings } = Astro.props;
 ---
 
 <Root frontmatter={{ title: "Releases" }}>
-    <Align.Space direction="y" className="releases" el="article" grow>
-        <Align.Space
-            direction="x"
-            className="header"
-            justify="spaceBetween"
-            align="center"
-        >
-            <Align.Space direction="y" justify="center" size="large">
+    <Flex.Box direction="y" className="releases" el="article" grow>
+        <Flex.Box direction="x" className="header" justify="between" align="center">
+            <Flex.Box direction="y" justify="center" size="large">
                 <Text.Text level="h1">Releases</Text.Text>
-                <Align.Space direction="y" size="small">
-                    <Text.Text level="p" shade={8}>
+                <Flex.Box direction="y" size="small">
+                    <Text.Text color={8}>
                         Latest updates and improvements to Synnax.
                     </Text.Text>
-                    <Align.Space direction="x" align="center" wrap>
-                        <Text.Link
-                            level="p"
-                            href="https://www.linkedin.com/company/synnaxlabs/"
-                        >
+                    <Flex.Box direction="x" align="center" wrap>
+                        <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
                             Follow us on LinkedIn
-                        </Text.Link>
+                        </Text.Text>
                         <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
-                        <Text.Link
-                            level="p"
-                            href="https://github.com/synnaxlabs/synnax/releases"
-                            >View releases on GitHub</Text.Link
+                        <Text.Text href="https://github.com/synnaxlabs/synnax/releases"
+                            >View releases on GitHub</Text.Text
                         >
-                    </Align.Space>
-                </Align.Space>
-            </Align.Space>
+                    </Flex.Box>
+                </Flex.Box>
+            </Flex.Box>
             <Text.Text level="h1" className="latest version full" transition:persist />
-        </Align.Space>
+        </Flex.Box>
         <slot />
-    </Align.Space>
+    </Flex.Box>
     <ReleaseList headings={headings} url={Astro.url} />
 </Root>
 

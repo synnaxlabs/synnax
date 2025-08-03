@@ -11,7 +11,7 @@ import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
 
-import { type Align } from "@/align";
+import { type Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -21,7 +21,7 @@ import { type ItemRenderProps } from "@/tree/Tree";
 
 export type ItemProps<
   K extends record.Key,
-  E extends Align.ElementType = "div",
+  E extends Button.ElementType = "div",
 > = ItemRenderProps<K> &
   Select.ListItemProps<K, E> & {
     loading?: boolean;
@@ -29,14 +29,14 @@ export type ItemProps<
     offsetMultiplier?: number;
   };
 
-export const Item = <K extends record.Key, E extends Align.ElementType = "div">({
+export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   depth,
   hasChildren,
   expanded,
   children,
   style,
   className,
-  loading = false,
+  loading,
   useMargin = false,
   offsetMultiplier = 2.5,
   ...rest

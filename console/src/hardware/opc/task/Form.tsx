@@ -11,7 +11,7 @@ import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
+  Flex,
   Form as PForm,
   Haul,
   Header as PHeader,
@@ -57,47 +57,41 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <Select.ListItem {...rest} justify="spaceBetween" align="center" rightAligned>
-      <Align.Space direction="y" gap="small">
-        <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
-        <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="small"
-          weight={350}
-          shade={9}
-          color={opcNodeColor}
-          gap="small"
-        >
+    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
+      <Flex.Box direction="y" gap="small">
+        <ChannelName weight={500} color={10} channel={channel} id={id} />
+        <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
+          <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
-        </Text.WithIcon>
-      </Align.Space>
-      <Align.Space direction="x" align="center">
+        </Text.Text>
+      </Flex.Box>
+      <Flex.Box direction="x" align="center">
         {children({ path, snapshot: isSnapshot })}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };
 
 const Header = () => (
-  <PHeader.Header level="p" style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
-    <PHeader.Title weight={500} shade={10}>
+  <PHeader.Header style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
+    <PHeader.Title weight={500} color={10} level="p">
       Channels
     </PHeader.Title>
   </PHeader.Header>
 );
 
 const EmptyContent = () => (
-  <Align.Center>
-    <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+  <Flex.Box>
+    <Text.Text color={6} style={{ maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.
     </Text.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 const CHANNELS_PATH = "config.channels";

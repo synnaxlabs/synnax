@@ -16,8 +16,8 @@ import {
   task,
 } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   Header,
   Icon,
   List,
@@ -81,9 +81,10 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       {...props}
       onSelect={handleSelect}
     >
-      <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={11}>
+      <Text.Text weight={450} color={11}>
+        {svc.icon}
         {name}
-      </Text.WithIcon>
+      </Text.Text>
     </List.Item>
   );
 };
@@ -91,7 +92,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
 const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
-  <Text.Text level="p" weight={400} shade={10}>
+  <Text.Text level="p" weight={400} color={10}>
     No Snapshots.
   </Text.Text>
 );
@@ -106,15 +107,15 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
     filter: (item) => item.data?.snapshot === true,
   });
   return (
-    <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5}>
-        <Header.Title shade={11} weight={450}>
+    <Flex.Box y>
+      <Header.Header level="h4" bordered={false} borderColor={5}>
+        <Header.Title color={11} weight={450}>
           Snapshots
         </Header.Title>
       </Header.Header>
       <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

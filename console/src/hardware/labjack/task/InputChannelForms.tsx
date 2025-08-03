@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form as PForm, Select } from "@synnaxlabs/pluto";
 import { deep, type Optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
@@ -76,10 +76,10 @@ const SelectScaleTypeField = PForm.buildSelectField<
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
-    <Align.Space x>
+    <Flex.Box x>
       <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
-    </Align.Space>
+    </Flex.Box>
   ),
   [NO_SCALE_TYPE]: () => null,
 };
@@ -183,11 +183,11 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ThermocoupleTypeField path={path} grow />
         <TemperatureUnitsField path={path} grow />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <PForm.NumericField
           fieldKey="posChan"
           path={path}
@@ -200,8 +200,8 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
           label="Negative Channel"
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <PForm.Field<string>
           path={`${path}.cjcSource`}
           grow
@@ -218,7 +218,7 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
         </PForm.Field>
         <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC Slope" grow />
         <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC Offset" grow />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />
     </>

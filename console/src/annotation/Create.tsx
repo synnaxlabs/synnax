@@ -11,16 +11,15 @@ import "@/annotation/Create.css";
 
 import { type ontology, ranger, TimeStamp } from "@synnaxlabs/client";
 import {
-  Align,
   Annotation,
   Button,
+  Flex,
   Form,
   Icon,
   Input,
   Nav,
   Ranger,
   Synnax,
-  Text,
 } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useRef } from "react";
@@ -78,19 +77,19 @@ export const Create: Layout.Renderer = (props) => {
   });
 
   return (
-    <Align.Space className={CSS.B("annotation-create-layout")} grow empty>
-      <Align.Space
+    <Flex.Box className={CSS.B("annotation-create-layout")} grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1.5rem 2.5rem" }}
         grow
       >
         <Form.Form<typeof Annotation.formSchema> {...form}>
-          <Align.Space direction="y" gap="small">
+          <Flex.Box y gap="small">
             <Form.Field<string> path="message">
               {(p) => (
                 <Input.TextArea
-                  placeholder="Enter annotation message..."
+                  // placeholder="Enter annotation message"
                   style={{ minHeight: "100px" }}
                   autoFocus
                   {...p}
@@ -110,18 +109,18 @@ export const Create: Layout.Renderer = (props) => {
                 />
               )}
             </Form.Field>
-            <Align.Space direction="x" gap="large" align="center">
+            <Flex.Box x gap="large" align="center">
               <Form.Field<number> path="timeRange.start" label="From" required={false}>
-                {(p) => <Input.DateTime level="p" variant="natural" {...p} />}
+                {(p) => <Input.DateTime level="p" variant="outlined" {...p} />}
               </Form.Field>
-              <Text.WithIcon level="p" startIcon={<Icon.Arrow.Right />} />
+              <Icon.Arrow.Right />
               <Form.Field<number> path="timeRange.end" label="To" required={false}>
-                {(p) => <Input.DateTime level="p" variant="natural" {...p} />}
+                {(p) => <Input.DateTime level="p" variant="outlined" {...p} />}
               </Form.Field>
-            </Align.Space>
-          </Align.Space>
+            </Flex.Box>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save Annotation" />
         <Nav.Bar.End>
@@ -131,13 +130,13 @@ export const Create: Layout.Renderer = (props) => {
             disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save Annotation" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={variant === "loading"}
-            triggers={Triggers.SAVE}
+            status={variant}
+            trigger={Triggers.SAVE}
           >
             Save Annotation
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

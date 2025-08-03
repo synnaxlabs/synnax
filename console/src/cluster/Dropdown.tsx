@@ -11,9 +11,9 @@ import "@/cluster/Dropdown.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Dialog,
+  Flex,
   Header,
   Icon,
   type List as CoreList,
@@ -64,7 +64,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       align="center"
       {...rest}
     >
-      <Align.Space y justify="spaceBetween" gap="tiny" grow>
+      <Flex.Box y justify="between" gap="tiny" grow>
         <Text.MaybeEditable
           level="p"
           id={`cluster-dropdown-${item.key}`}
@@ -73,10 +73,10 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
           onChange={handleChange}
           allowDoubleClick={false}
         />
-        <Text.Text level="p" shade={10}>
+        <Text.Text level="p" color={10}>
           {item.host}:{item.port}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };
@@ -92,7 +92,7 @@ export const NoneConnectedBoundary = ({
   return <NoneConnected {...rest} />;
 };
 
-export interface NoneConnectedProps extends Align.SpaceProps<"div"> {}
+export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 
 export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -103,18 +103,18 @@ export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElem
   };
 
   return (
-    <Align.Space
+    <Flex.Box
       empty
       style={{ height: "100%", position: "relative", ...style }}
       {...rest}
     >
-      <Align.Center y style={{ height: "100%" }} gap="small">
+      <Flex.Box y style={{ height: "100%" }} gap="small">
         <Text.Text level="p">No cluster connected.</Text.Text>
-        <Text.Link level="p" onClick={handleCluster}>
+        <Text.Text level="p" onClick={handleCluster}>
           Connect a cluster
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+        </Text.Text>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -190,21 +190,19 @@ export const Dropdown = (): ReactElement => {
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
           {key === active?.key ? (
-            <PMenu.Item
-              startIcon={<Icon.Disconnect />}
-              size="small"
-              itemKey="disconnect"
-            >
-              Disconnect
+            <PMenu.Item gap="small" itemKey="disconnect">
+              <Icon.Disconnect /> Disconnect
             </PMenu.Item>
           ) : (
-            <PMenu.Item startIcon={<Icon.Connect />} size="small" itemKey="connect">
+            <PMenu.Item gap="small" itemKey="connect">
+              <Icon.Connect />
               Connect
             </PMenu.Item>
           )}
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+          <PMenu.Item gap="small" itemKey="remove">
+            <Icon.Delete />
             Remove
           </PMenu.Item>
           <Link.CopyMenuItem />
@@ -225,23 +223,24 @@ export const Dropdown = (): ReactElement => {
         itemHeight={54}
         allowNone
       >
-        <Align.Pack>
+        <Flex.Box x pack>
           <Dialog.Trigger
-            startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
             justify="center"
-            shade={2}
+            contrast={2}
             variant={disconnected ? "filled" : "outlined"}
             hideCaret
           >
+            {disconnected ? <Icon.Connect /> : <Icon.Cluster />}
             {cluster?.name ?? "Connect Cluster"}
           </Dialog.Trigger>
           <ConnectionBadge />
-        </Align.Pack>
-        <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
+        </Flex.Box>
+        <Dialog.Dialog style={{ minWidth: 300, width: 400 }} bordered={false}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-          <Align.Pack x>
-            <Header.Header grow bordered borderShade={6} gap="small" x>
-              <Header.Title level="h5" startIcon={<Icon.Cluster />}>
+          <Flex.Box x bordered borderColor={6} pack rounded>
+            <Header.Header grow gap="small" x>
+              <Header.Title level="h5">
+                <Icon.Cluster />
                 Clusters
               </Header.Title>
             </Header.Header>
@@ -249,21 +248,21 @@ export const Dropdown = (): ReactElement => {
               variant="filled"
               size="large"
               gap="small"
-              startIcon={<Icon.Connect />}
               onClick={() => {
                 placeLayout(CONNECT_LAYOUT);
                 setDialogVisible(false);
               }}
               className={CSS.B("cluster-list-add")}
             >
+              <Icon.Connect />
               Connect
             </Button.Button>
-          </Align.Pack>
-          <Align.Space empty bordered borderShade={6} style={{ height: 190 }}>
+          </Flex.Box>
+          <Flex.Box empty bordered borderColor={6} style={{ height: 190 }}>
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}
-          </Align.Space>
+          </Flex.Box>
         </Dialog.Dialog>
       </Select.Frame>
     </Dialog.Frame>

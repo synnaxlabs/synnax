@@ -9,9 +9,9 @@
 
 import { ranger } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Divider,
+  Flex,
   Form,
   Icon,
   Input,
@@ -42,23 +42,24 @@ const ParentRangeButton = ({
   const parent = res.data;
   const Icon = Ranger.STAGE_ICONS[parent.stage];
   return (
-    <Align.Space x gap="small" align="center">
-      <Text.Text level="p" shade={8} weight={450}>
+    <Flex.Box x gap="small" align="center">
+      <Text.Text level="p" color={8} weight={450}>
         Child range of
       </Text.Text>
       <Button.Button
+        color={8}
         variant="text"
         weight={400}
-        startIcon={<Icon />}
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
           placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
+        <Icon />
         {parent.name}
       </Button.Button>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -118,14 +119,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
-      <Align.Space y gap="large">
-        <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
-          <Align.Space y grow>
+      <Flex.Box y gap="large">
+        <Flex.Box x justify="between" className={CSS.B("header")}>
+          <Flex.Box y grow>
             <Form.TextField
               path="name"
               showLabel={false}
               inputProps={{
-                variant: "natural",
+                variant: "text",
                 level: "h1",
                 placeholder: "Name",
                 onlyChangeOnBlur: true,
@@ -134,62 +135,58 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               padHelpText={false}
             />
             <ParentRangeButton rangeKey={rangeKey} />
-          </Align.Space>
-          <Align.Space
+          </Flex.Box>
+          <Flex.Box
             x
             className={CSS.B("copy-buttons")}
             style={{ height: "fit-content" }}
             gap="small"
           >
-            <Align.Space x gap="small">
-              <Button.Icon
+            <Flex.Box x gap="small">
+              <Button.Button
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
                 onClick={handleCopyPythonCode}
               >
                 <Icon.Python style={{ color: "var(--pluto-gray-l9)" }} />
-              </Button.Icon>
-              <Button.Icon
+              </Button.Button>
+              <Button.Button
                 variant="text"
                 tooltip={`Copy TypeScript code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
                 <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
-              </Button.Icon>
-            </Align.Space>
+              </Button.Button>
+            </Flex.Box>
             <Divider.Divider y />
-            <Button.Icon
+            <Button.Button
               variant="text"
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
               <Icon.Link />
-            </Button.Icon>
+            </Button.Button>
             <Divider.Divider y />
             {range != null && <FavoriteButton range={range} />}
-          </Align.Space>
-        </Align.Space>
-        <Align.Space className={CSS.B("time-range")} x gap="medium" align="center">
+          </Flex.Box>
+        </Flex.Box>
+        <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
-              <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
+              <Input.DateTime level="h4" variant="outlined" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Text.WithIcon
-            className={CSS.B("time-range-divider")}
-            level="h4"
-            startIcon={<Icon.Arrow.Right />}
-          />
+          <Icon.Arrow.Right className={CSS.B("time-range-divider")} />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
-              <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
+              <Input.DateTime onlyChangeOnBlur level="h4" variant="outlined" {...p} />
             )}
           </Form.Field>
-        </Align.Space>
-        <Align.Space x>
+        </Flex.Box>
+        <Flex.Box x>
           <Form.Field<ranger.Stage> path="stage" required={false}>
             {({ onChange, value }) => (
               <Ranger.SelectStage
@@ -214,8 +211,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               />
             )}
           </Form.Field>
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
     </Form.Form>
   );
 };

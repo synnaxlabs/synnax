@@ -12,12 +12,12 @@ import "@/input/Item.css";
 import { direction, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
 
-export interface ItemProps extends Align.SpaceProps {
+export interface ItemProps extends Flex.BoxProps {
   label?: string;
   required?: boolean;
   showLabel?: boolean;
@@ -28,9 +28,9 @@ export interface ItemProps extends Align.SpaceProps {
 }
 
 const maybeDefaultAlignment = (
-  align?: Align.Alignment,
+  align?: Flex.Alignment,
   dir: direction.Crude = "x",
-): Align.Alignment => {
+): Flex.Alignment => {
   if (align != null) return align;
   return direction.construct(dir) === "y" ? "stretch" : "center";
 };
@@ -52,32 +52,32 @@ export const Item = ({
   showHelpText = true,
   ...rest
 }: ItemProps): ReactElement => {
-  const dir = Align.parseDirection(direction, x, y, "y");
+  const dir = Flex.parseDirection(direction, x, y, false);
   let inputAndHelp: ReactElement;
   const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
   const showLabel_ = showLabel && label != null && label.length > 0;
   if (!showHelpText_ && !showLabel_) return <>{children}</>;
   if (dir === "x")
     inputAndHelp = (
-      <Align.Space y gap="small">
+      <Flex.Box y gap="small">
         {children}
         {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
-      </Align.Space>
+      </Flex.Box>
     );
   else
     inputAndHelp = (
-      <Align.Space y gap={1 / 3}>
+      <Flex.Box y gap={1 / 3}>
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
-      </Align.Space>
+      </Flex.Box>
     );
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.B("input-item"), className)}
       direction={dir}
       gap={size}
@@ -86,6 +86,6 @@ export const Item = ({
     >
       {showLabel_ && <Label required={required}>{label}</Label>}
       {inputAndHelp}
-    </Align.Space>
+    </Flex.Box>
   );
 };

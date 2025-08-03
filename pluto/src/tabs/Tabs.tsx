@@ -12,9 +12,9 @@ import "@/tabs/Tabs.css";
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
@@ -106,7 +106,7 @@ export const useStatic = ({
 /** Props for the {@link Tabs} component. */
 export interface TabsProps
   extends Omit<
-      Align.SpaceProps,
+      Flex.BoxProps,
       | "children"
       | "onSelect"
       | "size"
@@ -114,9 +114,11 @@ export interface TabsProps
       | "onDragEnd"
       | "content"
       | "contextMenu"
+      | "onDrop"
     >,
     ContextValue,
-    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop"> {
+    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop">,
+    Pick<Flex.BoxProps, "direction" | "x" | "y"> {
   children?: RenderProp | ReactNode;
   size?: Component.Size;
   selectedAltColor?: boolean;
@@ -155,7 +157,7 @@ export interface TabsProps
  * @param onDrop A callback executed when a tab is dropped. Identical to a onDrop handler in
  * react.
  * @param size The size of the tabs selector to display. Can be "small", "medium", or "large".
- * @note all other props are inherited from the {@link Align.Space} component and are passed
+ * @note all other props are inherited from the {@link Flex.Box} component and are passed
  * through to that component.
  * @param direction The direction in which to show the tabs selector. An 'x' direction
  * will show the selector on the left side of the tabs, while a 'y' direction will show
@@ -183,15 +185,19 @@ export const Tabs = ({
   addTooltip,
   size = "medium",
   direction: dir = "y",
+  x,
+  y,
   ...rest
 }: TabsProps): ReactElement => (
-  <Align.Space
+  <Flex.Box
     id={id}
     empty
     className={CSS(CSS.B("tabs"), className)}
+    direction={dir}
+    x={x}
+    y={y}
     onDragOver={onDragOver}
     onDrop={onDrop}
-    direction={dir}
     {...rest}
   >
     <Provider
@@ -219,7 +225,7 @@ export const Tabs = ({
       />
       <Content />
     </Provider>
-  </Align.Space>
+  </Flex.Box>
 );
 
 export const Content = (): ReactNode | null => {

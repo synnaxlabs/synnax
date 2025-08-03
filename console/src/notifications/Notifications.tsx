@@ -9,7 +9,7 @@
 
 import "@/notifications/Notifications.css";
 
-import { Align, type Button, Status } from "@synnaxlabs/pluto";
+import { type Button, Flex, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
@@ -38,13 +38,13 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
     return status;
   }) as Sugared[];
   return createPortal(
-    <Align.Space y className={CSS.B("notifications")}>
+    <Flex.Box y className={CSS.B("notifications")}>
       {sugared.map((status) => (
         <Status.Notification key={status.key} status={status} silence={silence}>
           {status.content}
         </Status.Notification>
       ))}
-    </Align.Space>,
+    </Flex.Box>,
     document.getElementById("root") as HTMLElement,
   );
 };

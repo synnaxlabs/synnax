@@ -23,10 +23,10 @@ export const FavoriteButton = ({ range }: FavoriteButtonProps) => {
   };
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={10}>
+      <Text.Text level="small" color={10}>
         {starred ? "Remove from" : "Add to"} Workspace Favorites
       </Text.Text>
-      <Button.Icon
+      <Button.Button
         className={CSS(
           CSS.BE("range", "favorite-button"),
           starred && CSS.M("favorite"),
@@ -38,7 +38,7 @@ export const FavoriteButton = ({ range }: FavoriteButtonProps) => {
         size="small"
       >
         {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-      </Button.Icon>
+      </Button.Button>
     </Tooltip.Dialog>
   );
 };

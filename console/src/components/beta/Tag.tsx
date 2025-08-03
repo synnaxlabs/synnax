@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 
 export const Tag = (): ReactElement => (
   <Tooltip.Dialog>
-    <Text.Text level="small" shade={10} style={{ width: 100, whiteSpace: "wrap" }}>
+    <Text.Text level="small" color={10} style={{ width: 100, whiteSpace: "wrap" }}>
       This feature is still in development and may not always work as expected.
     </Text.Text>
     <PTag.Tag className={CSS.B("beta-tag")} variant="filled">

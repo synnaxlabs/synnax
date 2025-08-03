@@ -84,7 +84,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       <PMenu.Divider />

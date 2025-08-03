@@ -23,10 +23,17 @@ export interface DialogProps<K extends record.Key>
     SearchInputProps,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status;
+  resourceName?: string;
 }
 
-const DefaultEmptyContent = () => (
-  <Status.Text.Centered variant="disabled">No results</Status.Text.Centered>
+export interface DefaultEmptyContentProps extends Status.TextProps {
+  resourceName?: string;
+}
+
+const DefaultEmptyContent = ({ resourceName = "result" }: DefaultEmptyContentProps) => (
+  <Status.Text center variant="disabled" hideIcon>
+    No {resourceName}s found
+  </Status.Text>
 );
 
 export const Core = memo(
@@ -36,28 +43,37 @@ export const Core = memo(
     emptyContent,
     searchPlaceholder,
     status,
+    resourceName = "result",
     actions,
     ...rest
   }: DialogProps<K>) => {
     emptyContent = useMemo(() => {
       if (status != null && status.variant !== "success")
         return (
-          <Status.Text.Centered
+          <Status.Text
+            center
             variant={status?.variant}
             description={status?.description}
           >
             {status?.message}
-          </Status.Text.Centered>
+          </Status.Text>
         );
       if (typeof emptyContent === "string")
         return (
-          <Status.Text.Centered variant="disabled">{emptyContent}</Status.Text.Centered>
+          <Status.Text center variant="disabled">
+            {emptyContent}
+          </Status.Text>
         );
-      if (emptyContent == null) return <DefaultEmptyContent />;
+      if (emptyContent == null)
+        return <DefaultEmptyContent resourceName={resourceName} />;
       return emptyContent;
     }, [status?.key, emptyContent]);
     return (
-      <CoreDialog.Dialog {...rest} className={CSS.BE("select", "dialog")}>
+      <CoreDialog.Dialog
+        {...rest}
+        className={CSS.BE("select", "dialog")}
+        bordered={false}
+      >
         {onSearch != null && (
           <SearchInput
             dialogVariant="floating"
@@ -66,7 +82,7 @@ export const Core = memo(
             actions={actions}
           />
         )}
-        <List.Items emptyContent={emptyContent} bordered borderShade={6} grow>
+        <List.Items emptyContent={emptyContent} bordered borderColor={6} grow rounded>
           {children}
         </List.Items>
       </CoreDialog.Dialog>

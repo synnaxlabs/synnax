@@ -81,7 +81,6 @@ const DefaultItem = ({
     {icon}
     <Text.Editable
       id={ontology.idToString(id)}
-      level="p"
       value={resource.name}
       onChange={onRename}
       allowDoubleClick={false}

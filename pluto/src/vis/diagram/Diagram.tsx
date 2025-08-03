@@ -52,10 +52,10 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
@@ -556,14 +556,14 @@ export const Background = (): ReactElement | null => {
   return editable ? <RFBackground /> : null;
 };
 
-export interface ControlsProps extends Align.PackProps {}
+export interface ControlsProps extends Flex.BoxProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
+  <Flex.Box pack borderColor={5} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
-  extends Omit<Button.ToggleIconProps, "value" | "onChange" | "children"> {}
+  extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
 
 export const ToggleEditControl = ({
   onClick,
@@ -571,7 +571,7 @@ export const ToggleEditControl = ({
 }: ToggleEditControlProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onChange={() => onEditableChange(!editable)}
       value={editable}
       uncheckedVariant="outlined"
@@ -582,12 +582,12 @@ export const ToggleEditControl = ({
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };
 
 export interface FitViewControlProps
-  extends Omit<Button.IconProps, "children" | "onChange"> {}
+  extends Omit<Button.ButtonProps, "children" | "onChange"> {}
 
 export const FitViewControl = ({
   onClick,
@@ -596,7 +596,7 @@ export const FitViewControl = ({
   const { fitView } = useReactFlow();
   const { fitViewOnResize, setFitViewOnResize, fitViewOptions } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onClick={(e) => {
         void fitView(fitViewOptions);
         onClick?.(e);
@@ -612,7 +612,7 @@ export const FitViewControl = ({
       {...rest}
     >
       <Icon.Expand />
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };
 

@@ -10,7 +10,7 @@
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Align, Icon, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -89,22 +89,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       telem={t}
       onDoubleClick={handleDoubleClick}
       emptyContent={
-        <Align.Center>
+        <Flex.Box>
           {zeroChannel ? (
-            <Align.Space x gap="small" align="center">
-              <Text.Text level="p" shade={10}>
-                No channel configured for {name}.
-              </Text.Text>
-              <Text.Link level="p" onClick={handleDoubleClick}>
-                Configure here.
-              </Text.Link>
-            </Align.Space>
+            <Flex.Box x gap="small" align="center">
+              <Text.Text color={10}>No channel configured for {name}.</Text.Text>
+              <Text.Text onClick={handleDoubleClick}>Configure here.</Text.Text>
+            </Flex.Box>
           ) : (
-            <Text.Text level="p" shade={10}>
-              No data received yet.
-            </Text.Text>
+            <Text.Text color={10}>No data received yet.</Text.Text>
           )}
-        </Align.Center>
+        </Flex.Box>
       }
       visible={visible}
     />

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Component, Dialog, Flux, Icon, Select } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Breadcrumb, Component, Dialog, Flex, Icon, Select } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -106,12 +105,12 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       href={href}
       {...props}
     >
-      <Align.Space direction="y" empty>
+      <Flex.Box direction="y" empty>
         <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
-        <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
+        {/* <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
           {path}
-        </Breadcrumb.Breadcrumb>
-      </Align.Space>
+        </Breadcrumb.Breadcrumb> */}
+      </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
     </Select.ListItem>
   );
@@ -200,14 +199,15 @@ const SearchDialogContent = () => {
         close();
       }}
     >
-      <Align.Pack className="search-results__content" direction="y">
+      <Flex.Box pack className="search-results__content" direction="y">
         <Input.Text
           className="search-results__input"
           ref={inputRef}
           placeholder={
-            <Text.WithIcon level="h2" startIcon={<Icon.Search />}>
-              Search
-            </Text.WithIcon>
+            <>
+              <Icon.Search />
+              <Text.Text level="h2">Search</Text.Text>
+            </>
           }
           autoFocus
           value={value}
@@ -218,18 +218,18 @@ const SearchDialogContent = () => {
           className="styled-scrollbar"
           background={0}
           bordered
-          borderShade={6}
+          borderColor={6}
           emptyContent={
-            <Align.Center style={{ height: "100%" }}>
-              <Text.Text level="p" shade={11} weight={400}>
+            <Flex.Box style={{ height: "100%" }}>
+              <Text.Text weight={400}>
                 {value.length === 0 ? "Type to search..." : "No Results"}
               </Text.Text>
-            </Align.Center>
+            </Flex.Box>
           }
         >
           {searchListItem}
         </List.Items>
-      </Align.Pack>
+      </Flex.Box>
     </Select.Frame>
   );
 };

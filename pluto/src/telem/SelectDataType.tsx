@@ -10,9 +10,19 @@
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
+
+const resolveIcon = (d: DataType) => {
+  if (d.equals(DataType.JSON)) return <Icon.JSON />;
+  if (d.isInteger) return <Icon.Binary />;
+  if (d.isFloat) return <Icon.Decimal />;
+  if (d.equals(DataType.STRING) || d.equals(DataType.UUID)) return <Icon.String />;
+  if (d.equals(DataType.TIMESTAMP)) return <Icon.Time />;
+  return undefined;
+};
 
 const DATA: Select.SimplyEntry<string>[] = DataType.ALL.filter(
   (d) => d !== DataType.UNKNOWN,
@@ -21,6 +31,7 @@ const DATA: Select.SimplyEntry<string>[] = DataType.ALL.filter(
   name: ALL_CAPS.has(d)
     ? d.toString().toUpperCase()
     : caseconv.capitalize(d.toString()),
+  icon: resolveIcon(d),
 }));
 
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);

@@ -83,7 +83,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
 
   return (
     <Form.Form<typeof formSchema> {...methods}>
-      <Align.Space
+      <Flex.Box
         el="form"
         id="my-form"
         className="feedback-form"
@@ -93,7 +93,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
           maxWidth: "100%",
         }}
         background={1}
-        borderShade={6}
+        borderColor={6}
         rounded={1}
         bordered
         align="center"
@@ -101,22 +101,17 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
       >
         <Nav.Bar location="top" size="5rem">
           <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-            <Breadcrumb.Breadcrumb
-              level="p"
-              weight={450}
-              shade={11}
-              icon={<Icon.Feedback />}
-            >
+            <Breadcrumb.Breadcrumb weight={450} icon={<Icon.Feedback />}>
               Feedback
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Icon variant="text" size="small">
+            <Button.Button variant="text" size="small">
               <Icon.Close style={{ color: "var(--color-pluto-gray-l10)" }} />
-            </Button.Icon>
+            </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
-        <Align.Space
+        <Flex.Box
           direction="y"
           style={{ width: "100%", padding: "4rem 3rem 2rem 3rem" }}
           gap="small"
@@ -144,7 +139,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space direction="y" empty>
+          <Flex.Box direction="y" empty>
             <Form.Field<string>
               path="name"
               label="Name"
@@ -158,11 +153,11 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" shade={10}>
+            <Text.Text level="small" color={10}>
               If you'd like a response, please include your name and email.
             </Text.Text>
-          </Align.Space>
-        </Align.Space>
+          </Flex.Box>
+        </Flex.Box>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
@@ -177,7 +172,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
-      </Align.Space>
+      </Flex.Box>
     </Form.Form>
   );
 };

@@ -27,7 +27,8 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   const handleRename = () => Text.edit(getChannelNameID(key));
   return (
     <>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+      <Menu.Item itemKey="rename" onClick={handleRename}>
+        <Icon.Rename />
         Rename
       </Menu.Item>
       <Menu.Divider />

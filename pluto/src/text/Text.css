@@ -9,7 +9,52 @@
  * included in the file licenses/APL.txt.
  */
 
+a.pluto-text {
+    text-decoration: none;
+    color: var(--pluto-primary-p1);
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
 .pluto-text {
-    width: fit-content;
     margin: 0;
+    &.pluto--x {
+        align-items: center;
+    }
+
+    &.pluto-text--code {
+        font-family: var(--pluto-code-font-family);
+    }
+
+    &.pluto-text--keyboard {
+        background: var(--pluto-gray-l2);
+        border: var(--pluto-border);
+        border-radius: var(--pluto-border-radius);
+    }
+
+    &.pluto-text--square {
+        align-items: center;
+        width: fit-content;
+        padding: 0.5rem;
+        justify-content: center;
+        font-weight: 500;
+
+        &.pluto-height--huge {
+            min-width: var(--pluto-height-huge);
+        }
+        &.pluto-height--large {
+            min-width: var(--pluto-height-large);
+        }
+        &.pluto-height--small {
+            min-width: var(--pluto-height-small);
+        }
+        &.pluto-height--medium {
+            min-width: var(--pluto-height-medium);
+        }
+        &.pluto-height--tiny {
+            min-width: var(--pluto-height-tiny);
+        }
+    }
 }

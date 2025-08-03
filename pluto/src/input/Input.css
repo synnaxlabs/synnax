@@ -9,75 +9,39 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--warning .pluto-input__internal {
+.pluto--warning {
     border-color: var(--pluto-warning-z-65) !important;
-    border-width: 1px !important;
 }
 
-.pluto--error .pluto-input__internal {
+.pluto--error {
     border-color: var(--pluto-error-z-65) !important;
-    border-width: 1px !important;
 }
 
 .pluto-input {
-    &.pluto--outlined.pluto-input--custom-color .pluto-input__internal {
-        border-width: 1px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    max-height: fit-content;
+    padding: 0 !important;
+    flex-grow: 1;
+
+    &.pluto--outlined.pluto-input--custom-color {
         border-color: rgba(
             var(--pluto-input-color),
             var(--pluto-input-border-opacity, 1)
         );
     }
 
-    & .pluto-input__internal {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        height: 100%;
-        flex-grow: 1;
-
-        &:focus-within {
-            --c: rgba(var(--pluto-input-color), 1);
+    &:focus-within {
+        &:not(.pluto-btn--text):not(.pluto--preview) {
             border-color: var(--c, var(--pluto-primary-z)) !important;
-            border-width: 1px;
+            box-shadow: inset 0 0 0 0.5px var(--pluto-primary-z);
             background-color: var(--pluto-bg) !important;
-            & input {
-                outline: none;
-                padding: 0
-                    calc(
-                        1.5rem - var(--pluto-border-thick-width) +
-                            var(--pluto-border-width)
-                    );
-            }
-            & .pluto-input__placeholder {
-                padding-left: calc(
-                    1.75rem - var(--pluto-border-thick-width) +
-                        var(--pluto-border-width)
-                );
-            }
-            & .pluto-input__end-content {
-                padding-right: calc(
-                    1.5rem - var(--pluto-border-thick-width) + var(--pluto-border-width)
-                );
-            }
-        }
-    }
-
-    &.pluto--disabled {
-        & .pluto-input__internal {
-            background-color: var(--pluto-gray-l2);
-        }
-        & :not(.pluto-input__disabled-overlay) {
-            cursor: not-allowed !important;
-            color: var(--pluto-gray-l7) !important;
-        }
-        &:not(.pluto-input--custom-color) {
-            .pluto-input__internal {
-                border-color: var(--pluto-gray-l3) !important;
-            }
         }
     }
 
     & input {
+        outline: none;
         border: none;
         background: none;
         width: 100%;
@@ -91,7 +55,6 @@
 
         &::placeholder,
         &::-webkit-input-placeholder {
-            color: transparent;
             text-overflow: ellipsis;
             max-width: 100%;
         }
@@ -103,15 +66,21 @@
         align-items: center;
         pointer-events: none;
         white-space: nowrap;
-        & * {
-            color: var(--pluto-gray-l8);
-        }
+        color: var(--pluto-gray-l8);
     }
 
     .pluto-input__placeholder {
         position: absolute;
-        padding-left: 1.75rem;
+        padding-left: 1.5rem;
         width: calc(100% - 1.5rem);
+    }
+
+    &.pluto--disabled {
+        & .pluto-input__placeholder,
+        & .pluto-input__end-content,
+        & input::placeholder {
+            color: var(--pluto-gray-l6);
+        }
     }
 
     .pluto-input__end-content {
@@ -119,54 +88,26 @@
     }
 
     &.pluto--shadow:not(:focus):not(:focus-within):not(:hover) {
-        .pluto-input__internal {
-            background: var(--pluto-gray-l0);
-        }
+        background: var(--pluto-gray-l0);
         & > * {
             border-color: transparent;
         }
-        & > *:not(.pluto-input__internal) {
+        & > *:not(.pluto-input) {
             opacity: 0;
         }
     }
 
-    &.pluto--natural,
+    &.pluto-btn--text,
     &.pluto--preview {
-        background: none !important;
-        border-radius: 0 !important;
-        align-items: center;
-        & > * {
-            border-color: transparent !important;
-        }
-
-        & .pluto-input__internal {
-            border: none !important;
-            background: none !important;
-            height: initial !important;
-            &:focus-within {
-                & input {
-                    padding: 0;
-                }
-                & .pluto-input__placeholder {
-                    padding-left: 1px;
-                }
-            }
-        }
-
+        background: none;
+        border-radius: 0;
+        border: none;
         & input {
-            padding: 0;
-        }
-
-        & .pluto-input__placeholder {
-            padding-left: 1px;
-            & * {
-                color: var(--pluto-gray-l6);
-            }
+            padding: 0 0.5rem;
         }
     }
 
     input[type="number"]::-webkit-inner-spin-button {
-        /* stylelint-disable-next-line property-no-vendor-prefix */
         -webkit-appearance: none;
     }
 }

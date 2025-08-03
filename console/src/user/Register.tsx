@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
@@ -64,65 +64,77 @@ export const Register: Layout.Renderer = ({ onClose }) => {
   });
 
   return (
-    <Align.Space style={{ paddingTop: "2rem", height: "100%" }} grow empty>
-      <Align.Space
+    <Flex.Box grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1rem 3rem" }}
         grow
       >
         <Form.Form<typeof formSchema> {...methods}>
-          <Align.Space y>
-            <Align.Space x>
-              <Form.Field<string> path="firstName" label="First Name">
-                {(p) => (
-                  <Input.Text
-                    variant="natural"
-                    level="h2"
-                    placeholder="Richard"
-                    {...p}
-                  />
-                )}
-              </Form.Field>
-              <Form.Field<string> path="lastName" label="Last Name">
-                {(p) => (
-                  <Input.Text
-                    variant="natural"
-                    level="h2"
-                    placeholder="Feynman"
-                    {...p}
-                  />
-                )}
-              </Form.Field>
-            </Align.Space>
-            <Form.Field<string> path="username">
-              {(p) => <Input.Text autoFocus placeholder="username" {...p} />}
-            </Form.Field>
-            <Form.Field<string> path="password">
-              {(p) => <Input.Text placeholder="password" type="password" {...p} />}
-            </Form.Field>
-          </Align.Space>
+          <Flex.Box y>
+            <Flex.Box x grow>
+              <Form.TextField
+                path="firstName"
+                label="First Name"
+                inputProps={{
+                  variant: "text",
+                  level: "h2",
+                  placeholder: "Richard",
+                  full: "x",
+                }}
+              />
+              <Form.TextField
+                path="lastName"
+                label="Last Name"
+                inputProps={{
+                  variant: "text",
+                  level: "h2",
+                  placeholder: "Feynman",
+                  full: "x",
+                }}
+              />
+            </Flex.Box>
+            <Form.TextField
+              path="username"
+              label="Username"
+              inputProps={{
+                placeholder: "username",
+                full: "x",
+              }}
+            />
+            <Form.TextField
+              path="password"
+              label="Password"
+              inputProps={{
+                placeholder: "password",
+                type: "password",
+                full: "x",
+              }}
+            />
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
             onClick={() => mutate()}
-            disabled={client == null || isPending}
+            status={isPending ? "loading" : undefined}
+            disabled={client == null}
             tooltip={
               client == null
                 ? "No Cluster Connected"
                 : `Save to ${client.props.name ?? "Synnax"}`
             }
             tooltipLocation="bottom"
-            loading={isPending}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
+            variant="filled"
           >
             Register
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

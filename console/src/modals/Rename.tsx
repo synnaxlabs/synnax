@@ -56,7 +56,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
                 return setError(`${label} is required`);
               return onFinish(name);
             }}
-            triggers={SAVE_TRIGGER}
+            trigger={SAVE_TRIGGER}
           >
             Save
           </Button.Button>
@@ -78,7 +78,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             selectOnFocus
             placeholder={label}
             level="h2"
-            variant="natural"
+            variant="text"
             value={name}
             onChange={setName}
           />

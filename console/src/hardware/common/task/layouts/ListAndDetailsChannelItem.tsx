@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { cloneElement, type JSX } from "react";
 
@@ -39,7 +39,7 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
 
 const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
   level: "p",
-  shade: 9,
+  color: 9,
   weight: 450,
   style: {
     maxWidth: hasIcon ? 100 : 150,
@@ -70,14 +70,13 @@ export const ListAndDetailsChannelItem = <K extends string>({
   return (
     <Select.ListItem
       {...rest}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       style={{ padding: "1.25rem 2rem" }}
     >
-      <Align.Space direction="x" gap="small" align="center">
+      <Flex.Box direction="x" gap="small" align="center">
         <Text.Text
-          level="p"
-          shade={8}
+          color={8}
           weight={500}
           style={{ width: `${portMaxChars * 1.25}rem` }}
         >
@@ -96,13 +95,13 @@ export const ListAndDetailsChannelItem = <K extends string>({
           </Tooltip.Dialog>
         )}
         {hasStateChannel ? (
-          <Align.Space direction="y" gap="small">
+          <Flex.Box direction="y" gap="small">
             <WriteChannelNames
               cmdChannel={channel}
               stateChannel={stateChannel}
               itemKey={itemKey}
             />
-          </Align.Space>
+          </Flex.Box>
         ) : (
           <ChannelName
             {...channelNameProps}
@@ -110,13 +109,13 @@ export const ListAndDetailsChannelItem = <K extends string>({
             id={getChannelNameID(itemKey)}
           />
         )}
-      </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
+      </Flex.Box>
+      <Flex.Box pack direction="x" align="center" size="small">
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
         <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
-      </Align.Pack>
+      </Flex.Box>
     </Select.ListItem>
   );
 };

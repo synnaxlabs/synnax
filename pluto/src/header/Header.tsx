@@ -11,13 +11,14 @@ import "@/header/Header.css";
 
 import { createContext, type ReactElement, type ReactNode, use } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Text } from "@/text";
 
-export interface HeaderProps extends Omit<Align.SpaceProps, "children" | "el"> {
+export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
+  bordered?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
   padded?: boolean;
 }
@@ -43,20 +44,22 @@ export const useContext = () => use(Context);
  */
 export const Header = ({
   className,
-  level = "h1",
+  level = "p",
   divided = false,
   padded,
+  bordered = true,
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
-    <Align.Space
+    <Flex.Box
       el="header"
       x
-      justify="spaceBetween"
+      align="center"
+      justify="between"
       className={CSS(
         CSS.B("header"),
-        CSS.bordered("bottom"),
         padded && CSS.M(`padded-${Text.LEVEL_COMPONENT_SIZES[level]}`),
+        bordered && CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
         className,
       )}

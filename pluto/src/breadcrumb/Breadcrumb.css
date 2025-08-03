@@ -10,15 +10,31 @@
  */
 
 .pluto-breadcrumb {
-    &.pluto-text-icon--p {
-        .pluto-icon:first-child {
-            transform: translateY(0.5px);
-        }
+    & .pluto-text {
+        color: inherit;
+        font-weight: inherit;
+        font-size: inherit;
+        line-height: inherit;
     }
-
-    &.pluto--hide-first {
-        .pluto-icon:first-child {
-            margin-right: 0.5rem;
+    & > :not(:last-child) {
+        color: var(--pluto-gray-l8);
+        font-weight: 350;
+    }
+    & > :last-child {
+        cursor: text;
+        color: var(--pluto-gray-l11);
+        pointer-events: none;
+    }
+    & .pluto-breadcrumb__separator {
+        color: var(--pluto-gray-l8);
+        transform: scale(0.9);
+    }
+    & a.pluto-text {
+        text-decoration: none;
+        transition: color 0.1s ease-in-out;
+        &:hover {
+            text-decoration: none;
+            color: var(--pluto-gray-l11);
         }
     }
 }

@@ -7,4 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Align from "@/align/external";
+export const PADDING_STYLE = { padding: "5rem" };
+
+export const THIN_PADDING_STYLE = { padding: "1rem" };
+
+export const DISPLAY = [
+  "text",
+  "button",
+  "input",
+  "select",
+  "menu",
+  "note",
+  "tag",
+  "flex",
+  "breadcrumb",
+  "divider",
+];

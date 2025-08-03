@@ -16,9 +16,9 @@ import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
@@ -28,7 +28,7 @@ import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
-    Omit<Align.SpaceProps, "color">,
+    Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   label?: string;
   onLabelChange?: (label: string) => void;
@@ -137,7 +137,7 @@ export const Rule = ({
         onDragStart={handleDragStart}
         draggable
       />
-      <Align.Space
+      <Flex.Box
         x
         align="center"
         className={CSS(className, CSS.BE("rule", "tag"))}
@@ -160,7 +160,7 @@ export const Rule = ({
           color={textColor}
         />
         <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
-        <Align.Space gap="small" x align="center">
+        <Flex.Box gap="small" x align="center">
           <Text.Editable
             value={propsPosition.toFixed(2)}
             onChange={(v) => {
@@ -177,8 +177,8 @@ export const Rule = ({
             value={units}
             onChange={onUnitsChange}
           />
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
     </div>
   );
 

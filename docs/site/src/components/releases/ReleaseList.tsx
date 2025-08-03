@@ -61,7 +61,7 @@ export const ReleaseList = ({
   if (headings.length === 0) return null;
 
   return (
-    <Align.Space el="nav" className="release-list" gap={2}>
+    <Flex.Box el="nav" className="release-list" gap={2}>
       <Text.Text level="h5">History</Text.Text>
       <div ref={toc}>
         <Menu.Menu value={currentID}>
@@ -86,6 +86,6 @@ export const ReleaseList = ({
             ))}
         </Menu.Menu>
       </div>
-    </Align.Space>
+    </Flex.Box>
   );
 };

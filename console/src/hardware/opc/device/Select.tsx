@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Icon, Text } from "@synnaxlabs/pluto";
+import { Flex, Icon, Text } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
 import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
@@ -17,14 +17,12 @@ import { Layout } from "@/layout";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Center>
-      <Text.Text level="p" shade={10}>
-        No OPC UA servers connected.
-      </Text.Text>
-      <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>
+    <Flex.Box>
+      <Text.Text color={10}>No OPC UA servers connected.</Text.Text>
+      <Text.Text onClick={() => placeLayout(CONNECT_LAYOUT)}>
         Connect a new server.
-      </Text.Link>
-    </Align.Center>
+      </Text.Text>
+    </Flex.Box>
   );
 };
 

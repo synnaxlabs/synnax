@@ -75,7 +75,6 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
       <Icon.Rack />
       <Text.MaybeEditable
         id={itemKey}
-        level="p"
         allowDoubleClick={false}
         value={resource.name}
         onChange={(name) => onRename?.(name)}
@@ -126,10 +125,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {isSingle && (
         <>
           <Menu.RenameItem />
-          <PMenu.Item itemKey="createSequence" startIcon={<CreateSequenceIcon />}>
+          <PMenu.Item itemKey="createSequence">
+            <CreateSequenceIcon />
             Create Control Sequence
           </PMenu.Item>
-          <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+          <PMenu.Item itemKey="copy">
+            <Icon.Copy />
             Copy Key
           </PMenu.Item>
           <PMenu.Divider />

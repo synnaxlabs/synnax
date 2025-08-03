@@ -11,9 +11,9 @@ import "@/palette/Palette.css";
 
 import { type ontology } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Dialog,
+  Flex,
   Icon,
   Input,
   List,
@@ -82,18 +82,15 @@ export const Palette = ({
           align="center"
           size="medium"
           justify="center"
-          startIcon={<Icon.Search />}
-          shade={2}
-          textShade={9}
+          contrast={2}
+          color={9}
           gap="small"
+          full="x"
         >
+          <Icon.Search />
           Search & Command
         </Button.Button>
-        <Dialog.Dialog
-          className={CSS.BE("palette", "content")}
-          rounded={1}
-          bordered={false}
-        >
+        <Dialog.Dialog className={CSS.BE("palette", "content")} bordered={false}>
           <DialogContent
             value={value}
             onChange={setValue}
@@ -110,9 +107,9 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const emptyContent = (
-  <Align.Center>
+  <Flex.Box center>
     <Status.Text variant="disabled">No results found.</Status.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 const DialogContent = ({
@@ -148,19 +145,27 @@ const DialogContent = ({
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={
-          <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+          <Text.Text level="h3">
+            <Icon.Search />
             Type to search or {commandSymbol} to view commands
-          </Text.WithIcon>
+          </Text.Text>
         }
         size="huge"
         autoFocus
-        shade={3}
+        contrast={3}
         onChange={handleSearch}
         value={value}
+        rounded
         autoComplete="off"
         onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        full="x"
       />
-      <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+      <List.Items
+        className={CSS.BE("palette", "list")}
+        emptyContent={emptyContent}
+        bordered
+        borderColor={7}
+      >
         {listItem}
       </List.Items>
     </Select.Frame>

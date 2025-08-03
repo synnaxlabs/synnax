@@ -11,9 +11,9 @@ import "@/range/Toolbar.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Component,
+  Flex,
   Haul,
   Icon,
   List as CoreList,
@@ -45,18 +45,18 @@ const NoRanges = (): ReactElement => {
     placeLayout(CREATE_LAYOUT);
   };
   return (
-    <Align.Space
+    <Flex.Box
       empty
       style={{ height: "100%", position: "relative", padding: "1rem" }}
       className={CSS.B("range-toolbar-no-ranges")}
     >
-      <Align.Center y style={{ height: "100%" }} gap="medium">
+      <Flex.Box y style={{ height: "100%" }} gap="medium">
         <Text.Text level="p">No ranges loaded.</Text.Text>
-        <Text.Link level="p" onClick={handleLinkClick}>
+        <Text.Text level="p" onClick={handleLinkClick}>
           Create a Range
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+        </Text.Text>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -136,7 +136,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small" shade={11}>
+          <Text.Text className="save-button" weight={700} level="small" color={11}>
             L
           </Text.Text>
         </Tooltip.Dialog>
@@ -150,18 +150,18 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       />
       <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
       {labels.length > 0 && (
-        <Align.Space
+        <Flex.Box
           x
-          gap="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
+          gap="small"
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}
             </Tag.Tag>
           ))}
-        </Align.Space>
+        </Flex.Box>
       )}
     </Select.ListItem>
   );
@@ -170,28 +170,28 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Space empty style={{ height: "100%" }}>
+    <Flex.Box empty style={{ height: "100%" }}>
       <Toolbar.Header align="center">
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Align.Pack>
-          <Button.Icon
+        <Flex.Box>
+          <Button.Button
             onClick={() => placeLayout(CREATE_LAYOUT)}
             variant="outlined"
             size="small"
           >
             <Icon.Add />
-          </Button.Icon>
-          <Button.Icon
+          </Button.Button>
+          <Button.Button
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
             variant="filled"
             size="small"
           >
             <Icon.Explore />
-          </Button.Icon>
-        </Align.Pack>
+          </Button.Button>
+        </Flex.Box>
       </Toolbar.Header>
       <List />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
