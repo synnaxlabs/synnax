@@ -9,7 +9,10 @@
 
 import { caseconv } from "@synnaxlabs/x";
 
+import { Button } from "@/button";
+import { Flex } from "@/flex";
 import { Select } from "@/select";
+import { Text } from "@/text";
 
 import { DISPLAY } from "./constants";
 
@@ -18,12 +21,44 @@ interface DisplaySelectorProps {
   setDisplay: (display: (typeof DISPLAY)[number][]) => void;
 }
 
-export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) => (
-  <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
-    {DISPLAY.map((d) => (
-      <Select.Button key={d} itemKey={d}>
-        {caseconv.capitalize(d)}
-      </Select.Button>
-    ))}
-  </Select.Buttons>
-);
+export const DisplaySelector = ({ display, setDisplay }: DisplaySelectorProps) => {
+  const handleSelectAll = () => setDisplay([...DISPLAY]);
+  const handleClearAll = () => setDisplay([]);
+  
+  return (
+    <Flex.Box y gap="small">
+      <Flex.Box x gap="small" align="center">
+        <Text.Text level="p" weight={500}>
+          Select Components:
+        </Text.Text>
+        <Button.Button 
+          variant="text" 
+          size="small" 
+          onClick={handleSelectAll}
+          disabled={display.length === DISPLAY.length}
+        >
+          Select All
+        </Button.Button>
+        <Button.Button 
+          variant="text" 
+          size="small" 
+          onClick={handleClearAll}
+          disabled={display.length === 0}
+        >
+          Clear All
+        </Button.Button>
+        <Text.Text level="small" style={{ opacity: 0.6 }}>
+          {display.length} of {DISPLAY.length} selected
+        </Text.Text>
+      </Flex.Box>
+      
+      <Select.Buttons multiple keys={DISPLAY} value={display} onChange={setDisplay}>
+        {DISPLAY.map((d) => (
+          <Select.Button key={d} itemKey={d}>
+            {caseconv.capitalize(d)}
+          </Select.Button>
+        ))}
+      </Select.Buttons>
+    </Flex.Box>
+  );
+};

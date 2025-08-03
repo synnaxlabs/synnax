@@ -39,6 +39,7 @@
     background: var(--pluto-bg);
     border: none;
     &.pluto--bordered {
+        border: var(--pluto-border);
         border-color: var(--pluto-border-color);
     }
     /* We give the button a fixed z-index to ensure that we maintain a consistent
