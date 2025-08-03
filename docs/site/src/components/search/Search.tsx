@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Component, Dialog, Flux, Icon, Select } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Breadcrumb, Component, Dialog, Flex, Icon, Select } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -220,11 +219,11 @@ const SearchDialogContent = () => {
           bordered
           borderColor={6}
           emptyContent={
-            <Align.Center style={{ height: "100%" }}>
+            <Flex.Box center>
               <Text.Text weight={400}>
                 {value.length === 0 ? "Type to search..." : "No Results"}
               </Text.Text>
-            </Align.Center>
+            </Flex.Box>
           }
         >
           {searchListItem}

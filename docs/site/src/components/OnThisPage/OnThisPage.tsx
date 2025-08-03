@@ -92,7 +92,7 @@ export const OnThisPage = ({
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
             .map((heading) => (
-              <Menu.Item.Link
+              <Menu.Item
                 href={`#${heading.slug}`}
                 level="small"
                 key={heading.slug}
@@ -106,7 +106,7 @@ export const OnThisPage = ({
                 }`.trim()}
               >
                 {unescape(heading.text)}
-              </Menu.Item.Link>
+              </Menu.Item>
             ))}
         </Menu.Menu>
       </div>

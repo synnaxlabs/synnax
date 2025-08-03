@@ -1,5 +1,5 @@
 ---
-import { Align, Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider, Icon, Text, Flex } from "@synnaxlabs/pluto";
 const { next, prev, nextURL, prevURL } = Astro.props;
 ---
 
@@ -12,7 +12,7 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                     <>
                         <Icon.Caret.Left />
                         <Flex.Box direction="y" size="small">
-                            <Text.Text level="small" shade={7} weight={400}>
+                            <Text.Text level="small" color={7} weight={400}>
                                 Previous
                             </Text.Text>
                             <Text.Text>{prev}</Text.Text>

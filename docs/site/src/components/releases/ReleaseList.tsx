@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Menu } from "@synnaxlabs/pluto/menu";
+import { Flex, Menu, Text } from "@synnaxlabs/pluto";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
@@ -68,7 +66,7 @@ export const ReleaseList = ({
           {headings
             .filter(({ depth }) => depth === 6)
             .map((heading) => (
-              <Menu.Item.Link
+              <Menu.Item
                 href={`#${heading.slug}`}
                 level="small"
                 key={heading.slug}
@@ -82,7 +80,7 @@ export const ReleaseList = ({
                 }`.trim()}
               >
                 {unescape(heading.text)}
-              </Menu.Item.Link>
+              </Menu.Item>
             ))}
         </Menu.Menu>
       </div>
