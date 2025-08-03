@@ -26,7 +26,7 @@ var (
 // sugarEncodingErr adds additional context to encoding errors.
 func sugarEncodingErr(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)

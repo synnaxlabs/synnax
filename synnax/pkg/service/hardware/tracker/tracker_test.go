@@ -232,7 +232,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.Status{
+			b := MustSucceed(binary.JSONCodec.Encode(ctx, task.Status{
 				Variant: status.ErrorVariant,
 				Message: "Task is in error",
 				Time:    telem.Now(),

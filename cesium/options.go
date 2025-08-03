@@ -42,7 +42,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 }
 
 func mergeAndValidateOptions(o *options) error {
-	o.metaCodec = override.Nil[binary.Codec](&binary.JSONCodec{}, o.metaCodec)
+	o.metaCodec = override.Nil[binary.Codec](binary.JSONCodec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)

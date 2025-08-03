@@ -30,7 +30,7 @@ import (
 
 var streamReporter = freighter.Reporter{
 	Protocol:  "http",
-	Encodings: defaultContentTypes,
+	Encodings: DefaultContentTypes,
 }
 
 var (

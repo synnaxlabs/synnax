@@ -23,7 +23,6 @@ import (
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -36,7 +35,7 @@ func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) 
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := MustSucceed(fhttp.NewRouter())
 	server := fhttp.NewUnaryServer[Request, Response](router, "/")
-	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+	clientCfg := fhttp.ClientConfig{Codec: binary.JSONCodec}
 	client := MustSucceed(fhttp.NewUnaryClient[Request, Response](clientCfg))
 	router.BindTo(i.app)
 	go func() {
@@ -115,7 +114,7 @@ var _ = Describe("Unary", func() {
 			app := fiber.New(fiber.Config{DisableStartupMessage: true})
 			router := MustSucceed(fhttp.NewRouter())
 			server := fhttp.NewUnaryServer[TestRequest, TestRequest](router, "/", fhttp.WithResponseEncoders(map[string]binary.Encoder{
-				"application/x-gob": &binary.GobCodec{},
+				"application/x-gob": binary.GobCodec,
 			}))
 			server.BindHandler(func(_ context.Context, req TestRequest) (TestRequest, error) {
 				return req, nil
@@ -132,9 +131,8 @@ var _ = Describe("Unary", func() {
 			Expect(res.StatusCode).To(Equal(fiber.StatusOK))
 			Expect(res.Header.Get("Content-Type")).To(Equal("application/x-gob"))
 			var decodedRes TestRequest
-			c := gobCodec{}
 			body := MustSucceed(io.ReadAll(res.Body))
-			Expect(c.Decode(context.Background(), body, &decodedRes)).To(Succeed())
+			Expect(binary.GobCodec.Decode(context.Background(), body, &decodedRes)).To(Succeed())
 			Expect(decodedRes).To(Equal(testReq))
 		})
 		It("should allow sending direct io.Reader as response", func() {
@@ -157,9 +155,3 @@ var _ = Describe("Unary", func() {
 		})
 	})
 })
-
-type gobCodec struct{ binary.GobCodec }
-
-var _ httputil.Codec = &gobCodec{}
-
-func (t gobCodec) ContentType() string { return "application/x-gob" }

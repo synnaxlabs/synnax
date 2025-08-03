@@ -18,7 +18,7 @@ import (
 
 type ClientConfig struct {
 	binary.Codec
-	contentType string
+	ContentType string
 }
 
 var _ config.Config[ClientConfig] = ClientConfig{}
@@ -26,17 +26,17 @@ var _ config.Config[ClientConfig] = ClientConfig{}
 func (c ClientConfig) Validate() error {
 	v := validate.New("fhttp.ClientConfig")
 	validate.NotNil(v, "codec", c.Codec)
-	validate.NotEmptyString(v, "content_type", c.contentType)
+	validate.NotEmptyString(v, "content_type", c.ContentType)
 	return v.Error()
 }
 
 func (c ClientConfig) Override(other ClientConfig) ClientConfig {
 	c.Codec = override.Nil(c.Codec, other.Codec)
-	c.contentType = override.String(c.contentType, other.contentType)
+	c.ContentType = override.String(c.ContentType, other.ContentType)
 	return c
 }
 
 var DefaultClientConfig = ClientConfig{
-	Codec:       &binary.MsgPackCodec{},
-	contentType: "application/msgpack",
+	Codec:       binary.MsgPackCodec,
+	ContentType: "application/msgpack",
 }

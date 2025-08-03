@@ -553,13 +553,12 @@ func (t *Tracker) checkRackState(_ context.Context) {
 }
 
 // handleRackState handles heartbeat changes.
-func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]byte, struct{}]) {
+func (t *Tracker) handleRackState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var rackState rack.Status
-		if err := decoder.Decode(context.Background(), ch.Key, &rackState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &rackState); err != nil {
 			t.cfg.L.Warn("failed to decode rack state", zap.Error(err))
 			continue
 		}
@@ -580,10 +579,9 @@ func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]b
 func (t *Tracker) handleTaskState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var taskState task.Status
-		if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &taskState); err != nil {
 			t.cfg.L.Warn("failed to decode task state", zap.Error(err))
 			continue
 		}
@@ -616,10 +614,9 @@ func (t *Tracker) saveTaskState(ctx context.Context, taskKey task.Key) error {
 func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var incomingState device.Status
-		if err := decoder.Decode(ctx, ch.Key, &incomingState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &incomingState); err != nil {
 			t.cfg.L.Warn("failed to decode device state", zap.Error(err))
 			continue
 		}

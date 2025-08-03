@@ -21,7 +21,7 @@ import (
 
 var (
 	ctx         = context.Background()
-	codec       = &binary.JSONCodec{}
+	codec       = binary.JSONCodec
 	fileSystems = testutil.FileSystems
 )
 

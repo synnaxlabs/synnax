@@ -18,24 +18,26 @@ import (
 )
 
 // MsgPackCodec is a MessagePack implementation of Codec.
-type MsgPackCodec struct{}
+var MsgPackCodec = &msgPackCodec{}
 
-var _ Codec = (*MsgPackCodec)(nil)
+type msgPackCodec struct{}
+
+var _ Codec = (*msgPackCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (mpc *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (mpc *msgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (mpc *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (mpc *msgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	err := mpc.DecodeStream(ctx, bytes.NewReader(data), value)
 	return sugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
-func (mpc *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (mpc *msgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -44,7 +46,7 @@ func (mpc *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any)
 }
 
 // EncodeStream implements the Encoder interface.
-func (mpc *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (mpc *msgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := mpc.Encode(ctx, value)
 	if err != nil {
 		return sugarEncodingErr(value, err)

@@ -30,7 +30,7 @@ var _ = Describe("FramerCodec", func() {
 			keys := channel.Keys{1}
 			v := api.WSFramerCodec{
 				Codec:          codec.NewStatic(keys, dataTypes),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: binary.JSONCodec,
 			}
 			req := api.FrameWriterRequest{
 				Command: writer.Write,
@@ -59,7 +59,7 @@ var _ = Describe("FramerCodec", func() {
 			keys := channel.Keys{1}
 			v := api.WSFramerCodec{
 				Codec:          codec.NewStatic(keys, dataTypes),
-				LowerPerfCodec: &binary.JSONCodec{},
+				LowerPerfCodec: binary.JSONCodec,
 			}
 			res := api.FrameStreamerResponse{
 				Frame: frame.NewMulti(

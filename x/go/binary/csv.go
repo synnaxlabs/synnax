@@ -31,8 +31,8 @@ var _ Encoder = (*csvEncoder)(nil)
 // Encode encodes a value to its CSV representation in bytes. The value must either
 // implement the CSVMarshaler interface or be a [][]string or []string.
 func (enc *csvEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	if err := enc.EncodeStream(ctx, buf, v); err != nil {
+	var buf bytes.Buffer
+	if err := enc.EncodeStream(ctx, &buf, v); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

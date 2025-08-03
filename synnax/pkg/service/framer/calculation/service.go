@@ -66,7 +66,7 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
+	DefaultConfig = ServiceConfig{StateCodec: binary.JSONCodec}
 )
 
 // Validate implements config.Config.

@@ -16,7 +16,7 @@ import (
 	xmap "github.com/synnaxlabs/x/map"
 )
 
-var defaultContentTypes = []string{"application/json", "application/msgpack"}
+var DefaultContentTypes = []string{"application/json", "application/msgpack"}
 
 type BindableTransport interface {
 	freighter.Transport
@@ -38,7 +38,7 @@ func WithResponseEncoders(encoders map[string]binary.Encoder) ServerOption {
 	return func(o *serverOptions) { o.resEncoders = encoders }
 }
 
-func WithRequestAndResponseCodecs(codecs map[string]binary.Codec) ServerOption {
+func WithAdditionalCodecs(codecs map[string]binary.Codec) ServerOption {
 	return func(o *serverOptions) {
 		for contentType, codec := range codecs {
 			o.reqDecoders[contentType] = codec
@@ -50,12 +50,12 @@ func WithRequestAndResponseCodecs(codecs map[string]binary.Codec) ServerOption {
 func newServerOptions(opts []ServerOption) serverOptions {
 	so := serverOptions{
 		reqDecoders: xmap.Map[string, binary.Decoder]{
-			"application/json":    &binary.JSONCodec{},
-			"application/msgpack": &binary.MsgPackCodec{},
+			"application/json":    binary.JSONCodec,
+			"application/msgpack": binary.MsgPackCodec,
 		},
 		resEncoders: xmap.Map[string, binary.Encoder]{
-			"application/json":    &binary.JSONCodec{},
-			"application/msgpack": &binary.MsgPackCodec{},
+			"application/json":    binary.JSONCodec,
+			"application/msgpack": binary.MsgPackCodec,
 		},
 	}
 	for _, opt := range opts {

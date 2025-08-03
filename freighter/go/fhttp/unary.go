@@ -29,7 +29,7 @@ import (
 
 var unaryReporter = freighter.Reporter{
 	Protocol:  "http",
-	Encodings: defaultContentTypes,
+	Encodings: DefaultContentTypes,
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -150,7 +150,7 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &unaryClient[RQ, RS]{codec: cfg.Codec, contentType: cfg.contentType}, nil
+	return &unaryClient[RQ, RS]{codec: cfg.Codec, contentType: cfg.ContentType}, nil
 }
 
 func (uc *unaryClient[RQ, RS]) Send(

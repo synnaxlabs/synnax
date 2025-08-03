@@ -25,23 +25,24 @@ type toEncode struct {
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(codec binary.Codec) {
-		b, err := codec.Encode(context.TODO(), toEncode{1})
+		ctx := context.Background()
+		b, err := codec.Encode(ctx, toEncode{1})
 		Expect(err).ToNot(HaveOccurred())
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
 		var d2 toEncode
-		Expect(codec.DecodeStream(context.TODO(), bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2.Value).To(Equal(1))
 	},
-		Entry("Gob", &binary.GobCodec{}),
-		Entry("JSON", &binary.JSONCodec{}),
-		Entry("MsgPack", &binary.MsgPackCodec{}),
-		Entry("PassThrough", &binary.PassThroughCodec{Codec: &binary.GobCodec{}}),
+		Entry("Gob", binary.GobCodec),
+		Entry("JSON", binary.JSONCodec),
+		Entry("MsgPack", binary.MsgPackCodec),
+		Entry("PassThrough", &binary.PassThroughCodec{Codec: binary.GobCodec}),
 	)
 	Describe("PassThrough encoding and decoding", func() {
 		It("Should pass through the encoding and decoding when a byte slice is provided", func() {
-			codec := &binary.PassThroughCodec{Codec: &binary.GobCodec{}}
+			codec := &binary.PassThroughCodec{Codec: binary.GobCodec}
 			b, err := codec.Encode(ctx, []byte{1, 2, 3})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(b).To(Equal([]byte{1, 2, 3}))
@@ -58,9 +59,9 @@ var _ = Describe("Codec", func() {
 			Expect(msg).To(ContainSubstring("failed to encode value"))
 			Expect(msg).To(ContainSubstring("kind=chan, type=chan int"))
 		},
-			Entry("Gob", &binary.GobCodec{}),
-			Entry("JSON", &binary.JSONCodec{}),
-			Entry("MsgPack", &binary.MsgPackCodec{}),
+			Entry("Gob", binary.GobCodec),
+			Entry("JSON", binary.JSONCodec),
+			Entry("MsgPack", binary.MsgPackCodec),
 		)
 		DescribeTable("Custom Type", func(codec binary.Codec) {
 			type custom struct {
@@ -74,14 +75,14 @@ var _ = Describe("Codec", func() {
 			Expect(msg).To(ContainSubstring("kind=struct, type=binary_test.custom"))
 		},
 			// Explicit exclusion of Gob because it can encode arbitrary go types
-			Entry("JSON", &binary.JSONCodec{}),
-			Entry("MsgPack", &binary.MsgPackCodec{}),
+			Entry("JSON", binary.JSONCodec),
+			Entry("MsgPack", binary.MsgPackCodec),
 		)
 	})
 	Describe("Fallback", func() {
 		It("Should fallback to the next codec when the first one fails", func() {
-			js := &binary.JSONCodec{}
-			gb := &binary.GobCodec{}
+			js := binary.JSONCodec
+			gb := binary.GobCodec
 			type abc struct {
 				Value int `json:"value"`
 			}
@@ -89,19 +90,19 @@ var _ = Describe("Codec", func() {
 			jsonB := MustSucceed(js.Encode(ctx, v))
 			gobB := MustSucceed(gb.Encode(ctx, v))
 			var res abc
-			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
+			fbc := binary.NewDecodeFallbackCodec(binary.GobCodec, binary.JSONCodec)
 			Expect(fbc.Decode(ctx, jsonB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 			Expect(fbc.Decode(ctx, gobB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
 		It("Should return the error of the last decoder if all codecs fail", func() {
-			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
+			fbc := binary.NewDecodeFallbackCodec(binary.GobCodec, binary.JSONCodec)
 			_, err := fbc.Encode(ctx, make(chan int))
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should handle DecodeStream fallback correctly", func() {
-			js := &binary.JSONCodec{}
+			js := binary.JSONCodec
 			type abc struct {
 				Value int `json:"value"`
 			}
@@ -109,7 +110,7 @@ var _ = Describe("Codec", func() {
 			jsonB := MustSucceed(js.Encode(ctx, v))
 
 			var res abc
-			fbc := binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.JSONCodec{})
+			fbc := binary.NewDecodeFallbackCodec(binary.MsgPackCodec, binary.JSONCodec)
 
 			// Create a bytes.Buffer that implements io.Reader
 			buf := bytes.NewBuffer(jsonB)
@@ -118,7 +119,7 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should return error when DecodeStream fails for all codecs", func() {
-			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
+			fbc := binary.NewDecodeFallbackCodec(binary.GobCodec, binary.JSONCodec)
 
 			invalidData := []byte("completely invalid data")
 			var res struct{ Value int }
@@ -128,7 +129,7 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Tracing", func() {
 		It("Should properly wrap encoding and decoding operations", func() {
-			underlying := &binary.GobCodec{}
+			underlying := binary.GobCodec
 			codec := &binary.TracingCodec{
 				Codec: underlying,
 			}
@@ -149,7 +150,7 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should properly handle encoding errors", func() {
-			underlying := &binary.JSONCodec{}
+			underlying := binary.JSONCodec
 			codec := &binary.TracingCodec{
 				Codec: underlying,
 			}
@@ -161,7 +162,7 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should properly handle decoding errors", func() {
-			underlying := &binary.JSONCodec{}
+			underlying := binary.JSONCodec
 			codec := &binary.TracingCodec{
 				Codec: underlying,
 			}

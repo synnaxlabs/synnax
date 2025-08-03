@@ -19,18 +19,20 @@ import (
 )
 
 // JSONCodec is a JSON implementation of Codec.
-type JSONCodec struct{}
+var JSONCodec = &jsonCodec{}
 
-var _ Codec = (*JSONCodec)(nil)
+type jsonCodec struct{}
+
+var _ Codec = (*jsonCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (jc *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (jc *jsonCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := json.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (jc *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
+func (jc *jsonCodec) Decode(_ context.Context, data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
@@ -38,7 +40,7 @@ func (jc *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the Decoder interface.
-func (jc *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (jc *jsonCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -47,7 +49,7 @@ func (jc *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) err
 }
 
 // EncodeStream implements the Encoder interface.
-func (jc *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (jc *jsonCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := jc.Encode(ctx, value)
 	if err != nil {
 		return err
@@ -87,5 +89,5 @@ func UnmarshalJSONStringUint64(b []byte) (uint64, error) {
 // MustEncodeJSONToString encodes the value to a JSON string, and panics if an error
 // occurs.
 func MustEncodeJSONToString(v any) string {
-	return string(lo.Must((&JSONCodec{}).Encode(context.Background(), v)))
+	return string(lo.Must(JSONCodec.Encode(context.Background(), v)))
 }

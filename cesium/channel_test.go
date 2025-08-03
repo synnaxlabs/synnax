@@ -158,7 +158,6 @@ var _ = Describe("Channel", Ordered, func() {
 					errorKey2New  = GenerateChannelKey()
 					errorKey3     = GenerateChannelKey()
 					errorKey3New  = GenerateChannelKey()
-					jsonDecoder   = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
 						{Name: "John", Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
@@ -210,7 +209,7 @@ var _ = Describe("Channel", Ordered, func() {
 						)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
-						err = jsonDecoder.Decode(ctx, buf, &ch)
+						err = binary.JSONCodec.Decode(ctx, buf, &ch)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(unaryKeyNew))
@@ -240,7 +239,7 @@ var _ = Describe("Channel", Ordered, func() {
 						)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
-						err = jsonDecoder.Decode(ctx, buf, &ch)
+						err = binary.JSONCodec.Decode(ctx, buf, &ch)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(virtualKeyNew))
@@ -254,7 +253,7 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
 					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
 
-					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
 						[]core.ChannelKey{indexKey, dataKey, data2Key},
 						[]telem.Series{indexSeries1, dataSeries1, data2Series1},
 					))).To(Succeed())
@@ -276,7 +275,7 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries2 := telem.NewSeriesV[int64](13, 17, 19, 23, 29)
 					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
 
-					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame(
 						[]core.ChannelKey{indexKeyNew, dataKey, data2Key},
 						[]telem.Series{indexSeries2, dataSeries2, data2Series2},
 					))).To(Succeed())
@@ -299,7 +298,7 @@ var _ = Describe("Channel", Ordered, func() {
 						)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
-						err = jsonDecoder.Decode(ctx, buf, &ch)
+						err = binary.JSONCodec.Decode(ctx, buf, &ch)
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(indexKeyNew))
@@ -351,7 +350,7 @@ var _ = Describe("Channel", Ordered, func() {
 							)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
-							err = jsonDecoder.Decode(ctx, buf, &ch)
+							err = binary.JSONCodec.Decode(ctx, buf, &ch)
 							Expect(err).ToNot(HaveOccurred())
 
 							Expect(ch.Key).To(Equal(errorKey1New))
@@ -389,7 +388,7 @@ var _ = Describe("Channel", Ordered, func() {
 							)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
-							err = jsonDecoder.Decode(ctx, buf, &ch)
+							err = binary.JSONCodec.Decode(ctx, buf, &ch)
 							Expect(err).ToNot(HaveOccurred())
 
 							Expect(ch.Key).To(Equal(errorKey2New))
@@ -426,7 +425,6 @@ var _ = Describe("Channel", Ordered, func() {
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 						meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-						codec = &binary.JSONCodec{}
 						buf   = make([]byte, MustSucceed(meta.Stat()).Size())
 						newCh cesium.Channel
 					)
@@ -435,7 +433,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(meta.Close()).To(Succeed())
 
-					Expect(codec.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(binary.JSONCodec.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
 				It("Should correctly rename multiple channels", func() {

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/binary"
 )
 
 var _ = Describe("ClientConfig", func() {
@@ -23,8 +23,8 @@ var _ = Describe("ClientConfig", func() {
 		nilConfig     fhttp.ClientConfig
 	)
 	BeforeEach(func() {
-		jsonConfig = fhttp.ClientConfig{Codec: httputil.JSONCodec}
-		msgpackConfig = fhttp.ClientConfig{Codec: httputil.MsgPackCodec}
+		jsonConfig = fhttp.ClientConfig{Codec: binary.JSONCodec}
+		msgpackConfig = fhttp.ClientConfig{Codec: binary.MsgPackCodec}
 		nilConfig = fhttp.ClientConfig{Codec: nil}
 	})
 	Describe("Validate", func() {

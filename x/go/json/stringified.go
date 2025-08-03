@@ -26,8 +26,6 @@ type String string
 
 var _ json.Unmarshaler = (*String)(nil)
 
-var detailsCodec = &binary.JSONCodec{}
-
 // NewStaticString creates a new String from static data. The data is encoded using
 // the binary.JSONCodec. This function should only be used with static data as it
 // will panic if encoding fails. For dynamic data, use json.Marshal directly.
@@ -39,7 +37,7 @@ var detailsCodec = &binary.JSONCodec{}
 // Returns:
 //   - String: The encoded JSON string
 func NewStaticString(ctx context.Context, data any) String {
-	b, err := detailsCodec.Encode(ctx, data)
+	b, err := binary.JSONCodec.Encode(ctx, data)
 	if err != nil {
 		zap.S().DPanic("unexpected static encode error", zap.Error(err))
 	}

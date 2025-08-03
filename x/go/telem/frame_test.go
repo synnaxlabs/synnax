@@ -516,10 +516,7 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Encode + Decode", func() {
-		codecs := []binary.Codec{
-			&binary.JSONCodec{},
-			&binary.MsgPackCodec{},
-		}
+		codecs := []binary.Codec{binary.JSONCodec, binary.MsgPackCodec}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func() {
 				original := telem.MultiFrame(
