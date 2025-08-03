@@ -11,9 +11,9 @@ import { type channel } from "@synnaxlabs/client";
 import { type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
-import { Flex } from "@/flex";
 import { Channel } from "@/channel";
 import { telem } from "@/ether";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";

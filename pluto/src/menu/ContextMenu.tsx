@@ -13,9 +13,9 @@ import { box, position, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Flex } from "@/flex";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
 
 interface ContextMenuState {

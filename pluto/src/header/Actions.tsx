@@ -10,10 +10,10 @@
 import { array } from "@synnaxlabs/x";
 import { Fragment, isValidElement, type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 

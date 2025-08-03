@@ -12,8 +12,8 @@ import "@/vis/schematic/Symbols.css";
 import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
 import { type CSSProperties, type FC, type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";

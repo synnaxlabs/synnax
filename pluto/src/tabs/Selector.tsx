@@ -16,10 +16,10 @@ import {
   useState,
 } from "react";
 
-import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";

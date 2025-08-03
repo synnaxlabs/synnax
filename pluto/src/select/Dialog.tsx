@@ -9,7 +9,7 @@
 
 import "@/select/Dialog.css";
 
-import { caseconv, type record, type status } from "@synnaxlabs/x";
+import { type record, type status } from "@synnaxlabs/x";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";

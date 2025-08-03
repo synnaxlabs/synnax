@@ -12,9 +12,9 @@ import "@/vis/schematic/OrientationControl.css";
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { type Input } from "@/input";
 
 export interface OrientationValue {

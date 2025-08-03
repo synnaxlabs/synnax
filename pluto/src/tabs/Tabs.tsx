@@ -12,9 +12,9 @@ import "@/tabs/Tabs.css";
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Flex } from "@/flex";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";

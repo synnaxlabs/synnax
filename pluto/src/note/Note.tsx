@@ -12,8 +12,8 @@ import "@/note/Note.css";
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 
 export interface NoteProps extends Flex.BoxProps<"div"> {
   variant: status.Variant;

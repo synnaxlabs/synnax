@@ -22,9 +22,9 @@ import {
   useState,
 } from "react";
 
-import { Flex } from "@/flex";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";

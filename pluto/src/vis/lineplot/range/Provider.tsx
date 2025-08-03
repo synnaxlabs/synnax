@@ -11,8 +11,8 @@ import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
-import { Flex } from "@/flex";
 import { type RenderProp } from "@/component/renderProp";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Menu } from "@/menu";

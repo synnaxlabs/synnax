@@ -16,9 +16,9 @@ import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";

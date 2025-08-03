@@ -17,8 +17,8 @@ import {
   useState,
 } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Core } from "@/resize/Core";
 
 /** Props for the {@link Resize.Multiple} component. */

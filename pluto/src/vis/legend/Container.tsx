@@ -20,8 +20,8 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";

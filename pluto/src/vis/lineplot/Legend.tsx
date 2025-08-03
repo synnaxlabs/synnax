@@ -11,8 +11,8 @@ import "@/vis/legend/Container.css";
 
 import { memo, type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Legend as Core } from "@/vis/legend";
 import { LegendSwatches } from "@/vis/legend/Simple";

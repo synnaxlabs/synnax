@@ -11,41 +11,44 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Breadcrumb } from "@/breadcrumb";
-import { Text } from "@/text";
 
-// describe("Breadcrumb", () => {
-//   describe("Breadcrumb", () => {
-//     it("should render a breadcrumb with a single segment", () => {
-//       const c = render(<Breadcrumb.Breadcrumb>{["Home"]}</Breadcrumb.Breadcrumb>);
-//       expect(c.getByText("Home")).toBeTruthy();
-//     });
-//     it("should render a breadcrumb with multiple segments", () => {
-//       const c = render(
-//         <Breadcrumb.Breadcrumb>
-//           <Text.Text>Home</Text.Text>
-//           <Text.Text>Settings</Text.Text>
-//           <Text.Text>Profile</Text.Text>
-//         </Breadcrumb.Breadcrumb>,
-//       );
-//       expect(c.getByText("Home")).toBeTruthy();
-//       expect(c.getByText("Settings")).toBeTruthy();
-//       expect(c.getByText("Profile")).toBeTruthy();
-//       expect(c.getAllByLabelText("pluto-icon--caret-right")).toHaveLength(2);
-//     });
-//   });
-//   describe("URL", () => {
-//     it("should render a breadcrumb multiple segments", () => {
-//       const c = render(<Breadcrumb.URL url="home/settings/profile" />);
-//       expect(c.getByText("Home")).toBeTruthy();
-//       expect(c.getByText("Settings")).toBeTruthy();
-//       expect(c.getByText("Profile")).toBeTruthy();
-//       expect(c.getAllByLabelText("pluto-icon--caret-right")).toHaveLength(3);
-//       const home = c.getByText("Home");
-//       expect(home.getAttribute("href")).toBe("/home");
-//       const settings = c.getByText("Settings");
-//       expect(settings.getAttribute("href")).toBe("/home/settings");
-//       const profile = c.getByText("Profile");
-//       expect(profile.getAttribute("href")).toBe("/home/settings/profile");
-//     });
-//   });
-// });
+describe("Breadcrumb", () => {
+  describe("Breadcrumb", () => {
+    it("should render a breadcrumb with a single segment", () => {
+      const c = render(
+        <Breadcrumb.Breadcrumb>
+          <Breadcrumb.Segment>Home</Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>
+      );
+      expect(c.getByText("Home")).toBeTruthy();
+    });
+    it("should render a breadcrumb with multiple segments", () => {
+      const c = render(
+        <Breadcrumb.Breadcrumb>
+          <Breadcrumb.Segment>Home</Breadcrumb.Segment>
+          <Breadcrumb.Segment>Settings</Breadcrumb.Segment>
+          <Breadcrumb.Segment>Profile</Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>,
+      );
+      expect(c.getByText("Home")).toBeTruthy();
+      expect(c.getByText("Settings")).toBeTruthy();
+      expect(c.getByText("Profile")).toBeTruthy();
+      expect(c.getAllByTestId("pluto-icon")).toHaveLength(2);
+    });
+  });
+  describe("mapURLSegments", () => {
+    it("should map URL segments correctly", () => {
+      const segments = Breadcrumb.mapURLSegments("home/settings/profile", ({ href, segment }) => (
+        <Breadcrumb.Segment key={href} href={`/${href}`}>{segment}</Breadcrumb.Segment>
+      ));
+      expect(segments).toHaveLength(3);
+      
+      const c = render(<Breadcrumb.Breadcrumb>{segments}</Breadcrumb.Breadcrumb>);
+      const links = c.getAllByRole("link");
+      expect(links).toHaveLength(3);
+      expect(links[0].getAttribute("href")).toBe("/home");
+      expect(links[1].getAttribute("href")).toBe("/home/settings");
+      expect(links[2].getAttribute("href")).toBe("/home/settings/profile");
+    });
+  });
+});

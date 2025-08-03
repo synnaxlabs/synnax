@@ -20,11 +20,11 @@ import {
   useState,
 } from "react";
 
-import { Flex } from "@/flex";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { positionDialog, type Variant } from "@/dialog/position";
+import { Flex } from "@/flex";
 import {
   useClickOutside,
   useCombinedRefs,
