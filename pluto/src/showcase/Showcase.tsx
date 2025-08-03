@@ -18,6 +18,8 @@ import { DisplaySelector } from "./DisplaySelector";
 import { DividerShowcase } from "./DividerShowcase";
 import { FlexShowcase } from "./FlexShowcase";
 import { InputShowcase } from "./InputShowcase";
+import { MenuShowcase } from "./MenuShowcase";
+import { NoteShowcase } from "./NoteShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TagShowcase } from "./TagShowcase";
 import { TextShowcase } from "./TextShowcase";
@@ -31,37 +33,16 @@ const ShowcaseSection = ({
   description?: string;
   children: React.ReactNode;
 }) => (
-  <Flex.Box
-    y
-    gap="large"
-    background={1}
-    bordered
-    rounded={2}
-    style={{ padding: "5rem" }}
-  >
-    <Flex.Box
-      y
-      gap="small"
-      style={{ borderBottom: "1px solid var(--pluto-gray-l1)", paddingBottom: "1rem" }}
-    >
-      <Text.Text level="h2">{title}</Text.Text>
+  <Flex.Box y gap="large" background={1} rounded={2} pack>
+    <Flex.Box y gap="small" bordered style={{ padding: "2rem 3rem" }} rounded>
+      <Text.Text level="h3">{title}</Text.Text>
       {description && (
-        <Text.Text
-          level="p"
-          style={{
-            opacity: 0.8,
-            maxWidth: "700px",
-            lineHeight: 1.6,
-            margin: 0,
-          }}
-        >
+        <Text.Text level="p" color={8}>
           {description}
         </Text.Text>
       )}
     </Flex.Box>
-    <Flex.Box style={{ overflow: "auto" }} background={0}>
-      {children}
-    </Flex.Box>
+    {children}
   </Flex.Box>
 );
 
@@ -99,6 +80,20 @@ export const Showcase = () => {
       description:
         "Dropdown selection components for single and multiple value selection with search capabilities.",
       component: <SelectShowcase />,
+    },
+    {
+      key: "menu",
+      title: "Menu",
+      description:
+        "Interactive menu components with selection states, icons, and context menu functionality.",
+      component: <MenuShowcase />,
+    },
+    {
+      key: "note",
+      title: "Note",
+      description:
+        "Alert and notification components for displaying informational, warning, and error messages.",
+      component: <NoteShowcase />,
     },
     {
       key: "tag",
@@ -142,10 +137,10 @@ export const Showcase = () => {
       }}
     >
       <Flex.Box y background={1} bordered rounded={2} style={{ padding: "5rem" }}>
-        <Text.Text level="h1" style={{ marginBottom: "0.5rem" }}>
+        <Text.Text level="h2" style={{ marginBottom: "0.5rem" }}>
           Pluto Component Showcase
         </Text.Text>
-        <Text.Text level="p" color={10}>
+        <Text.Text level="p" color={9}>
           Interactive showcase of all Pluto design system components. Select components
           to view their variants and usage examples.
         </Text.Text>

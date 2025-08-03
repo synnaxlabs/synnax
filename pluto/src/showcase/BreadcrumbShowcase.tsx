@@ -10,8 +10,9 @@
 import { Breadcrumb } from "@/breadcrumb";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { Text } from "@/text";
 
-import { PADDING_STYLE } from "./constants";
+import { SubcategorySection } from "./SubcategorySection";
 
 export const BreadcrumbShowcase = () => {
   const segments = [
@@ -29,17 +30,42 @@ export const BreadcrumbShowcase = () => {
   ];
   const URL = "https://docs.synnaxlabs.com/reference/cluster/cli-reference";
   return (
-    <Flex.Box y style={PADDING_STYLE} bordered rounded={1}>
-      <Breadcrumb.Breadcrumb level="h4">{segments}</Breadcrumb.Breadcrumb>
-      <Breadcrumb.Breadcrumb level="h5">{segments}</Breadcrumb.Breadcrumb>
-      <Breadcrumb.Breadcrumb>{segments}</Breadcrumb.Breadcrumb>
-      <Breadcrumb.Breadcrumb>
-        {Breadcrumb.mapURLSegments(URL, ({ href, segment }) => (
-          <Breadcrumb.Segment key={segment} href={href}>
-            {segment}
-          </Breadcrumb.Segment>
-        ))}
-      </Breadcrumb.Breadcrumb>
+    <Flex.Box y pack empty>
+      <SubcategorySection
+        title="Typography Levels"
+        description="Breadcrumbs with different text levels for various hierarchical contexts"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>H4 Level</Text.Text>
+            <Breadcrumb.Breadcrumb level="h4">{segments}</Breadcrumb.Breadcrumb>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>H5 Level</Text.Text>
+            <Breadcrumb.Breadcrumb level="h5">{segments}</Breadcrumb.Breadcrumb>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>Default Level</Text.Text>
+            <Breadcrumb.Breadcrumb>{segments}</Breadcrumb.Breadcrumb>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="URL-Based Breadcrumbs"
+        description="Automatically generated breadcrumbs from URL paths using mapURLSegments utility"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>Auto-generated from URL</Text.Text>
+          <Breadcrumb.Breadcrumb>
+            {Breadcrumb.mapURLSegments(URL, ({ href, segment }) => (
+              <Breadcrumb.Segment key={segment} href={href}>
+                {segment}
+              </Breadcrumb.Segment>
+            ))}
+          </Breadcrumb.Breadcrumb>
+        </Flex.Box>
+      </SubcategorySection>
     </Flex.Box>
   );
 };

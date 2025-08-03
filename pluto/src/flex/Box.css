@@ -155,7 +155,7 @@
 
     &.pluto--y {
         & > :not(:first-child) {
-            margin-top: -1px;
+            margin-top: calc(-1 * var(--pluto-border-width));
         }
 
         & > .pluto-flex--pack {
@@ -185,7 +185,7 @@
 
     &.pluto--x {
         & > :not(:first-child) {
-            margin-left: -1px;
+            margin-left: calc(-1 * var(--pluto-border-width));
         }
 
         & > .pluto-flex--pack {

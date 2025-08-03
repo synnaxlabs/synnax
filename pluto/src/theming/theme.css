@@ -109,22 +109,27 @@ html {
 
 .pluto-height--huge {
     min-height: var(--pluto-height-huge);
+    height: fit-content;
 }
 
 .pluto-height--large {
     min-height: var(--pluto-height-large);
+    height: fit-content;
 }
 
 .pluto-height--medium {
     min-height: var(--pluto-height-medium);
+    height: fit-content;
 }
 
 .pluto-height--tiny {
     min-height: var(--pluto-height-tiny);
+    height: fit-content;
 }
 
 .pluto-height--small {
     min-height: var(--pluto-height-small);
+    height: fit-content;
 }
 
 .pluto--no-select {

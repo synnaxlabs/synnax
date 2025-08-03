@@ -14,8 +14,9 @@ import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
+import { Text } from "@/text";
 
-import { PADDING_STYLE } from "./constants";
+import { SubcategorySection } from "./SubcategorySection";
 
 const SelectMultiple = () => {
   const [value, setValue] = useState<channel.Key[]>([]);
@@ -52,9 +53,33 @@ const SelectButton = () => {
 };
 
 export const SelectShowcase = () => (
-  <Flex.Box y style={PADDING_STYLE} bordered rounded={1} full="x">
-    <SelectMultiple />
-    <SelectSingle />
-    <SelectButton />
+  <Flex.Box y pack empty>
+    <Flex.Box x pack grow sharp>
+      <SubcategorySection
+        title="Channel Selection"
+        description="Dropdown selectors for single and multiple channel selection with search capabilities"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>Multiple Selection</Text.Text>
+            <SelectMultiple />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>Single Selection</Text.Text>
+            <SelectSingle />
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Button Selection"
+        description="Toggle button groups for selecting from predefined options with visual icons"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>Icon Button Group</Text.Text>
+          <SelectButton />
+        </Flex.Box>
+      </SubcategorySection>
+    </Flex.Box>
   </Flex.Box>
 );

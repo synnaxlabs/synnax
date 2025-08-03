@@ -11,64 +11,120 @@ import { Flex } from "@/flex";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
-import { PADDING_STYLE } from "./constants";
+import { SubcategorySection } from "./SubcategorySection";
 
 export const TextShowcase = () => (
-  <Flex.Box x bordered style={PADDING_STYLE} rounded={1} gap="large">
-    <Flex.Box y>
-      <Text.Text level="h1">Hello</Text.Text>
-      <Text.Text level="h2">Hello</Text.Text>
-      <Text.Text level="h3">Hello</Text.Text>
-      <Text.Text level="h4">Hello</Text.Text>
-      <Text.Text level="h5">Hello</Text.Text>
-      <Text.Text>Hello</Text.Text>
-      <Text.Text level="small">Hello</Text.Text>
+  <Flex.Box y pack empty rounded>
+    <Flex.Box x pack grow sharp>
+      <SubcategorySection
+        title="Typography Hierarchy"
+        description="Text levels from largest heading (h1) to smallest body text, showing proper hierarchy and sizing"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>
+            Text Levels
+          </Text.Text>
+          <Flex.Box y>
+            <Text.Text level="h1">Hello (H1)</Text.Text>
+            <Text.Text level="h2">Hello (H2)</Text.Text>
+            <Text.Text level="h3">Hello (H3)</Text.Text>
+            <Text.Text level="h4">Hello (H4)</Text.Text>
+            <Text.Text level="h5">Hello (H5)</Text.Text>
+            <Text.Text>Hello (Body)</Text.Text>
+            <Text.Text level="small">Hello (Small)</Text.Text>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+      <SubcategorySection
+        title="Color Variations"
+        description="Text color intensity levels from highest (default) to lowest contrast"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>
+            Color Levels (10 = highest contrast, 1 = lowest)
+          </Text.Text>
+          <Flex.Box y>
+            <Text.Text>Hello (Default)</Text.Text>
+            <Text.Text color={10}>Hello (10)</Text.Text>
+            <Text.Text color={9}>Hello (9)</Text.Text>
+            <Text.Text color={8}>Hello (8)</Text.Text>
+            <Text.Text color={7}>Hello (7)</Text.Text>
+            <Text.Text color={6}>Hello (6)</Text.Text>
+            <Text.Text color={5}>Hello (5)</Text.Text>
+            <Text.Text color={4}>Hello (4)</Text.Text>
+            <Text.Text color={3}>Hello (3)</Text.Text>
+            <Text.Text color={2}>Hello (2)</Text.Text>
+            <Text.Text color={1}>Hello (1)</Text.Text>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
     </Flex.Box>
-    <Flex.Box y>
-      <Text.Text>Hello</Text.Text>
-      <Text.Text color={10}>Hello</Text.Text>
-      <Text.Text color={9}>Hello</Text.Text>
-      <Text.Text color={8}>Hello</Text.Text>
-      <Text.Text color={7}>Hello</Text.Text>
-      <Text.Text color={6}>Hello</Text.Text>
-      <Text.Text color={5}>Hello</Text.Text>
-      <Text.Text color={4}>Hello</Text.Text>
-      <Text.Text color={3}>Hello</Text.Text>
-      <Text.Text color={2}>Hello</Text.Text>
-      <Text.Text color={1}>Hello</Text.Text>
-    </Flex.Box>
-    <Flex.Box y>
-      <Text.Text href="https://www.google.com" level="h1">
-        Hello
-      </Text.Text>
-      <Text.Text href="https://www.google.com" level="h2">
-        Hello
-      </Text.Text>
-      <Text.Text href="https://www.google.com" level="h3">
-        Hello
-      </Text.Text>
-      <Text.Text href="https://www.google.com" level="h4">
-        Hello
-      </Text.Text>
-      <Text.Text href="https://www.google.com" level="h5">
-        Hello
-      </Text.Text>
-      <Text.Text href="https://www.google.com">Hello</Text.Text>
-      <Text.Text href="https://www.google.com" level="small">
-        Hello
-      </Text.Text>
-    </Flex.Box>
-    <Flex.Box y>
-      <Text.Text variant="code">Hello</Text.Text>
-      <Flex.Box x gap="small">
-        <Text.Text variant="keyboard">
-          <Text.Symbols.Meta />
-        </Text.Text>
-        <Text.Text variant="keyboard">
-          <Text.Symbols.Alt />
-        </Text.Text>
-      </Flex.Box>
-      <Triggers.Text trigger={["Control", "Enter"]}>Hello</Triggers.Text>
+
+    <Flex.Box x pack grow sharp>
+      <SubcategorySection
+        title="Interactive Text (Links)"
+        description="Text components with href attributes that render as clickable links"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>
+            Linked Text
+          </Text.Text>
+          <Flex.Box y>
+            <Text.Text href="https://www.google.com" level="h1">
+              Hello (H1 Link)
+            </Text.Text>
+            <Text.Text href="https://www.google.com" level="h2">
+              Hello (H2 Link)
+            </Text.Text>
+            <Text.Text href="https://www.google.com" level="h3">
+              Hello (H3 Link)
+            </Text.Text>
+            <Text.Text href="https://www.google.com" level="h4">
+              Hello (H4 Link)
+            </Text.Text>
+            <Text.Text href="https://www.google.com" level="h5">
+              Hello (H5 Link)
+            </Text.Text>
+            <Text.Text href="https://www.google.com">Hello (Body Link)</Text.Text>
+            <Text.Text href="https://www.google.com" level="small">
+              Hello (Small Link)
+            </Text.Text>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Special Variants & Symbols"
+        description="Code formatting, keyboard shortcuts, and special symbol components"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Code Text
+            </Text.Text>
+            <Text.Text variant="code">Hello (Code)</Text.Text>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Keyboard Symbols
+            </Text.Text>
+            <Flex.Box x gap="small">
+              <Text.Text variant="keyboard">
+                <Text.Symbols.Meta />
+              </Text.Text>
+              <Text.Text variant="keyboard">
+                <Text.Symbols.Alt />
+              </Text.Text>
+            </Flex.Box>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Trigger Display
+            </Text.Text>
+            <Triggers.Text trigger={["Control", "Enter"]}>Hello (Trigger)</Triggers.Text>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
     </Flex.Box>
   </Flex.Box>
 );
