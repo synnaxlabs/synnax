@@ -69,7 +69,7 @@ func (es *ExportService) ExportCSV(ctx context.Context, req ExportCSVRequest) (E
 	}); err != nil {
 		return nil, err
 	}
-	headerRecords := binary.NewCSVRecords(1, len(allKeys))
+	headerRecords := make([][]string, 1)
 	headerRecords[0] = lo.Map(channels, func(c channel.Channel, _ int) string {
 		if name, ok := req.ChannelNames[c.Key()]; ok {
 			return name
@@ -78,8 +78,7 @@ func (es *ExportService) ExportCSV(ctx context.Context, req ExportCSVRequest) (E
 	})
 	r, w := io.Pipe()
 	go func() {
-		codec := &binary.CSVCodec{}
-		if err := codec.EncodeStream(ctx, w, headerRecords); err != nil {
+		if err := binary.CSVEncoder.EncodeStream(ctx, w, headerRecords); err != nil {
 			w.CloseWithError(err)
 			return
 		}
@@ -92,7 +91,7 @@ func (es *ExportService) ExportCSV(ctx context.Context, req ExportCSVRequest) (E
 			return
 		}
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
-			if err = codec.EncodeStream(ctx, w, iter.Value()); err != nil {
+			if err = binary.CSVEncoder.EncodeStream(ctx, w, iter.Value()); err != nil {
 				w.CloseWithError(errors.Combine(err, iter.Close()))
 				return
 			}

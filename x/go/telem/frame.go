@@ -517,15 +517,21 @@ func (f Frame[K]) getLargestSeriesLength() int64 {
 func (f Frame[K]) MarshalCSV() ([][]string, error) {
 	rowCount := f.getLargestSeriesLength()
 	records := make([][]string, rowCount)
+	columnCount := len(f.keys)
+	for i := range int(rowCount) {
+		records[i] = make([]string, columnCount)
+	}
+	column := 0
 	for s := range f.Series() {
 		seriesAsStrings := s.AsCSVStrings()
-		for i := range int(rowCount) {
-			if i < len(seriesAsStrings) {
-				records[i] = append(records[i], seriesAsStrings[i])
+		for row := range int(rowCount) {
+			if row < len(seriesAsStrings) {
+				records[row][column] = seriesAsStrings[row]
 			} else {
-				records[i] = append(records[i], "")
+				records[row][column] = ""
 			}
 		}
+		column++
 	}
 	return records, nil
 }

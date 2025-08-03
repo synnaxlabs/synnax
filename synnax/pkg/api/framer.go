@@ -720,9 +720,7 @@ func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
 	}
 }
 
-type readCSVFramerCodec struct {
-	codec xbinary.CSVCodec
-}
+type readCSVFramerCodec struct{}
 
 var _ httputil.Codec = &readCSVFramerCodec{}
 
@@ -730,7 +728,7 @@ func (c *readCSVFramerCodec) ContentType() string { return "text/csv" }
 
 func (c *readCSVFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	if err := c.EncodeStream(ctx, buf, value); err != nil {
+	if err := xbinary.CSVEncoder.EncodeStream(ctx, buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -739,7 +737,7 @@ func (c *readCSVFramerCodec) Encode(ctx context.Context, value any) ([]byte, err
 func (c *readCSVFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	switch v := value.(type) {
 	case FrameReadMetadataWrite, Frame:
-		return c.codec.EncodeStream(ctx, w, v)
+		return xbinary.CSVEncoder.EncodeStream(ctx, w, v)
 	case error:
 		return v
 	}

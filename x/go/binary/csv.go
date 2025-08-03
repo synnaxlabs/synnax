@@ -18,19 +18,53 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// CSVEncoder is an encoder that encodes data to the CSV format.
+var CSVEncoder = &csvEncoder{}
+
 // CSVMarshaler is a type that can marshal itself to a CSV representation.
 type CSVMarshaler interface{ MarshalCSV() ([][]string, error) }
 
-// MarshalCSV marshals a value to a CSV representation. If each row in the CSV
-// representation has a different length, an error will be returned.
-func MarshalCSV(value any) ([][]string, error) {
-	m, ok := value.(CSVMarshaler)
-	if !ok {
-		return nil, errors.Newf("%T does not implement CSVMarshaler", value)
-	}
-	records, err := m.MarshalCSV()
-	if err != nil {
+type csvEncoder struct{}
+
+var _ Encoder = (*csvEncoder)(nil)
+
+// Encode encodes a value to its CSV representation in bytes. The value must either
+// implement the CSVMarshaler interface or be a [][]string or []string.
+func (enc *csvEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	if err := enc.EncodeStream(ctx, buf, v); err != nil {
 		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// EncodeStream encodes a value to a CSV representation in bytes and writes it to a
+// writer. The value must either implement the CSVMarshaler interface or be a [][]string
+// or []string.
+func (enc *csvEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	records, err := marshal(v)
+	if err != nil {
+		return sugarEncodingErr(v, err)
+	}
+	csvWriter := csv.NewWriter(w)
+	csvWriter.UseCRLF = true
+	err = csvWriter.WriteAll(records)
+	return sugarEncodingErr(v, err)
+}
+
+func marshal(v any) ([][]string, error) {
+	var records [][]string
+	if m, ok := v.(CSVMarshaler); ok {
+		var err error
+		if records, err = m.MarshalCSV(); err != nil {
+			return nil, err
+		}
+	} else if r, ok := v.([][]string); ok {
+		records = r
+	} else if r, ok := v.([]string); ok {
+		records = [][]string{r}
+	} else {
+		return nil, errors.Newf("%T does not implement CSVMarshaler", v)
 	}
 	if len(records) == 0 {
 		return records, nil
@@ -47,104 +81,4 @@ func MarshalCSV(value any) ([][]string, error) {
 		}
 	}
 	return records, nil
-}
-
-// CSVUnmarshaler is a type that can unmarshal itself from a CSV representation.
-type CSVUnmarshaler interface{ UnmarshalCSV([][]string) error }
-
-// UnmarshalCSV unmarshals a value from a CSV representation.
-func UnmarshalCSV(data [][]string, value any) error {
-	if u, ok := value.(CSVUnmarshaler); ok {
-		return u.UnmarshalCSV(data)
-	}
-	return errors.Newf("%T does not implement CSVUnmarshaler", value)
-}
-
-// CSVCodec is a codec that encodes and decodes data to and from CSV format. CSVCodec
-// implements the Codec interface.
-type CSVCodec struct{}
-
-var _ Codec = (*CSVCodec)(nil)
-
-// Encode encodes a value to its CSV representation in bytes.
-func (cc *CSVCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	records, err := MarshalCSV(value)
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	buf := bytes.NewBuffer(nil)
-	csvWriter := csv.NewWriter(buf)
-	csvWriter.UseCRLF = true
-	if err := csvWriter.WriteAll(records); err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return buf.Bytes(), nil
-}
-
-// EncodeStream encodes a value to a CSV representation in bytes and writes it to a
-// writer.
-func (cc *CSVCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	records, err := MarshalCSV(value)
-	if err != nil {
-		return sugarEncodingErr(value, err)
-	}
-	csvWriter := csv.NewWriter(w)
-	csvWriter.UseCRLF = true
-	err = csvWriter.WriteAll(records)
-	return sugarEncodingErr(value, err)
-}
-
-// Decode decodes a value from a CSV representation in bytes.
-func (cc *CSVCodec) Decode(ctx context.Context, data []byte, value any) error {
-	csvReader := csv.NewReader(bytes.NewReader(data))
-	csvReader.ReuseRecord = true
-	records, err := csvReader.ReadAll()
-	if records == nil {
-		records = [][]string{}
-	}
-	if err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	if err := UnmarshalCSV(records, value); err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
-}
-
-// DecodeStream decodes a value from a CSV representation in bytes and reads it from a
-// reader.
-func (cc *CSVCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return cc.Decode(ctx, data, value)
-}
-
-// CSVRecords implements the CSVMarshaler and CSVUnmarshaler interfaces on [][]string.
-type CSVRecords [][]string
-
-var (
-	_ CSVMarshaler   = (*CSVRecords)(nil)
-	_ CSVUnmarshaler = (*CSVRecords)(nil)
-)
-
-// MarshalCSV returns the CSVRecords as a [][]string.
-func (cr CSVRecords) MarshalCSV() ([][]string, error) {
-	return cr, nil
-}
-
-// UnmarshalCSV sets the CSVRecords to data.
-func (cr *CSVRecords) UnmarshalCSV(data [][]string) error {
-	*cr = data
-	return nil
-}
-
-// NewCSVRecords creates a new CSVRecords with the given number of rows and columns.
-func NewCSVRecords(rows int, cols int) CSVRecords {
-	records := make([][]string, rows)
-	for i := range records {
-		records[i] = make([]string, cols)
-	}
-	return records
 }
