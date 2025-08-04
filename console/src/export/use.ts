@@ -18,20 +18,17 @@ import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const use = (
-  extract: Extractor,
-  type = "visualization",
-): ((key: string) => void) => {
+export const use = (extract: Extractor, type: string): ((key: string) => void) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (key: string) => {
-      let name;
+      let name: string | undefined;
       handleError(
         async () => {
           const extractorReturn = await extract(key, { store, client });
-          name = extractorReturn.name;
+          ({ name } = extractorReturn);
           const savePath = await save({
             title: `Export ${name}`,
             defaultPath: `${name}.json`,

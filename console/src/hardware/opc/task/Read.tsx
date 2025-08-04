@@ -26,7 +26,7 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
-  type readConfigZ,
+  readConfigZ,
   type readStatusDataZ,
   type readTypeZ,
   ZERO_READ_PAYLOAD,
@@ -149,13 +149,13 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+  return {
+    ...ZERO_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 interface DetermineIndexChannelArgs {
   client: Synnax;

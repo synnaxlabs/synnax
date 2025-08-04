@@ -12,8 +12,10 @@ import { z } from "zod";
 import { type theming } from "@/theming/aether";
 import { type ComponentSize } from "@/util/component";
 
-export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
-export const levelZ = z.enum(LEVELS);
+export const levelZ = z.enum(["h1", "h2", "h3", "h4", "h5", "p", "small"]);
+
+/* Level of typography i.e paragraph and heading */
+export type Level = z.infer<typeof levelZ>;
 
 const DOWN_LEVELS: Record<Level, Level> = {
   h1: "h2",
@@ -39,14 +41,12 @@ const UP_LEVELS: Record<Level, Level> = {
 
 export const upLevel = (level: Level): Level => UP_LEVELS[level];
 
-/* Level of typography i.e paragraph and heading */
-export type Level = z.infer<typeof levelZ>;
-
 export type Shade = theming.Shade;
 
-const STRING_WEIGHTS = ["normal", "bold", "bolder", "lighter"] as const;
-
-export const weightZ = z.union([z.number(), z.enum(STRING_WEIGHTS)]);
+export const weightZ = z.union([
+  z.number(),
+  z.enum(["normal", "bold", "bolder", "lighter"]),
+]);
 
 /* Weight sets the weight of the text */
 export type Weight = z.infer<typeof weightZ>;

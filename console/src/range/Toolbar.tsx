@@ -9,7 +9,7 @@
 
 import "@/range/Toolbar.css";
 
-import { ranger } from "@synnaxlabs/client";
+import { DisconnectedError, ranger } from "@synnaxlabs/client";
 import {
   Align,
   componentRenderProp,
@@ -122,9 +122,10 @@ export const useRename = (key: string) => {
     const rng = select(store.getState(), key);
     dispatch(rename({ key, name }));
     if (rng != null && !rng.persisted) return;
-    client?.ranges
-      .rename(key, name)
-      .catch((e) => handleError(e, "Failed to rename range"));
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      await client.ranges.rename(key, name);
+    }, `Failed to rename range to ${name}`);
   };
 };
 

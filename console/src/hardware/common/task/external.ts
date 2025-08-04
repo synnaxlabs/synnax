@@ -9,8 +9,10 @@
 
 export * from "@/hardware/common/task/ChannelList";
 export * from "@/hardware/common/task/ChannelName";
+export * from "@/hardware/common/task/createIngestor";
 export * from "@/hardware/common/task/CreateMenuItem";
 export * from "@/hardware/common/task/EnableDisableButton";
+export * from "@/hardware/common/task/export";
 export * from "@/hardware/common/task/fields";
 export * from "@/hardware/common/task/Form";
 export * from "@/hardware/common/task/getChannelNameID";

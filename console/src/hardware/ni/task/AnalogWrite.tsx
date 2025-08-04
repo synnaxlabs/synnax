@@ -20,7 +20,7 @@ import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelType
 import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
-  type analogWriteConfigZ,
+  analogWriteConfigZ,
   type analogWriteStatusDataZ,
   type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
@@ -113,13 +113,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof analogWriteTypeZ,
   typeof analogWriteConfigZ,
   typeof analogWriteStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_ANALOG_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? analogWriteConfigZ.parse(config)
+      : ZERO_ANALOG_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_ANALOG_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,

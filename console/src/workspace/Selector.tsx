@@ -49,18 +49,16 @@ export const Selector = (): ReactElement => {
         return;
       }
       if (client == null) return;
-      client.workspaces
-        .retrieve(v)
-        .then((ws) => {
-          dispatch(add(ws));
-          dispatch(
-            Layout.setWorkspace({
-              slice: ws.layout as Layout.SliceState,
-              keepNav: false,
-            }),
-          );
-        })
-        .catch((e) => handleError(e, "Failed to switch workspace"));
+      handleError(async () => {
+        const ws = await client.workspaces.retrieve(v);
+        dispatch(add(ws));
+        dispatch(
+          Layout.setWorkspace({
+            slice: ws.layout as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
+      }, "Failed to switch workspace");
     },
     [active, client, dispatch, close, handleError],
   );

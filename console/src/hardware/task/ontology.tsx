@@ -14,7 +14,9 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
+import { Export } from "@/export";
 import { Group } from "@/group";
+import { Common } from "@/hardware/common";
 import { type LayoutArgs } from "@/hardware/common/task/Task";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
@@ -76,6 +78,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleExport = Common.Task.useExport();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
@@ -94,6 +97,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
+    export: () => handleExport(resources[0].id.key),
     rangeSnapshot: () => snap(props.selection.resources),
     group: () => group(props),
   };
@@ -115,6 +119,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
           <Menu.RenameItem />
           <Link.CopyMenuItem />
+          <Export.MenuItem />
           <PMenu.Divider />
         </>
       )}
@@ -147,15 +152,12 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   location,
   handleError,
-}) => {
-  client.hardware.tasks
-    .retrieve({ key: id.key })
-    .then((task) => {
-      const layout = createLayout(task);
-      placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
-    })
-    .catch(handleError);
-};
+}) =>
+  handleError(async () => {
+    const task = await client.hardware.tasks.retrieve({ key: id.key });
+    const layout = createLayout(task);
+    placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+  }, "Failed to load task layout");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
