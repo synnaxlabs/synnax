@@ -45,6 +45,15 @@ var _ = Describe("XMap", func() {
 			Expect(v).To(Equal(11))
 		})
 	})
+	Describe("Contains", func() {
+		It("Should return true if the map contains the given key", func() {
+			m["foo"] = 1
+			Expect(m.Contains("foo")).To(BeTrue())
+		})
+		It("Should return false if the map does not contain the given key", func() {
+			Expect(m.Contains("foo")).To(BeFalse())
+		})
+	})
 	Describe("Set", func() {
 		It("Should set the value associated with the given key", func() {
 			m.Set("foo", 1)

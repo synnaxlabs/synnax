@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/xmap"
 )
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
@@ -153,7 +154,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(map[channel.Key]channel.Channel, len(channels))
+		calculated = make(xmap.Map[channel.Key, channel.Channel], len(channels))
 		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().
@@ -173,8 +174,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, nil
 	}
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		_, ok := calculated[item]
-		return ok
+		return !calculated.Contains(item)
 	})
 	cfg.Keys = append(cfg.Keys, required.Elements()...)
 	var requiredCh []channel.Channel
@@ -186,13 +186,11 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, err
 	}
 	calculators := make([]*calculation.Calculator, len(calculated))
-	i := 0
-	for _, v := range calculated {
+	for i, v := range calculated.Values() {
 		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 		if err != nil {
 			return nil, err
 		}
-		i++
 	}
 	return newCalculationTransform(calculators), nil
 }

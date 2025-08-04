@@ -30,6 +30,12 @@ func (m Map[K, V]) GetDefault(key K, fallback V) V {
 	return v
 }
 
+// Contains returns true if the map contains the given key.
+func (m Map[K, V]) Contains(key K) bool {
+	_, ok := m[key]
+	return ok
+}
+
 // Set sets the value associated with the given key.
 func (m Map[K, V]) Set(key K, value V) { m[key] = value }
 
