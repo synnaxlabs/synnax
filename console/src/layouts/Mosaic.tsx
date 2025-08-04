@@ -38,7 +38,7 @@ import { useDispatch, useStore } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
-import { INGESTORS } from "@/ingestors";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
@@ -247,7 +247,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
           try {
             await Import.dataTransferItem(item, {
               client,
-              fileIngestors: INGESTORS,
+              fileIngestors: FILE_INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+import { extract } from "@/schematic/export";
 import { ContextMenu, LAYOUT_TYPE, Schematic, SELECTABLE } from "@/schematic/Schematic";
 import { type Selector } from "@/selector";
 
@@ -20,12 +22,12 @@ export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
 export * from "@/schematic/useRangeSnapshot";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [LAYOUT_TYPE]: Schematic,
-};
-
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
+
+export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
+
+export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Schematic };
 
 export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

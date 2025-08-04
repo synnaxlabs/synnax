@@ -17,21 +17,16 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
-  onSelect: ({ store, confirm, handleError }) => {
-    confirm(
-      {
+  onSelect: ({ store, confirm, handleError }) =>
+    handleError(async () => {
+      const res = await confirm({
         message: "Are you sure you want to clear the Console's local storage?",
         description:
           "This will remove all saved console data that is not persisted within a Synnax cluster.",
-      },
-      { icon: "Close", name: "Clear Local Storage.Confirm" },
-    )
-      .then((result) => {
-        if (!result) return;
-        store.dispatch(CLEAR_STATE as PayloadAction<any>);
-      })
-      .catch(handleError);
-  },
+      });
+      if (!res) return;
+      store.dispatch(CLEAR_STATE as PayloadAction<any>);
+    }, "Failed to clear local storage"),
 };
 
 export const COMMANDS = [CLEAR_LOCAL_STORAGE_COMMAND];

@@ -11,16 +11,16 @@ import {
   type channel,
   DisconnectedError,
   type framer,
-  type Synnax,
+  type Synnax as Client,
 } from "@synnaxlabs/client";
-import { type Channel, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { type Channel, Status, Synnax } from "@synnaxlabs/pluto";
 import { type TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 interface DownloadProps {
   timeRange: TimeRange;
-  client: Synnax;
+  client: Client;
   lines: Channel.LineProps[];
   name: string;
 }
@@ -77,7 +77,7 @@ interface DownloadArgs extends Omit<DownloadProps, "client"> {}
 
 export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   return ({ timeRange, lines, name }: DownloadArgs) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();

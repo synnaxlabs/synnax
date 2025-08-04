@@ -269,8 +269,17 @@ const Internal = ({
   );
 };
 
+const getInitialPayload: Common.Task.GetInitialPayload<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+> = ({ config }) => {
+  const cfg = config != null ? configZ.parse(config) : ZERO_PAYLOAD.config;
+  return { ...ZERO_PAYLOAD, config: cfg };
+};
+
 export const Sequence = Common.Task.wrap(Internal, {
-  getInitialPayload: () => ZERO_PAYLOAD,
+  getInitialPayload,
   schemas: {
     typeSchema: typeZ,
     configSchema: configZ,
