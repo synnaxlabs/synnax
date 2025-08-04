@@ -36,6 +36,7 @@ export const FavoriteButton = ({ range }: FavoriteButtonProps) => {
           handleStar();
         }}
         size="small"
+        variant="text"
       >
         {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}
       </Button.Button>

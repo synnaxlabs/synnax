@@ -1,7 +1,10 @@
 .console-range__list-item {
-    padding-left: 1rem;
+    padding: 0 1rem;
     .console-star-button,
-    .pluto-input-checkbox__checkmark {
+    .pluto-input__checkbox {
+        width: 6rem;
+    }
+    .pluto-input__checkbox-checkmark {
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
     }
@@ -11,12 +14,12 @@
     }
 
     &:is(:hover)
-        :is(.console-range__favorite-button, .pluto-input-checkbox__checkmark) {
+        :is(.console-range__favorite-button, .pluto-input__checkbox-checkmark) {
         opacity: 1;
     }
 
     &.pluto--selected {
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             opacity: 1;
         }
     }

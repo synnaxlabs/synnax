@@ -86,6 +86,7 @@ export const Item = ({
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
+            size="medium"
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
@@ -96,7 +97,7 @@ export const Item = ({
                   variant="floating"
                   location="bottom"
                   onClick={stopPropagation}
-                  triggerProps={{ variant: "text" }}
+                  triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
             </Form.Field>
@@ -109,7 +110,7 @@ export const Item = ({
           </Flex.Box>
         </Flex.Box>
         <Flex.Box x align="center">
-          <Tag.Tags>
+          <Tag.Tags variant="text">
             {showLabels &&
               labels?.map(({ key, name, color }) => (
                 <Tag.Tag key={key} color={color} size="small">

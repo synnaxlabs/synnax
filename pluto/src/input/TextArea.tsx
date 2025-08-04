@@ -69,7 +69,10 @@ export const TextArea = ({
     )}
     ref={ref}
     value={value}
-    onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
+    onChange={(e) => {
+      console.log("onChange", e.target.value);
+      onChange(e.target.value.replace(/\n/g, ""));
+    }}
     onFocus={(e) => {
       if (selectOnFocus) e.target.select();
       onFocus?.(e);
