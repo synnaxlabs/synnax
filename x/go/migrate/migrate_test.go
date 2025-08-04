@@ -10,10 +10,9 @@
 package migrate_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/version"
 )
@@ -140,7 +139,7 @@ var _ = Describe("Migrate", func() {
 			failingMigration := migrate.CreateMigration(migrate.MigrationConfig[ResourceV0, ResourceV1]{
 				Name: "resource",
 				Migrate: func(ctx migrate.Context, v0 ResourceV0) (ResourceV1, error) {
-					return ResourceV1{}, fmt.Errorf("intentional migration failure")
+					return ResourceV1{}, errors.Newf("intentional migration failure")
 				},
 			})
 

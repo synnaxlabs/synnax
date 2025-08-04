@@ -129,6 +129,11 @@ var _ = Describe("Log", func() {
 			Expect(buffer.String()).To(ContainSubstring("test-component"))
 		})
 
+		It("Should allow formatting in Infof", func() {
+			logger.Infof("test number %d", 123)
+			Expect(buffer.String()).To(ContainSubstring("test number 123"))
+		})
+
 		It("Should support nested names", func() {
 			namedLogger := logger.Named("parent").Named("child")
 			namedLogger.Info("test nested named message")
@@ -149,6 +154,7 @@ var _ = Describe("Log", func() {
 			Expect(func() { l.Debug("test") }).ToNot(Panic())
 			Expect(func() { l.Debugf("test") }).ToNot(Panic())
 			Expect(func() { l.Info("test") }).ToNot(Panic())
+			Expect(func() { l.Infof("test") }).ToNot(Panic())
 			Expect(func() { l.Warn("test") }).ToNot(Panic())
 			Expect(func() { l.Error("test") }).ToNot(Panic())
 			Expect(func() { l.Fatal("test") }).ToNot(Panic())
