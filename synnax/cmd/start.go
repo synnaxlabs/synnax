@@ -231,7 +231,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+		apiLayer.BindTo(httpapi.New(r, distributionLayer.Channel))
 
 		// Configure the GRPC Layer AspenTransport.
 		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
