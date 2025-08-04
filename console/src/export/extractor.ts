@@ -27,3 +27,5 @@ export interface FileInfo {
 export interface Extractor {
   (key: string, ctx: ExtractorContext): Promise<FileInfo>;
 }
+
+export interface Extractors extends Record<string, Extractor> {}

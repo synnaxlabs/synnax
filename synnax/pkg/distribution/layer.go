@@ -258,9 +258,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	if l.Verification, err = verification.OpenService(ctx, verification.Config{
-		Verifier: cfg.Verifier,
-		DB:       l.DB.KV(),
-		Ins:      cfg.Instrumentation,
+		Verifier:        cfg.Verifier,
+		DB:              l.DB.KV(),
+		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, l.Verification) {
 		return nil, err
 	}

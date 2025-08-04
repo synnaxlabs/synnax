@@ -18,6 +18,7 @@ import {
   Icon,
   type RenderProp,
   Select,
+  Status,
   Text,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
@@ -85,12 +86,12 @@ const Header = () => (
 );
 
 const EmptyContent = () => (
-  <Flex.Box>
-    <Text.Text color={6} style={{ maxWidth: 300 }}>
+  <Flex.Box center>
+    <Status.Text color={7} hideIcon style={{ display: "inline-block", maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.
-    </Text.Text>
+    </Status.Text>
   </Flex.Box>
 );
 

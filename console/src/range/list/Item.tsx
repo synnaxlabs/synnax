@@ -104,7 +104,7 @@ export const Item = ({
               name={name}
               parent={parent}
               showParent={showParent}
-              noWrap
+              overflow="nowrap"
             />
           </Flex.Box>
         </Flex.Box>

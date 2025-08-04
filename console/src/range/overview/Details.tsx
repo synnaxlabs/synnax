@@ -176,13 +176,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
             {(p) => (
-              <Input.DateTime level="h4" variant="outlined" onlyChangeOnBlur {...p} />
+              <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
           <Icon.Arrow.Right className={CSS.B("time-range-divider")} />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
-              <Input.DateTime onlyChangeOnBlur level="h4" variant="outlined" {...p} />
+              <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
             )}
           </Form.Field>
         </Flex.Box>

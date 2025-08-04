@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type Synnax as CSynnax } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -24,19 +24,19 @@ import { select, selectActiveKey } from "@/workspace/selectors";
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
 export interface ExportContext {
-  client: CSynnax | null;
+  client: Client | null;
   store: RootStore;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
-  extractors: Record<string, Export.Extractor>;
+  extractors: Export.Extractors;
 }
 
-export const export_ = async (
+export const export_ = (
   key: string | null,
   { client, store, confirm, handleError, extractors }: ExportContext,
-): Promise<void> => {
+): void => {
   let name: string = "workspace"; // default name for error message
-  try {
+  handleError(async () => {
     const storeState = store.getState();
     const activeKey = selectActiveKey(storeState);
     let toExport: Layout.SliceState;
@@ -93,16 +93,12 @@ export const export_ = async (
         await writeTextFile(await join(directory, name), data);
       }),
     );
-  } catch (e) {
-    handleError(e, `Failed to export ${name}`);
-  }
+  }, `Failed to export ${name}`);
 };
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
-export const useExport = (
-  extractors: Record<string, Export.Extractor>,
-): ((key: string) => Promise<void>) => {
+export const useExport = (extractors: Export.Extractors): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const store = useStore<RootState, RootAction>();

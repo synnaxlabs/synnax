@@ -13,13 +13,11 @@ import { type ontology } from "@synnaxlabs/client";
 import {
   Button,
   Dialog,
-  Flex,
   Icon,
   Input,
   List,
   Select,
   Status,
-  Text,
   Tooltip,
   Triggers,
   useCombinedStateAndRef,
@@ -90,7 +88,12 @@ export const Palette = ({
           <Icon.Search />
           Search & Command
         </Button.Button>
-        <Dialog.Dialog className={CSS.BE("palette", "content")} bordered={false}>
+        <Dialog.Dialog
+          className={CSS.BE("palette", "content")}
+          bordered={false}
+          pack
+          rounded={1}
+        >
           <DialogContent
             value={value}
             onChange={setValue}
@@ -106,10 +109,17 @@ export interface PaletteDialogProps extends Input.Control<string> {
   commandSymbol: string;
 }
 
-const emptyContent = (
-  <Flex.Box center>
-    <Status.Text variant="disabled">No results found.</Status.Text>
-  </Flex.Box>
+const commandEmptyContent = (
+  <Status.Text variant="disabled" hideIcon center>
+    No commands found
+  </Status.Text>
+);
+
+const resourceEmptyContent = (
+  <Status.Text variant="disabled" hideIcon center>
+    <Icon.Resources />
+    No resources found
+  </Status.Text>
 );
 
 const DialogContent = ({
@@ -120,8 +130,9 @@ const DialogContent = ({
   const { close } = Dialog.useContext();
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
-    value.startsWith(commandSymbol) ? commandProps : resourceProps;
+    mode === "command" ? commandProps : resourceProps;
   const { fetchMore, search } = List.usePager({ retrieve });
   const handleSearch = useCallback(
     (v: string) => {
@@ -145,26 +156,26 @@ const DialogContent = ({
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={
-          <Text.Text level="h3">
+          <>
             <Icon.Search />
             Type to search or {commandSymbol} to view commands
-          </Text.Text>
+          </>
         }
         size="huge"
         autoFocus
         contrast={3}
         onChange={handleSearch}
+        borderColor={8}
         value={value}
-        rounded
         autoComplete="off"
         onKeyDown={Triggers.matchCallback([["Escape"]], close)}
         full="x"
       />
       <List.Items
         className={CSS.BE("palette", "list")}
-        emptyContent={emptyContent}
+        emptyContent={mode === "command" ? commandEmptyContent : resourceEmptyContent}
         bordered
-        borderColor={7}
+        borderColor={8}
       >
         {listItem}
       </List.Items>

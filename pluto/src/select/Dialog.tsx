@@ -20,7 +20,7 @@ import { Status } from "@/status";
 
 export interface DialogProps<K extends record.Key>
   extends Omit<CoreDialog.DialogProps, "children">,
-    SearchInputProps,
+    Omit<SearchInputProps, "searchPlaceholder">,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status;
   resourceName?: string;
@@ -41,7 +41,6 @@ export const Core = memo(
     onSearch,
     children,
     emptyContent,
-    searchPlaceholder,
     status,
     resourceName = "result",
     actions,
@@ -78,11 +77,18 @@ export const Core = memo(
           <SearchInput
             dialogVariant="floating"
             onSearch={onSearch}
-            searchPlaceholder={searchPlaceholder}
+            searchPlaceholder={`Search ${resourceName}s...`}
             actions={actions}
           />
         )}
-        <List.Items emptyContent={emptyContent} bordered borderColor={6} grow rounded>
+        <List.Items
+          emptyContent={emptyContent}
+          bordered
+          borderColor={6}
+          grow
+          rounded
+          full="x"
+        >
           {children}
         </List.Items>
       </CoreDialog.Dialog>

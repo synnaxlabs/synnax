@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Dialog, Form, Icon, Nav, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Input } from "@synnaxlabs/pluto/input";
+import {
+  Breadcrumb,
+  Button,
+  Dialog,
+  Flex,
+  Form,
+  Icon,
+  Input,
+  Nav,
+  Text,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -26,9 +33,9 @@ export const FeedbackButton = (): ReactElement => (
       className="feedback-button"
       size="medium"
       gap="small"
-      startIcon={<Icon.Feedback />}
       variant="outlined"
     >
+      <Icon.Feedback />
       Stuck? Let us know!
     </Dialog.Trigger>
     <Dialog.Dialog>
@@ -125,7 +132,6 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             {(p) => (
               <Input.TextArea
                 {...p}
-                size="medium"
                 maxLength={50000}
                 placeholder="What can we improve?"
                 autoFocus
@@ -164,11 +170,10 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
               gap="medium"
               form="my-form"
               onClick={() => handleSuccessfulSubmit()}
-              startIcon={softSuccess ? <Icon.Check /> : undefined}
-              loading={loading}
-              disabled={loading || softSuccess}
+              status={loading ? "loading" : undefined}
+              disabled={softSuccess}
             >
-              Send
+              {softSuccess ? <Icon.Check /> : "Send"}
             </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>

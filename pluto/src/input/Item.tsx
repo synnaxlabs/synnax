@@ -29,7 +29,7 @@ export interface ItemProps extends Flex.BoxProps {
 
 const maybeDefaultAlignment = (
   align?: Flex.Alignment,
-  dir: direction.Crude = "x",
+  dir: direction.Crude = "y",
 ): Flex.Alignment => {
   if (align != null) return align;
   return direction.construct(dir) === "y" ? "stretch" : "center";
@@ -78,7 +78,7 @@ export const Item = ({
 
   return (
     <Flex.Box
-      className={CSS(CSS.B("input-item"), className)}
+      className={CSS(CSS.BE("input", "item"), className)}
       direction={dir}
       gap={size}
       align={maybeDefaultAlignment(align, dir)}

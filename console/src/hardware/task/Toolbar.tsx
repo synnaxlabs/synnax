@@ -13,7 +13,6 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
-  type Header,
   Icon,
   List,
   Menu as PMenu,
@@ -29,8 +28,9 @@ import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu, Toolbar } from "@/components";
+import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
@@ -45,14 +45,11 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
-    <Flex.Box empty center>
-      <Flex.Box y gap="small">
-        <Text.Text>No existing tasks.</Text.Text>
-        <Button.Button variant="text" onClick={handleClick} href="">
-          Add a task
-        </Button.Button>
-      </Flex.Box>
-    </Flex.Box>
+    <EmptyAction
+      message="No existing tasks"
+      action="Create a task"
+      onClick={handleClick}
+    />
   );
 };
 
@@ -129,16 +126,7 @@ const Content = () => {
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;
-  const actions: Header.ActionSpec[] = useMemo(
-    () => [
-      {
-        children: <Icon.Add />,
-        onClick: () => placeLayout(SELECTOR_LAYOUT),
-        variant: "text",
-      },
-    ],
-    [placeLayout],
-  );
+
   const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
       if (client == null) throw new DisconnectedError();
@@ -183,15 +171,14 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Flex.Box
-        empty
-        full
-        className={CSS(CSS.B("task-toolbar"), menuProps.className)}
-        onContextMenu={menuProps.open}
-      >
-        <Toolbar.Header>
+      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+        <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Toolbar.Actions>{actions}</Toolbar.Actions>
+          <Toolbar.Actions>
+            <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+              <Icon.Add />
+            </Toolbar.Action>
+          </Toolbar.Actions>
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -214,7 +201,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Flex.Box>
+      </Toolbar.Content>
     </PMenu.ContextMenu>
   );
 };
@@ -260,15 +247,17 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.Text className={CSS.BE("task", "title")} weight={500} noWrap>
+          <Flex.Box x className={CSS.BE("task", "title")}>
             {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task?.name ?? ""}
               onChange={onRename}
               allowDoubleClick={false}
+              overflow="ellipsis"
+              weight={500}
             />
-          </Text.Text>
+          </Flex.Box>
         </Flex.Box>
         <Text.Text level="small" color={10}>
           {parseType(task?.type ?? "")}
@@ -331,6 +320,7 @@ const ContextMenu = ({
     },
     [selectedTasks, addStatus, placeLayout],
   );
+  const handleExport = Common.Task.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -353,6 +343,7 @@ const ContextMenu = ({
       edit: () => handleEdit(keys[0]),
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
+      export: () => handleExport(keys[0]),
       delete: () => onDelete(keys),
       rangeSnapshot: () =>
         snapshotToActiveRange(
@@ -395,6 +386,7 @@ const ContextMenu = ({
           </PMenu.Item>
           <PMenu.Divider />
           <Menu.RenameItem />
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

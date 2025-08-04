@@ -9,6 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-toolbar-header {
-    padding: 0.5rem;
+.console-toolbar__header {
+    &.console-toolbar__header--padded {
+        padding: 0.5rem round(0.66rem, 1px);
+    }
+    & .console-toolbar__action {
+        box-shadow: var(--pluto-shadow-v1);
+    }
 }

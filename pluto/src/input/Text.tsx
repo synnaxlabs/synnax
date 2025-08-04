@@ -148,7 +148,6 @@ export const Text = ({
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
-        size == null && CSS.height(size),
         hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,

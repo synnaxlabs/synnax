@@ -220,7 +220,7 @@ const SearchDialogContent = () => {
           bordered
           borderColor={6}
           emptyContent={
-            <Flex.Box style={{ height: "100%" }}>
+            <Flex.Box center>
               <Text.Text weight={400}>
                 {value.length === 0 ? "Type to search..." : "No Results"}
               </Text.Text>

@@ -9,7 +9,7 @@
 
 import "@/range/Toolbar.css";
 
-import { ranger } from "@synnaxlabs/client";
+import { DisconnectedError, ranger } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -117,9 +117,10 @@ export const useRename = (key: string) => {
     const rng = select(store.getState(), key);
     dispatch(rename({ key, name }));
     if (rng != null && !rng.persisted) return;
-    client?.ranges
-      .rename(key, name)
-      .catch((e) => handleError(e, "Failed to rename range"));
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      await client.ranges.rename(key, name);
+    }, `Failed to rename range to ${name}`);
   };
 };
 
@@ -170,28 +171,23 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Flex.Box empty style={{ height: "100%" }}>
-      <Toolbar.Header align="center">
+    <Toolbar.Content>
+      <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
-        <Flex.Box>
-          <Button.Button
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-            variant="outlined"
-            size="small"
-          >
+        <Toolbar.Actions>
+          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
             <Icon.Add />
-          </Button.Button>
-          <Button.Button
+          </Toolbar.Action>
+          <Toolbar.Action
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
             variant="filled"
-            size="small"
           >
             <Icon.Explore />
-          </Button.Button>
-        </Flex.Box>
+          </Toolbar.Action>
+        </Toolbar.Actions>
       </Toolbar.Header>
       <List />
-    </Flex.Box>
+    </Toolbar.Content>
   );
 };
 

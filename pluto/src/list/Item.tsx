@@ -37,7 +37,7 @@ export type ItemProps<
     onSelect?: (key: K) => void;
     selected?: boolean;
     hovered?: boolean;
-  variant?: Button.ButtonProps["variant"];
+    variant?: Button.ButtonProps["variant"];
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -62,7 +62,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   <Button.Button<E>
     el={el ?? "div"}
     id={itemKey.toString()}
-    sharp
     variant="text"
     onClick={(e: any) => {
       onSelect?.(itemKey);

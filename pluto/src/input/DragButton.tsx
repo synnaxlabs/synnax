@@ -74,7 +74,6 @@ export const DragButton = ({
   dragDirection,
   onChange,
   value,
-  size,
   resetValue,
   onDragEnd,
   ...rest

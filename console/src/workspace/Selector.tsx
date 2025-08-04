@@ -91,7 +91,6 @@ export const Selector = (): ReactElement => {
         allowNone
       >
         <Dialog.Trigger
-          variant="text"
           size="medium"
           className={CSS.B("trigger")}
           contrast={2}

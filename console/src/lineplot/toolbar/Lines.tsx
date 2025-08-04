@@ -7,20 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Channel,
-  Color,
-  Flex,
-  Input,
-  List,
-  Status,
-  Tabs,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Channel, Color, Flex, Input, List, Tabs } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { EmptyAction } from "@/components";
 import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
 import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
 
@@ -39,22 +31,15 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
-    <Flex.Box x gap="small" center>
-      <Status.Text variant="disabled" hideIcon>
-        No lines plotted. Use the
-      </Status.Text>
-      <Text.Text
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect?.("data");
-        }}
-      >
-        data
-      </Text.Text>
-      <Status.Text variant="disabled" hideIcon>
-        tab to select channels on an axis.
-      </Status.Text>
-    </Flex.Box>
+    <EmptyAction
+      x
+      message="No lines plotted. Select channels using the"
+      action="data tab."
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.("data");
+      }}
+    />
   );
 
   return (

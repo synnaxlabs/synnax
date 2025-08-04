@@ -44,10 +44,8 @@ const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"
   style: {
     maxWidth: hasIcon ? 100 : 150,
     flexGrow: 1,
-    textOverflow: "ellipsis",
-    overflow: "hidden",
   },
-  noWrap: true,
+  overflow: "ellipsis",
 });
 
 export const ListAndDetailsChannelItem = <K extends string>({

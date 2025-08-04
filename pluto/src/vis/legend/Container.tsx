@@ -193,7 +193,6 @@ export const Container = memo(
       <Flex.Box
         className={CSS(className, CSS.B("legend"))}
         bordered
-        rounded
         style={style}
         onDragStart={handleCursorDragStart}
         draggable={draggable}
@@ -202,6 +201,7 @@ export const Container = memo(
         onDrag={preventDefault}
         onDragEnd={preventDefault}
         background={1}
+        rounded={1}
         {...rest}
       />
     );

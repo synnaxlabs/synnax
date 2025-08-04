@@ -14,10 +14,9 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-    height: 100%;
-
     .pluto-status__text {
-        min-height: 8rem;
+        height: 20rem;
+        padding: 0 1rem;
     }
 }
 

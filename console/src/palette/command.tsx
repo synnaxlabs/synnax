@@ -31,7 +31,7 @@ import { useStore } from "react-redux";
 import { type Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { type Import } from "@/import";
-import { INGESTORS } from "@/ingestors";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type UseListReturn } from "@/palette/list";
@@ -100,7 +100,7 @@ export const useCommandList = (): UseListReturn<Command> => {
         confirm,
         extractors: EXTRACTORS,
         handleError,
-        ingestors: INGESTORS,
+        fileIngestors: FILE_INGESTORS,
         placeLayout,
         rename,
         store,
@@ -120,8 +120,8 @@ export interface CommandSelectionContext {
   addStatus: Status.Adder;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
-  ingestors: Record<string, Import.FileIngestor>;
-  extractors: Record<string, Export.Extractor>;
+  fileIngestors: Import.FileIngestors;
+  extractors: Export.Extractors;
 }
 
 export interface Command {

@@ -1,5 +1,6 @@
 import { type ranger } from "@synnaxlabs/client";
 import {
+  Button,
   Divider,
   Form,
   Icon,
@@ -60,9 +61,14 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {!isEmpty && deleteMenuItem}
       <Divider.Divider x />
       {isSingle && addChildRangeMenuItem}
-      <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
-        Create
-      </PMenu.Item>
+      <Button.Button
+        onClick={() => placeLayout(createCreateLayout({ parent: ranges[0].key }))}
+        variant="text"
+        contrast={2}
+        tooltip="Add Range"
+      >
+        <Icon.Add />
+      </Button.Button>
     </PMenu.Menu>
   );
 };

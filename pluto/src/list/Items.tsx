@@ -60,6 +60,7 @@ const BaseItems = <
       className={CSS(className, CSS.BE("list", "items"))}
       style={{ height: minHeight, ...style }}
       gap={gap}
+      full="y"
       {...rest}
     >
       {content}

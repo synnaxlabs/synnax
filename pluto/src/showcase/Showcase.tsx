@@ -17,8 +17,10 @@ import { DISPLAY, PADDING_STYLE } from "./constants";
 import { DisplaySelector } from "./DisplaySelector";
 import { DividerShowcase } from "./DividerShowcase";
 import { FlexShowcase } from "./FlexShowcase";
+import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
+import { NavShowcase } from "./NavShowcase";
 import { NoteShowcase } from "./NoteShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TagShowcase } from "./TagShowcase";
@@ -89,6 +91,13 @@ export const Showcase = () => {
       component: <MenuShowcase />,
     },
     {
+      key: "nav",
+      title: "Navigation",
+      description:
+        "Navigation components including bars and drawers for application layout and user interface organization.",
+      component: <NavShowcase />,
+    },
+    {
       key: "note",
       title: "Note",
       description:
@@ -108,6 +117,13 @@ export const Showcase = () => {
       description:
         "Layout components using flexbox for responsive and flexible content arrangement.",
       component: <FlexShowcase />,
+    },
+    {
+      key: "header",
+      title: "Header",
+      description:
+        "Header components with titles, actions, and dividers for module and section organization.",
+      component: <HeaderShowcase />,
     },
     {
       key: "breadcrumb",

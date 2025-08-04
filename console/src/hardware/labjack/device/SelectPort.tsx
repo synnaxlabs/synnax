@@ -69,8 +69,8 @@ export const SelectPort = ({
         </Flex.Box>
         <Select.Dialog<string>
           onSearch={(term) => retrieve({ term })}
-          searchPlaceholder="Search Ports..."
           emptyContent={emptyContent}
+          resourceName="Port"
         >
           {listItem}
         </Select.Dialog>

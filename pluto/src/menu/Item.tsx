@@ -14,11 +14,9 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useContext } from "@/menu/Menu";
-import { type Trigger } from "@/triggers/triggers";
 
 export interface ItemProps extends Button.ButtonProps {
   itemKey: string;
-  trigger?: Trigger;
 }
 
 export const Item = ({
@@ -39,13 +37,12 @@ export const Item = ({
     <Button.Button
       contrast={background}
       level={level}
-      noWrap={true}
+      overflow="nowrap"
       onClick={handleClick}
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size}
       gap={gap}
-      full="x"
       {...rest}
     />
   );

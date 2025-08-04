@@ -10,7 +10,6 @@
 import { color } from "@synnaxlabs/x";
 import { direction, location, type spatial } from "@synnaxlabs/x/spatial";
 
-import { type Component } from "@/component";
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
@@ -23,7 +22,6 @@ export interface CSSType extends BEM {
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  height: (height: Component.Size | number) => string | false;
   clickable: (shade?: text.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
@@ -33,7 +31,6 @@ export interface CSSType extends BEM {
   selected: (selected: boolean) => string | false;
   altColor: (secondary: boolean) => string | false;
   editable: (editable: boolean) => string | false;
-  noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   removeVars: typeof removeCSSVars;
   newGridBuilder: (prefix?: string) => CSSGridBuilder;
@@ -54,7 +51,6 @@ const newCSS = (prefix: string): CSSType => {
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
   CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));
-  CSS.height = (height) => typeof height === "string" && CSS.BM("height", height);
   CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (loc) => {
@@ -65,7 +61,6 @@ const newCSS = (prefix: string): CSSType => {
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
-  CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
   CSS.removeVars = removeCSSVars;
   CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);

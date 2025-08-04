@@ -35,25 +35,32 @@ export const Text = ({
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  const hasDescription = description != null;
   const baseText = (
     <BaseText.Text
       color={color ?? VARIANT_COLORS[variant]}
-      className={CSS(className, CSS.BE("status", "text"))}
+      className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
-      {...rest}
+      {...(description == null ? rest : {})}
     >
       {icon}
       {children}
     </BaseText.Text>
   );
-  if (description == null) return baseText;
+  if (!hasDescription) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" {...rest} color={8} style={{ maxWidth: 150 }}>
+    <BaseText.Text level="small" color={8}>
       {description}
     </BaseText.Text>
   );
   return (
-    <Flex.Box y align="start" gap="small">
+    <Flex.Box
+      y
+      className={CSS.BE("status", "text")}
+      align="start"
+      gap="small"
+      {...rest}
+    >
       {baseText}
       {descriptionText}
     </Flex.Box>

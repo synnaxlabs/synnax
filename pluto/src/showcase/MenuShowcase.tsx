@@ -19,6 +19,7 @@ import { SubcategorySection } from "./SubcategorySection";
 export const MenuShowcase = () => {
   const [basicSelected, setBasicSelected] = useState("option1");
   const [iconSelected, setIconSelected] = useState("save");
+  const [iconOnlySelected, setIconOnlySelected] = useState("play");
   const [nestedSelected, setNestedSelected] = useState("file");
 
   const contextMenu = Menu.useContextMenu();
@@ -132,6 +133,45 @@ export const MenuShowcase = () => {
               <Menu.Item itemKey="delete">
                 <Icon.Delete />
                 Delete
+              </Menu.Item>
+            </Menu.Menu>
+          </Flex.Box>
+        </SubcategorySection>
+
+        <SubcategorySection
+          title="Icon-Only Menu"
+          description="Menu with only icons showing a compact toolbar-style interface"
+        >
+          <Flex.Box
+            y
+            gap="small"
+            style={{ width: "fit-content", padding: "1rem" }}
+            bordered
+            rounded
+          >
+            <Menu.Menu value={iconOnlySelected} onChange={setIconOnlySelected}>
+              <Menu.Item itemKey="play">
+                <Icon.Play />
+              </Menu.Item>
+              <Menu.Item itemKey="pause">
+                <Icon.Pause />
+              </Menu.Item>
+              <Menu.Item itemKey="stop">
+                <Icon.Play />
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item itemKey="record">
+                <Icon.Auto />
+              </Menu.Item>
+              <Menu.Item itemKey="rewind">
+                <Icon.Refresh />
+              </Menu.Item>
+              <Menu.Item itemKey="fastforward">
+                <Icon.Reference />
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item itemKey="settings">
+                <Icon.Settings />
               </Menu.Item>
             </Menu.Menu>
           </Flex.Box>

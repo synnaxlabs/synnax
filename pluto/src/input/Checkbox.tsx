@@ -11,13 +11,14 @@ import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
 import { preventDefault, stopPropagation } from "@/util/event";
 
-export interface CheckboxProps extends InputProps<boolean> {}
-
-const CLS = "input-checkbox";
+export interface CheckboxProps
+  extends InputProps<boolean>,
+    Omit<Button.ExtensionProps, "variant"> {}
 
 /**
  * A controlled boolean Checkbox input component.
@@ -37,19 +38,34 @@ export const Checkbox = ({
   onChange,
   size = "medium",
   variant,
+  color,
+  borderColor,
+  borderWidth,
+  bordered,
+  rounded,
+  background,
   ...rest
 }: CheckboxProps): ReactElement => (
-  <label className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.height(size), className)}>
+  <Button.Button
+    el="label"
+    variant="text"
+    className={CSS(CSS.BE("input", "checkbox"), className)}
+    size={size}
+    preventClick
+    {...(rest as Button.ButtonProps<"label">)}
+  >
     <input
-      className={CSS.BE(CLS, "input")}
+      className={CSS.BE("input", "checkbox", "input")}
       type="checkbox"
       ref={ref}
       checked={value}
       onMouseDown={preventDefault}
       onChange={(e) => onChange?.(e.target.checked)}
       disabled={disabled}
-      {...rest}
     />
-    <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
-  </label>
+    <span
+      className={CSS.BE("input", "checkbox", "checkmark")}
+      onClick={stopPropagation}
+    />
+  </Button.Button>
 );

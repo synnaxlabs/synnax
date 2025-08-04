@@ -13,7 +13,6 @@ package migrate
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -128,7 +127,7 @@ func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 
 		migration, ok := cfg.Migrations[v]
 		if !ok {
-			return cfg.Default, fmt.Errorf("no migration found for v %v", int(v))
+			return cfg.Default, errors.Newf("no migration found for v %v", int(v))
 		}
 
 		new_, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)

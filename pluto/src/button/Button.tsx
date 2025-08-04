@@ -22,7 +22,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
-export type ElementType = "button" | "a" | "div";
+export type ElementType = "button" | "a" | "div" | "label";
 
 /** The variant of button */
 export type Variant =
@@ -40,12 +40,13 @@ export interface ExtensionProps
   size?: Component.Size;
   sharp?: boolean;
   trigger?: Triggers.Trigger;
+  triggerIndicator?: boolean | Triggers.Trigger;
   status?: status.Variant;
   textColor?: Text.Shade;
   textVariant?: Text.Variant;
-  contrast?: Text.Shade;
+  contrast?: Text.Shade | false;
   disabled?: boolean;
-  allowClick?: boolean;
+  preventClick?: boolean;
   onClickDelay?: number | TimeSpan;
 }
 
@@ -55,6 +56,17 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   "color"
 > &
   ExtensionProps;
+
+const MODULE_CLASS = "btn";
+
+const resolveTriggerIndicator = (
+  triggerIndicator: boolean | Triggers.Trigger | undefined,
+  trigger: Triggers.Trigger | undefined,
+): Triggers.Trigger | undefined => {
+  if (triggerIndicator === true) return trigger;
+  if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
+  return undefined;
+};
 
 /**
  * Use is a basic button component.
@@ -80,11 +92,11 @@ const Core = <E extends ElementType = "button">({
   size,
   variant = "outlined",
   className,
-  sharp = false,
-  disabled = false,
-  allowClick = true,
+  disabled,
+  preventClick,
   level,
-  trigger: triggers,
+  trigger,
+  triggerIndicator,
   onClickDelay = 0,
   onClick,
   color: colorVal,
@@ -99,7 +111,7 @@ const Core = <E extends ElementType = "button">({
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const isDisabled = disabled || status === "loading" || status === "disabled";
+  const isDisabled = disabled === true || status === "loading" || status === "disabled";
   // We implement the shadow variant to maintain compatibility with the input
   // component API.
   if (variant == "shadow") variant = "text";
@@ -127,7 +139,7 @@ const Core = <E extends ElementType = "button">({
   };
 
   Triggers.use({
-    triggers,
+    triggers: trigger,
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
         if (stage !== "end" || isDisabled || variant === "preview") return;
@@ -165,19 +177,21 @@ const Core = <E extends ElementType = "button">({
   else size ??= "medium";
 
   const isLoading = status === "loading";
-  const iconOnly = Text.isIconOnly(children);
+  const square = Text.isSquare(children);
+
+  const parsedTriggerIndicator = resolveTriggerIndicator(triggerIndicator, trigger);
 
   return (
     <Text.Text<E>
       direction="x"
       className={CSS(
-        CSS.B("btn"),
-        allowClick && contrast != null && CSS.BM("btn", `contrast-${contrast}`),
-        CSS.sharp(sharp),
+        CSS.B(MODULE_CLASS),
+        contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
+        preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
         status != null && CSS.M(status),
-        CSS.BM("btn", variant),
-        hasCustomColor && CSS.BM("btn", "custom-color"),
+        CSS.BM(MODULE_CLASS, variant),
+        hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         className,
       )}
       size={size}
@@ -186,16 +200,26 @@ const Core = <E extends ElementType = "button">({
       onMouseDown={handleMouseDown}
       noWrap
       style={pStyle}
-      color={colorVal}
+      color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : "medium"}
       bordered={variant !== "text"}
-      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
       defaultEl={"button"}
       level={level}
       variant={textVariant}
+      square={square}
+      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
-      {(!isLoading || !iconOnly) && children}
+      {children}
       {isLoading && <Icon.Loading />}
+      {parsedTriggerIndicator != null && (
+        <Triggers.Text
+          className={CSS.B("trigger-indicator")}
+          trigger={parsedTriggerIndicator}
+          color={9}
+          gap="tiny"
+          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+        />
+      )}
     </Text.Text>
   );
 };

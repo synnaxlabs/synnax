@@ -76,10 +76,10 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       </Select.MultipleTrigger>
       <Select.Dialog<K>
         onSearch={onSearch}
-        searchPlaceholder={`Search ${resourceName}s...`}
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        resourceName={resourceName}
       >
         {children}
       </Select.Dialog>

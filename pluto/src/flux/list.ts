@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   compare,
   type CrudeTimeSpan,
@@ -38,7 +38,7 @@ import {
 } from "@/hooks";
 import { type List } from "@/list";
 import { state } from "@/state";
-import { Synnax as PSynnax } from "@/synnax";
+import { Synnax } from "@/synnax";
 
 /**
  * Options for async list operations.
@@ -97,7 +97,7 @@ export interface RetrieveByKeyArgs<
   /** The key of the item to retrieve */
   key: K;
   /** The Synnax client instance */
-  client: Synnax;
+  client: Client;
 }
 
 /**
@@ -177,7 +177,7 @@ export interface ListListenerExtraArgs<
   /** The current retrieve parameters */
   params: RetrieveParams;
   /** The Synnax client instance */
-  client: Synnax;
+  client: Client;
   /** Function to update a specific item in the list */
   onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
   /** Function to remove an item from the list */
@@ -309,7 +309,7 @@ export const createList =
     } = args;
     const filterRef = useSyncedRef(filter);
     const sortRef = useSyncedRef(sort);
-    const client = PSynnax.use();
+    const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
       mounted: false,

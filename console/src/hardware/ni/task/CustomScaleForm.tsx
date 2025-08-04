@@ -46,6 +46,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     },
   },
   inputProps: {
+    resourceName: "Scale Type",
     data: [
       { key: LINEAR_SCALE_TYPE, name: "Linear" },
       { key: MAP_SCALE_TYPE, name: "Map" },
@@ -99,6 +100,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
+    resourceName: "Units",
     allowNone: false,
     data: unitsData,
   },

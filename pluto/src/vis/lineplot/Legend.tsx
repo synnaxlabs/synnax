@@ -53,7 +53,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
         width: "fit-content",
       }}
     >
-      <LegendSwatches data={lines} onEntryChange={onLineChange} contrast={0} />
+      <LegendSwatches data={lines} onEntryChange={onLineChange} background={0} />
     </Flex.Box>
   );
 };

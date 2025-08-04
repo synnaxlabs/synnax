@@ -121,7 +121,91 @@ export const TextShowcase = () => (
             <Text.Text level="small" weight={500}>
               Trigger Display
             </Text.Text>
-            <Triggers.Text trigger={["Control", "Enter"]}>Hello (Trigger)</Triggers.Text>
+            <Triggers.Text level="h4" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="h5" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="p" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="small" trigger={["Control", "Enter", "T"]} />
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+    </Flex.Box>
+
+    <Flex.Box x pack grow sharp>
+      <SubcategorySection
+        title="Text Overflow Policies"
+        description="How text behaves when it exceeds container width - ellipsis, clip, or nowrap"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Ellipsis (default overflow with ...)
+            </Text.Text>
+            <Flex.Box
+              style={{
+                width: "200px",
+                border: "1px solid var(--pluto-gray-l1)",
+                padding: "8px",
+              }}
+            >
+              <Text.Text overflow="ellipsis" style={{ width: "100px" }}>
+                This is a very long text that will be truncated with ellipsis when it
+                exceeds the container width
+              </Text.Text>
+            </Flex.Box>
+          </Flex.Box>
+
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Clip (hard cut without ...)
+            </Text.Text>
+            <Flex.Box
+              style={{
+                width: "200px",
+                border: "1px solid var(--pluto-gray-l1)",
+                padding: "8px",
+              }}
+            >
+              <Text.Text overflow="clip">
+                This is a very long text that will be clipped without any ellipsis
+                indicator
+              </Text.Text>
+            </Flex.Box>
+          </Flex.Box>
+
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Nowrap (no wrapping, extends beyond container)
+            </Text.Text>
+            <Flex.Box
+              style={{
+                width: "200px",
+                border: "1px solid var(--pluto-gray-l1)",
+                padding: "8px",
+                overflow: "visible",
+              }}
+            >
+              <Text.Text overflow="nowrap">
+                This text will not wrap and extends beyond the container boundaries
+              </Text.Text>
+            </Flex.Box>
+          </Flex.Box>
+
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Default (normal wrapping behavior)
+            </Text.Text>
+            <Flex.Box
+              style={{
+                width: "200px",
+                border: "1px solid var(--pluto-gray-l1)",
+                padding: "8px",
+              }}
+            >
+              <Text.Text>
+                This text will wrap normally when it reaches the container edge and
+                continue on new lines
+              </Text.Text>
+            </Flex.Box>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>

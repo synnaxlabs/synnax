@@ -22,4 +22,6 @@ export const DISPLAY = [
   "flex",
   "breadcrumb",
   "divider",
+  "nav",
+  "header",
 ];

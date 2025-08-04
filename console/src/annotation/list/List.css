@@ -18,8 +18,8 @@
         max-height 0.2s ease-in-out,
         opacity 0.2s ease-in-out;
     max-height: 500px;
-    height: fit-content;
-    min-height: fit-content;
+    height: fit-content !important;
+    min-height: fit-content !important;
     background-color: var(--pluto-gray-l1);
     border-radius: 1rem;
     @starting-style {

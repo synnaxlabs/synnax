@@ -38,7 +38,7 @@ import { useDispatch, useStore } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
-import { INGESTORS } from "@/ingestors";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
@@ -55,7 +55,7 @@ const EmptyContent = (): ReactElement => (
     <Flex.Box gap={5} center>
       <Logo className="synnax-logo-watermark" />
       <Flex.Box x gap="small">
-        <Text.Text level="h5" weight={450} color={10}>
+        <Text.Text level="h5" weight={450} color={9}>
           New Component
         </Text.Text>
         <Flex.Box x empty>
@@ -250,7 +250,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
           try {
             await Import.dataTransferItem(item, {
               client,
-              fileIngestors: INGESTORS,
+              fileIngestors: FILE_INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
@@ -335,7 +335,7 @@ const NavTop = (): ReactElement | null => {
       contrast={2}
       color={9}
       weight={450}
-      trigger={["V"]}
+      triggerIndicator={["V"]}
     >
       <Icon.Visualize />
       Controls

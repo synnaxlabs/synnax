@@ -17,6 +17,7 @@
     border-color: var(--pluto-gray-l2);
     outline: none;
     min-height: 6rem;
+    border-radius: 0;
 
     &:is(:hover, .pluto--hovered) {
         &.pluto--highlight-hover {

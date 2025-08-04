@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type Synnax } from "@synnaxlabs/client";
+import { type channel, type Synnax as Client } from "@synnaxlabs/client";
 import { type MultiSeries } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { useCallback, useRef, useState } from "react";
@@ -25,7 +25,7 @@ import { useMountListeners } from "@/flux/useMountListeners";
 import { useAsyncEffect, useInitializerRef } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { Synnax as PSynnax } from "@/synnax";
+import { Synnax } from "@/synnax";
 
 /**
  * Extra arguments passed to retrieve listener handlers.
@@ -37,7 +37,7 @@ interface RetrieveListenerExtraArgs<RetrieveParams, Data extends state.State> {
   /** The current retrieve parameters */
   params: RetrieveParams;
   /** The Synnax client instance */
-  client: Synnax;
+  client: Client;
   /** Function that updates the query data when a new value is received */
   onChange: state.Setter<Data>;
 }
@@ -69,7 +69,7 @@ export interface RetrieveListenerConfig<RetrieveParams, Data extends state.State
  */
 export interface RetrieveArgs<RetrieveParams> {
   /** The Synnax client instance for making requests */
-  client: Synnax;
+  client: Client;
   /** The parameters for the retrieve operation */
   params: RetrieveParams;
 }
@@ -226,7 +226,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
     RetrieveParams,
     Data
   >): UseObservableRetrieveReturn<RetrieveParams> => {
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
   const mu = useInitializerRef(() => new Mutex());
   const mountListeners = useMountListeners();

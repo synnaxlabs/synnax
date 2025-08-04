@@ -78,13 +78,8 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
         allowDoubleClick={false}
         value={resource.name}
         onChange={(name) => onRename?.(name)}
-        noWrap
-        style={{
-          textOverflow: "ellipsis",
-          width: 0,
-          overflow: "hidden",
-          flexGrow: 1,
-        }}
+        overflow="ellipsis"
+        style={{ width: 0, flexGrow: 1 }}
       />
       <Rack.StatusIndicator status={status} />
     </Tree.Item>
@@ -104,12 +99,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
-    Sequence.createLayout({ rename, rackKey: Number(resourceIDs[0].key) })
-      .then((layout) => {
-        if (layout == null) return;
-        placeLayout(layout);
-      })
-      .catch((e) => handleError(e, "Failed to create control sequence"));
+    handleError(async () => {
+      const layout = await Sequence.createLayout({
+        rename,
+        rackKey: Number(resourceIDs[0].key),
+      });
+      if (layout == null) return;
+      placeLayout(layout);
+    }, "Failed to create control sequence");
   };
   const onSelect = {
     group: () => group(props),

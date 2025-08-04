@@ -31,7 +31,7 @@ export const Rack = ({ taskKey }: RackProps) => {
         color={9}
         weight={350}
         style={{ paddingRight: "0.5rem" }}
-        ellipsis
+        overflow="ellipsis"
       >
         <Icon.Rack />
         {rack?.name}

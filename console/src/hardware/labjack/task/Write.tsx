@@ -21,7 +21,7 @@ import {
   type OutputChannelType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type writeConfigZ,
+  writeConfigZ,
   type writeStatusDataZ,
   type writeTypeZ,
   ZERO_OUTPUT_CHANNEL,
@@ -203,13 +203,13 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? writeConfigZ.parse(config) : ZERO_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,

@@ -13,6 +13,7 @@ export * from "./constants";
 export * from "./DisplaySelector";
 export * from "./DividerShowcase";
 export * from "./FlexShowcase";
+export * from "./HeaderShowcase";
 export * from "./InputShowcase";
 export * from "./MenuShowcase";
 export * from "./NoteShowcase";

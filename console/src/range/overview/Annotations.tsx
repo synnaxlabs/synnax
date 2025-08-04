@@ -20,7 +20,7 @@ export const Annotations = ({ rangeKey }: AnnotationsProps) => {
   const range = Ranger.useRetrieve({ params: { key: rangeKey } });
   return (
     <Flex.Box y>
-      <Header.Header level="h4" bordered={false} borderColor={5} padded>
+      <Header.Header level="h4" borderColor={5} padded>
         <Header.Title color={11} weight={450}>
           Annotations
         </Header.Title>
