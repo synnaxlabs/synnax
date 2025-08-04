@@ -92,7 +92,7 @@ var (
 	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
 	DefaultConfig                         = Config{
 		Integrations: []string{},
-		Enabled:      config.Bool(true),
+		Enabled:      config.True(),
 		Debug:        config.False(),
 		StartTimeout: time.Second * 10,
 	}

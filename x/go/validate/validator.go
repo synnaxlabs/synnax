@@ -27,18 +27,18 @@ func New(scope string) *Validator {
 	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
 }
 
-// Ternary adds the error with the given message to the validator if the condition
-// is true.
+// Ternary adds the error with the given message to the validator if the condition is
+// true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 	v.Exec(func() error {
-		return lo.Ternary[error](cond, PathedError(errors.New(msg), path), nil)
+		return lo.Ternary(cond, PathedError(errors.New(msg), path), nil)
 	})
 	return v.Error() != nil
 }
 
 func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		err := lo.Ternary[error](
+		err := lo.Ternary(
 			cond,
 			PathedError(errors.Newf(format, args...), field),
 			nil,
@@ -64,7 +64,8 @@ func (v *Validator) Func(f func() bool, msg string) bool {
 }
 
 func NotNil(v *Validator, field string, value any) bool {
-	isNil := value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
+	isNil := value == nil ||
+		(reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
 	return v.Ternary(field, isNil, "must be non-nil")
 }
 
