@@ -217,7 +217,7 @@ export const Tabs = ({
       }}
     >
       <Selector
-        gap={size}
+        size={size}
         direction={direction.swap(dir)}
         altColor={selectedAltColor}
         contextMenu={contextMenu}

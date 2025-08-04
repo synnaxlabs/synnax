@@ -17,14 +17,13 @@ import {
   List as PList,
   Menu as PMenu,
   Select,
-  Status,
   Text,
 } from "@synnaxlabs/pluto";
 import { bounds, color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { EmptyAction, Menu } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
@@ -35,12 +34,12 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
-  <Flex.Box x gap="small" center>
-    <Status.Text variant="disabled" hideIcon>
-      No annotations added.
-    </Status.Text>
-    <Text.Text onClick={onCreateRule}>Create a new one.</Text.Text>
-  </Flex.Box>
+  <EmptyAction
+    x
+    message="No annotations added."
+    action="Create a new one."
+    onClick={onCreateRule}
+  />
 );
 
 interface ListItemProps extends PList.ItemProps<string> {
@@ -58,7 +57,13 @@ const ListItem = ({
   if (entry == null) return null;
   const { label } = entry;
   return (
-    <Select.ListItem {...rest} style={{ padding: "0.5rem 1.5rem" }} align="center">
+    <Select.ListItem
+      {...rest}
+      style={{ padding: "0.5rem 1.5rem" }}
+      align="center"
+      full="x"
+      square={false}
+    >
       <Text.Editable
         value={label}
         overflow="ellipsis"
@@ -92,10 +97,12 @@ const List = ({
   const menuProps = PMenu.useContextMenu();
   const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
-    <Flex.Box x empty style={{ width: "20%" }} align="start">
-      <Button.Button tooltip="Add Rule" onClick={onCreate}>
-        <Icon.Add />
-      </Button.Button>
+    <Flex.Box x pack style={{ width: "20%" }} align="start">
+      <Flex.Box style={{ padding: "0.5rem" }}>
+        <Button.Button tooltip="Add Rule" onClick={onCreate} size="small">
+          <Icon.Add />
+        </Button.Button>
+      </Flex.Box>
       <Divider.Divider y />
       <Select.Frame<string, RuleState>
         multiple

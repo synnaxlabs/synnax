@@ -203,11 +203,11 @@ const Core = <E extends ElementType = "button">({
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : "medium"}
       bordered={variant !== "text"}
-      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
       defaultEl={"button"}
       level={level}
       variant={textVariant}
       square={square}
+      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {children}
       {isLoading && <Icon.Loading />}
