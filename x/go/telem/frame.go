@@ -523,13 +523,8 @@ func (f Frame[K]) MarshalCSV() ([][]string, error) {
 	}
 	column := 0
 	for s := range f.Series() {
-		seriesAsStrings := s.AsCSVStrings()
-		for row := range int(rowCount) {
-			if row < len(seriesAsStrings) {
-				records[row][column] = seriesAsStrings[row]
-			} else {
-				records[row][column] = ""
-			}
+		for row, entry := range s.AsCSVStrings() {
+			records[row][column] = entry
 		}
 		column++
 	}

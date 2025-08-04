@@ -264,10 +264,9 @@ var _ = Describe("Signal", func() {
 	Describe("Panic recovery", func() {
 
 		// We cannot test with a test case that a goroutine indeed panics when it is
-		// instructed to propagate its panic since there is no way to capture a panic
-		// in another goroutine. However, we have manually tested that it indeed
-		// panics the whole program.
-		// We can test all other cases where panics are recovered.
+		// instructed to propagate its panic since there is no way to capture a panic in
+		// another goroutine. However, we have manually tested that it indeed panics the
+		// whole program. We can test all other cases where panics are recovered.
 
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()

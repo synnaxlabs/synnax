@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/binary"
-	xmap "github.com/synnaxlabs/x/map"
+	"github.com/synnaxlabs/x/xmap"
 )
 
 var DefaultContentTypes = []string{"application/json", "application/msgpack"}

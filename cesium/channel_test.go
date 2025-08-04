@@ -409,11 +409,11 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
 					series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series1})))
+					MustSucceed(w.Write(telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{series1})))
 
 					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
 					series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series2})))
+					MustSucceed(w.Write(telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{series2})))
 					Expect(w.Close()).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))

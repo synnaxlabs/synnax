@@ -22,8 +22,8 @@ import (
 type LoggerConfig struct {
 	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
 	ZapConfig zap.Config
-	// ZapLogger provides a custom zap logger to override the default logger defined
-	// in ZapConfig.
+	// ZapLogger provides a custom zap logger to override the default logger defined in
+	// ZapConfig.
 	ZapLogger *zap.Logger
 }
 
@@ -141,7 +141,7 @@ func (l *Logger) Fatal(msg string, fields ...zap.Field) {
 	}
 }
 
-// DPanic logs a message with the given fields that  panics in development mode and logs
+// DPanic logs a message with the given fields that panics in development mode and logs
 // to the Error level in production mode.
 func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 	if l != nil {
@@ -210,8 +210,8 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		}
 	}
 	if toRemove >= 0 {
-		// Clone the slice first to avoid accidentally modifying it if/when zap
-		// uses it to write to an alternate core.
+		// Clone the slice first to avoid accidentally modifying it if/when zap uses it
+		// to write to an alternate core.
 		fields = slices.Delete(slices.Clone(fields), toRemove, toRemove+1)
 	}
 	return c.c.Write(entry, fields)

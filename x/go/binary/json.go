@@ -33,10 +33,8 @@ func (jc *jsonCodec) Encode(_ context.Context, value any) ([]byte, error) {
 
 // Decode implements the Decoder interface.
 func (jc *jsonCodec) Decode(_ context.Context, data []byte, value any) error {
-	if err := json.Unmarshal(data, value); err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
+	err := json.Unmarshal(data, value)
+	return sugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
@@ -58,8 +56,8 @@ func (jc *jsonCodec) EncodeStream(ctx context.Context, w io.Writer, value any) e
 	return sugarEncodingErr(value, err)
 }
 
-// UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails,
-// it attempts to convert a string to an int64.
+// UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails, it
+// attempts to convert a string to an int64.
 func UnmarshalJSONStringInt64(b []byte) (int64, error) {
 	var n int64
 	if err := json.Unmarshal(b, &n); err == nil {

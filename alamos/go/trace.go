@@ -39,14 +39,17 @@ type Span interface {
 // TracingConfig is the configuration for a Tracer.
 type TracingConfig struct {
 	// OtelProvider sets the open telemetry tracing provider used to create spans.
+	//
 	// [REQUIRED]
 	OtelProvider oteltrace.TracerProvider
 	// OtelPropagator sets the open telemetry propagator used to propagate spans across
 	// process boundaries.
+	//
 	// [REQUIRED]
 	OtelPropagator propagation.TextMapPropagator
 	// Filter is a function that is called to determine if a span should be created for
-	// the given key and environment. If the filter returns false, the span will not be created.
+	// the given key and environment. If the filter returns false, the span will not be
+	// created.
 	Filter EnvironmentFilter
 }
 
@@ -76,9 +79,9 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 }
 
 // Tracer provides tracing functionality, and is one of the core components of
-// Instrumentation. Tracer's should not be used on their own, and instead should
-// be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
-// it in a call to alamos.New using the WithTracer option.
+// Instrumentation. Tracer's should not be used on their own, and instead should be used
+// as part of Instrumentation. To create a Tracer, use NewTracer and pass it in a call
+// to alamos.New using the WithTracer option.
 type Tracer struct {
 	meta        InstrumentationMeta
 	_otelTracer oteltrace.Tracer
@@ -135,15 +138,15 @@ func (t *Tracer) otelTracer() oteltrace.Tracer {
 	return t._otelTracer
 }
 
-// Transfer transfers the trace from the source context to the target context.
-// Transfer should be used sparingly, and is typically only used when preventing
-// the propagation of context cancellation but the preservation of tracing:
+// Transfer transfers the trace from the source context to the target context. Transfer
+// should be used sparingly, and is typically only used when preventing the propagation
+// of context cancellation but the preservation of tracing:
 //
 //	def myFunc(ctx context.Context) {
-//		// Transfer the trace so the given context cant be used for cancellation,
-//		ctx = alamos.Transfer(ctx, context.Background())
-//		// Will never return.
-//		<-ctx.Done()
+//	    // Transfer the trace so the given context cant be used for cancellation,
+//	    ctx = alamos.Transfer(ctx, context.Background())
+//	    // Will never return.
+//	    <-ctx.Done()
 //	}
 func (t *Tracer) Transfer(source, target context.Context) context.Context {
 	return oteltrace.ContextWithSpan(target, oteltrace.SpanFromContext(source))

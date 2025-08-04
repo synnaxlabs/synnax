@@ -174,7 +174,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 					receivedMessages = append(receivedMessages, msg)
 				}
 
-				Expect(len(receivedMessages)).To(Equal(10))
+				Expect(receivedMessages).To(HaveLen(10))
 				for i, msg := range receivedMessages {
 					Expect(msg.Message).To(Equal("hello"))
 					Expect(msg.ID).To(Equal(i))
