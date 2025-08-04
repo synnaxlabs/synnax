@@ -7,13 +7,9 @@ func (m Map[K, V]) Get(key K) (V, bool) {
 	return v, ok
 }
 
-func (m Map[K, V]) Set(key K, value V) {
-	m[key] = value
-}
+func (m Map[K, V]) Set(key K, value V) { m[key] = value }
 
-func (m Map[K, V]) Delete(key K) {
-	delete(m, key)
-}
+func (m Map[K, V]) Delete(key K) { delete(m, key) }
 
 func (m Map[K, V]) Keys() []K {
 	keys := make([]K, 0, len(m))
