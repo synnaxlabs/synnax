@@ -64,9 +64,9 @@ var (
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
 	v := validate.New("alamos.TracingConfig")
-	validate.NotNil(v, "OtelProvider", c.OtelProvider)
-	validate.NotNil(v, "OtelPropagator", c.OtelPropagator)
-	validate.NotNil(v, "Filter", c.Filter)
+	validate.NotNil(v, "otel_provider", c.OtelProvider)
+	validate.NotNil(v, "otel_propagator", c.OtelPropagator)
+	validate.NotNil(v, "filter", c.Filter)
 	return v.Error()
 }
 

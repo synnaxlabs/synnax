@@ -173,10 +173,10 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
-	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
-	validate.NotNil(v, "Sync", c.Sync)
-	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotEmptyString(v, "control_subject.key", c.ControlSubject.Key)
+	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
+	validate.NotNil(v, "sync", c.Sync)
+	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),

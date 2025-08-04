@@ -88,12 +88,12 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.ServiceConfig interface.
 func (c Config) Validate() error {
 	v := validate.New("pledge")
-	validate.NotNil(v, "TransportClient", c.TransportClient)
-	validate.NotNil(v, "TransportServer", c.TransportServer)
-	validate.Positive(v, "RequestTimeout", c.RequestTimeout)
-	validate.GreaterThanEq(v, "RetryScale", c.RetryScale, 1)
-	validate.NonZero(v, "MaxProposals", c.MaxProposals)
-	validate.NotNil(v, "Candidates", c.Candidates)
+	validate.NotNil(v, "transport_client", c.TransportClient)
+	validate.NotNil(v, "transport_server", c.TransportServer)
+	validate.Positive(v, "request_timeout", c.RequestTimeout)
+	validate.GreaterThanEq(v, "retry_scale", c.RetryScale, 1)
+	validate.NonZero(v, "max_proposals", c.MaxProposals)
+	validate.NotNil(v, "candidates", c.Candidates)
 	return v.Error()
 }
 

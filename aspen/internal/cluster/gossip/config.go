@@ -48,10 +48,10 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.ServiceConfig interface.
 func (c Config) Validate() error {
 	v := validate.New("gossip")
-	validate.NotNil(v, "TransportClient", c.TransportClient)
-	validate.NotNil(v, "TransportServer", c.TransportServer)
-	validate.NotNil(v, "Store", c.Store)
-	validate.Positive(v, "Interval", c.Interval)
+	validate.NotNil(v, "transport_client", c.TransportClient)
+	validate.NotNil(v, "transport_server", c.TransportServer)
+	validate.NotNil(v, "store", c.Store)
+	validate.Positive(v, "interval", c.Interval)
 	return v.Error()
 }
 
