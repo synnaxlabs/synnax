@@ -37,13 +37,13 @@ describe("Select.Button", () => {
       </Select.Buttons>,
     );
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 2").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
   });
 
@@ -61,13 +61,13 @@ describe("Select.Button", () => {
     const c = render(<C />);
     fireEvent.click(c.getByText("Option 2"));
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 1").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
   });
 });

@@ -18,7 +18,7 @@ describe("Breadcrumb", () => {
       const c = render(
         <Breadcrumb.Breadcrumb>
           <Breadcrumb.Segment>Home</Breadcrumb.Segment>
-        </Breadcrumb.Breadcrumb>
+        </Breadcrumb.Breadcrumb>,
       );
       expect(c.getByText("Home")).toBeTruthy();
     });
@@ -33,16 +33,21 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Home")).toBeTruthy();
       expect(c.getByText("Settings")).toBeTruthy();
       expect(c.getByText("Profile")).toBeTruthy();
-      expect(c.getAllByTestId("pluto-icon")).toHaveLength(2);
+      expect(c.queryAllByLabelText("pluto-icon--caret-right")).toHaveLength(2);
     });
   });
   describe("mapURLSegments", () => {
     it("should map URL segments correctly", () => {
-      const segments = Breadcrumb.mapURLSegments("home/settings/profile", ({ href, segment }) => (
-        <Breadcrumb.Segment key={href} href={`/${href}`}>{segment}</Breadcrumb.Segment>
-      ));
+      const segments = Breadcrumb.mapURLSegments(
+        "home/settings/profile",
+        ({ href, segment }) => (
+          <Breadcrumb.Segment key={href} href={`/${href}`}>
+            {segment}
+          </Breadcrumb.Segment>
+        ),
+      );
       expect(segments).toHaveLength(3);
-      
+
       const c = render(<Breadcrumb.Breadcrumb>{segments}</Breadcrumb.Breadcrumb>);
       const links = c.getAllByRole("link");
       expect(links).toHaveLength(3);
