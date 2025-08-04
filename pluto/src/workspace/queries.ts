@@ -9,20 +9,20 @@
 
 import { workspace } from "@synnaxlabs/client";
 
-import { Sync } from "@/flux/sync";
+import { Flux } from "@/flux";
 
 export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: workspace.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(workspace.workspaceZ, async (args) => {
+    onChange: Flux.parsedHandler(workspace.workspaceZ, async (args) => {
       onSet(args.changed);
     }),
   });
 
 export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: workspace.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(workspace.keyZ, async (args) => {
+    onChange: Flux.parsedHandler(workspace.keyZ, async (args) => {
       onDelete(args.changed);
     }),
   });

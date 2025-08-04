@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, type MultiSeries } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
-import { useEffect } from "react";
-import { type z } from "zod";
+import { type channel } from "@synnaxlabs/client";
+import { DataType, type MultiSeries } from "@synnaxlabs/x";
+import type z from "zod";
 
-import { useAddListener } from "@/flux/sync/Context";
-import { Status } from "@/status";
+export interface ListenerSpec<Value, Extra> {
+  channel: channel.Name;
+  onChange: ListenerHandler<Value, Extra>;
+}
 
 export type ListenerArgs<Value, Extra> = {
   changed: Value;
@@ -44,31 +45,3 @@ export const stringHandler =
     for (const value of args.changed.toStrings())
       await onChange({ ...args, changed: value });
   };
-
-export interface ListenerSpec<Value, Extra> {
-  channel: channel.Name;
-  onChange: ListenerHandler<Value, Extra>;
-}
-
-export const useListener = (
-  listeners: ListenerSpec<MultiSeries, {}> | ListenerSpec<MultiSeries, {}>[],
-): void => {
-  const addListener = useAddListener();
-  const handleError = Status.useErrorHandler();
-  useEffect(() => {
-    const destructors = array.toArray(listeners).map(({ channel, onChange }) =>
-      addListener({
-        channel,
-        handler: (frame) => {
-          handleError(
-            async () => await onChange({ changed: frame.get(channel) }),
-            "Error in Sync.useListener",
-          );
-        },
-      }),
-    );
-    return () => {
-      for (const destructor of destructors) destructor();
-    };
-  }, [addListener]);
-};

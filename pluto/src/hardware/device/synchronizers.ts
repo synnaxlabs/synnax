@@ -9,26 +9,26 @@
 
 import { device } from "@synnaxlabs/client";
 
-import { Sync } from "@/flux/sync";
+import { Flux } from "@/flux";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: device.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.deviceZ, (args) => onSet(args.changed)),
+    onChange: Flux.parsedHandler(device.deviceZ, (args) => onSet(args.changed)),
   });
 
 export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: device.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.keyZ, (args) => onDelete(args.changed)),
+    onChange: Flux.parsedHandler(device.keyZ, (args) => onDelete(args.changed)),
   });
 
 export const useStatusSynchronizer = (
   onStatusChange: (status: device.Status) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: device.STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.statusZ, (args) =>
+    onChange: Flux.parsedHandler(device.statusZ, (args) =>
       onStatusChange(args.changed),
     ),
   });

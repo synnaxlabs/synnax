@@ -11,7 +11,8 @@ import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type MultiSeries } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/params";
+import { type flux } from "@/flux/aether";
+import { type FetchOptions, type Params } from "@/flux/aether/params";
 import {
   errorResult,
   nullClientResult,
@@ -19,8 +20,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { type Sync } from "@/flux/sync";
-import { useMountSynchronizers } from "@/flux/useMountSynchronizers";
+import { useMountListeners } from "@/flux/useMountListeners";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
@@ -55,7 +55,7 @@ export interface RetrieveListenerConfig<RetrieveParams, Data extends state.State
   /** The channel to listen to for real-time updates */
   channel: channel.Name;
   /** The function to call when a new value is received from the channel */
-  onChange: Sync.ListenerHandler<
+  onChange: flux.ListenerHandler<
     MultiSeries,
     RetrieveListenerExtraArgs<RetrieveParams, Data>
   >;
@@ -208,7 +208,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = PSynnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const mountListeners = useMountSynchronizers();
+  const mountListeners = useMountListeners();
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,

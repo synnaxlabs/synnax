@@ -11,7 +11,6 @@ import { label, ontology } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =>
   rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
@@ -30,19 +29,19 @@ export const retrieveLabelsOf = Flux.createRetrieve<
   listeners: [
     {
       channel: label.SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) =>
+      onChange: Flux.parsedHandler(label.labelZ, async ({ changed, onChange }) =>
         onChange((prev) => [...prev.filter((l) => l.key !== changed.key), changed]),
       ),
     },
     {
       channel: label.DELETE_CHANNEL_NAME,
-      onChange: Sync.stringHandler(async ({ changed, onChange }) =>
+      onChange: Flux.stringHandler(async ({ changed, onChange }) =>
         onChange((prev) => prev.filter((l) => l.key !== changed)),
       ),
     },
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
@@ -54,7 +53,7 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
@@ -85,7 +84,7 @@ export const useLabelsOfForm = Flux.createForm<
   listeners: [
     {
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ client, changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
@@ -100,7 +99,7 @@ export const useLabelsOfForm = Flux.createForm<
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
+      onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { id } }) => {
           if (!matchRelationship(changed, id)) return;
@@ -115,17 +114,17 @@ export const useLabelsOfForm = Flux.createForm<
 });
 
 export const useSetSynchronizer = (onSet: (label: label.Label) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: label.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(label.labelZ, async (args) => {
+    onChange: Flux.parsedHandler(label.labelZ, async (args) => {
       onSet(args.changed);
     }),
   });
 
 export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: label.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(label.keyZ, async (args) => {
+    onChange: Flux.parsedHandler(label.keyZ, async (args) => {
       onDelete(args.changed);
     }),
   });

@@ -16,7 +16,7 @@ import {
   use,
 } from "react";
 
-import { Sync } from "@/flux/sync";
+import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax as PSynnax } from "@/synnax";
@@ -40,7 +40,7 @@ export const newSynnaxWrapper = (
     <AetherProvider>
       <Status.Aggregator>
         <PSynnax.TestProvider client={client}>
-          <Sync.Provider>{children}</Sync.Provider>
+          <Flux.Provider>{children}</Flux.Provider>
         </PSynnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
