@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-control-state.pluto--x {
+.pluto-control-state.pluto--direction-x {
     padding: 0;
     max-width: 12rem;
 }
 
-.pluto-control-state.pluto--y {
+.pluto-control-state.pluto--direction-y {
     padding: 0 1rem 1rem;
 }
 
@@ -40,11 +40,11 @@
         border-color: var(--pluto-primary-z);
     }
 
-    &.pluto--y {
+    &.pluto--direction-y {
         min-width: 100%;
         min-height: 3rem;
     }
-    &.pluto--x {
+    &.pluto--direction-x {
         min-width: 3rem;
         min-height: 100%;
     }
@@ -89,7 +89,7 @@
     width: max-content;
     height: max-content;
     padding: 0 !important;
-    &.pluto--y {
+    &.pluto--direction-y {
         writing-mode: vertical-rl;
     }
 }

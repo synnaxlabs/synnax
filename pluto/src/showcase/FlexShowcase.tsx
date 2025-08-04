@@ -49,11 +49,13 @@ export const FlexShowcase = () => (
             </Text.Text>
             <DemoContainer>
               <Flex.Box y gap="small">
-                <Flex.Box x pack rounded={2}>
-                  <Button.Button variant="filled">Hello</Button.Button>
-                  <Button.Button>Hello</Button.Button>
+                <Flex.Box x pack>
+                  <Button.Button variant="filled" rounded>
+                    Hello
+                  </Button.Button>
+                  <Button.Button rounded>Hello</Button.Button>
                 </Flex.Box>
-                <Flex.Box y pack sharp>
+                <Flex.Box y pack rounded>
                   <Button.Button>Hello</Button.Button>
                   <Button.Button variant="filled">Hello</Button.Button>
                 </Flex.Box>

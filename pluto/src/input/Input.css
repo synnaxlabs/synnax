@@ -9,13 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--warning {
+/* .pluto--warning {
     border-color: var(--pluto-warning-z-65) !important;
 }
 
 .pluto--error {
     border-color: var(--pluto-error-z-65) !important;
-}
+} */
 
 .pluto-input {
     position: relative;

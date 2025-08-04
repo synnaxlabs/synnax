@@ -72,11 +72,11 @@ export const Selector = ({
       <Flex.Box
         className={CSS(
           CSS.B(CLS),
-          CSS.height(size),
           className,
           menuProps.className,
           draggingOver && CSS.M("drag-over"),
         )}
+        size={size}
         align="center"
         justify="between"
         empty

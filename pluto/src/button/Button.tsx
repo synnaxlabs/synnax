@@ -22,7 +22,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
-export type ElementType = "button" | "a" | "div";
+export type ElementType = "button" | "a" | "div" | "label";
 
 /** The variant of button */
 export type Variant =
@@ -43,9 +43,9 @@ export interface ExtensionProps
   status?: status.Variant;
   textColor?: Text.Shade;
   textVariant?: Text.Variant;
-  contrast?: Text.Shade;
+  contrast?: Text.Shade | false;
   disabled?: boolean;
-  allowClick?: boolean;
+  preventClick?: boolean;
   onClickDelay?: number | TimeSpan;
 }
 
@@ -55,6 +55,8 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   "color"
 > &
   ExtensionProps;
+
+const MODULE_CLASS = "btn";
 
 /**
  * Use is a basic button component.
@@ -80,9 +82,8 @@ const Core = <E extends ElementType = "button">({
   size,
   variant = "outlined",
   className,
-  sharp = false,
   disabled = false,
-  allowClick = true,
+  preventClick = false,
   level,
   trigger: triggers,
   onClickDelay = 0,
@@ -165,19 +166,19 @@ const Core = <E extends ElementType = "button">({
   else size ??= "medium";
 
   const isLoading = status === "loading";
-  const iconOnly = Text.isIconOnly(children);
+  const iconOnly = Text.isSquare(children);
 
   return (
     <Text.Text<E>
       direction="x"
       className={CSS(
-        CSS.B("btn"),
-        allowClick && contrast != null && CSS.BM("btn", `contrast-${contrast}`),
-        CSS.sharp(sharp),
+        CSS.B(MODULE_CLASS),
+        contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
+        preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
         status != null && CSS.M(status),
-        CSS.BM("btn", variant),
-        hasCustomColor && CSS.BM("btn", "custom-color"),
+        CSS.BM(MODULE_CLASS, variant),
+        hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         className,
       )}
       size={size}

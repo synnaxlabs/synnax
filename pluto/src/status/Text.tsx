@@ -40,7 +40,7 @@ export const Text = ({
       color={color ?? VARIANT_COLORS[variant]}
       className={CSS(className, CSS.BE("status", "text"))}
       level={level}
-      {...rest}
+      {...(description == null ? rest : {})}
     >
       {icon}
       {children}
@@ -48,12 +48,12 @@ export const Text = ({
   );
   if (description == null) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" {...rest} color={8} style={{ maxWidth: 150 }}>
+    <BaseText.Text level="small" color={8} style={{ maxWidth: 150 }}>
       {description}
     </BaseText.Text>
   );
   return (
-    <Flex.Box y align="start" gap="small">
+    <Flex.Box y align="start" gap="small" {...rest}>
       {baseText}
       {descriptionText}
     </Flex.Box>

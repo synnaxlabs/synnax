@@ -27,20 +27,22 @@ interface SimpleEntry {
   visible: boolean;
 }
 
-export interface SimpleProps extends Omit<ContainerProps, "value" | "onChange"> {
+export interface SimpleProps
+  extends Omit<ContainerProps, "value" | "onChange" | "background"> {
   data?: Optional<SimpleEntry, "visible">[];
   onEntryChange?: (value: SimpleEntry) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
   allowVisibleChange?: boolean;
+  background?: Theming.Shade;
 }
 
-interface LegendSwatchesProps {
+interface LegendSwatchesProps
+  extends Pick<SimpleProps, "onEntryChange" | "background"> {
   data: Optional<SimpleEntry, "visible">[];
   onEntryChange: SimpleProps["onEntryChange"];
   onVisibleChange?: state.Setter<boolean>;
   allowVisibleChange?: boolean;
-  contrast?: Theming.Shade;
 }
 
 export const LegendSwatches = memo(
@@ -49,7 +51,7 @@ export const LegendSwatches = memo(
     onEntryChange,
     onVisibleChange,
     allowVisibleChange = true,
-    contrast = 1,
+    background = 1,
   }: LegendSwatchesProps): ReactElement => (
     <>
       {data
@@ -91,7 +93,7 @@ export const LegendSwatches = memo(
                 }}
                 onDoubleClick={(e) => e.stopPropagation()}
                 size="tiny"
-                contrast={contrast}
+                contrast={background}
               >
                 {visible ? <Icon.Visible /> : <Icon.Hidden />}
               </Button.Button>
@@ -132,7 +134,7 @@ export const Simple = ({
         onEntryChange={onEntryChange}
         onVisibleChange={setPickerVisible}
         allowVisibleChange={allowVisibleChange}
-        contrast={background}
+        background={background}
       />
     </Container>
   );

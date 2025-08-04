@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
@@ -67,7 +68,7 @@ const formatHref = (
   return href;
 };
 
-export const isIconOnly = (children: ReactNode): boolean => {
+export const isSquare = (children: ReactNode): boolean => {
   if (Children.count(children) !== 1) {
     const parsedChildren = Children.toArray(children).filter(
       (c) => typeof c !== "boolean",
@@ -88,6 +89,20 @@ export const isIconOnly = (children: ReactNode): boolean => {
   return false;
 };
 
+const parseElement = <E extends Generic.ElementType = "p">(
+  level: text.Level,
+  el?: E,
+  defaultEl?: Generic.ElementType,
+  variant?: Variant,
+  href?: string,
+): E | undefined => {
+  if (el != null) return el;
+  if (href != null || variant === "link") return "a" as E;
+  if (defaultEl != null) return defaultEl as E;
+  if (level != null) return level as E;
+  return "p" as E;
+};
+
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
@@ -104,7 +119,7 @@ export const Text = <E extends Generic.ElementType = "p">({
 }: TextProps<E>): ReactElement => (
   <Flex.Box<E>
     direction="x"
-    el={(el ?? (href != null || variant === "link" ? "a" : (defaultEl ?? level))) as E}
+    el={parseElement<E>(level, el, defaultEl, variant, href)}
     style={{ fontWeight: weight, ...style }}
     className={CSS(
       CSS.B("text"),
@@ -114,7 +129,7 @@ export const Text = <E extends Generic.ElementType = "p">({
       ellipsis && CSS.M("ellipsis"),
       className,
     )}
-    square={isIconOnly(rest.children)}
+    square={isSquare(rest.children)}
     gap="small"
     href={formatHref(href, autoFormatHref)}
     {...(rest as Flex.BoxProps<E>)}

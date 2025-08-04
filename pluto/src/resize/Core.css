@@ -33,13 +33,13 @@
         top: 0;
     }
 
-    &.pluto--x > .pluto-resize__handle {
+    &.pluto--direction-x > .pluto-resize__handle {
         width: var(--resize-panel-handle-size);
         height: 100%;
         cursor: col-resize;
     }
 
-    &.pluto--y > .pluto-resize__handle {
+    &.pluto--direction-y > .pluto-resize__handle {
         height: var(--resize-panel-handle-size);
         width: 100%;
         cursor: row-resize;

@@ -46,6 +46,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     },
   },
   inputProps: {
+    resourceName: "Scale Type",
     data: [
       { key: LINEAR_SCALE_TYPE, name: "Linear" },
       { key: MAP_SCALE_TYPE, name: "Map" },

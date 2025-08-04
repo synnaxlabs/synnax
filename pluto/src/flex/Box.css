@@ -9,229 +9,323 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-flex__box {
+.pluto-flex {
     display: flex;
     flex-wrap: nowrap;
     gap: 1.5rem;
+    flex-direction: column;
 
+    &.pluto--bordered {
+        border: var(--pluto-border);
+        border-color: var(--pluto-border-color);
+    }
+    &.pluto--rounded {
+        border-radius: var(--pluto-border-radius);
+    }
+    &.pluto--sharp {
+        border-radius: 0;
+    }
+    &.pluto--reverse {
+        flex-direction: column-reverse;
+    }
     &.pluto--wrap {
         flex-wrap: wrap;
     }
-    &.pluto-justify--start {
+    &.pluto--justify-start {
         justify-content: flex-start;
     }
-    &.pluto-justify--center {
+    &.pluto--justify-center {
         justify-content: center;
     }
-    &.pluto-justify--end {
+    &.pluto--justify-end {
         justify-content: flex-end;
     }
-    &.pluto-justify--between {
+    &.pluto--justify-between {
         justify-content: space-between;
     }
-    &.pluto-justify--around {
+    &.pluto--justify-around {
         justify-content: space-around;
     }
-    &.pluto-justify--evenly {
+    &.pluto--justify-evenly {
         justify-content: space-evenly;
     }
-    &.pluto-align--start {
+    &.pluto--align-start {
         align-items: flex-start;
     }
-    &.pluto-align--center {
+    &.pluto--align-center {
         align-items: center;
     }
-    &.pluto-align--end {
+    &.pluto--align-end {
         align-items: flex-end;
     }
-    &.pluto-align--stretch {
+    &.pluto--align-stretch {
         align-items: stretch;
     }
-    &.pluto--x {
+    &.pluto--direction-x {
         flex-direction: row;
         &.pluto--reverse {
             flex-direction: row-reverse;
         }
     }
-    &.pluto--y {
+    /* Keep this class even though this is the default, because it increases
+     * the specificity of the selector if the user explicitly sets the direction
+     * to y */
+    &.pluto--direction-y {
         flex-direction: column;
         &.pluto--reverse {
             flex-direction: column-reverse;
         }
     }
-    &:not(.pluto--rounded) {
-        --pluto-flex-border-radius: var(--pluto-border-radius);
+    &.pluto--grow {
+        flex-grow: 1;
     }
-    &.pluto--sharp {
-        --pluto-flex-border-radius: 0;
-        border-radius: 0;
+    &.pluto--shrink {
+        flex-shrink: 1;
     }
-    &.pluto--rounded {
-        border-radius: var(--pluto-flex-border-radius);
-    }
-    &.pluto-gap--huge {
+
+    &.pluto--gap-huge {
         gap: 5rem;
     }
-    &.pluto-gap--v {
+    &.pluto--gap-medium {
         gap: 1.5rem;
     }
-    &.pluto-gap--large {
+    &.pluto--gap-large {
         gap: 4rem;
     }
-    &.pluto-gap--small {
+    &.pluto--gap-small {
         gap: 1rem;
     }
-    &.pluto-gap--tiny {
+    &.pluto--gap-tiny {
         gap: 0.5rem;
     }
     &.pluto--empty,
-    &.pluto-flex--pack {
+    &.pluto--pack {
         gap: 0;
     }
-    &.pluto-flex--full-x {
+    &.pluto--full-x {
         width: 100%;
     }
-    &.pluto-flex--full-y {
+    &.pluto--full-y {
         height: 100%;
     }
-    &.pluto-flex--full {
+    &.pluto--full {
         width: 100%;
         height: 100%;
     }
-    &.pluto-flex--center {
+    &.pluto--center {
         align-items: center;
         justify-content: center;
         width: 100%;
         height: 100%;
     }
-    &.pluto-flex--square {
+    &.pluto--height-huge {
+        min-height: var(--pluto-height-huge);
+        height: fit-content;
+    }
+
+    &.pluto--height-large {
+        min-height: var(--pluto-height-large);
+        height: fit-content;
+    }
+
+    &.pluto--height-medium {
+        min-height: var(--pluto-height-medium);
+        height: fit-content;
+    }
+
+    &.pluto--height-tiny {
+        min-height: var(--pluto-height-tiny);
+        height: fit-content;
+    }
+
+    &.pluto--height-small {
+        min-height: var(--pluto-height-small);
+        height: fit-content;
+    }
+
+    &.pluto--border-color-0 {
+        border-color: var(--pluto-gray-l0);
+    }
+
+    &.pluto--border-color-1 {
+        border-color: var(--pluto-gray-l1);
+    }
+
+    &.pluto--border-color-2 {
+        border-color: var(--pluto-gray-l2);
+    }
+
+    &.pluto--border-color-3 {
+        border-color: var(--pluto-gray-l3);
+    }
+
+    &.pluto--border-color-4 {
+        border-color: var(--pluto-gray-l4);
+    }
+
+    &.pluto--border-color-5 {
+        border-color: var(--pluto-gray-l5);
+    }
+
+    &.pluto--border-color-6 {
+        border-color: var(--pluto-gray-l6);
+    }
+
+    &.pluto--border-color-7 {
+        border-color: var(--pluto-gray-l7);
+    }
+
+    &.pluto--border-color-8 {
+        border-color: var(--pluto-gray-l8);
+    }
+
+    &.pluto--border-color-9 {
+        border-color: var(--pluto-gray-l9);
+    }
+
+    &.pluto--border-color-10 {
+        border-color: var(--pluto-gray-l10);
+    }
+
+    &.pluto--border-color-11 {
+        border-color: var(--pluto-gray-l11);
+    }
+
+    &.pluto--bg-0 {
+        background-color: var(--pluto-gray-l0);
+    }
+    &.pluto--bg-1 {
+        background-color: var(--pluto-gray-l1);
+    }
+    &.pluto--bg-2 {
+        background-color: var(--pluto-gray-l2);
+    }
+    &.pluto--bg-3 {
+        background-color: var(--pluto-gray-l3);
+    }
+    &.pluto--bg-4 {
+        background-color: var(--pluto-gray-l4);
+    }
+    &.pluto--bg-5 {
+        background-color: var(--pluto-gray-l5);
+    }
+    &.pluto--bg-6 {
+        background-color: var(--pluto-gray-l6);
+    }
+    &.pluto--bg-7 {
+        background-color: var(--pluto-gray-l7);
+    }
+    &.pluto--bg-8 {
+        background-color: var(--pluto-gray-l8);
+    }
+    &.pluto--bg-9 {
+        background-color: var(--pluto-gray-l9);
+    }
+    &.pluto--bg-10 {
+        background-color: var(--pluto-gray-l10);
+    }
+    &.pluto--bg-11 {
+        background-color: var(--pluto-gray-l11);
+    }
+    &.pluto--color-0 {
+        color: var(--pluto-gray-l0);
+    }
+    &.pluto--color-1 {
+        color: var(--pluto-gray-l1);
+    }
+    &.pluto--color-2 {
+        color: var(--pluto-gray-l2);
+    }
+    &.pluto--color-3 {
+        color: var(--pluto-gray-l3);
+    }
+    &.pluto--color-4 {
+        color: var(--pluto-gray-l4);
+    }
+    &.pluto--color-5 {
+        color: var(--pluto-gray-l5);
+    }
+    &.pluto--color-6 {
+        color: var(--pluto-gray-l6);
+    }
+    &.pluto--color-7 {
+        color: var(--pluto-gray-l7);
+    }
+    &.pluto--color-8 {
+        color: var(--pluto-gray-l8);
+    }
+    &.pluto--color-9 {
+        color: var(--pluto-gray-l9);
+    }
+    &.pluto--color-10 {
+        color: var(--pluto-gray-l10);
+    }
+    &.pluto--color-11 {
+        color: var(--pluto-gray-l11);
+    }
+
+    &.pluto--square {
         align-items: center;
         width: fit-content;
-        padding: 0.5rem;
         justify-content: center;
-        font-weight: 500;
+        font-weight: 400;
 
-        &.pluto-height--huge {
+        &.pluto--height-huge {
             min-width: var(--pluto-height-huge);
         }
-        &.pluto-height--large {
+        &.pluto--height-large {
             min-width: var(--pluto-height-large);
         }
-        &.pluto-height--small {
+        &.pluto--height-small {
             min-width: var(--pluto-height-small);
         }
-        &.pluto-height--medium {
+        &.pluto--height-medium {
             min-width: var(--pluto-height-medium);
         }
-        &.pluto-height--tiny {
+        &.pluto--height-tiny {
             min-width: var(--pluto-height-tiny);
         }
     }
-}
 
-.pluto-flex--pack {
-    --pluto-rounded-top: var(--pluto-flex-border-radius) var(--pluto-flex-border-radius)
-        0 0;
-    --pluto-rounded-bottom: 0 0 var(--pluto-flex-border-radius)
-        var(--pluto-flex-border-radius);
-    --pluto-rounded-left: var(--pluto-flex-border-radius) 0 0
-        var(--pluto-flex-border-radius);
-    --pluto-rounded-right: 0 var(--pluto-flex-border-radius)
-        var(--pluto-flex-border-radius) 0;
-    --pluto-rounded-top-right: 0 var(--pluto-flex-border-radius) 0 0;
-    --pluto-rounded-bottom-right: 0 0 var(--pluto-flex-border-radius) 0;
-    --pluto-rounded-bottom-left: 0 0 0 var(--pluto-flex-border-radius);
-    --pluto-rounded-top-left: var(--pluto-flex-border-radius) 0 0 0;
-    --pluto-pack--middle: 0;
-    --pluto-rounded-all: var(--pluto-flex-border-radius);
-
-    &.pluto--x {
-        --pluto-rounded-first: var(--pluto-rounded-left);
-        --pluto-rounded-last: var(--pluto-rounded-right);
-    }
-
-    &.pluto--y {
-        --pluto-rounded-first: var(--pluto-rounded-top);
-        --pluto-rounded-last: var(--pluto-rounded-bottom);
-    }
-
-    & > :only-child {
-        border-radius: var(--pluto-rounded-all);
-    }
-
-    & > :first-child:not(:only-child) {
-        border-radius: var(--pluto-rounded-first);
-    }
-
-    & > :last-child:not(:only-child) {
-        border-radius: var(--pluto-rounded-last);
-    }
-
-    & > :not(:first-child):not(:last-child) {
-        border-radius: var(--pluto-pack--middle);
-    }
-
-    & > .pluto-flex--pack:not(:first-child):not(:last-child) {
-        --pluto-rounded-first: 0;
-        --pluto-rounded-last: 0;
-    }
-
-    &.pluto--y {
-        & > :not(:first-child) {
-            margin-top: calc(-1 * var(--pluto-border-width));
+    &.pluto--pack {
+        &:not(.pluto--sharp) {
+            border-radius: var(--pluto-border-radius);
         }
-
-        & > .pluto-flex--pack {
-            &.pluto--x {
-                &:first-child {
-                    border-radius: var(--pluto-rounded-top);
-                    --pluto-rounded-first: var(--pluto-rounded-top-left);
-                    --pluto-rounded-last: var(--pluto-rounded-top-right);
-                }
-                &:last-child {
-                    border-radius: var(--pluto-rounded-bottom);
-                    --pluto-rounded-first: var(--pluto-rounded-bottom-left);
-                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
-                }
+        & > * {
+            border-radius: 0;
+        }
+        &.pluto--direction-x > * {
+            &:not(:first-child) {
+                margin-left: calc(-1 * var(--pluto-border-width));
             }
-            &.pluto--y {
-                &:first-child:not(:only-child) {
-                    --pluto-rounded-last: 0;
-                }
-                &:last-child:not(:only-child) {
-                    --pluto-rounded-first: 0;
-                    --pluto-rounded-all: var(--pluto-rounded-bottom);
-                }
+            &:first-child {
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+                border-top-left-radius: inherit;
+                border-bottom-left-radius: inherit;
+            }
+            &:last-child {
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+                border-top-right-radius: inherit;
+                border-bottom-right-radius: inherit;
             }
         }
-    }
-
-    &.pluto--x {
-        & > :not(:first-child) {
-            margin-left: calc(-1 * var(--pluto-border-width));
-        }
-
-        & > .pluto-flex--pack {
-            &.pluto--y {
-                &:first-child {
-                    border-radius: var(--pluto-rounded-top);
-                    --pluto-rounded-first: var(--pluto-rounded-top-left);
-                    --pluto-rounded-last: var(--pluto-rounded-bottom-left);
-                }
-                &:last-child:not(:only-child) {
-                    border-radius: var(--pluto-rounded-bottom);
-                    --pluto-rounded-first: var(--pluto-rounded-top-right);
-                    --pluto-rounded-last: var(--pluto-rounded-bottom-right);
-                }
+        &.pluto--direction-y > * {
+            &:not(:first-child) {
+                margin-top: calc(-1 * var(--pluto-border-width));
             }
-            &.pluto--x {
-                &:first-child:not(:only-child) {
-                    --pluto-rounded-last: 0;
-                }
-                &:last-child:not(:only-child) {
-                    --pluto-rounded-first: 0;
-                    --pluto-rounded-all: var(--pluto-rounded-right);
-                }
+            &:last-child {
+                border-top-right-radius: 0;
+                border-top-left-radius: 0;
+                border-bottom-right-radius: inherit;
+                border-bottom-left-radius: inherit;
+            }
+            &:first-child {
+                border-top-right-radius: inherit;
+                border-top-left-radius: inherit;
+                border-bottom-right-radius: 0;
+                border-bottom-left-radius: 0;
             }
         }
     }

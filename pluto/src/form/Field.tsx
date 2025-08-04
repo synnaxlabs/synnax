@@ -86,21 +86,29 @@ export const Field = <I = string | number, O = I>({
 export interface FieldBuilderProps<I, O, P extends {}> {
   fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
-  inputProps?: Partial<P>;
+  inputProps?: Omit<P, "value" | "onChange">;
 }
 
-export type BuiltFieldProps<I, O, P extends {}> = FieldProps<I, O> & {
-  inputProps?: Partial<P>;
+type MakeBuilderKeysOptional<
+  T,
+  BuilderKeys extends keyof T
+> = Omit<T, BuilderKeys> & Partial<Pick<T, BuilderKeys>>;
+
+export type BuiltFieldProps<I, O, P extends {}, BuilderInputProps extends Record<string, any> = {}> = FieldProps<I, O> & {
+  inputProps?: MakeBuilderKeysOptional<
+    Omit<P, "value" | "onChange">,
+    keyof BuilderInputProps & keyof Omit<P, "value" | "onChange">
+  >;
   fieldKey?: string;
 };
 
 export const fieldBuilder =
   <I, O, P extends {}>(Component: FC<P & Input.Control<I, O>>) =>
-  ({
+  <BuilderInputProps extends Partial<Omit<P, "value" | "onChange">> = {}>({
     fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
-  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> => {
+  }: FieldBuilderProps<I, O, P> & { inputProps?: BuilderInputProps }): FC<BuiltFieldProps<I, O, P, BuilderInputProps>> => {
     const C = ({
       inputProps,
       path,
@@ -108,7 +116,7 @@ export const fieldBuilder =
       optional,
       defaultValue,
       ...rest
-    }: BuiltFieldProps<I, O, P>) => (
+    }: BuiltFieldProps<I, O, P, BuilderInputProps>) => (
       <Field<I, O>
         {...fieldProps}
         {...rest}

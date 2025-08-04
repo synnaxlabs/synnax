@@ -22,11 +22,11 @@
     background: none;
 }
 
-.pluto-input__drag-btn.pluto--x {
+.pluto-input__drag-btn.pluto--direction-x {
     cursor: col-resize;
 }
 
-.pluto-input__drag-btn.pluto--y {
+.pluto-input__drag-btn.pluto--direction-y {
     cursor: row-resize;
 }
 
@@ -35,6 +35,6 @@
     stroke: var(--pluto-gray-l9);
 }
 
-.pluto-input__drag-tn.pluto--x > svg {
+.pluto-input__drag-tn.pluto--direction-x > svg {
     transform: rotate(90deg);
 }

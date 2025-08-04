@@ -10,7 +10,7 @@
  */
 
 .pluto-menu-item {
-    &:not(.pluto-text--square) {
+    &:not(.pluto--square) {
         width: 100%;
     }
 

@@ -8,21 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import clsx, { type ClassValue } from "clsx";
-import { type CSSProperties } from "react";
 
 const CoreBEM = clsx;
 
 type CoreBEMType = typeof clsx;
 
 export interface BEM extends CoreBEMType {
-  B: (block: string) => string;
+  B: (...blocks: string[]) => string;
   E: (element: string) => string;
-  M: (modifier: string) => string;
-  BE: (block: string, element: string) => string;
-  BM: (block: string, modifier: string) => string;
+  M: (...modifiers: string[]) => string;
+  BE: (block: string, ...elements: string[]) => string;
+  BM: (block: string, ...modifiers: string[]) => string;
   BEM: (block: string, element: string, modifier: string) => string;
   extend: (prefix: string) => BEM;
-  var: (variable: string) => string;
+  var: (...variables: string[]) => "height" | "width";
 }
 
 const BLOCK = "-";
@@ -33,15 +32,15 @@ export const newBEM = (prefix: string): BEM => {
   // We need to define a new function to avoid reassigning the original
   // on each call to newBEM.
   const BEM_: BEM = (...args: ClassValue[]): string => CoreBEM(...args);
-  BEM_.B = (block) => prefix + BLOCK + block;
+  BEM_.B = (...blocks) => prefix + BLOCK + blocks.join(BLOCK);
   BEM_.E = (element) => prefix + ELEMENT + element;
-  BEM_.M = (modifier) => prefix + MODIFIER + modifier;
-  BEM_.BM = (block, modifier) => BEM_.B(block) + MODIFIER + modifier;
-  BEM_.BE = (block, element) => BEM_.B(block) + ELEMENT + element;
+  BEM_.M = (...modifiers) => prefix + MODIFIER + modifiers.join("-");
+  BEM_.BM = (block, ...modifiers) => BEM_.B(block) + MODIFIER + modifiers.join("-");
+  BEM_.BE = (block, ...elements) => BEM_.B(block) + ELEMENT + elements.join(BLOCK);
   BEM_.BEM = (block, element, modifier) =>
     BEM_.BE(block, element) + MODIFIER + modifier;
   BEM_.extend = (prefix_) => newBEM(BEM_.B(prefix_));
-  BEM_.var = (variable) =>
-    (MODIFIER + prefix + BLOCK + variable) as keyof CSSProperties;
+  BEM_.var = (...variables) =>
+    (MODIFIER + prefix + BLOCK + variables.join(BLOCK)) as "height";
   return BEM_;
 };

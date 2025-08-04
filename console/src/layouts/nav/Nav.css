@@ -62,22 +62,22 @@
         z-index: 2;
     }
 
-    &.pluto--x {
+    &.pluto--direction-x {
         padding-left: 3rem;
         padding-right: 1.5rem;
     }
 
-    &.pluto--y .pluto-navbar__content {
+    &.pluto--direction-y .pluto-navbar__content {
         padding: 2rem 0rem;
     }
 }
 
-.console--os-macos .console-nav__bar.pluto--x {
+.console--os-macos .console-nav__bar.pluto--direction-x {
     padding-left: 2rem;
 }
 
-.console--os-windows .console-nav__bar.pluto--x,
-.console-mosaic__bar.console-nav__bar.pluto--x {
+.console--os-windows .console-nav__bar.pluto--direction-x,
+.console-mosaic__bar.console-nav__bar.pluto--direction-x {
     padding-right: 1rem;
     padding-left: 2.5rem;
     & .synnax-logo {
@@ -85,11 +85,11 @@
     }
 }
 
-.console--os-windows .console-mosaic__bar.pluto--x {
+.console--os-windows .console-mosaic__bar.pluto--direction-x {
     padding-left: 1rem;
 }
 
-.console-mosaic__bar.console-nav__bar.pluto--x {
+.console-mosaic__bar.console-nav__bar.pluto--direction-x {
     .pluto--start {
         justify-content: flex-end !important;
         flex-direction: row-reverse !important;

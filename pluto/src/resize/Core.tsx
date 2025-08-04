@@ -49,6 +49,7 @@ export const Core = ({
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}
       direction={dir}
+      empty
       {...rest}
     >
       {children}

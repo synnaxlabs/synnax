@@ -67,6 +67,7 @@ const SelectScaleTypeField = PForm.buildSelectField<
     },
   },
   inputProps: {
+    resourceName: "Scale Type",
     data: [
       { key: NO_SCALE_TYPE, name: "None" },
       { key: LINEAR_SCALE_TYPE, name: "Linear" },
@@ -107,6 +108,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
+    resourceName: "Thermocouple Type",
     data: [
       { key: B_TC_TYPE, name: "B" },
       { key: E_TC_TYPE, name: "E" },
@@ -128,6 +130,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
+    resourceName: "Temperature Units",
     data: [
       { key: CELSIUS_UNIT, name: "Celsius" },
       { key: FAHRENHEIT_UNIT, name: "Fahrenheit" },

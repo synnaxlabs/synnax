@@ -40,7 +40,7 @@
         }
     }
 
-    &.pluto--x {
+    &.pluto--direction-x {
         box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
             var(--pluto-border-color);
         z-index: 3;
@@ -195,7 +195,7 @@
         }
     }
 
-    &.pluto--y {
+    &.pluto--direction-y {
         border-right: var(--pluto-border);
         height: 100%;
 
@@ -224,7 +224,7 @@
 .pluto-header .pluto-tabs-selector {
     margin-top: 1px;
     height: 100%;
-    &.pluto--x {
+    &.pluto--direction-x {
         box-shadow: none;
     }
 }

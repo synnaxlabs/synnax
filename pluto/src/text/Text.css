@@ -20,7 +20,7 @@ a.pluto-text {
 
 .pluto-text {
     margin: 0;
-    &.pluto--x {
+    &.pluto--direction-x {
         align-items: center;
     }
 
@@ -29,9 +29,31 @@ a.pluto-text {
     }
 
     &.pluto-text--keyboard {
+        line-height: 1;
+        aspect-ratio: 1;
         background: var(--pluto-gray-l2);
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
+        &.pluto-text--p {
+            height: var(--pluto-p-line-height);
+        }
+        &.pluto-text--h1 {
+            height: var(--pluto-h1-line-height);
+        }
+        &.pluto-text--h2 {
+            height: var(--pluto-h2-line-height);
+        }
+        &.pluto-text--h3 {
+            height: var(--pluto-h3-line-height);
+        }
+        &.pluto-text--h4 {
+            height: var(--pluto-h4-line-height);
+        }
+        &.pluto-text--h5 {
+            height: var(--pluto-h5-line-height);
+        }
+        &.pluto-text--small {
+            height: var(--pluto-small-line-height);
+        }
     }
-
 }

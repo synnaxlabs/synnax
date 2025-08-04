@@ -121,7 +121,10 @@ export const TextShowcase = () => (
             <Text.Text level="small" weight={500}>
               Trigger Display
             </Text.Text>
-            <Triggers.Text trigger={["Control", "Enter"]}>Hello (Trigger)</Triggers.Text>
+            <Triggers.Text level="h4" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="h5" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="p" trigger={["Control", "Enter", "T"]} />
+            <Triggers.Text level="small" trigger={["Control", "Enter", "T"]} />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>

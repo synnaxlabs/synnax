@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-flex--pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto--pack button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
@@ -71,10 +71,6 @@ html {
     white-space: nowrap;
 }
 
-.pluto--bordered {
-    border: var(--pluto-border);
-}
-
 .pluto--bordered-right {
     border-right: var(--pluto-border);
 }
@@ -91,45 +87,20 @@ html {
     border-bottom: var(--pluto-border);
 }
 
-.pluto--x > .pluto--bordered-start {
+.pluto--direction-x > .pluto--bordered-start {
     border-right: var(--pluto-border);
 }
 
-.pluto--x > .pluto--bordered-end {
+.pluto--direction-x > .pluto--bordered-end {
     border-left: var(--pluto-border);
 }
 
-.pluto--y > .pluto--bordered-start {
+.pluto--direction-y > .pluto--bordered-start {
     border-bottom: var(--pluto-border);
 }
 
-.pluto--y > .pluto--bordered-end {
+.pluto--direction-y > .pluto--bordered-end {
     border-top: var(--pluto-border);
-}
-
-.pluto-height--huge {
-    min-height: var(--pluto-height-huge);
-    height: fit-content;
-}
-
-.pluto-height--large {
-    min-height: var(--pluto-height-large);
-    height: fit-content;
-}
-
-.pluto-height--medium {
-    min-height: var(--pluto-height-medium);
-    height: fit-content;
-}
-
-.pluto-height--tiny {
-    min-height: var(--pluto-height-tiny);
-    height: fit-content;
-}
-
-.pluto-height--small {
-    min-height: var(--pluto-height-small);
-    height: fit-content;
 }
 
 .pluto--no-select {

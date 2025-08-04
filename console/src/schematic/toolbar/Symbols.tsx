@@ -75,6 +75,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           }}
           placeholder="Type to search..."
           size="small"
+          full="x"
         />
       </Flex.Box>
       <Flex.Box x className={CSS.B("schematic-symbols")} wrap>

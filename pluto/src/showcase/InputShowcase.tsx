@@ -65,7 +65,9 @@ export const InputShowcase = () => (
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Standard</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Standard
+            </Text.Text>
             <InputShowcaseText placeholder="Catalyst" size="huge" />
             <InputShowcaseText placeholder="Catalyst" size="large" />
             <InputShowcaseText placeholder="Catalyst" size="medium" />
@@ -73,7 +75,9 @@ export const InputShowcase = () => (
             <InputShowcaseText placeholder="Catalyst" size="tiny" />
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Text Variant</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Text Variant
+            </Text.Text>
             <InputShowcaseText placeholder="Catalyst" size="huge" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="large" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="medium" variant="text" />
@@ -89,7 +93,9 @@ export const InputShowcase = () => (
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>With Icon Placeholder</Text.Text>
+            <Text.Text level="small" weight={500}>
+              With Icon Placeholder
+            </Text.Text>
             <InputShowcaseText placeholder={INPUT_PLACEHOLDER} size="huge" />
             <InputShowcaseText placeholder={INPUT_PLACEHOLDER} size="large" />
             <InputShowcaseText placeholder={INPUT_PLACEHOLDER} size="medium" />
@@ -97,7 +103,9 @@ export const InputShowcase = () => (
             <InputShowcaseText placeholder={INPUT_PLACEHOLDER} size="tiny" />
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>With End Content</Text.Text>
+            <Text.Text level="small" weight={500}>
+              With End Content
+            </Text.Text>
             <InputShowcaseText endContent={"m/s"} size="huge" />
             <InputShowcaseText endContent={"m/s"} size="large" />
             <InputShowcaseText endContent={"m/s"} size="medium" />
@@ -115,7 +123,9 @@ export const InputShowcase = () => (
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Standard Numeric</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Standard Numeric
+            </Text.Text>
             <InputShowcaseNumeric placeholder="Catalyst" size="huge" />
             <InputShowcaseNumeric placeholder="Catalyst" size="large" />
             <InputShowcaseNumeric placeholder="Catalyst" size="medium" />
@@ -123,11 +133,25 @@ export const InputShowcase = () => (
             <InputShowcaseNumeric placeholder="Catalyst" size="tiny" />
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>With Units</Text.Text>
+            <Text.Text level="small" weight={500}>
+              With Units
+            </Text.Text>
             <InputShowcaseNumeric placeholder="Catalyst" endContent="m/s" size="huge" />
-            <InputShowcaseNumeric placeholder="Catalyst" endContent="m/s" size="large" />
-            <InputShowcaseNumeric placeholder="Catalyst" endContent="m/s" size="medium" />
-            <InputShowcaseNumeric placeholder="Catalyst" endContent="m/s" size="small" />
+            <InputShowcaseNumeric
+              placeholder="Catalyst"
+              endContent="m/s"
+              size="large"
+            />
+            <InputShowcaseNumeric
+              placeholder="Catalyst"
+              endContent="m/s"
+              size="medium"
+            />
+            <InputShowcaseNumeric
+              placeholder="Catalyst"
+              endContent="m/s"
+              size="small"
+            />
             <InputShowcaseNumeric placeholder="Catalyst" endContent="m/s" size="tiny" />
           </Flex.Box>
         </Flex.Box>
@@ -138,7 +162,9 @@ export const InputShowcase = () => (
         description="Toggle switches for boolean values in on and off states"
       >
         <Flex.Box y gap="medium">
-          <Text.Text level="small" weight={500}>Switch States</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Switch States
+          </Text.Text>
           <Flex.Box x gap="medium">
             <Flex.Box y gap="small" align="center">
               <Text.Text level="small">Off</Text.Text>
@@ -158,7 +184,9 @@ export const InputShowcase = () => (
       >
         <Flex.Box y gap="medium">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Checkbox Sizes</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Checkbox Sizes
+            </Text.Text>
             <Flex.Box x gap="medium" align="center">
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Huge</Text.Text>
@@ -183,7 +211,9 @@ export const InputShowcase = () => (
             </Flex.Box>
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Checkbox States</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Checkbox States
+            </Text.Text>
             <Flex.Box x gap="medium" align="center">
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Unchecked</Text.Text>
@@ -209,25 +239,35 @@ export const InputShowcase = () => (
     >
       <Flex.Box y gap="medium">
         <Flex.Box y gap="small">
-          <Text.Text level="small" weight={500}>Disabled State</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Disabled State
+          </Text.Text>
           <Flex.Box x gap="medium">
             <InputShowcaseText disabled placeholder="Disabled" />
             <InputShowcaseText disabled placeholder={INPUT_PLACEHOLDER} />
           </Flex.Box>
         </Flex.Box>
         <Flex.Box y gap="small">
-          <Text.Text level="small" weight={500}>Background Contrast</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Background Contrast
+          </Text.Text>
           <Flex.Box x gap="medium">
             <Flex.Box y background={1} style={{ padding: "2rem" }} bordered rounded={1}>
-              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>Level 1</Text.Text>
+              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
+                Level 1
+              </Text.Text>
               <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={1} />
             </Flex.Box>
             <Flex.Box y background={2} style={{ padding: "2rem" }} bordered rounded={1}>
-              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>Level 2</Text.Text>
+              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
+                Level 2
+              </Text.Text>
               <InputShowcaseText placeholder="Catalyst" endContent="m/s" contrast={2} />
             </Flex.Box>
             <Flex.Box y background={3} style={{ padding: "2rem" }} bordered rounded={1}>
-              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>Level 3</Text.Text>
+              <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
+                Level 3
+              </Text.Text>
               <InputShowcaseText placeholder="Catalyst" contrast={3} />
             </Flex.Box>
           </Flex.Box>

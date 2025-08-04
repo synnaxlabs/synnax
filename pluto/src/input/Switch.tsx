@@ -11,12 +11,13 @@ import "@/input/Switch.css";
 
 import { type ReactElement } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
 
-export interface SwitchProps extends InputProps<boolean> {}
-
-const CLS = "input-switch";
+export interface SwitchProps
+  extends InputProps<boolean>,
+    Omit<Button.ExtensionProps, "variant"> {}
 
 /**
  * A controlled boolean Switch input component.
@@ -34,13 +35,33 @@ export const Switch = ({
   value,
   disabled,
   onChange,
-  size = "medium",
+  size,
   variant,
+  style,
+  color,
+  borderColor,
+  borderWidth,
+  bordered,
+  rounded,
+  background,
   ...rest
 }: SwitchProps): ReactElement => (
-  <label className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.height(size), className)}>
+  <Button.Button
+    el="label"
+    variant="text"
+    className={CSS(CSS.BE("input", "switch"), className)}
+    disabled={disabled}
+    size={size}
+    preventClick
+    style={style}
+    color={color}
+    borderColor={borderColor}
+    borderWidth={borderWidth}
+    bordered={bordered}
+    rounded={rounded}
+    background={background}
+  >
     <input
-      className={CSS.BE(CLS, "input")}
       type="checkbox"
       ref={ref}
       checked={value}
@@ -49,6 +70,6 @@ export const Switch = ({
       disabled={disabled}
       {...rest}
     />
-    <span className={CSS(CSS.BE(CLS, "track"))} />
-  </label>
+    <span className={CSS(CSS.BE("input", "switch", "track"))} />
+  </Button.Button>
 );

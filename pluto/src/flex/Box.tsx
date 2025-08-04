@@ -11,7 +11,7 @@ import "@/flex/Box.css";
 
 import { type color } from "@synnaxlabs/x";
 import { direction } from "@synnaxlabs/x/spatial";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import z from "zod";
 
 import { type Component } from "@/component";
@@ -90,7 +90,7 @@ export interface BoxExtensionProps {
   sharp?: boolean;
 
   /** Background color using Theming.Shade values */
-  background?: Theming.Shade;
+  background?: Theming.Shade | color.Crude | false;
 
   /** Whether the container has no visible spacing/padding */
   empty?: boolean;
@@ -144,25 +144,31 @@ export interface BoxExtensionProps {
   square?: boolean;
 }
 
-export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
-  reverse ?? (direction === "right" || direction === "bottom");
+export const shouldReverse = (
+  direction?: direction.Crude,
+  reverse?: boolean,
+): boolean => {
+  if (reverse != null) return reverse;
+  return direction === "right" || direction === "bottom";
+};
 
 export const parseDirection = (
   dir?: direction.Crude,
   x?: boolean,
   y?: boolean,
   pack?: boolean,
-): direction.Direction => {
+): direction.Direction | undefined => {
   if (x === true) return "x";
   if (y === true) return "y";
   if (dir != null) return direction.construct(dir);
-  return pack ? "x" : "y";
+  if (pack == true) return "x";
+  return undefined;
 };
 
 const parseFull = (full?: boolean | direction.Direction): string | false => {
   if (full == null || full === false) return false;
-  if (full === true) return CSS.BM("flex", "full");
-  return CSS.BM("flex", `full-${full}`);
+  if (full === true) return CSS.M("full");
+  return CSS.M("full", full);
 };
 
 /**
@@ -183,7 +189,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   pack,
   wrap,
   center,
-  direction: propsDir,
+  direction: crudeDirection,
   rounded,
   sharp,
   borderWidth,
@@ -197,40 +203,50 @@ export const Box = <E extends Generic.ElementType = "div">({
   square = false,
   ...rest
 }: BoxProps<E>): ReactElement => {
-  const dir = parseDirection(propsDir, x, y, pack);
+  const parsedDirecton = parseDirection(crudeDirection, x, y, pack);
   const classNames = [
-    CSS.BE("flex", "box"),
-    CSS.dir(dir),
-    pack && CSS.BM("flex", "pack"),
-    shouldReverse(dir, reverse) && CSS.M("reverse"),
-    justify != null && CSS.BM("justify", justify),
-    align != null && CSS.BM("align", align),
+    className,
+    CSS.B("flex"),
+    parsedDirecton != null && CSS.M("direction", parsedDirecton.toString()),
+    shouldReverse(crudeDirection, reverse) && CSS.M("reverse"),
+    parseFull(full),
+    pack && CSS.M("pack"),
+    justify != null && CSS.M("justify", justify),
+    align != null && CSS.M("align", align),
     wrap === true && CSS.M("wrap"),
     empty === true && CSS.M("empty"),
-    center === true && CSS.BM("flex", "center"),
-    parseFull(full),
-    bordered === true && CSS.bordered(bordered),
-    rounded === true && CSS.rounded(true),
+    center === true && CSS.M("center"),
+    bordered === true && CSS.M("bordered"),
     sharp === true && CSS.M("sharp"),
-    size != null && CSS.height(size),
-    square === true && CSS.BM("flex", "square"),
-    className,
+    size != null && CSS.M("height", size),
+    square === true && CSS.M("square"),
   ];
-  style = {
-    borderWidth,
-    borderColor: CSS.colorVar(borderColor),
-    ...style,
-  };
-  if (rounded != null && typeof rounded === "number")
-    // @ts-expect-error - CSS.var returns a string, but we're using it as a CSS property
-    style[CSS.var("flex-border-radius")] = `${rounded}rem`;
+  style = { borderWidth, ...style } as CSSProperties;
+
+  if (typeof color === "number") classNames.push(CSS.M("color", color.toString()));
+  else if (color != null && color !== false) style.color = CSS.colorVar(color);
+
+  if (typeof background === "number")
+    classNames.push(CSS.M("bg", background.toString()));
+  else if (background != null && background !== false)
+    style.backgroundColor = CSS.colorVar(background);
+
+  if (typeof borderColor === "number")
+    classNames.push(CSS.M("border-color", borderColor.toString()));
+  else if (borderColor != null) style.borderColor = CSS.colorVar(borderColor);
+
+  if (rounded === true) classNames.push(CSS.M("rounded"));
+  else if (typeof rounded === "number") style.borderRadius = `${rounded}rem`;
 
   if (typeof gap === "number") style.gap = `${gap}rem`;
-  else if (gap != null) classNames.push(CSS.BM("gap", gap));
-  if (grow != null) style.flexGrow = Number(grow);
-  if (shrink != null) style.flexShrink = Number(shrink);
-  if (background != null) style.backgroundColor = CSS.colorVar(background);
-  if (color != null && color !== false) style.color = CSS.colorVar(color);
+  else if (gap != null) classNames.push(CSS.M("gap", gap));
+
+  if (typeof grow === "number") style.flexGrow = grow;
+  else if (grow === true) classNames.push(CSS.M("grow"));
+
+  if (typeof shrink === "number") style.flexShrink = shrink;
+  else if (shrink === true) classNames.push(CSS.M("shrink"));
+
   return (
     <Generic.Element<E>
       className={CSS(...classNames)}

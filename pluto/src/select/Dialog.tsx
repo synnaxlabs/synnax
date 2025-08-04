@@ -82,7 +82,14 @@ export const Core = memo(
             actions={actions}
           />
         )}
-        <List.Items emptyContent={emptyContent} bordered borderColor={6} grow rounded>
+        <List.Items
+          emptyContent={emptyContent}
+          bordered
+          borderColor={6}
+          grow
+          rounded
+          full="x"
+        >
           {children}
         </List.Items>
       </CoreDialog.Dialog>

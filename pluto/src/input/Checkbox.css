@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input-checkbox__container {
+.pluto-input__checkbox {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -17,14 +17,14 @@
     cursor: pointer;
 
     &:focus-within {
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l0),
                 0 0 0 3px var(--pluto-primary-z);
         }
     }
 
-    .pluto-input-checkbox__input {
+    .pluto-input__checkbox-input {
         position: relative;
         cursor: pointer;
         opacity: 0;
@@ -32,7 +32,7 @@
         width: 8rem;
     }
 
-    .pluto-input-checkbox__checkmark {
+    .pluto-input__checkbox-checkmark {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -47,7 +47,7 @@
         cursor: pointer;
     }
 
-    .pluto-input-checkbox__checkmark::after {
+    .pluto-input__checkbox-checkmark::after {
         content: "";
         position: absolute;
         display: none;
@@ -60,26 +60,26 @@
         transform: rotate(45deg);
     }
 
-    .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark {
         background: var(--pluto-primary-m1);
         border-color: var(--pluto-primary-m1);
     }
 
-    .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark::after {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark::after {
         display: block;
     }
 
-    &.pluto-height--tiny {
-        .pluto-input-checkbox__input {
+    &.pluto--height-tiny {
+        .pluto-input__checkbox-input {
             height: 7rem;
             width: 7rem;
         }
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             width: 1.5rem;
             height: 1.5rem;
             border-radius: 0.25rem;
         }
-        .pluto-input-checkbox__checkmark::after {
+        .pluto-input__checkbox-checkmark::after {
             left: 0.4rem;
             top: 0.2rem;
             width: 0.25rem;
@@ -88,17 +88,17 @@
         }
     }
 
-    &.pluto-height--small {
-        .pluto-input-checkbox__input {
+    &.pluto--height-small {
+        .pluto-input__checkbox-input {
             height: 7.5rem;
             width: 7.5rem;
         }
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             width: 2rem;
             height: 2rem;
             border-radius: 0.25rem;
         }
-        .pluto-input-checkbox__checkmark::after {
+        .pluto-input__checkbox-checkmark::after {
             left: 0.5rem;
             top: 0.25rem;
             width: 0.5rem;
@@ -107,17 +107,17 @@
         }
     }
 
-    &.pluto-height--large {
-        .pluto-input-checkbox__input {
+    &.pluto--height-large {
+        .pluto-input__checkbox-input {
             height: 8.5rem;
             width: 8.5rem;
         }
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             width: 3.5rem;
             height: 3.5rem;
             border-radius: 0.5rem;
         }
-        .pluto-input-checkbox__checkmark::after {
+        .pluto-input__checkbox-checkmark::after {
             left: 1.1rem;
             top: 0.5rem;
             width: 0.75rem;
@@ -126,17 +126,17 @@
         }
     }
 
-    &.pluto-height--huge {
-        .pluto-input-checkbox__input {
+    &.pluto--height-huge {
+        .pluto-input__checkbox-input {
             height: 9rem;
             width: 9rem;
         }
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             width: 4rem;
             height: 4rem;
             border-radius: 0.5rem;
         }
-        .pluto-input-checkbox__checkmark::after {
+        .pluto-input__checkbox-checkmark::after {
             left: 1.25rem;
             top: 0.3rem;
             width: 1rem;
@@ -150,12 +150,12 @@
             cursor: not-allowed !important;
         }
 
-        .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-checkmark {
             background: var(--pluto-gray-l2-50);
             border-color: var(--pluto-gray-l3-50);
         }
 
-        .pluto-input-checkbox__input:checked ~ .pluto-input-checkbox__checkmark {
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -168,7 +168,7 @@
             );
         }
 
-        .pluto-input-checkbox__checkmark::after {
+        .pluto-input__checkbox-checkmark::after {
             border-color: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),
