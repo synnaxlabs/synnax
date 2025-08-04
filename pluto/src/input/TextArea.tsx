@@ -17,7 +17,7 @@ import { type Text } from "@/text";
 
 type HTMlTextAreaProps = Omit<
   ComponentPropsWithRef<"textarea">,
-  "size" | "onChange" | "value" | "children" | "placeholder"
+  "size" | "onChange" | "value" | "children"
 >;
 
 export interface TextAreaProps

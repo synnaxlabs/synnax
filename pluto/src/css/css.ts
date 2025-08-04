@@ -47,7 +47,7 @@ const newCSS = (prefix: string): CSSType => {
   const CSS = newBEM(prefix) as CSSType;
   CSS.visible = (visible) => CSS.M(visible ? "visible" : "hidden");
   CSS.expanded = (expanded) => CSS.M(expanded ? "expanded" : "collapsed");
-  CSS.loc = (l) => CSS.M(location.construct(l));
+  CSS.loc = (l) => CSS.M("location", location.construct(l));
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
   CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));

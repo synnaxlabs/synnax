@@ -15,19 +15,19 @@
     will-change: transform;
     color: var(--pluto-gray-l8);
 
-    &.pluto--left {
+    &.pluto--location-left {
         transform: rotate(270deg) scale(0.8);
     }
 
-    &.pluto--right {
+    &.pluto--location-right {
         transform: rotate(90deg) scale(0.8);
     }
 
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         transform: rotate(180deg) scale(0.8);
     }
 
-    &.pluto--top {
+    &.pluto--location-top {
         transform: rotate(0deg) scale(0.8);
     }
 }
