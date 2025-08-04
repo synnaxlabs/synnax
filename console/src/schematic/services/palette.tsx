@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
-
-import { type Import } from "@/import";
 import { type Palette } from "@/palette";
 import { Schematic } from "@/schematic";
-import { ImportIcon } from "@/schematic/services/Icon";
+import { CreateIcon, ImportIcon } from "@/schematic/services/Icon";
 import { import_ } from "@/schematic/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",
   name: "Create a Schematic",
-  icon: <Icon.Schematic />,
+  icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
   visible: Schematic.selectHasPermission,
 };
@@ -27,7 +24,7 @@ const IMPORT_COMMAND: Palette.Command = {
   key: "import-schematic",
   name: "Import Schematic(s)",
   icon: <ImportIcon />,
-  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
+  onSelect: import_,
   visible: Schematic.selectHasPermission,
 };
 

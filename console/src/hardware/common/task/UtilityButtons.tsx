@@ -12,18 +12,19 @@ import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
+import { useExport } from "@/hardware/common/task/export";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-interface CopyButtonProps {
+interface UtilityButtonProps {
   children: Icon.FC;
   disabled?: boolean;
   onClick: () => void;
   tooltip: string;
 }
 
-const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
+const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps) => (
   <Button.Button
-    tooltip={<Text.Text level="small">{`Copy ${tooltip}`}</Text.Text>}
+    tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
     tooltipLocation="left"
     variant="text"
     {...rest}
@@ -32,14 +33,20 @@ const CopyButton = ({ children: Icon, tooltip, ...rest }: CopyButtonProps) => (
   </Button.Button>
 );
 
-export interface CopyButtonsProps {
+export interface UtilityButtonsProps {
   getConfig: () => unknown;
   getName: () => string;
   taskKey: task.Key;
 }
 
-export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) => {
+export const UtilityButtons = ({
+  getConfig,
+  getName,
+  taskKey,
+}: UtilityButtonsProps) => {
   const copy = useCopyToClipboard();
+  const export_ = useExport();
+  const handleExport = () => export_(taskKey);
   const handleCopyTypeScriptCode = () => {
     const name = getName();
     copy(
@@ -61,19 +68,30 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
   const hasDisabledButtons = taskKey === "";
   return (
     <Flex.Box x empty>
-      <CopyButton
+      <UtilityButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}
-        tooltip="TypeScript code"
+        tooltip="Copy TypeScript code"
       >
         {Icon.TypeScript}
-      </CopyButton>
-      <CopyButton onClick={handleCopyJSONConfig} tooltip="JSON configuration">
+      </UtilityButton>
+      <UtilityButton onClick={handleCopyJSONConfig} tooltip="Copy JSON configuration">
         {Icon.JSON}
-      </CopyButton>
-      <CopyButton disabled={hasDisabledButtons} onClick={handleCopyLink} tooltip="link">
+      </UtilityButton>
+      <UtilityButton
+        onClick={handleExport}
+        disabled={hasDisabledButtons}
+        tooltip="Export"
+      >
+        {Icon.Export}
+      </UtilityButton>
+      <UtilityButton
+        disabled={hasDisabledButtons}
+        onClick={handleCopyLink}
+        tooltip="Copy link"
+      >
         {Icon.Link}
-      </CopyButton>
+      </UtilityButton>
     </Flex.Box>
   );
 };

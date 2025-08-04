@@ -31,6 +31,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
@@ -331,6 +332,7 @@ const ContextMenu = ({
     },
     [selectedTasks, addStatus, placeLayout],
   );
+  const handleExport = Common.Task.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -353,6 +355,7 @@ const ContextMenu = ({
       edit: () => handleEdit(keys[0]),
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
+      export: () => handleExport(keys[0]),
       delete: () => onDelete(keys),
       rangeSnapshot: () =>
         snapshotToActiveRange(
@@ -395,6 +398,7 @@ const ContextMenu = ({
           </PMenu.Item>
           <PMenu.Divider />
           <Menu.RenameItem />
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
