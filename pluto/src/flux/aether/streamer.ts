@@ -84,12 +84,12 @@ export class Streamer {
       this.handleError(async () => {
         await this.updateStreamer();
         onOpen?.();
-      }, `Failed to add ${channel} to the Sync.Provider streamer`);
+      }, `Failed to add ${channel} to the flux streamer`);
     return () => {
       this.handlers.delete(handler);
       this.handleError(
         this.updateStreamer.bind(this),
-        `Failed to remove ${channel} from the Sync.Provider streamer`,
+        `Failed to remove ${channel} from the flux streamer`,
       );
     };
   }
