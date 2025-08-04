@@ -14,10 +14,17 @@ import (
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/binary"
 )
 
-func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transport {
+func New(router *fhttp.Router, channels channel.Readable) api.Transport {
+	streamCodecMapping := map[string]func() binary.Codec{
+		"application/sy-framer": func() binary.Codec {
+			return api.NewWSFramerCodec(channels)
+		},
+	}
+	so := fhttp.WithAdditionalCodecs(streamCodecMapping)
 	return api.Transport{
 		AuthLogin:              fhttp.NewUnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, "/api/v1/auth/login"),
 		AuthChangePassword:     fhttp.NewUnaryServer[api.AuthChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password"),
@@ -33,10 +40,10 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		ChannelRetrieveGroup:   fhttp.NewUnaryServer[types.Nil, api.ChannelRetrieveGroupResponse](router, "/api/v1/channel/retrieve-group"),
 		ConnectivityCheck:      fhttp.NewUnaryServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check"),
 		ExportCSV:              fhttp.NewUnaryServer[api.ExportCSVRequest, api.ExportCSVResponse](router, "/api/v1/export/csv"),
-		FrameRead:              fhttp.NewUnaryServer[api.FrameReadRequest, api.FrameReadResponse](router, "/api/v1/frame/read", fhttp.WithCodecResolver(codecResolver)),
-		FrameWriter:            fhttp.NewStreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, "/api/v1/frame/write", fhttp.WithCodecResolver(codecResolver)),
+		FrameRead:              fhttp.NewUnaryServer[api.FrameReadRequest, api.FrameReadResponse](router, "/api/v1/frame/read", so),
+		FrameWriter:            fhttp.NewStreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, "/api/v1/frame/write", so),
 		FrameIterator:          fhttp.NewStreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, "/api/v1/frame/iterate"),
-		FrameStreamer:          fhttp.NewStreamServer[api.FrameStreamerRequest, api.FrameStreamerResponse](router, "/api/v1/frame/stream", fhttp.WithCodecResolver(codecResolver)),
+		FrameStreamer:          fhttp.NewStreamServer[api.FrameStreamerRequest, api.FrameStreamerResponse](router, "/api/v1/frame/stream", so),
 		FrameDelete:            fhttp.NewUnaryServer[api.FrameDeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 		RangeCreate:            fhttp.NewUnaryServer[api.RangeCreateRequest, api.RangeCreateResponse](router, "/api/v1/range/create"),
 		RangeRetrieve:          fhttp.NewUnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse](router, "/api/v1/range/retrieve"),

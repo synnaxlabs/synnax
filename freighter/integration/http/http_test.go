@@ -24,7 +24,7 @@ import (
 	httpIntegration "github.com/synnaxlabs/freighter/integration/http"
 	"github.com/synnaxlabs/freighter/integration/payload"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,7 +52,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 		app = fiber.New(fiber.Config{DisableStartupMessage: true})
 		httpIntegration.BindTo(app)
 
-		clientConfig := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+		clientConfig := fhttp.ClientConfig{Codec: binary.JSONCodec}
 		unaryEcho = MustSucceed(fhttp.NewUnaryClient[message, message](clientConfig))
 		unaryReader = MustSucceed(
 			fhttp.NewUnaryClient[message, io.Reader](clientConfig),

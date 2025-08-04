@@ -11,6 +11,7 @@ package fhttp
 
 import (
 	"context"
+	"fmt"
 	"go/types"
 	"net/http"
 	"sync"
@@ -269,8 +270,9 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
-	codec  binary.Codec
-	dialer ws.Dialer
+	codec       binary.Codec
+	contentType string
+	dialer      ws.Dialer
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
@@ -287,7 +289,7 @@ func NewStreamClient[RQ, RS freighter.Payload](
 
 func (s *streamClient[RQ, RS]) Report() alamos.Report {
 	r := streamReporter
-	r.Encodings = []string{s.codec.ContentType()}
+	r.Encodings = []string{s.contentType}
 	return r.Report()
 }
 
@@ -304,7 +306,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			Params:   make(freighter.Params),
 		},
 		func(fCtx freighter.Context) (freighter.Context, error) {
-			fCtx.Params[fiber.HeaderContentType] = s.codec.ContentType()
+			fCtx.Params[fiber.HeaderContentType] = s.contentType
 			conn, res, err := s.dialer.DialContext(fCtx, "ws://"+target.String(), ctxToHeaders(fCtx))
 			oCtx := parseResponseCtx(res, target)
 			if err != nil {
@@ -400,14 +402,15 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, err := s.reqCodecResolver(headerContentType)
-	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we send a
-		// best effort string.
-		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
+	codec, ok := s.reqDecoders[headerContentType]
+	if !ok {
+		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(
+			fmt.Sprintf("unsupported content type: %s", headerContentType),
+		)
 	}
+	encoder := codec.(binary.Codec)
 	// Upgrade the connection to a websocket connection.
-	handler := fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })
+	handler := fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, encoder, c) })
 	return handler(upgradeCtx)
 }
 

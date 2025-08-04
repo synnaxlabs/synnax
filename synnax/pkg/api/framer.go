@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -537,13 +536,12 @@ type WSFramerCodec struct {
 
 func NewWSFramerCodec(channels channel.Readable) *WSFramerCodec {
 	return &WSFramerCodec{
-		LowerPerfCodec: httputil.JSONCodec,
+		LowerPerfCodec: xbinary.JSONCodec,
 		Codec:          codec.NewDynamic(channels),
 	}
 }
 
 var _ xbinary.Codec = (*WSFramerCodec)(nil)
-var _ httputil.Codec = (*WSFramerCodec)(nil)
 
 func (c *WSFramerCodec) Decode(
 	ctx context.Context,
@@ -711,18 +709,22 @@ func (c *WSFramerCodec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
 
-func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
-	return func(contentType string) (httputil.Codec, error) {
+func NewHTTPCodecResolver(channel channel.Readable) func(string) (xbinary.Codec, error) {
+	return func(contentType string) (xbinary.Codec, error) {
 		if contentType == framerContentType {
 			return NewWSFramerCodec(channel), nil
 		}
-		return httputil.ResolveCodec(contentType)
+		if contentType == "application/json" {
+			return xbinary.JSONCodec, nil
+		}
+		if contentType == "application/msgpack" {
+			return xbinary.MsgPackCodec, nil
+		}
+		return nil, errors.New("unsupported content type")
 	}
 }
 
 type readCSVFramerCodec struct{}
-
-var _ httputil.Codec = &readCSVFramerCodec{}
 
 func (c *readCSVFramerCodec) ContentType() string { return "text/csv" }
 

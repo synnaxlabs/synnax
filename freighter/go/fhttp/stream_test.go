@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	. "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,7 +33,7 @@ func (i *streamImplementation) Start(
 		Instrumentation:     ins,
 		StreamWriteDeadline: StreamWriteDeadline,
 	}))
-	clientCfg := fhttp.ClientConfig{Codec: httputil.JSONCodec}
+	clientCfg := fhttp.ClientConfig{Codec: binary.JSONCodec}
 	client := MustSucceed(fhttp.NewStreamClient[Request, Response](clientCfg))
 	server := fhttp.NewStreamServer[Request, Response](router, "/")
 	router.BindTo(i.app)

@@ -24,38 +24,38 @@ type BindableTransport interface {
 }
 
 type serverOptions struct {
-	reqDecoders xmap.Map[string, binary.Decoder]
-	resEncoders xmap.Map[string, binary.Encoder]
+	reqDecoders xmap.Map[string, func() binary.Decoder]
+	resEncoders xmap.Map[string, func() binary.Encoder]
 }
 
 type ServerOption func(*serverOptions)
 
-func WithRequestDecoders(decoders map[string]binary.Decoder) ServerOption {
+func WithRequestDecoders(decoders map[string]func() binary.Decoder) ServerOption {
 	return func(o *serverOptions) { o.reqDecoders = decoders }
 }
 
-func WithResponseEncoders(encoders map[string]binary.Encoder) ServerOption {
+func WithResponseEncoders(encoders map[string]func() binary.Encoder) ServerOption {
 	return func(o *serverOptions) { o.resEncoders = encoders }
 }
 
-func WithAdditionalCodecs(codecs map[string]binary.Codec) ServerOption {
+func WithAdditionalCodecs(codecs map[string]func() binary.Codec) ServerOption {
 	return func(o *serverOptions) {
-		for contentType, codec := range codecs {
-			o.reqDecoders[contentType] = codec
-			o.resEncoders[contentType] = codec
+		for contentType, getCodec := range codecs {
+			o.reqDecoders[contentType] = func() binary.Decoder { return getCodec() }
+			o.resEncoders[contentType] = func() binary.Encoder { return getCodec() }
 		}
 	}
 }
 
 func newServerOptions(opts []ServerOption) serverOptions {
 	so := serverOptions{
-		reqDecoders: xmap.Map[string, binary.Decoder]{
-			"application/json":    binary.JSONCodec,
-			"application/msgpack": binary.MsgPackCodec,
+		reqDecoders: xmap.Map[string, func() binary.Decoder]{
+			"application/json":    func() binary.Decoder { return binary.JSONCodec },
+			"application/msgpack": func() binary.Decoder { return binary.MsgPackCodec },
 		},
-		resEncoders: xmap.Map[string, binary.Encoder]{
-			"application/json":    binary.JSONCodec,
-			"application/msgpack": binary.MsgPackCodec,
+		resEncoders: xmap.Map[string, func() binary.Encoder]{
+			"application/json":    func() binary.Encoder { return binary.JSONCodec },
+			"application/msgpack": func() binary.Encoder { return binary.MsgPackCodec },
 		},
 	}
 	for _, opt := range opts {
