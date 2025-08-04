@@ -10,10 +10,11 @@
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex, Icon, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
+import { Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
+import { EmptyAction } from "@/components";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
@@ -89,16 +90,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       telem={t}
       onDoubleClick={handleDoubleClick}
       emptyContent={
-        <Flex.Box>
-          {zeroChannel ? (
-            <Flex.Box x gap="small" align="center">
-              <Text.Text color={10}>No channel configured for {name}.</Text.Text>
-              <Text.Text onClick={handleDoubleClick}>Configure here.</Text.Text>
-            </Flex.Box>
-          ) : (
-            <Text.Text color={10}>No data received yet.</Text.Text>
-          )}
-        </Flex.Box>
+        <EmptyAction
+          message={
+            zeroChannel
+              ? "No channel configured for this log."
+              : "No data received yet."
+          }
+          action={zeroChannel ? "Configure here." : "Visualize data."}
+          onClick={zeroChannel ? handleDoubleClick : handleDoubleClick}
+        />
       }
       visible={visible}
     />

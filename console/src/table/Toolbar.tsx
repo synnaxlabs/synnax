@@ -65,7 +65,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   };
   const handleExport = useExport();
   return (
-    <Flex.Box empty full>
+    <Core.Content disableClusterBoundary>
       <Core.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
@@ -111,7 +111,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           />
         )}
       </Flex.Box>
-    </Flex.Box>
+    </Core.Content>
   );
 };
 

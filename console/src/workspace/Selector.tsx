@@ -100,7 +100,11 @@ export const Selector = (): ReactElement => {
           <Icon.Workspace key="workspace" />
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
-        <Dialog.Dialog style={{ minHeight: 200, minWidth: 400 }} bordered={false}>
+        <Dialog.Dialog
+          style={{ minHeight: 200, minWidth: 400 }}
+          bordered={client == null}
+          borderColor={6}
+        >
           <Cluster.NoneConnectedBoundary>
             <Flex.Box pack rounded>
               <Input.Text

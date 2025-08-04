@@ -33,7 +33,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <>
+    <Core.Content disableClusterBoundary>
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Flex.Box x style={{ width: 66 }} empty>
@@ -44,7 +44,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Flex.Box>
       </Core.Header>
-      <Flex.Box style={{ padding: "2rem" }} x full="x">
+      <Flex.Box full style={{ padding: "2rem" }}>
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
             value={state.channels[0]}
@@ -53,6 +53,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Input.Item>
       </Flex.Box>
-    </>
+    </Core.Content>
   );
 };
