@@ -302,6 +302,35 @@ var _ = Describe("Series", func() {
 				Expect(s.Data).To(Equal([]byte{}))
 			})
 		})
+
+		Describe("NewSeriesBytes", func() {
+			It("should correctly create a slice of bytes", func() {
+				s := telem.NewSeriesBytesV([]byte("1"), []byte("hey jude"), []byte("3"))
+				Expect(s.Len()).To(Equal(int64(3)))
+				Expect(s.At(0)).To(Equal([]byte("1")))
+				Expect(s.At(1)).To(Equal([]byte("hey jude")))
+				Expect(s.At(2)).To(Equal([]byte("3")))
+			})
+			It("should work with zero length slices", func() {
+				s := telem.NewSeriesBytesV()
+				Expect(s.Len()).To(Equal(int64(0)))
+				Expect(s.Data).To(Equal([]byte{}))
+			})
+		})
+		Describe("NewSeriesBytesV", func() {
+			It("should correctly create a slice of bytes", func() {
+				s := telem.NewSeriesBytesV([]byte("1"), []byte("hey jude"), []byte("3"))
+				Expect(s.Len()).To(Equal(int64(3)))
+				Expect(s.At(0)).To(Equal([]byte("1")))
+				Expect(s.At(1)).To(Equal([]byte("hey jude")))
+				Expect(s.At(2)).To(Equal([]byte("3")))
+			})
+			It("should work with zero length slices", func() {
+				s := telem.NewSeriesBytesV()
+				Expect(s.Len()).To(Equal(int64(0)))
+				Expect(s.Data).To(Equal([]byte{}))
+			})
+		})
 	})
 
 	Describe("MakeSeries", func() {
@@ -452,8 +481,8 @@ var _ = Describe("Series", func() {
 			Entry("uuid", telem.NewSeriesUUIDsV(u1, u2, u3), fmt.Sprintf("[%s %s %s]", u1, u2, u3)),
 		)
 
-		Describe("Strings", func() {
-			It("Should return the data as a string slice", func() {
+		Describe("AsCSVStrings", func() {
+			It("Should return the data as a string slice for a string series", func() {
 				s := telem.NewSeriesStringsV("a", "b", "c")
 				Expect(s.AsCSVStrings()).To(Equal([]string{"a", "b", "c"}))
 			})
@@ -509,6 +538,15 @@ var _ = Describe("Series", func() {
 				u1, u2, u3 := uuid.New(), uuid.New(), uuid.New()
 				s := telem.NewSeriesUUIDsV(u1, u2, u3)
 				Expect(s.AsCSVStrings()).To(Equal([]string{u1.String(), u2.String(), u3.String()}))
+			})
+			It("should return the data as a string for a byte slice", func() {
+				s := telem.NewSeriesBytesV([]byte("1"), []byte("hey jude"), []byte("3"))
+				Expect(s.DataType).To(Equal(telem.BytesT))
+				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "hey jude", "3"}))
+			})
+			It("should panic if the data type is unknown", func() {
+				s := telem.Series{DataType: telem.UnknownT}
+				Expect(func() { s.AsCSVStrings() }).To(Panic())
 			})
 		})
 

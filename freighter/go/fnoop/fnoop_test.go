@@ -14,20 +14,63 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fnoop"
 )
 
 var _ = Describe("Fnoop", func() {
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
 	Describe("Unary", func() {
-		It("should succeed on calls to UnaryClient.Send", func() {
+		Describe("Client", func() {
 			var client fnoop.UnaryClient[any, any]
-			Expect(client.Send(context.Background(), "", nil)).To(Succeed())
+			It("should return zero values on calls to Send", func() {
+				Expect(client.Send(ctx, "", nil)).To(BeZero())
+			})
+			It("should be able to call Use", func() {
+				var m freighter.Middleware
+				client.Use(m)
+			})
+		})
+		Describe("Server", func() {
+			var server fnoop.UnaryServer[any, any]
+			It("should be able to call BindHandler", func() {
+				server.BindHandler(func(context.Context, any) (any, error) {
+					return nil, nil
+				})
+			})
+			It("should be able to call Use", func() {
+				var m freighter.Middleware
+				server.Use(m)
+			})
 		})
 	})
 	Describe("Stream", func() {
-		It("should succeed on calls to StreamClient.Stream", func() {
+		Describe("Client", func() {
 			var client fnoop.StreamClient[any, any]
-			Expect(client.Stream(context.Background(), "")).To(Succeed())
+			It("should be able to call Use", func() {
+				var m freighter.Middleware
+				client.Use(m)
+			})
+			It("should return nil on calls to Stream", func() {
+				Expect(client.Stream(ctx, "")).To(BeNil())
+			})
+		})
+		Describe("Server", func() {
+			var server fnoop.StreamServer[any, any]
+			It("should be able to call BindHandler", func() {
+				server.BindHandler(
+					func(context.Context, freighter.ServerStream[any, any]) error {
+						return nil
+					},
+				)
+			})
+			It("should be able to call Use", func() {
+				var m freighter.Middleware
+				server.Use(m)
+			})
 		})
 	})
 })

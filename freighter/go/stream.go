@@ -58,13 +58,12 @@ type ClientStream[RQ, RS Payload] interface {
 	// Failure Behavior:
 	//
 	// 1. If the server closed the stream -> If the server closed the stream with a nil
-	// error, returns freighter.ErrEOF. Otherwise, returns the error the server closed
-	// with.
+	//    error, returns EOF. Otherwise, returns the error the server closed with.
 	//
 	// 2. If the client called CloseSend -> Has no effect on the behavior of Receive.
 	//
 	// 3. If the context is cancelled by either the client or server -> Returns the
-	// context error.
+	//    context error.
 	//
 	// 4. If the transport fails -> Returns the error that caused the transport to fail.
 	//
@@ -74,15 +73,15 @@ type ClientStream[RQ, RS Payload] interface {
 	// StreamSenderCloser -
 	//
 	// Send sends a message to the server. Send is non-blocking, meaning that the
-	// message is not guaranteed to be received by the server even if send returns.
+	// message is not guaranteed to be received by the server even if Send returns.
 	//
 	// Failure Behavior:
 	//
-	// 1. If the server closed the stream -> Returns a freighter.ErrEOF error regardless of
-	// the error the server exited with (even a nil error). The caller can discover the
-	// error by calling Receive.
+	// 1. If the server closed the stream -> Returns EOF regardless of the error the
+	//    server exited with (even a nil error). The caller can discover the error by
+	//    calling Receive.
 	//
-	// 2. If the client called CloseSend -> Returns a freighter.StreamClosed error.
+	// 2. If the client called CloseSend -> Returns ErrStreamClosed.
 	//
 	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//
@@ -99,19 +98,18 @@ type ClientStream[RQ, RS Payload] interface {
 // provided to the caller within a Stream handle. As a result, ServerStream provides no
 // `Close` method to the caller.
 type ServerStream[RQ, RS Payload] interface {
-	// StreamReceiver - Receive blocks until a message is received from the
-	// client or the stream closes.
+	// StreamReceiver - Receive blocks until a message is received from the client or
+	// the stream closes.
 	//
 	// Failure Behavior:
 	//
-	// 1. If the client called CloseSend -> Returns a freighter.ErrEOF error.
+	// 1. If the client called CloseSend -> Returns EOF.
 	//
-	// 2. If the server handler has returned -> This is most likely a programming
-	// error where a separate goroutine is writing to the stream after the handler
-	// returns. In this case, the server will return a context.Canceled error.
+	// 2. If the server handler has returned -> This is most likely a programming error
+	//    where a separate goroutine is writing to the stream after the handler returns.
+	//    In this case, the server will return a context.Canceled error.
 	//
-	// 2. If the transport fails -> Returns the error that caused the transport
-	//to fail.
+	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//
 	// Repeated calls to Receive will immediately return the same error.
 	StreamReceiver[RQ]
@@ -123,9 +121,9 @@ type ServerStream[RQ, RS Payload] interface {
 	// 1. If the client called CloseSend -> Has no effect on the behavior of Send.
 	//
 	// 2. If the server handler has returned -> This is most likely a programming error
-	// where a separate goroutine is writing to the stream after the handler returns. In
-	// this case, the server will return either a context.Canceled or
-	// freighter.StreamClosed error.
+	//    where a separate goroutine is writing to the stream after the handler returns.
+	//    In this case, the server will return either a context.Canceled error or
+	//    ErrStreamClosed.
 	//
 	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//

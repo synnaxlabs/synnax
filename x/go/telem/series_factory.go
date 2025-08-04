@@ -72,6 +72,19 @@ func NewSeriesUUIDs(data uuid.UUIDs) Series {
 // from individual UUID values.
 func NewSeriesUUIDsV(data ...uuid.UUID) Series { return NewSeriesUUIDs(data) }
 
+// NewSeriesBytes creates a new Series from a slice of byte slices.
+func NewSeriesBytes(data [][]byte) Series {
+	strings := make([]string, len(data))
+	for i, v := range data {
+		strings[i] = string(v)
+	}
+	return Series{DataType: BytesT, Data: MarshalStrings(strings)}
+}
+
+// NewSeriesBytesV is a variadic version of NewSeriesBytes that creates a new Series
+// from individual byte values.
+func NewSeriesBytesV(data ...[]byte) Series { return NewSeriesBytes(data) }
+
 // NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
 // marshaling each one in the process.
 func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
@@ -87,7 +100,7 @@ func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
 const newLine = '\n'
 
 // MarshalStrings converts a slice of strings into a byte slice. Each string is
-// terminated with a newline character. Panics if the DataType is not variable.
+// terminated with a newline character
 func MarshalStrings(data []string) []byte {
 	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
 	b := make([]byte, total)
@@ -285,7 +298,9 @@ func UnmarshalFloat64[T Sample](b []byte) T {
 }
 
 // UnmarshalTimeStamp unmarshals a TimeStamp from a byte slice.
-func UnmarshalTimeStamp[T Sample](b []byte) T { return T(TimeStamp(ByteOrder.Uint64(b))) }
+func UnmarshalTimeStamp[T Sample](b []byte) T {
+	return T(TimeStamp(ByteOrder.Uint64(b)))
+}
 
 // UnmarshalF returns a function that can unmarshal a byte slice into a single value of
 // type K according to the specified DataType. Panics if the DataType is not supported.

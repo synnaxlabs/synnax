@@ -148,6 +148,9 @@ func (sc *StreamClient[RQ, RS]) Stream(
 			return server.exec(ctx, serverStream)
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
 	return stream, err
 }
 

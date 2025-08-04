@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestFAlamos(t *testing.T) {
+func TestFalamos(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "FAlamos Suite")
+	RunSpecs(t, "Falamos Suite")
 }

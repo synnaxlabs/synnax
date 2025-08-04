@@ -15,18 +15,17 @@ import (
 	"github.com/synnaxlabs/freighter"
 )
 
-var _ = DescribeTable("Reporter",
-	func(
-		protocol string,
-		encodings []string,
-		expectedProtocol string,
-		expectedEncodings []string,
-	) {
-		r := freighter.Reporter{Protocol: protocol, Encodings: encodings}
-		Expect(r.Report()["protocol"]).To(Equal(expectedProtocol))
-		Expect(r.Report()["encodings"]).To(Equal(expectedEncodings))
-	},
-	Entry("Should correctly report the protocol and encodings", "test", []string{"test"}, "test", []string{"test"}),
-	Entry("should allow for protocol to be empty", "", []string{"test"}, "", []string{"test"}),
-	Entry("should allow for encodings to be empty", "test", nil, "test", nil),
+var _ = DescribeTable("Reporter", func(protocol string, encodings []string) {
+	r := freighter.Reporter{Protocol: protocol, Encodings: encodings}
+	report := r.Report()
+	Expect(report["protocol"]).To(Equal(protocol))
+	Expect(report["encodings"]).To(Equal(encodings))
+},
+	Entry("should correctly report the protocol and encodings",
+		"test",
+		[]string{"test"},
+	),
+	Entry("should allow for protocol to be empty", "", []string{"test"}),
+	Entry("should allow for encodings to be nil", "test", nil),
+	Entry("should allow for encodings to be empty", "test", []string{}),
 )

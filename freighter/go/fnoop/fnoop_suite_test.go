@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestFNoop(t *testing.T) {
+func TestFnoop(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "FNoop Suite")
+	RunSpecs(t, "Fnoop Suite")
 }

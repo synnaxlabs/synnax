@@ -27,6 +27,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+type UnaryReadable interface {
+	Read() (any, error)
+}
+
 var unaryReporter = freighter.Reporter{
 	Protocol:  "http",
 	Encodings: DefaultContentTypes,
@@ -109,7 +113,7 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 		return fiber.ErrNotAcceptable
 	}
 	ctx.Set(fiber.HeaderContentType, contentType)
-	if uReader, ok := v.(freighter.UnaryReadable); ok {
+	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
 		go func() {
 			for {

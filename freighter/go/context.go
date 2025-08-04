@@ -15,13 +15,14 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/xmap"
 )
 
 // Role indicates whether the middleware is located on the client- or server-side of the
 // request.
 type Role uint8
 
-var _ fmt.Stringer = (*Role)(nil)
+var _ fmt.Stringer = Role(0)
 
 //go:generate stringer -type=Role
 const (
@@ -37,7 +38,7 @@ const (
 // is being executed for.
 type Variant uint8
 
-var _ fmt.Stringer = (*Variant)(nil)
+var _ fmt.Stringer = Variant(0)
 
 //go:generate stringer -type=Variant
 const (
@@ -73,23 +74,4 @@ type SecurityInfo struct {
 
 // Params is a set of arbitrary parameters that can be set by client-side middleware,
 // and read by server-side middleware.
-type Params map[string]any
-
-// GetDefault returns the value of the given key, or the given fallback value if the key
-// is not set.
-func (p Params) GetDefault(key string, fallback any) any {
-	v, ok := p[key]
-	if !ok {
-		return fallback
-	}
-	return v
-}
-
-// Get returns the value of the given key, or false if the key is not set.
-func (p Params) Get(key string) (any, bool) {
-	v, ok := p[key]
-	return v, ok
-}
-
-// Set sets the value of the given key.
-func (p Params) Set(key string, value any) { p[key] = value }
+type Params = xmap.Map[string, any]

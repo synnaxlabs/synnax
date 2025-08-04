@@ -20,6 +20,16 @@ func (m Map[K, V]) Get(key K) (V, bool) {
 	return v, ok
 }
 
+// GetDefault returns the value of the given key, or the given fallback value if the key
+// is not set.
+func (m Map[K, V]) GetDefault(key K, fallback V) V {
+	v, ok := m[key]
+	if !ok {
+		return fallback
+	}
+	return v
+}
+
 // Set sets the value associated with the given key.
 func (m Map[K, V]) Set(key K, value V) { m[key] = value }
 

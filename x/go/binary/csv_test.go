@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 )
 
@@ -24,6 +25,14 @@ type marshaller struct{ records [][]string }
 var _ binary.CSVMarshaler = (*marshaller)(nil)
 
 func (m marshaller) MarshalCSV() ([][]string, error) { return m.records, nil }
+
+type errMarshaller struct{}
+
+var _ binary.CSVMarshaler = (*errMarshaller)(nil)
+
+var errTest = errors.New("test")
+
+func (m errMarshaller) MarshalCSV() ([][]string, error) { return nil, errTest }
 
 var _ = Describe("CSVEncoder", func() {
 	var ctx context.Context
@@ -93,6 +102,7 @@ var _ = Describe("CSVEncoder", func() {
 		Entry("different lengths", [][]string{{"a", "b"}, {"c"}}),
 		Entry("first row has zero length but others don't", [][]string{{}, {"c", "d"}}),
 		Entry("value does not implement CSVMarshaler", [][]struct{}{{}}),
+		Entry("value implements CSVMarshaler but returns an error", errMarshaller{}),
 	)
 	Describe("Encoding panics", func() {
 		It("should panic if passing in the nil constant", func() {
