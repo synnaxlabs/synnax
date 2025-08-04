@@ -53,7 +53,7 @@ export const Modal = ({ state, remove }: ModalProps) => {
                   <Breadcrumb.Segment color={9}>
                     {Icon.resolve(icon)}
                   </Breadcrumb.Segment>
-                  {name.split(".").map((segment, i) => (
+                  {name.split(".").map((segment) => (
                     <Breadcrumb.Segment color={9} key={segment} weight={400}>
                       {segment}
                     </Breadcrumb.Segment>

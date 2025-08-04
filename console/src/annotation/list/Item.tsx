@@ -157,19 +157,17 @@ export const Item = ({
       </Flex.Box>
       <Form.Form<typeof Annotation.formSchema> {...form}>
         {edit ? (
-          <Form.TextField
+          <Form.TextAreaField
             path="message"
-            // showLabel={false}
-            // showHelpText={false}
-            inputProps={
-              {
-                // placeholder: "Leave a comment...",
-                // level: "h5",
-                // ref: inputRef,
-                // onFocus: () => setFocused(true),
-                // onBlur: () => setFocused(false),
-              }
-            }
+            showLabel={false}
+            showHelpText={false}
+            inputProps={{
+              placeholder: "Leave a comment...",
+              level: "h5",
+              ref: inputRef,
+              onFocus: () => setFocused(true),
+              onBlur: () => setFocused(false),
+            }}
           />
         ) : (
           <Text.Text level="h5" color={11} weight={450}>

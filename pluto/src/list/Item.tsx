@@ -67,7 +67,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       onSelect?.(itemKey);
       onClick?.(e);
     }}
-    tabIndex={-1}
     className={CSS(
       className,
       CONTEXT_TARGET,

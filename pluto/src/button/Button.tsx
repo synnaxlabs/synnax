@@ -198,7 +198,6 @@ const Core = <E extends ElementType = "button">({
       tabIndex={tabIndex}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
-      noWrap
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : "medium"}
