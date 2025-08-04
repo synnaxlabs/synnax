@@ -12,28 +12,22 @@ package fhttp
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
 
+// UnaryReadable is an interface that allows for stream reading of a response. If the
+// response type implements this interface, then the response can be streamed via http
+// body streaming to the client.
 type UnaryReadable interface {
+	// Read reads the next value from the response to be encoded.
 	Read() (any, error)
-}
-
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: DefaultContentTypes,
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -51,11 +45,12 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 	path string,
 	opts ...ServerOption,
 ) *unaryServer[RQ, RS] {
+	so := newServerOptions(opts)
 	us := &unaryServer[RQ, RS]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      unaryReporter,
+		serverOptions: so,
+		Reporter:      getReporter(so),
 	}
-	r.register(path, "POST", us, us.fiberHandler)
+	r.register(path, fiber.MethodPost, us, us.fiberHandler)
 	return us
 }
 
@@ -66,16 +61,19 @@ func (us *unaryServer[RQ, RS]) BindHandler(
 }
 
 func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
-	codec, ok := us.reqDecoders[fiberCtx.Get(fiber.HeaderContentType)]
+	getCodec, ok := us.reqDecoders[fiberCtx.Get(fiber.HeaderContentType)]
 	if !ok {
 		return fiber.ErrUnsupportedMediaType
 	}
+	codec := getCodec()
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		parseRequestCtx(fiberCtx.Context(), fiberCtx, address.Address(fiberCtx.Path())),
 		func(freighterCtx freighter.Context) (freighter.Context, error) {
-			var req RQ
-			var err error
+			var (
+				req RQ
+				err error
+			)
 			if err := codec.Decode(
 				freighterCtx,
 				fiberCtx.BodyRaw(),
@@ -87,6 +85,7 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 				return freighter.Context{}, err
 			}
 			return freighter.Context{
+				Context:  freighterCtx.Context,
 				Protocol: freighterCtx.Protocol,
 				Role:     freighter.Server,
 				Variant:  freighter.Unary,
@@ -108,10 +107,11 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 		return ctx.SendStream(reader)
 	}
 	contentType := ctx.Accepts(us.resEncoders.Keys()...)
-	codec, ok := us.resEncoders[contentType]
+	getCodec, ok := us.resEncoders[contentType]
 	if !ok {
 		return fiber.ErrNotAcceptable
 	}
+	codec := getCodec()
 	ctx.Set(fiber.HeaderContentType, contentType)
 	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
@@ -139,10 +139,9 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
+	cfg ClientConfig
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	codec       binary.Codec
-	contentType string
 }
 
 var _ freighter.UnaryClient[any, any] = &unaryClient[any, any]{}
@@ -154,7 +153,7 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &unaryClient[RQ, RS]{codec: cfg.Codec, contentType: cfg.ContentType}, nil
+	return &unaryClient[RQ, RS]{cfg: cfg}, nil
 }
 
 func (uc *unaryClient[RQ, RS]) Send(
@@ -163,21 +162,23 @@ func (uc *unaryClient[RQ, RS]) Send(
 	req RQ,
 ) (RS, error) {
 	var res RS
-	_, err := uc.MiddlewareCollector.Exec(
+	if _, err := uc.MiddlewareCollector.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Protocol: unaryReporter.Protocol,
+			Role:     freighter.Client,
+			Variant:  freighter.Unary,
+			Protocol: "http",
 			Target:   target,
 			Params:   make(freighter.Params),
 		},
 		func(inCtx freighter.Context) (freighter.Context, error) {
-			b, err := uc.codec.Encode(inCtx, req)
+			b, err := uc.cfg.Codec.Encode(inCtx, req)
 			if err != nil {
 				return freighter.Context{}, err
 			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
-				"POST",
+				fiber.MethodPost,
 				"http://"+target.String(),
 				bytes.NewReader(b),
 			)
@@ -185,108 +186,43 @@ func (uc *unaryClient[RQ, RS]) Send(
 				return freighter.Context{}, err
 			}
 			setRequestCtx(httpReq, inCtx)
-			httpReq.Header.Set(fiber.HeaderContentType, uc.contentType)
-
+			httpReq.Header.Set(fiber.HeaderContentType, uc.cfg.ContentType)
+			httpReq.Header.Set(fiber.HeaderAccept, uc.cfg.ContentType)
 			httpRes, err := (&http.Client{}).Do(httpReq)
-			outCtx := parseResponseCtx(httpRes, target)
 			if err != nil {
-				return outCtx, err
+				return freighter.Context{}, err
 			}
-
+			outCtx := parseResponseCtx(httpRes, target)
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := uc.codec.DecodeStream(inCtx, httpRes.Body, &pld); err != nil {
-					return outCtx, err
+				if err := uc.cfg.Codec.DecodeStream(
+					inCtx,
+					httpRes.Body,
+					&pld,
+				); err != nil {
+					return freighter.Context{}, err
 				}
-				return outCtx, errors.Decode(ctx, pld)
+				if err := errors.Decode(ctx, pld); err != nil {
+					return freighter.Context{}, err
+				}
+				return outCtx, nil
 			}
 			if reader, ok := httpRes.Body.(RS); ok {
 				res = reader
 				return outCtx, nil
 			}
-			return outCtx, uc.codec.DecodeStream(inCtx, httpRes.Body, &res)
+			if err := uc.cfg.Codec.DecodeStream(
+				inCtx,
+				httpRes.Body,
+				&res,
+			); err != nil {
+				return freighter.Context{}, err
+			}
+			return outCtx, nil
 		},
-	)
-	return res, err
-}
-
-func parseRequestCtx(
-	ctx context.Context,
-	fiberCtx *fiber.Ctx,
-	target address.Address,
-) freighter.Context {
-	freighterCtx := freighter.Context{
-		Context:      ctx,
-		Protocol:     unaryReporter.Protocol,
-		Target:       target,
-		SecurityInfo: parseSecurityInfo(fiberCtx),
-		Role:         freighter.Server,
-		Variant:      freighter.Unary,
+	); err != nil {
+		var r RS
+		return r, err
 	}
-	headers := fiberCtx.GetReqHeaders()
-	freighterCtx.Params = make(freighter.Params, len(headers))
-	for k, v := range fiberCtx.GetReqHeaders() {
-		if len(v) > 0 {
-			freighterCtx.Params[k] = v[0]
-		}
-	}
-	for k, v := range parseQueryString(fiberCtx) {
-		if cut, found := strings.CutPrefix(k, "freighterctx"); found {
-			freighterCtx.Params[cut] = v
-		}
-	}
-	return freighterCtx
-}
-
-func parseSecurityInfo(ctx *fiber.Ctx) freighter.SecurityInfo {
-	var info freighter.SecurityInfo
-	if ctx.Context().IsTLS() {
-		info.TLS.Used = true
-		info.TLS.ConnectionState = ctx.Context().Conn().(*tls.Conn).ConnectionState()
-	}
-	return info
-}
-
-func setRequestCtx(req *http.Request, ctx freighter.Context) {
-	for k, v := range ctx.Params {
-		if vStr, ok := v.(string); ok {
-			req.Header.Set(k, vStr)
-		}
-	}
-}
-
-func setResponseCtx(fiberCtx *fiber.Ctx, freighterCtx freighter.Context) {
-	for k, v := range freighterCtx.Params {
-		if vStr, ok := v.(string); ok {
-			fiberCtx.Set(k, vStr)
-		}
-	}
-}
-
-func parseResponseCtx(res *http.Response, target address.Address) freighter.Context {
-	ctx := freighter.Context{
-		Role:     freighter.Client,
-		Variant:  freighter.Unary,
-		Protocol: unaryReporter.Protocol,
-		Target:   target,
-		Params: lo.Ternary(
-			len(res.Header) > 0,
-			make(freighter.Params, len(res.Header)),
-			nil,
-		),
-	}
-	for k, v := range res.Header {
-		ctx.Params[k] = v[0]
-	}
-	return ctx
-}
-
-func parseQueryString(ctx *fiber.Ctx) map[string]string {
-	data := make(map[string]string)
-	ctx.Context().QueryArgs().VisitAll(func(key, val []byte) {
-		k := utils.UnsafeString(key)
-		v := utils.UnsafeString(val)
-		data[k] = v
-	})
-	return data
+	return res, nil
 }

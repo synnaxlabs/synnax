@@ -36,7 +36,15 @@ func (c ClientConfig) Override(other ClientConfig) ClientConfig {
 	return c
 }
 
-var DefaultClientConfig = ClientConfig{
-	Codec:       binary.MsgPackCodec,
-	ContentType: "application/msgpack",
-}
+var (
+	MsgPackClientConfig = ClientConfig{
+		Codec:       binary.MsgPackCodec,
+		ContentType: MIMEApplicationMsgPack,
+	}
+	JSONClientConfig = ClientConfig{
+		Codec:       binary.JSONCodec,
+		ContentType: MIMEApplicationJSON,
+	}
+)
+
+var DefaultClientConfig = MsgPackClientConfig
