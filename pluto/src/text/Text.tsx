@@ -25,7 +25,7 @@ import { isValidElement } from "@/util/children";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 export type Variant = "prose" | "code" | "keyboard" | "link";
-export type Overflow = "ellipsis" | "clip" | "nowrap";
+export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
   extends Flex.BoxExtensionProps,

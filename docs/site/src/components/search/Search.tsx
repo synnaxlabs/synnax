@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Component, Dialog, Flex, Icon, Select } from "@synnaxlabs/pluto";
+import {
+  Breadcrumb,
+  Component,
+  Dialog,
+  Flex,
+  Icon,
+  Select,
+  Status,
+} from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -47,14 +55,22 @@ export const Search = (): ReactElement => {
     <Triggers.Provider>
       <Dialog.Frame variant="modal" className="search-box">
         <Dialog.Trigger
-          startIcon={<Icon.Search />}
           variant="outlined"
           justify="center"
           size="large"
+          textColor={8}
+          trigger={["Control", "K"]}
+          triggerIndicator
         >
+          <Icon.Search />
           Search
         </Dialog.Trigger>
-        <Dialog.Dialog>
+        <Dialog.Dialog
+          bordered={false}
+          pack
+          rounded={1}
+          className="search-results__content"
+        >
           <SearchDialogContent />
         </Dialog.Dialog>
       </Dialog.Frame>
@@ -107,8 +123,11 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
     >
       <Flex.Box direction="y" empty>
         <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
-        <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
-          {path}
+        <Breadcrumb.Breadcrumb level="small">
+          {icon}
+          {path.split("/").map((segment, index) => (
+            <Breadcrumb.Segment key={index}>{segment}</Breadcrumb.Segment>
+          ))}
         </Breadcrumb.Breadcrumb>
       </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
@@ -199,36 +218,34 @@ const SearchDialogContent = () => {
         close();
       }}
     >
-      <Flex.Box pack className="search-results__content" direction="y">
-        <Input.Text
-          className="search-results__input"
-          ref={inputRef}
-          placeholder={
-            <Text.Text level="h2" startIcon={<Icon.Search />}>
-              Search
-            </Text.Text>
-          }
-          autoFocus
-          value={value}
-          onChange={handleSearch}
-          size="huge"
-        />
-        <List.Items<string, SearchResult>
-          className="styled-scrollbar"
-          background={0}
-          bordered
-          borderColor={6}
-          emptyContent={
-            <Flex.Box center>
-              <Text.Text weight={400}>
-                {value.length === 0 ? "Type to search..." : "No Results"}
-              </Text.Text>
-            </Flex.Box>
-          }
-        >
-          {searchListItem}
-        </List.Items>
-      </Flex.Box>
+      <Input.Text
+        className="search-results__input"
+        ref={inputRef}
+        placeholder={
+          <>
+            <Icon.Search />
+            Search
+          </>
+        }
+        autoFocus
+        value={value}
+        onChange={handleSearch}
+        size="huge"
+        full="x"
+      />
+      <List.Items<string, SearchResult>
+        className="styled-scrollbar"
+        background={0}
+        bordered
+        borderColor={6}
+        emptyContent={
+          <Status.Text center variant="disabled" hideIcon>
+            {value.length === 0 ? "Type to search..." : "No Results"}
+          </Status.Text>
+        }
+      >
+        {searchListItem}
+      </List.Items>
     </Select.Frame>
   );
 };

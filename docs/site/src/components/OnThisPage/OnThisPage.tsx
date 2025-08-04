@@ -101,6 +101,7 @@ export const OnThisPage = ({
                 onClick={() => {
                   setCurrentID(heading.slug);
                 }}
+                overflow="wrap"
                 className={`header-link ${heading.slug} depth-${heading.depth} ${
                   currentID === heading.slug ? "current-header-link" : ""
                 }`.trim()}

@@ -99,22 +99,19 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
           width: "800px",
           maxWidth: "100%",
         }}
-        background={1}
-        borderColor={6}
-        rounded={1}
-        bordered
         align="center"
         empty
       >
         <Nav.Bar location="top" size="5rem">
           <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-            <Breadcrumb.Breadcrumb weight={450} icon={<Icon.Feedback />}>
+            <Breadcrumb.Breadcrumb>
+              <Icon.Feedback />
               Feedback
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Button variant="text" size="small">
-              <Icon.Close style={{ color: "var(--color-pluto-gray-l10)" }} />
+            <Button.Button variant="text" size="small" textColor={8}>
+              <Icon.Close />
             </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
@@ -168,6 +165,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
               gap="medium"
+              variant="outlined"
               form="my-form"
               onClick={() => handleSuccessfulSubmit()}
               status={loading ? "loading" : undefined}

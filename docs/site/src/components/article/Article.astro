@@ -33,6 +33,7 @@ const {
         margin-bottom: 25rem;
         min-width: 0;
         .article-title {
+            display: inline-block;
             width: fit-content;
         }
 
@@ -87,7 +88,7 @@ const {
             font-weight: 350;
         }
 
-        pluto-tabs-selector {
+        .pluto-tabs-selector {
             margin: 1.5rem 0;
         }
 
@@ -110,6 +111,10 @@ const {
 
         .pluto-tabs-selector {
             --pluto-height-medium: 6.5rem !important;
+
+            .pluto-btn.pluto--height-medium {
+                padding: 0 2rem;
+            }
         }
 
         /* Makes icons appear centered in the toolbar */
