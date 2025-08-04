@@ -207,6 +207,7 @@ const Core = <E extends ElementType = "button">({
       level={level}
       variant={textVariant}
       square={square}
+      overflow="nowrap"
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {children}

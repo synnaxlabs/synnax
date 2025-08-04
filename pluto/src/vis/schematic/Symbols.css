@@ -49,22 +49,22 @@
         min-height: 100%;
     }
 
-    &.pluto--top {
+    &.pluto--location-top {
         top: 0;
         left: 50%;
         transform: translate(-50%, calc(-100% - var(--offset)));
     }
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         bottom: 0;
         left: 50%;
         transform: translate(-50%, calc(100% + var(--offset)));
     }
-    &.pluto--left {
+    &.pluto--location-left {
         left: 0;
         top: 50%;
         transform: translate(calc(-100% - var(--offset)), -50%);
     }
-    &.pluto--right {
+    &.pluto--location-right {
         right: 0;
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);

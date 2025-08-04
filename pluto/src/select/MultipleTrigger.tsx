@@ -126,11 +126,13 @@ export const MultipleTrigger = <K extends record.Key>({
     [startDrag, handleSuccessfulDrop, haulType],
   );
   const dragging = Haul.useDraggingState();
+  const showAddButton = variant === "text" && value.length !== 0;
+
   return (
     <Tag.Tags
       full="x"
       onClick={() => {
-        if (variant !== "text" || value.length == 0) toggle();
+        if (!showAddButton) toggle();
       }}
       {...dropProps}
       className={CSS(
@@ -139,6 +141,7 @@ export const MultipleTrigger = <K extends record.Key>({
         CSS.BM("variant", variant),
       )}
       variant={variant}
+      preventClick={showAddButton}
       grow
     >
       {value.length === 0 && (
@@ -150,7 +153,7 @@ export const MultipleTrigger = <K extends record.Key>({
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon }),
       )}
-      {variant !== "text" ? (
+      {variant !== "text" && (
         <Caret.Animated
           className={CSS.level("p")}
           enabled={visible}
@@ -158,8 +161,15 @@ export const MultipleTrigger = <K extends record.Key>({
           disabledLoc="left"
           color={8}
         />
-      ) : (
-        <Button.Button variant={variant} onClick={toggle}>
+      )}
+      {showAddButton && (
+        <Button.Button
+          variant={variant}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle();
+          }}
+        >
           <Icon.Add color={8} />
         </Button.Button>
       )}

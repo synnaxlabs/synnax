@@ -20,10 +20,10 @@
             &.pluto--center {
                 margin: 0.5rem 0;
             }
-            &.pluto--top {
+            &.pluto--location-top {
                 margin-top: 1rem;
             }
-            &.pluto--bottom {
+            &.pluto--location-bottom {
                 margin-bottom: 1.5rem;
             }
         }

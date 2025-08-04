@@ -62,7 +62,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   <Button.Button<E>
     el={el ?? "div"}
     id={itemKey.toString()}
-    sharp
     variant="text"
     onClick={(e: any) => {
       onSelect?.(itemKey);

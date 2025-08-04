@@ -20,7 +20,13 @@ import { SubcategorySection } from "./SubcategorySection";
 
 const SelectMultiple = () => {
   const [value, setValue] = useState<channel.Key[]>([]);
-  return <Channel.SelectMultiple value={value} onChange={setValue} />;
+  return (
+    <Channel.SelectMultiple
+      value={value}
+      onChange={setValue}
+      triggerProps={{ variant: "text" }}
+    />
+  );
 };
 
 const SelectSingle = () => {
@@ -86,6 +92,33 @@ export const SelectShowcase = () => (
           <SelectButton />
         </Flex.Box>
       </SubcategorySection>
+
+      <SubcategorySection
+        title="Icon Selection"
+        description="Select from a list of icons"
+      >
+        <SelectIconShowcase />
+      </SubcategorySection>
     </Flex.Box>
   </Flex.Box>
 );
+
+export const SelectIconShowcase = () => {
+  const [value, setValue] = useState<string>("");
+  return (
+    <Select.Simple
+      resourceName="Alignments"
+      data={[
+        { key: "x-center", icon: <Icon.Align.XCenter />, name: "X Center" },
+        { key: "y-center", icon: <Icon.Align.YCenter />, name: "Y Center" },
+        { key: "x-left", icon: <Icon.Align.Left />, name: "X Left" },
+        { key: "y-left", icon: <Icon.Align.Top />, name: "Y Left" },
+      ]}
+      value={value}
+      allowNone
+      onChange={setValue}
+      icon={<Icon.Align.XCenter />}
+      triggerProps={{ iconOnly: true }}
+    />
+  );
+};

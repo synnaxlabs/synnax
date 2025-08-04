@@ -82,7 +82,7 @@
                 height: 100%;
                 background: var(--pluto-primary-z);
             }
-            &.pluto--left {
+            &.pluto--location-left {
                 &::after {
                     top: 0;
                     left: -1px;
@@ -91,7 +91,7 @@
                     left: 0;
                 }
             }
-            &.pluto--right::after {
+            &.pluto--location-right::after {
                 top: 0;
                 right: -1px;
             }

@@ -27,7 +27,7 @@ export interface MultipleProps<
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
   renderTag?: Select.MultipleTriggerProps<K>["children"];
-  triggerVariant?: Select.MultipleTriggerProps<K>["variant"];
+  triggerProps?: Select.MultipleTriggerProps<K>;
 }
 
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -47,9 +47,9 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   children,
   renderTag,
   actions,
-  triggerVariant,
   allowNone,
   replaceOnSingle,
+  triggerProps,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
   <Dialog.Frame variant="connected" {...rest}>
@@ -70,7 +70,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         icon={icon}
         placeholder={`Select ${resourceName}s`}
         disabled={disabled}
-        variant={triggerVariant}
+        {...triggerProps}
       >
         {renderTag}
       </Select.MultipleTrigger>

@@ -26,7 +26,7 @@ export interface SingleProps<
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
-  triggerVariant?: Select.SingleTriggerProps["variant"];
+  triggerProps?: Select.SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
 
@@ -49,8 +49,8 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   children,
   variant = "connected",
   actions,
-  triggerVariant,
   dialogProps,
+  triggerProps,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
   <Dialog.Frame {...rest} variant={variant}>
@@ -70,7 +70,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         icon={icon}
         placeholder={`Select a ${resourceName}`}
         disabled={disabled}
-        variant={triggerVariant}
+        {...triggerProps}
       />
       <Select.Dialog<K>
         onSearch={onSearch}

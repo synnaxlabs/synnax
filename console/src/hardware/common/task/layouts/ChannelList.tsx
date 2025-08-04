@@ -28,18 +28,14 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
     </PHeader.Title>
     {!isSnapshot && (
       <PHeader.Actions>
-        {[
-          {
-            key: "add",
-            onClick: onAdd,
-            children: <Icon.Add />,
-            variant: "text",
-            size: "medium",
-            contrast: 2,
-            sharp: true,
-            tooltip: "Add Channel",
-          },
-        ]}
+        <Button.Button
+          onClick={onAdd}
+          variant="text"
+          contrast={2}
+          tooltip="Add Channel"
+        >
+          <Icon.Add />
+        </Button.Button>
       </PHeader.Actions>
     )}
   </PHeader.Header>
