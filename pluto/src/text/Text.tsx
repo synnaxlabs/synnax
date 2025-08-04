@@ -16,7 +16,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
@@ -26,6 +25,7 @@ import { isValidElement } from "@/util/children";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 export type Variant = "prose" | "code" | "keyboard" | "link";
+export type Overflow = "ellipsis" | "clip" | "nowrap";
 
 export interface ExtensionProps
   extends Flex.BoxExtensionProps,
@@ -34,19 +34,17 @@ export interface ExtensionProps
   level?: text.Level;
   /* The text to display */
   children?: ReactNode;
-  /* NoWrap prevents the text from wrapping */
-  noWrap?: boolean;
   /* Shade sets the shade of the text */
   /* Weight sets the weight of the text */
   weight?: text.Weight;
-  /* Ellipsis sets whether to truncate the text */
-  ellipsis?: boolean;
   /* Variant sets the variant of the text */
   variant?: Variant;
   /* AutoFormatHref formats the href to be a secure http link */
   autoFormatHref?: boolean;
   /* DefaultEl sets the default element of the text */
   defaultEl?: Generic.ElementType;
+  /* Overflow sets the overflow of the text */
+  overflow?: Overflow;
 }
 
 export type TextProps<E extends Generic.ElementType = "p"> = Omit<
@@ -107,12 +105,11 @@ export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
   style,
-  noWrap = false,
   weight,
   defaultEl,
   el,
   variant = "prose",
-  ellipsis = false,
+  overflow,
   href,
   autoFormatHref,
   ...rest
@@ -125,8 +122,7 @@ export const Text = <E extends Generic.ElementType = "p">({
       CSS.B("text"),
       CSS.BM("text", variant),
       CSS.BM("text", level),
-      CSS.noWrap(noWrap),
-      ellipsis && CSS.M("ellipsis"),
+      overflow != null && CSS.BM("text", "overflow", overflow),
       className,
     )}
     square={isSquare(rest.children)}

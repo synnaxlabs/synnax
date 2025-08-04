@@ -251,7 +251,9 @@ export const ButtonShowcase = () => (
         description="Buttons with custom color overrides"
       >
         <Flex.Box y gap="medium">
-          <Text.Text level="small" weight={500}>Custom Color Examples</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Custom Color Examples
+          </Text.Text>
           <Flex.Box x gap="medium" wrap>
             <Button.Button color="#12E3E2">Hello</Button.Button>
             <Button.Button color="#12E3E2" variant="filled">
@@ -259,6 +261,83 @@ export const ButtonShowcase = () => (
             </Button.Button>
             <Button.Button color="#12E3E2" variant="text">
               Hello
+            </Button.Button>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Trigger Indicators"
+        description="Buttons with keyboard shortcuts displayed using showTriggerIndicator"
+      >
+        <Flex.Box y gap="medium">
+          <Text.Text level="small" weight={500}>
+            Buttons with Trigger Indicators
+          </Text.Text>
+          <Flex.Box x gap="medium" wrap>
+            <Button.Button trigger={["Control", "S"]} triggerIndicator>
+              Save
+            </Button.Button>
+            <Button.Button variant="filled" trigger={["Control", "N"]} triggerIndicator>
+              <Icon.Add />
+              New
+            </Button.Button>
+            <Button.Button variant="text" trigger={["Control", "D"]} triggerIndicator>
+              Delete
+            </Button.Button>
+            <Button.Button
+              variant="outlined"
+              trigger={["Control", "Shift", "Z"]}
+              triggerIndicator
+            >
+              <Icon.Release />
+              Redo
+            </Button.Button>
+            <Button.Button size="small" trigger={["Escape"]} triggerIndicator>
+              Cancel
+            </Button.Button>
+            <Button.Button trigger={["Enter"]} triggerIndicator>
+              Confirm
+            </Button.Button>
+            <Button.Button variant="text" trigger={["T"]} triggerIndicator size="tiny">
+              <Icon.Auto />
+            </Button.Button>
+          </Flex.Box>
+          <Text.Text level="small" weight={500}>
+            Large & Huge Sizes with Triggers
+          </Text.Text>
+          <Flex.Box x gap="medium" wrap>
+            <Button.Button size="large" trigger={["Control", "O"]} triggerIndicator>
+              <Icon.Attachment />
+              Open File
+            </Button.Button>
+            <Button.Button
+              size="large"
+              variant="filled"
+              trigger={["Control", "Shift", "S"]}
+              triggerIndicator
+            >
+              Save As
+            </Button.Button>
+            <Button.Button size="huge" trigger={["F5"]} triggerIndicator>
+              <Icon.Refresh />
+              Refresh
+            </Button.Button>
+            <Button.Button
+              size="huge"
+              variant="outlined"
+              trigger={["Control", "Z"]}
+              triggerIndicator
+            >
+              Undo
+            </Button.Button>
+            <Button.Button
+              size="large"
+              variant="text"
+              trigger={["Control", "Q"]}
+              triggerIndicator
+            >
+              Quit
             </Button.Button>
           </Flex.Box>
         </Flex.Box>

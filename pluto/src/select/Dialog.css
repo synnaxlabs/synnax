@@ -1,8 +1,7 @@
 .pluto-select__dialog.pluto--visible {
     max-height: 250px;
-    & .pluto-space--centered {
-        height: 250px;
-    }
+    min-height: 60px;
+    height: fit-content;
 
     &.pluto--modal {
         border: none !important;

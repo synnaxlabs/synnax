@@ -137,6 +137,7 @@ const StrainConfig = Form.buildSelectField({
 const SensitivityField = Form.buildNumericField({
   fieldKey: "sensitivity",
   fieldProps: { label: "Sensitivity" },
+  inputProps: {},
 });
 
 const ForceUnitsField = Form.buildSelectField<

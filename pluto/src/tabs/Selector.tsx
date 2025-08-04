@@ -253,6 +253,7 @@ const SelectorButton = ({
       justify="center"
       align="center"
       empty
+      preventClick={isSelected}
       onClick={handleClick}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -316,7 +317,7 @@ const Name = ({
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text noWrap level={level}>
+      <Text.Text overflow="ellipsis" level={level}>
         {name}
       </Text.Text>
     );
@@ -326,7 +327,7 @@ const Name = ({
       id={CSS.B(`tab-${tabKey}`)}
       onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
-      noWrap
+      overflow="nowrap"
     />
   );
 };

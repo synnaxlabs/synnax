@@ -201,9 +201,14 @@ const Item = ({
           allowDoubleClick={false}
           value={resource.name}
           onChange={onRename}
-          noWrap
+          overflow="ellipsis"
         />
-        <Text.Text level="small" color={9} className={CSS.B("location")} noWrap>
+        <Text.Text
+          level="small"
+          color={9}
+          className={CSS.B("location")}
+          overflow="nowrap"
+        >
           {resource.data?.location as string}
         </Text.Text>
       </Flex.Box>

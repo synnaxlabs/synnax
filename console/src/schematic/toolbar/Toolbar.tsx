@@ -108,30 +108,32 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         content,
       }}
     >
-      <Core.Header>
-        <Breadcrumb.Breadcrumb level="h5">
-          <Breadcrumb.Segment weight={500} color={10} level="h5">
-            <Icon.Schematic />
-            {name}
-          </Breadcrumb.Segment>
-          {selectedNames.length === 1 && selectedNames[0] !== null && (
-            <Breadcrumb.Segment weight={400} color={8} level="p">
-              {selectedNames[0]}
+      <Core.Content>
+        <Core.Header>
+          <Breadcrumb.Breadcrumb level="h5">
+            <Breadcrumb.Segment weight={500} color={10} level="h5">
+              <Icon.Schematic />
+              {name}
             </Breadcrumb.Segment>
-          )}
-        </Breadcrumb.Breadcrumb>
-        <Flex.Box x align="center" empty>
-          <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
-            <Cluster.CopyLinkToolbarButton
-              name={name}
-              ontologyID={schematic.ontologyID(layoutKey)}
-            />
+            {selectedNames.length === 1 && selectedNames[0] !== null && (
+              <Breadcrumb.Segment weight={400} color={8} level="p">
+                {selectedNames[0]}
+              </Breadcrumb.Segment>
+            )}
+          </Breadcrumb.Breadcrumb>
+          <Flex.Box x align="center" empty>
+            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
+              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+              <Cluster.CopyLinkToolbarButton
+                name={name}
+                ontologyID={schematic.ontologyID(layoutKey)}
+              />
+            </Flex.Box>
+            {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
           </Flex.Box>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
-        </Flex.Box>
-      </Core.Header>
-      <Tabs.Content />
+        </Core.Header>
+        <Tabs.Content />
+      </Core.Content>
     </Tabs.Provider>
   );
 };

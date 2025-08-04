@@ -31,7 +31,6 @@ export interface CSSType extends BEM {
   selected: (selected: boolean) => string | false;
   altColor: (secondary: boolean) => string | false;
   editable: (editable: boolean) => string | false;
-  noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   removeVars: typeof removeCSSVars;
   newGridBuilder: (prefix?: string) => CSSGridBuilder;
@@ -62,7 +61,6 @@ const newCSS = (prefix: string): CSSType => {
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
-  CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
   CSS.removeVars = removeCSSVars;
   CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);

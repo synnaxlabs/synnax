@@ -59,6 +59,7 @@ const BaseItems = <
       ref={ref}
       className={CSS(className, CSS.BE("list", "items"))}
       style={{ height: minHeight, ...style }}
+      full="y"
       {...rest}
     >
       {content}

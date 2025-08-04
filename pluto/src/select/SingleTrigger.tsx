@@ -66,7 +66,7 @@ export const SingleTrigger = <K extends record.Key>({
       disabled={disabled}
       {...dropProps}
       {...rest}
-      color={name == null ? 8 : undefined}
+      textColor={name == null ? 7 : undefined}
     >
       {icon ?? baseIcon}
       {name ?? placeholder}

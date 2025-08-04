@@ -86,7 +86,7 @@ export const Info: Layout.Renderer = () => {
           </Status.Text>
           <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
-            <Text.Text color={10} noWrap>
+            <Text.Text color={10} overflow="ellipsis">
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
               {Math.ceil(updateSize.megabytes)} MB
             </Text.Text>

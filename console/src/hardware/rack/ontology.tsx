@@ -78,13 +78,8 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
         allowDoubleClick={false}
         value={resource.name}
         onChange={(name) => onRename?.(name)}
-        noWrap
-        style={{
-          textOverflow: "ellipsis",
-          width: 0,
-          overflow: "hidden",
-          flexGrow: 1,
-        }}
+        overflow="ellipsis"
+        style={{ width: 0, flexGrow: 1 }}
       />
       <Rack.StatusIndicator status={status} />
     </Tree.Item>

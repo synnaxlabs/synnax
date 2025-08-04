@@ -61,10 +61,9 @@ const ListItem = ({
     <Select.ListItem {...rest} style={{ padding: "0.5rem 1.5rem" }} align="center">
       <Text.Editable
         value={label}
-        noWrap
+        overflow="ellipsis"
         color={10}
         weight={500}
-        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
         onChange={onChangeLabel}
       />
     </Select.ListItem>

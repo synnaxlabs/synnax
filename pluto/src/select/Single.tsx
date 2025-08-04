@@ -75,7 +75,6 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       <Select.Dialog<K>
         onSearch={onSearch}
         resourceName={resourceName}
-        searchPlaceholder={`Search ${resourceName}s...`}
         emptyContent={emptyContent}
         status={status}
         actions={actions}

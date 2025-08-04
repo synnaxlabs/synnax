@@ -40,6 +40,7 @@ export interface ExtensionProps
   size?: Component.Size;
   sharp?: boolean;
   trigger?: Triggers.Trigger;
+  triggerIndicator?: boolean | Triggers.Trigger;
   status?: status.Variant;
   textColor?: Text.Shade;
   textVariant?: Text.Variant;
@@ -57,6 +58,15 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   ExtensionProps;
 
 const MODULE_CLASS = "btn";
+
+const resolveTriggerIndicator = (
+  triggerIndicator: boolean | Triggers.Trigger | undefined,
+  trigger: Triggers.Trigger | undefined,
+): Triggers.Trigger | undefined => {
+  if (triggerIndicator === true) return trigger;
+  if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
+  return undefined;
+};
 
 /**
  * Use is a basic button component.
@@ -82,10 +92,11 @@ const Core = <E extends ElementType = "button">({
   size,
   variant = "outlined",
   className,
-  disabled = false,
-  preventClick = false,
+  disabled,
+  preventClick,
   level,
-  trigger: triggers,
+  trigger,
+  triggerIndicator,
   onClickDelay = 0,
   onClick,
   color: colorVal,
@@ -100,7 +111,7 @@ const Core = <E extends ElementType = "button">({
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const isDisabled = disabled || status === "loading" || status === "disabled";
+  const isDisabled = disabled === true || status === "loading" || status === "disabled";
   // We implement the shadow variant to maintain compatibility with the input
   // component API.
   if (variant == "shadow") variant = "text";
@@ -128,7 +139,7 @@ const Core = <E extends ElementType = "button">({
   };
 
   Triggers.use({
-    triggers,
+    triggers: trigger,
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
         if (stage !== "end" || isDisabled || variant === "preview") return;
@@ -166,7 +177,9 @@ const Core = <E extends ElementType = "button">({
   else size ??= "medium";
 
   const isLoading = status === "loading";
-  const iconOnly = Text.isSquare(children);
+  const square = Text.isSquare(children);
+
+  const parsedTriggerIndicator = resolveTriggerIndicator(triggerIndicator, trigger);
 
   return (
     <Text.Text<E>
@@ -174,7 +187,7 @@ const Core = <E extends ElementType = "button">({
       className={CSS(
         CSS.B(MODULE_CLASS),
         contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
-        preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
+        preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
         status != null && CSS.M(status),
         CSS.BM(MODULE_CLASS, variant),
@@ -187,16 +200,26 @@ const Core = <E extends ElementType = "button">({
       onMouseDown={handleMouseDown}
       noWrap
       style={pStyle}
-      color={colorVal}
+      color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : "medium"}
       bordered={variant !== "text"}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
       defaultEl={"button"}
       level={level}
       variant={textVariant}
+      square={square}
     >
-      {(!isLoading || !iconOnly) && children}
+      {children}
       {isLoading && <Icon.Loading />}
+      {parsedTriggerIndicator != null && (
+        <Triggers.Text
+          className={CSS.B("trigger-indicator")}
+          trigger={parsedTriggerIndicator}
+          color={9}
+          gap="tiny"
+          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+        />
+      )}
     </Text.Text>
   );
 };

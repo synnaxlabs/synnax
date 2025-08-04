@@ -27,7 +27,7 @@
         padding-right: 1.5rem;
         will-change: transform;
 
-        &a {
+        &:is(a) {
             text-decoration: none;
         }
 

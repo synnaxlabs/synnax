@@ -12,11 +12,13 @@ import { Flex, Form } from "@synnaxlabs/pluto";
 const MinValueField = Form.buildNumericField({
   fieldKey: "minVal",
   fieldProps: { label: "Minimum Value" },
+  inputProps: {},
 });
 
 const MaxValueField = Form.buildNumericField({
   fieldKey: "maxVal",
   fieldProps: { label: "Maximum Value" },
+  inputProps: {},
 });
 
 export interface MinMaxValueFieldsProps {

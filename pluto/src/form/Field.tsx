@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type record } from "@synnaxlabs/x";
+import { caseconv, deep, type Optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
@@ -86,29 +86,33 @@ export const Field = <I = string | number, O = I>({
 export interface FieldBuilderProps<I, O, P extends {}> {
   fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
-  inputProps?: Omit<P, "value" | "onChange">;
+  inputProps: Omit<P, "value" | "onChange">;
 }
 
-type MakeBuilderKeysOptional<
-  T,
-  BuilderKeys extends keyof T
-> = Omit<T, BuilderKeys> & Partial<Pick<T, BuilderKeys>>;
-
-export type BuiltFieldProps<I, O, P extends {}, BuilderInputProps extends Record<string, any> = {}> = FieldProps<I, O> & {
-  inputProps?: MakeBuilderKeysOptional<
-    Omit<P, "value" | "onChange">,
-    keyof BuilderInputProps & keyof Omit<P, "value" | "onChange">
-  >;
+export type BuiltFieldProps<
+  I,
+  O,
+  P extends {},
+  OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
+> = FieldProps<I, O> & {
+  inputProps?: Optional<Omit<P, "value" | "onChange">, OptionalFields>;
   fieldKey?: string;
 };
 
 export const fieldBuilder =
-  <I, O, P extends {}>(Component: FC<P & Input.Control<I, O>>) =>
-  <BuilderInputProps extends Partial<Omit<P, "value" | "onChange">> = {}>({
+  <
+    I,
+    O,
+    P extends {},
+    OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
+  >(
+    Component: FC<P & Input.Control<I, O>>,
+  ) =>
+  ({
     fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
-  }: FieldBuilderProps<I, O, P> & { inputProps?: BuilderInputProps }): FC<BuiltFieldProps<I, O, P, BuilderInputProps>> => {
+  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P, OptionalFields>> => {
     const C = ({
       inputProps,
       path,
@@ -116,7 +120,7 @@ export const fieldBuilder =
       optional,
       defaultValue,
       ...rest
-    }: BuiltFieldProps<I, O, P, BuilderInputProps>) => (
+    }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
         {...rest}
@@ -128,25 +132,32 @@ export const fieldBuilder =
       </Field>
     );
     C.displayName = Component.displayName;
-    return C;
+    return C as FC<BuiltFieldProps<I, O, P, OptionalFields>>;
   };
 
 export type NumericFieldProps = BuiltFieldProps<number, number, Input.NumericProps>;
-export const buildNumericField = fieldBuilder(Input.Numeric);
-export const NumericField = buildNumericField({});
+export const buildNumericField = fieldBuilder<number, number, Input.NumericProps>(
+  Input.Numeric,
+);
+export const NumericField = buildNumericField({ inputProps: {} });
 
 export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
-export const buildTextField = fieldBuilder(Input.Text);
-export const TextField = buildTextField({});
+export const buildTextField = fieldBuilder<string, string, Input.TextProps>(Input.Text);
+export const TextField = buildTextField({ inputProps: {} });
 
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;
-export const buildSwitchField = fieldBuilder(Input.Switch);
-export const SwitchField = buildSwitchField({});
+export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps>(
+  Input.Switch,
+);
+export const SwitchField = buildSwitchField({ inputProps: {} });
 
 export type SelectFieldProps<
   K extends record.Key,
   E extends record.KeyedNamed<K>,
-> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>>;
+> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">;
 export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
   props: FieldBuilderProps<K, K, Select.SimpleProps<K, E>>,
-) => fieldBuilder(Select.Simple<K, E>)(props as any);
+) =>
+  fieldBuilder<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">(
+    Select.Simple<K, E>,
+  )(props);

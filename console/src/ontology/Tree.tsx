@@ -86,12 +86,10 @@ const DefaultItem = ({
       allowDoubleClick={false}
       style={{
         userSelect: "none",
-        textOverflow: "ellipsis",
         width: 0,
-        overflow: "hidden",
         flexGrow: 1,
       }}
-      noWrap
+      overflow="ellipsis"
     />
   </Core.Item>
 );

@@ -10,7 +10,7 @@
  */
 
 .pluto-header {
-    padding: 0 0.5rem;
+    padding-left: 0.5rem;
     .pluto-header__text,
     .pluto-breadcrumb {
         padding: 0.5rem;
@@ -24,5 +24,9 @@
     }
     .pluto-header-button-title {
         flex-grow: 1;
+    }
+
+    & .pluto-header__actions:not(.pluto--pack) {
+        padding-right: 0.5rem;
     }
 }

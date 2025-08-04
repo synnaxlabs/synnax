@@ -76,7 +76,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   if (state == null) return null;
   return (
-    <Flex.Box empty className={CSS.B("line-plot-toolbar")}>
+    <Core.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
         value={{
           tabs: TABS,
@@ -100,6 +100,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         </Core.Header>
         <Tabs.Content />
       </Tabs.Provider>
-    </Flex.Box>
+    </Core.Content>
   );
 };

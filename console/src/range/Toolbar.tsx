@@ -11,6 +11,7 @@ import "@/range/Toolbar.css";
 
 import { DisconnectedError, ranger } from "@synnaxlabs/client";
 import {
+  Button,
   Component,
   Flex,
   Haul,
@@ -166,22 +167,17 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Flex.Box empty full>
-      <Toolbar.Header align="center" style={{ paddingRight: "0.5rem" }}>
+    <Toolbar.Content>
+      <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
-          {[
-            {
-              key: "create",
-              children: <Icon.Add />,
-              onClick: () => placeLayout(CREATE_LAYOUT),
-              variant: "text",
-            },
-          ]}
+          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+            <Icon.Add />
+          </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
       <List />
-    </Flex.Box>
+    </Toolbar.Content>
   );
 };
 

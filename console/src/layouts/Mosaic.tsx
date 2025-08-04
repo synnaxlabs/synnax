@@ -55,7 +55,7 @@ const EmptyContent = (): ReactElement => (
     <Flex.Box gap={5} center>
       <Logo className="synnax-logo-watermark" />
       <Flex.Box x gap="small">
-        <Text.Text level="h5" weight={450} color={10}>
+        <Text.Text level="h5" weight={450} color={9}>
           New Component
         </Text.Text>
         <Flex.Box x empty>
@@ -335,7 +335,7 @@ const NavTop = (): ReactElement | null => {
       contrast={2}
       color={9}
       weight={450}
-      trigger={["V"]}
+      triggerIndicator={["V"]}
     >
       <Icon.Visualize />
       Controls

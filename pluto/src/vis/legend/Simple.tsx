@@ -79,7 +79,7 @@ export const LegendSwatches = memo(
                 level="small"
                 value={label}
                 onChange={(l) => onEntryChange?.({ key, color, label: l, visible })}
-                noWrap
+                overflow="nowrap"
                 color={visible ? 10 : 7}
                 onDoubleClick={(e) => e.stopPropagation()}
               />
@@ -94,6 +94,7 @@ export const LegendSwatches = memo(
                 onDoubleClick={(e) => e.stopPropagation()}
                 size="tiny"
                 contrast={background}
+                variant="text"
               >
                 {visible ? <Icon.Visible /> : <Icon.Hidden />}
               </Button.Button>
@@ -126,7 +127,7 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      gap={allowVisibleChange ? 0 : "tiny"}
+      gap={allowVisibleChange ? 0 : "small"}
       background={background}
     >
       <LegendSwatches

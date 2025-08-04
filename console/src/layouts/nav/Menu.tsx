@@ -66,7 +66,7 @@ export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
           itemKey={key}
           size="large"
           contrast={2}
-          trigger={trigger}
+          triggerIndicator={trigger}
         >
           {icon}
         </PMenu.Item>

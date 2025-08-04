@@ -37,7 +37,7 @@ import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { remove, rename, setActive } from "@/cluster/slice";
-import { Menu } from "@/components";
+import { EmptyAction, Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -102,10 +102,12 @@ export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => 
   };
 
   return (
-    <Flex.Box empty center {...rest}>
-      <Text.Text>No cluster connected.</Text.Text>
-      <Text.Text onClick={handleCluster}>Connect a cluster</Text.Text>
-    </Flex.Box>
+    <EmptyAction
+      message="No cluster connected."
+      action="Connect a cluster"
+      onClick={handleCluster}
+      {...rest}
+    />
   );
 };
 

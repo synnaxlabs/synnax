@@ -17,6 +17,7 @@
 }
 
 .pluto-tabs-selector {
+    height: 0 !important;
     .pluto-tabs-selector__icon {
         flex-shrink: 0;
         margin-left: 1.5rem;
@@ -100,8 +101,6 @@
             color: var(--pluto-gray-l9);
             margin: 0 2rem;
             padding: 0 0.25rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         &.pluto--selected {
@@ -165,10 +164,8 @@
                 fill: var(--pluto-gray-l8);
             }
             .pluto-icon--circle {
-                top: 30%;
-                left: 30%;
-                width: 40%;
-                height: 40%;
+                height: 0.9em;
+                width: 0.9em;
             }
             &:has(.pluto-icon--circle) {
                 opacity: 1;
@@ -222,8 +219,6 @@
 }
 
 .pluto-header .pluto-tabs-selector {
-    margin-top: 1px;
-    height: 100%;
     &.pluto--direction-x {
         box-shadow: none;
     }

@@ -100,6 +100,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
+    resourceName: "Units",
     allowNone: false,
     data: unitsData,
   },

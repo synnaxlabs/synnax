@@ -23,4 +23,5 @@ export const DISPLAY = [
   "breadcrumb",
   "divider",
   "nav",
+  "header",
 ];

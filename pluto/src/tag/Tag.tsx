@@ -66,7 +66,7 @@ export const Tag = ({
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       size={size}
-      noWrap
+      overflow="nowrap"
       align="center"
       gap="small"
       onDragStart={onDragStart}
