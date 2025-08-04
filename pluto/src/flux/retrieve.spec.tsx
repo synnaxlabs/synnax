@@ -13,7 +13,6 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
@@ -106,7 +105,7 @@ describe("retrieve", () => {
               listeners: [
                 {
                   channel: channel.SET_CHANNEL_NAME,
-                  onChange: Sync.parsedHandler(
+                  onChange: Flux.parsedHandler(
                     channel.keyZ,
                     async ({ client, params: { key }, onChange, changed }) => {
                       if (key !== changed) return;
