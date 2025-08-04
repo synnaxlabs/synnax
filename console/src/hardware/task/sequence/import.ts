@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Common } from "@/hardware/common";
+import { LAYOUT } from "@/hardware/task/sequence/Sequence";
+import { configZ } from "@/hardware/task/sequence/types";
+import { Import } from "@/import";
 
-export const CreateIcon = Icon.createComposite(Icon.LinePlot, { topRight: Icon.Add });
+export const ingest = Common.Task.createIngestor(configZ, LAYOUT);
 
-export const ImportIcon = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Import,
-});
+export const import_ = Import.createImporter(ingest, "control sequence");

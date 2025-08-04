@@ -12,17 +12,11 @@ import "@/hardware/common/task/Form.css";
 import {
   DisconnectedError,
   type rack,
-  type Synnax,
+  type Synnax as Client,
   task,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import {
-  Align,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-} from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
@@ -31,13 +25,13 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
-import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
 import { type Command } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { useStatus } from "@/hardware/common/task/useStatus";
+import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
@@ -70,7 +64,7 @@ const COMMAND_MESSAGES: Record<Command, string> = {
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
-    client: Synnax,
+    client: Client,
     config: z.infer<Config>,
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
@@ -128,7 +122,7 @@ export const useForm = <
   schemas,
 }: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
   const schema = z.object({ name: nameZ, config: schemas.configSchema });
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError_ = Status.useErrorHandler();
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
@@ -176,11 +170,7 @@ export const useForm = <
         config: z.infer<Config>;
       };
       if (config == null) throw new Error("Config is required");
-      const [newConfig, rackKey] = await onConfigure(
-        client,
-        config as z.infer<Config>,
-        name,
-      );
+      const [newConfig, rackKey] = await onConfigure(client, config, name);
       if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
@@ -265,7 +255,7 @@ export const wrapForm = <
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
               <Align.Space align="end" gap="small">
-                <CopyButtons
+                <UtilityButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
                   taskKey={task.key}

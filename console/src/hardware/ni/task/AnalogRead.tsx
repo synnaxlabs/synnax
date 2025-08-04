@@ -24,7 +24,7 @@ import {
   type AIChannelType,
   ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
-  type analogReadConfigZ,
+  analogReadConfigZ,
   type analogReadStatusDataZ,
   type analogReadTypeZ,
   ZERO_AI_CHANNEL,
@@ -139,16 +139,20 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof analogReadTypeZ,
   typeof analogReadConfigZ,
   typeof analogReadStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_READ_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_READ_PAYLOAD.config,
-    channels:
-      deviceKey == null
-        ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
-  },
-});
+> = ({ deviceKey, config }) => {
+  if (config != null)
+    return { ...ZERO_ANALOG_READ_PAYLOAD, config: analogReadConfigZ.parse(config) };
+  return {
+    ...ZERO_ANALOG_READ_PAYLOAD,
+    config: {
+      ...ZERO_ANALOG_READ_PAYLOAD.config,
+      channels:
+        deviceKey == null
+          ? ZERO_ANALOG_READ_PAYLOAD.config.channels
+          : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
+    },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,

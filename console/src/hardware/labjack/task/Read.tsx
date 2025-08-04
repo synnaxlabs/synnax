@@ -26,7 +26,7 @@ import {
   type InputChannelType,
   READ_SCHEMAS,
   READ_TYPE,
-  type readConfigZ,
+  readConfigZ,
   type ReadPayload,
   type readStatusDataZ,
   type ReadTask,
@@ -263,13 +263,13 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+  return {
+    ...ZERO_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,

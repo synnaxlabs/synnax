@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   createContext,
   type FC,
@@ -19,7 +19,7 @@ import {
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
-import { Synnax as PSynnax } from "@/synnax";
+import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { createAetherProvider } from "@/testutil/Aether";
 
@@ -34,14 +34,14 @@ const Context = createContext<ClientConnector>(() => () => {});
 export const useConnectToClient = () => use(Context);
 
 export const newSynnaxWrapper = (
-  client: Synnax | null = null,
+  client: Client | null = null,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
-        <PSynnax.TestProvider client={client}>
+        <Synnax.TestProvider client={client}>
           <Flux.Provider>{children}</Flux.Provider>
-        </PSynnax.TestProvider>
+        </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
   );

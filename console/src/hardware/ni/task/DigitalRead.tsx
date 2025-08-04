@@ -24,7 +24,7 @@ import {
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
-  type digitalReadConfigZ,
+  digitalReadConfigZ,
   type digitalReadStatusDataZ,
   type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
@@ -82,13 +82,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof digitalReadTypeZ,
   typeof digitalReadConfigZ,
   typeof digitalReadStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_READ_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalReadConfigZ.parse(config)
+      : ZERO_DIGITAL_READ_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
