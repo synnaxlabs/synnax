@@ -20,8 +20,6 @@ var _ = Describe("ClientConfig", func() {
 	Describe("Validate", func() {
 		It("should succeed if the codec and content type are non-nil", func() {
 			Expect(fhttp.DefaultClientConfig.Validate()).To(Succeed())
-			Expect(fhttp.JSONClientConfig.Validate()).To(Succeed())
-			Expect(fhttp.MsgPackClientConfig.Validate()).To(Succeed())
 		})
 		It("should return an error if the codec is nil", func() {
 			cfg := fhttp.ClientConfig{Codec: nil, ContentType: "this exists"}
@@ -33,32 +31,35 @@ var _ = Describe("ClientConfig", func() {
 		})
 	})
 	Describe("Override", func() {
+		var originalCfg fhttp.ClientConfig
+		BeforeEach(func() {
+			originalCfg = fhttp.ClientConfig{
+				Codec:       binary.GobCodec,
+				ContentType: "application/x-gob",
+			}
+		})
 		It("should override the codec if it is non-nil", func() {
-			originalCfg := fhttp.MsgPackClientConfig
 			overrideCfg := fhttp.ClientConfig{Codec: binary.JSONCodec}
 			cfg := originalCfg.Override(overrideCfg)
 			Expect(cfg.Codec).To(Equal(overrideCfg.Codec))
 			Expect(cfg.ContentType).To(Equal(originalCfg.ContentType))
 		})
 		It("shouldn't override if the codec is nil", func() {
-			originalCfg := fhttp.JSONClientConfig
 			overrideCfg := fhttp.ClientConfig{ContentType: "this exists"}
 			cfg := originalCfg.Override(overrideCfg)
 			Expect(cfg.Codec).To(Equal(originalCfg.Codec))
 			Expect(cfg.ContentType).To(Equal(overrideCfg.ContentType))
 		})
 		It("should override the content type if it is non-empty", func() {
-			originalCfg := fhttp.JSONClientConfig
 			overrideCfg := fhttp.ClientConfig{ContentType: "this exists"}
 			cfg := originalCfg.Override(overrideCfg)
 			Expect(cfg.Codec).To(Equal(originalCfg.Codec))
 			Expect(cfg.ContentType).To(Equal(overrideCfg.ContentType))
 		})
 		It("shouldn't override if the content type is empty", func() {
-			originalCfg := fhttp.JSONClientConfig
-			overrideCfg := fhttp.ClientConfig{ContentType: ""}
+			overrideCfg := fhttp.ClientConfig{Codec: binary.MsgPackCodec}
 			cfg := originalCfg.Override(overrideCfg)
-			Expect(cfg.Codec).To(Equal(originalCfg.Codec))
+			Expect(cfg.Codec).To(Equal(overrideCfg.Codec))
 			Expect(cfg.ContentType).To(Equal(originalCfg.ContentType))
 		})
 	})

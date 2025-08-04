@@ -23,6 +23,7 @@ type ClientConfig struct {
 
 var _ config.Config[ClientConfig] = ClientConfig{}
 
+// Validate validates the ClientConfig
 func (c ClientConfig) Validate() error {
 	v := validate.New("fhttp.ClientConfig")
 	validate.NotNil(v, "codec", c.Codec)
@@ -30,21 +31,14 @@ func (c ClientConfig) Validate() error {
 	return v.Error()
 }
 
+// Override overrides valid fields with the fields in the other config.
 func (c ClientConfig) Override(other ClientConfig) ClientConfig {
 	c.Codec = override.Nil(c.Codec, other.Codec)
 	c.ContentType = override.String(c.ContentType, other.ContentType)
 	return c
 }
 
-var (
-	MsgPackClientConfig = ClientConfig{
-		Codec:       binary.MsgPackCodec,
-		ContentType: MIMEApplicationMsgPack,
-	}
-	JSONClientConfig = ClientConfig{
-		Codec:       binary.JSONCodec,
-		ContentType: MIMEApplicationJSON,
-	}
-)
-
-var DefaultClientConfig = MsgPackClientConfig
+var DefaultClientConfig = ClientConfig{
+	Codec:       binary.JSONCodec,
+	ContentType: MIMEApplicationJSON,
+}

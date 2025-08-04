@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"go/types"
-	"net/http"
 	"sync"
 	"time"
 
@@ -28,11 +27,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
-
-var streamReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: DefaultContentTypes,
-}
 
 var (
 	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
@@ -179,7 +173,10 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
 	}
-	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
+	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{
+		Type:    WSMessageTypeData,
+		Payload: req,
+	})
 	return s.peerCloseErr
 }
 
@@ -222,8 +219,8 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 
 	s.peerCloseErr = freighter.ErrStreamClosed
 
-	// Tell the client we're closing the connection. Make sure to include
-	// a write deadline here in-case the client is stuck.
+	// Tell the client we're closing the connection. Make sure to include a write
+	// deadline here in-case the client is stuck.
 	if err := s.conn.WriteControl(
 		ws.CloseMessage,
 		ws.FormatCloseMessage(closeCode, ""),
@@ -233,7 +230,9 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	}
 
 	// Again, make sure a stuck client doesn't cause problems with shutdown.
-	if err := s.conn.SetReadDeadline(time.Now().Add(closeReadWriteDeadline)); err != nil {
+	if err := s.conn.SetReadDeadline(
+		time.Now().Add(closeReadWriteDeadline),
+	); err != nil {
 		return err
 	}
 
@@ -241,7 +240,10 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	for {
 		if _, err := s.receiveRaw(); err != nil {
 			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-				s.L.Error("expected normal closure, received error instead", zap.Error(err))
+				s.L.Error(
+					"expected normal closure, received error instead",
+					zap.Error(err),
+				)
 			}
 			break
 		}
@@ -270,9 +272,8 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
-	codec       binary.Codec
-	contentType string
-	dialer      ws.Dialer
+	cfg    ClientConfig
+	dialer ws.Dialer
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
@@ -284,12 +285,14 @@ func NewStreamClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &streamClient[RQ, RS]{codec: cfg.Codec}, nil
+	return &streamClient[RQ, RS]{cfg: cfg}, nil
 }
 
 func (s *streamClient[RQ, RS]) Report() alamos.Report {
-	r := streamReporter
-	r.Encodings = []string{s.contentType}
+	r := freighter.Reporter{
+		Protocol:  "http",
+		Encodings: []string{s.cfg.ContentType},
+	}
 	return r.Report()
 }
 
@@ -306,8 +309,13 @@ func (s *streamClient[RQ, RS]) Stream(
 			Params:   make(freighter.Params),
 		},
 		func(fCtx freighter.Context) (freighter.Context, error) {
-			fCtx.Params[fiber.HeaderContentType] = s.contentType
-			conn, res, err := s.dialer.DialContext(fCtx, "ws://"+target.String(), ctxToHeaders(fCtx))
+			fCtx.Params[fiber.HeaderContentType] = s.cfg.ContentType
+			fCtx.Params[fiber.HeaderAccept] = s.cfg.ContentType
+			conn, res, err := s.dialer.DialContext(
+				fCtx,
+				"ws://"+target.String(),
+				ctxToHeaders(fCtx),
+			)
 			oCtx := parseResponseCtx(res, target)
 			if err != nil {
 				return oCtx, err
@@ -318,7 +326,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			core := newStreamCore[RS, RQ](
 				coreConfig{
 					conn:            conn,
-					codec:           s.codec,
+					codec:           s.cfg.Codec,
 					Instrumentation: s.Instrumentation,
 				},
 				fCtx.Done(),
@@ -335,16 +343,6 @@ func (s *streamClient[RQ, RS]) Stream(
 		},
 	)
 	return stream, err
-}
-
-func ctxToHeaders(ctx freighter.Context) http.Header {
-	headers := make(http.Header, len(ctx.Params))
-	for k, v := range ctx.Params {
-		if vStr, ok := v.(string); ok {
-			headers[k] = []string{vStr}
-		}
-	}
-	return headers
 }
 
 type streamServer[RQ, RS freighter.Payload] struct {
@@ -364,16 +362,17 @@ func NewStreamServer[RQ, RS freighter.Payload](
 	path string,
 	opts ...ServerOption,
 ) *streamServer[RQ, RS] {
+	so := newServerOptions(opts)
 	s := &streamServer[RQ, RS]{
 		serverOptions:   newServerOptions(opts),
-		Reporter:        streamReporter,
+		Reporter:        getReporter(so),
 		path:            path,
 		Instrumentation: r.Instrumentation,
 		serverCtx:       r.streamCtx,
 		writeDeadline:   r.StreamWriteDeadline,
 		wg:              r.streamWg,
 	}
-	r.register(path, "GET", s, s.fiberHandler)
+	r.register(path, fiber.MethodGet, s, s.fiberHandler)
 	return s
 }
 
@@ -402,15 +401,16 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, ok := s.reqDecoders[headerContentType]
+	getDecoder, ok := s.reqDecoders[headerContentType]
 	if !ok {
-		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(
+		return upgradeCtx.Status(fiber.StatusUnsupportedMediaType).SendString(
 			fmt.Sprintf("unsupported content type: %s", headerContentType),
 		)
 	}
-	encoder := codec.(binary.Codec)
+	decoder := getDecoder()
+	codec := decoder.(binary.Codec)
 	// Upgrade the connection to a websocket connection.
-	handler := fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, encoder, c) })
+	handler := fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })
 	return handler(upgradeCtx)
 }
 

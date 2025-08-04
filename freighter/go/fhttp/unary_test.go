@@ -36,9 +36,7 @@ func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) 
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := MustSucceed(fhttp.NewRouter())
 	server := fhttp.NewUnaryServer[Request, Response](router, "/")
-	client := MustSucceed(fhttp.NewUnaryClient[Request, Response](
-		fhttp.JSONClientConfig,
-	))
+	client := MustSucceed(fhttp.NewUnaryClient[Request, Response]())
 	router.BindTo(i.app)
 	go func() {
 		defer GinkgoRecover()
