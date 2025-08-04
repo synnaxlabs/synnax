@@ -164,7 +164,7 @@ export const Browser = ({ device }: BrowserProps) => {
   }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
-    <Flex.Box>
+    <Flex.Box center>
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Flex.Box>
   ) : expand.isError ? (
@@ -193,6 +193,7 @@ export const Browser = ({ device }: BrowserProps) => {
             disabled={scanTask == null || initialLoading}
             sharp
             contrast={2}
+            variant="text"
           >
             <Icon.Refresh />
           </Button.Button>

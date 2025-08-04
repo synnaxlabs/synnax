@@ -11,7 +11,6 @@ import "@/range/Toolbar.css";
 
 import { DisconnectedError, ranger } from "@synnaxlabs/client";
 import {
-  Button,
   Component,
   Flex,
   Haul,

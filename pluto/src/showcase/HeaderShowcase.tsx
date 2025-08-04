@@ -101,11 +101,15 @@ export const HeaderShowcase = () => (
           <Header.Header>
             <Header.Title>Dashboard</Header.Title>
             <Header.Actions>
-              {[
-                { children: <Icon.Refresh />, variant: "text" as const },
-                { children: <Icon.Settings />, variant: "text" as const },
-                { children: <Icon.Release />, variant: "text" as const },
-              ]}
+              <Button.Button variant="text">
+                <Icon.Refresh />
+              </Button.Button>
+              <Button.Button variant="text">
+                <Icon.Settings />
+              </Button.Button>
+              <Button.Button variant="text">
+                <Icon.Release />
+              </Button.Button>
             </Header.Actions>
           </Header.Header>
         </Flex.Box>
