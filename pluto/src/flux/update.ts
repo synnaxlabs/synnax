@@ -10,7 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/params";
+import { type FetchOptions, type Params } from "@/flux/aether/params";
 import {
   errorResult,
   nullClientResult,

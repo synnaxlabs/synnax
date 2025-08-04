@@ -14,7 +14,6 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
@@ -209,7 +208,7 @@ describe("list", () => {
             listeners: [
               {
                 channel: ranger.SET_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
+                onChange: Flux.parsedHandler(
                   ranger.payloadZ,
                   async ({ onChange, changed }) => onChange(changed.key, () => changed),
                 ),
@@ -263,7 +262,7 @@ describe("list", () => {
             listeners: [
               {
                 channel: ranger.DELETE_CHANNEL_NAME,
-                onChange: Sync.parsedHandler(
+                onChange: Flux.parsedHandler(
                   ranger.keyZ,
                   async ({ onDelete, changed }) => onDelete(changed),
                 ),

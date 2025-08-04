@@ -11,14 +11,13 @@ import { task } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
 
 export const useCommandSynchronizer = (
   onCommandUpdate: (command: task.Command) => void,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: task.COMMAND_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.commandZ, async (args) => {
+    onChange: Flux.parsedHandler(task.commandZ, async (args) => {
       onCommandUpdate(args.changed);
     }),
   });
@@ -27,25 +26,25 @@ export const useStatusSynchronizer = <StatusData extends z.ZodType>(
   onStatusUpdate: (status: task.Status<StatusData>) => void,
   statusDataZ: StatusData = z.unknown() as unknown as StatusData,
 ): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: task.STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.statusZ(statusDataZ), async (args) => {
+    onChange: Flux.parsedHandler(task.statusZ(statusDataZ), async (args) => {
       onStatusUpdate(args.changed);
     }),
   });
 
 export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: task.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
+    onChange: Flux.parsedHandler(task.keyZ, async (args) => {
       onSet(args.changed);
     }),
   });
 
 export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =>
-  Sync.useListener({
+  Flux.useListener({
     channel: task.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
+    onChange: Flux.parsedHandler(task.keyZ, async (args) => {
       onDelete(args.changed);
     }),
   });
@@ -70,7 +69,7 @@ export const createRetrieveQuery = <
     listeners: [
       {
         channel: task.SET_CHANNEL_NAME,
-        onChange: Sync.parsedHandler(
+        onChange: Flux.parsedHandler(
           task.keyZ,
           async ({ client, changed, onChange, params: { key } }) => {
             if (key == null || changed.toString() !== key.toString()) return;

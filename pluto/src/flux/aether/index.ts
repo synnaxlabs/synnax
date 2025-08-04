@@ -7,12 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext } from "react";
-
-import { type ListenerAdder } from "@/flux/sync/types";
-import { useRequiredContext } from "@/hooks";
-
-export const AddListenerContext = createContext<ListenerAdder | null>(null);
-
-export const useAddListener = (): ListenerAdder =>
-  useRequiredContext(AddListenerContext);
+export * as flux from "@/flux/aether/external";
