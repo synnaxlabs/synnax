@@ -474,7 +474,7 @@ describe("Input", () => {
 
       it("should render checkmark element", () => {
         const c = render(<Input.Checkbox value={false} onChange={vi.fn()} />);
-        const checkmark = c.container.querySelector(".pluto-input__checkbox-checkmark");
+        const checkmark = c.container.querySelector(".pluto-input__checkbox-indicator");
         expect(checkmark).toBeTruthy();
       });
     });
@@ -491,7 +491,7 @@ describe("Input", () => {
 
       it("should render switch track element", () => {
         const c = render(<Input.Switch value={false} onChange={vi.fn()} />);
-        const track = c.container.querySelector(".pluto-input__switch-track");
+        const track = c.container.querySelector(".pluto-input__switch-indicator");
         expect(track).toBeTruthy();
       });
     });

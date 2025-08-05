@@ -9,6 +9,7 @@
 
 import "@/text/Text.css";
 
+import { type status } from "@synnaxlabs/x";
 import {
   Children,
   type ComponentPropsWithoutRef,
@@ -45,6 +46,8 @@ export interface ExtensionProps
   defaultEl?: Generic.ElementType;
   /* Overflow sets the overflow of the text */
   overflow?: Overflow;
+  /* Status sets the status of the text */
+  status?: status.Variant;
 }
 
 export type TextProps<E extends Generic.ElementType = "p"> = Omit<
@@ -112,6 +115,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   overflow,
   href,
   autoFormatHref,
+  status,
   ...rest
 }: TextProps<E>): ReactElement => (
   <Flex.Box<E>
@@ -123,6 +127,7 @@ export const Text = <E extends Generic.ElementType = "p">({
       variant != null && CSS.BM("text", variant),
       CSS.BM("text", level),
       overflow != null && CSS.BM("text", "overflow", overflow),
+      status != null && CSS.M("status", status),
       className,
     )}
     square={isSquare(rest.children)}

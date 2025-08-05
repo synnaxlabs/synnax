@@ -78,6 +78,7 @@ export const Text = ({
   borderWidth,
   bordered,
   rounded,
+  tabIndex,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -130,6 +131,8 @@ export const Text = ({
     placeholder != null &&
     typeof placeholder !== "string";
 
+  tabIndex ??= variant === "preview" ? -1 : undefined;
+
   return (
     <Button.Button
       el="div"
@@ -157,6 +160,7 @@ export const Text = ({
       full={full}
       variant={variant}
       rounded={rounded}
+      tabIndex={tabIndex}
     >
       {showPlaceholder && (
         <CoreText.Text
@@ -180,6 +184,7 @@ export const Text = ({
         autoCorrect="off"
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
+        tabIndex={tabIndex}
         onMouseUp={handleMouseUp}
         onBlur={handleBlur}
         disabled={disabled}

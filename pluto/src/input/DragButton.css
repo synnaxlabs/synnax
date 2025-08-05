@@ -20,6 +20,7 @@
 .pluto-input__drag-btn {
     cursor: move !important;
     background: none;
+    border-left: var(--pluto-border-l5);
 }
 
 .pluto-input__drag-btn.pluto--direction-x {

@@ -23,7 +23,7 @@ export interface ItemProps extends Flex.BoxProps {
   showLabel?: boolean;
   helpText?: string;
   padHelpText?: boolean;
-  helpTextVariant?: status.Variant;
+  status?: status.Variant;
   showHelpText?: boolean;
 }
 
@@ -48,21 +48,21 @@ export const Item = ({
   align,
   gap: size = "small",
   padHelpText = false,
-  helpTextVariant,
+  status,
   showHelpText = true,
   ...rest
 }: ItemProps): ReactElement => {
   const dir = Flex.parseDirection(direction, x, y, false);
   let inputAndHelp: ReactElement;
-  const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
-  const showLabel_ = showLabel && label != null && label.length > 0;
-  if (!showHelpText_ && !showLabel_) return <>{children}</>;
+  const actuallyShowHelpText = showHelpText && helpText != null && helpText.length > 0;
+  const actuallyShowLabel = showLabel && label != null && label.length > 0;
+  if (!actuallyShowHelpText && !actuallyShowLabel) return <>{children}</>;
   if (dir === "x")
     inputAndHelp = (
       <Flex.Box y gap="small">
         {children}
         {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
+          <HelpText variant={status}>{helpText}</HelpText>
         )}
       </Flex.Box>
     );
@@ -71,7 +71,7 @@ export const Item = ({
       <Flex.Box y gap={1 / 3}>
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
+          <HelpText variant={status}>{helpText}</HelpText>
         )}
       </Flex.Box>
     );
@@ -84,7 +84,7 @@ export const Item = ({
       align={maybeDefaultAlignment(align, dir)}
       {...rest}
     >
-      {showLabel_ && <Label required={required}>{label}</Label>}
+      {actuallyShowLabel && <Label required={required}>{label}</Label>}
       {inputAndHelp}
     </Flex.Box>
   );

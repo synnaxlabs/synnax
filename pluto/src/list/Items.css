@@ -14,9 +14,8 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-    .pluto-status__text {
-        height: 20rem;
-        padding: 0 1rem;
+    &.pluto-list__items--empty {
+        min-height: 20rem;
     }
 }
 

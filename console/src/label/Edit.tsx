@@ -79,7 +79,7 @@ const LabelListItem = ({
   });
   return (
     <List.Item
-      ref={ref as any}
+      ref={ref}
       highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),

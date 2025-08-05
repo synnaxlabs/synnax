@@ -30,9 +30,9 @@ export const StatusIndicator = ({
   }, [status]);
   return (
     <Tooltip.Dialog location={tooltipLocation}>
-      <Status.Text variant={variant} hideIcon level="small" weight={450}>
+      <Status.Summary variant={variant} hideIcon level="small" weight={450}>
         {status?.message}
-      </Status.Text>
+      </Status.Summary>
       <Icon.Heart
         ref={heartRef}
         className={CSS.BE("rack", "heartbeat")}

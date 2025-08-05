@@ -65,7 +65,6 @@ const Internal = <
     onError: (e) => handleError(e, `Failed to configure ${name}`),
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
-      console.log("mutate", methods.validate("name"));
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -194,20 +193,20 @@ export const Configure = <
   });
   if (isPending)
     return (
-      <Status.Text center level="h4" variant="loading">
+      <Status.Summary center level="h4" variant="loading">
         Fetching device from server
-      </Status.Text>
+      </Status.Summary>
     );
-  if (isError) {
-    const color = Status.VARIANT_COLORS.error;
+  if (isError)
     return (
-      <Flex.Box align="center" grow justify="center">
-        <Text.Text color={color} level="h2">
-          Failed to load data for device with key {layoutKey}
-        </Text.Text>
-        <Text.Text color={color}>{error.message}</Text.Text>
-      </Flex.Box>
+      <Status.Summary
+        center
+        level="h4"
+        variant="error"
+        message={`Failed to load data for device with key ${layoutKey}`}
+        description={error.message}
+      />
     );
-  }
+
   return <Internal device={data} {...rest} />;
 };

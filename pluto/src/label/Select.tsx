@@ -66,6 +66,10 @@ const labelRenderTag = Component.renderProp(
   },
 );
 
+const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
+  variant: "text",
+};
+
 export const SelectMultiple = ({
   onChange,
   value,
@@ -94,7 +98,7 @@ export const SelectMultiple = ({
       status={status}
       renderTag={labelRenderTag}
       icon={<Icon.Label />}
-      triggerProps={{ variant: "text" }}
+      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
       variant="floating"
       {...rest}
     >

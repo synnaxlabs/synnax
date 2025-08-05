@@ -47,6 +47,8 @@ export const selectorListItem = Component.renderProp(
   },
 );
 
+const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
+
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -100,11 +102,7 @@ export const Selector = (): ReactElement => {
           <Icon.Workspace key="workspace" />
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
-        <Dialog.Dialog
-          style={{ minHeight: 200, minWidth: 400 }}
-          bordered={client == null}
-          borderColor={6}
-        >
+        <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Cluster.NoneConnectedBoundary>
             <Flex.Box pack rounded>
               <Input.Text

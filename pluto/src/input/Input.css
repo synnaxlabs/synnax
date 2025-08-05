@@ -9,29 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
-/* .pluto--warning {
-    border-color: var(--pluto-warning-z-65) !important;
-}
-
-.pluto--error {
-    border-color: var(--pluto-error-z-65) !important;
-} */
-
 .pluto-input {
     position: relative;
     display: inline-flex;
     align-items: center;
     max-height: fit-content;
-    padding: 0 !important;
     flex-grow: 1;
 
-    &:focus-within {
-        &:not(.pluto-btn--text):not(.pluto--preview) {
-            border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
-            box-shadow: inset 0 0 0 0.5px
-                rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
-            background-color: var(--pluto-bg) !important;
-        }
+    /* Increased the specificity of the button class to override the padding. */
+    &.pluto-btn {
+        padding: 0;
+    }
+
+    &:focus-within:not(.pluto-btn--text):not(.pluto--status-warning):not(
+            .pluto--status-error
+        ) {
+        --pluto-border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
+        box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
     }
 
     & input {

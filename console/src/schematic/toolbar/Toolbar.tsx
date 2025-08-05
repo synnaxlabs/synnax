@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -47,10 +47,10 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
     <Flex.Box x gap="small">
-      <Status.Text variant="disabled" hideIcon>
+      <Text.Text status="disabled">
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
-      </Status.Text>
+      </Text.Text>
       {isEditable && (
         <Text.Text
           onClick={(e) => {

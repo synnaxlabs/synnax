@@ -212,6 +212,9 @@ export const ButtonShowcase = () => (
             <Button.Button href="https://www.google.com" variant="text">
               Link to Google
             </Button.Button>
+            <Button.Button href="https://www.google.com" variant="filled">
+              Link to Google
+            </Button.Button>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>

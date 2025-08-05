@@ -45,19 +45,19 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
     details: { running },
   } = status ?? {};
   const content = isSnapshot ? (
-    <Status.Text center hideIcon variant="disabled">
+    <Status.Summary center hideIcon variant="disabled">
       This task is a snapshot and cannot be modified or started.
-    </Status.Text>
+    </Status.Summary>
   ) : message != null ? (
-    <Status.Text variant={variant}>{message}</Status.Text>
+    <Status.Summary variant={variant}>{message}</Status.Summary>
   ) : isConfiguring ? (
-    <Status.Text center variant="loading">
+    <Status.Summary center variant="loading">
       Configuring...
-    </Status.Text>
+    </Status.Summary>
   ) : !hasBeenConfigured ? (
-    <Status.Text center hideIcon variant="disabled">
+    <Status.Summary center hideIcon variant="disabled">
       Task must be configured to start.
-    </Status.Text>
+    </Status.Summary>
   ) : null;
   const isLoading = variant === "loading";
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;

@@ -58,6 +58,7 @@ export const Select = ({
           value={value}
           onChange={onChange}
           initialParams={{ makes: [make] }}
+          filter={(p) => p.make === make}
           emptyContent={emptyContent}
           grow
           icon={icon}

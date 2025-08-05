@@ -167,25 +167,25 @@ describe("Button", () => {
   describe("status", () => {
     it("should not add a status class to the button when the status is not provided", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("pluto--success");
-      expect(c.getByText("Hello").className).not.toContain("pluto--error");
-      expect(c.getByText("Hello").className).not.toContain("pluto--warning");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-success");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-error");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-warning");
     });
     it("should add the status class to the button when the status is success", () => {
       const c = render(<Button.Button status="success">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--success");
+      expect(c.getByText("Hello").className).toContain("pluto--status-success");
     });
     it("should add the status class to the button when the status is error", () => {
       const c = render(<Button.Button status="error">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--error");
+      expect(c.getByText("Hello").className).toContain("pluto--status-error");
     });
     it("should add the status class to the button when the status is warning", () => {
       const c = render(<Button.Button status="warning">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--warning");
+      expect(c.getByText("Hello").className).toContain("pluto--status-warning");
     });
     it("should add the status class to the button when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--loading");
+      expect(c.getByText("Hello").className).toContain("pluto--status-loading");
     });
   });
 

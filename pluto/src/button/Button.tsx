@@ -9,7 +9,7 @@
 
 import "@/button/Button.css";
 
-import { color, record, type status } from "@synnaxlabs/x";
+import { color, record } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -38,7 +38,6 @@ export interface ExtensionProps
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
-  status?: status.Variant;
   textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
   contrast?: Text.Shade | false;
@@ -114,6 +113,8 @@ const Core = <E extends ElementType = "button">({
   if (variant == "shadow") variant = "text";
   else if (variant === "preview") preventClick = true;
 
+  if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
+
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (isDisabled || variant === "preview" || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
@@ -187,7 +188,6 @@ const Core = <E extends ElementType = "button">({
         contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
-        status != null && CSS.M(status),
         CSS.BM(MODULE_CLASS, variant),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         className,
@@ -205,6 +205,7 @@ const Core = <E extends ElementType = "button">({
       variant={textVariant}
       square={square}
       overflow="nowrap"
+      status={status}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

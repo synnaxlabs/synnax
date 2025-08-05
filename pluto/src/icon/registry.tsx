@@ -221,7 +221,7 @@ const NI: SVGFC = (props) => (
   </svg>
 );
 
-const OPC: SVGFC = ({ className, style, ...rest }) => (
+const OPC: SVGFC = ({ className, ...rest }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     version="1.1"
@@ -230,11 +230,6 @@ const OPC: SVGFC = ({ className, style, ...rest }) => (
     stroke="currentColor"
     fill="currentColor"
     viewBox="0 0 512 325.74567"
-    style={{
-      // Runs a little small
-      transform: "scale(1.25)",
-      ...style,
-    }}
   >
     <g transform="translate(-151.28831,-121.30134)" id="layer1">
       <g transform="matrix(2.7387317,0,0,2.7387317,-938.60269,-766.86241)" id="g3606">

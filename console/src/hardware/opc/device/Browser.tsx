@@ -168,9 +168,12 @@ export const Browser = ({ device }: BrowserProps) => {
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Flex.Box>
   ) : expand.isError ? (
-    <Status.Text center color={10} variant="error">
-      Error loading nodes. {expand.error.message}
-    </Status.Text>
+    <Status.Summary
+      center
+      variant="error"
+      message="Error loading nodes."
+      description={expand.error.message}
+    />
   ) : (
     <Tree.Tree
       {...treeProps}

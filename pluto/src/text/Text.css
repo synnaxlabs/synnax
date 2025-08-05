@@ -28,6 +28,19 @@ a.pluto-text {
         font-family: var(--pluto-code-font-family);
     }
 
+    &.pluto--status-error {
+        color: var(--pluto-error-z);
+    }
+    &.pluto--status-warning {
+        color: var(--pluto-warning-z);
+    }
+    &.pluto--status-success {
+        color: var(--pluto-primary-z);
+    }
+    &.pluto--status-disabled {
+        color: var(--pluto-gray-l8);
+    }
+
     &.pluto-text--keyboard {
         line-height: 1;
         aspect-ratio: 1;

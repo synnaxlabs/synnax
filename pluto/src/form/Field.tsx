@@ -68,7 +68,7 @@ export const Field = <I = string | number, O = I>({
     <Input.Item
       padHelpText={padHelpText}
       helpText={helpText}
-      helpTextVariant={field.status.variant}
+      status={field.status.variant}
       label={label}
       required={field.required}
       className={CSS(

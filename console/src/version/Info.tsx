@@ -67,23 +67,23 @@ export const Info: Layout.Renderer = () => {
   });
 
   let updateContent = (
-    <Status.Text level="h4" weight={350} variant="loading" gap="medium">
+    <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
-    </Status.Text>
+    </Status.Summary>
   );
   if (updateMutation.isPending)
     if (progressPercent === 100)
       updateContent = (
-        <Status.Text level="h4" variant="loading" gap="medium">
+        <Status.Summary level="h4" variant="loading" gap="medium">
           Update downloaded. Restarting
-        </Status.Text>
+        </Status.Summary>
       );
     else
       updateContent = (
         <Flex.Box y gap="medium">
-          <Status.Text variant="loading" level="h4" gap="medium">
+          <Status.Summary variant="loading" level="h4" gap="medium">
             Downloading update
-          </Status.Text>
+          </Status.Summary>
           <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
             <Text.Text color={10} overflow="ellipsis">
@@ -98,9 +98,9 @@ export const Info: Layout.Renderer = () => {
       const version = updateQuery.data.version;
       updateContent = (
         <>
-          <Status.Text level="h4" variant="success">
+          <Status.Summary level="h4" variant="success">
             Version {version} available
-          </Status.Text>
+          </Status.Summary>
           <Button.Button
             variant="filled"
             disabled={updateMutation.isPending}
@@ -112,21 +112,21 @@ export const Info: Layout.Renderer = () => {
       );
     } else
       updateContent = (
-        <Status.Text level="h4" variant="success">
+        <Status.Summary level="h4" variant="success">
           Up to date
-        </Status.Text>
+        </Status.Summary>
       );
   else if (updateQuery.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Summary level="h4" variant="error">
         Error checking for update: {updateQuery.error.message}
-      </Status.Text>
+      </Status.Summary>
     );
   else if (updateMutation.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Summary level="h4" variant="error">
         Error updating: {updateMutation.error.message}
-      </Status.Text>
+      </Status.Summary>
     );
 
   return (

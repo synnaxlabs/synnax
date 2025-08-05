@@ -19,9 +19,9 @@ export const StatusIndicator = ({
   const message = status?.message ?? "Device Status Unknown";
   return (
     <Tooltip.Dialog location={tooltipLocation}>
-      <Status.Text variant={variant} hideIcon level="small" weight={450}>
+      <Status.Summary variant={variant} hideIcon level="small" weight={450}>
         {message}
-      </Status.Text>
+      </Status.Summary>
       <Status.Indicator
         variant={variant}
         className={CSS.BE("device", "status-indicator")}

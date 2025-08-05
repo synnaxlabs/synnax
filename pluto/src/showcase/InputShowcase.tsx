@@ -336,14 +336,14 @@ export const InputShowcase = () => (
       description="Input components wrapped in Item containers with labels and help text in different states"
     >
       <Flex.Box x gap="large">
-        <Input.Item label="Catalyst" helpText="Catalyst">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="error">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="error" />
         </Input.Item>
-        <Input.Item label="Catalyst" helpText="Catalyst" helpTextVariant="warning">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="warning">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="warning" />
         </Input.Item>
-        <Input.Item label="Catalyst" helpText="Catalyst" helpTextVariant="success">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="success">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="success" />
         </Input.Item>
       </Flex.Box>
     </SubcategorySection>

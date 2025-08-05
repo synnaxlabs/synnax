@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Flex, Text } from "@synnaxlabs/pluto";
 
 export interface EmptyActionProps
@@ -17,7 +26,7 @@ export const EmptyAction = ({
   ...rest
 }: EmptyActionProps) => (
   <Flex.Box center {...rest}>
-    <Text.Text y={y} x={x} center color={9} direction={direction} gap="tiny">
+    <Text.Text y={y} x={x} center status="disabled" direction={direction} gap="tiny">
       {message}
       <Text.Text onClick={onClick} variant="link">
         {action}

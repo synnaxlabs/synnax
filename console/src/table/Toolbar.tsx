@@ -13,9 +13,9 @@ import {
   Flex,
   Form,
   Icon,
-  Status,
   Table,
   TableCells,
+  Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
@@ -39,6 +39,8 @@ import { useSyncComponent } from "@/table/Table";
 export interface ToolbarProps {
   layoutKey: string;
 }
+
+const TOOLBAR_BUTTONS_STYLE = { width: 66 };
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -90,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             />
           )}
         </Flex.Box>
-        <Flex.Box x style={{ width: 66 }} empty>
+        <Flex.Box x style={TOOLBAR_BUTTONS_STYLE} empty>
           <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
@@ -144,9 +146,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 const EmptyContent = () => (
-  <Flex.Box x gap="small" full>
-    <Status.Text variant="disabled" hideIcon>
-      No cell selected. Select a cell to view its properties.
-    </Status.Text>
-  </Flex.Box>
+  <Text.Text status="disabled">
+    No cell selected. Select a cell to view its properties.
+  </Text.Text>
 );

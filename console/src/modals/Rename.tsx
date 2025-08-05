@@ -63,7 +63,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           label={label}
           required={!allowEmpty}
           helpText={error}
-          helpTextVariant={error != null ? "error" : "success"}
+          status={error != null ? "error" : "success"}
           padHelpText
         >
           <Input.Text

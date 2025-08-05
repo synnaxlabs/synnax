@@ -327,7 +327,7 @@ const Name = ({
       id={CSS.B(`tab-${tabKey}`)}
       onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
-      overflow="nowrap"
+      overflow="ellipsis"
     />
   );
 };

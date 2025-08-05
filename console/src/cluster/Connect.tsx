@@ -134,11 +134,13 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       <Modals.BottomNavBar>
         <Nav.Bar.Start gap="small">
           {connState != null ? (
-            <Status.Text variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}>
+            <Status.Summary
+              variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}
+            >
               {connState.status === "connected"
                 ? caseconv.capitalize(connState.status)
                 : connState.message}
-            </Status.Text>
+            </Status.Summary>
           ) : (
             <Triggers.SaveHelpText action="Connect" noBar />
           )}
