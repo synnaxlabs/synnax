@@ -2012,7 +2012,7 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        outlineColor={color}
+        color={color}
         borderWidth={1}
         disabled={disabled}
       >

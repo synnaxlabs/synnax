@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { color, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
@@ -25,7 +25,6 @@ export interface TextProps
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: status.Variant;
-  outlineColor?: color.Crude;
   variant?: Variant;
   placeholder?: ReactNode;
   children?: ReactNode;
@@ -67,7 +66,6 @@ export const Text = ({
   status,
   weight,
   style,
-  outlineColor,
   contrast,
   color: pColor,
   sharp,
@@ -127,15 +125,6 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
-  const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
-
-  if (hasCustomColor)
-    style = {
-      ...style,
-      [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
-    };
-
   const showPlaceholder =
     (value == null || value.length === 0) &&
     tempValue == null &&
@@ -151,7 +140,6 @@ export const Text = ({
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
-        hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,
       )}

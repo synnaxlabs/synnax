@@ -96,52 +96,6 @@ export const TimeRangeChip = ({
     );
   }
 
-<<<<<<< Updated upstream
-  const levelVar = CSS.levelSizeVar(level);
-=======
-  let arrow: ReactElement | null = (
-    <Icon.Arrow.Right
-      color={9}
-      style={{
-        width: "1em",
-        height: "1em",
-      }}
-    />
-  );
-
-  if (collapseZero && isZero) {
-    endTime = null;
-    arrow = null;
-  }
-
-  let offset: ReactElement | null = null;
-  if (offsetFrom != null) {
-    let offsetSpan = offsetFrom.span(startTS);
-    let character = "+";
-    if (offsetSpan.lessThan(0)) {
-      character = "-";
-      offsetSpan = offsetSpan.mult(-1);
-    }
-    offset = (
-      <Text.Text level={level} color={color} weight={450}>
-        T{character} {offsetSpan.truncate(TimeSpan.MILLISECOND).toString()}
-      </Text.Text>
-    );
-  }
-
-  let ago: ReactElement | null = null;
-  if (showAgo) {
-    let agoSpan = startTS.span(TimeStamp.now());
-    if (agoSpan.lessThan(0)) agoSpan = agoSpan.mult(-1);
-
-    ago = (
-      <Text.Text level={level} color={color} weight={450}>
-        {agoSpan.truncate(TimeSpan.MINUTE).toString()} ago
-      </Text.Text>
-    );
-  }
->>>>>>> Stashed changes
-
   return (
     <Flex.Box
       x
@@ -151,13 +105,7 @@ export const TimeRangeChip = ({
       {...rest}
     >
       {startTime}
-      <Icon.Arrow.Right
-        color="var(--pluto-gray-l9)"
-        style={{
-          width: levelVar,
-          height: levelVar,
-        }}
-      />
+      <Icon.Arrow.Right color={9} style={{ width: "1rem", height: "1rem" }} />
       {endTime}
     </Flex.Box>
   );

@@ -284,6 +284,16 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
+      title="Custom Colors"
+      description="Inputs with custom colors and different background contrast levels"
+    >
+      <Flex.Box x gap="large">
+        <InputShowcaseText placeholder="Catalyst" color={"#00FF00"} />
+        <InputShowcaseNumeric placeholder="Catalyst" color={"#00FF00"} />
+      </Flex.Box>
+    </SubcategorySection>
+
+    <SubcategorySection
       title="Form Items with Labels & Help Text"
       description="Input components wrapped in Item containers with labels and help text in different states"
     >
