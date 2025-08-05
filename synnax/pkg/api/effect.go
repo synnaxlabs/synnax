@@ -66,7 +66,7 @@ func (s *EffectService) CreateEffect(ctx context.Context, req EffectCreateReques
 
 type (
 	EffectDeleteRequest struct {
-		Effects []effect.Effect `json:"effects" msgpack:"effects"`
+		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 )
 
@@ -74,14 +74,14 @@ func (s *EffectService) DeleteEffect(ctx context.Context, req EffectDeleteReques
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Objects: effect.OntologyIDsFromEffects(req.Effects),
+		Objects: effect.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for _, e := range req.Effects {
-			if err := w.Delete(ctx, e.Key); err != nil {
+		for _, k := range req.Keys {
+			if err = w.Delete(ctx, k); err != nil {
 				return err
 			}
 		}

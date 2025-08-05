@@ -185,3 +185,12 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema>({
     },
   ],
 });
+
+export interface UpdateParams {}
+
+export const useDelete = Flux.createUpdate<UpdateParams, effect.Key | effect.Key[]>({
+  name: "Effect",
+  update: async ({ client, value }) => {
+    await client.effects.delete(value);
+  },
+});

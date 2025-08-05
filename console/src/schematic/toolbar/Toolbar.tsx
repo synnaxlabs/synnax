@@ -46,13 +46,14 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Flex.Box x gap="small">
+    <Flex.Box x gap="small" center>
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
       </Status.Text>
       {isEditable && (
         <Text.Text
+          variant="link"
           onClick={(e) => {
             e.stopPropagation();
             dispatch(setEditable({ key: layoutKey, editable: true }));

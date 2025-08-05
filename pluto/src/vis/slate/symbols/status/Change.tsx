@@ -28,11 +28,9 @@ export const Symbol = ({ message, variant }: SymbolProps) => (
     textColor={color.cssString(RED_HEX)}
     sinks={[{ key: "value", Icon: Icon.Number }]}
   >
-    <Flex.Box x align="center" justify="center" gap="tiny">
+    <Text.Text level="p" weight={500} color={11}>
       <Status.Indicator variant={variant} size="2.5em" />
-      <Text.Text level="p" weight={500} color={11}>
-        {message}
-      </Text.Text>
-    </Flex.Box>
+      {message}
+    </Text.Text>
   </Base>
 );

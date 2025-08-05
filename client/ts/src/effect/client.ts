@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Effect, effectZ, keyZ, type New, newZ } from "@/effect/payload";
+import { type Effect, effectZ, type Key, keyZ, type New, newZ } from "@/effect/payload";
 import { type framer } from "@/framer";
 import { slate } from "@/slate";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -28,7 +28,7 @@ const VALIDATE_ENDPOINT = "/effect/validate";
 
 const createReqZ = z.object({ effects: z.array(newZ) });
 const createResZ = z.object({ effects: z.array(effectZ) });
-const deleteReqZ = z.object({ effects: z.array(effectZ) });
+const deleteReqZ = z.object({ keys: z.array(keyZ) });
 const retrieveReqZ = z.object({
   keys: z.array(keyZ).optional(),
   term: z.string().optional(),
@@ -85,13 +85,11 @@ export class Client {
     return isMany ? res.effects : res.effects[0];
   }
 
-  async delete(effect: Effect): Promise<void>;
-  async delete(effects: Effect[]): Promise<void>;
-  async delete(effects: Effect | Effect[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
-      { effects: array.toArray(effects) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );

@@ -2,7 +2,6 @@ import { Icon } from "@/icon";
 import { Constant } from "@/vis/slate/symbols/constant";
 import { Operator } from "@/vis/slate/symbols/operator";
 import { Range } from "@/vis/slate/symbols/range";
-import { Script } from "@/vis/slate/symbols/script";
 import { Select } from "@/vis/slate/symbols/select";
 import { Sink } from "@/vis/slate/symbols/sink";
 import { Source } from "@/vis/slate/symbols/source";
@@ -21,7 +20,6 @@ export const SYMBOLS: Record<string, Spec<any>> = {
   ...StableFor.SYMBOLS,
   ...Time.SYMBOLS,
   ...Range.SYMBOLS,
-  ...Script.SYMBOLS,
 };
 
 export interface Group {

@@ -86,7 +86,6 @@ export const Item = ({
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
-            size="medium"
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>

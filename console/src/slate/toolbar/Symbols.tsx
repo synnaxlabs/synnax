@@ -12,6 +12,7 @@ import "@/slate/toolbar/Symbols.css";
 import {
   Component,
   CSS as PCSS,
+  Divider,
   Flex,
   Haul,
   List,
@@ -148,7 +149,9 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
     <List.Item
       {...props}
       {...selectProps}
-      style={{ minHeight: "5rem", padding: "0 2rem" }}
+      level="p"
+      textColor={10}
+      style={{ minHeight: "4.5rem", padding: "0 2rem" }}
     >
       {group.icon}
       {group.name}
@@ -159,17 +162,15 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   return (
-    <Flex.Box x empty>
+    <Flex.Box x empty full>
       <Select.Frame<string, Slate.Group>
         data={GROUP_LIST_DATA}
         value={selectedGroup}
         onChange={setSelectedGroup}
-        virtual={false}
       >
-        <List.Items<string, Slate.Group> style={{ borderRight: "var(--pluto-border)" }}>
-          {groupListItem}
-        </List.Items>
+        <List.Items<string, Slate.Group>>{groupListItem}</List.Items>
       </Select.Frame>
+      <Divider.Divider y />
       <Group group={selectedGroup} layoutKey={layoutKey} />
     </Flex.Box>
   );

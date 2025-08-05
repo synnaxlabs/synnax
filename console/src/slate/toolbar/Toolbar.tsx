@@ -41,7 +41,7 @@ const NotEditableContent = ({
   const hasEditingPermissions = useSelectHasPermission();
   const isEditable = hasEditingPermissions;
   return (
-    <Flex.Box x gap="small">
+    <Flex.Box x gap="small" center>
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
@@ -55,7 +55,9 @@ const NotEditableContent = ({
           variant="link"
           level="p"
           weight={500}
-        />
+        >
+          enable editing.
+        </Text.Text>
       )}
     </Flex.Box>
   );

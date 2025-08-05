@@ -31,6 +31,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   const { itemKey } = props;
   const id = ontology.idZ.parse(itemKey);
   const item = List.useItem<string, ontology.Resource>(itemKey);
+  console.log(id.type);
   const { icon, onSelect, PaletteListItem } = Ontology.useService(id.type);
   if (item == null) return null;
   const { name } = item;

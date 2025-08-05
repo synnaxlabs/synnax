@@ -109,7 +109,7 @@ const createHandles = (
                 position: "relative",
               }}
             >
-              <Icon size="2.5em" />
+              <Icon style={{ width: "2.5rem", height: "2.5rem" }} />
               <HandleC
                 key={input.key}
                 id={input.key}

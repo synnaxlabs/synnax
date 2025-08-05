@@ -5,6 +5,7 @@ import {
   Form,
   Input,
   List,
+  Menu,
   Select,
   Status,
   stopPropagation,
@@ -13,6 +14,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
+import { ContextMenu } from "@/effect/list/ContextMenu";
+
 export interface ItemProps extends List.ItemProps<effect.Key> {
   showLabels?: boolean;
   showStatus?: boolean;
@@ -20,6 +23,8 @@ export interface ItemProps extends List.ItemProps<effect.Key> {
 
 export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemProps) => {
   const { itemKey } = props;
+  const { getItem } = List.useUtilContext<effect.Key, effect.Effect>();
+  if (getItem == null) throw new Error("getItem is null");
   const effect = List.useItem<effect.Key, effect.Effect>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
@@ -42,6 +47,8 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
     autoSave: true,
   });
   const { name, labels, status } = effect;
+  
+  const menuProps = Menu.useContextMenu();
 
   return (
     <List.Item
@@ -50,11 +57,17 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}
+      onContextMenu={menuProps.open}
       justify="between"
       align="center"
       allowSelect
     >
       <Form.Form<typeof Effect.formSchema> {...form}>
+        <Menu.ContextMenu
+          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
+          onClick={stopPropagation}
+          {...menuProps}
+        />
         <Flex.Box x align="center">
           <Input.Checkbox
             value={selected}
@@ -64,7 +77,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
           <Text.Text level="p">{name}</Text.Text>
         </Flex.Box>
         <Flex.Box x align="center">
-          <Tag.Tags>
+          <Tag.Tags variant="text">
             {showLabels &&
               labels?.map((l) => (
                 <Tag.Tag key={l.key} color={l.color} size="small">
@@ -72,7 +85,13 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
                 </Tag.Tag>
               ))}
           </Tag.Tags>
-          {showStatus && status != null && <Status.Text {...status} key={status.key} />}
+          {showStatus && status != null && (
+            <Status.Text
+              variant={status.variant}
+              key={status.key}
+              message={status.message}
+            />
+          )}
         </Flex.Box>
       </Form.Form>
     </List.Item>

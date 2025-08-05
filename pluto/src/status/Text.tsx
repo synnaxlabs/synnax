@@ -31,11 +31,13 @@ export const Text = ({
   className,
   children,
   color,
+  message,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const hasDescription = description != null;
+  children ??= message;
   const baseText = (
     <BaseText.Text
       color={color ?? VARIANT_COLORS[variant]}
