@@ -16,11 +16,14 @@ import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
+export type HighlightVariant = "last" | "first" | "all";
+
 export type BreadcrumbProps<E extends Generic.ElementType = "p"> = Omit<
   Text.TextProps<E>,
   "children"
 > & {
   children: ReactNode;
+  highlightVariant?: HighlightVariant;
 };
 
 const Separator = () => (
@@ -38,18 +41,16 @@ export const Segment = <E extends Generic.ElementType = "span">({
   </Text.Text>
 );
 
-/**
- * Breadcrumb component for displaying a breadcrumb navigation.
- *
- * @template E - The type of the space element.
- * @template L - The text level.
- *
- * @param props - The props for the Breadcrumb component.
- * @returns The Breadcrumb component.
- */
-export const Breadcrumb = ({ children, ...rest }: BreadcrumbProps): ReactElement => (
+export const Breadcrumb = ({
+  children,
+  highlightVariant,
+  ...rest
+}: BreadcrumbProps): ReactElement => (
   <Text.Text
-    className={CSS(CSS.B("breadcrumb"))}
+    className={CSS(
+      CSS.B("breadcrumb"),
+      highlightVariant != null && CSS.BM("breadcrumb", "highlight", highlightVariant),
+    )}
     x
     align="center"
     gap="small"

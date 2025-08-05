@@ -37,16 +37,60 @@ export const BreadcrumbShowcase = () => {
       >
         <Flex.Box y gap="medium">
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>H4 Level</Text.Text>
+            <Text.Text level="small" weight={500}>
+              H4 Level
+            </Text.Text>
             <Breadcrumb.Breadcrumb level="h4">{segments}</Breadcrumb.Breadcrumb>
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>H5 Level</Text.Text>
+            <Text.Text level="small" weight={500}>
+              H5 Level
+            </Text.Text>
             <Breadcrumb.Breadcrumb level="h5">{segments}</Breadcrumb.Breadcrumb>
           </Flex.Box>
           <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>Default Level</Text.Text>
+            <Text.Text level="small" weight={500}>
+              Default Level
+            </Text.Text>
             <Breadcrumb.Breadcrumb>{segments}</Breadcrumb.Breadcrumb>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
+
+      <SubcategorySection
+        title="Highlight Modes"
+        description="Different highlighting styles to emphasize specific breadcrumb segments"
+      >
+        <Flex.Box y gap="medium">
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Default (No Highlight)
+            </Text.Text>
+            <Breadcrumb.Breadcrumb color={9}>{segments}</Breadcrumb.Breadcrumb>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Highlight Last
+            </Text.Text>
+            <Breadcrumb.Breadcrumb highlightVariant="last">
+              {segments}
+            </Breadcrumb.Breadcrumb>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Highlight First
+            </Text.Text>
+            <Breadcrumb.Breadcrumb highlightVariant="first">
+              {segments}
+            </Breadcrumb.Breadcrumb>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Highlight All
+            </Text.Text>
+            <Breadcrumb.Breadcrumb highlightVariant="all">
+              {segments}
+            </Breadcrumb.Breadcrumb>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -56,7 +100,9 @@ export const BreadcrumbShowcase = () => {
         description="Automatically generated breadcrumbs from URL paths using mapURLSegments utility"
       >
         <Flex.Box y gap="small">
-          <Text.Text level="small" weight={500}>Auto-generated from URL</Text.Text>
+          <Text.Text level="small" weight={500}>
+            Auto-generated from URL
+          </Text.Text>
           <Breadcrumb.Breadcrumb>
             {Breadcrumb.mapURLSegments(URL, ({ href, segment }) => (
               <Breadcrumb.Segment key={segment} href={href}>

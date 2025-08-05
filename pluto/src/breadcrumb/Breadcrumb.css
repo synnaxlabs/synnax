@@ -16,15 +16,28 @@
         font-size: inherit;
         line-height: inherit;
     }
-    & > :not(:last-child) {
-        color: var(--pluto-gray-l8);
-        font-weight: 350;
+    &.pluto-breadcrumb--highlight-last {
+        & > :not(:last-child) {
+            color: var(--pluto-gray-l8);
+            font-weight: 350;
+        }
+        & > :last-child {
+            cursor: text;
+            color: var(--pluto-gray-l11);
+            pointer-events: none;
+        }
     }
-    & > :last-child {
-        cursor: text;
-        color: var(--pluto-gray-l11);
-        pointer-events: none;
+
+    &.pluto-breadcrumb--highlight-first {
+        & > :first-child {
+            color: var(--pluto-gray-l11);
+        }
+        & > :not(:first-child) {
+            color: var(--pluto-gray-l8);
+            font-weight: 350;
+        }
     }
+
     & .pluto-breadcrumb__separator {
         color: var(--pluto-gray-l8);
         transform: scale(0.9);
