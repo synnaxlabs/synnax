@@ -215,7 +215,10 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should not send a value to the channel if the context is cancelled", func() {
-			ctx, cancel := signal.WithTimeout(context.Background(), 500*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(
+				context.Background(),
+				500*time.Microsecond,
+			)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()

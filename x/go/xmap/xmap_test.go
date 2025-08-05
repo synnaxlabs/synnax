@@ -98,4 +98,19 @@ var _ = Describe("XMap", func() {
 			Expect(values).To(ConsistOf(1, 1))
 		})
 	})
+	Describe("Copy", func() {
+		It("should return a copy of the map", func() {
+			m["foo"] = 1
+			m["bar"] = 2
+			copy := m.Copy()
+			Expect(copy).To(Equal(m))
+		})
+		It("should not modify the original map when the copy is modified", func() {
+			m["foo"] = 1
+			m["bar"] = 2
+			copy := m.Copy()
+			copy["foo"] = 3
+			Expect(m["foo"]).To(Equal(1))
+		})
+	})
 })

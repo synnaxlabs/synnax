@@ -16,16 +16,14 @@ import (
 	"github.com/synnaxlabs/x/xmap"
 )
 
-var defaultCodecs = xmap.Map[string, func() binary.Codec]{
-	MIMEApplicationJSON:    func() binary.Codec { return binary.JSONCodec },
-	MIMEApplicationMsgPack: func() binary.Codec { return binary.MsgPackCodec },
-}
-
-var DefaultContentTypes = defaultCodecs.Keys()
-
-var defaultEncoders = xmap.Map[string, func() binary.Encoder]{}
-
-var defaultDecoders = xmap.Map[string, func() binary.Decoder]{}
+var (
+	defaultEncoders = xmap.Map[string, func() binary.Encoder]{}
+	defaultDecoders = xmap.Map[string, func() binary.Decoder]{}
+	defaultCodecs   = xmap.Map[string, func() binary.Codec]{
+		MIMEApplicationJSON:    func() binary.Codec { return binary.JSONCodec },
+		MIMEApplicationMsgPack: func() binary.Codec { return binary.MsgPackCodec },
+	}
+)
 
 type serverOptions struct {
 	reqDecoders xmap.Map[string, func() binary.Decoder]
@@ -48,7 +46,10 @@ func WithAdditionalCodecs(codecs map[string]func() binary.Codec) ServerOption {
 }
 
 func newServerOptions(opts []ServerOption) serverOptions {
-	so := serverOptions{reqDecoders: defaultDecoders, resEncoders: defaultEncoders}
+	so := serverOptions{
+		reqDecoders: defaultDecoders.Copy(),
+		resEncoders: defaultEncoders.Copy(),
+	}
 	for _, opt := range opts {
 		opt(&so)
 	}

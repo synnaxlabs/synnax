@@ -10,6 +10,8 @@
 // Package xmap provides additional functionality for the built-in map type.
 package xmap
 
+import "maps"
+
 // Map is an alias for the built-in map type that provides additional functionality.
 type Map[K comparable, V any] map[K]V
 
@@ -58,4 +60,11 @@ func (m Map[K, V]) Values() []V {
 		values = append(values, v)
 	}
 	return values
+}
+
+// Copy returns a copy of the map.
+func (m Map[K, V]) Copy() Map[K, V] {
+	copy := make(Map[K, V], len(m))
+	maps.Copy(copy, m)
+	return copy
 }

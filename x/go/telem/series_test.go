@@ -480,7 +480,6 @@ var _ = Describe("Series", func() {
 			Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 			Entry("uuid", telem.NewSeriesUUIDsV(u1, u2, u3), fmt.Sprintf("[%s %s %s]", u1, u2, u3)),
 		)
-
 		Describe("AsCSVStrings", func() {
 			It("Should return the data as a string slice for a string series", func() {
 				s := telem.NewSeriesStringsV("a", "b", "c")
