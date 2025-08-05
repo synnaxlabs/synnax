@@ -6,7 +6,7 @@ export interface BreadcrumbProps {
 }
 
 export const Breadcrumb = ({ url }: BreadcrumbProps) => (
-  <B.Breadcrumb>
+  <B.Breadcrumb level="small">
     {B.mapURLSegments(url.slice(1), ({ segment, href, index }) => (
       <B.Segment href={`/${href}`} key={index}>
         {segment.split("-").map(caseconv.capitalize).join(" ")}

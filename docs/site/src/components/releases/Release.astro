@@ -5,7 +5,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
 ---
 
 <Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
-    <Flex.Box direction="y" className="meta" align="start" size="large">
+    <Flex.Box direction="y" className="meta" align="start" gap="large">
         <Flex.Box direction="y" empty>
             <Text.Text level="h3" weight={500}>Version {firstPart}</Text.Text>
             <Text.Text color={8}>{date}</Text.Text>
@@ -21,7 +21,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
                 )
             }
         </Flex.Box>
-        <Flex.Box direction="x" align="center" size="large">
+        <Flex.Box direction="x" align="center" gap="large">
             <Text.Text
                 href={`https://github.com/synnaxlabs/synnax/tree/synnax-v${version}`}
             >
