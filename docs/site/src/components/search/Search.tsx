@@ -15,11 +15,11 @@ import {
   Icon,
   Select,
   Status,
+  Triggers,
 } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import z from "zod";
@@ -39,44 +39,31 @@ const ALGOLIA_HEADERS = {
   "X-Algolia-Application-Id": ALGOLIA_APP_ID,
 };
 
-export const Search = (): ReactElement => {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") close();
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        open();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-  return (
-    <Triggers.Provider>
-      <Dialog.Frame variant="modal" className="search-box">
-        <Dialog.Trigger
-          variant="outlined"
-          justify="center"
-          size="large"
-          textColor={8}
-          trigger={["Control", "K"]}
-          triggerIndicator
-        >
-          <Icon.Search />
-          Search
-        </Dialog.Trigger>
-        <Dialog.Dialog
-          bordered={false}
-          pack
-          rounded={1}
-          className="search-results__content"
-        >
-          <SearchDialogContent />
-        </Dialog.Dialog>
-      </Dialog.Frame>
-    </Triggers.Provider>
-  );
-};
+export const Search = (): ReactElement => (
+  <Triggers.Provider>
+    <Dialog.Frame variant="modal" className="search-box">
+      <Dialog.Trigger
+        variant="outlined"
+        justify="center"
+        size="large"
+        textColor={8}
+        trigger={["Control", "K"]}
+        triggerIndicator
+      >
+        <Icon.Search />
+        Search
+      </Dialog.Trigger>
+      <Dialog.Dialog
+        bordered={false}
+        pack
+        rounded={1}
+        className="search-results__content"
+      >
+        <SearchDialogContent />
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  </Triggers.Provider>
+);
 
 const ICONS: Record<string, Icon.ReactElement> = {
   "python-client": <Icon.Python />,
@@ -122,11 +109,13 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       {...props}
     >
       <Flex.Box direction="y" empty>
-        <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
-        <Breadcrumb.Breadcrumb level="small">
+        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} gap="tiny" />
+        <Breadcrumb.Breadcrumb level="small" gap="tiny">
           {icon}
           {path.split("/").map((segment, index) => (
-            <Breadcrumb.Segment key={index}>{segment}</Breadcrumb.Segment>
+            <Breadcrumb.Segment key={index} color={8}>
+              {segment}
+            </Breadcrumb.Segment>
           ))}
         </Breadcrumb.Breadcrumb>
       </Flex.Box>
@@ -227,6 +216,7 @@ const SearchDialogContent = () => {
             Search
           </>
         }
+        borderColor={6}
         autoFocus
         value={value}
         onChange={handleSearch}
