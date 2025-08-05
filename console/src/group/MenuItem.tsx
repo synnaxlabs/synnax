@@ -26,7 +26,8 @@ export const MenuItem = ({
 }: MenuItemProps): ReactElement | null =>
   canGroupSelection(resourceIDs, shape) ? (
     <>
-      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
+      <PMenu.Item itemKey="group">
+        <Icon.Group />
         Group
       </PMenu.Item>
       {showBottomDivider && <PMenu.Divider />}

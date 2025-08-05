@@ -309,7 +309,7 @@ export const Slate = (({ layoutKey, validate, ...rest }: SlateProps) => {
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
       try {
-        const { key, graph } = await client.slates.retrieve(layoutKey);
+        const { key, graph } = await client.slates.retrieve({ key: layoutKey });
         return translateSlateForward({ key, graph });
       } catch (__) {
         return { ...ZERO_STATE, key: layoutKey };

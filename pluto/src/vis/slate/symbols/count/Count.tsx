@@ -1,8 +1,8 @@
 import { color } from "@synnaxlabs/x";
 import z from "zod/v4";
 
-import { Align } from "@/align";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";
 import { type types } from "@/vis/slate/symbols/types";
@@ -18,8 +18,8 @@ export type SymbolProps = types.SymbolProps<Config>;
 const PURPLE_HEX = color.construct("#635BFF");
 
 export const Count = () => (
-  <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
-    <Align.Space
+  <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
       style={{
         height: "8rem",
         backgroundColor: color.cssString(color.setAlpha(PURPLE_HEX, 0.2)),
@@ -40,14 +40,14 @@ export const Count = () => (
       >
         C
       </Text.Text>
-    </Align.Space>
-    <Divider.Divider y shade={5} />
-    <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
-      <Text.Text level="small" weight={500} shade={9}>
+    </Flex.Box>
+    <Divider.Divider y color={5} />
+    <Flex.Box style={{ padding: "0rem 2rem" }} align="start" empty>
+      <Text.Text level="small" weight={500} color={9}>
         Count
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
     <Handle.Sink location="left" id="input" />
     <Handle.Source location="right" id="output" />
-  </Align.Pack>
+  </Flex.Box>
 );

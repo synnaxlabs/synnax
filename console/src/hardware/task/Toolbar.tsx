@@ -11,8 +11,8 @@ import "@/hardware/task/Toolbar.css";
 
 import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Icon,
   List,
   Menu as PMenu,
@@ -28,8 +28,9 @@ import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Menu, Toolbar } from "@/components";
+import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
@@ -44,14 +45,11 @@ const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center y style={{ height: "100%" }} gap="small">
-        <Text.Text level="p">No existing tasks.</Text.Text>
-        <Text.Link level="p" onClick={handleClick}>
-          Add a task
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+    <EmptyAction
+      message="No existing tasks"
+      action="Create a task"
+      onClick={handleClick}
+    />
   );
 };
 
@@ -128,10 +126,7 @@ const Content = () => {
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;
-  const actions = useMemo(
-    () => [{ children: <Icon.Add />, onClick: () => placeLayout(SELECTOR_LAYOUT) }],
-    [placeLayout],
-  );
+
   const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
       if (client == null) throw new DisconnectedError();
@@ -176,15 +171,14 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Align.Space
-        empty
-        style={{ height: "100%" }}
-        className={CSS(CSS.B("task-toolbar"), menuProps.className)}
-        onContextMenu={menuProps.open}
-      >
-        <Toolbar.Header>
+      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+        <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Toolbar.Actions>{actions}</Toolbar.Actions>
+          <Toolbar.Actions>
+            <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+              <Icon.Add />
+            </Toolbar.Action>
+          </Toolbar.Actions>
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -207,7 +201,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Align.Space>
+      </Toolbar.Content>
     </PMenu.ContextMenu>
   );
 };
@@ -237,7 +231,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleClick = useCallback<NonNullable<Button.IconProps["onClick"]>>(
+  const handleClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
       const command = isRunning ? "stop" : "start";
@@ -246,41 +240,37 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <Select.ListItem {...rest} justify="spaceBetween" align="center">
-      <Align.Space y gap="small" grow className={CSS.BE("task", "metadata")}>
-        <Align.Space x align="center" gap="small">
+    <Select.ListItem {...rest} justify="between" align="center">
+      <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
+        <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.WithIcon
-            className={CSS.BE("task", "title")}
-            level="p"
-            startIcon={icon}
-            weight={500}
-            noWrap
-          >
+          <Flex.Box x className={CSS.BE("task", "title")}>
+            {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
-              level="p"
               value={task?.name ?? ""}
               onChange={onRename}
               allowDoubleClick={false}
+              overflow="ellipsis"
+              weight={500}
             />
-          </Text.WithIcon>
-        </Align.Space>
-        <Text.Text level="small" shade={10}>
+          </Flex.Box>
+        </Flex.Box>
+        <Text.Text level="small" color={10}>
           {parseType(task?.type ?? "")}
         </Text.Text>
-      </Align.Space>
-      <Button.Icon
+      </Flex.Box>
+      <Button.Button
         variant="outlined"
-        loading={isLoading}
+        status={isLoading ? "loading" : undefined}
         onClick={handleClick}
         tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Icon>
+      </Button.Button>
     </Select.ListItem>
   );
 };
@@ -330,6 +320,7 @@ const ContextMenu = ({
     },
     [selectedTasks, addStatus, placeLayout],
   );
+  const handleExport = Common.Task.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -352,6 +343,7 @@ const ContextMenu = ({
       edit: () => handleEdit(keys[0]),
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
+      export: () => handleExport(keys[0]),
       delete: () => onDelete(keys),
       rangeSnapshot: () =>
         snapshotToActiveRange(
@@ -374,23 +366,27 @@ const ContextMenu = ({
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
       {canStart && (
-        <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
+        <PMenu.Item itemKey="start">
+          <Icon.Play />
           Start
         </PMenu.Item>
       )}
       {canStop && (
-        <PMenu.Item startIcon={<Icon.Pause />} itemKey="stop">
+        <PMenu.Item itemKey="stop">
+          <Icon.Pause />
           Stop
         </PMenu.Item>
       )}
       {(canStart || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
             Edit Configuration
           </PMenu.Item>
           <PMenu.Divider />
           <Menu.RenameItem />
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -403,7 +399,8 @@ const ContextMenu = ({
       )}
       {someSelected && (
         <>
-          <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
             Delete
           </PMenu.Item>
           <PMenu.Divider />

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -26,7 +26,7 @@ import {
   type InputChannelType,
   READ_SCHEMAS,
   READ_TYPE,
-  type readConfigZ,
+  readConfigZ,
   type ReadPayload,
   type readStatusDataZ,
   type ReadTask,
@@ -54,12 +54,12 @@ export const READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -118,7 +118,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   const Form = FORMS[channel.type];
   return (
     <>
-      <Align.Space x>
+      <Flex.Box x>
         <SelectInputChannelTypeField
           path={path}
           grow
@@ -151,7 +151,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             />
           )}
         </PForm.Field>
-      </Align.Space>
+      </Flex.Box>
       <Form deviceModel={deviceModel} path={path} />
     </>
   );
@@ -268,13 +268,13 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+  return {
+    ...ZERO_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,

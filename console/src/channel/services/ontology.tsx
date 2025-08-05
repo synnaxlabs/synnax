@@ -9,8 +9,8 @@
 
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
-  Align,
   Channel as PChannel,
+  Flex,
   type Haul,
   Icon,
   Menu as PMenu,
@@ -285,7 +285,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {isCalc && (
         <>
           <PMenu.Divider />
-          <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
+          <PMenu.Item itemKey="openCalculated">
+            <Icon.Edit />
             Edit Calculation
           </PMenu.Item>
         </>
@@ -296,19 +297,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <>
             <PMenu.Divider />
             {singleResource && (
-              <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
+              <PMenu.Item itemKey="alias">
+                <Icon.Rename />
                 Set Alias Under {activeRange.name}
               </PMenu.Item>
             )}
             {showDeleteAlias && (
-              <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
+              <PMenu.Item itemKey="deleteAlias">
+                <Icon.Delete />
                 Remove Alias Under {activeRange.name}
               </PMenu.Item>
             )}
             <PMenu.Divider />
           </>
         )}
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       {singleResource && (
@@ -335,17 +339,16 @@ export const Item = ({
   const I = PChannel.resolveIcon(data);
   return (
     <Tree.Item {...rest}>
-      <Align.Space gap="small" x align="center">
+      <Flex.Box gap="small" x align="center">
         <I style={{ color: "var(--pluto-gray-l10" }} />
         <Text.MaybeEditable
           id={ontology.idToString(id)}
-          level="p"
           allowDoubleClick={false}
           value={alias ?? resource.name}
           disabled={!allowRename(resource)}
           onChange={onRename}
         />
-      </Align.Space>
+      </Flex.Box>
       {data.virtual && (
         <Icon.Virtual
           style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}

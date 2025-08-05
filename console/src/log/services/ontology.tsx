@@ -133,22 +133,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   placeLayout,
   handleError,
-}) => {
-  client.workspaces.log
-    .retrieve(id.key)
-    .then((log) => {
-      placeLayout(
-        Log.create({
-          name: log.name,
-          ...log.data,
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    })
-    .catch((e) => handleError(e, "Failed to load log"));
-};
+}) =>
+  handleError(async () => {
+    const log = await client.workspaces.log.retrieve(id.key);
+    placeLayout(
+      Log.create({
+        name: log.name,
+        ...log.data,
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  }, "Failed to load log");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

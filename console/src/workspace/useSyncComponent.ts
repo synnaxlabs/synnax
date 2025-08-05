@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useStore } from "react-redux";
@@ -22,10 +22,10 @@ import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 export const useSyncComponent = <P>(
   name: string,
   layoutKey: string,
-  save: (workspace: string, store: Store<RootState>, client: Synnax) => Promise<void>,
+  save: (workspace: string, store: Store<RootState>, client: Client) => Promise<void>,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const store = useStore<RootState>();
   const syncLayout = useMutation<void, Error>({

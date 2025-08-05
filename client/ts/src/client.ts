@@ -71,9 +71,9 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
-  readonly slates: slate.Client;
-  readonly effects: effect.Client;
   readonly annotations: annotation.Client;
+  readonly effects: effect.Client;
+  readonly slates: slate.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -159,9 +159,9 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
-    this.slates = new slate.Client(this.transport.unary);
-    this.effects = new effect.Client(this.transport.unary, this);
     this.annotations = new annotation.Client(this.transport.unary);
+    this.effects = new effect.Client(this.transport.unary, this);
+    this.slates = new slate.Client(this.transport.unary);
   }
 
   get key(): string {

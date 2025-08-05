@@ -10,8 +10,8 @@
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { List } from "@/list";
 import { Ranger } from "@/ranger";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
@@ -45,10 +45,10 @@ export const ListItem = ({
     <Select.ListItem
       className={CSS(CSS.BE("range", "list-item"))}
       itemKey={itemKey}
-      justify="spaceBetween"
+      justify="between"
       {...rest}
     >
-      <Align.Space x align="center" empty>
+      <Flex.Box x align="center" empty>
         <Ranger.SelectStage
           value={stage}
           allowNone={false}
@@ -56,15 +56,15 @@ export const ListItem = ({
           onClick={(e) => e.stopPropagation()}
           variant="floating"
           location="bottom"
-          triggerProps={{ iconOnly: true, variant: "text" }}
+          triggerProps={{ variant: "text" }}
         />
         <Breadcrumb name={name} parent={parent} showParent={showParent} />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         {showLabels && (
           <Tag.Tags>
             {labels?.map(({ key, name, color }) => (
-              <Tag.Tag key={key} color={color} size="small" shade={9}>
+              <Tag.Tag key={key} color={color} size="small">
                 {name}
               </Tag.Tag>
             ))}
@@ -76,7 +76,7 @@ export const ListItem = ({
           showAgo={showAgo}
           showSpan={showSpan}
         />
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };

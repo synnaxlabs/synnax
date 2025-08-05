@@ -1,7 +1,7 @@
 import { color, status } from "@synnaxlabs/x";
 import z from "zod/v4";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
 import { Text } from "@/text";
@@ -28,11 +28,11 @@ export const Symbol = ({ message, variant }: SymbolProps) => (
     textColor={color.cssString(RED_HEX)}
     sinks={[{ key: "value", Icon: Icon.Number }]}
   >
-    <Align.Space x align="center" justify="center" gap="tiny">
+    <Flex.Box x align="center" justify="center" gap="tiny">
       <Status.Indicator variant={variant} size="2.5em" />
-      <Text.Text level="p" weight={500} shade={11}>
+      <Text.Text level="p" weight={500} color={11}>
         {message}
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
   </Base>
 );

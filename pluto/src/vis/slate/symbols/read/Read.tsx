@@ -1,7 +1,7 @@
 import { channel } from "@synnaxlabs/client";
 import z from "zod/v4";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Channel } from "@/channel";
 import { Divider } from "@/divider";
 import { Icon } from "@/icon";
@@ -21,8 +21,8 @@ export const Symbol = ({ channel }: SymbolProps) => {
   const [name] = Channel.useName(channel, "Channel");
 
   return (
-    <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
-      <Align.Space
+    <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+      <Flex.Box
         style={{
           backgroundColor: "var(--pluto-primary-z-20)",
           borderTopLeftRadius: "1rem",
@@ -40,18 +40,18 @@ export const Symbol = ({ channel }: SymbolProps) => {
             color: "var(--pluto-primary-z)",
           }}
         />
-      </Align.Space>
-      <Divider.Divider y shade={5} />
-      <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
-        <Text.Text level="small" weight={500} shade={9}>
+      </Flex.Box>
+      <Divider.Divider y color={5} />
+      <Flex.Box style={{ padding: "0rem 2rem" }} align="start" empty>
+        <Text.Text level="small" weight={500} color={9}>
           Read Channel
         </Text.Text>
-        <Text.Text level="h4" weight={450} shade={10}>
+        <Text.Text level="h4" weight={450} color={10}>
           {name}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
       <Handle.Sink location="left" id="trigger" />
       <Handle.Source location="right" id="value" />
-    </Align.Pack>
+    </Flex.Box>
   );
 };

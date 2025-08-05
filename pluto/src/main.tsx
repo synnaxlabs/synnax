@@ -13,22 +13,20 @@ import "@/main.css";
 import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Button } from "@/button";
-import { Icon } from "@/icon";
 import { Pluto } from "@/pluto";
+import { Showcase } from "@/showcase";
 
 const Main = (): ReactElement => (
   <Pluto.Provider
     connParams={{
       host: "localhost",
       port: 9090,
+      secure: false,
       username: "synnax",
       password: "seldon",
     }}
   >
-    <Button.Button startIcon={<Icon.InProgress />} gap="tiny" variant="text">
-      Hello
-    </Button.Button>
+    <Showcase />
   </Pluto.Provider>
 );
 

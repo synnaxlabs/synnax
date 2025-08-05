@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, user } from "@synnaxlabs/client";
-import { Align, Divider, Form, Icon, Nav, Status, Text } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form, Icon, Nav, Status, Text } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
 import { Layout } from "@/layout";
@@ -107,58 +107,50 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (rootUser) return null;
 
   return (
-    <Align.Space y grow>
-      <Align.Space y grow style={{ padding: "5rem" }}>
+    <Flex.Box y grow>
+      <Flex.Box y grow style={{ padding: "5rem" }}>
         <Form.Form<typeof formSchema> {...methods}>
-          <Align.Space y gap="large">
-            <Align.Space x align="center" gap={8}>
-              <Align.Space y>
-                <Text.WithIcon
-                  startIcon={<Icon.Access />}
-                  level="h4"
-                  shade={10}
-                  weight={450}
-                >
+          <Flex.Box y gap="large">
+            <Flex.Box x align="center" gap={8}>
+              <Flex.Box y>
+                <Text.Text level="h4" color={10} weight={450}>
+                  <Icon.Access />
                   Admin
-                </Text.WithIcon>
-                <Text.Text level="p" shade={11}>
+                </Text.Text>
+                <Text.Text>
                   Allows the user to manage other users, including registering users and
                   setting permissions for those users.
                 </Text.Text>
-              </Align.Space>
+              </Flex.Box>
               <Form.SwitchField path="admin" showLabel={false} padHelpText={false} />
-            </Align.Space>
+            </Flex.Box>
             <Divider.Divider x />
-            <Align.Space y>
-              <Text.WithIcon
-                startIcon={<Icon.Schematic />}
-                level="h4"
-                shade={10}
-                weight={450}
-              >
+            <Flex.Box y>
+              <Text.Text level="h4" color={10} weight={450}>
+                <Icon.Schematic />
                 Schematics
-              </Text.WithIcon>
-              <Align.Space x gap={8} align="center" style={{ marginLeft: "2rem" }}>
-                <Align.Space y>
-                  <Text.Text level="h5" shade={10}>
+              </Text.Text>
+              <Flex.Box x gap={8} align="center" style={{ marginLeft: "2rem" }}>
+                <Flex.Box y>
+                  <Text.Text level="h5" color={10}>
                     Edit
                   </Text.Text>
-                  <Text.Text level="p" shade={11}>
+                  <Text.Text>
                     Allow the user to create and edit schematics. If the user does not
                     have this permission, they will still be able to control symbols on
                     the schematic.
                   </Text.Text>
-                </Align.Space>
+                </Flex.Box>
                 <Form.SwitchField
                   path="schematic"
                   showLabel={false}
                   padHelpText={false}
                 />
-              </Align.Space>
-            </Align.Space>
-          </Align.Space>
+              </Flex.Box>
+            </Flex.Box>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar gap={6}>
         <Nav.Bar.Start align="center" gap="large">
           <Status.Text variant={isPending ? "loading" : "success"}>
@@ -166,6 +158,6 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
           </Status.Text>
         </Nav.Bar.Start>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

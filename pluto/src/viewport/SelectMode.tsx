@@ -10,7 +10,7 @@
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
@@ -26,12 +26,12 @@ interface TooltipProps {
 }
 
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Align.Space x align="center">
+  <Flex.Box x align="center">
     <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Align.Space empty x align="center">
+    <Flex.Box empty x align="center">
       <Triggers.Text trigger={triggers[0]} level="small" />
-    </Align.Space>
-  </Align.Space>
+    </Flex.Box>
+  </Flex.Box>
 );
 
 export interface SelectModeProps extends Omit<Select.ButtonsProps<Mode>, "keys"> {
@@ -49,27 +49,27 @@ export const SelectMode = ({
   const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
   return (
     <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
-      <Select.ButtonIcon
+      <Select.Button
         itemKey="zoom"
         tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
         size="small"
       >
         <Icon.Zoom />
-      </Select.ButtonIcon>
-      <Select.ButtonIcon
+      </Select.Button>
+      <Select.Button
         itemKey="pan"
         tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
         size="small"
       >
         <Icon.Pan />
-      </Select.ButtonIcon>
-      <Select.ButtonIcon
+      </Select.Button>
+      <Select.Button
         itemKey="select"
         tooltip={<Tooltip mode="select" triggers={triggers.select} />}
         size="small"
       >
         <Icon.Selection />
-      </Select.ButtonIcon>
+      </Select.Button>
     </Select.Buttons>
   );
 };

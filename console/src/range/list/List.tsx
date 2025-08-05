@@ -1,6 +1,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import {
-  Align,
+  Button,
+  Flex,
   type Flux,
   Icon,
   Input,
@@ -46,23 +47,33 @@ export const List = ({
       onFetchMore={fetchMore}
     >
       {enableSearch && (
-        <Align.Space x bordered style={{ padding: "2rem" }} background={1}>
+        <Flex.Box
+          x
+          bordered
+          style={{ padding: "2rem" }}
+          background={1}
+          justify="between"
+        >
           <Input.Text
-            size="large"
+            size="small"
             level="h4"
-            variant="natural"
+            variant="text"
             value={searchTerm}
             placeholder={
-              <Text.WithIcon level="h4" startIcon={<Icon.Search />}>
+              <>
+                <Icon.Search />
                 Search Ranges...
-              </Text.WithIcon>
+              </>
             }
             onChange={(value) => {
               setSearchTerm(value);
               search(value);
             }}
           />
-        </Align.Space>
+          <Button.Button>
+            <Icon.Filter />
+          </Button.Button>
+        </Flex.Box>
       )}
       <PList.Items<string>>
         {({ key, ...rest }) => (

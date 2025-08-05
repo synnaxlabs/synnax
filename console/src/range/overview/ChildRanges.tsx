@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Header, Icon, Ranger } from "@synnaxlabs/pluto";
+import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";
@@ -24,19 +24,19 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
     initialParams: { key: rangeKey },
   });
   return (
-    <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5} padded>
-        <Header.Title shade={11} weight={450}>
+    <Flex.Box y>
+      <Header.Header level="h4" bordered borderColor={5} padded>
+        <Header.Title color={11} weight={450}>
           Child Ranges
         </Header.Title>
         <Header.Actions>
-          <Button.Icon
+          <Button.Button
             size="medium"
-            shade={0}
+            variant="text"
             onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
           >
             <Icon.Add />
-          </Button.Icon>
+          </Button.Button>
         </Header.Actions>
       </Header.Header>
       <List
@@ -46,6 +46,6 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         retrieve={retrieve}
         showParent={false}
       />
-    </Align.Space>
+    </Flex.Box>
   );
 };

@@ -14,10 +14,12 @@ export const ContextMenu = ({ onEdit, onDelete }: ContextMenuProps) => {
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
+      <PMenu.Item itemKey="edit">
+        <Icon.Edit />
         Edit
       </PMenu.Item>
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       <Menu.HardReloadItem />

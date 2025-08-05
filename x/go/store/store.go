@@ -136,7 +136,7 @@ func (o ObservableConfig[S, O]) Validate() error {
 func WrapObservable[S, O any](
 	cfgs ...ObservableConfig[S, O],
 ) (Observable[S, O], error) {
-	defaultConfig := ObservableConfig[S, O]{GoNotify: config.Bool(true)}
+	defaultConfig := ObservableConfig[S, O]{GoNotify: config.True()}
 	cfg, err := config.New(defaultConfig, cfgs...)
 	return &observable[S, O]{
 		ObservableConfig: cfg,

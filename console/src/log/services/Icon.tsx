@@ -9,10 +9,6 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-export const CreateIcon = Icon.createComposite(Icon.Log, {
-  topRight: Icon.Add,
-});
+export const CreateIcon = Icon.createComposite(Icon.Log, { topRight: Icon.Add });
 
-export const ImportIcon = Icon.createComposite(Icon.Log, {
-  topRight: Icon.Import,
-});
+export const ImportIcon = Icon.createComposite(Icon.Log, { topRight: Icon.Import });

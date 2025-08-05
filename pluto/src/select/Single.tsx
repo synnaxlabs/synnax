@@ -51,6 +51,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   actions,
   triggerProps,
   dialogProps,
+  virtual = true,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
   <Dialog.Frame {...rest} variant={variant}>
@@ -63,7 +64,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       allowNone={allowNone}
       onFetchMore={onFetchMore}
       itemHeight={itemHeight}
-      virtual
+      virtual={virtual}
     >
       <Select.SingleTrigger
         haulType={haulType}
@@ -74,7 +75,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       />
       <Select.Dialog<K>
         onSearch={onSearch}
-        searchPlaceholder={`Search ${resourceName}s...`}
+        resourceName={resourceName}
         emptyContent={emptyContent}
         status={status}
         actions={actions}

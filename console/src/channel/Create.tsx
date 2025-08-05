@@ -9,9 +9,9 @@
 
 import { type channel, DataType } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Channel,
+  Flex,
   Form,
   Input,
   Nav,
@@ -65,21 +65,21 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   );
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
-      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
+    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
             )}
           </Form.Field>
-          <Align.Space x gap="large">
+          <Flex.Box x gap="large">
             <Form.SwitchField
               path="virtual"
               label="Virtual"
@@ -112,10 +112,11 @@ export const Create: Layout.Renderer = ({ onClose }) => {
                   disabled={isIndex}
                   zIndex={100}
                   hideVariableDensity={!isVirtual}
+                  full="x"
                 />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Form.Field<channel.Key> path="index" label="Index">
             {({ value, onChange }) => (
               <Channel.SelectSingle
@@ -129,27 +130,24 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             )}
           </Form.Field>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" gap="large">
-          <Align.Space x align="center" gap="small">
+          <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text level="p" shade={11}>
-              Create More
-            </Text.Text>
-          </Align.Space>
+            <Text.Text>Create More</Text.Text>
+          </Flex.Box>
           <Button.Button
-            disabled={variant === "loading"}
-            loading={variant === "loading"}
+            status={variant}
             variant="filled"
             onClick={() => save()}
-            triggers={[Triggers.SAVE]}
+            trigger={Triggers.SAVE}
           >
             Create
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

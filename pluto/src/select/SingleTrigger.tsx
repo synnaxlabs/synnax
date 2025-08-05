@@ -26,6 +26,7 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   haulType?: string;
   placeholder?: string;
   icon?: Icon.ReactElement;
+  iconOnly?: boolean;
 }
 
 export const SingleTrigger = <K extends record.Key>({
@@ -33,6 +34,8 @@ export const SingleTrigger = <K extends record.Key>({
   placeholder,
   icon: baseIcon,
   disabled,
+  iconOnly = false,
+  hideCaret = false,
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelection<K>();
@@ -62,14 +65,15 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      startIcon={icon ?? baseIcon}
       className={CSS(CSS.dropRegion(canDrop(dragging)))}
       disabled={disabled}
       {...dropProps}
       {...rest}
-      textShade={name == null ? 8 : undefined}
+      hideCaret={hideCaret || iconOnly}
+      textColor={name == null ? 8 : undefined}
     >
-      {name ?? placeholder}
+      {icon ?? baseIcon}
+      {!iconOnly && (name ?? placeholder)}
     </Dialog.Trigger>
   );
 };

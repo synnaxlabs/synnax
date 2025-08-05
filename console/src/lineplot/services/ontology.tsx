@@ -84,7 +84,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       <PMenu.Divider />
@@ -137,22 +138,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   placeLayout,
   handleError,
-}): void => {
-  client.workspaces.linePlot
-    .retrieve(id.key)
-    .then((linePlot) => {
-      placeLayout(
-        LinePlot.create({
-          ...linePlot.data,
-          key: linePlot.key,
-          name: linePlot.name,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    })
-    .catch((e) => handleError(e, "Failed to load line plot"));
-};
+}): void =>
+  handleError(async () => {
+    const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+    placeLayout(
+      LinePlot.create({
+        ...linePlot.data,
+        key: linePlot.key,
+        name: linePlot.name,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  }, "Failed to load line plot");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

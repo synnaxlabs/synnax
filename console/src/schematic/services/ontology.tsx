@@ -142,7 +142,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {resources.every((r) => r.data?.snapshot === false) && (
         <>
           <Range.SnapshotMenuItem range={activeRange} />
-          <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+          <PMenu.Item itemKey="copy">
+            <Icon.Copy />
             Copy
           </PMenu.Item>
           <PMenu.Divider />
@@ -207,22 +208,19 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   placeLayout,
   handleError,
-}) => {
-  client.workspaces.schematic
-    .retrieve(id.key)
-    .then((schematic) =>
-      placeLayout(
-        Schematic.create({
-          name: schematic.name,
-          ...schematic.data,
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      ),
-    )
-    .catch((e) => handleError(e, "Failed to load schematic"));
-};
+}) =>
+  handleError(async () => {
+    const schematic = await client.workspaces.schematic.retrieve(id.key);
+    placeLayout(
+      Schematic.create({
+        name: schematic.name,
+        ...schematic.data,
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  }, "Failed to load schematic");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

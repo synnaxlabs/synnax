@@ -134,7 +134,6 @@ export const migrateState = (prev: RootState): RootState => {
   const permissions = Permissions.migrateSlice(prev.permissions);
   const user = User.slice.migrateSlice(prev.user);
   const slate = Slate.migrateSlice(prev.slate);
-  const effect = Effect.migrateSlice(prev.effect);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -150,7 +149,6 @@ export const migrateState = (prev: RootState): RootState => {
     permissions,
     user,
     slate,
-    effect,
   };
 };
 

@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { ZodError } from "zod";
 
-import { type DirectoryIngestor, type FileIngestor } from "@/import/ingestor";
+import { type DirectoryIngestor, type FileIngestors } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";
 import { type Layout } from "@/layout";
 
@@ -63,7 +63,7 @@ const parseDataTransferItem = async (
 
 interface DataTransferItemContext {
   client: Synnax | null;
-  fileIngestors: Record<string, FileIngestor>;
+  fileIngestors: FileIngestors;
   ingestDirectory: DirectoryIngestor;
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
@@ -118,7 +118,7 @@ export const dataTransferItem = async (
   );
   await ingestDirectory(entry.name, parsedFiles, {
     client,
-    ingestors: fileIngestors,
+    fileIngestors,
     placeLayout,
     store,
   });

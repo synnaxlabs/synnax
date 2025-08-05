@@ -32,6 +32,7 @@ import {
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
+import { EffectServices } from "@/effect/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
@@ -71,5 +72,5 @@ export const SERVICES: Ontology.Services = {
   [table.ONTOLOGY_TYPE]: TableServices.ONTOLOGY_SERVICE,
   [annotation.ONTOLOGY_TYPE]: createEmptyService(annotation.ONTOLOGY_TYPE),
   [slate.ONTOLOGY_TYPE]: createEmptyService(slate.ONTOLOGY_TYPE),
-  [effect.ONTOLOGY_TYPE]: createEmptyService(effect.ONTOLOGY_TYPE),
+  [effect.ONTOLOGY_TYPE]: EffectServices.ONTOLOGY_SERVICE,
 };

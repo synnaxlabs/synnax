@@ -150,25 +150,16 @@ const RangeAnnotationContextMenu = ({
   };
   return (
     <PMenu.Menu level="small">
-      <PMenu.Item
-        itemKey="download"
-        startIcon={<Icon.Download />}
-        onClick={handleDownloadAsCSV}
-      >
+      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.Download />
         Download as CSV
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="line-plot"
-        startIcon={<Icon.LinePlot />}
-        onClick={handleOpenInNewPlot}
-      >
+      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+        <Icon.LinePlot />
         Open in New Plot
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="metadata"
-        startIcon={<Icon.Annotate />}
-        onClick={handleViewDetails}
-      >
+      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
         View Details
       </PMenu.Item>
     </PMenu.Menu>
@@ -439,27 +430,30 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       <PMenu.Menu onChange={handleSelect} gap="small" level="small">
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy ISO Time Range
+            <PMenu.Item itemKey="iso">
+              <Icon.Range /> Copy ISO Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy Python Time Range
+            <PMenu.Item itemKey="python">
+              <Icon.Python /> Copy Python Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy TypeScript Time Range
+            <PMenu.Item itemKey="typescript">
+              <Icon.TypeScript /> Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+            <PMenu.Item itemKey="download">
+              <Icon.Download />
               Download CSV
             </PMenu.Item>
             <PMenu.Divider />
 
-            <PMenu.Item itemKey="range" startIcon={<Ranger.CreateIcon />}>
+            <PMenu.Item itemKey="range">
+              <Ranger.CreateIcon />
               Create Range
             </PMenu.Item>
           </>
         )}
-        <PMenu.Item itemKey="annotation" startIcon={<Annotation.CreateIcon />}>
+        <PMenu.Item itemKey="annotation">
+          <Annotation.CreateIcon />
           Create Annotation
         </PMenu.Item>
         <PMenu.Divider />

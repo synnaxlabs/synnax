@@ -15,7 +15,7 @@ export interface TareButtonProps {
 }
 
 export const TareButton = ({ onTare, disabled }: TareButtonProps) => (
-  <Button.Icon
+  <Button.Button
     variant="outlined"
     disabled={disabled}
     onClick={(e) => {
@@ -26,5 +26,5 @@ export const TareButton = ({ onTare, disabled }: TareButtonProps) => (
     tooltip="Tare"
   >
     <Icon.Tare />
-  </Button.Icon>
+  </Button.Button>
 );

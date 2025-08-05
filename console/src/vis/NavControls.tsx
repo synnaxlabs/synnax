@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Effect } from "@/effect";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -24,7 +23,6 @@ const REGISTRY: Record<LayoutType, FC> = {
   [Log.LAYOUT_TYPE]: () => null,
   [Schematic.LAYOUT_TYPE]: Schematic.NavControls,
   [Table.LAYOUT_TYPE]: () => null,
-  [Effect.EDIT_LAYOUT_TYPE]: () => null,
 };
 
 export const NavControls = (): ReactElement | null => {
@@ -32,13 +30,13 @@ export const NavControls = (): ReactElement | null => {
   if (layout == null) return null;
   const Controls = REGISTRY[layout.type as LayoutType];
   return Controls == null ? null : (
-    <Align.Space
+    <Flex.Box
       x
       gap="medium"
       className={CSS.B("nav-controls")}
       style={{ paddingLeft: "0.5rem" }}
     >
       <Controls />
-    </Align.Space>
+    </Flex.Box>
   );
 };

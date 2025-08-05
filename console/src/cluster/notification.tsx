@@ -21,7 +21,7 @@ export const versionOutdatedAdapter: Notifications.Adapter<Synnax.StatusDetails>
   const nextStatus: Notifications.Sugared = { ...status };
   if (oldServer)
     nextStatus.actions = [
-      <Button.Link
+      <Button.Button
         key="update"
         variant="outlined"
         size="small"
@@ -29,7 +29,7 @@ export const versionOutdatedAdapter: Notifications.Adapter<Synnax.StatusDetails>
         target="_blank"
       >
         Update Cluster
-      </Button.Link>,
+      </Button.Button>,
     ];
   else nextStatus.actions = [<Version.OpenUpdateDialogAction key="update" />];
   return nextStatus;

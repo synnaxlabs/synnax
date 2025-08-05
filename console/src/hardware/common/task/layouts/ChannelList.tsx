@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import {
@@ -22,23 +22,20 @@ interface HeaderProps {
 }
 
 const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header level="p">
-    <PHeader.Title weight={500} shade={10}>
+  <PHeader.Header>
+    <PHeader.Title weight={500} color={10}>
       Channels
     </PHeader.Title>
     {!isSnapshot && (
       <PHeader.Actions>
-        {[
-          {
-            key: "add",
-            onClick: onAdd,
-            children: <Icon.Add />,
-            size: "medium",
-            shade: 2,
-            sharp: true,
-            tooltip: "Add Channel",
-          },
-        ]}
+        <Button.Button
+          onClick={onAdd}
+          variant="text"
+          contrast={2}
+          tooltip="Add Channel"
+        >
+          <Icon.Add />
+        </Button.Button>
       </PHeader.Actions>
     )}
   </PHeader.Header>
@@ -47,14 +44,14 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
-  <Align.Center grow>
-    <Text.Text level="p">No channels in task.</Text.Text>
+  <Flex.Box grow center>
+    <Text.Text>No channels in task.</Text.Text>
     {!isSnapshot && (
-      <Text.Link level="p" onClick={onAdd}>
+      <Text.Text onClick={onAdd} variant="link">
         Add a channel
-      </Text.Link>
+      </Text.Text>
     )}
-  </Align.Center>
+  </Flex.Box>
 );
 
 export interface ChannelListProps<C extends Channel>

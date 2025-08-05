@@ -10,16 +10,7 @@
 import "@/hardware/common/device/Configure.css";
 
 import { type device, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Form,
-  Icon,
-  Nav,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -99,9 +90,9 @@ const Internal = <
     },
   });
   return (
-    <Align.Space align="stretch" className={CSS.B("configure")} empty>
+    <Flex.Box align="stretch" className={CSS.B("configure")} empty>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
-        <Align.Space
+        <Flex.Box
           align="stretch"
           justify="center"
           grow
@@ -110,36 +101,36 @@ const Internal = <
         >
           {isNameStep ? (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
               <Form.TextField
                 autoFocus
-                inputProps={{ autoFocus: true, level: "h2", variant: "natural" }}
+                inputProps={{ autoFocus: true, level: "h2", variant: "text" }}
                 label="Name"
                 path="name"
               />
             </>
           ) : (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
                 channels associated with this device. We've given you some suggestions
                 below.
               </Text.Text>
-              <Align.Space gap="small">
+              <Flex.Box gap="small">
                 <Form.TextField
                   autoFocus
                   label="Identifier"
-                  inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
+                  inputProps={{ level: "h2", ref: identifierRef, variant: "text" }}
                   path="identifier"
                 />
-                <Align.Space x>
-                  <Button.Icon disabled size="small" variant="text">
+                <Flex.Box x>
+                  <Button.Button disabled size="small" variant="text">
                     <Icon.Bolt />
-                  </Button.Icon>
+                  </Button.Button>
                   {recommendedIds.map((id) => (
                     <Button.Button
                       key={id}
@@ -153,28 +144,27 @@ const Internal = <
                       {id}
                     </Button.Button>
                   ))}
-                </Align.Space>
-              </Align.Space>
+                </Flex.Box>
+              </Flex.Box>
             </>
           )}
-        </Align.Space>
+        </Flex.Box>
       </Form.Form>
       <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
-            disabled={isPending}
-            loading={isPending}
+            status={isPending ? "loading" : undefined}
             onClick={() => mutate()}
             variant="filled"
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
             type="submit"
           >
             {triggerAction}
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -203,21 +193,19 @@ export const Configure = <
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text center level="h4" variant="loading">
         Fetching device from server
-      </Status.Text.Centered>
+      </Status.Text>
     );
   if (isError) {
     const color = Status.VARIANT_COLORS.error;
     return (
-      <Align.Space align="center" grow justify="center">
+      <Flex.Box align="center" grow justify="center">
         <Text.Text color={color} level="h2">
           Failed to load data for device with key {layoutKey}
         </Text.Text>
-        <Text.Text color={color} level="p">
-          {error.message}
-        </Text.Text>
-      </Align.Space>
+        <Text.Text color={color}>{error.message}</Text.Text>
+      </Flex.Box>
     );
   }
   return <Internal device={data} {...rest} />;

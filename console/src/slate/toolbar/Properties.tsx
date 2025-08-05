@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Button,
   Color,
   Diagram,
+  Flex,
   Form,
   Icon,
   Input,
@@ -41,9 +41,9 @@ export const PropertiesControls = memo(
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
-        <Status.Text.Centered variant="disabled" hideIcon>
+        <Status.Text center variant="disabled" hideIcon>
           Select a slate element to configure its properties.
-        </Status.Text.Centered>
+        </Status.Text>
       );
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
@@ -87,11 +87,11 @@ const IndividualProperties = ({
   });
 
   return (
-    <Align.Space style={{ height: "100%", padding: "2rem" }} y>
+    <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
       <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -110,7 +110,7 @@ const EdgeProperties = ({
     dispatch(setElementProps({ layoutKey, key, props }));
   };
   return (
-    <Align.Space style={{ padding: "2rem" }} align="start" x>
+    <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.color ?? color.ZERO}
@@ -125,7 +125,7 @@ const EdgeProperties = ({
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -177,9 +177,9 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Align.Space align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x style={{ padding: "2rem" }}>
       <Input.Item label="Align">
-        <Align.Space x>
+        <Flex.Box x>
           <Button.Icon
             tooltip="Align nodes vertically"
             onClick={() => {
@@ -212,8 +212,8 @@ const MultiElementProperties = ({
           >
             <Icon.Align.XCenter />
           </Button.Icon>
-        </Align.Space>
+        </Flex.Box>
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };

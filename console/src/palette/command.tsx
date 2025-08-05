@@ -9,8 +9,8 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import {
-  Align,
   Component,
+  Flex,
   type Icon,
   List,
   Select,
@@ -31,7 +31,7 @@ import { useStore } from "react-redux";
 import { type Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { type Import } from "@/import";
-import { INGESTORS } from "@/ingestors";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type UseListReturn } from "@/palette/list";
@@ -66,14 +66,15 @@ export const listItem = Component.renderProp(
       <Select.ListItem
         highlightHovered
         style={{ height: "6.5rem" }}
-        justify="spaceBetween"
+        justify="between"
         align="center"
         {...props}
       >
-        <Text.WithIcon startIcon={icon} level="p" weight={400} shade={11} gap="medium">
+        <Text.Text weight={400} gap="medium">
+          {icon}
           {name}
-        </Text.WithIcon>
-        {endContent != null && <Align.Space x>{endContent}</Align.Space>}
+        </Text.Text>
+        {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
       </Select.ListItem>
     );
   },
@@ -99,7 +100,7 @@ export const useCommandList = (): UseListReturn<Command> => {
         confirm,
         extractors: EXTRACTORS,
         handleError,
-        ingestors: INGESTORS,
+        fileIngestors: FILE_INGESTORS,
         placeLayout,
         rename,
         store,
@@ -119,8 +120,8 @@ export interface CommandSelectionContext {
   addStatus: Status.Adder;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
-  ingestors: Record<string, Import.FileIngestor>;
-  extractors: Record<string, Export.Extractor>;
+  fileIngestors: Import.FileIngestors;
+  extractors: Export.Extractors;
 }
 
 export interface Command {

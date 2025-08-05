@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -17,7 +17,7 @@ import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
 interface ListItemProps<C extends DigitalChannel>
-  extends Common.Task.ChannelListItemProps {
+  extends Omit<Common.Task.ChannelListItemProps, "name"> {
   name: RenderProp<C>;
 }
 
@@ -30,15 +30,10 @@ const ListItem = <C extends DigitalChannel>({
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem
-      {...rest}
-      align="center"
-      x
-      justify="spaceBetween"
-      style={{ width: "100%" }}
-    >
-      <Align.Space align="center" x justify="spaceEvenly">
-        <Align.Pack
+    <Select.ListItem {...rest} align="center" justify="between" full="x">
+      <Flex.Box align="center" x justify="evenly">
+        <Flex.Box
+          pack
           align="center"
           className="port-line-input"
           x
@@ -51,7 +46,7 @@ const ListItem = <C extends DigitalChannel>({
             showHelpText={false}
             path={`${path}.port`}
           />
-          <Text.Text level="p" shade={9} weight={550}>
+          <Text.Text color={9} weight={550}>
             /
           </Text.Text>
           <Form.NumericField
@@ -61,23 +56,22 @@ const ListItem = <C extends DigitalChannel>({
             showHelpText={false}
             path={`${path}.line`}
           />
-        </Align.Pack>
+        </Flex.Box>
         <Text.Text
           level="small"
           className={CSS.BE("port-line-input", "label")}
-          shade={11}
           weight={450}
         >
           Port/Line
         </Text.Text>
-      </Align.Space>
-      <Align.Space x align="center" justify="spaceEvenly">
+      </Flex.Box>
+      <Flex.Box x align="center" justify="evenly">
         {name(channel)}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
+      </Flex.Box>
     </Select.ListItem>
   );
 };

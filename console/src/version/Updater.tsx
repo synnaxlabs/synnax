@@ -93,8 +93,8 @@ const SilenceAction = ({ onClick }: SilenceActionProps) => {
     onClick();
   };
   return (
-    <Button.Icon variant="text" onClick={handleClick}>
+    <Button.Button variant="text" onClick={handleClick}>
       <Icon.Snooze />
-    </Button.Icon>
+    </Button.Button>
   );
 };

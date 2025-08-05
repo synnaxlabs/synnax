@@ -126,26 +126,13 @@ export const MultipleTrigger = <K extends record.Key>({
     [startDrag, handleSuccessfulDrop, haulType],
   );
   const dragging = Haul.useDraggingState();
-  let actions: ReactElement | null = null;
-  if (variant !== "text" || value.length > 0)
-    actions = (
-      <Button.Icon variant={variant} onClick={toggle}>
-        {variant !== "text" ? (
-          <Caret.Animated
-            enabled={visible}
-            enabledLoc="bottom"
-            disabledLoc="left"
-            color={8}
-          />
-        ) : (
-          <Icon.Add color={8} />
-        )}
-      </Button.Icon>
-    );
+  const showAddButton = variant === "text" && value.length !== 0;
+
   return (
     <Tag.Tags
+      full="x"
       onClick={() => {
-        if (variant !== "text" || value.length == 0) toggle();
+        if (!showAddButton) toggle();
       }}
       {...dropProps}
       className={CSS(
@@ -154,22 +141,37 @@ export const MultipleTrigger = <K extends record.Key>({
         CSS.BM("variant", variant),
       )}
       variant={variant}
-      actions={actions}
+      preventClick={showAddButton}
       grow
     >
       {value.length === 0 && (
-        <Text.WithIcon
-          level="p"
-          shade={8}
-          weight={400}
-          startIcon={icon}
-          style={{ padding: "0 1rem" }}
-        >
+        <Text.Text color={8} weight={400} style={{ padding: "0 1rem" }}>
+          {icon}
           {placeholder}
-        </Text.WithIcon>
+        </Text.Text>
       )}
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon }),
+      )}
+      {variant !== "text" && (
+        <Caret.Animated
+          className={CSS.level("p")}
+          enabled={visible}
+          enabledLoc="bottom"
+          disabledLoc="left"
+          color={8}
+        />
+      )}
+      {showAddButton && (
+        <Button.Button
+          variant={variant}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle();
+          }}
+        >
+          <Icon.Add color={8} />
+        </Button.Button>
       )}
     </Tag.Tags>
   );

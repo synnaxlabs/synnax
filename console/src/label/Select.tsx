@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Dialog, Icon, Label, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Dialog, Flex, Icon, Label, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { EmptyAction } from "@/components";
 import { EDIT_LAYOUT } from "@/label/Edit";
 import { Layout } from "@/layout";
 
@@ -27,14 +28,12 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <Align.Center style={{ height: 150 }} y>
-      <Status.Text variant="disabled" hideIcon>
-        No labels created.
-      </Status.Text>
-      <Text.Link level="p" onClick={add}>
-        Create a Label
-      </Text.Link>
-    </Align.Center>
+    <EmptyAction
+      message="No labels created."
+      action="Create a label."
+      onClick={add}
+      style={{ minHeight: 100 }}
+    />
   );
 };
 
@@ -49,9 +48,9 @@ export const SelectSingle = (props: SelectSingleProps) => (
 const AddButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Icon onClick={onClick} variant="outlined" shade={3}>
+    <Button.Button onClick={onClick} variant="outlined" contrast={3}>
       <Icon.Add />
-    </Button.Icon>
+    </Button.Button>
   );
 };
 

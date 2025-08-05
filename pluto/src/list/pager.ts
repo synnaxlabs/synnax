@@ -96,7 +96,8 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    * Performs a search with the given term, resetting to the first page.
    */
   const search = useCallback(
-    (term: string) => retrieve({ term, offset: 0, limit: pageSize }),
+    (term: string) =>
+      retrieve((prev) => ({ ...prev, term, offset: 0, limit: pageSize })),
     [retrieve, pageSize],
   );
 

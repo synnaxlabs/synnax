@@ -81,13 +81,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {singleResource && isNotCurrentUser && (
         <>
           {canEditPermissions && !hasRootUser && (
-            <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
+            <PMenu.Item itemKey="permissions">
+              <Icon.Access />
               Edit Permissions
             </PMenu.Item>
           )}
           {canEditOrDelete && (
             <>
-              <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+              <PMenu.Item itemKey="rename">
+                <Icon.Rename />
                 Change Username
               </PMenu.Item>
               <PMenu.Divider />

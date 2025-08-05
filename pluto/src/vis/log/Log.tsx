@@ -14,9 +14,9 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status";
@@ -31,7 +31,7 @@ export interface LogProps
       >,
       "visible"
     >,
-    Omit<Align.SpaceProps, "color">,
+    Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   emptyContent?: ReactElement;
 }
@@ -42,9 +42,9 @@ export const Log = ({
   className,
   visible = true,
   emptyContent = (
-    <Status.Text.Centered level="h3" variant="disabled" hideIcon>
+    <Status.Text center level="h3" variant="disabled" hideIcon>
       Empty Log
-    </Status.Text.Centered>
+    </Status.Text>
   ),
   color,
   telem,
@@ -87,7 +87,7 @@ export const Log = ({
       {empty ? (
         emptyContent
       ) : (
-        <Button.Icon
+        <Button.Button
           className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
           variant="outlined"
           onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
@@ -95,7 +95,7 @@ export const Log = ({
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Dynamic />
-        </Button.Icon>
+        </Button.Button>
       )}
     </div>
   );

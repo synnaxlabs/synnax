@@ -11,8 +11,8 @@ import "@/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Form,
   Icon,
   Input,
@@ -108,8 +108,8 @@ export const Create: Layout.Renderer = (props) => {
   );
 
   return (
-    <Align.Space className={CSS.B("range-create-layout")} grow empty>
-      <Align.Space
+    <Flex.Box className={CSS.B("range-create-layout")} grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1rem 3rem" }}
@@ -121,7 +121,7 @@ export const Create: Layout.Renderer = (props) => {
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Range Name"
                 {...p}
               />
@@ -137,16 +137,18 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Align.Space x gap="large">
-            <Form.Field<number> path="timeRange.start" label="From" required={false}>
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+          <Flex.Box x gap="large">
+            <Form.Field<number> path="timeRange.start" label="From">
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Form.Field<number> path="timeRange.end" label="To" required={false}>
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+            <Text.Text level="h4">
+              <Icon.Arrow.Right />
+            </Text.Text>
+            <Form.Field<number> path="timeRange.end" label="To">
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-          </Align.Space>
-          <Align.Space x>
+          </Flex.Box>
+          <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, value }) => (
                 <Ranger.SelectSingle
@@ -165,9 +167,9 @@ export const Create: Layout.Renderer = (props) => {
                 <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
@@ -177,16 +179,16 @@ export const Create: Layout.Renderer = (props) => {
           <Button.Button
             variant="filled"
             onClick={() => save()}
-            disabled={!clientExists || variant === "loading"}
+            disabled={!clientExists}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={variant === "loading"}
-            triggers={Triggers.SAVE}
+            status={variant}
+            trigger={Triggers.SAVE}
           >
             Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

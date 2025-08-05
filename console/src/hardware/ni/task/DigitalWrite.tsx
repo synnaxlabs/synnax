@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, Component, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -20,7 +20,7 @@ import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannel
 import {
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
-  type digitalWriteConfigZ,
+  digitalWriteConfigZ,
   type digitalWriteStatusDataZ,
   type digitalWriteTypeZ,
   type DOChannel,
@@ -45,11 +45,11 @@ export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -82,13 +82,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof digitalWriteTypeZ,
   typeof digitalWriteConfigZ,
   typeof digitalWriteStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalWriteConfigZ.parse(config)
+      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,

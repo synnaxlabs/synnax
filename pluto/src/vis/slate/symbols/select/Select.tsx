@@ -1,6 +1,6 @@
 import { color } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Minimal } from "@/vis/slate/symbols/Base";
 
@@ -15,7 +15,7 @@ export const Symbol = () => (
       { key: "false", Icon: Icon.False },
     ]}
   >
-    <Align.Space
+    <Flex.Box
       style={{
         width: "5rem",
         overflow: "hidden",
@@ -30,6 +30,6 @@ export const Symbol = () => (
           transform: "translateX(-20%)",
         }}
       />
-    </Align.Space>
+    </Flex.Box>
   </Minimal>
 );

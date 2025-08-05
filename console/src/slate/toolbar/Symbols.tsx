@@ -10,10 +10,9 @@
 import "@/slate/toolbar/Symbols.css";
 
 import {
-  Align,
   Component,
   CSS as PCSS,
-  Divider,
+  Flex,
   Haul,
   List,
   Select,
@@ -80,7 +79,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
   );
 
   return (
-    <Align.Space
+    <Flex.Box
       x
       className={CSS(
         CSS.B("slate-symbols"),
@@ -101,11 +100,11 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
           onDragEnd={onDragEnd}
         />
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
-interface SymbolsButtonProps extends PropsWithChildren, Align.SpaceProps {
+interface SymbolsButtonProps extends PropsWithChildren, Flex.BoxProps {
   symbolSpec: Slate.Spec<any>;
   theme: Theming.Theme;
   startDrag: (key: string) => void;
@@ -122,7 +121,7 @@ const SymbolsButton = ({
   const defaultProps_ = useMemo(() => defaultProps(theme), [defaultProps, theme]);
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.BE("slate-symbols", "button"))}
       justify="spaceBetween"
       align="center"
@@ -133,10 +132,10 @@ const SymbolsButton = ({
       onDragEnd={onDragEnd}
     >
       <Text.Text level="small">{name}</Text.Text>
-      <Align.Space className="preview-wrapper" align="center" justify="center">
+      <Flex.Box className="preview-wrapper" align="center" justify="center">
         <Preview {...defaultProps_} scale={0.75} />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -151,9 +150,8 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       {...selectProps}
       style={{ minHeight: "5rem", padding: "0 2rem" }}
     >
-      <Text.WithIcon level="p" startIcon={group.icon} gap="medium">
-        {group.name}
-      </Text.WithIcon>
+      {group.icon}
+      {group.name}
     </List.Item>
   );
 });
@@ -161,7 +159,7 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   return (
-    <Align.Space x empty>
+    <Flex.Box x empty>
       <Select.Frame<string, Slate.Group>
         data={GROUP_LIST_DATA}
         value={selectedGroup}
@@ -173,6 +171,6 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         </List.Items>
       </Select.Frame>
       <Group group={selectedGroup} layoutKey={layoutKey} />
-    </Align.Space>
+    </Flex.Box>
   );
 };

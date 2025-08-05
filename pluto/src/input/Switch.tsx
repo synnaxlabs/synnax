@@ -11,12 +11,13 @@ import "@/input/Switch.css";
 
 import { type ReactElement } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
-import { type BaseProps } from "@/input/types";
+import { type InputProps } from "@/input/types";
 
-export interface SwitchProps extends Omit<BaseProps<boolean>, "placeholder"> {}
-
-const CLS = "input-switch";
+export interface SwitchProps
+  extends InputProps<boolean>,
+    Omit<Button.ExtensionProps, "variant"> {}
 
 /**
  * A controlled boolean Switch input component.
@@ -34,28 +35,41 @@ export const Switch = ({
   value,
   disabled,
   onChange,
-  size = "medium",
+  size,
   variant,
+  style,
+  color,
+  borderColor,
+  borderWidth,
+  bordered,
+  rounded,
+  background,
   ...rest
-}: SwitchProps): ReactElement => {
-  if (variant === "preview") disabled = true;
-  return (
-    <div
-      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
-    >
-      <label className={CSS(CSS.BE(CLS, "track"), className)}>
-        <input
-          className={CSS.BE(CLS, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onChange={(e) => onChange(e.target.checked)}
-          value=""
-          disabled={disabled}
-          {...rest}
-        />
-        <span className="pluto-input-switch__slider" />
-      </label>
-    </div>
-  );
-};
+}: SwitchProps): ReactElement => (
+  <Button.Button
+    el="label"
+    variant="text"
+    className={CSS(CSS.BE("input", "switch"), className)}
+    disabled={disabled}
+    size={size}
+    preventClick
+    style={style}
+    color={color}
+    borderColor={borderColor}
+    borderWidth={borderWidth}
+    bordered={bordered}
+    rounded={rounded}
+    background={background}
+  >
+    <input
+      type="checkbox"
+      ref={ref}
+      checked={value}
+      onChange={(e) => onChange(e.target.checked)}
+      value=""
+      disabled={disabled}
+      {...rest}
+    />
+    <span className={CSS(CSS.BE("input", "switch", "track"))} />
+  </Button.Button>
+);

@@ -20,7 +20,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
-    const slate = await client.slates.retrieve(key);
+    const slate = await client.slates.retrieve({ key });
     state ??= {
       ...(slate.graph as unknown as State),
       key: slate.key,

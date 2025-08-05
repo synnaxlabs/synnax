@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { slate } from "@synnaxlabs/client";
-import { Align, Breadcrumb, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -41,21 +41,23 @@ const NotEditableContent = ({
   const hasEditingPermissions = useSelectHasPermission();
   const isEditable = hasEditingPermissions;
   return (
-    <Align.Center x gap="small">
+    <Flex.Box x gap="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
       </Status.Text>
       {isEditable && (
-        <Text.Link
+        <Text.Text
           onClick={(e) => {
             e.stopPropagation();
             dispatch(setEditable({ key: layoutKey, editable: true }));
           }}
+          variant="link"
           level="p"
+          weight={500}
         />
       )}
-    </Align.Center>
+    </Flex.Box>
   );
 };
 
@@ -89,22 +91,6 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
     [dispatch],
   );
   const canEdit = useSelectHasPermission();
-  const breadCrumbSegments: Breadcrumb.Segments = [
-    {
-      label: name,
-      weight: 500,
-      shade: 10,
-      level: "h5",
-      icon: <Icon.Slate />,
-    },
-  ];
-  if (selectedNames.length === 1 && selectedNames[0] !== null)
-    breadCrumbSegments.push({
-      label: selectedNames[0],
-      weight: 400,
-      shade: 9,
-      level: "p",
-    });
   return (
     <Tabs.Provider
       value={{
@@ -115,17 +101,27 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
       }}
     >
       <Core.Header>
-        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        <Align.Space x align="center" empty>
-          <Align.Space x empty style={{ height: "100%", width: 66 }}>
+        <Breadcrumb.Breadcrumb level="h5">
+          <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Icon.Slate />
+            {name}
+          </Breadcrumb.Segment>
+          {selectedNames.length === 1 && selectedNames[0] !== null && (
+            <Breadcrumb.Segment weight={400} color={9} level="p">
+              {selectedNames[0]}
+            </Breadcrumb.Segment>
+          )}
+        </Breadcrumb.Breadcrumb>
+        <Flex.Box x align="center" empty>
+          <Flex.Box x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={slate.ontologyID(layoutKey)}
             />
-          </Align.Space>
+          </Flex.Box>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
-        </Align.Space>
+        </Flex.Box>
       </Core.Header>
       <Tabs.Content />
     </Tabs.Provider>

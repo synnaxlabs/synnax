@@ -16,12 +16,8 @@ export const HardReloadItem = (): ReactElement => {
   const dispatch = useDispatch();
   const handleClick = useCallback(() => dispatch(reloadWindow({})), [dispatch]);
   return (
-    <Menu.Item
-      onClick={handleClick}
-      startIcon={<Icon.Refresh />}
-      size="small"
-      itemKey="hardReload"
-    >
+    <Menu.Item onClick={handleClick} size="small" itemKey="hardReload">
+      <Icon.Refresh />
       Hard Reload
     </Menu.Item>
   );

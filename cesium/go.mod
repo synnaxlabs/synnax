@@ -3,7 +3,6 @@ module github.com/synnaxlabs/cesium
 go 1.24.4
 
 require (
-	github.com/cockroachdb/errors v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
@@ -20,6 +19,7 @@ replace github.com/synnaxlabs/alamos => ../alamos/go
 
 require (
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
+	github.com/cockroachdb/errors v1.12.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506 // indirect
 	github.com/cockroachdb/redact v1.1.6 // indirect
 	github.com/getsentry/sentry-go v0.33.0 // indirect

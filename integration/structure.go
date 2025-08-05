@@ -11,7 +11,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -88,7 +87,7 @@ func (tn *TestNode) UnmarshalJSON(data []byte) error {
 		tn.Params = params
 		break
 	default:
-		return fmt.Errorf("unknown operation: %s", tn.Op)
+		return errors.Newf("unknown operation: %s", tn.Op)
 	}
 
 	return nil

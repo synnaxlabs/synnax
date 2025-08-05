@@ -16,7 +16,8 @@ import { CSS } from "@/css";
 import { Text } from "@/text";
 
 /** Props for the {@link HelpText} component. */
-export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "ref"> {
+export interface HelpTextProps
+  extends Omit<Text.TextProps<"small">, "level" | "ref" | "variant"> {
   variant?: status.Variant;
 }
 

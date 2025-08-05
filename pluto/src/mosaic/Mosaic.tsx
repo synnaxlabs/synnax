@@ -20,8 +20,8 @@ import {
   useState,
 } from "react";
 
-import { type Align } from "@/align";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
@@ -41,7 +41,7 @@ export interface MosaicProps
       | "addTooltip"
     >,
     Omit<
-      Align.CoreProps,
+      Flex.BoxProps,
       "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
     > {
   root: Node;
@@ -124,7 +124,7 @@ export const Mosaic = memo(
       count: 2,
       initialSizes: size != null ? [size] : undefined,
     });
-    let extraProps: Partial<Align.CoreProps> = {};
+    let extraProps: Partial<Flex.BoxProps> = {};
     if (key == 1)
       extraProps = {
         ...rest,
@@ -163,7 +163,8 @@ export const Mosaic = memo(
 );
 Mosaic.displayName = "Mosaic";
 
-interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
+interface TabLeafProps
+  extends Omit<MosaicProps, "onResize" | "onDragStart" | "onDragEnd"> {}
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.
@@ -265,7 +266,7 @@ const TabLeaf = memo(
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (e: DragEvent, { tabKey }: Tabs.Tab): void => {
+      (e: DragEvent<HTMLElement>, { tabKey }: Tabs.Tab): void => {
         startDrag([
           { key: tabKey, type: HAUL_DROP_TYPE, elementID: e.currentTarget.id },
         ]);

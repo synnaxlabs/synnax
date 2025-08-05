@@ -1,7 +1,7 @@
 import { ranger } from "@synnaxlabs/client";
 import z from "zod/v4";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Color } from "@/color";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
@@ -42,11 +42,11 @@ export const Create = ({ range }: CreateProps) => (
       },
     ]}
   >
-    <Align.Space direction="x" align="center" gap="small">
+    <Flex.Box direction="x" align="center" gap="small">
       {range.color != null && <Color.Swatch value={range.color} size="tiny" />}
       <Text.Text level="p" weight={500}>
         {range.name}
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
   </Base>
 );

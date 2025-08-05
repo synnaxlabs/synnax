@@ -2,7 +2,7 @@ import { channel } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import z from "zod/v4";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Divider } from "@/divider";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
@@ -17,8 +17,8 @@ export type Config = z.infer<typeof config>;
 const PURPLE_HEX = color.construct("#635BFF");
 
 export const Symbol = () => (
-  <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
-    <Align.Space
+  <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
       style={{
         backgroundColor: color.cssString(color.setAlpha(PURPLE_HEX, 0.2)),
         borderTopLeftRadius: "1rem",
@@ -36,14 +36,14 @@ export const Symbol = () => (
           color: color.cssString(PURPLE_HEX),
         }}
       />
-    </Align.Space>
-    <Divider.Divider y shade={5} />
-    <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
-      <Text.Text level="small" weight={500} shade={9}>
+    </Flex.Box>
+    <Divider.Divider y color={5} />
+    <Flex.Box style={{ padding: "0rem 2rem" }} align="start" empty>
+      <Text.Text level="small" weight={500} color={9}>
         Run Script
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
     <Handle.Sink location="left" id="value" />
     <Handle.Source location="right" id="output" />
-  </Align.Pack>
+  </Flex.Box>
 );

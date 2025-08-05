@@ -31,7 +31,7 @@ export const Constant = ({ value, units }: SymbolProps) => (
     textColor="var(--pluto-success-z)"
     sources={[{ key: "value", Icon: Icon.Number }]}
   >
-    <Text.Text level="h4" weight={500} code>
+    <Text.Text level="h4" weight={500} variant="code">
       {value.toString()} {units}
     </Text.Text>
   </Base>

@@ -23,14 +23,10 @@ import { CSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
-import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
-export type EditableProps<L extends text.Level = "h1"> = Omit<
-  TextProps<L>,
-  "children" | "onChange"
-> &
+export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
@@ -94,7 +90,7 @@ const compareStylesToTriggerReflow = (
   return a.maxInlineSize === b.maxInlineSize;
 };
 
-export const Editable = <L extends text.Level = text.Level>({
+export const Editable = ({
   onChange,
   value,
   className,
@@ -105,7 +101,7 @@ export const Editable = <L extends text.Level = text.Level>({
   style,
   outline = true,
   ...rest
-}: EditableProps<L>): ReactElement => {
+}: EditableProps): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
   // Sometimes the onBlur event fires right after the user hits
@@ -130,9 +126,7 @@ export const Editable = <L extends text.Level = text.Level>({
     valueRef.current = value;
   }
 
-  const handleDoubleClick = (
-    e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
-  ): void => {
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (allowDoubleClick) {
       setEditable(true);
       triggerReflow(ref.current as HTMLElement);
@@ -157,7 +151,7 @@ export const Editable = <L extends text.Level = text.Level>({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (ref.current == null) return;
     triggerReflow(ref.current);
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key)) return;
@@ -170,7 +164,7 @@ export const Editable = <L extends text.Level = text.Level>({
     el.blur();
   };
 
-  const handleKeyUp = (e: KeyboardEvent<HTMLParagraphElement>): void => {
+  const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => {
     e.stopPropagation();
     e.preventDefault();
   };
@@ -197,8 +191,7 @@ export const Editable = <L extends text.Level = text.Level>({
   const combinedRef = useCombinedRefs(ref, refCallback);
 
   return (
-    // @ts-expect-error - TODO: generic element behavior is funky
-    <Text<L>
+    <Text
       ref={combinedRef}
       className={CSS(
         className,
@@ -224,29 +217,24 @@ export const Editable = <L extends text.Level = text.Level>({
   );
 };
 
-export type MaybeEditableProps<L extends text.Level = "h1"> = Omit<
-  EditableProps<L>,
-  "onChange"
-> & {
-  onChange?: EditableProps<L>["onChange"] | boolean;
+export type MaybeEditableProps = Omit<EditableProps, "onChange"> & {
+  onChange?: EditableProps["onChange"] | boolean;
   disabled?: boolean;
 };
 
-export const MaybeEditable = <L extends text.Level = text.Level>({
+export const MaybeEditable = ({
   onChange,
   disabled = false,
   value,
   allowDoubleClick,
   ...rest
-}: MaybeEditableProps<L>): ReactElement => {
+}: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || typeof onChange === "boolean")
-    // @ts-expect-error - generic component errors
-    return <Text<L> {...rest}>{value}</Text>;
+    return <Text {...rest}>{value}</Text>;
 
   return (
     <>
-      {/* @ts-expect-error - generic component errors */}
-      <Editable<L>
+      <Editable
         allowDoubleClick={allowDoubleClick}
         onChange={onChange}
         value={value}

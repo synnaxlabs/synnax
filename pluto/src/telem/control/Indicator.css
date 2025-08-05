@@ -14,13 +14,13 @@
     cursor: pointer;
 }
 
-.pluto--x > .pluto-indicator {
+.pluto--direction-x > .pluto-indicator {
     height: 1.25rem;
     width: 30px;
     transition: l0 1s;
 }
 
-.pluto--y > .pluto-indicator {
+.pluto--direction-y > .pluto-indicator {
     width: 1.25rem;
     height: 30px;
 }

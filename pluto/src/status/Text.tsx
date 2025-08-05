@@ -10,68 +10,59 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
 export interface TextProps
-  extends Omit<BaseText.WithIconProps, "level" | "wrap">,
+  extends Omit<BaseText.TextProps, "level" | "wrap" | "variant">,
     Partial<Omit<status.Status, "key">> {
   level?: BaseText.Level;
   hideIcon?: boolean;
 }
 
-const Core = ({
+export const Text = ({
   variant = "info",
   level = "p",
   description,
   hideIcon = false,
   className,
-  message,
   children,
+  color,
   ...rest
 }: TextProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  const hasDescription = description != null;
   const baseText = (
-    <BaseText.WithIcon
-      color={VARIANT_COLORS[variant]}
-      className={CSS(className, CSS.B("status-text"))}
+    <BaseText.Text
+      color={color ?? VARIANT_COLORS[variant]}
+      className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
-      startIcon={icon}
-      {...rest}
+      {...(description == null ? rest : {})}
     >
-      {children ?? message}
-    </BaseText.WithIcon>
+      {icon}
+      {children}
+    </BaseText.Text>
   );
-  if (description == null) return baseText;
+  if (!hasDescription) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" {...rest} shade={8} style={{ maxWidth: 150 }}>
+    <BaseText.Text level="small" color={8}>
       {description}
     </BaseText.Text>
   );
   return (
-    <Align.Space y align="start" gap="small">
+    <Flex.Box
+      y
+      className={CSS.BE("status", "text")}
+      align="start"
+      gap="small"
+      {...rest}
+    >
       {baseText}
       {descriptionText}
-    </Align.Space>
+    </Flex.Box>
   );
 };
-
-export interface TextCenteredProps extends TextProps {}
-
-const Centered = ({ style, ...rest }: TextCenteredProps): ReactElement => (
-  <Align.Center style={style} grow>
-    <Core {...rest} />
-  </Align.Center>
-);
-
-type CoreTextType = typeof Core;
-
-export interface TextType extends CoreTextType {
-  Centered: typeof Centered;
-}
-
-export const Text: TextType = Object.assign(Core, { Centered });

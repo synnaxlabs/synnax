@@ -1,7 +1,7 @@
 import { type effect } from "@synnaxlabs/client";
 import {
-  Align,
   Effect,
+  Flex,
   Form,
   Input,
   List,
@@ -50,30 +50,30 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       allowSelect
     >
       <Form.Form<typeof Effect.formSchema> {...form}>
-        <Align.Space x align="center">
+        <Flex.Box x align="center">
           <Input.Checkbox
             value={selected}
             onChange={onSelect}
             onClick={stopPropagation}
           />
           <Text.Text level="p">{name}</Text.Text>
-        </Align.Space>
-        <Align.Space x align="center">
+        </Flex.Box>
+        <Flex.Box x align="center">
           <Tag.Tags>
             {showLabels &&
               labels?.map((l) => (
-                <Tag.Tag key={l.key} color={l.color} size="small" shade={9}>
+                <Tag.Tag key={l.key} color={l.color} size="small">
                   {l.name}
                 </Tag.Tag>
               ))}
           </Tag.Tags>
           {showStatus && status != null && <Status.Text {...status} key={status.key} />}
-        </Align.Space>
+        </Flex.Box>
       </Form.Form>
     </List.Item>
   );

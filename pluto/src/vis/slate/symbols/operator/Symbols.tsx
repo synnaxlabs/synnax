@@ -23,8 +23,8 @@ export const createOperator = (
       <Text.Text
         level="h4"
         weight={500}
-        code
-        shade={10}
+        variant="code"
+        color={10}
         style={{ transform: "scale(1.2) translateY(-2%)", padding: "1rem" }}
       >
         {operator}

@@ -1,5 +1,3 @@
-import "@/vis/slate/handle/Handle.css";
-
 import { caseconv, type location } from "@synnaxlabs/x";
 import {
   Handle,

@@ -10,10 +10,10 @@
  */
 
 .pluto-nav-drawer {
-    &.pluto--y {
+    &.pluto--direction-y {
         width: 100%;
     }
-    &.pluto--x {
+    &.pluto--direction-x {
         height: 100%;
     }
 }

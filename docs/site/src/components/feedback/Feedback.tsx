@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Dialog, Form, Icon, Nav, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Input } from "@synnaxlabs/pluto/input";
+import {
+  Breadcrumb,
+  Button,
+  Dialog,
+  Flex,
+  Form,
+  Icon,
+  Input,
+  Nav,
+  Text,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -26,9 +33,9 @@ export const FeedbackButton = (): ReactElement => (
       className="feedback-button"
       size="medium"
       gap="small"
-      startIcon={<Icon.Feedback />}
       variant="outlined"
     >
+      <Icon.Feedback />
       Stuck? Let us know!
     </Dialog.Trigger>
     <Dialog.Dialog>
@@ -83,7 +90,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
 
   return (
     <Form.Form<typeof formSchema> {...methods}>
-      <Align.Space
+      <Flex.Box
         el="form"
         id="my-form"
         className="feedback-form"
@@ -92,31 +99,23 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
           width: "800px",
           maxWidth: "100%",
         }}
-        background={1}
-        borderShade={6}
-        rounded={1}
-        bordered
         align="center"
         empty
       >
         <Nav.Bar location="top" size="5rem">
           <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-            <Breadcrumb.Breadcrumb
-              level="p"
-              weight={450}
-              shade={11}
-              icon={<Icon.Feedback />}
-            >
+            <Breadcrumb.Breadcrumb>
+              <Icon.Feedback />
               Feedback
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Icon variant="text" size="small">
-              <Icon.Close style={{ color: "var(--color-pluto-gray-l10)" }} />
-            </Button.Icon>
+            <Button.Button variant="text" size="small" textColor={8}>
+              <Icon.Close />
+            </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
-        <Align.Space
+        <Flex.Box
           direction="y"
           style={{ width: "100%", padding: "4rem 3rem 2rem 3rem" }}
           gap="small"
@@ -130,7 +129,6 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             {(p) => (
               <Input.TextArea
                 {...p}
-                size="medium"
                 maxLength={50000}
                 placeholder="What can we improve?"
                 autoFocus
@@ -144,7 +142,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space direction="y" empty>
+          <Flex.Box direction="y" empty>
             <Form.Field<string>
               path="name"
               label="Name"
@@ -158,26 +156,26 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" shade={10}>
+            <Text.Text level="small" color={10}>
               If you'd like a response, please include your name and email.
             </Text.Text>
-          </Align.Space>
-        </Align.Space>
+          </Flex.Box>
+        </Flex.Box>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
             <Button.Button
               gap="medium"
+              variant="outlined"
               form="my-form"
               onClick={() => handleSuccessfulSubmit()}
-              startIcon={softSuccess ? <Icon.Check /> : undefined}
-              loading={loading}
-              disabled={loading || softSuccess}
+              status={loading ? "loading" : undefined}
+              disabled={softSuccess}
             >
-              Send
+              {softSuccess ? <Icon.Check /> : "Send"}
             </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
-      </Align.Space>
+      </Flex.Box>
     </Form.Form>
   );
 };

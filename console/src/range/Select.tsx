@@ -40,13 +40,12 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { variant, name } = range;
   return (
     <Select.ListItem {...props}>
-      <Text.Text level="p" style={{ width: 100 }}>
-        {name}
-      </Text.Text>
+      <Text.Text style={{ width: 100 }}>{name}</Text.Text>
       {variant === "dynamic" ? (
-        <Text.WithIcon level="p" shade={11} startIcon={dynamicIcon}>
+        <Text.Text>
+          {dynamicIcon}
           {new TimeSpan(range.span).toString()}
-        </Text.WithIcon>
+        </Text.Text>
       ) : (
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       )}
@@ -66,7 +65,6 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
     <Tag.Tag
       icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
       onClose={onSelect}
-      shade={11}
       level="small"
       size="small"
     >

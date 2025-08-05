@@ -57,7 +57,7 @@ var (
 	// DefaultServiceConfig is the default configuration for the security secureProvider.
 	DefaultServiceConfig = ProviderConfig{
 		LoaderConfig: cert.DefaultLoaderConfig,
-		Insecure:     config.Bool(true),
+		Insecure:     config.True(),
 		KeySize:      cert.DefaultFactoryConfig.KeySize,
 	}
 )

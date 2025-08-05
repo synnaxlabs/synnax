@@ -31,6 +31,6 @@ export const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
-  ...EffectServices.COMMANDS,
   ...AnnotationServices.COMMANDS,
+  ...EffectServices.COMMANDS,
 ];

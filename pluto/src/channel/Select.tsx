@@ -19,7 +19,6 @@ import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Text } from "@/text";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
@@ -41,9 +40,8 @@ const listItemRenderProp = Component.renderProp(
     const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
     return (
       <Select.ListItem itemKey={itemKey} {...rest}>
-        <Text.WithIcon startIcon={<Icon />} level="p" align="center">
-          {displayName}
-        </Text.WithIcon>
+        <Icon />
+        {displayName}
       </Select.ListItem>
     );
   },

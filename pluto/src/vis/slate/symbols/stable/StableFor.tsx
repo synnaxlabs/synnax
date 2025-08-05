@@ -25,7 +25,7 @@ export const StableFor = ({ duration }: SymbolProps) => (
     sinks={[{ key: "input", Icon: Icon.Number }]}
     sources={[{ key: "value", Icon: Icon.Number }]}
   >
-    <Text.Text level="h4" weight={500} code>
+    <Text.Text level="h4" weight={500} variant="code">
       {new TimeSpan(duration).toString()}
     </Text.Text>
   </Base>

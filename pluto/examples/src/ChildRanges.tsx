@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
+  Flex,
   Icon,
-  Align,
   Divider,
   Ranger,
   Text,
@@ -24,14 +24,13 @@ interface ListItemProps {
 }
 
 const ListItem = ({ name, timeRange }: ListItemProps) => (
-  <Align.Space x justify="spaceBetween">
-    <Text.WithIcon startIcon={<Icon.Range />} level="p">
+  <Flex.Box x justify="between">
+    <Text.Text>
+      <Icon.Range />
       {name}
-    </Text.WithIcon>
-    {timeRange != null && (
-      <Ranger.TimeRangeChip level="p" timeRange={timeRange} showSpan />
-    )}
-  </Align.Space>
+    </Text.Text>
+    {timeRange != null && <Ranger.TimeRangeChip timeRange={timeRange} showSpan />}
+  </Flex.Box>
 );
 
 const start = TimeStamp.now();
@@ -52,13 +51,13 @@ const TIME_RANGES = [
 ];
 
 export const ChildRanges = () => (
-  <Align.Center
+  <Flex.Box
     x
     style={{
       width: "100vw",
     }}
   >
-    <Align.Space
+    <Flex.Box
       y
       style={{
         background: "var(--pluto-gray-l1)",
@@ -69,9 +68,9 @@ export const ChildRanges = () => (
       }}
     >
       <ListItem name="Test 1" />
-      <Align.Space
+      <Flex.Box
         y
-        justify="spaceBetween"
+        justify="between"
         style={{
           marginLeft: "1rem",
           marginTop: "1rem",
@@ -85,7 +84,7 @@ export const ChildRanges = () => (
             {i !== TIME_RANGES.length - 1 && <Divider.Divider x />}
           </>
         ))}
-      </Align.Space>
-    </Align.Space>
-  </Align.Center>
+      </Flex.Box>
+    </Flex.Box>
+  </Flex.Box>
 );

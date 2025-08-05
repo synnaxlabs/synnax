@@ -11,9 +11,9 @@ import { type channel } from "@synnaxlabs/client";
 import { type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
-import { Align } from "@/align";
 import { Channel } from "@/channel";
 import { telem } from "@/ether";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
@@ -87,7 +87,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Align.Space x>
+      <Flex.Box x>
         <Input.Item label="Notation">
           <Notation.Select
             value={stringifier.notation}
@@ -108,7 +108,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };

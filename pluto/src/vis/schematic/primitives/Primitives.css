@@ -24,17 +24,17 @@
     & svg {
         stroke-width: 2px;
 
-        &.pluto--bottom > g {
+        &.pluto--location-bottom > g {
             transform-origin: top left;
             transform: translateX(100%) rotate(90deg);
         }
 
-        &.pluto--top > g {
+        &.pluto--location-top > g {
             transform-origin: top left;
             transform: translateY(100%) rotate(-90deg);
         }
 
-        &.pluto--right > g {
+        &.pluto--location-right > g {
             transform-origin: top left;
             transform: translate(100%, 100%) rotate(180deg);
         }
@@ -121,10 +121,10 @@
     text-overflow: ellipsis;
     text-wrap: wrap;
 
-    &.pluto--top {
+    &.pluto--location-top {
         writing-mode: vertical-rl;
     }
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }
@@ -197,13 +197,13 @@
 }
 
 .pluto-arrow {
-    &.pluto--top {
+    &.pluto--location-top {
         transform: rotate(-90deg);
     }
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         transform: rotate(90deg);
     }
-    &.pluto--left {
+    &.pluto--location-left {
         transform: rotate(180deg);
         .pluto-text {
             transform: rotate(180deg);

@@ -10,7 +10,6 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors/oserror"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
 

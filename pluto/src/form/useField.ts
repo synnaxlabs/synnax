@@ -106,7 +106,7 @@ export const useField = (<I, O = I>(
     return null;
   }
   let variant: Input.Variant | undefined;
-  if (ctx.mode === "preview") variant = "preview";
+  // if (ctx.mode === "preview") variant = "preview";
   return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 

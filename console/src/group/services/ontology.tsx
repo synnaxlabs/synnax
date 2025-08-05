@@ -50,13 +50,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item itemKey="newGroup" startIcon={<Icon.Group />}>
+          <PMenu.Item itemKey="newGroup">
+            <Icon.Group />
             New Group
           </PMenu.Item>
         </>
       )}
       <MenuItem resourceIDs={resourceIDs} shape={shape} />
-      <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+      <PMenu.Item itemKey="ungroup">
+        {ungroupIcon}
         {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
         {isDelete ? "Delete" : "Ungroup"}
       </PMenu.Item>

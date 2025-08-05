@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, Component, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -21,7 +21,7 @@ import {
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
-  type digitalReadConfigZ,
+  digitalReadConfigZ,
   type digitalReadStatusDataZ,
   type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
@@ -45,12 +45,12 @@ export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -79,13 +79,16 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof digitalReadTypeZ,
   typeof digitalReadConfigZ,
   typeof digitalReadStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_READ_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalReadConfigZ.parse(config)
+      : ZERO_DIGITAL_READ_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,

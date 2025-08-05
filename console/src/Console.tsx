@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import "@/index.css";
+import "@synnaxlabs/media/dist/media.css";
+import "@synnaxlabs/pluto/dist/pluto.css";
 
-// import "@synnaxlabs/media/dist/media.css";
-// import "@synnaxlabs/pluto/dist/pluto.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import {
   type Color,
@@ -72,8 +72,8 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
-  ...Effect.LAYOUTS,
   ...Annotation.LAYOUTS,
+  ...Effect.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

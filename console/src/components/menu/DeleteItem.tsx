@@ -11,7 +11,8 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export const DeleteItem = (): ReactElement => (
-  <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
+  <Menu.Item itemKey="delete" size="small">
+    <Icon.Delete />
     Delete
   </Menu.Item>
 );

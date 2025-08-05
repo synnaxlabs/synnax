@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
-export { Align } from "@/align";
 export { Annotation } from "@/annotation";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
@@ -23,6 +21,7 @@ export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";
 export { Divider } from "@/divider";
 export { Effect } from "@/effect";
+export { Flex } from "@/flex";
 export { Flux as Sync } from "@/flux";
 export { Flux } from "@/flux";
 export { Form } from "@/form";

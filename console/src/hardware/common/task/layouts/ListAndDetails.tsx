@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Button,
   Divider,
+  Flex,
   Form,
   Header,
   Icon,
@@ -88,30 +88,30 @@ export const ListAndDetails = <C extends Channel>({
         createChannels={handleDuplicateChannels}
       />
       <Divider.Divider y />
-      <Align.Space y grow empty className={CSS.B("details")}>
-        <Header.Header level="p">
-          <Header.Title weight={500} wrap={false} shade={10}>
+      <Flex.Box y grow empty className={CSS.B("details")}>
+        <Header.Header>
+          <Header.Title weight={500} wrap={false} color={10}>
             Details
           </Header.Title>
           <Header.Actions>
-            <Button.Icon
+            <Button.Button
               disabled={selected.length === 0}
               tooltip="Copy channel details as JSON"
               tooltipLocation="left"
               variant="text"
               onClick={handleCopyChannelDetails}
-              shade={2}
+              contrast={2}
             >
               <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
-            </Button.Icon>
+            </Button.Button>
           </Header.Actions>
         </Header.Header>
         {selected.length > 0 && (
-          <Align.Space y className={CSS.BE("details", "form")} empty grow>
+          <Flex.Box y className={CSS.BE("details", "form")} empty grow>
             {details({ path: `config.channels.${selected[0]}` })}
-          </Align.Space>
+          </Flex.Box>
         )}
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };

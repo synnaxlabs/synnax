@@ -9,10 +9,10 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Component,
   Divider,
+  Flex,
   Header,
   Icon,
   Input,
@@ -32,27 +32,29 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
     <Input.Text
       value={value}
       onChange={onChange}
-      style={{ width: "unset", flexGrow: 2 }}
-      variant="shadow"
+      style={{
+        width: "unset",
+        flexGrow: 2,
+      }}
       selectOnFocus={true}
       resetOnBlurIfEmpty={true}
       onlyChangeOnBlur={true}
       placeholder="Value"
       color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
+      <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
-      </Button.Icon>
+      </Button.Button>
       {isLink && (
-        <Button.Link
+        <Button.Button
           variant="outlined"
           href={value}
           target="_blank"
-          autoFormat
+          autoFormatHref
           style={{ padding: "1rem" }}
         >
           <Icon.LinkExternal />
-        </Button.Link>
+        </Button.Button>
       )}
     </Input.Text>
   );
@@ -73,7 +75,6 @@ const MetaDataListItem = (props: List.ItemProps<string>) => {
     >
       <Input.Text
         style={{ flexBasis: "30%", width: 250 }}
-        variant="shadow"
         value={key}
         selectOnFocus={true}
         resetOnBlurIfEmpty={true}
@@ -89,14 +90,14 @@ const MetaDataListItem = (props: List.ItemProps<string>) => {
             value={value}
             onChange={(value) => update.update({ ...pair, value })}
           />
-          <Button.Icon
+          <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
             variant="text"
             onClick={() => {}}
           >
             <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
-          </Button.Icon>
+          </Button.Button>
         </>
       )}
     </List.Item>
@@ -114,15 +115,15 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
     initialParams: { rangeKey },
   });
   return (
-    <Align.Space y>
-      <Header.Header level="h4" bordered={false} borderShade={5}>
-        <Header.Title shade={11} weight={450}>
+    <Flex.Box y>
+      <Header.Header level="h4" bordered={false} borderColor={10}>
+        <Header.Title color={10} weight={450}>
           Metadata
         </Header.Title>
       </Header.Header>
       <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items>{metaDataItem}</List.Items>
       </List.Frame>
-    </Align.Space>
+    </Flex.Box>
   );
 };

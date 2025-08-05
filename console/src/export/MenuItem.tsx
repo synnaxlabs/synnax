@@ -10,7 +10,8 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
 export const MenuItem = () => (
-  <Menu.Item itemKey="export" startIcon={<Icon.Export />}>
+  <Menu.Item itemKey="export">
+    <Icon.Export />
     Export
   </Menu.Item>
 );

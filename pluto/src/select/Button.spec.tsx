@@ -37,13 +37,13 @@ describe("Select.Button", () => {
       </Select.Buttons>,
     );
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 2").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
   });
 
@@ -61,78 +61,13 @@ describe("Select.Button", () => {
     const c = render(<C />);
     fireEvent.click(c.getByText("Option 2"));
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 1").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--filled",
+      "pluto-btn--filled",
     );
-  });
-});
-
-describe("Select.ButtonIcon", () => {
-  it("should render a collection of button icons", () => {
-    const onChange = vi.fn();
-    const c = render(
-      <Select.Buttons keys={[1, 2, 3]} value={1} onChange={onChange}>
-        <Select.ButtonIcon itemKey={1} data-testid="icon-1">
-          ⭐
-        </Select.ButtonIcon>
-        <Select.ButtonIcon itemKey={2} data-testid="icon-2">
-          ❤️
-        </Select.ButtonIcon>
-        <Select.ButtonIcon itemKey={3} data-testid="icon-3">
-          🔥
-        </Select.ButtonIcon>
-      </Select.Buttons>,
-    );
-    expect(c.getByTestId("icon-1")).toBeTruthy();
-    expect(c.getByTestId("icon-2")).toBeTruthy();
-    expect(c.getByTestId("icon-3")).toBeTruthy();
-  });
-
-  it("should give the selected button icon a filled variant", () => {
-    const c = render(
-      <Select.Buttons keys={[1, 2, 3]} value={1} onChange={vi.fn()}>
-        <Select.ButtonIcon itemKey={1} data-testid="icon-1">
-          ⭐
-        </Select.ButtonIcon>
-        <Select.ButtonIcon itemKey={2} data-testid="icon-2">
-          ❤️
-        </Select.ButtonIcon>
-        <Select.ButtonIcon itemKey={3} data-testid="icon-3">
-          🔥
-        </Select.ButtonIcon>
-      </Select.Buttons>,
-    );
-    expect(c.getByTestId("icon-1").classList).toContain("pluto--filled");
-    expect(c.getByTestId("icon-2").classList).not.toContain("pluto--filled");
-    expect(c.getByTestId("icon-3").classList).not.toContain("pluto--filled");
-  });
-
-  it("should move the selection state when a button icon is clicked", () => {
-    const C = () => {
-      const [value, setValue] = useState(1);
-      return (
-        <Select.Buttons keys={[1, 2, 3]} value={value} onChange={setValue}>
-          <Select.ButtonIcon itemKey={1} data-testid="icon-1">
-            ⭐
-          </Select.ButtonIcon>
-          <Select.ButtonIcon itemKey={2} data-testid="icon-2">
-            ❤️
-          </Select.ButtonIcon>
-          <Select.ButtonIcon itemKey={3} data-testid="icon-3">
-            🔥
-          </Select.ButtonIcon>
-        </Select.Buttons>
-      );
-    };
-    const c = render(<C />);
-    fireEvent.click(c.getByTestId("icon-2"));
-    expect(c.getByTestId("icon-2").classList).toContain("pluto--filled");
-    expect(c.getByTestId("icon-1").classList).not.toContain("pluto--filled");
-    expect(c.getByTestId("icon-3").classList).not.toContain("pluto--filled");
   });
 });

@@ -20,15 +20,11 @@
             z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
         }
     }
-    &:not(.pluto--connected) {
-        width: max-content;
-    }
 }
 
 .pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;
-    border-radius: var(--pluto-pack-br);
 
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
@@ -43,7 +39,6 @@
         overflow: hidden;
         box-shadow: var(--pluto-shadow-v1);
         border-radius: 1rem;
-        height: fit-content;
     }
 
     &:not(.pluto--modal) {

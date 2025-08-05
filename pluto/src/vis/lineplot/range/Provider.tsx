@@ -11,8 +11,8 @@ import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { type RenderProp } from "@/component/renderProp";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Menu } from "@/menu";
@@ -57,7 +57,7 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
         return menu(hovered);
       }}
     >
-      <Align.Space
+      <Flex.Box
         style={{
           ...gridStyle,
           cursor: hovered != null ? "pointer" : "default",

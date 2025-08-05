@@ -28,6 +28,7 @@ export interface MultipleProps<
   resourceName: string;
   renderTag?: Select.MultipleTriggerProps<K>["children"];
   triggerProps?: Select.MultipleTriggerProps<K>;
+  dialogProps?: Dialog.FrameProps;
 }
 
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -47,9 +48,11 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   children,
   renderTag,
   actions,
-  triggerProps,
   allowNone,
   replaceOnSingle,
+  triggerProps,
+  virtual = true,
+  dialogProps,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
   <Dialog.Frame variant="connected" {...rest}>
@@ -63,7 +66,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       onFetchMore={onFetchMore}
       allowNone={allowNone}
       replaceOnSingle={replaceOnSingle}
-      virtual
+      virtual={virtual}
     >
       <Select.MultipleTrigger
         haulType={haulType}
@@ -76,10 +79,11 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       </Select.MultipleTrigger>
       <Select.Dialog<K>
         onSearch={onSearch}
-        searchPlaceholder={`Search ${resourceName}s...`}
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        resourceName={resourceName}
+        {...dialogProps}
       >
         {children}
       </Select.Dialog>

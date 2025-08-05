@@ -1,7 +1,7 @@
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type FC } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { type Icon } from "@/icon";
 import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";
@@ -25,25 +25,24 @@ export interface TypeTextProps {
 }
 
 export const TypeText = ({ type, icon, color, textColor }: TypeTextProps) => (
-  <Text.WithIcon
+  <Text.Text
     level="small"
     gap="tiny"
     weight={500}
-    shade={9}
     bordered
-    startIcon={icon}
-    noWrap
-    code
+    overflow="nowrap"
+    variant="code"
     rounded={0.5}
+    background={color}
+    borderColor={textColor}
     style={{
-      backgroundColor: color,
       padding: "0.5rem 1rem",
-      borderColor: textColor,
     }}
     color={textColor}
   >
+    {icon}
     {type}
-  </Text.WithIcon>
+  </Text.Text>
 );
 
 interface HandlesProps {
@@ -91,15 +90,15 @@ const createHandles = (
       adjustedStyle.marginBottom = "auto";
     }
     return (
-      <Align.Space
+      <Flex.Box
         y
         align="center"
         gap={0.5}
         background={2}
         bordered
-        borderShade={6}
+        borderColor={6}
         style={adjustedStyle}
-        justify="spaceAround"
+        justify="around"
       >
         {inputs.map((input) => {
           const Icon = input.Icon;
@@ -124,7 +123,7 @@ const createHandles = (
             </div>
           );
         })}
-      </Align.Space>
+      </Flex.Box>
     );
   };
   C.displayName = `Handles(${location})`;
@@ -185,22 +184,22 @@ export const Minimal = ({
     adjustedStyle.borderBottomRightRadius = "1rem";
 
   return (
-    <Align.Space x empty>
+    <Flex.Box x empty>
       <SinkHandles handles={sinks} center={centerSinks} />
-      <Align.Space
+      <Flex.Box
         y
         background={0}
         bordered
-        borderShade={6}
+        borderColor={6}
         gap="small"
         justify="center"
         style={adjustedStyle}
         align="start"
       >
         {children}
-      </Align.Space>
+      </Flex.Box>
       <SourceHandles handles={sources} center={centerSources} />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

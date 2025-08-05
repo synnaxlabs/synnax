@@ -112,6 +112,8 @@ import {
   MdOutlineDeviceHub,
   MdOutlineExplore,
   MdOutlineFilterList,
+  MdOutlineLinearScale,
+  MdOutlineMap,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
@@ -173,6 +175,7 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbCircleDashed,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
   TbCircuitResistor,
@@ -202,8 +205,6 @@ import {
 const LabJack: SVGFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="96"
-    height="92"
     viewBox="0 0 96 96"
     fill="currentColor"
     {...props}
@@ -474,6 +475,9 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
+export const Map = wrapSVGIcon(MdOutlineMap, "map");
+export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
+export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Effect = wrapSVGIcon(BsStars, "effect");
 export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
@@ -617,6 +621,9 @@ const icons = {
   StarFilled,
   StarOutlined,
   Heart,
+  Map,
+  Linear,
+  None,
   Effect,
   Slate,
   Select,

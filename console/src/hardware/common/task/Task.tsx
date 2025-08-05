@@ -20,6 +20,7 @@ export interface LayoutArgs {
   deviceKey?: device.Key;
   taskKey?: task.Key;
   rackKey?: rack.Key;
+  config?: unknown;
 }
 
 export interface Layout extends Layout.BaseState<LayoutArgs> {}
@@ -43,6 +44,7 @@ export type TaskProps<
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
+  config?: unknown;
 }
 
 export interface GetInitialPayload<
@@ -74,7 +76,7 @@ export const wrap = <
   const useRetrieve = Task.createRetrieveQuery(schemas).useDirect;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
-    const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
+    const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<LayoutArgs>(
       store.getState(),
       layoutKey,
     );
@@ -90,7 +92,7 @@ export const wrap = <
     return (
       <Wrapped
         rackKey={data ? task.rackKey(data.key) : rackKey}
-        task={data ?? getInitialPayload({ deviceKey })}
+        task={data ?? getInitialPayload({ deviceKey, config })}
         layoutKey={layoutKey}
       />
     );

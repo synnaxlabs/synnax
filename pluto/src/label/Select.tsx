@@ -18,7 +18,6 @@ import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
-import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,
@@ -28,12 +27,8 @@ const ListItem = ({
   if (item == null) return null;
   return (
     <Select.ListItem itemKey={itemKey} {...rest}>
-      <Text.WithIcon
-        level="p"
-        startIcon={<Icon.Circle color={item?.color} size="2.5em" />}
-      >
-        {item?.name}
-      </Text.WithIcon>
+      <Icon.Circle color={item?.color} size="2.5em" />
+      {item?.name}
     </Select.ListItem>
   );
 };

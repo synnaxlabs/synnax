@@ -1,13 +1,5 @@
 import { type effect } from "@synnaxlabs/client";
-import {
-  Align,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex, type Flux, Icon, Input, List as PList, Select } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Item, type ItemProps } from "@/effect/list/Item";
@@ -44,23 +36,25 @@ export const List = ({
       onFetchMore={fetchMore}
     >
       {enableSearch && (
-        <Align.Space x bordered style={{ padding: "2rem" }} background={1}>
+        <Flex.Box x bordered style={{ padding: "2rem" }} background={1}>
           <Input.Text
             size="large"
             level="h4"
-            variant="natural"
+            variant="text"
             value={searchTerm}
             placeholder={
-              <Text.WithIcon level="h4" startIcon={<Icon.Search />}>
+              <>
+                {" "}
+                <Icon.Search />
                 Search Effects...
-              </Text.WithIcon>
+              </>
             }
             onChange={(value) => {
               setSearchTerm(value);
               search(value);
             }}
           />
-        </Align.Space>
+        </Flex.Box>
       )}
       <PList.Items<string>>
         {({ key, ...rest }) => (

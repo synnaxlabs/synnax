@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -36,6 +36,7 @@ const TerminalConfigField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal Configuration" },
   inputProps: {
+    resourceName: "Terminal Configuration",
     data: [
       { key: "RSE", name: "Referenced Single Ended" },
       { key: "NRSE", name: "Non-Referenced Single Ended" },
@@ -53,6 +54,7 @@ const AccelSensitivityUnitsField = Form.buildSelectField<
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity Units" },
   inputProps: {
+    resourceName: "Sensitivity Units",
     data: [
       { key: "mVoltsPerG", name: "mV/g" },
       { key: "VoltsPerG", name: "V/g" },
@@ -64,6 +66,7 @@ const ExcitSourceField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "excitSource",
   fieldProps: { label: "Excitation Source" },
   inputProps: {
+    resourceName: "Excitation Source",
     data: [
       { key: "Internal", name: "Internal" },
       { key: "External", name: "External" },
@@ -76,6 +79,7 @@ const BridgeConfigField = Form.buildSelectField<string, record.KeyedNamed<string
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge Configuration" },
   inputProps: {
+    resourceName: "Bridge Configuration",
     data: [
       { key: "FullBridge", name: "Full Bridge" },
       { key: "HalfBridge", name: "Half Bridge" },
@@ -91,6 +95,7 @@ const ShuntResistorLocField = Form.buildSelectField<
   fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt Resistor Location" },
   inputProps: {
+    resourceName: "Shunt Resistor Location",
     data: [
       { key: "Default", name: "Default" },
       { key: "Internal", name: "Internal" },
@@ -103,6 +108,7 @@ const ResistanceConfigField = Form.buildSelectField<string, record.KeyedNamed<st
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance Configuration" },
   inputProps: {
+    resourceName: "Resistance Configuration",
     data: [
       { key: "2Wire", name: "2-Wire" },
       { key: "3Wire", name: "3-Wire" },
@@ -115,6 +121,7 @@ const StrainConfig = Form.buildSelectField({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain Configuration" },
   inputProps: {
+    resourceName: "Strain Configuration",
     data: [
       { key: "FullBridgeI", name: "Full Bridge I" },
       { key: "FullBridgeII", name: "Full Bridge II" },
@@ -130,6 +137,7 @@ const StrainConfig = Form.buildSelectField({
 const SensitivityField = Form.buildNumericField({
   fieldKey: "sensitivity",
   fieldProps: { label: "Sensitivity" },
+  inputProps: {},
 });
 
 const ForceUnitsField = Form.buildSelectField<
@@ -139,6 +147,7 @@ const ForceUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Force Units" },
   inputProps: {
+    resourceName: "Force Units",
     data: [
       { key: "Newtons", name: "Newtons" },
       { key: "Pounds", name: "Pounds" },
@@ -154,6 +163,7 @@ const ElectricalUnitsField = Form.buildSelectField<
   fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical Units" },
   inputProps: {
+    resourceName: "Electrical Units",
     data: [
       { key: "VoltsPerVolt", name: "V/V" },
       { key: "mVoltsPerVolt", name: "mV/V" },
@@ -168,6 +178,7 @@ const PressureUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Pressure Units" },
   inputProps: {
+    resourceName: "Pressure Units",
     data: [
       { key: "Pascals", name: "Pascals" },
       { key: "PoundsPerSquareInch", name: "PSI" },
@@ -182,6 +193,7 @@ const TemperatureUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
+    resourceName: "Temperature Units",
     data: [
       { key: "DegC", name: "Celsius" },
       { key: "DegF", name: "Fahrenheit" },
@@ -195,6 +207,7 @@ const ThermocoupleTypeField = Form.buildSelectField({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
+    resourceName: "Thermocouple Type",
     data: [
       { key: "B", name: "B" },
       { key: "E", name: "E" },
@@ -215,6 +228,7 @@ const TorqueUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Torque Units" },
   inputProps: {
+    resourceName: "Torque Units",
     data: [
       { key: "NewtonMeters", name: "Newton Meters" },
       { key: "InchOunces", name: "Inch Ounces" },
@@ -228,6 +242,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldProps: { label: "Units" },
   inputProps: {
     allowNone: false,
+    resourceName: "Units",
     data: [
       { key: "Volts", name: "Volts" },
       { key: "Amps", name: "Amps" },
@@ -283,7 +298,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         }}
       />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="currentExcitSource"
@@ -294,7 +309,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.currentExcitVal`}
           label="Current Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -304,15 +319,15 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
       <ElectricalUnitsField path={prefix} fieldKey="units" />
-      <Align.Space x>
+      <Flex.Box x>
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -323,7 +338,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -334,14 +349,14 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ShuntResistorLocField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.extShuntResistorVal`}
           label="Shunt Resistance"
           grow
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -351,16 +366,16 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x gap="small">
+      <Flex.Box x gap="small">
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
           grow
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x gap="small">
+      <Flex.Box x gap="small">
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -372,8 +387,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           label="Voltage Excitation Value"
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <ForceUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -382,7 +397,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} grow />
-      </Align.Space>
+      </Flex.Box>
       {/* electricalVals */}
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
@@ -393,7 +408,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <ForceUnitsField path={prefix} />
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -404,17 +419,17 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ForceUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -422,8 +437,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           grow
         />
         <ElectricalUnitsField grow path={prefix} />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstPhysicalVal`}
           label="Physical Value One"
@@ -434,8 +449,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           label="Physical Value Two"
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstElectricalVal`}
           label="Electrical Value One"
@@ -446,7 +461,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           label="Electrical Value Two"
           grow
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -456,6 +471,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
+        resourceName: "Sensitivity Units",
         data: [
           { key: "mVoltsPerNewton", name: "mV/N" },
           { key: "mVoltsPerPound", name: "mV/lb" },
@@ -469,7 +485,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <Divider.Divider x padded="bottom" />
         <ForceUnitsField
           path={prefix}
-          inputProps={{ filter: ({ key }) => key !== "KilogramForce" }}
+          inputProps={{
+            filter: ({ key }) => key !== "KilogramForce",
+            resourceName: "Force Units",
+          }}
         />
         <SensitivityField
           path={prefix}
@@ -480,7 +499,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           }}
         />
         <Divider.Divider x padded="bottom" />
-        <Align.Space x>
+        <Flex.Box x>
           <ExcitSourceField
             path={prefix}
             fieldKey="currentExcitSource"
@@ -492,7 +511,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             label="Current Excitation Value"
             grow
           />
-        </Align.Space>
+        </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
@@ -504,6 +523,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "units",
       fieldProps: { label: "Sound Pressure Units" },
       inputProps: {
+        resourceName: "Sound Pressure Units",
         data: [{ key: "Pascals", name: "Pascals" }],
       },
     });
@@ -512,7 +532,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
         <Divider.Divider x padded="bottom" />
-        <Align.Space x>
+        <Flex.Box x>
           <Form.NumericField
             path={`${prefix}.micSensitivity`}
             label="Microphone Sensitivity"
@@ -523,9 +543,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             label="Max Sound Pressure Level"
             grow
           />
-        </Align.Space>
+        </Flex.Box>
         <Divider.Divider x padded="bottom" />
-        <Align.Space x>
+        <Flex.Box x>
           <ExcitSourceField
             path={prefix}
             fieldKey="currentExcitSource"
@@ -537,7 +557,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             label="Current Excitation Value"
             grow
           />
-        </Align.Space>
+        </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <CustomScaleForm prefix={prefix} />
       </>
@@ -548,7 +568,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
       <BridgeConfigField path={prefix} />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -559,12 +579,12 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Form.NumericField
         path={`${prefix}.nominalBridgeResistance`}
         label="Nominal Bridge Resistance"
       />
-      <Align.Space x>
+      <Flex.Box x>
         <PressureUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -573,7 +593,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} grow />
-      </Align.Space>
+      </Flex.Box>
       {/* electricalVals */}
       <CustomScaleForm prefix={prefix} />
     </>
@@ -583,15 +603,15 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -604,9 +624,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           grow
           style={{ maxWidth: 200 }}
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <PressureUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -615,8 +635,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           style={{ width: "50%" }}
         />
         <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstPhysicalVal`}
           label="Physical Value One"
@@ -629,8 +649,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           style={{ width: "50%" }}
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           path={`${prefix}.firstElectricalVal`}
           label="Electrical Value One"
@@ -643,7 +663,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           style={{ width: "50%" }}
           grow
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -655,7 +675,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <UnitsField path={prefix} />
       <ResistanceConfigField path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="currentExcitSource"
@@ -666,7 +686,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.currentExcitVal`}
           label="Current Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -676,6 +696,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "rtdType",
       fieldProps: { label: "RTD Type" },
       inputProps: {
+        resourceName: "RTD Type",
         data: [
           { key: "Pt3750", name: "Pt3750" },
           { key: "Pt3851", name: "Pt3851" },
@@ -690,13 +711,13 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <>
         <MinMaxValueFields path={prefix} />
         <Divider.Divider x padded="bottom" />
-        <Align.Space x>
+        <Flex.Box x>
           <TemperatureUnitsField path={prefix} grow />
           <RTDTypeField path={prefix} grow />
-        </Align.Space>
+        </Flex.Box>
         <ResistanceConfigField path={prefix} />
         <Divider.Divider x padded="bottom" />
-        <Align.Space x>
+        <Flex.Box x>
           <ExcitSourceField
             path={prefix}
             fieldKey="currentExcitSource"
@@ -708,7 +729,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             label="Current Excitation Value"
             grow
           />
-        </Align.Space>
+        </Flex.Box>
         <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
       </>
     );
@@ -717,16 +738,19 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     const StrainUnitsField = Form.buildSelectField({
       fieldKey: "units",
       fieldProps: { label: "Strain Units" },
-      inputProps: { data: [{ key: "Strain", name: "Strain" }] },
+      inputProps: {
+        resourceName: "Strain Units",
+        data: [{ key: "Strain", name: "Strain" }],
+      },
     });
     return (
       <>
         <MinMaxValueFields path={prefix} />
-        <Align.Space x>
+        <Flex.Box x>
           <StrainConfig path={prefix} grow />
           <StrainUnitsField path={prefix} />
-        </Align.Space>
-        <Align.Space x>
+        </Flex.Box>
+        <Flex.Box x>
           <ExcitSourceField
             path={prefix}
             fieldKey="voltageExcitSource"
@@ -737,16 +761,16 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             path={`${prefix}.voltageExcitVal`}
             label="Voltage Excitation Value"
           />
-        </Align.Space>
-        <Align.Space x>
+        </Flex.Box>
+        <Flex.Box x>
           <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
           <Form.NumericField
             path={`${prefix}.initialBridgeVoltage`}
             label="Initial Bridge Voltage"
             grow
           />
-        </Align.Space>
-        <Align.Space x>
+        </Flex.Box>
+        <Flex.Box x>
           <Form.NumericField
             path={`${prefix}.nominalGageResistance`}
             label="Nominal Gage Resistance"
@@ -763,7 +787,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             label="Lead Wire Resistance"
             grow
           />
-        </Align.Space>
+        </Flex.Box>
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -780,6 +804,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         },
       },
       inputProps: {
+        resourceName: "CJC Source",
         data: [
           { key: "BuiltIn", name: "Built In" },
           { key: "ConstVal", name: "Constant Value" },
@@ -793,11 +818,11 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     return (
       <>
         <MinMaxValueFields path={prefix} />
-        <Align.Space x>
+        <Flex.Box x>
           <TemperatureUnitsField path={prefix} grow />
           <ThermocoupleTypeField path={prefix} grow />
-        </Align.Space>
-        <Align.Space x>
+        </Flex.Box>
+        <Flex.Box x>
           <CJCSourceField path={prefix} grow />
           {cjcSource === "ConstVal" && (
             <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
@@ -805,7 +830,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           {cjcSource === "Chan" && (
             <Form.NumericField path={`${prefix}.cjcPort`} label="CJC Port" grow />
           )}
-        </Align.Space>
+        </Flex.Box>
       </>
     );
   },
@@ -814,15 +839,15 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           fieldKey="voltageExcitSource"
@@ -833,9 +858,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <TorqueUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -844,7 +869,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} grow />
-      </Align.Space>
+      </Flex.Box>
       {/* electricalVals */}
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
@@ -861,7 +886,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         label="Nominal Bridge Resistance"
       />
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ExcitSourceField
           path={prefix}
           grow
@@ -872,9 +897,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.voltageExcitVal`}
           label="Voltage Excitation Value"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x gap="small">
+      <Flex.Box x gap="small">
         <TorqueUnitsField
           path={prefix}
           fieldKey="physicalUnits"
@@ -882,8 +907,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           grow
         />
         <ElectricalUnitsField path={prefix} grow />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           grow
           path={`${prefix}.firstPhysicalVal`}
@@ -894,8 +919,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.secondPhysicalVal`}
           label="Physical Value Two"
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField
           grow
           path={`${prefix}.firstElectricalVal`}
@@ -906,7 +931,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={`${prefix}.secondElectricalVal`}
           label="Electrical Value Two"
         />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
     </>
@@ -919,6 +944,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
+        resourceName: "Velocity Units",
         data: [
           { key: "MetersPerSecond", name: "m/s" },
           { key: "InchesPerSecond", name: "in/s" },
@@ -932,6 +958,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
+        resourceName: "Sensitivity Units",
         data: [
           { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
           { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },
@@ -952,7 +979,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             ),
           }}
         />
-        <Align.Space x>
+        <Flex.Box x>
           <ExcitSourceField
             path={prefix}
             fieldKey="currentExcitSource"
@@ -962,7 +989,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             path={`${prefix}.currentExcitVal`}
             label="Current Excitation Value"
           />
-        </Align.Space>
+        </Flex.Box>
         <CustomScaleForm prefix={prefix} />
       </>
     );
@@ -986,10 +1013,10 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
   return (
     <>
-      <Align.Space x wrap>
+      <Flex.Box x wrap>
         <Device.Select path={`${prefix}.device`} />
         <Device.PortField path={prefix} />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <Form prefix={prefix} />
     </>

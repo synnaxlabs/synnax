@@ -12,7 +12,7 @@
 .pluto-divider {
     align-self: stretch;
 
-    &.pluto--x {
+    &.pluto--direction-x {
         height: 0;
         border-top: var(--pluto-border);
 
@@ -20,16 +20,16 @@
             &.pluto--center {
                 margin: 0.5rem 0;
             }
-            &.pluto--top {
+            &.pluto--location-top {
                 margin-top: 1rem;
             }
-            &.pluto--bottom {
+            &.pluto--location-bottom {
                 margin-bottom: 1.5rem;
             }
         }
     }
 
-    &.pluto--y {
+    &.pluto--direction-y {
         width: 0;
         border-right: var(--pluto-border);
 

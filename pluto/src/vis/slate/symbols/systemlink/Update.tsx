@@ -1,6 +1,6 @@
 import z from "zod/v4";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Divider } from "@/divider";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
@@ -16,8 +16,8 @@ export type Config = z.infer<typeof configZ>;
 export type SymbolProps = types.SymbolProps<Config>;
 
 export const Update = () => (
-  <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
-    <Align.Space
+  <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
       style={{
         backgroundColor: "var(--pluto-secondary-z-20)",
         borderTopLeftRadius: "1rem",
@@ -35,14 +35,14 @@ export const Update = () => (
           color: "var(--pluto-secondary-z)",
         }}
       />
-    </Align.Space>
-    <Divider.Divider y shade={5} />
-    <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
-      <Text.Text level="small" weight={500} shade={9}>
+    </Flex.Box>
+    <Divider.Divider y color={5} />
+    <Flex.Box style={{ padding: "0rem 2rem" }} align="start" empty>
+      <Text.Text level="small" weight={500} color={9}>
         Update SystemLink Value
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
     <Handle.Sink location="left" id="input" />
     <Handle.Source location="right" id="output" />
-  </Align.Pack>
+  </Flex.Box>
 );

@@ -14,6 +14,7 @@ import {
   AO_CHANNEL_SCHEMAS,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
+  AO_CHANNEL_TYPES,
   type AOChannel,
   type AOChannelType,
   ZERO_AO_CHANNELS,
@@ -42,10 +43,14 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
   },
   inputProps: {
     allowNone: false,
-    data: Object.keys(AO_CHANNEL_TYPE_NAMES).map((key) => ({
-      key: key as AOChannelType,
-      name: AO_CHANNEL_TYPE_NAMES[key as AOChannelType],
-      icon: AO_CHANNEL_TYPE_ICONS[key as AOChannelType],
-    })) as Entry[],
+    resourceName: "Channel Type",
+    data: AO_CHANNEL_TYPES.map((key) => {
+      const Icon = AO_CHANNEL_TYPE_ICONS[key];
+      return {
+        key,
+        name: AO_CHANNEL_TYPE_NAMES[key],
+        icon: <Icon color={8} />,
+      };
+    }) as Entry[],
   },
 });

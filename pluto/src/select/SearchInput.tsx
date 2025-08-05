@@ -10,6 +10,7 @@
 import { useState } from "react";
 
 import { type Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { Input } from "@/input";
 
 export interface SearchInputProps {
@@ -26,19 +27,27 @@ export const SearchInput = ({
   dialogVariant = "floating",
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
-  return (
+  const inputContent = (
     <Input.Text
       value={term}
       autoFocus
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
-      shade={3}
+      contrast={3}
+      rounded
+      grow
+      full="x"
       onChange={(v) => {
         setTerm(v);
         onSearch?.(v);
       }}
-    >
+    />
+  );
+  if (actions == null) return inputContent;
+  return (
+    <Flex.Box pack x>
+      {inputContent}
       {actions}
-    </Input.Text>
+    </Flex.Box>
   );
 };

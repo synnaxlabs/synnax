@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Align, Component, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
@@ -20,7 +20,7 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
-  type readConfigZ,
+  readConfigZ,
   type readStatusDataZ,
   type readTypeZ,
   ZERO_READ_PAYLOAD,
@@ -75,7 +75,7 @@ const Properties = (): ReactElement => {
   return (
     <>
       <Device.Select />
-      <Align.Space x>
+      <Flex.Box x>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"
@@ -98,7 +98,7 @@ const Properties = (): ReactElement => {
         )}
         <Common.Task.Fields.DataSaving />
         <Common.Task.Fields.AutoStart />
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };
@@ -143,13 +143,13 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+  return {
+    ...ZERO_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 interface DetermineIndexChannelArgs {
   client: Synnax;

@@ -23,7 +23,7 @@ import { Text } from "@/text";
 
 export interface ChipProps
   extends Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,
-    Omit<Button.IconProps, "onClick" | "children"> {}
+    Omit<Button.ButtonProps, "onClick" | "children"> {}
 
 interface ChipStyle {
   message: string;
@@ -102,7 +102,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
   const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
 
   return (
-    <Button.Icon
+    <Button.Button
       variant="text"
       className={CSS(CSS.B("control-chip"), className)}
       disabled={disabled}
@@ -112,6 +112,6 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       {...rest}
     >
       <Icon.Circle color={chipColor} />
-    </Button.Icon>
+    </Button.Button>
   );
 };

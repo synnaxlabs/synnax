@@ -1,11 +1,11 @@
 import { color } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Color } from "@/color";
 import { Form } from "@/form";
 
 export const CreateForm = () => (
-  <Align.Space empty>
+  <Flex.Box empty>
     <Form.TextField path="range.name" />
     <Form.Field<color.Hex> path="range.color">
       {({ value, onChange }) => (
@@ -16,5 +16,5 @@ export const CreateForm = () => (
         />
       )}
     </Form.Field>
-  </Align.Space>
+  </Flex.Box>
 );

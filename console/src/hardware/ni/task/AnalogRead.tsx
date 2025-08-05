@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Align, Component, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -24,7 +24,7 @@ import {
   type AIChannelType,
   ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
-  type analogReadConfigZ,
+  analogReadConfigZ,
   type analogReadStatusDataZ,
   type analogReadTypeZ,
   ZERO_AI_CHANNEL,
@@ -49,11 +49,11 @@ export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Align.Space x grow>
+    <Flex.Box x grow>
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -143,16 +143,20 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   typeof analogReadTypeZ,
   typeof analogReadConfigZ,
   typeof analogReadStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_READ_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_READ_PAYLOAD.config,
-    channels:
-      deviceKey == null
-        ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
-  },
-});
+> = ({ deviceKey, config }) => {
+  if (config != null)
+    return { ...ZERO_ANALOG_READ_PAYLOAD, config: analogReadConfigZ.parse(config) };
+  return {
+    ...ZERO_ANALOG_READ_PAYLOAD,
+    config: {
+      ...ZERO_ANALOG_READ_PAYLOAD.config,
+      channels:
+        deviceKey == null
+          ? ZERO_ANALOG_READ_PAYLOAD.config.channels
+          : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
+    },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,

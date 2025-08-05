@@ -12,9 +12,9 @@ import "@/status/Notification.css";
 import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/Aggregator";
 import { Indicator } from "@/status/Indicator";
@@ -27,7 +27,7 @@ interface ActionProps {
 const Action = ({ action }: ActionProps): ReactElement =>
   isValidElement(action) ? action : <Button.Button {...action} key={action.key} />;
 
-export interface NotificationProps extends Align.SpaceProps {
+export interface NotificationProps extends Flex.BoxProps {
   status: NotificationSpec;
   silence: (key: string) => void;
   actions?: ReactElement | Button.ButtonProps[];
@@ -44,7 +44,7 @@ export const Notification = ({
   const ref = useRef<HTMLDivElement>(null);
 
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.B("notification"), className)}
       y
       key={time.toString()}
@@ -52,12 +52,10 @@ export const Notification = ({
       ref={ref}
       {...rest}
     >
-      <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
-        <Align.Space x align="center" gap="small">
+      <Flex.Box x justify="between" grow style={{ width: "100%" }}>
+        <Flex.Box x align="center" gap="small">
           <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
-          <Text.Text level="small" shade={11}>
-            {`x${count}`}
-          </Text.Text>
+          <Text.Text level="small">{`x${count}`}</Text.Text>
           <Text.DateTime
             className={CSS(CSS.BE("notification", "time"))}
             level="small"
@@ -65,17 +63,17 @@ export const Notification = ({
           >
             {time}
           </Text.DateTime>
-        </Align.Space>
-        <Button.Icon
+        </Flex.Box>
+        <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}
           variant="outlined"
           size="small"
           onClick={() => silence(key)}
         >
           <Icon.Close />
-        </Button.Icon>
-      </Align.Space>
-      <Align.Space
+        </Button.Button>
+      </Flex.Box>
+      <Flex.Box
         y
         align="start"
         className={CSS(CSS.BE("notification", "content"))}
@@ -86,7 +84,6 @@ export const Notification = ({
         ) : (
           <Text.Text
             className={CSS(CSS.BE("notification", "message"))}
-            level="p"
             style={{ flexGrow: 1 }}
           >
             {message}
@@ -101,9 +98,9 @@ export const Notification = ({
             {description}
           </Text.Text>
         )}
-      </Align.Space>
+      </Flex.Box>
       {actions != null && (
-        <Align.Space
+        <Flex.Box
           x
           align="center"
           justify="end"
@@ -112,8 +109,8 @@ export const Notification = ({
           {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
-        </Align.Space>
+        </Flex.Box>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

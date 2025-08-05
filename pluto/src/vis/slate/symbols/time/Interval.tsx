@@ -24,7 +24,7 @@ export const Interval = ({ duration }: SymbolProps) => (
     textColor={color.cssString(BLUE_HEX)}
     sources={[{ key: "output", Icon: Icon.Time }]}
   >
-    <Text.Text level="h4" weight={500} code>
+    <Text.Text level="h4" weight={500} variant="code">
       {new TimeSpan(duration).toString()}
     </Text.Text>
   </Base>

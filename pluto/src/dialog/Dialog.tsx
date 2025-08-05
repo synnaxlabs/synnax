@@ -11,27 +11,28 @@ import "@/dialog/Dialog.css";
 
 import { createPortal } from "react-dom";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
+import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
-export interface DialogProps extends Align.SpaceProps {}
+export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 export const Dialog = ({
   style,
   background = 0,
   className,
-  bordered,
+  bordered = true,
+  rounded = 1,
   ...rest
 }: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
-  bordered ??= variant === "modal";
   if (!visible) return null;
   let dialog = (
-    <Align.Pack
+    <Flex.Box
+      pack
       ref={ref}
       y
       background={background}
@@ -43,20 +44,20 @@ export const Dialog = ({
         CSS.M(variant),
         className,
       )}
+      rounded={rounded}
       role="dialog"
       empty
       bordered={bordered}
+      align="stretch"
       style={{ ...ctxStyle, ...style }}
       {...rest}
     />
   );
-  if (variant === "floating") dialog = createPortal(dialog, getRootElement());
   if (variant === "modal")
-    dialog = createPortal(
+    dialog = (
       <Background empty align="center" visible={visible}>
         {dialog}
-      </Background>,
-      getRootElement(),
+      </Background>
     );
-  return dialog;
+  return createPortal(dialog, getRootElement());
 };

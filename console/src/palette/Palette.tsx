@@ -11,7 +11,6 @@ import "@/palette/Palette.css";
 
 import { type ontology } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Dialog,
   Icon,
@@ -19,7 +18,6 @@ import {
   List,
   Select,
   Status,
-  Text,
   Tooltip,
   Triggers,
   useCombinedStateAndRef,
@@ -82,17 +80,19 @@ export const Palette = ({
           align="center"
           size="medium"
           justify="center"
-          startIcon={<Icon.Search />}
-          shade={2}
-          textShade={9}
+          contrast={2}
+          color={9}
           gap="small"
+          full="x"
         >
+          <Icon.Search />
           Search & Command
         </Button.Button>
         <Dialog.Dialog
           className={CSS.BE("palette", "content")}
-          rounded={1}
           bordered={false}
+          pack
+          rounded={1}
         >
           <DialogContent
             value={value}
@@ -109,10 +109,17 @@ export interface PaletteDialogProps extends Input.Control<string> {
   commandSymbol: string;
 }
 
-const emptyContent = (
-  <Align.Center>
-    <Status.Text variant="disabled">No results found.</Status.Text>
-  </Align.Center>
+const commandEmptyContent = (
+  <Status.Text variant="disabled" hideIcon center>
+    No commands found
+  </Status.Text>
+);
+
+const resourceEmptyContent = (
+  <Status.Text variant="disabled" hideIcon center>
+    <Icon.Resources />
+    No resources found
+  </Status.Text>
 );
 
 const DialogContent = ({
@@ -123,8 +130,9 @@ const DialogContent = ({
   const { close } = Dialog.useContext();
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
-    value.startsWith(commandSymbol) ? commandProps : resourceProps;
+    mode === "command" ? commandProps : resourceProps;
   const { fetchMore, search } = List.usePager({ retrieve });
   const handleSearch = useCallback(
     (v: string) => {
@@ -148,19 +156,27 @@ const DialogContent = ({
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}
         placeholder={
-          <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+          <>
+            <Icon.Search />
             Type to search or {commandSymbol} to view commands
-          </Text.WithIcon>
+          </>
         }
         size="huge"
         autoFocus
-        shade={3}
+        contrast={3}
         onChange={handleSearch}
+        borderColor={8}
         value={value}
         autoComplete="off"
         onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        full="x"
       />
-      <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+      <List.Items
+        className={CSS.BE("palette", "list")}
+        emptyContent={mode === "command" ? commandEmptyContent : resourceEmptyContent}
+        bordered
+        borderColor={8}
+      >
         {listItem}
       </List.Items>
     </Select.Frame>

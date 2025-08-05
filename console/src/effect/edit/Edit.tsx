@@ -4,7 +4,7 @@ import {
   NotFoundError,
   type slate,
 } from "@synnaxlabs/client";
-import { Align, Button, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
@@ -56,7 +56,7 @@ const Loaded = ({ effect, layoutKey }: LoadedProps): ReactElement => {
     [client],
   );
   return (
-    <Align.Space y grow style={{ height: "100%" }}>
+    <Flex.Box y grow style={{ height: "100%" }}>
       <Slate.Slate
         layoutKey={effect.slate}
         visible
@@ -64,24 +64,25 @@ const Loaded = ({ effect, layoutKey }: LoadedProps): ReactElement => {
         focused={false}
         onClose={() => {}}
       />
-      <Align.Space x style={{ padding: "2rem" }} justify="end" grow>
-        <Align.Space
+      <Flex.Box x style={{ padding: "2rem" }} justify="end" grow>
+        <Flex.Box
           x
           background={1}
           style={{ padding: "2rem" }}
           bordered
-          borderShade={5}
+          borderColor={5}
           grow
           rounded={2}
-          justify="spaceBetween"
+          justify="between"
         >
           <EffectState effect={effect} />
-          <Button.Button startIcon={<Icon.Play />} onClick={() => publishMut.mutate()}>
+          <Button.Button onClick={() => publishMut.mutate()}>
+            <Icon.Play />
             Deploy
           </Button.Button>
-        </Align.Space>
-      </Align.Space>
-    </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
@@ -115,9 +116,9 @@ export const Edit: Layout.Renderer = ({ layoutKey }) => {
   if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
-      <Align.Space y grow style={{ height: "100%" }}>
-        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
-      </Align.Space>
+      <Status.Text center variant="error">
+        {res.error.message}
+      </Status.Text>
     );
   return <Loaded effect={res.data as effect.Effect} layoutKey={layoutKey} />;
 };

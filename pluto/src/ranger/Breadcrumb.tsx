@@ -13,9 +13,15 @@ export const Breadcrumb = ({
   parent,
   showParent = true,
   ...rest
-}: BreadcrumbProps) => {
-  const breadcrumbSegments: Core.Segments = [{ label: name, weight: 450, shade: 10 }];
-  if (parent != null && showParent)
-    breadcrumbSegments.push({ label: parent.name, weight: 400, shade: 8 });
-  return <Core.Breadcrumb {...rest}>{breadcrumbSegments}</Core.Breadcrumb>;
-};
+}: BreadcrumbProps) => (
+  <Core.Breadcrumb {...rest}>
+    <Core.Segment weight={450} color={10}>
+      {name}
+    </Core.Segment>
+    {parent != null && showParent && (
+      <Core.Segment weight={400} color={8}>
+        {parent.name}
+      </Core.Segment>
+    )}
+  </Core.Breadcrumb>
+);

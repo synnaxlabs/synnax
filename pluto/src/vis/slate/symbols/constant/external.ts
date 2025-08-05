@@ -1,21 +1,19 @@
-import { type Config, Constant } from "@/vis/slate/symbols/constant/Constant";
-import { Form } from "@/vis/slate/symbols/constant/Form";
-import { type types } from "@/vis/slate/symbols/types";
+import { type Config, Symbol } from "@/vis/slate/symbols/calibration/Calibration";
+import { Form } from "@/vis/slate/symbols/calibration/Form";
+import { type Spec } from "@/vis/slate/symbols/types/spec";
 
-const CONSTANT_SPEC: types.Spec<Config> = {
-  key: "constant",
-  name: "Constant",
-  zIndex: 100,
+export const SPEC: Spec<Config> = {
+  key: "calibration.query",
+  name: "Query Calibrations from Database",
   Form,
-  Symbol: Constant,
-  Preview: Constant,
+  Symbol,
   defaultProps: () => ({
-    value: 0,
-    dataType: "float32",
-    units: "",
+    channel: 0,
   }),
+  Preview: Symbol,
+  zIndex: 0,
 };
 
-export const SYMBOLS: Record<string, types.Spec<any>> = {
-  [CONSTANT_SPEC.key]: CONSTANT_SPEC,
+export const SYMBOLS = {
+  [SPEC.key]: SPEC,
 };

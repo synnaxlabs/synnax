@@ -81,18 +81,15 @@ const DefaultItem = ({
     {icon}
     <Text.Editable
       id={ontology.idToString(id)}
-      level="p"
       value={resource.name}
       onChange={onRename}
       allowDoubleClick={false}
       style={{
         userSelect: "none",
-        textOverflow: "ellipsis",
         width: 0,
-        overflow: "hidden",
         flexGrow: 1,
       }}
-      noWrap
+      overflow="ellipsis"
     />
   </Core.Item>
 );

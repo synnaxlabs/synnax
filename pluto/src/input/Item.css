@@ -9,10 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input-item:focus-within .pluto-input-label {
+.pluto-input__item {
     color: var(--pluto-primary-z);
-}
-
-.pluto-input-item > *:not(.pluto-input-label):not(.pluto-input-help-text) {
-    flex-grow: inherit;
+    & .pluto-input {
+        width: 100%;
+    }
+    &:focus-within .pluto-input-label {
+        color: var(--pluto-primary-z);
+    }
+    & > *:not(.pluto-input-label):not(.pluto-input-help-text) {
+        flex-grow: inherit;
+    }
 }

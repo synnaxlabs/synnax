@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 const NAME_ENDING = ".json";
-const NAME_ENDING_LENGTH = NAME_ENDING.length;
 
 export const trimFileName = (name: string) => {
-  if (name.endsWith(NAME_ENDING)) return name.slice(0, -NAME_ENDING_LENGTH);
+  if (name.endsWith(NAME_ENDING)) return name.slice(0, -NAME_ENDING.length);
   return name;
 };

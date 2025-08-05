@@ -42,13 +42,14 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
     },
   },
   inputProps: {
+    resourceName: "Channel Type",
     data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => {
       const type = key as AIChannelType;
       const Icon = AI_CHANNEL_TYPE_ICONS[type];
       return {
         key: type,
         name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon style={{ transform: "scale(0.9)" }} color={8} />,
+        icon: <Icon color={8} />,
       };
     }),
   },

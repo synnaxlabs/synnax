@@ -472,6 +472,7 @@ I can successfully:
     - [ ] Snapshot multiple tasks to the active range.
     - [ ] Rename a task.
     - [ ] Group tasks.
+    - [ ] Export a task.
     - [ ] Delete a task.
     - [ ] Delete multiple tasks.
     - [ ] Copy a link to a task.
@@ -487,6 +488,8 @@ I can successfully:
   - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
 - [ ] Start a task on server boot up when the "Auto start" option is enabled.
+- [ ] Import a task from a file via the import task commands
+- [ ] Import a task from a file via drag-and-drop
 - [ ] Rename a task and ensure synchronization across:
   - Resources Toolbar
   - Task Toolbar

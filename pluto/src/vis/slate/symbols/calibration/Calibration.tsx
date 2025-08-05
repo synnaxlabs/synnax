@@ -1,8 +1,8 @@
 import { channel } from "@synnaxlabs/client";
 import z from "zod/v4";
 
-import { Align } from "@/align";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";
@@ -14,8 +14,8 @@ export const config = z.object({
 export type Config = z.infer<typeof config>;
 
 export const Symbol = () => (
-  <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
-    <Align.Space
+  <Flex.Box x pack align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
       style={{
         backgroundColor: "var(--pluto-primary-l8-20)",
         borderTopLeftRadius: "1rem",
@@ -33,14 +33,14 @@ export const Symbol = () => (
           color: "var(--pluto-gray-l8)",
         }}
       />
-    </Align.Space>
-    <Divider.Divider y shade={5} />
-    <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
-      <Text.Text level="small" weight={500} shade={9}>
+    </Flex.Box>
+    <Divider.Divider y color={5} />
+    <Flex.Box style={{ padding: "0rem 2rem" }} align="start" empty>
+      <Text.Text level="small" weight={500} color={9}>
         Query Calibrations
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
     <Handle.Sink location="left" id="value" />
     <Handle.Source location="right" id="output" />
-  </Align.Pack>
+  </Flex.Box>
 );

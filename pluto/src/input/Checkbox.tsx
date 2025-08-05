@@ -11,13 +11,14 @@ import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
-import { type BaseProps } from "@/input/types";
+import { type InputProps } from "@/input/types";
 import { preventDefault, stopPropagation } from "@/util/event";
 
-export interface CheckboxProps extends Omit<BaseProps<boolean>, "placeholder"> {}
-
-const CLS = "input-checkbox";
+export interface CheckboxProps
+  extends InputProps<boolean>,
+    Omit<Button.ExtensionProps, "variant"> {}
 
 /**
  * A controlled boolean Checkbox input component.
@@ -37,26 +38,35 @@ export const Checkbox = ({
   onChange,
   size = "medium",
   variant,
+  color,
+  borderColor,
+  borderWidth,
+  bordered,
+  rounded,
+  background,
   ...rest
-}: CheckboxProps): ReactElement => {
-  if (variant === "preview") disabled = true;
-  return (
-    <div
-      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
-    >
-      <label className={CSS(CSS.BE(CLS, "label"), className)}>
-        <input
-          className={CSS.BE(CLS, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onMouseDown={preventDefault}
-          onChange={(e) => onChange(e.target.checked)}
-          disabled={disabled}
-          {...rest}
-        />
-        <span className={CSS.BE(CLS, "checkmark")} onClick={stopPropagation} />
-      </label>
-    </div>
-  );
-};
+}: CheckboxProps): ReactElement => (
+  <Button.Button
+    el="label"
+    variant="text"
+    className={CSS(CSS.BE("input", "checkbox"), className)}
+    size={size}
+    preventClick
+    {...(rest as Button.ButtonProps<"label">)}
+  >
+    <input
+      className={CSS.BE("input", "checkbox", "input")}
+      type="checkbox"
+      ref={ref}
+      checked={value}
+      onMouseDown={preventDefault}
+      onChange={(e) => onChange?.(e.target.checked)}
+      disabled={disabled}
+      onClick={stopPropagation}
+    />
+    <span
+      className={CSS.BE("input", "checkbox", "checkmark")}
+      onClick={stopPropagation}
+    />
+  </Button.Button>
+);

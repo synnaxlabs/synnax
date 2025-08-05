@@ -1,9 +1,9 @@
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { Form as Core } from "@/form";
 
 export const Form = () => (
-  <Align.Space x grow>
+  <Flex.Box x grow>
     <Core.NumericField path="value" grow />
     <Core.TextField path="units" grow />
-  </Align.Space>
+  </Flex.Box>
 );

@@ -14,10 +14,10 @@ import {
   type TimeStamp,
 } from "@synnaxlabs/client";
 import {
-  Align,
   Annotation,
   Button,
   Dialog,
+  Flex,
   Form,
   Icon,
   List,
@@ -108,11 +108,10 @@ export const Item = ({
       {...rest}
       bordered
       variant="outlined"
-      borderShade={6}
+      borderColor={6}
       onContextMenu={menuProps.open}
       y
       className={CSS.BE("annotation", "list-item")}
-      gap="small"
     >
       <Menu.ContextMenu
         menu={(p) => (
@@ -120,17 +119,17 @@ export const Item = ({
         )}
         {...menuProps}
       />
-      <Align.Space x grow justify="spaceBetween" align="center">
-        <Align.Space x align="center" gap="small">
+      <Flex.Box x grow justify="between" align="center">
+        <Flex.Box x align="center" gap="small">
           <div
             className={CSS.BE("annotation", "list-item__avatar")}
             style={{ background: PUser.avatar(username) }}
           />
-          <Text.Text level="h5" shade={9} weight={450}>
+          <Text.Text level="h5" color={9} weight={450}>
             {username}
           </Text.Text>
-        </Align.Space>
-        <Align.Space x gap="small">
+        </Flex.Box>
+        <Flex.Box x gap="small">
           {initialValues?.timeRange && (
             <Ranger.TimeRangeChip
               level="small"
@@ -143,16 +142,18 @@ export const Item = ({
           )}
           {!edit && (
             <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
-              <Dialog.Trigger iconOnly hideCaret startIcon={<Icon.KebabMenu />} />
-              <Dialog.Dialog bordered borderShade={5} rounded={1}>
-                <Align.Space gap="tiny" background={1} style={{ padding: "1rem" }}>
+              <Dialog.Trigger hideCaret variant="text" contrast={1}>
+                <Icon.KebabMenu />
+              </Dialog.Trigger>
+              <Dialog.Dialog bordered borderColor={5} rounded={1}>
+                <Flex.Box gap="tiny" background={1} style={{ padding: "1rem" }}>
                   <ContextMenu onEdit={startEditing} onDelete={handleDelete} />
-                </Align.Space>
+                </Flex.Box>
               </Dialog.Dialog>
             </Dialog.Frame>
           )}
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
       <Form.Form<typeof Annotation.formSchema> {...form}>
         {edit ? (
           <Form.TextAreaField
@@ -168,25 +169,25 @@ export const Item = ({
             }}
           />
         ) : (
-          <Text.Text level="h5" shade={11} weight={450}>
+          <Text.Text level="h5" color={11} weight={350}>
             {initialValues?.message}
           </Text.Text>
         )}
       </Form.Form>
       {edit && (
-        <Align.Space x grow justify="spaceBetween">
-          <Align.Space x align="center">
+        <Flex.Box x grow justify="between">
+          <Flex.Box x align="center">
             <Triggers.SaveHelpText noBar />
-          </Align.Space>
-          <Button.Icon
+          </Flex.Box>
+          <Button.Button
             variant="outlined"
-            shade={2}
+            contrast={2}
             onClick={() => save()}
-            triggers={focused ? Triggers.SAVE : undefined}
+            trigger={focused ? Triggers.SAVE : undefined}
           >
             <Icon.Arrow.Up />
-          </Button.Icon>
-        </Align.Space>
+          </Button.Button>
+        </Flex.Box>
       )}
     </List.Item>
   );

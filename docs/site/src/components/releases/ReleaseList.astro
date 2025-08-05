@@ -33,19 +33,19 @@ const { headings } = Astro.props;
         & .pluto-menu-item {
             border-radius: 0 !important;
             white-space: normal;
+            margin: 0;
             height: fit-content;
             display: block;
             padding: 0.75rem 2rem !important;
             transition: box-shadow 0.2s ease;
             background: none !important;
-            & small {
-                font-weight: 400 !important;
-                color: var(--pluto-gray-l6) !important;
-            }
-
-            &:is(.pluto--selected, :hover) {
+            color: var(--pluto-gray-l8) !important;
+            text-decoration: none !important;
+            font-weight: 400 !important;
+            &.pluto--selected,
+            &:hover {
                 box-shadow: inset -2px 0 0 0 var(--pluto-primary-z);
-                & small {
+                &.pluto-text--small {
                     font-weight: 500 !important;
                     color: var(--pluto-text-color) !important;
                 }
