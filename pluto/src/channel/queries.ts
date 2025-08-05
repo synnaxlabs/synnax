@@ -150,10 +150,15 @@ export interface ListParams extends channel.RetrieveOptions {
   limit?: number;
 }
 
+const DEFAULT_LIST_PARAMS: ListParams = {
+  internal: false,
+};
+
 export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>({
   name: "Channels",
   retrieve: async ({ client, params }) =>
     await client.channels.retrieve({
+      ...DEFAULT_LIST_PARAMS,
       ...params,
       search: params.term,
     }),

@@ -132,21 +132,22 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.cachedRefs.delete(path);
   }
 
-  validate(validateUntouched?: boolean): boolean {
+  validate(validateUntouched?: boolean, path?: string): boolean {
     if (this.schema == null) return true;
     const result = this.schema.safeParse(this.values);
-    return this.processValidation(validateUntouched, result);
+    return this.processValidation(validateUntouched, result, path);
   }
 
-  async validateAsync(validateUntouched?: boolean): Promise<boolean> {
+  async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
     if (this.schema == null) return true;
     const result = await this.schema.safeParseAsync(this.values);
-    return this.processValidation(validateUntouched, result);
+    return this.processValidation(validateUntouched, result, path);
   }
 
   private processValidation(
     validateUntouched: boolean = false,
     result: z.ZodSafeParseResult<z.infer<Z>>,
+    path?: string,
   ): boolean {
     if (this.schema == null) return true;
     const cachedRefsToClear = new Set<string>();
@@ -160,6 +161,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     result.error.issues.forEach((issue) => {
       const { message } = issue;
       const issuePath = issue.path.join(".");
+      if (path != null && !deep.pathsMatch(issuePath, path) && !deep.pathsMatch(path, issuePath)) return;
       if (!validateUntouched && !this.touched.has(issuePath)) return;
       const variant = getVariant(issue);
       if (variant !== "warning") success = false;

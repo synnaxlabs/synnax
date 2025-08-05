@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
 import { deep, type Optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
@@ -49,7 +49,7 @@ const MaxVoltageField = PForm.buildNumericField({
 
 const SelectScaleTypeField = PForm.buildSelectField<
   ScaleType,
-  record.KeyedNamed<ScaleType>
+  Select.SimplyEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -69,8 +69,8 @@ const SelectScaleTypeField = PForm.buildSelectField<
   inputProps: {
     resourceName: "Scale Type",
     data: [
-      { key: NO_SCALE_TYPE, name: "None" },
-      { key: LINEAR_SCALE_TYPE, name: "Linear" },
+      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
+      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
     ],
   },
 });

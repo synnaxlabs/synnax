@@ -45,10 +45,8 @@ const listItemRenderProp = Component.renderProp(
           style={{ marginTop: "0.25rem" }}
           gap="tiny"
         >
-          {Breadcrumb.mapURLSegments(item?.location ?? "", ({ href, segment }) => (
-            <Breadcrumb.Segment key={segment} href={href}>
-              {segment}
-            </Breadcrumb.Segment>
+          {item?.location.split(".").map((segment) => (
+            <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
           ))}
         </Breadcrumb.Breadcrumb>
       </Select.ListItem>

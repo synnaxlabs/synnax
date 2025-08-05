@@ -95,14 +95,14 @@ export const use = <Z extends z.ZodType>({
     if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   }, []);
 
-  const validateAsync = useCallback(async (): Promise<boolean> => {
-    const valid = await ref.current.validateAsync(true);
+  const validateAsync = useCallback(async (path?: string): Promise<boolean> => {
+    const valid = await ref.current.validateAsync(true, path);
     ref.current.notify();
     return valid;
   }, []);
 
-  const validate = useCallback((): boolean => {
-    const valid = ref.current.validate(true);
+  const validate = useCallback((path?: string): boolean => {
+    const valid = ref.current.validate(true, path);
     ref.current.notify();
     return valid;
   }, []);

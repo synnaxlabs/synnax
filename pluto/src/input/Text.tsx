@@ -86,7 +86,6 @@ export const Text = ({
   const focusedRef = useRef(false);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
-    console.log("handleBlur", e.target.value, cachedFocusRef.current);
     focusedRef.current = false;
     if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
     else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);

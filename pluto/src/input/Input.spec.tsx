@@ -237,12 +237,10 @@ describe("Input", () => {
 
     describe("custom color", () => {
       it("should apply custom outline color", () => {
-        const c = render(
-          <Input.Text value="" onChange={vi.fn()} outlineColor="#ff0000" />,
-        );
+        const c = render(<Input.Text value="" onChange={vi.fn()} color="#ff0000" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto-input--custom-color");
-        expect(container?.style.getPropertyValue("--pluto-input-color")).toBe(
+        expect(container?.className).toContain("pluto-btn--custom-color");
+        expect(container?.style.getPropertyValue("--pluto-btn-color")).toBe(
           "255, 0, 0",
         );
       });

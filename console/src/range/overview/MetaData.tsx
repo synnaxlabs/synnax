@@ -70,7 +70,7 @@ const MetaDataListItem = (props: List.ItemProps<string>) => {
     <List.Item
       style={{ padding: "0.5rem", border: "none" }}
       className={CSS.BE("metadata", "item")}
-      allowSelect={false}
+      preventClick
       {...props}
     >
       <Input.Text

@@ -85,8 +85,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">
           <Button.Button
-            disabled={!canConfigure}
-            status={status.variant}
+            disabled={!canConfigure || status.variant === "loading"}
             onClick={onConfigure}
             size="medium"
             tooltip={

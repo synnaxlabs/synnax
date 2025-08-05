@@ -65,6 +65,7 @@ const Internal = <
     onError: (e) => handleError(e, `Failed to configure ${name}`),
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
+      console.log("mutate", methods.validate("name"));
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
