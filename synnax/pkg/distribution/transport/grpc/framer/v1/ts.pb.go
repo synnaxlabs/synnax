@@ -33,6 +33,7 @@ type IteratorRequest struct {
 	Bounds        *telem.PBTimeRange     `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	Keys          []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	ChunkSize     int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
+	SeqNum        int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,12 +110,19 @@ func (x *IteratorRequest) GetChunkSize() int64 {
 	return 0
 }
 
+func (x *IteratorRequest) GetSeqNum() int32 {
+	if x != nil {
+		return x.SeqNum
+	}
+	return 0
+}
+
 type IteratorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
 	Frame         *Frame                 `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,43,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
@@ -649,7 +657,7 @@ var File_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto protoreflect.
 
 const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "" +
 	"\n" +
-	"9synnax/pkg/distribution/transport/grpc/framer/v1/ts.proto\x12\x05ts.v1\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\x1a\x1ax/go/control/control.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xb4\x01\n" +
+	"9synnax/pkg/distribution/transport/grpc/framer/v1/ts.proto\x12\x05ts.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xcd\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -657,12 +665,13 @@ const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "
 	"\x06bounds\x18\x04 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds\x12\x12\n" +
 	"\x04keys\x18\x06 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
-	"chunk_size\x18\a \x01(\x03R\tchunkSize\"\xd9\x01\n" +
+	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
+	"\aseq_num\x18\b \x01(\x05R\x06seqNum\"\xd9\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12\"\n" +
 	"\x05frame\x18\x03 \x01(\v2\f.ts.v1.FrameR\x05frame\x12\x19\n" +
-	"\bnode_key\x18+ \x01(\x05R\anodeKey\x12\x10\n" +
+	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\"\n" +

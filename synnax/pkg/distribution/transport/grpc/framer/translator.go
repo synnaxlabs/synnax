@@ -142,6 +142,7 @@ func (iteratorRequestTranslator) Backward(
 		Stamp:     telem.TimeStamp(req.Stamp),
 		Keys:      channel.KeysFromUint32(req.Keys),
 		ChunkSize: req.ChunkSize,
+		SeqNum:    int(req.SeqNum),
 	}, nil
 }
 
@@ -157,6 +158,7 @@ func (iteratorRequestTranslator) Forward(
 		Stamp:     int64(req.Stamp),
 		Keys:      req.Keys.Uint32(),
 		ChunkSize: req.ChunkSize,
+		SeqNum:    int32(req.SeqNum),
 	}, nil
 }
 

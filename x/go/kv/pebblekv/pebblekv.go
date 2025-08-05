@@ -199,7 +199,7 @@ func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.NotFound
+		return errors.WithStack(kv.NotFound)
 	}
 	return err
 }

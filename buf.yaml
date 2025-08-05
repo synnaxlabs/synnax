@@ -14,6 +14,8 @@ build:
     - "bazel-synnax"
     - "freighter/cpp"
     - "vendor"
+    - "freighter/py"
+    - "client/py"
 breaking:
   use:
     - FILE
