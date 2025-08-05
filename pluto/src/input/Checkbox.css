@@ -15,6 +15,7 @@
     align-items: center;
     position: relative;
     cursor: pointer;
+    padding: 0;
 
     &:focus-within {
         .pluto-input__checkbox-checkmark {
@@ -28,8 +29,8 @@
         position: relative;
         cursor: pointer;
         opacity: 0;
-        height: 8rem;
-        width: 8rem;
+        height: var(--pluto-height-medium);
+        width: var(--pluto-height-medium);
     }
 
     .pluto-input__checkbox-checkmark {
@@ -71,8 +72,8 @@
 
     &.pluto--height-tiny {
         .pluto-input__checkbox-input {
-            height: 7rem;
-            width: 7rem;
+            height: var(--pluto-height-small);
+            width: var(--pluto-height-small);
         }
         .pluto-input__checkbox-checkmark {
             width: 1.5rem;
@@ -90,8 +91,8 @@
 
     &.pluto--height-small {
         .pluto-input__checkbox-input {
-            height: 7.5rem;
-            width: 7.5rem;
+            height: var(--pluto-height-medium);
+            width: var(--pluto-height-medium);
         }
         .pluto-input__checkbox-checkmark {
             width: 2rem;
@@ -109,8 +110,8 @@
 
     &.pluto--height-large {
         .pluto-input__checkbox-input {
-            height: 8.5rem;
-            width: 8.5rem;
+            height: var(--pluto-height-large);
+            width: var(--pluto-height-large);
         }
         .pluto-input__checkbox-checkmark {
             width: 3.25rem;
@@ -128,8 +129,8 @@
 
     &.pluto--height-huge {
         .pluto-input__checkbox-input {
-            height: 9rem;
-            width: 9rem;
+            height: var(--pluto-height-huge);
+            width: var(--pluto-height-huge);
         }
         .pluto-input__checkbox-checkmark {
             width: 3.75rem;

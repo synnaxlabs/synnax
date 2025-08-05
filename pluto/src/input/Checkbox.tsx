@@ -62,6 +62,7 @@ export const Checkbox = ({
       onMouseDown={preventDefault}
       onChange={(e) => onChange?.(e.target.checked)}
       disabled={disabled}
+      onClick={stopPropagation}
     />
     <span
       className={CSS.BE("input", "checkbox", "checkmark")}

@@ -35,6 +35,7 @@ export const SingleTrigger = <K extends record.Key>({
   icon: baseIcon,
   disabled,
   iconOnly = false,
+  hideCaret = false,
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelection<K>();
@@ -68,7 +69,7 @@ export const SingleTrigger = <K extends record.Key>({
       disabled={disabled}
       {...dropProps}
       {...rest}
-      hideCaret={iconOnly}
+      hideCaret={hideCaret || iconOnly}
       textColor={name == null ? 8 : undefined}
     >
       {icon ?? baseIcon}

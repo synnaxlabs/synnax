@@ -28,6 +28,7 @@ export interface MultipleProps<
   resourceName: string;
   renderTag?: Select.MultipleTriggerProps<K>["children"];
   triggerProps?: Select.MultipleTriggerProps<K>;
+  dialogProps?: Dialog.FrameProps;
 }
 
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -51,6 +52,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   replaceOnSingle,
   triggerProps,
   virtual = true,
+  dialogProps,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
   <Dialog.Frame variant="connected" {...rest}>
@@ -81,6 +83,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         status={status}
         actions={actions}
         resourceName={resourceName}
+        {...dialogProps}
       >
         {children}
       </Select.Dialog>
