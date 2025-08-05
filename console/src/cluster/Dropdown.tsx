@@ -81,14 +81,17 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
   );
 };
 
-export interface NoneConnectedProps extends PropsWithChildren {}
+export interface NoneConnectedProps extends PropsWithChildren {
+  disabled?: boolean;
+}
 
 export const NoneConnectedBoundary = ({
   children,
+  disabled,
   ...rest
 }: NoneConnectedProps): ReactElement => {
   const client = Synnax.use();
-  if (client != null) return <>{children}</>;
+  if (client != null || disabled) return <>{children}</>;
   return <NoneConnected {...rest} />;
 };
 

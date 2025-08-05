@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Input, Select, state } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
@@ -28,7 +28,7 @@ import {
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
-  record.KeyedNamed<ScaleType>
+  Select.SimplyEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -48,10 +48,10 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   inputProps: {
     resourceName: "Scale Type",
     data: [
-      { key: LINEAR_SCALE_TYPE, name: "Linear" },
-      { key: MAP_SCALE_TYPE, name: "Map" },
-      { key: TABLE_SCALE_TYPE, name: "Table" },
-      { key: NO_SCALE_TYPE, name: "None" },
+      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
+      { key: MAP_SCALE_TYPE, name: "Map", icon: <Icon.Map /> },
+      { key: TABLE_SCALE_TYPE, name: "Table", icon: <Icon.Table /> },
+      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
     ],
   },
 });

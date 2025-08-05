@@ -25,7 +25,7 @@ import { isValidElement } from "@/util/children";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 export type Variant = "prose" | "code" | "keyboard" | "link";
-export type Overflow = "ellipsis" | "clip" | "nowrap";
+export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
   extends Flex.BoxExtensionProps,
@@ -108,7 +108,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   weight,
   defaultEl,
   el,
-  variant = "prose",
+  variant,
   overflow,
   href,
   autoFormatHref,
@@ -120,7 +120,7 @@ export const Text = <E extends Generic.ElementType = "p">({
     style={{ fontWeight: weight, ...style }}
     className={CSS(
       CSS.B("text"),
-      CSS.BM("text", variant),
+      variant != null && CSS.BM("text", variant),
       CSS.BM("text", level),
       overflow != null && CSS.BM("text", "overflow", overflow),
       className,

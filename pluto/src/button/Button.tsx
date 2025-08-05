@@ -13,7 +13,6 @@ import { color, record, type status } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 
-import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
@@ -37,8 +36,6 @@ export interface ExtensionProps
   extends Omit<Text.ExtensionProps, "variant">,
     Tooltip.WrapProps {
   variant?: Variant;
-  size?: Component.Size;
-  sharp?: boolean;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
   status?: status.Variant;
@@ -117,7 +114,7 @@ const Core = <E extends ElementType = "button">({
   if (variant == "shadow") variant = "text";
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (isDisabled || variant === "preview") return;
+    if (isDisabled || variant === "preview" || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
     if (parsedDelay.isZero) return onClick?.(e);
   };
@@ -200,7 +197,7 @@ const Core = <E extends ElementType = "button">({
       onMouseDown={handleMouseDown}
       style={pStyle}
       color={textColor}
-      gap={size === "small" || size === "tiny" ? "small" : "medium"}
+      gap={size === "small" || size === "tiny" ? "small" : undefined}
       bordered={variant !== "text"}
       defaultEl={"button"}
       level={level}
@@ -209,11 +206,12 @@ const Core = <E extends ElementType = "button">({
       overflow="nowrap"
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
-      {children}
+      {(!isLoading || !square) && children}
       {isLoading && <Icon.Loading />}
       {parsedTriggerIndicator != null && (
         <Triggers.Text
           className={CSS.B("trigger-indicator")}
+          aria-label="trigger-indicator"
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"

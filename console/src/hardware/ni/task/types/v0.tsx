@@ -1032,6 +1032,12 @@ export const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
   [AO_VOLTAGE_CHAN_TYPE]: aoVoltageChanZ,
 };
 
+export const AO_CHANNEL_TYPES = [
+  AO_CURRENT_CHAN_TYPE,
+  AO_FUNC_GEN_CHAN_TYPE,
+  AO_VOLTAGE_CHAN_TYPE,
+] as const;
+
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_CURRENT_CHAN_TYPE]: "Current",
   [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",

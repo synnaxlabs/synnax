@@ -47,9 +47,10 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   children,
   renderTag,
   actions,
-  triggerProps,
   allowNone,
   replaceOnSingle,
+  triggerProps,
+  virtual = true,
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
   <Dialog.Frame variant="connected" {...rest}>
@@ -63,7 +64,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       onFetchMore={onFetchMore}
       allowNone={allowNone}
       replaceOnSingle={replaceOnSingle}
-      virtual
+      virtual={virtual}
     >
       <Select.MultipleTrigger
         haulType={haulType}

@@ -9,7 +9,7 @@ if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    <Button.Button variant="outlined" size="medium">
+    <Button.Button variant="outlined" size="medium" square>
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
         </Fragment>
@@ -64,6 +64,10 @@ if (wrap) className += " wrap";
             top: 2.3rem;
             transition: opacity 0.2s ease-in-out;
             z-index: 2;
+            & .pluto-icon {
+                width: 1em !important;
+                height: 1em !important;
+            }
 
             .check {
                 display: none;

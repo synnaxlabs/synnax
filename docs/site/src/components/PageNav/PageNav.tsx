@@ -71,7 +71,6 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   const treeProps = Tree.use({
     nodes: REFERENCE_PAGES,
     initialExpanded: parts,
-    sort: (a, b) => a.key.localeCompare(b.key),
   });
   return (
     <Tree.Tree

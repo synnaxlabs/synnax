@@ -245,10 +245,11 @@ describe("Box", () => {
       expect(el.className).toContain("pluto--rounded");
     });
 
-    it("should set rounded if the rounded is a number", () => {
+    it("should set the border radius directly if the rounded is a number", () => {
       const c = render(<Flex.Box rounded={2}>Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto--rounded");
+      expect(el.style.borderRadius).toBe("2rem");
+      expect(el.className).not.toContain("pluto--rounded");
     });
 
     it("should not set rounded if rounded is set to false", () => {
@@ -288,31 +289,31 @@ describe("Box", () => {
     it("should set gap if the gap is small", () => {
       const c = render(<Flex.Box gap="small">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-gap--small");
+      expect(el.className).toContain("pluto--gap-small");
     });
 
     it("should set gap if the gap is medium", () => {
       const c = render(<Flex.Box gap="medium">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-gap--medium");
+      expect(el.className).toContain("pluto--gap-medium");
     });
 
     it("should set gap if the gap is large", () => {
       const c = render(<Flex.Box gap="large">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-gap--large");
+      expect(el.className).toContain("pluto--gap-large");
     });
 
     it("should set gap if the gap is huge", () => {
       const c = render(<Flex.Box gap="huge">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-gap--huge");
+      expect(el.className).toContain("pluto--gap-huge");
     });
 
     it("should set gap if the gap is tiny", () => {
       const c = render(<Flex.Box gap="tiny">Hello</Flex.Box>);
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-gap--tiny");
+      expect(el.className).toContain("pluto--gap-tiny");
     });
   });
 
@@ -394,6 +395,20 @@ describe("Box", () => {
     });
   });
 
+  describe("square", () => {
+    it("should not add a classname by default", () => {
+      const c = render(<Flex.Box>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).not.toContain("pluto--square");
+    });
+
+    it("should set square if the square is true", () => {
+      const c = render(<Flex.Box square>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--square");
+    });
+  });
+
   describe("pack", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
@@ -405,6 +420,69 @@ describe("Box", () => {
       const c = render(<Flex.Box pack>Hello</Flex.Box>);
       const el = c.getByText("Hello");
       expect(el.className).toContain("pluto--pack");
+    });
+  });
+
+  describe("color", () => {
+    it("should not add a classname by default", () => {
+      const c = render(<Flex.Box>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).not.toContain("pluto--color");
+    });
+
+    it("should set a color classname if the color is a shade", () => {
+      const c = render(<Flex.Box color={11}>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--color-11");
+    });
+
+    it("should set the color directly if the color is a color", () => {
+      const c = render(<Flex.Box color="#000000">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.style.color).toBe("rgb(0, 0, 0)");
+      expect(el.className).not.toContain("pluto--color");
+    });
+  });
+
+  describe("background", () => {
+    it("should not add a classname by default", () => {
+      const c = render(<Flex.Box>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).not.toContain("pluto--bg");
+    });
+
+    it("should set a background classname if the background is a shade", () => {
+      const c = render(<Flex.Box background={11}>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--bg-11");
+    });
+
+    it("should set the background directly if the background is a color", () => {
+      const c = render(<Flex.Box background="#000000">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.style.backgroundColor).toBe("rgb(0, 0, 0)");
+      expect(el.className).not.toContain("pluto--background");
+    });
+  });
+
+  describe("borderColor", () => {
+    it("should not add a classname by default", () => {
+      const c = render(<Flex.Box>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).not.toContain("pluto--border-color");
+    });
+
+    it("should set a border color classname if the border color is a shade", () => {
+      const c = render(<Flex.Box borderColor={11}>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--border-color-11");
+    });
+
+    it("should set the border color directly if the border color is a color", () => {
+      const c = render(<Flex.Box borderColor="#000000">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.style.borderColor).toBe("rgb(0, 0, 0)");
+      expect(el.className).not.toContain("pluto--border-color");
     });
   });
 });

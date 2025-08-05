@@ -55,6 +55,7 @@ export const Text = ({
   onChange,
   className,
   onFocus,
+  onKeyDown,
   selectOnFocus = false,
   centerPlaceholder = false,
   placeholder,
@@ -81,12 +82,13 @@ export const Text = ({
   rounded,
   ...rest
 }: TextProps): ReactElement => {
-  const cachedFocusRef = useRef("");
+  const cachedFocusRef = useRef(value);
   const [tempValue, setTempValue] = useState<string | null>(null);
   const internalRef = useRef<HTMLInputElement>(null);
   const focusedRef = useRef(false);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+    console.log("handleBlur", e.target.value, cachedFocusRef.current);
     focusedRef.current = false;
     if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
     else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
@@ -95,6 +97,7 @@ export const Text = ({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    if (disabled) return;
     if (!onlyChangeOnBlur) onChange?.(e.target.value);
     else setTempValue(e.target.value);
   };
@@ -120,6 +123,7 @@ export const Text = ({
       e.currentTarget.blur();
       e.stopPropagation();
     }
+    onKeyDown?.(e);
   };
 
   const combinedRef = useCombinedRefs(ref, internalRef);

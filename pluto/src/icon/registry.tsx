@@ -112,6 +112,8 @@ import {
   MdOutlineDeviceHub,
   MdOutlineExplore,
   MdOutlineFilterList,
+  MdOutlineLinearScale,
+  MdOutlineMap,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
@@ -173,6 +175,7 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbCircleDashed,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
   TbCircuitResistor,
@@ -472,6 +475,9 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
+export const Map = wrapSVGIcon(MdOutlineMap, "map");
+export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
+export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Effect = wrapSVGIcon(BsStars, "effect");
 export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
@@ -615,6 +621,9 @@ const icons = {
   StarFilled,
   StarOutlined,
   Heart,
+  Map,
+  Linear,
+  None,
   Effect,
   Slate,
   Select,

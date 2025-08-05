@@ -16,9 +16,9 @@ import { use } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
-  <Flex.Box center>
-    <Text.Text>No device selected.</Text.Text>
-  </Flex.Box>
+  <Text.Text center color={8}>
+    No device selected.
+  </Text.Text>
 );
 
 export interface ProviderChildProps<

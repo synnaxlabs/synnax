@@ -49,7 +49,7 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
       return {
         key: type,
         name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon style={{ transform: "scale(0.9)" }} color={8} />,
+        icon: <Icon color={8} />,
       };
     }),
   },

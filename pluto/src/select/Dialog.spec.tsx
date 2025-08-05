@@ -24,7 +24,7 @@ describe("Select.Dialog", () => {
         </Select.Frame>
       </Dialog.Frame>,
     );
-    expect(c.getByText("No result")).toBeTruthy();
+    expect(c.getByText("No results found")).toBeTruthy();
   });
 
   it("should render status content when the status is not success", () => {

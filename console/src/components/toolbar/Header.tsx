@@ -15,11 +15,16 @@ import { type ReactElement } from "react";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 
-export interface ContentProps extends Flex.BoxProps {}
+export interface ContentProps extends Flex.BoxProps {
+  disableClusterBoundary?: boolean;
+}
 
-export const Content = (props: ContentProps): ReactElement => (
-  <Cluster.NoneConnectedBoundary>
-    <Flex.Box empty y pack full {...props} />
+export const Content = ({
+  disableClusterBoundary,
+  ...rest
+}: ContentProps): ReactElement => (
+  <Cluster.NoneConnectedBoundary disabled={disableClusterBoundary}>
+    <Flex.Box empty y pack full {...rest} />
   </Cluster.NoneConnectedBoundary>
 );
 
