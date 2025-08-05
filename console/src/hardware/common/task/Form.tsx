@@ -164,6 +164,7 @@ export const useForm = <
     mutationFn: async () => {
       if (client == null) throw new DisconnectedError();
       if (initialTask.snapshot) return;
+      console.log("VALIDATE ASYNC");
       if (!(await methods.validateAsync())) return;
       const { name, config } = methods.value() as {
         name: string;
