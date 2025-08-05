@@ -10,12 +10,13 @@
  */
 
 .pluto-breadcrumb {
+    color: inherit;
     & .pluto-text {
-        color: inherit;
         font-weight: inherit;
         font-size: inherit;
         line-height: inherit;
     }
+
     &.pluto-breadcrumb--highlight-last {
         & > :not(:last-child) {
             color: var(--pluto-gray-l8);
