@@ -33,7 +33,7 @@
     height: 100%;
 }
 
-.pluto-navbar.pluto--direction-x .pluto-navbar__content.pluto--center {
+.pluto-navbar.pluto--direction-x .pluto-navbar__content.pluto--location-center {
     margin-left: auto;
     margin-right: auto;
 }
@@ -42,7 +42,7 @@
     margin-left: auto;
 }
 
-.pluto-navbar.pluto--direction-y .pluto-navbar__content.pluto--center {
+.pluto-navbar.pluto--direction-y .pluto-navbar__content.pluto--location-center {
     margin-top: auto;
     margin-bottom: auto;
     order: 2;

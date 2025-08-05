@@ -131,7 +131,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (disabled) showDragHandle = false;
+  if (disabled || variant === "preview") showDragHandle = false;
 
   return (
     <Text

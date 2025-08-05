@@ -21,7 +21,7 @@ export interface InputShowcaseTextProps
   extends Optional<Input.TextProps, "value" | "onChange"> {}
 
 export const InputShowcaseText = (props: InputShowcaseTextProps) => {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState<string>(props.value ?? "");
   return <Input.Text {...props} value={value} onChange={setValue} />;
 };
 
@@ -69,7 +69,7 @@ export const InputShowcase = () => (
     <Flex.Box x pack grow sharp>
       <SubcategorySection
         title="Text Input Sizes & Variants"
-        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard and text variants"
+        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard, text, and preview variants"
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
@@ -91,6 +91,16 @@ export const InputShowcase = () => (
             <InputShowcaseText placeholder="Catalyst" size="medium" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="small" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="tiny" variant="text" />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Preview Variant
+            </Text.Text>
+            <InputShowcaseText size="huge" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="large" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="medium" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="small" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="tiny" variant="preview" value="Catalyst" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -183,6 +193,19 @@ export const InputShowcase = () => (
               <InputShowcaseSwitch value={true} />
             </Flex.Box>
           </Flex.Box>
+          <Text.Text level="small" weight={500}>
+            Preview Variant
+          </Text.Text>
+          <Flex.Box x gap="medium">
+            <Flex.Box y gap="small" align="center">
+              <Text.Text level="small">False</Text.Text>
+              <InputShowcaseSwitch value={false} variant="preview" />
+            </Flex.Box>
+            <Flex.Box y gap="small" align="center">
+              <Text.Text level="small">True</Text.Text>
+              <InputShowcaseSwitch value={true} variant="preview" />
+            </Flex.Box>
+          </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
 
@@ -234,6 +257,21 @@ export const InputShowcase = () => (
               <Flex.Box y gap="small" align="center">
                 <Text.Text level="small">Disabled</Text.Text>
                 <InputShowcaseCheckbox disabled value={false} />
+              </Flex.Box>
+            </Flex.Box>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Preview Variant
+            </Text.Text>
+            <Flex.Box x gap="medium" align="center">
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">False</Text.Text>
+                <InputShowcaseCheckbox value={false} variant="preview" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">True</Text.Text>
+                <InputShowcaseCheckbox value={true} variant="preview" />
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>

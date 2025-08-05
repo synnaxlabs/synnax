@@ -297,6 +297,37 @@
         }
     }
 
+    &.pluto-btn--preview {
+        cursor: default;
+        pointer-events: none;
+        padding: 0;
+        transition: none;
+        
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: transparent;
+        --pluto-active-border-color: transparent;
+
+        &:focus-visible {
+            outline: none;
+            box-shadow: none;
+        }
+
+        &.pluto--disabled {
+            color: var(--pluto-gray-l6);
+        }
+
+        &.pluto--warning {
+            color: var(--pluto-warning-p1);
+        }
+
+        &.pluto--error {
+            color: var(--pluto-error-p1);
+        }
+    }
+
     &.pluto-haul-drop-region {
         --pluto-bg: var(--haul-background) !important;
         --pluto-border-color: var(--haul-border-color) !important;

@@ -23,7 +23,7 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = "outlined" | "text";
+export type Variant = "outlined" | "text" | "preview";
 
 export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;

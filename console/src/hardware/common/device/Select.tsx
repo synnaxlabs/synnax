@@ -53,7 +53,7 @@ export const Select = ({
       path={path}
       style={{ flexBasis: 150 }}
     >
-      {({ value, onChange }) => (
+      {({ value, onChange, variant }) => (
         <Device.SelectSingle
           value={value}
           onChange={onChange}
@@ -61,6 +61,7 @@ export const Select = ({
           emptyContent={emptyContent}
           grow
           icon={icon}
+          variant={variant}
         />
       )}
     </Form.Field>

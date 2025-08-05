@@ -40,7 +40,7 @@
         --scale: 1;
     }
 
-    &.pluto--center {
+    &.pluto--location-center {
         &.pluto--location-top {
             --transform-x: calc(var(--pluto-pos-x) - 50%);
             --transform-y: calc(

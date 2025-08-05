@@ -14,13 +14,13 @@ import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
-import { useField, type UseFieldOptions } from "@/form/useField";
+import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
-interface FieldChild<I, O> extends Input.Control<I, O> {
-  variant?: Input.Variant;
-}
+interface FieldChild<I, O>
+  extends Input.Control<I, O>,
+    Pick<UseFieldReturn<I, O>, "variant"> {}
 
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &

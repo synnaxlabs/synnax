@@ -39,7 +39,7 @@ export interface ExtensionProps
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
   status?: status.Variant;
-  textColor?: Text.Shade;
+  textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
   contrast?: Text.Shade | false;
   disabled?: boolean;
@@ -112,6 +112,7 @@ const Core = <E extends ElementType = "button">({
   // We implement the shadow variant to maintain compatibility with the input
   // component API.
   if (variant == "shadow") variant = "text";
+  else if (variant === "preview") preventClick = true;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (isDisabled || variant === "preview" || preventClick === true) return;
