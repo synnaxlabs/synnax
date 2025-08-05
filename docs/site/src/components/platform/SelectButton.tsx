@@ -53,6 +53,7 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
       value={platform}
       allowNone={false}
       onChange={handleChange}
+      virtual={false}
     />
   );
 };
