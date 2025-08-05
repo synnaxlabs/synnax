@@ -32,10 +32,9 @@
 
 .console-palette__content {
     width: 100%;
-    max-width: 1200px;
     max-height: 500px;
-    width: 95vw;
-    max-width: 1300px;
+    width: 85vw;
+    max-width: 1000px;
     overflow: visible !important;
 }
 

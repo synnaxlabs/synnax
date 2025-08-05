@@ -112,7 +112,6 @@ export const Item = ({
       onContextMenu={menuProps.open}
       y
       className={CSS.BE("annotation", "list-item")}
-      gap="small"
     >
       <Menu.ContextMenu
         menu={(p) => (
@@ -170,7 +169,7 @@ export const Item = ({
             }}
           />
         ) : (
-          <Text.Text level="h5" color={11} weight={450}>
+          <Text.Text level="h5" color={11} weight={350}>
             {initialValues?.message}
           </Text.Text>
         )}

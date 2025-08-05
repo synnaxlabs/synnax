@@ -182,7 +182,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Icon.Arrow.Right className={CSS.B("time-range-divider")} />
+          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
