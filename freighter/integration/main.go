@@ -35,11 +35,9 @@ func main() {
 	s := igrpc.New()
 	s.BindTo(g)
 	configureInstrumentation()
-
-	err := func() error {
+	if err := func() error {
 		sCtx, cancel := xsignal.Isolated()
 		sCtx.Go(func(context.Context) error { return app.Listen(":8080") })
-
 		lis, err := net.Listen("tcp", ":8081")
 		if err != nil {
 			return err
@@ -52,9 +50,7 @@ func main() {
 		}
 		cancel()
 		return sCtx.Wait()
-	}()
-
-	if err != nil {
+	}(); err != nil {
 		zap.S().Fatalw("failed to start server", "error", err)
 	}
 }

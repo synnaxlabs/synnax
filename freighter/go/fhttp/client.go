@@ -17,8 +17,9 @@ import (
 )
 
 type ClientConfig struct {
-	binary.Codec
+	binary.Encoder
 	ContentType string
+	Decoders    map[string]binary.Decoder
 }
 
 var _ config.Config[ClientConfig] = ClientConfig{}
@@ -26,19 +27,22 @@ var _ config.Config[ClientConfig] = ClientConfig{}
 // Validate validates the ClientConfig
 func (c ClientConfig) Validate() error {
 	v := validate.New("fhttp.ClientConfig")
-	validate.NotNil(v, "codec", c.Codec)
+	validate.NotNil(v, "encoder", c.Encoder)
 	validate.NotEmptyString(v, "content_type", c.ContentType)
+	validate.NotNil(v, "decoders", c.Decoders)
 	return v.Error()
 }
 
 // Override overrides valid fields with the fields in the other config.
 func (c ClientConfig) Override(other ClientConfig) ClientConfig {
-	c.Codec = override.Nil(c.Codec, other.Codec)
+	c.Encoder = override.Nil(c.Encoder, other.Encoder)
+	c.Decoders = override.Nil(c.Decoders, other.Decoders)
 	c.ContentType = override.String(c.ContentType, other.ContentType)
 	return c
 }
 
 var DefaultClientConfig = ClientConfig{
-	Codec:       binary.JSONCodec,
+	Encoder:     binary.JSONCodec,
+	Decoders:    map[string]binary.Decoder{MIMEApplicationJSON: binary.JSONCodec},
 	ContentType: MIMEApplicationJSON,
 }
