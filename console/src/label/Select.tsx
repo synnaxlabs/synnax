@@ -10,6 +10,7 @@
 import { Button, Dialog, Flex, Icon, Label, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { EmptyAction } from "@/components";
 import { EDIT_LAYOUT } from "@/label/Edit";
 import { Layout } from "@/layout";
 
@@ -27,12 +28,12 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <Flex.Box style={{ height: 150 }} y center>
-      <Status.Text variant="disabled" hideIcon>
-        No labels created.
-      </Status.Text>
-      <Text.Text onClick={add}>Create a Label</Text.Text>
-    </Flex.Box>
+    <EmptyAction
+      message="No labels created."
+      action="Create a label."
+      onClick={add}
+      style={{ minHeight: 100 }}
+    />
   );
 };
 

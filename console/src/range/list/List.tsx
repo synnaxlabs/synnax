@@ -60,10 +60,10 @@ export const List = ({
             variant="text"
             value={searchTerm}
             placeholder={
-              <Flex.Box x align="center" gap="tiny">
+              <>
                 <Icon.Search />
-                <Text.Text level="h4">Search Ranges...</Text.Text>
-              </Flex.Box>
+                Search Ranges...
+              </>
             }
             onChange={(value) => {
               setSearchTerm(value);

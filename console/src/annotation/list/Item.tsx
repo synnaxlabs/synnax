@@ -143,7 +143,7 @@ export const Item = ({
           )}
           {!edit && (
             <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
-              <Dialog.Trigger hideCaret>
+              <Dialog.Trigger hideCaret variant="text" contrast={1}>
                 <Icon.KebabMenu />
               </Dialog.Trigger>
               <Dialog.Dialog bordered borderColor={5} rounded={1}>

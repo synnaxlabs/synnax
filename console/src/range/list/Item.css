@@ -1,9 +1,5 @@
 .console-range__list-item {
-    padding: 0 1rem;
     .console-star-button,
-    .pluto-input__checkbox {
-        width: 6rem;
-    }
     .pluto-input__checkbox-checkmark {
         opacity: 0;
         transition: opacity 0.2s ease-in-out;

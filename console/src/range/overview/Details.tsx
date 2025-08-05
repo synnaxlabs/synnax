@@ -148,16 +148,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 variant="text"
                 onClick={handleCopyPythonCode}
+                textColor={9}
               >
-                <Icon.Python style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.Python />
               </Button.Button>
               <Button.Button
                 variant="text"
                 tooltip={`Copy TypeScript code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
+                textColor={9}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.TypeScript />
               </Button.Button>
             </Flex.Box>
             <Divider.Divider y />
@@ -166,11 +168,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
+              textColor={9}
             >
               <Icon.Link />
             </Button.Button>
             <Divider.Divider y />
-            {range != null && <FavoriteButton range={range} />}
+            {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">

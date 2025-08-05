@@ -29,6 +29,7 @@ import {
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
@@ -120,11 +121,12 @@ const LabelListItem = ({
         </Form.Form>
       </Flex.Box>
       {isCreate ? (
-        <Flex.Box>
+        <Flex.Box pack>
           <Button.Button
             variant="filled"
             onClick={() => save()}
             trigger={visible ? ["Enter"] : undefined}
+            size="small"
           >
             <Icon.Check />
           </Button.Button>
@@ -217,11 +219,11 @@ export const Edit: Layout.Renderer = () => {
             grow
             emptyContent={
               !newFormVisible && (
-                <Flex.Box>
-                  <Text.Text level="h4" color={8}>
-                    No labels created
-                  </Text.Text>
-                </Flex.Box>
+                <EmptyAction
+                  message="No labels created"
+                  action="Create a label."
+                  onClick={() => setNewFormVisible(true)}
+                />
               )
             }
           >

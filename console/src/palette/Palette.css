@@ -10,8 +10,8 @@
  */
 
 .console-palette {
-    width: 100% !important;
-    max-width: 600px;
+    width: 50vw;
+    max-width: 800px;
 }
 
 @media (max-width: 700px) {
@@ -24,12 +24,18 @@
     }
 }
 
+@media (max-width: 1000px) {
+    .console-palette {
+        max-width: 300px;
+    }
+}
+
 .console-palette__content {
     width: 100%;
     max-width: 1200px;
     max-height: 500px;
     width: 95vw;
-    max-width: 1200px;
+    max-width: 1300px;
     overflow: visible !important;
 }
 

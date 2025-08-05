@@ -146,7 +146,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
         <Nav.Bar.End>
           <Button.Button
             onClick={handleSubmit}
-            status={loading === "submit" ? "loading" : "disabled"}
+            status={loading === "submit" ? "loading" : undefined}
             trigger={Triggers.SAVE}
             variant="filled"
           >
