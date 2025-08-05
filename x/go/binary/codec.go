@@ -10,6 +10,7 @@
 package binary
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"reflect"
@@ -75,4 +76,16 @@ func MarshalStringInt64(n int64) ([]byte, error) {
 // MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
 func MarshalStringUint64(n uint64) ([]byte, error) {
 	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
+}
+
+func wrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := enc.EncodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func wrapStreamDecoder(dec Decoder, ctx context.Context, data []byte, value any) error {
+	return dec.DecodeStream(ctx, bytes.NewReader(data), value)
 }

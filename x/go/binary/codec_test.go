@@ -12,6 +12,7 @@ package binary_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,8 +20,20 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type toEncode struct {
-	Value int
+type toEncode struct{ Value int }
+
+var (
+	_ fmt.Stringer              = toEncode{}
+	_ binary.StringUnmarshaller = &toEncode{}
+)
+
+const format = "{Value: %d}"
+
+func (t toEncode) String() string { return fmt.Sprintf(format, t.Value) }
+
+func (t *toEncode) UnmarshalString(str string) error {
+	_, err := fmt.Sscanf(str, format, &t.Value)
+	return err
 }
 
 var _ = Describe("Codec", func() {
@@ -39,6 +52,7 @@ var _ = Describe("Codec", func() {
 		Entry("JSON", binary.JSONCodec),
 		Entry("MsgPack", binary.MsgPackCodec),
 		Entry("PassThrough", &binary.PassThroughCodec{Codec: binary.GobCodec}),
+		Entry("String", binary.StringCodec),
 	)
 	Describe("PassThrough encoding and decoding", func() {
 		It("Should pass through the encoding and decoding when a byte slice is provided", func() {

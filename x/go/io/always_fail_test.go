@@ -15,10 +15,18 @@ import (
 	"github.com/synnaxlabs/x/io"
 )
 
-var _ = Describe("AlwaysFailWriter", func() {
-	DescribeTable("should always fail", func(p []byte) {
+var _ = Describe("AlwaysFail", func() {
+	DescribeTable("AlwaysFailWriter should always fail", func(p []byte) {
 		Expect(io.AlwaysFailWriter.Write(p)).Error().
 			To(MatchError(io.ErrAlwaysFailWriter))
+	},
+		Entry("with an empty byte slice", []byte{}),
+		Entry("with a nil byte slice", nil),
+		Entry("with a filled byte slice", []byte{1, 2, 3}),
+	)
+	DescribeTable("AlwaysFailReader should always fail", func(p []byte) {
+		Expect(io.AlwaysFailReader.Read(p)).Error().
+			To(MatchError(io.ErrAlwaysFailReader))
 	},
 		Entry("with an empty byte slice", []byte{}),
 		Entry("with a nil byte slice", nil),

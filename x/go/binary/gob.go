@@ -10,7 +10,6 @@
 package binary
 
 import (
-	"bytes"
 	"context"
 	"encoding/gob"
 	"io"
@@ -25,11 +24,7 @@ var _ Codec = (*gobCodec)(nil)
 
 // Encode implements the Encoder interface.
 func (gc *gobCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	var buff bytes.Buffer
-	if err := gc.EncodeStream(ctx, &buff, value); err != nil {
-		return nil, err
-	}
-	return buff.Bytes(), nil
+	return wrapStreamEncoder(gc, ctx, value)
 }
 
 // EncodeStream implements the Encoder interface.
@@ -40,7 +35,7 @@ func (gc *gobCodec) EncodeStream(_ context.Context, w io.Writer, value any) erro
 
 // Decode implements the Decoder interface.
 func (gc *gobCodec) Decode(ctx context.Context, data []byte, value any) error {
-	return gc.DecodeStream(ctx, bytes.NewReader(data), value)
+	return wrapStreamDecoder(gc, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.

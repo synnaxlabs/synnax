@@ -10,7 +10,6 @@
 package binary
 
 import (
-	"bytes"
 	"context"
 	"io"
 
@@ -32,8 +31,7 @@ func (mpc *msgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 
 // Decode implements the Decoder interface.
 func (mpc *msgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := mpc.DecodeStream(ctx, bytes.NewReader(data), value)
-	return sugarDecodingErr(data, value, err)
+	return wrapStreamDecoder(mpc, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.
