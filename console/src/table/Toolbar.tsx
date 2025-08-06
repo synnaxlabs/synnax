@@ -71,26 +71,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       <Core.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
-            <Breadcrumb.Segment weight={500} color={8} level="h5">
+            <Breadcrumb.Segment weight={500} color={9} level="h5">
               <Icon.Table />
               {name}
             </Breadcrumb.Segment>
             {selectedCellMeta != null && (
-              <Breadcrumb.Segment>
+              <Breadcrumb.Segment color={8}>
                 {Table.getCellColumn(selectedCellMeta.x)}
                 {selectedCellMeta.y + 1}
               </Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
-          {isSingleCellSelected && (
-            <TableCells.SelectVariant
-              allowNone={false}
-              value={firstCell.variant}
-              onChange={(variant: TableCells.Variant) =>
-                handleVariantChange(variant, firstCell.key)
-              }
-            />
-          )}
         </Flex.Box>
         <Flex.Box x style={TOOLBAR_BUTTONS_STYLE} empty>
           <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />

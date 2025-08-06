@@ -174,7 +174,7 @@ const Indicator = ({
       onClick={() => onSelect(index)}
       onContextMenu={() => onSelect(index)}
     >
-      <Text.Text style={{ width: "100%", textAlign: "center" }}>
+      <Text.Text full="x" justify="center" align="center" square={false}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button

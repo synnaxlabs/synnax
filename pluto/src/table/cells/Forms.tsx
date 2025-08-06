@@ -86,7 +86,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     ],
     content,
   });
-  return <Tabs.Tabs {...tabsProps} />;
+  return <Tabs.Tabs {...tabsProps} size="small" />;
 };
 
 const RedlineForm = (): ReactElement => {
