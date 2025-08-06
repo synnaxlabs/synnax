@@ -72,19 +72,20 @@ export const unaryWithBreaker = (
       resSchema?: RS,
     ): Promise<[Response, null] | [z.infer<RS>, null] | [null, Error]> {
       const brk = new breaker.Breaker(cfg);
-      do
+      do {
+        let err_: Error | null = null;
         if (resSchema == null) {
           const [res, err] = await this.wrapped.send(target, req, reqSchema);
           if (err == null) return [res, null];
-          if (!Unreachable.matches(err)) return [null, err];
-          if (!(await brk.wait())) return [res, err];
+          err_ = err;
         } else {
           const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
           if (err == null) return [res, null];
-          if (!Unreachable.matches(err)) return [null, err];
-          if (!(await brk.wait())) return [res, err];
+          err_ = err;
         }
-      while (true);
+        if (!Unreachable.matches(err_)) return [null, err_];
+        if (await brk.wait()) return [null, err_];
+      } while (true);
     }
   }
   return new WithBreaker(base);
