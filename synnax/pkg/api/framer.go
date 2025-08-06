@@ -76,16 +76,18 @@ type FrameReadRequest struct {
 	ChannelNames map[channel.Key]string `json:"channel_names" msgpack:"channel_names"`
 }
 
-type FrameReadResponse struct {
-	metaData        FrameReadMetadata
+type FrameReadResponse = *frameUnaryReadable
+
+type frameUnaryReadable struct {
+	metaData        frameReadMetadata
 	frameChannel    chan Frame
 	errorChannel    chan error
 	metaDataWritten bool
 }
 
-var _ fhttp.UnaryReadable = (*FrameReadResponse)(nil)
+var _ fhttp.UnaryReadable = (*frameUnaryReadable)(nil)
 
-func (r *FrameReadResponse) Read() (any, error) {
+func (r *frameUnaryReadable) Read() (any, error) {
 	if !r.metaDataWritten {
 		r.metaDataWritten = true
 		return r.metaData, nil
@@ -98,17 +100,17 @@ func (r *FrameReadResponse) Read() (any, error) {
 	}
 }
 
-type FrameReadMetadata struct {
-	Channels     []channel.Channel
-	ChannelNames map[channel.Key]string
+type frameReadMetadata struct {
+	channels     []channel.Channel
+	channelNames map[channel.Key]string
 }
 
-var _ xbinary.CSVMarshaler = FrameReadMetadata{}
+var _ xbinary.CSVMarshaler = frameReadMetadata{}
 
-func (m FrameReadMetadata) MarshalCSV() ([][]string, error) {
-	records := make([]string, len(m.Channels))
-	for i, ch := range m.Channels {
-		if name, ok := m.ChannelNames[ch.Key()]; ok {
+func (m frameReadMetadata) MarshalCSV() ([][]string, error) {
+	records := make([]string, len(m.channels))
+	for i, ch := range m.channels {
+		if name, ok := m.channelNames[ch.Key()]; ok {
 			records[i] = name
 		} else {
 			records[i] = ch.Name
@@ -150,9 +152,15 @@ func (fs *FrameService) Read(
 		}
 		return nil
 	}); err != nil {
-		return FrameReadResponse{}, err
+		return nil, err
 	}
-	response := FrameReadResponse{}
+	response := &frameUnaryReadable{}
+	response.metaData = frameReadMetadata{
+		channels:     channels,
+		channelNames: req.ChannelNames,
+	}
+	response.frameChannel = make(chan Frame, 1)
+	response.errorChannel = make(chan error, 1)
 	go func() {
 		iter, err := fs.internal.Iterator.Open(ctx, framer.IteratorConfig{
 			Keys:   allKeys,
@@ -167,7 +175,11 @@ func (fs *FrameService) Read(
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
 			response.frameChannel <- iter.Value()
 		}
-		response.errorChannel <- iter.Error()
+		if err := iter.Error(); err != nil {
+			response.errorChannel <- err
+		} else {
+			response.errorChannel <- io.EOF
+		}
 		close(response.frameChannel)
 		close(response.errorChannel)
 	}()

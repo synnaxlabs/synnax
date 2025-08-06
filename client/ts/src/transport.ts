@@ -21,18 +21,24 @@ import { type URL } from "@synnaxlabs/x/url";
 export class Transport {
   readonly url: URL;
   readonly unary: UnaryClient;
+  private readonly http: HTTPClient;
   readonly stream: WebSocketClient;
   readonly secure: boolean;
+  private readonly breakerCfg: breaker.Config;
 
   constructor(url: URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child("/api/v1");
+    this.breakerCfg = breakerCfg;
     const codec = new binary.JSONCodec();
-    this.unary = unaryWithBreaker(
-      new HTTPClient(this.url, codec, this.secure),
-      breakerCfg,
-    );
+    this.http = new HTTPClient(this.url, codec, this.secure);
+    this.unary = unaryWithBreaker(this.http, this.breakerCfg);
     this.stream = new WebSocketClient(this.url, codec, this.secure);
+  }
+
+  withDecoder(decoder: binary.Codec): UnaryClient {
+    const c = this.http.withDecoder(decoder);
+    return unaryWithBreaker(c, this.breakerCfg);
   }
 
   use(...middleware: Middleware[]): void {

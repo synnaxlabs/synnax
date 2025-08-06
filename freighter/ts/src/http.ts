@@ -31,9 +31,9 @@ export const HEADER_CONTENT_TYPE = "Content-Type";
  * @param encoder - The encoder/decoder to use for the request/response.
  */
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
-  endpoint: URL;
-  encoder: binary.Codec;
-  decoder: binary.Codec;
+  private readonly endpoint: URL;
+  private readonly encoder: binary.Codec;
+  private readonly decoder: binary.Codec;
 
   constructor(
     endpoint: URL,
@@ -54,11 +54,21 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     });
   }
 
+  withDecoder(decoder: binary.Codec): HTTPClient {
+    const c = new HTTPClient(this.endpoint, this.encoder, this.secure, decoder);
+    c.use(...this.middleware);
+    return c;
+  }
+
   get headers(): Record<string, string> {
     return {
       Accept: this.decoder.contentType,
       [HEADER_CONTENT_TYPE]: this.encoder.contentType,
     };
+  }
+
+  get secure(): boolean {
+    return this.endpoint.protocol === "https";
   }
 
   async send<RQ extends z.ZodType>(
@@ -92,6 +102,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         role: "client",
       },
       async (ctx: Context): Promise<[Context, Error | null]> => {
+        console.log("executeMiddleware", ctx);
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = { ...this.headers, ...ctx.params };
         let httpRes: Response;
@@ -109,6 +120,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
 
           return [outCtx, null];
         }
+        console.log("httpRes", httpRes);
         const data = await httpRes.arrayBuffer();
         try {
           if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)

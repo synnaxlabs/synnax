@@ -45,7 +45,7 @@ export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
           filters: [{ name: "CSV", extensions: ["csv"] }],
         });
         if (savePath == null) return;
-        const res = await client.export.csv({
+        const res = await client.read({
           timeRange,
           channelNames,
           keys: channelKeys,

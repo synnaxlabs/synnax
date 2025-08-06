@@ -12,6 +12,7 @@ package fhttp
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -110,12 +111,22 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 	}
 	codec := getCodec()
 	ctx.Set(fiber.HeaderContentType, contentType)
+	debugging := contentType == "text/csv"
+	if debugging {
+		fmt.Println("contentType", contentType)
+		fmt.Println("v", v)
+		fmt.Printf("v type: %T\n", v)
+	}
 	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
 		reqCtx := ctx.Context()
 		go func() {
 			for {
 				v, err := uReader.Read()
+				if debugging {
+					fmt.Println("v", v)
+					fmt.Println("err", err)
+				}
 				if err != nil {
 					w.CloseWithError(err)
 					return

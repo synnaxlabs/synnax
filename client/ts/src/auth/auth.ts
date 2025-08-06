@@ -90,6 +90,8 @@ export class Client {
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       const [resCtx, err] = await next(reqCtx);
+      console.log("resCtx", resCtx);
+      console.log("err", err);
       if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
         this.authenticated = false;
         this.authenticating = undefined;
