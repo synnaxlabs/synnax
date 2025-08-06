@@ -11,12 +11,12 @@ import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
+  type Component,
   Flex,
   Form as PForm,
   Haul,
   Header as PHeader,
   Icon,
-  type RenderProp,
   Select,
   Text,
 } from "@synnaxlabs/pluto";
@@ -38,7 +38,7 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
 
 interface ChannelListItemProps<C extends Channel>
   extends Omit<Common.Task.ChannelListItemProps, "children"> {
-  children: RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -105,7 +105,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHau
 
 interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
-  children: RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
   convertHaulItemToChannel: (item: Haul.Item) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
@@ -173,7 +173,7 @@ export interface FormProps<C extends Channel>
     Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
   > {
   isSnapshot: boolean;
-  children?: RenderProp<ExtraItemProps>;
+  children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 

@@ -105,8 +105,8 @@ export class Client {
     ids: ID | ID[] | string | string[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
-    if (typeof ids === "object" && !("key" in ids))
-      return this.execRetrieve(ids as RetrieveRequest);
+    if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))
+      return this.execRetrieve(ids);
     const parsedIDs = parseIDs(ids);
     const resources = await this.execRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;

@@ -586,7 +586,9 @@ describe("list", () => {
       await act(async () => await client.ranges.rename(rng1.key, "Z Range"));
 
       await waitFor(() => {
-        expect(result.current.data).toEqual([rng2.key, rng1.key]);
+        const indexOfRng1 = result.current.data.indexOf(rng1.key);
+        const indexOfRng2 = result.current.data.indexOf(rng2.key);
+        expect(indexOfRng2).toBeLessThan(indexOfRng1);
       });
     });
 

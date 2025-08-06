@@ -41,7 +41,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-const retrieveRequestz = z.object({
+const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
@@ -54,9 +54,9 @@ const retrieveRequestz = z.object({
   includeStatus: z.boolean().optional(),
 });
 
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestz> {}
+export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-const retrieveArgsZ = retrieveRequestz
+const retrieveArgsZ = retrieveRequestZ
   .or(keyZ.array().transform((keys) => ({ keys })))
   .or(keyZ.transform((key) => ({ keys: [key] })));
 
@@ -109,7 +109,7 @@ export class Client {
       this.client,
       RETRIEVE_ENDPOINT,
       { ...retrieveArgsZ.parse(args), ...options },
-      retrieveRequestz,
+      retrieveRequestZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Device", args, res.devices, isSingle);

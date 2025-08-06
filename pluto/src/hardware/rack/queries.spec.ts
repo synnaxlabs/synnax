@@ -98,7 +98,9 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({ includeStatus: true });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
 
       const retrievedRack = result.current.getItem(testRack.key);
       expect(retrievedRack?.key).toEqual(testRack.key);
@@ -111,7 +113,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.listenersMounted).toBe(true);
+        expect(result.current.variant).toEqual("success");
+      });
       const initialLength = result.current.data.length;
 
       const newRack = await client.hardware.racks.create({
@@ -135,7 +140,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.listenersMounted).toBe(true);
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
 
       await client.hardware.racks.create({
@@ -159,7 +167,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.listenersMounted).toBe(true);
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data).toContain(testRack.key);
 
       await client.hardware.racks.delete(testRack.key);
@@ -180,7 +191,10 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.listenersMounted).toBe(true);
+        expect(result.current.variant).toEqual("success");
+      });
 
       const rackStatus: rack.Status = status.create({
         key: id.create(),

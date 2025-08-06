@@ -371,7 +371,7 @@ export class Client {
 
     const isSingle = !Array.isArray(params);
     const res = this.sugar(await this.retriever.retrieve(params, options));
-    checkForMultipleOrNoResults("channel", params as Params, res, isSingle);
+    checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
     return isSingle ? res[0] : res;
   }
 

@@ -10,7 +10,7 @@
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 import { LABJACK_NAV } from "@/pages/reference/device-drivers/labjack/_nav";
 import { NI_NAV } from "@/pages/reference/device-drivers/ni/_nav";
-import { opcuaNav as OPCUA_NAV } from "@/pages/reference/device-drivers/opc-ua/_nav";
+import { OPCUA_NAV } from "@/pages/reference/device-drivers/opc-ua/_nav";
 
 export const DEVICE_DRIVERS_NAV: PageNavNode = {
   key: "device-drivers",

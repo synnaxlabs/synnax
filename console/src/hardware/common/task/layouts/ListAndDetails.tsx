@@ -9,12 +9,12 @@
 
 import {
   Button,
+  type Component,
   Divider,
   Flex,
   Form,
   Header,
   Icon,
-  type RenderProp,
 } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
@@ -40,7 +40,7 @@ export interface ListAndDetailsProps<C extends Channel>
     ChannelListProps<C>,
     "onTare" | "allowTare" | "isSnapshot" | "listItem" | "contextMenuItems"
   > {
-  details: RenderProp<DetailsProps>;
+  details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
   initialChannels: C[];
 }

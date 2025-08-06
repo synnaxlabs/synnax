@@ -18,7 +18,7 @@ import {
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -47,7 +47,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const selectedCells = useSelectSelectedCells(layoutKey);
   const selectedCellMeta = useSelectSelectedCellPos(layoutKey);
 
-  const isSingleCellSelected = selectedCells.length === 1;
   const firstCell = selectedCells[0];
   const dispatch = useDispatch();
   const store = useStore<RootState>();
@@ -118,19 +117,27 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   const tableRef = useSyncedRef(tableKey);
   const cellRef = useSyncedRef(cell?.key);
   const dispatchSync = useSyncComponent(tableKey);
-  const handleChange = useCallback(({ values }: Form.OnChangeProps<any>) => {
-    dispatchSync(
-      setCellProps({ key: tableRef.current, cellKey: cellRef.current, props: values }),
-    );
-  }, []);
+  const handleChange = useCallback(
+    ({ values }: Form.OnChangeArgs<typeof record.unknownZ>) => {
+      dispatchSync(
+        setCellProps({
+          key: tableRef.current,
+          cellKey: cellRef.current,
+          props: values,
+        }),
+      );
+    },
+    [],
+  );
   const methods = Form.use({
     values: deep.copy(cell.props),
+    schema: record.unknownZ,
     onChange: handleChange,
     sync: true,
   });
   const F = TableCells.CELLS[cell.variant].Form;
   return (
-    <Form.Form {...methods}>
+    <Form.Form<typeof record.unknownZ> {...methods}>
       <F onVariantChange={onVariantChange} />
     </Form.Form>
   );
