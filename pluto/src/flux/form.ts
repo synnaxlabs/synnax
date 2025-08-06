@@ -69,7 +69,8 @@ export interface AfterSaveArgs<FormParams extends Params, Z extends z.ZodObject>
  * @template FormParams The type of parameters for the form query
  * @template Z The Zod schema type for form validation
  */
-export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
+export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject>
+  extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
   /** Whether to automatically save form changes */
@@ -78,8 +79,6 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
   params: FormParams;
   /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
-  /** Whether to synchronize the form with the server */
-  sync?: boolean;
 }
 
 /**
@@ -151,7 +150,15 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   });
   const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
 
-  return ({ params, initialValues, autoSave = false, afterSave, sync = false }) => {
+  return ({
+    params,
+    initialValues,
+    autoSave = false,
+    afterSave,
+    sync,
+    onHasTouched,
+    mode,
+  }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null, false));
@@ -163,6 +170,8 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
         if (autoSave && path !== "") handleSave();
       },
       sync,
+      onHasTouched,
+      mode,
     });
 
     const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> =
