@@ -62,7 +62,7 @@ interface CodecState {
 }
 
 export class Codec {
-  contentType: string = "application/sy-framer";
+  contentType = CONTENT_TYPE;
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;

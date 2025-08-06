@@ -12,7 +12,6 @@ package fhttp
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -118,7 +117,6 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 			for {
 				v, err := uReader.Read()
 				if err != nil {
-					fmt.Println("closing the stream with error", err)
 					w.CloseWithError(err)
 					return
 				}

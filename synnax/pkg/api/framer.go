@@ -709,24 +709,7 @@ func (c *WSFramerCodec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
 
-func NewHTTPCodecResolver(channel channel.Readable) func(string) (xbinary.Codec, error) {
-	return func(contentType string) (xbinary.Codec, error) {
-		if contentType == framerContentType {
-			return NewWSFramerCodec(channel), nil
-		}
-		if contentType == "application/json" {
-			return xbinary.JSONCodec, nil
-		}
-		if contentType == "application/msgpack" {
-			return xbinary.MsgPackCodec, nil
-		}
-		return nil, errors.New("unsupported content type")
-	}
-}
-
 type readCSVFramerCodec struct{}
-
-func (c *readCSVFramerCodec) ContentType() string { return "text/csv" }
 
 func (c *readCSVFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	buf := &bytes.Buffer{}

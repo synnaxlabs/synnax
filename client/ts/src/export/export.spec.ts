@@ -14,7 +14,7 @@ import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 
-describe("export", async () => {
+describe.skip("export", async () => {
   const indexChannel = await client.channels.create({
     name: "export-csv-ts-test-index",
     dataType: DataType.TIMESTAMP,

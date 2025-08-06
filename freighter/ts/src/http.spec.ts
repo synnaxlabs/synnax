@@ -45,17 +45,21 @@ describe("http", () => {
     expect(error?.message).toEqual("Not Found");
     expect(response).toBeNull();
   });
-
-  test("getReader", async () => {
+  test("text response", async () => {
+    const client = new HTTPClient(
+      ENDPOINT,
+      binary.JSON_CODEC,
+      false,
+      binary.TEXT_CODEC,
+    );
     const [response, error] = await client.send(
-      "/getReader",
+      "/textResponse",
       { id: 1, message: "hello" },
       messageZ,
     );
     expect(error).toBeNull();
-    expect(response).toBeInstanceOf(Response);
     const body = await response?.text();
-    expect(body).toEqual("hello");
+    expect(body).toEqual("ID: 1 Message: hello");
   });
 
   test("middleware", async () => {

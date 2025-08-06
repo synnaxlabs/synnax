@@ -22,6 +22,8 @@ const shouldCastToUnreachable = (err: Error): boolean =>
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
+export const HEADER_CONTENT_TYPE = "Content-Type";
+
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  *
@@ -31,11 +33,18 @@ const HTTP_STATUS_BAD_REQUEST = 400;
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   endpoint: URL;
   encoder: binary.Codec;
+  decoder: binary.Codec;
 
-  constructor(endpoint: URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(
+    endpoint: URL,
+    encoder: binary.Codec,
+    secure: boolean = false,
+    decoder: binary.Codec = encoder,
+  ) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
+    this.decoder = decoder;
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -47,8 +56,8 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
 
   get headers(): Record<string, string> {
     return {
-      Accept: this.encoder.contentType,
-      "Content-Type": this.encoder.contentType,
+      Accept: this.decoder.contentType,
+      [HEADER_CONTENT_TYPE]: this.encoder.contentType,
     };
   }
 
@@ -95,7 +104,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         if (httpRes.ok) {
           if (resSchema != null) {
             const data = await httpRes.arrayBuffer();
-            res = this.encoder.decode<RS>(data, resSchema);
+            res = this.decoder.decode<RS>(data, resSchema);
           } else res = httpRes;
 
           return [outCtx, null];
@@ -104,7 +113,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         try {
           if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
             return [outCtx, new Error(httpRes.statusText)];
-          const err = this.encoder.decode(data, errors.payloadZ);
+          const err = this.decoder.decode(data, errors.payloadZ);
           const decoded = errors.decode(err);
           return [outCtx, decoded];
         } catch (e) {
