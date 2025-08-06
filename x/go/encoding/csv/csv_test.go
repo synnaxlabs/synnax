@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package binary_test
+package csv_test
 
 import (
 	"context"
@@ -15,41 +15,41 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/csv"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 )
 
 type marshaller struct{ records [][]string }
 
-var _ binary.CSVMarshaler = (*marshaller)(nil)
+var _ csv.Marshaler = (*marshaller)(nil)
 
 func (m marshaller) MarshalCSV() ([][]string, error) { return m.records, nil }
 
 type errMarshaller struct{}
 
-var _ binary.CSVMarshaler = (*errMarshaller)(nil)
+var _ csv.Marshaler = (*errMarshaller)(nil)
 
 var errTest = errors.New("test")
 
 func (m errMarshaller) MarshalCSV() ([][]string, error) { return nil, errTest }
 
-var _ = Describe("CSVEncoder", func() {
+var _ = Describe("Encoder", func() {
 	var ctx context.Context
 	BeforeEach(func() {
 		ctx = context.Background()
 	})
 	DescribeTableSubtree("Valid CSVs", func(v any, encoded []byte) {
 		It("should encode the records", func() {
-			Expect(binary.CSVEncoder.Encode(ctx, v)).To(Equal(encoded))
+			Expect(csv.Encoder.Encode(ctx, v)).To(Equal(encoded))
 		})
 		It("should encode the records to a stream", func() {
-			Expect(binary.CSVEncoder.EncodeStream(ctx, io.Discard, v)).To(Succeed())
+			Expect(csv.Encoder.EncodeStream(ctx, io.Discard, v)).To(Succeed())
 		})
 	},
 		Entry("basic", [][]string{{"a", "b"}, {"c", "d"}}, []byte("a,b\r\nc,d\r\n")),
 		Entry("value that is a []string", []string{"a", "b"}, []byte("a,b\r\n")),
-		Entry("value that implements CSVMarshaler",
+		Entry("value that implements Marshaler",
 			marshaller{records: [][]string{{"a", "b"}, {"c", "d"}}},
 			[]byte("a,b\r\nc,d\r\n"),
 		),
@@ -76,14 +76,14 @@ var _ = Describe("CSVEncoder", func() {
 	)
 	Describe("with a failing writer", func() {
 		It("should return an error", func() {
-			Expect(binary.CSVEncoder.EncodeStream(
+			Expect(csv.Encoder.EncodeStream(
 				ctx,
 				xio.FailWriter,
 				[][]string{{"a", "b"}},
 			)).Error().To(HaveOccurred())
 		})
 		It("should not return an error if writing empty records", func() {
-			Expect(binary.CSVEncoder.EncodeStream(
+			Expect(csv.Encoder.EncodeStream(
 				ctx,
 				xio.FailWriter,
 				[][]string{},
@@ -92,24 +92,24 @@ var _ = Describe("CSVEncoder", func() {
 	})
 	DescribeTableSubtree("Encoding errors", func(v any) {
 		It("should return an error", func() {
-			Expect(binary.CSVEncoder.Encode(ctx, v)).Error().To(HaveOccurred())
+			Expect(csv.Encoder.Encode(ctx, v)).Error().To(HaveOccurred())
 		})
 		It("should return an error for the stream", func() {
-			Expect(binary.CSVEncoder.EncodeStream(ctx, io.Discard, v)).
+			Expect(csv.Encoder.EncodeStream(ctx, io.Discard, v)).
 				Error().To(HaveOccurred())
 		})
 	},
 		Entry("different lengths", [][]string{{"a", "b"}, {"c"}}),
 		Entry("first row has zero length but others don't", [][]string{{}, {"c", "d"}}),
-		Entry("value does not implement CSVMarshaler", [][]struct{}{{}}),
-		Entry("value implements CSVMarshaler but returns an error", errMarshaller{}),
+		Entry("value does not implement Marshaler", [][]struct{}{{}}),
+		Entry("value implements Marshaler but returns an error", errMarshaller{}),
 	)
 	Describe("Encoding panics", func() {
 		It("should panic if passing in the nil constant", func() {
-			Expect(func() { binary.CSVEncoder.Encode(ctx, nil) }).To(Panic())
+			Expect(func() { csv.Encoder.Encode(ctx, nil) }).To(Panic())
 		})
 		It("should panic if passing in nil to the stream encoder", func() {
-			Expect(func() { binary.CSVEncoder.EncodeStream(ctx, io.Discard, nil) }).
+			Expect(func() { csv.Encoder.EncodeStream(ctx, io.Discard, nil) }).
 				To(Panic())
 		})
 	})

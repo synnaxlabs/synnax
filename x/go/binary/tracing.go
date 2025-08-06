@@ -30,7 +30,7 @@ func (tc *TracingCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	ctx, span := tc.T.Trace(ctx, "encode", tc.Level)
 	b, err := tc.Codec.Encode(ctx, value)
 	if err != nil {
-		return nil, sugarEncodingErr(value, err)
+		return nil, SugarEncodingErr(value, err)
 	}
 	return b, span.EndWith(err)
 }
@@ -40,7 +40,7 @@ func (tc *TracingCodec) Decode(ctx context.Context, data []byte, value any) erro
 	ctx, span := tc.T.Trace(ctx, "decode", tc.Level)
 	err := tc.Codec.Decode(ctx, data, value)
 	if err != nil {
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return span.EndWith(err)
 }
@@ -55,7 +55,7 @@ func (tc *TracingCodec) DecodeStream(
 	err := tc.Codec.DecodeStream(ctx, r, value)
 	if err != nil {
 		data, _ := io.ReadAll(r)
-		err = sugarDecodingErr(data, value, err)
+		err = SugarDecodingErr(data, value, err)
 	}
 	return span.EndWith(err)
 }
@@ -69,7 +69,7 @@ func (tc *TracingCodec) EncodeStream(
 	ctx, span := tc.T.Trace(ctx, "encode_stream", tc.Level)
 	err := tc.Codec.EncodeStream(ctx, w, value)
 	if err != nil {
-		err = sugarEncodingErr(value, err)
+		err = SugarEncodingErr(value, err)
 	}
 	return span.EndWith(err)
 }

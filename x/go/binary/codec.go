@@ -24,8 +24,8 @@ var (
 	ErrEncode = errors.New("failed to encode")
 )
 
-// sugarEncodingErr adds additional context to encoding errors.
-func sugarEncodingErr(value any, base error) error {
+// SugarEncodingErr adds additional context to encoding errors.
+func SugarEncodingErr(value any, base error) error {
 	if base == nil {
 		return nil
 	}
@@ -40,8 +40,8 @@ func sugarEncodingErr(value any, base error) error {
 	return errors.Combine(main, base)
 }
 
-// sugarDecodingErr adds additional context to decoding errors.
-func sugarDecodingErr(data []byte, value any, base error) error {
+// SugarDecodingErr adds additional context to decoding errors.
+func SugarDecodingErr(data []byte, value any, base error) error {
 	if base == nil {
 		return nil
 	}

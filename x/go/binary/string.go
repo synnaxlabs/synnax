@@ -37,7 +37,7 @@ func (sc *stringCodec) Encode(ctx context.Context, v any) ([]byte, error) {
 // EncodeStream encodes a value to its string representation and writes it to a writer.
 func (sc *stringCodec) EncodeStream(_ context.Context, w io.Writer, v any) error {
 	_, err := fmt.Fprint(w, v)
-	return sugarEncodingErr(v, err)
+	return SugarEncodingErr(v, err)
 }
 
 // Decode decodes the plaintext string into the provided value.
@@ -49,11 +49,11 @@ func (sc *stringCodec) Decode(ctx context.Context, b []byte, v any) error {
 func (sc *stringCodec) DecodeStream(_ context.Context, r io.Reader, v any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return sugarDecodingErr(data, v, err)
+		return SugarDecodingErr(data, v, err)
 	}
 	str := string(data)
 	err = unmarshalString(str, v)
-	return sugarDecodingErr(data, v, err)
+	return SugarDecodingErr(data, v, err)
 }
 
 func unmarshalString(str string, v any) error {

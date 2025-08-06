@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/csv"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
@@ -105,7 +106,7 @@ type frameReadMetadata struct {
 	channelNames map[channel.Key]string
 }
 
-var _ xbinary.CSVMarshaler = frameReadMetadata{}
+var _ csv.Marshaler = frameReadMetadata{}
 
 func (m frameReadMetadata) MarshalCSV() ([][]string, error) {
 	records := make([]string, len(m.channels))

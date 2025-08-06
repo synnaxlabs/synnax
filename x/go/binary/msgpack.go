@@ -26,7 +26,7 @@ var _ Codec = (*msgPackCodec)(nil)
 // Encode implements the Encoder interface.
 func (mpc *msgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
-	return b, sugarEncodingErr(value, err)
+	return b, SugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
@@ -38,7 +38,7 @@ func (mpc *msgPackCodec) Decode(ctx context.Context, data []byte, value any) err
 func (mpc *msgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
@@ -51,8 +51,8 @@ func (mpc *msgPackCodec) EncodeStream(
 ) error {
 	b, err := mpc.Encode(ctx, value)
 	if err != nil {
-		return sugarEncodingErr(value, err)
+		return SugarEncodingErr(value, err)
 	}
 	_, err = w.Write(b)
-	return sugarEncodingErr(value, err)
+	return SugarEncodingErr(value, err)
 }

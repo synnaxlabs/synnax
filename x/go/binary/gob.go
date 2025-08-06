@@ -30,7 +30,7 @@ func (gc *gobCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 // EncodeStream implements the Encoder interface.
 func (gc *gobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
-	return sugarEncodingErr(value, err)
+	return SugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
@@ -42,7 +42,7 @@ func (gc *gobCodec) Decode(ctx context.Context, data []byte, value any) error {
 func (gc *gobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return nil
 }

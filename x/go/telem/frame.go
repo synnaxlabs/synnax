@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/encoding/csv"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/vmihailenco/msgpack/v5"
@@ -49,7 +49,7 @@ type Frame[K types.Numeric] struct {
 	}
 }
 
-var _ binary.CSVMarshaler = Frame[int]{}
+var _ csv.Marshaler = Frame[int]{}
 
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
