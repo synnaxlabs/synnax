@@ -96,18 +96,18 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	It("Handle undefined symbols", func() {
-		baseCH := channel.Channel{
+		baseCh := channel.Channel{
 			Name:     "base",
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
+			Requires:    []channel.Key{baseCh.Key()},
 			Expression:  "return base * fake",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
@@ -116,7 +116,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
-			Keys:  []channel.Key{baseCH.Key()},
+			Keys:  []channel.Key{baseCh.Key()},
 		}))
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        []channel.Key{calculatedCH.Key()},
@@ -125,7 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 		Expect(w.Close()).To(Succeed())
 	})

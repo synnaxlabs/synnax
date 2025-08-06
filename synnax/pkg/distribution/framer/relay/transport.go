@@ -29,7 +29,7 @@ func reqToStorage(req Request) ts.StreamerRequest {
 }
 
 func resFromStorage(res ts.StreamerResponse) Response {
-	return Response{Frame: frame.NewStorage(res.Frame)}
+	return Response{Frame: frame.NewFromStorage(res.Frame)}
 }
 
 type (

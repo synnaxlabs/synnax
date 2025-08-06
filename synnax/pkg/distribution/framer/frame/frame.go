@@ -117,7 +117,7 @@ func Merge(frames []Frame) Frame {
 	return f
 }
 
-// NewStorage creates a new distribution layer frame from a storage layer frame.
-func NewStorage(frame ts.Frame) Frame {
+// NewFromStorage creates a new distribution layer frame from a storage layer frame.
+func NewFromStorage(frame ts.Frame) Frame {
 	return Frame{telem.UnsafeReinterpretFrameKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }

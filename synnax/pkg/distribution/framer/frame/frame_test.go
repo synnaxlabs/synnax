@@ -163,7 +163,7 @@ var _ = Describe("Frame", func() {
 	Describe("NewFrameFromStorage", func() {
 		It("Should create a new frame from its storage later representation", func() {
 			storageFrame := telem.UnaryFrame[cesium.ChannelKey](1, telem.NewSeriesV[float32](1, 2, 3, 4))
-			distFrame := frame.NewStorage(storageFrame)
+			distFrame := frame.NewFromStorage(storageFrame)
 			Expect(distFrame.SeriesSlice()).To(HaveLen(1))
 			Expect(distFrame.KeysSlice()).To(HaveLen(1))
 			Expect(distFrame.KeysSlice()[0]).To(Equal(channel.Key(1)))

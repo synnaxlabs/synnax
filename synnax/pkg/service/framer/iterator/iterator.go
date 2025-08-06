@@ -154,7 +154,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(maps.Map[channel.Key, channel.Channel], len(channels))
+		calculated = make(maps.Map[channel.Key, channel.Channel])
 		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().

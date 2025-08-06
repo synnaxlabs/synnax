@@ -45,7 +45,7 @@ func newControlStateSender(
 
 func (c *controlStateSender) getControlUpdateFrame(ctx context.Context) frame.Frame {
 	u := c.db.ControlUpdateToFrame(ctx, c.db.ControlStates())
-	return frame.NewStorage(u)
+	return frame.NewFromStorage(u)
 }
 
 func (c *controlStateSender) Flow(ctx signal.Context, opts ...confluence.Option) {

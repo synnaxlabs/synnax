@@ -135,13 +135,13 @@ type mockFramerTransport struct {
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
 
-func (mft mockFramerTransport) Iterator() iterator.Transport { return mft.iter }
+func (m mockFramerTransport) Iterator() iterator.Transport { return m.iter }
 
-func (mft mockFramerTransport) Writer() writer.Transport { return mft.writer }
+func (m mockFramerTransport) Writer() writer.Transport { return m.writer }
 
-func (mft mockFramerTransport) Relay() relay.Transport { return mft.relay }
+func (m mockFramerTransport) Relay() relay.Transport { return m.relay }
 
-func (mft mockFramerTransport) Deleter() deleter.Transport { return mft.deleter }
+func (m mockFramerTransport) Deleter() deleter.Transport { return m.deleter }
 
 type StaticHostProvider struct{ Node cluster.Node }
 
@@ -151,6 +151,6 @@ func NewStaticHostProvider(key cluster.NodeKey) StaticHostProvider {
 	return StaticHostProvider{Node: cluster.Node{Key: key}}
 }
 
-func (shp StaticHostProvider) Host() cluster.Node { return shp.Node }
+func (s StaticHostProvider) Host() cluster.Node { return s.Node }
 
-func (shp StaticHostProvider) HostKey() cluster.NodeKey { return shp.Node.Key }
+func (s StaticHostProvider) HostKey() cluster.NodeKey { return s.Node.Key }

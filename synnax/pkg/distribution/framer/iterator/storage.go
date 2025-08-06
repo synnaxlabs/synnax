@@ -28,7 +28,7 @@ func newStorageResponseTranslator(
 			NodeKey: host,
 			Error:   res.Err,
 			Command: Command(res.Command),
-			Frame:   frame.NewStorage(res.Frame),
+			Frame:   frame.NewFromStorage(res.Frame),
 		}, true, nil
 	}
 }

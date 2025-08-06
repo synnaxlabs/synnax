@@ -145,7 +145,7 @@ func DefaultConfig() Config {
 }
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
-// channel keys across multiple nodes in the cluster. This method should only be valled
+// channel keys across multiple nodes in the cluster. This method should only be called
 // after the config has been validated.
 func (c Config) keyAuthorities() []keyAuthority {
 	authorities := make([]keyAuthority, len(c.Keys))
