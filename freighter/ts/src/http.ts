@@ -14,8 +14,6 @@ import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
-export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
-
 const shouldCastToUnreachable = (err: Error): boolean =>
   typeof err.cause === "object" &&
   err.cause !== null &&
@@ -48,7 +46,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   }
 
   get headers(): Record<string, string> {
-    return { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType };
+    return {
+      Accept: this.encoder.contentType,
+      "Content-Type": this.encoder.contentType,
+    };
   }
 
   async send<RQ extends z.ZodType>(

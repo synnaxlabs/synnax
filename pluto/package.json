@@ -21,7 +21,7 @@
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
-    "@synnaxlabs/freighter": "workspace:*",
+    "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "@tanstack/react-query": "^5.82.0",
     "@tanstack/react-virtual": "3.13.6",

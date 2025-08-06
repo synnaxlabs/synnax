@@ -13,10 +13,16 @@ import { z } from "zod/v4";
 
 import { channel } from "@/channel";
 
+export const CONTENT_TYPE_TO_MIME: Record<"csv" | "json", string> = {
+  csv: "text/csv",
+  json: "application/json",
+};
+
 const csvRequestZ = z.object({
   keys: channel.keyZ.array(),
   timeRange: TimeRange.z.default(TimeRange.MAX),
   channelNames: z.record(channel.keyStringZ, z.string()).optional(),
+  contentType: z.enum(["csv", "json"]).default("csv"),
 });
 
 interface CSVRequest extends z.input<typeof csvRequestZ> {}
@@ -29,6 +35,10 @@ export class Client {
   }
 
   async csv(request: CSVRequest): Promise<Response> {
+    this.client.use(async (ctx, next) => {
+      ctx.params.Accept = CONTENT_TYPE_TO_MIME[request.contentType ?? "csv"];
+      return await next(ctx);
+    });
     const [res, err] = await this.client.send("/export/csv", request, csvRequestZ);
     if (err != null) throw err;
     return res;
