@@ -46,7 +46,7 @@ func (sc *stringCodec) Decode(ctx context.Context, b []byte, v any) error {
 }
 
 // DecodeStream decodes the plaintext string from a reader into the provided value.
-func (sc *stringCodec) DecodeStream(ctx context.Context, r io.Reader, v any) error {
+func (sc *stringCodec) DecodeStream(_ context.Context, r io.Reader, v any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return sugarDecodingErr(data, v, err)

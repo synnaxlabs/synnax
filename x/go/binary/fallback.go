@@ -33,12 +33,20 @@ func (dfc *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, 
 	return dfc.Codecs[0].Encode(ctx, value)
 }
 
-func (dfc *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (dfc *decodeFallbackCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
 	return dfc.Codecs[0].EncodeStream(ctx, w, value)
 }
 
 // Decode implements the Decoder interface.
-func (dfc *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (dfc *decodeFallbackCodec) Decode(
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
 	var err error
 	for _, c := range dfc.Codecs {
 		if err = c.Decode(ctx, data, value); err == nil {

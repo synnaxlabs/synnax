@@ -35,7 +35,11 @@ func (p *PassThroughCodec) Decode(ctx context.Context, data []byte, value any) e
 }
 
 // DecodeStream implements the Decoder interface.
-func (p *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+func (p *PassThroughCodec) DecodeStream(
+	ctx context.Context,
+	r io.Reader,
+	value any,
+) error {
 	if bv, ok := value.(*[]byte); ok {
 		*bv, _ = io.ReadAll(r)
 		return nil
@@ -44,6 +48,10 @@ func (p *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, value 
 }
 
 // EncodeStream implements the Encoder interface.
-func (p *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (p *PassThroughCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
 	return p.Codec.EncodeStream(ctx, w, value)
 }

@@ -44,7 +44,11 @@ func (mpc *msgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any)
 }
 
 // EncodeStream implements the Encoder interface.
-func (mpc *msgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (mpc *msgPackCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
 	b, err := mpc.Encode(ctx, value)
 	if err != nil {
 		return sugarEncodingErr(value, err)

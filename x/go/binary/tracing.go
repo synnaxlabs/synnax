@@ -46,7 +46,11 @@ func (tc *TracingCodec) Decode(ctx context.Context, data []byte, value any) erro
 }
 
 // DecodeStream implements the Decoder interface.
-func (tc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+func (tc *TracingCodec) DecodeStream(
+	ctx context.Context,
+	r io.Reader,
+	value any,
+) error {
 	ctx, span := tc.T.Trace(ctx, "decode_stream", tc.Level)
 	err := tc.Codec.DecodeStream(ctx, r, value)
 	if err != nil {
@@ -57,7 +61,11 @@ func (tc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value any
 }
 
 // EncodeStream implements the Encoder interface.
-func (tc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (tc *TracingCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
 	ctx, span := tc.T.Trace(ctx, "encode_stream", tc.Level)
 	err := tc.Codec.EncodeStream(ctx, w, value)
 	if err != nil {

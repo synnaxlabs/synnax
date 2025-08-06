@@ -27,7 +27,7 @@ type seg struct {
 func (s seg) Flow(sCtx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(s.Out)
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(context.Context) error {
 		for v := range s.In.Outlet() {
 			if v == 1 {
 				panic("got 1")

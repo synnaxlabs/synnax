@@ -1351,6 +1351,21 @@ var _ = Describe("Frame", func() {
 				{"3", "c", "3000000000", u3.String()},
 			}))
 		})
+		It("should respect filters", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{1, 3})
+			Expect(filtered.MarshalCSV()).To(Equal([][]string{
+				{"1", "7"},
+				{"2", "8"},
+				{"3", "9"},
+			}))
+		})
 		It("should work if series have different lengths", func() {
 			fr := telem.MultiFrame(
 				[]int{1, 2, 3},

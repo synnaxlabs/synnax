@@ -478,7 +478,10 @@ var _ = Describe("Series", func() {
 			Entry("string", telem.NewSeriesStringsV("a", "b", "c"), "[a b c]"),
 			Entry("json", telem.NewSeriesStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
 			Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
-			Entry("uuid", telem.NewSeriesUUIDsV(u1, u2, u3), fmt.Sprintf("[%s %s %s]", u1, u2, u3)),
+			Entry("uuid",
+				telem.NewSeriesUUIDsV(u1, u2, u3),
+				fmt.Sprintf("[%s %s %s]", u1, u2, u3),
+			),
 		)
 		Describe("AsCSVStrings", func() {
 			It("Should return the data as a string slice for a string series", func() {
@@ -486,8 +489,12 @@ var _ = Describe("Series", func() {
 				Expect(s.AsCSVStrings()).To(Equal([]string{"a", "b", "c"}))
 			})
 			It("should return the data as a string slice for a json series", func() {
-				s := telem.NewSeriesStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}, map[string]any{"d": 4, "e": 5, "f": 6})
-				Expect(s.AsCSVStrings()).To(Equal([]string{`{"a":1,"b":2,"c":3}`, `{"d":4,"e":5,"f":6}`}))
+				s := telem.NewSeriesStaticJSONV(
+					map[string]any{"a": 1, "b": 2, "c": 3},
+					map[string]any{"d": 4, "e": 5, "f": 6},
+				)
+				Expect(s.AsCSVStrings()).
+					To(Equal([]string{`{"a":1,"b":2,"c":3}`, `{"d":4,"e":5,"f":6}`}))
 			})
 			It("should return the data as a string slice for an int8", func() {
 				s := telem.NewSeriesV[int8](1, 2, 3)
@@ -531,12 +538,14 @@ var _ = Describe("Series", func() {
 			})
 			It("should return the data as a string slice for a timestamp series", func() {
 				s := telem.NewSeriesSecondsTSV(1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1000000000", "2000000000", "3000000000"}))
+				Expect(s.AsCSVStrings()).
+					To(Equal([]string{"1000000000", "2000000000", "3000000000"}))
 			})
 			It("should return the data as a string slice for a uuid", func() {
 				u1, u2, u3 := uuid.New(), uuid.New(), uuid.New()
 				s := telem.NewSeriesUUIDsV(u1, u2, u3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{u1.String(), u2.String(), u3.String()}))
+				Expect(s.AsCSVStrings()).
+					To(Equal([]string{u1.String(), u2.String(), u3.String()}))
 			})
 			It("should return the data as a string for a byte slice", func() {
 				s := telem.NewSeriesBytesV([]byte("1"), []byte("hey jude"), []byte("3"))
