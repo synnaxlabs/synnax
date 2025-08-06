@@ -128,23 +128,6 @@ var _ = Describe("Unary", func() {
 				To(Succeed())
 			Expect(decodedRes).To(Equal(testReq))
 		})
-		It("should allow sending direct io.Reader as response", func() {
-			server := fhttp.NewUnaryServer[Request, io.Reader](router, "/")
-			server.BindHandler(func(_ context.Context, req Request) (io.Reader, error) {
-				return bytes.NewBufferString(req.Message), nil
-			})
-			router.BindTo(app)
-			req.Header.Set(fiber.HeaderContentType, fhttp.MIMEApplicationJSON)
-			jsonData := MustSucceed(
-				json.Marshal(Request{ID: 1, Message: "Hello, World!"}),
-			)
-			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
-			req.ContentLength = int64(len(jsonData))
-			res := MustSucceed(app.Test(req))
-			Expect(res.StatusCode).To(Equal(fiber.StatusOK))
-			body := MustSucceed(io.ReadAll(res.Body))
-			Expect(string(body)).To(Equal("Hello, World!"))
-		})
 		It("should allow adding additional codecs for both request and response", func() {
 			so := fhttp.WithAdditionalCodecs(map[string]func() binary.Codec{
 				"application/x-gob": func() binary.Codec { return binary.GobCodec },

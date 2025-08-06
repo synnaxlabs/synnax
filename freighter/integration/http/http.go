@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"go/types"
 	"io"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/integration/payload"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
@@ -59,6 +61,15 @@ func BindTo(app *fiber.App) {
 	unaryGetReaderServer := fhttp.NewUnaryServer[Message, io.Reader](router, "/unary/getReader")
 	unaryGetReaderServer.BindHandler(unaryGetReader)
 
+	unaryTextResponseServer := fhttp.NewUnaryServer[Message, *UnaryTextResponse](
+		router,
+		"/unary/textResponse",
+		fhttp.WithResponseEncoders(map[string]func() binary.Encoder{
+			fhttp.MIMETextPlain: func() binary.Encoder { return binary.StringCodec },
+		}),
+	)
+	unaryTextResponseServer.BindHandler(unaryTextResponseHandler)
+
 	unaryMiddlewareCheckServer := fhttp.NewUnaryServer[Message, Message](router, "/unary/middlewareCheck")
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
@@ -95,6 +106,50 @@ func unaryEcho(_ context.Context, req Message) (Message, error) {
 
 func unaryGetReader(_ context.Context, req Message) (io.Reader, error) {
 	return strings.NewReader(req.Message), nil
+}
+
+type readingEnum int
+
+const (
+	readingID readingEnum = iota + 1
+	readingMessage
+	readingDone
+)
+
+type UnaryTextResponse struct {
+	readingEnum
+	req Message
+}
+
+var _ fhttp.UnaryReadable = (*UnaryTextResponse)(nil)
+
+func newUnaryTextResponse(req Message) *UnaryTextResponse {
+	return &UnaryTextResponse{
+		readingEnum: readingID,
+		req:         req,
+	}
+}
+
+func (u *UnaryTextResponse) Read() (any, error) {
+	switch u.readingEnum {
+	case readingID:
+		u.readingEnum = readingMessage
+		return fmt.Sprintf("ID: %d ", u.req.ID), nil
+	case readingMessage:
+		u.readingEnum = readingDone
+		if u.req.Message == "error" {
+			fmt.Println("found an error, sending it!")
+			return nil, errors.New("failed to read message")
+		}
+		return fmt.Sprintf("Message: %s", u.req.Message), nil
+	case readingDone:
+		return nil, io.EOF
+	}
+	panic("unreachable")
+}
+
+func unaryTextResponseHandler(_ context.Context, req Message) (*UnaryTextResponse, error) {
+	return newUnaryTextResponse(req), nil
 }
 
 func streamEcho(_ context.Context, stream ServerStream) error {

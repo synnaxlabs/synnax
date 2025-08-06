@@ -9,11 +9,23 @@
 
 package payload
 
-import "github.com/synnaxlabs/freighter"
+import (
+	"fmt"
+
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/binary"
+)
 
 type Message struct {
 	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+}
+
+var _ binary.StringUnmarshaller = (*Message)(nil)
+
+func (m *Message) UnmarshalString(str string) error {
+	_, err := fmt.Sscanf(str, "ID: %d Message: %s", &m.ID, &m.Message)
+	return err
 }
 
 type ServerStream = freighter.ServerStream[Message, Message]

@@ -12,6 +12,7 @@ package fhttp
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -103,9 +104,6 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 }
 
 func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
-	if reader, ok := v.(io.Reader); ok {
-		return ctx.SendStream(reader)
-	}
 	contentType := ctx.Accepts(us.resEncoders.Keys()...)
 	getCodec, ok := us.resEncoders[contentType]
 	if !ok {
@@ -115,14 +113,16 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 	ctx.Set(fiber.HeaderContentType, contentType)
 	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
+		reqCtx := ctx.Context()
 		go func() {
 			for {
 				v, err := uReader.Read()
 				if err != nil {
+					fmt.Println("closing the stream with error", err)
 					w.CloseWithError(err)
 					return
 				}
-				if err := codec.EncodeStream(ctx.Context(), w, v); err != nil {
+				if err := codec.EncodeStream(reqCtx, w, v); err != nil {
 					w.CloseWithError(err)
 					return
 				}
@@ -172,7 +172,7 @@ func (uc *unaryClient[RQ, RS]) Send(
 			Params:   make(freighter.Params),
 		},
 		func(inCtx freighter.Context) (freighter.Context, error) {
-			b, err := uc.cfg.Codec.Encode(inCtx, req)
+			b, err := uc.cfg.Encoder.Encode(inCtx, req)
 			if err != nil {
 				return freighter.Context{}, err
 			}
@@ -187,15 +187,23 @@ func (uc *unaryClient[RQ, RS]) Send(
 			}
 			setRequestCtx(httpReq, inCtx)
 			httpReq.Header.Set(fiber.HeaderContentType, uc.cfg.ContentType)
-			httpReq.Header.Set(fiber.HeaderAccept, uc.cfg.ContentType)
+			httpReq.Header.Set(fiber.HeaderAccept, uc.cfg.Accept)
 			httpRes, err := (&http.Client{}).Do(httpReq)
 			if err != nil {
 				return freighter.Context{}, err
 			}
 			outCtx := parseResponseCtx(httpRes, target)
+			if contentType := httpRes.Header.Get(fiber.HeaderContentType); contentType != uc.cfg.Accept {
+				return freighter.Context{}, errors.Newf(
+					"unexpected response content type: %s, expected: %s",
+					contentType,
+					uc.cfg.Accept,
+				)
+			}
+			decoder := uc.cfg.Decoder
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := uc.cfg.Codec.DecodeStream(
+				if err := decoder.DecodeStream(
 					inCtx,
 					httpRes.Body,
 					&pld,
@@ -207,11 +215,7 @@ func (uc *unaryClient[RQ, RS]) Send(
 				}
 				return outCtx, nil
 			}
-			if reader, ok := httpRes.Body.(RS); ok {
-				res = reader
-				return outCtx, nil
-			}
-			if err := uc.cfg.Codec.DecodeStream(
+			if err := uc.cfg.Decoder.DecodeStream(
 				inCtx,
 				httpRes.Body,
 				&res,

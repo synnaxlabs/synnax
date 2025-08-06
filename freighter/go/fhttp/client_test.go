@@ -18,15 +18,15 @@ import (
 
 var _ = Describe("ClientConfig", func() {
 	Describe("Validate", func() {
-		It("should succeed if the codec and content type are non-nil", func() {
+		It("should succeed if the encoder and content type are non-nil", func() {
 			Expect(fhttp.DefaultClientConfig.Validate()).To(Succeed())
 		})
 		It("should return an error if the codec is nil", func() {
-			cfg := fhttp.ClientConfig{Codec: nil, ContentType: "this exists"}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("codec")))
+			cfg := fhttp.ClientConfig{Encoder: nil, ContentType: "this exists"}
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("encoder")))
 		})
 		It("should return an error if the content type is empty", func() {
-			cfg := fhttp.ClientConfig{Codec: binary.JSONCodec, ContentType: ""}
+			cfg := fhttp.ClientConfig{Encoder: binary.JSONCodec, ContentType: ""}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("content_type")))
 		})
 	})
@@ -34,32 +34,32 @@ var _ = Describe("ClientConfig", func() {
 		var originalCfg fhttp.ClientConfig
 		BeforeEach(func() {
 			originalCfg = fhttp.ClientConfig{
-				Codec:       binary.GobCodec,
+				Encoder:     binary.GobCodec,
 				ContentType: "application/x-gob",
 			}
 		})
 		It("should override the codec if it is non-nil", func() {
-			overrideCfg := fhttp.ClientConfig{Codec: binary.JSONCodec}
+			overrideCfg := fhttp.ClientConfig{Encoder: binary.JSONCodec}
 			cfg := originalCfg.Override(overrideCfg)
-			Expect(cfg.Codec).To(Equal(overrideCfg.Codec))
+			Expect(cfg.Encoder).To(Equal(overrideCfg.Encoder))
 			Expect(cfg.ContentType).To(Equal(originalCfg.ContentType))
 		})
 		It("shouldn't override if the codec is nil", func() {
 			overrideCfg := fhttp.ClientConfig{ContentType: "this exists"}
 			cfg := originalCfg.Override(overrideCfg)
-			Expect(cfg.Codec).To(Equal(originalCfg.Codec))
+			Expect(cfg.Encoder).To(Equal(originalCfg.Encoder))
 			Expect(cfg.ContentType).To(Equal(overrideCfg.ContentType))
 		})
 		It("should override the content type if it is non-empty", func() {
 			overrideCfg := fhttp.ClientConfig{ContentType: "this exists"}
 			cfg := originalCfg.Override(overrideCfg)
-			Expect(cfg.Codec).To(Equal(originalCfg.Codec))
+			Expect(cfg.Encoder).To(Equal(originalCfg.Encoder))
 			Expect(cfg.ContentType).To(Equal(overrideCfg.ContentType))
 		})
 		It("shouldn't override if the content type is empty", func() {
-			overrideCfg := fhttp.ClientConfig{Codec: binary.MsgPackCodec}
+			overrideCfg := fhttp.ClientConfig{Encoder: binary.MsgPackCodec}
 			cfg := originalCfg.Override(overrideCfg)
-			Expect(cfg.Codec).To(Equal(overrideCfg.Codec))
+			Expect(cfg.Encoder).To(Equal(overrideCfg.Encoder))
 			Expect(cfg.ContentType).To(Equal(originalCfg.ContentType))
 		})
 	})

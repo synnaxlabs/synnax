@@ -28,7 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type message = payload.Message
+type message = httpIntegration.Message
 
 type (
 	unaryClient  = freighter.UnaryClient[message, message]
@@ -38,13 +38,13 @@ type (
 
 var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 	var (
-		app         *fiber.App
-		addr        address.Address
-		unaryEcho   unaryClient
-		unaryReader readerClient
-		streamEcho  streamClient
-		ctx         context.Context
-		cancel      context.CancelFunc
+		app               *fiber.App
+		addr              address.Address
+		unaryEcho         unaryClient
+		unaryTextResponse unaryClient
+		streamEcho        streamClient
+		ctx               context.Context
+		cancel            context.CancelFunc
 	)
 
 	BeforeAll(func() {
@@ -52,12 +52,15 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 		app = fiber.New(fiber.Config{DisableStartupMessage: true})
 		httpIntegration.BindTo(app)
 
-		clientConfig := fhttp.ClientConfig{Codec: binary.JSONCodec}
-		unaryEcho = MustSucceed(fhttp.NewUnaryClient[message, message](clientConfig))
-		unaryReader = MustSucceed(
-			fhttp.NewUnaryClient[message, io.Reader](clientConfig),
+		unaryEcho = MustSucceed(fhttp.NewUnaryClient[message, message]())
+		textResponseCfg := fhttp.ClientConfig{
+			Decoder: binary.StringCodec,
+			Accept:  fhttp.MIMETextPlain,
+		}
+		unaryTextResponse = MustSucceed(
+			fhttp.NewUnaryClient[message, message](textResponseCfg),
 		)
-		streamEcho = MustSucceed(fhttp.NewStreamClient[message, message](clientConfig))
+		streamEcho = MustSucceed(fhttp.NewStreamClient[message, message]())
 
 		app.Get("/health", func(ctx *fiber.Ctx) error {
 			return ctx.SendStatus(fiber.StatusOK)
@@ -100,22 +103,6 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 			})
 		})
 
-		Describe("/unary/getReader", func() {
-			It("Should return a reader with the message content", func() {
-				req := message{ID: 1, Message: "test content"}
-				reader := MustSucceed(unaryReader.Send(ctx, addr+"/unary/getReader", req))
-				content := MustSucceed(io.ReadAll(reader))
-				Expect(string(content)).To(Equal("test content"))
-			})
-
-			It("Should handle empty message", func() {
-				req := message{ID: 1, Message: ""}
-				reader := MustSucceed(unaryReader.Send(ctx, addr+"/unary/getReader", req))
-				content := MustSucceed(io.ReadAll(reader))
-				Expect(string(content)).To(Equal(""))
-			})
-		})
-
 		Describe("/unary/middlewareCheck", func() {
 			It("Should fail when test param is missing", func() {
 				req := message{ID: 10, Message: "middleware test"}
@@ -141,6 +128,14 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 				req := message{ID: 1, Message: "no-timeout"}
 				res := MustSucceed(unaryEcho.Send(ctx, addr+"/unary/slamMessagesTimeoutCheck", req))
 				Expect(res.Message).To(Equal("success"))
+			})
+		})
+
+		Describe("/unary/textResponse", func() {
+			It("Should return a text response", func() {
+				req := message{ID: 1, Message: "test"}
+				res := MustSucceed(unaryTextResponse.Send(ctx, addr+"/unary/textResponse", req))
+				Expect(res).To(Equal(req))
 			})
 		})
 	})

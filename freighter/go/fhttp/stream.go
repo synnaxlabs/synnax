@@ -326,7 +326,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			core := newStreamCore[RS, RQ](
 				coreConfig{
 					conn:            conn,
-					codec:           s.cfg.Codec,
+					codec:           s.cfg.Encoder.(binary.Codec),
 					Instrumentation: s.Instrumentation,
 				},
 				fCtx.Done(),

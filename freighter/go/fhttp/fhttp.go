@@ -17,6 +17,7 @@ import (
 const (
 	MIMEApplicationJSON    = fiber.MIMEApplicationJSON
 	MIMEApplicationMsgPack = "application/msgpack"
+	MIMETextPlain          = fiber.MIMETextPlain
 )
 
 type BindableTransport interface {
