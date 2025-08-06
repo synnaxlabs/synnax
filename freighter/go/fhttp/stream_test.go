@@ -22,7 +22,7 @@ import (
 
 type streamImplementation struct{ app *fiber.App }
 
-var _ StreamImplementation = &streamImplementation{}
+var _ StreamImplementation = (*streamImplementation)(nil)
 
 func (i *streamImplementation) Start(
 	host address.Address, ins alamos.Instrumentation,

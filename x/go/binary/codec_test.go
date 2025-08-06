@@ -24,7 +24,7 @@ type toEncode struct{ Value int }
 
 var (
 	_ fmt.Stringer              = toEncode{}
-	_ binary.StringUnmarshaller = &toEncode{}
+	_ binary.StringUnmarshaller = (*toEncode)(nil)
 )
 
 const format = "{Value: %d}"

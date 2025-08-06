@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologycore "github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
@@ -81,11 +80,9 @@ func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[ontology.Change])) observe.Disconnect {
-	var (
-		onChange = func(ctx context.Context, ch Change) {
-			f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
-		}
-	)
+	var onChange = func(ctx context.Context, ch Change) {
+		f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
+	}
 	return s.Cluster.OnChange(onChange)
 }
 

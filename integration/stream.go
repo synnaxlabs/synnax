@@ -50,4 +50,4 @@ func (p StreamParams) ToTSCommand(identifier string) string {
 	return cmd
 }
 
-var _ NodeParams = &StreamParams{}
+var _ NodeParams = (*StreamParams)(nil)

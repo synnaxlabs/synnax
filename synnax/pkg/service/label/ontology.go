@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -28,14 +28,12 @@ const ontologyType ontology.Type = "label"
 // Labels is an ontology.Traverser that allows the caller to traverse an ontology.Retrieve
 // query to find all the labels for a particular resource. Pass this traverser to
 // ontology.Retrieve.TraverseTo.
-var (
-	Labels = ontology.Traverser{
-		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-			return rel.Type == LabeledBy && rel.From == res.ID
-		},
-		Direction: ontology.Forward,
-	}
-)
+var Labels = ontology.Traverser{
+	Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
+		return rel.Type == LabeledBy && rel.From == res.ID
+	},
+	Direction: ontology.Forward,
+}
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
@@ -75,7 +73,7 @@ func newResource(l Label) ontology.Resource {
 	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
-type change = changex.Change[uuid.UUID, Label]
+type change = xchange.Change[uuid.UUID, Label]
 
 func (s *Service) Type() ontology.Type { return ontologyType }
 

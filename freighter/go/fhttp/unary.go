@@ -38,7 +38,7 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	internal bool
 }
 
-var _ freighter.UnaryServer[any, any] = &unaryServer[any, any]{}
+var _ freighter.UnaryServer[any, any] = (*unaryServer[any, any])(nil)
 
 func NewUnaryServer[RQ, RS freighter.Payload](
 	r *Router,
@@ -144,7 +144,7 @@ type unaryClient[RQ, RS freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
-var _ freighter.UnaryClient[any, any] = &unaryClient[any, any]{}
+var _ freighter.UnaryClient[any, any] = (*unaryClient[any, any])(nil)
 
 func NewUnaryClient[RQ, RS freighter.Payload](
 	cfgs ...ClientConfig,

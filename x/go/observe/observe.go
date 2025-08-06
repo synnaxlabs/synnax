@@ -45,7 +45,7 @@ type base[T any] struct {
 	handlers set.Set[*func(context.Context, T)]
 }
 
-var _ Observer[any] = &base[any]{}
+var _ Observer[any] = (*base[any])(nil)
 
 // New creates a new observer with the given options.
 func New[T any]() Observer[T] { return &base[T]{} }

@@ -18,9 +18,7 @@ import (
 
 var _ = Describe("Rand", func() {
 	Describe("ApplySink", func() {
-		var (
-			m map[int]int
-		)
+		var m map[int]int
 		BeforeEach(func() {
 			m = map[int]int{
 				1: 2,

@@ -297,9 +297,9 @@ func (f *Frame[K]) Sort() {
 
 var (
 	_ json.Marshaler        = Frame[int]{}
-	_ json.Unmarshaler      = &Frame[int]{}
+	_ json.Unmarshaler      = (*Frame[int])(nil)
 	_ msgpack.CustomEncoder = Frame[int]{}
-	_ msgpack.CustomDecoder = &Frame[int]{}
+	_ msgpack.CustomDecoder = (*Frame[int])(nil)
 )
 
 // serializableFrame is a helper type for serializing the Frame to encoded

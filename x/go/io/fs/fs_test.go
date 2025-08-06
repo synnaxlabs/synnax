@@ -31,9 +31,7 @@ var _ = Describe("FS", func() {
 	for fsName, makeFS := range fileSystems {
 		fsName, makeFS := fsName, makeFS
 
-		var (
-			fsRoot, fs xfs.FS
-		)
+		var fsRoot, fs xfs.FS
 
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {
@@ -210,7 +208,7 @@ var _ = Describe("FS", func() {
 					})
 				})
 
-				// Added test to assert a fix to the behaviour that memFS's open does not
+				// Added test to assert a fix to the behavior that memFS's open does not
 				// open with the os.O_APPEND flag.
 				Describe("Append mode", func() {
 					It("Should append to the end of a file", func() {

@@ -19,7 +19,7 @@ import (
 
 type streamImplementation struct{}
 
-var _ StreamImplementation = &streamImplementation{}
+var _ StreamImplementation = (*streamImplementation)(nil)
 
 func (i *streamImplementation) Start(
 	address.Address,

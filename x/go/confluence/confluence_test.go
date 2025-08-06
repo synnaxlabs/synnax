@@ -11,6 +11,7 @@ package confluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
@@ -27,14 +28,12 @@ func (s seg) Flow(sCtx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(s.Out)
 	sCtx.Go(func(ctx context.Context) error {
-		for {
-			select {
-			case v := <-s.In.Outlet():
-				if v == 1 {
-					panic("got 1")
-				}
+		for v := range s.In.Outlet() {
+			if v == 1 {
+				panic("got 1")
 			}
 		}
+		return nil
 	}, o.Signal...)
 }
 

@@ -33,9 +33,7 @@ var _ = Describe("Counter", func() {
 
 	for fsName, makeFS := range fileSystems {
 		fsName, makeFS := fsName, makeFS
-		var (
-			fsRoot, fs xfs.FS
-		)
+		var fsRoot, fs xfs.FS
 
 		Context("FS:"+fsName, Ordered, func() {
 			BeforeEach(func() {

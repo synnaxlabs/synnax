@@ -58,4 +58,4 @@ func (p ReadParams) ToTSCommand(identifier string) string {
 	return cmd
 }
 
-var _ NodeParams = &ReadParams{}
+var _ NodeParams = (*ReadParams)(nil)

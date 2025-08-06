@@ -18,7 +18,7 @@ import (
 
 type unaryImplementation struct{}
 
-var _ UnaryImplementation = &unaryImplementation{}
+var _ UnaryImplementation = (*unaryImplementation)(nil)
 
 func (i *unaryImplementation) Start(addr address.Address) (UnaryServer, UnaryClient) {
 	net := fmock.NewNetwork[Request, Response]()

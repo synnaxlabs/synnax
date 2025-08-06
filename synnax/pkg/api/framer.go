@@ -84,7 +84,7 @@ type FrameReadResponse struct {
 	metaDataWritten bool
 }
 
-var _ fhttp.UnaryReadable = &FrameReadResponse{}
+var _ fhttp.UnaryReadable = (*FrameReadResponse)(nil)
 
 func (r *FrameReadResponse) Read() (any, error) {
 	if !r.metaDataWritten {

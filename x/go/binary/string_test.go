@@ -29,7 +29,7 @@ type testStruct struct {
 }
 
 var _ fmt.Stringer = testStruct{}
-var _ binary.StringUnmarshaller = &testStruct{}
+var _ binary.StringUnmarshaller = (*testStruct)(nil)
 
 func (t testStruct) String() string {
 	return fmt.Sprintf("Name: %s Age: %d", t.Name, t.Age)
@@ -42,7 +42,7 @@ func (t *testStruct) UnmarshalString(str string) error {
 
 type errorStringUnmarshaller struct{}
 
-var _ binary.StringUnmarshaller = &errorStringUnmarshaller{}
+var _ binary.StringUnmarshaller = (*errorStringUnmarshaller)(nil)
 
 func (e *errorStringUnmarshaller) UnmarshalString(str string) error {
 	return errors.New("error unmarshalling string")

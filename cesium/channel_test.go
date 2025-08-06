@@ -204,9 +204,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(unaryKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						var buf = make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = binary.JSONCodec.Decode(ctx, buf, &ch)
@@ -234,9 +232,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(virtualKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						var buf = make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = binary.JSONCodec.Decode(ctx, buf, &ch)
@@ -293,9 +289,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(indexKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						var buf = make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = binary.JSONCodec.Decode(ctx, buf, &ch)
@@ -345,9 +339,7 @@ var _ = Describe("Channel", Ordered, func() {
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey1New)+"/meta.json", os.O_RDWR))
 							s := MustSucceed(f.Stat()).Size()
-							var (
-								buf = make([]byte, s)
-							)
+							var buf = make([]byte, s)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
 							err = binary.JSONCodec.Decode(ctx, buf, &ch)
@@ -383,9 +375,7 @@ var _ = Describe("Channel", Ordered, func() {
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey2New)+"/meta.json", os.O_RDWR))
 							s := MustSucceed(f.Stat()).Size()
-							var (
-								buf = make([]byte, s)
-							)
+							var buf = make([]byte, s)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
 							err = binary.JSONCodec.Decode(ctx, buf, &ch)

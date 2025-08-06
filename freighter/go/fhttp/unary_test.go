@@ -30,7 +30,7 @@ import (
 
 type implementation struct{ app *fiber.App }
 
-var _ UnaryImplementation = &implementation{}
+var _ UnaryImplementation = (*implementation)(nil)
 
 func (i *implementation) Start(host address.Address) (UnaryServer, UnaryClient) {
 	i.app = fiber.New(fiber.Config{DisableStartupMessage: true})

@@ -97,9 +97,7 @@ type WriterConfig struct {
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
-var (
-	_ config.Config[WriterConfig] = WriterConfig{}
-)
+var _ config.Config[WriterConfig] = WriterConfig{}
 
 func DefaultWriterConfig() WriterConfig {
 	return WriterConfig{
