@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package xmap_test
+package maps_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/synnaxlabs/x/xmap"
+	"github.com/synnaxlabs/x/maps"
 )
 
-var _ = Describe("XMap", func() {
-	var m xmap.Map[string, int]
+var _ = Describe("Map", func() {
+	var m maps.Map[string, int]
 	BeforeEach(func() {
-		m = xmap.Map[string, int]{}
+		m = maps.Map[string, int]{}
 	})
 	Describe("Get", func() {
 		It("Should return the value associated with the given key", func() {

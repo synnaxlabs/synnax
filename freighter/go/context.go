@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/xmap"
+	"github.com/synnaxlabs/x/maps"
 )
 
 // Role indicates whether the middleware is located on the client- or server-side of the
@@ -74,4 +74,4 @@ type SecurityInfo struct {
 
 // Params is a set of arbitrary parameters that can be set by client-side middleware,
 // and read by server-side middleware.
-type Params = xmap.Map[string, any]
+type Params = maps.Map[string, any]

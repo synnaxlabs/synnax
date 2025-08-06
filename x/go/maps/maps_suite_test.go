@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package xmap_test
+package maps_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestXMap(t *testing.T) {
+func TestMaps(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Map Suite")
+	RunSpecs(t, "Maps Suite")
 }

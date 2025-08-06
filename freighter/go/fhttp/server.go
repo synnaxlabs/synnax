@@ -12,22 +12,22 @@ package fhttp
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/xmap"
 )
 
 var (
-	defaultEncoders = xmap.Map[string, func() binary.Encoder]{}
-	defaultDecoders = xmap.Map[string, func() binary.Decoder]{}
-	defaultCodecs   = xmap.Map[string, func() binary.Codec]{
+	defaultEncoders = maps.Map[string, func() binary.Encoder]{}
+	defaultDecoders = maps.Map[string, func() binary.Decoder]{}
+	defaultCodecs   = maps.Map[string, func() binary.Codec]{
 		MIMEApplicationJSON:    func() binary.Codec { return binary.JSONCodec },
 		MIMEApplicationMsgPack: func() binary.Codec { return binary.MsgPackCodec },
 	}
 )
 
 type serverOptions struct {
-	reqDecoders xmap.Map[string, func() binary.Decoder]
-	resEncoders xmap.Map[string, func() binary.Encoder]
+	reqDecoders maps.Map[string, func() binary.Decoder]
+	resEncoders maps.Map[string, func() binary.Encoder]
 }
 
 type ServerOption func(*serverOptions)

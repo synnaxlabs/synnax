@@ -23,12 +23,12 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/xmap"
 )
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
@@ -154,7 +154,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(xmap.Map[channel.Key, channel.Channel], len(channels))
+		calculated = make(maps.Map[channel.Key, channel.Channel], len(channels))
 		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().
