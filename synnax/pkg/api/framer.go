@@ -10,7 +10,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -78,7 +77,7 @@ type FrameReadRequest struct {
 }
 
 type FrameReadResponse struct {
-	metaData        FrameReadMetadataWrite
+	metaData        FrameReadMetadata
 	frameChannel    chan Frame
 	errorChannel    chan error
 	metaDataWritten bool
@@ -99,14 +98,14 @@ func (r *FrameReadResponse) Read() (any, error) {
 	}
 }
 
-type FrameReadMetadataWrite struct {
+type FrameReadMetadata struct {
 	Channels     []channel.Channel
 	ChannelNames map[channel.Key]string
 }
 
-var _ xbinary.CSVMarshaler = FrameReadMetadataWrite{}
+var _ xbinary.CSVMarshaler = FrameReadMetadata{}
 
-func (m FrameReadMetadataWrite) MarshalCSV() ([][]string, error) {
+func (m FrameReadMetadata) MarshalCSV() ([][]string, error) {
 	records := make([]string, len(m.Channels))
 	for i, ch := range m.Channels {
 		if name, ok := m.ChannelNames[ch.Key()]; ok {
@@ -529,27 +528,36 @@ func (fs *FrameService) openWriter(
 	})
 }
 
-type WSFramerCodec struct {
-	*codec.Codec
-	LowerPerfCodec xbinary.Codec
+type wsFramerCodec struct {
+	codec        *codec.Codec
+	lowPerfCodec xbinary.Codec
 }
 
-func NewWSFramerCodec(channels channel.Readable) *WSFramerCodec {
-	return &WSFramerCodec{
-		LowerPerfCodec: xbinary.JSONCodec,
-		Codec:          codec.NewDynamic(channels),
+func NewStaticWSFramerCodec(
+	channelKeys channel.Keys,
+	dataTypes []telem.DataType,
+) *wsFramerCodec {
+	return &wsFramerCodec{
+		lowPerfCodec: xbinary.JSONCodec,
+		codec:        codec.NewStatic(channelKeys, dataTypes),
 	}
 }
 
-var _ xbinary.Codec = (*WSFramerCodec)(nil)
+func NewWSFramerCodec(channels channel.Readable) *wsFramerCodec {
+	return &wsFramerCodec{
+		lowPerfCodec: xbinary.JSONCodec,
+		codec:        codec.NewDynamic(channels),
+	}
+}
 
-func (c *WSFramerCodec) Decode(
+var _ xbinary.Codec = (*wsFramerCodec)(nil)
+
+func (c *wsFramerCodec) Decode(
 	ctx context.Context,
 	data []byte,
 	value any,
 ) error {
-	r := bytes.NewReader(data)
-	return c.DecodeStream(ctx, r, value)
+	return xbinary.WrapStreamDecoder(c, ctx, data, value)
 }
 
 var (
@@ -557,7 +565,7 @@ var (
 	lowPerfSpecialChar  byte = 254
 )
 
-func (c *WSFramerCodec) DecodeStream(
+func (c *wsFramerCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
 	value any,
@@ -576,15 +584,11 @@ func (c *WSFramerCodec) DecodeStream(
 	}
 }
 
-func (c *WSFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	if err := c.EncodeStream(ctx, buf, value); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+func (c *wsFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	return xbinary.WrapStreamEncoder(c, ctx, value)
 }
 
-func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (c *wsFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	switch v := value.(type) {
 	case fhttp.WSMessage[FrameWriterRequest]:
 		return c.encodeWriteRequest(ctx, w, v)
@@ -599,11 +603,11 @@ func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any
 	}
 }
 
-func (c *WSFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value any) error {
+func (c *wsFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value any) error {
 	if _, err := w.Write([]byte{lowPerfSpecialChar}); err != nil {
 		return err
 	}
-	b, err := c.LowerPerfCodec.Encode(ctx, value)
+	b, err := c.lowPerfCodec.Encode(ctx, value)
 	if err != nil {
 		return err
 	}
@@ -611,11 +615,11 @@ func (c *WSFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value an
 	return err
 }
 
-func (c *WSFramerCodec) lowPerfDecode(ctx context.Context, r io.Reader, value any) error {
-	return c.LowerPerfCodec.DecodeStream(ctx, r, value)
+func (c *wsFramerCodec) lowPerfDecode(ctx context.Context, r io.Reader, value any) error {
+	return c.lowPerfCodec.DecodeStream(ctx, r, value)
 }
 
-func (c *WSFramerCodec) decodeWriteRequest(
+func (c *wsFramerCodec) decodeWriteRequest(
 	ctx context.Context,
 	r io.Reader,
 	v *fhttp.WSMessage[FrameWriterRequest],
@@ -629,12 +633,12 @@ func (c *WSFramerCodec) decodeWriteRequest(
 			return err
 		}
 		if v.Payload.Command == writer.Open {
-			return c.Update(ctx, v.Payload.Config.Keys)
+			return c.codec.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
 	}
 	v.Type = fhttp.WSMessageTypeData
-	fr, err := c.Codec.DecodeStream(r)
+	fr, err := c.codec.DecodeStream(r)
 	if err != nil {
 		return err
 	}
@@ -643,7 +647,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 	return nil
 }
 
-func (c *WSFramerCodec) encodeWriteRequest(
+func (c *wsFramerCodec) encodeWriteRequest(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameWriterRequest],
@@ -654,10 +658,10 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(ctx, w, v.Payload.Frame)
+	return c.codec.EncodeStream(ctx, w, v.Payload.Frame)
 }
 
-func (c *WSFramerCodec) decodeStreamResponse(
+func (c *wsFramerCodec) decodeStreamResponse(
 	ctx context.Context,
 	r io.Reader,
 	v *fhttp.WSMessage[FrameStreamerResponse],
@@ -672,7 +676,7 @@ func (c *WSFramerCodec) decodeStreamResponse(
 		}
 	}
 	v.Type = fhttp.WSMessageTypeData
-	fr, err := c.Codec.DecodeStream(r)
+	fr, err := c.codec.DecodeStream(r)
 	if err != nil {
 		return err
 	}
@@ -680,7 +684,7 @@ func (c *WSFramerCodec) decodeStreamResponse(
 	return nil
 }
 
-func (c *WSFramerCodec) encodeStreamResponse(
+func (c *wsFramerCodec) encodeStreamResponse(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameStreamerResponse],
@@ -691,10 +695,10 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(ctx, w, v.Payload.Frame)
+	return c.codec.EncodeStream(ctx, w, v.Payload.Frame)
 }
 
-func (c *WSFramerCodec) decodeStreamRequest(
+func (c *wsFramerCodec) decodeStreamRequest(
 	ctx context.Context,
 	r io.Reader,
 	v *fhttp.WSMessage[FrameStreamerRequest],
@@ -702,37 +706,7 @@ func (c *WSFramerCodec) decodeStreamRequest(
 	if err := c.lowPerfDecode(ctx, r, v); err != nil {
 		return err
 	}
-	return c.Update(ctx, v.Payload.Keys)
+	return c.codec.Update(ctx, v.Payload.Keys)
 }
-
-func (c *WSFramerCodec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
-
-type readCSVFramerCodec struct{}
-
-func (c *readCSVFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	if err := xbinary.CSVEncoder.EncodeStream(ctx, buf, value); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (c *readCSVFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	switch v := value.(type) {
-	case FrameReadMetadataWrite, Frame:
-		return xbinary.CSVEncoder.EncodeStream(ctx, w, v)
-	case error:
-		return v
-	}
-	panic("whoops")
-}
-
-func (c *readCSVFramerCodec) Decode(context.Context, []byte, any) error {
-	panic("not implemented")
-}
-
-func (c *readCSVFramerCodec) DecodeStream(context.Context, io.Reader, any) error {
-	panic("not implemented")
-}

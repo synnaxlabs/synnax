@@ -17,6 +17,7 @@ import (
 const (
 	MIMEApplicationJSON    = fiber.MIMEApplicationJSON
 	MIMEApplicationMsgPack = "application/msgpack"
+	MIMETextCSV            = "text/csv"
 	MIMETextPlain          = fiber.MIMETextPlain
 )
 

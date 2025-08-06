@@ -24,7 +24,7 @@ var _ Codec = (*gobCodec)(nil)
 
 // Encode implements the Encoder interface.
 func (gc *gobCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return wrapStreamEncoder(gc, ctx, value)
+	return WrapStreamEncoder(gc, ctx, value)
 }
 
 // EncodeStream implements the Encoder interface.
@@ -35,7 +35,7 @@ func (gc *gobCodec) EncodeStream(_ context.Context, w io.Writer, value any) erro
 
 // Decode implements the Decoder interface.
 func (gc *gobCodec) Decode(ctx context.Context, data []byte, value any) error {
-	return wrapStreamDecoder(gc, ctx, data, value)
+	return WrapStreamDecoder(gc, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.

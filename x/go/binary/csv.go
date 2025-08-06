@@ -30,7 +30,7 @@ var _ Encoder = (*csvEncoder)(nil)
 // Encode encodes a value to its CSV representation in bytes. The value must either
 // implement the CSVMarshaler interface or be a [][]string or []string.
 func (enc *csvEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
-	return wrapStreamEncoder(enc, ctx, v)
+	return WrapStreamEncoder(enc, ctx, v)
 }
 
 // EncodeStream encodes a value to a CSV representation in bytes and writes it to a

@@ -78,7 +78,7 @@ func MarshalStringUint64(n uint64) ([]byte, error) {
 	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
 }
 
-func wrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, error) {
+func WrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := enc.EncodeStream(ctx, &buf, value); err != nil {
 		return nil, err
@@ -86,6 +86,6 @@ func wrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, err
 	return buf.Bytes(), nil
 }
 
-func wrapStreamDecoder(dec Decoder, ctx context.Context, data []byte, value any) error {
+func WrapStreamDecoder(dec Decoder, ctx context.Context, data []byte, value any) error {
 	return dec.DecodeStream(ctx, bytes.NewReader(data), value)
 }
