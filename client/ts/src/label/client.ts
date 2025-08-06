@@ -26,9 +26,7 @@ const createReqZ = z.object({ labels: newZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
-  get id() {
-    return ontology.idZ;
-  },
+  id: ontology.idZ,
   labels: keyZ.array(),
   replace: z.boolean().optional(),
 });

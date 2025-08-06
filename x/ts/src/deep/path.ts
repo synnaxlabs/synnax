@@ -165,23 +165,13 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
  * @param path the path to set the value at.
  * @param value the value to set.
  */
-export const set = <V>(
-  obj: V,
-  path: string,
-  value: unknown,
-  opts: GetOptions = { optional: false, separator: "." },
-): void => {
-  opts.separator ??= ".";
-  const { optional, getter = defaultGetter } = opts;
-  const parts = path.split(opts.separator);
+export const set = <V>(obj: V, path: string, value: unknown): void => {
+  const parts = path.split(".");
   let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    const v = getter(result, part);
-    if (v == null) {
-      if (optional) return;
-      throw new Error(`Path ${path} does not exist. ${part} is null`);
-    }
+    const v = defaultGetter(result, part);
+    if (v == null) throw new Error(`Path ${path} does not exist. ${part} is null`);
     result = v as record.Unknown;
   }
   try {

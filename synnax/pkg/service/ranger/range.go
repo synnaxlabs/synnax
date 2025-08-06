@@ -40,9 +40,7 @@ type Range struct {
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
-	Color  string        `json:"color" msgpack:"color"`
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	Parent *Range        `json:"parent" msgpack:"parent"`
+	Color string `json:"color" msgpack:"color"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}

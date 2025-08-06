@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -47,17 +47,6 @@ export const useRelationshipDeleteSynchronizer = (
     }),
   });
 
-export const matchRelationshipAndID = (
-  relationship: ontology.Relationship,
-  direction: ontology.RelationshipDirection,
-  id: ontology.ID,
-) =>
-  relationship.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-  ontology.idsEqual(
-    relationship[ontology.oppositeRelationshipDirection(direction)],
-    id,
-  );
-
 interface UseDependentQueryParams {
   id: ontology.ID;
 }
@@ -80,7 +69,13 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
           async ({ client, changed, params, onChange }) => {
             if (!("id" in params)) return;
             const { id } = params;
-            if (!matchRelationshipAndID(changed, direction, id)) return;
+            if (
+              !ontology.matchRelationship(changed, {
+                type: "parent",
+                [ontology.oppositeRelationshipDirection(direction)]: id,
+              })
+            )
+              return;
             const dependent = await client.ontology.retrieve(changed[direction]);
             onChange(dependent.key, dependent);
           },
@@ -93,7 +88,13 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
           async ({ changed, params, onDelete }) => {
             if (!("id" in params)) return;
             const { id } = params;
-            if (!matchRelationshipAndID(changed, direction, id)) return;
+            if (
+              !ontology.matchRelationship(changed, {
+                type: "parent",
+                [ontology.oppositeRelationshipDirection(direction)]: id,
+              })
+            )
+              return;
             onDelete(ontology.idToString(changed[direction]));
           },
         ),
@@ -115,40 +116,6 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
   });
 
 export const useChildren = createDependentsListHook("to");
-export const useParents = createDependentsListHook("from");
-
-export interface UseResourceQueryParams {
-  id: ontology.ID;
-}
-
-export const useResource = Flux.createRetrieve<
-  UseResourceQueryParams,
-  ontology.Resource
->({
-  name: "useResource",
-  retrieve: async ({ client, params: { id } }) => client.ontology.retrieve(id),
-  listeners: [
-    {
-      channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        ontology.idZ,
-        async ({ client, changed, params: { id }, onChange }) => {
-          if (!ontology.idsEqual(id, changed)) return;
-          const nextDependent = await client.ontology.retrieve(changed);
-          onChange(nextDependent);
-        },
-      ),
-    },
-    {
-      channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(ontology.idZ, async ({ params: { id } }) => {
-        throw new NotFoundError(
-          `Resource with ID ${ontology.idToString(id)} not found`,
-        );
-      }),
-    },
-  ],
-});
 
 export interface ListParams {
   offset?: number;
@@ -161,6 +128,22 @@ export const useResourceList = Flux.createList<ListParams, string, ontology.Reso
   retrieve: async ({ client, params }) => await client.ontology.retrieve(params),
   retrieveByKey: async ({ client, key }) =>
     await client.ontology.retrieve(ontology.idZ.parse(key)),
+  listeners: [
+    {
+      channel: ontology.RESOURCE_SET_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(
+        ontology.idZ,
+        async ({ changed, onChange, client }) =>
+          onChange(changed.key, await client.ontology.retrieve(changed)),
+      ),
+    },
+    {
+      channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(ontology.idZ, async ({ changed, onDelete }) => {
+        onDelete(changed.key);
+      }),
+    },
+  ],
 });
 
 export const retrieveParentID = Flux.createRetrieve<

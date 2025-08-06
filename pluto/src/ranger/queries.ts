@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { matchRelationshipAndID } from "@/ontology/queries";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
   Flux.useListener({
@@ -151,7 +150,10 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onDelete, onChange, client, params: { key } }) => {
-          const isChild = matchRelationshipAndID(changed, "to", ranger.ontologyID(key));
+          const isChild = ontology.matchRelationship(changed, {
+            type: "parent",
+            to: ranger.ontologyID(key),
+          });
           if (isChild) return onDelete(changed.to.key);
           const isLabel = changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
           if (isLabel)
@@ -185,8 +187,10 @@ export const retrieveParent = Flux.createRetrieve<
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
-          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(changed.from.key)),
+          ontology.matchRelationship(changed, {
+            type: "parent",
+            to: ranger.ontologyID(key),
+          }) && onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
@@ -194,8 +198,10 @@ export const retrieveParent = Flux.createRetrieve<
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
-          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(changed.from.key)),
+          ontology.matchRelationship(changed, {
+            type: "parent",
+            from: ranger.ontologyID(key),
+          }) && onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
