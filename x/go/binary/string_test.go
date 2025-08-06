@@ -75,7 +75,7 @@ var _ = Describe("String", func() {
 	)
 	Describe("with a failing writer", func() {
 		It("should return an error", func() {
-			Expect(binary.StringCodec.EncodeStream(ctx, xio.AlwaysFailWriter, "hello")).
+			Expect(binary.StringCodec.EncodeStream(ctx, xio.FailWriter, "hello")).
 				To(HaveOccurred())
 		})
 	})
@@ -124,7 +124,7 @@ var _ = Describe("String", func() {
 	)
 	Describe("with a failing reader", func() {
 		It("should return an error", func() {
-			Expect(binary.StringCodec.DecodeStream(ctx, xio.AlwaysFailReader, new(string))).
+			Expect(binary.StringCodec.DecodeStream(ctx, xio.FailReader, new(string))).
 				To(HaveOccurred())
 		})
 	})

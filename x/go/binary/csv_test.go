@@ -78,14 +78,14 @@ var _ = Describe("CSVEncoder", func() {
 		It("should return an error", func() {
 			Expect(binary.CSVEncoder.EncodeStream(
 				ctx,
-				xio.AlwaysFailWriter,
+				xio.FailWriter,
 				[][]string{{"a", "b"}},
 			)).Error().To(HaveOccurred())
 		})
 		It("should not return an error if writing empty records", func() {
 			Expect(binary.CSVEncoder.EncodeStream(
 				ctx,
-				xio.AlwaysFailWriter,
+				xio.FailWriter,
 				[][]string{},
 			)).To(Succeed())
 		})
