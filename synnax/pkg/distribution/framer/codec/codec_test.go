@@ -386,7 +386,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
 	for b.Loop() {
-		if _, err := json.Marshal(fr); err != nil {
+		if _, err := fr.MarshalJSON(); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
 	}
@@ -416,10 +416,10 @@ func BenchmarkDecode(b *testing.B) {
 
 func BenchmarkJSONDecode(b *testing.B) {
 	keys := channel.Keys{1}
-	encoded, err := json.Marshal(frame.NewMulti(
+	encoded, err := frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
-	))
+	).MarshalJSON()
 	if err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}

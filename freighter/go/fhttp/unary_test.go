@@ -12,7 +12,6 @@ package fhttp_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type implementation struct{ app *fiber.App }
@@ -93,8 +91,9 @@ var _ = Describe("Unary", func() {
 			req.Header.Set(fiber.HeaderContentType, fhttp.MIMEApplicationJSON)
 			req.Header.Set(fiber.HeaderAccept, fhttp.MIMEApplicationMsgPack)
 			testReq := Request{ID: 1, Message: "Hello, World!"}
-			jsonData := MustSucceed(json.Marshal(testReq))
-			msgpackData := MustSucceed(msgpack.Marshal(testReq))
+			ctx := context.Background()
+			jsonData := MustSucceed(binary.JSONCodec.Encode(ctx, testReq))
+			msgpackData := MustSucceed(binary.MsgPackCodec.Encode(ctx, testReq))
 			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 			req.ContentLength = int64(len(jsonData))
 			res := MustSucceed(app.Test(req))
@@ -115,7 +114,8 @@ var _ = Describe("Unary", func() {
 			req.Header.Set(fiber.HeaderContentType, fhttp.MIMEApplicationJSON)
 			req.Header.Set(fiber.HeaderAccept, "application/x-gob")
 			testReq := Request{ID: 1, Message: "Hello, World!"}
-			jsonData := MustSucceed(json.Marshal(testReq))
+			ctx := context.Background()
+			jsonData := MustSucceed(binary.JSONCodec.Encode(ctx, testReq))
 			req.Body = io.NopCloser(bytes.NewBuffer(jsonData))
 			req.ContentLength = int64(len(jsonData))
 			res := MustSucceed(app.Test(req))

@@ -129,7 +129,7 @@ var _ = Describe("TimeStamp", func() {
 
 	Describe("MarshalJSON", func() {
 		It("Should marshal the time stamp into a string", func() {
-			b := MustSucceed(json.Marshal(telem.TimeStamp(telem.Second)))
+			b := MustSucceed(telem.TimeStamp(telem.Second).MarshalJSON())
 			Expect(string(b)).To(Equal(`"1000000000"`))
 		})
 	})
