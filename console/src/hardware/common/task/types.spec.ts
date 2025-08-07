@@ -42,7 +42,7 @@ describe("Hardware Task Types", () => {
 
         const result = channelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeFalsy();
+        expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error.issues.length).toBe(2); // Two issues - one for each duplicate key
           expect(
@@ -50,7 +50,7 @@ describe("Hardware Task Types", () => {
               (issue) =>
                 issue.message === "Key duplicate is used for multiple channels",
             ),
-          ).toBeTruthy();
+          ).toBe(true);
         }
       });
 
@@ -62,7 +62,7 @@ describe("Hardware Task Types", () => {
 
         const result = channelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeTruthy();
+        expect(result.success).toBe(true);
       });
     });
 
@@ -75,7 +75,7 @@ describe("Hardware Task Types", () => {
 
         const result = readChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeFalsy();
+        expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error.issues.length).toBe(2); // Two issues - one for each channel with duplicate value
           expect(
@@ -84,7 +84,7 @@ describe("Hardware Task Types", () => {
                 issue.message ===
                 "Synnax channel with key 1 is used for multiple channels",
             ),
-          ).toBeTruthy();
+          ).toBe(true);
         }
       });
 
@@ -96,7 +96,7 @@ describe("Hardware Task Types", () => {
 
         const result = readChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeTruthy();
+        expect(result.success).toBe(true);
       });
 
       it("should ignore channel value 0", () => {
@@ -107,7 +107,7 @@ describe("Hardware Task Types", () => {
 
         const result = readChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeTruthy();
+        expect(result.success).toBe(true);
       });
     });
 
@@ -132,7 +132,7 @@ describe("Hardware Task Types", () => {
 
         const result = writeChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeFalsy();
+        expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error.issues.length).toBe(2);
           expect(
@@ -141,7 +141,7 @@ describe("Hardware Task Types", () => {
                 issue.message ===
                 "Synnax channel with key 1 is used on multiple channels",
             ),
-          ).toBeTruthy();
+          ).toBe(true);
         }
       });
 
@@ -165,7 +165,7 @@ describe("Hardware Task Types", () => {
 
         const result = writeChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeFalsy();
+        expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error.issues.length).toBe(2);
           expect(
@@ -174,7 +174,7 @@ describe("Hardware Task Types", () => {
                 issue.message ===
                 "Synnax channel with key 3 is used for multiple channels",
             ),
-          ).toBeTruthy();
+          ).toBe(true);
         }
       });
 
@@ -198,7 +198,7 @@ describe("Hardware Task Types", () => {
 
         const result = writeChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeTruthy();
+        expect(result.success).toBe(true);
       });
 
       it("should ignore channel values of 0", () => {
@@ -221,7 +221,7 @@ describe("Hardware Task Types", () => {
 
         const result = writeChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBeTruthy();
+        expect(result.success).toBe(true);
       });
     });
   });
@@ -240,13 +240,13 @@ describe("Hardware Task Types", () => {
         sampleRate: 100,
         streamRate: 50,
       });
-      expect(validResult.success).toBeTruthy();
+      expect(validResult.success).toBe(true);
 
       const alsoValidResult = streamRateConfigZ.safeParse({
         sampleRate: 100,
         streamRate: 100,
       });
-      expect(alsoValidResult.success).toBeTruthy();
+      expect(alsoValidResult.success).toBe(true);
     });
 
     it("should return error if sample rate < stream rate", () => {
@@ -254,7 +254,7 @@ describe("Hardware Task Types", () => {
         sampleRate: 50,
         streamRate: 100,
       });
-      expect(invalidResult.success).toBeFalsy();
+      expect(invalidResult.success).toBe(false);
     });
 
     it("should provide the correct error message", () => {
@@ -262,7 +262,7 @@ describe("Hardware Task Types", () => {
         sampleRate: 0,
         streamRate: 1,
       });
-      expect(invalidResult.success).toBeFalsy();
+      expect(invalidResult.success).toBe(false);
       if (!invalidResult.success) {
         expect(invalidResult.error.issues[0].path).toEqual(["streamRate"]);
         expect(invalidResult.error.issues[0].message).toBe(

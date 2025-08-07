@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, policy } from "@synnaxlabs/client";
+import { access, type ontology, type policy } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -44,7 +44,7 @@ export const selectCanUseType = (
     p.objects.some((object) => {
       const type_ = object.type;
       return (
-        type_ === policy.ALLOW_ALL_ONTOLOGY_TYPE ||
+        type_ === "allow_all" ||
         (type_ === type && p.actions.includes(access.ALL_ACTION))
       );
     }),
@@ -55,7 +55,7 @@ export const useSelectCanUseType = (type: ontology.ResourceType): boolean =>
   useMemoSelect((state: StoreState) => selectCanUseType(state, type), [type]);
 
 export const selectCanEditPolicies = (state: StoreState): boolean =>
-  selectCanUseType(state, policy.ONTOLOGY_TYPE);
+  selectCanUseType(state, "policy");
 
 export const useSelectCanEditPolicies = (): boolean =>
   useMemoSelect(selectCanEditPolicies, []);

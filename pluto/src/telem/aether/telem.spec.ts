@@ -29,6 +29,6 @@ describe("telem", () => {
       },
       telem.createFactory(),
     );
-    expect(await p.value()).toBeTruthy();
+    expect(await p.value()).toBe(true);
   });
 });

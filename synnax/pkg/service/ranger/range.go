@@ -62,9 +62,7 @@ type Range struct {
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
 	// Stage
-	Stage  Stage         `json:"stage" msgpack:"stage"`
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	Parent *Range        `json:"parent" msgpack:"parent"`
+	Stage Stage `json:"stage" msgpack:"stage"`
 }
 
 var RangeZ = zyn.Object(map[string]zyn.Schema{
@@ -72,7 +70,7 @@ var RangeZ = zyn.Object(map[string]zyn.Schema{
 	"name":       zyn.String(),
 	"time_range": telem.TimeRangeSchema,
 	"color":      zyn.String(),
-	"status":     StageZ,
+	"stage":      StageZ,
 })
 
 var _ gorp.Entry[uuid.UUID] = Range{}

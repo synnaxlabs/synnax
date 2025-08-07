@@ -11,14 +11,13 @@ import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
+  type Component,
   Flex,
   Form as PForm,
   Haul,
   Header as PHeader,
   Icon,
-  type RenderProp,
   Select,
-  Status,
   Text,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
@@ -39,7 +38,7 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
 
 interface ChannelListItemProps<C extends Channel>
   extends Omit<Common.Task.ChannelListItemProps, "children"> {
-  children: RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -87,11 +86,11 @@ const Header = () => (
 
 const EmptyContent = () => (
   <Flex.Box center>
-    <Status.Text color={7} hideIcon style={{ display: "inline-block", maxWidth: 300 }}>
+    <Text.Text status="disabled" style={{ display: "inline-block", maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.
-    </Status.Text>
+    </Text.Text>
   </Flex.Box>
 );
 
@@ -106,7 +105,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHau
 
 interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
-  children: RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
   convertHaulItemToChannel: (item: Haul.Item) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
@@ -174,7 +173,7 @@ export interface FormProps<C extends Channel>
     Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
   > {
   isSnapshot: boolean;
-  children?: RenderProp<ExtraItemProps>;
+  children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 

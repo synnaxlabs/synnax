@@ -9,9 +9,8 @@
 
 import { type connection } from "@synnaxlabs/client";
 import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { CSS } from "@/css";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -36,27 +35,26 @@ export const ConnectionStatusBadge = ({
 }: ConnectionStateBadgeProps): ReactElement => {
   const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
   return (
-    <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
+    <Tooltip.Dialog location={location.BOTTOM_LEFT}>
       <Flex.Box y gap="tiny">
-        <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
+        <Text.Text status={variant} weight={650}>
           {STATUS_MESSAGES[status]}
-        </Status.Text>
+        </Text.Text>
         {message != null && (
           <Text.Text color={9} weight={450}>
             {message}
           </Text.Text>
         )}
       </Flex.Box>
-      <Status.Text
-        variant={variant}
-        justify="center"
-        className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
-        background={status === "disconnected" ? 2 : 0}
+      <Text.Text
+        status={variant}
         bordered
         borderColor={5}
-        color={status === "disconnected" ? 5 : undefined}
+        background={variant !== "disabled" && 0}
         size="medium"
-      />
+      >
+        <Status.Indicator variant={variant} />
+      </Text.Text>
     </Tooltip.Dialog>
   );
 };

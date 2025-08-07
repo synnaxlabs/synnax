@@ -116,7 +116,7 @@ export const MenuShowcase = () => {
                 <Icon.Resources />
                 Open
               </Menu.Item>
-              <Menu.Item itemKey="save">
+              <Menu.Item itemKey="save" trigger={["Control", "S"]} triggerIndicator>
                 <Icon.Save />
                 Save
               </Menu.Item>

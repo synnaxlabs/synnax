@@ -18,7 +18,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { type ontology } from "@/ontology";
@@ -34,41 +33,44 @@ const CREATE_ENDPOINT = "/hardware/device/create";
 const DELETE_ENDPOINT = "/hardware/device/delete";
 
 const createReqZ = z.object({ devices: newZ.array() });
-
 const createResZ = z.object({ devices: deviceZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-
 const deleteResZ = z.object({});
 
-const retrieveRequestz = z.object({
+const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
   models: z.string().array().optional(),
   locations: z.string().array().optional(),
   racks: rackKeyZ.array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
+const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestz> {}
+const singleRetrieveArgsZ = z
+  .object({
+    key: keyZ,
+    includeStatus: z.boolean().optional(),
+  })
+  .transform(({ key, includeStatus }) => ({
+    keys: [key],
+    includeStatus,
+  }));
 
-const retrieveArgsZ = retrieveRequestz
-  .or(keyZ.array().transform((keys) => ({ keys })))
-  .or(keyZ.transform((key) => ({ keys: [key] })));
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "limit" | "offset" | "makes" | "includeStatus"> {}
-
-const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
-
 export class Client {
-  readonly type = ONTOLOGY_TYPE;
+  readonly type = "device";
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -79,22 +81,13 @@ export class Client {
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-  >(key: string, options?: RetrieveOptions): Promise<Device<Properties, Make, Model>>;
+  >(args: SingleRetrieveArgs): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-  >(
-    keys: string[],
-    options?: RetrieveOptions,
-  ): Promise<Array<Device<Properties, Make, Model>>>;
-
-  async retrieve<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
-  >(request: RetrieveRequest): Promise<Array<Device<Properties, Make, Model>>>;
+  >(args: MultiRetrieveArgs): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
@@ -102,14 +95,13 @@ export class Client {
     Model extends string = string,
   >(
     args: RetrieveArgs,
-    options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
-    const isSingle = typeof args === "string";
+    const isSingle = typeof args === "object" && "key" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { ...retrieveArgsZ.parse(args), ...options },
-      retrieveRequestz,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Device", args, res.devices, isSingle);
@@ -157,4 +149,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "device", key });

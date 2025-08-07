@@ -36,7 +36,7 @@ describe("record", () => {
 
       expect(unknown.string).toBe("value");
       expect(unknown.number).toBe(42);
-      expect(unknown.boolean).toBeTruthy();
+      expect(unknown.boolean).toBe(true);
     });
 
     it("should support Keyed interface", () => {
@@ -74,7 +74,7 @@ describe("record", () => {
       };
 
       const result = record.unknownZ.safeParse(validRecord);
-      expect(result.success).toBeTruthy();
+      expect(result.success).toBe(true);
     });
 
     it("should not reject invalid keys", () => {
@@ -83,13 +83,13 @@ describe("record", () => {
       };
 
       const result = record.unknownZ.safeParse(invalidRecord);
-      expect(result.success).toBeTruthy();
+      expect(result.success).toBe(true);
     });
 
     it("should accept empty objects", () => {
       const emptyRecord = {};
       const result = record.unknownZ.safeParse(emptyRecord);
-      expect(result.success).toBeTruthy();
+      expect(result.success).toBe(true);
     });
 
     it("should accept null and undefined values", () => {
@@ -100,7 +100,7 @@ describe("record", () => {
       };
 
       const result = record.unknownZ.safeParse(recordWithNulls);
-      expect(result.success).toBeTruthy();
+      expect(result.success).toBe(true);
     });
   });
 

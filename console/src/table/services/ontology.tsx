@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax, table } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -149,7 +149,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: table.ONTOLOGY_TYPE,
+  type: "table",
   icon: <Icon.Table />,
   hasChildren: false,
   onSelect: handleSelect,

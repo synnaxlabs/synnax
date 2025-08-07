@@ -14,7 +14,6 @@ import {
   Flex,
   Icon,
   Select,
-  Status,
   Triggers,
 } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -110,7 +109,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
     >
       <Flex.Box direction="y" empty>
         <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} gap="tiny" />
-        <Breadcrumb.Breadcrumb level="small" gap="tiny">
+        <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
           {icon}
           {path.split("/").map((segment, index) => (
             <Breadcrumb.Segment key={index} color={8}>
@@ -229,9 +228,9 @@ const SearchDialogContent = () => {
         bordered
         borderColor={6}
         emptyContent={
-          <Status.Text center variant="disabled" hideIcon>
+          <Text.Text center status="disabled">
             {value.length === 0 ? "Type to search..." : "No Results"}
-          </Status.Text>
+          </Text.Text>
         }
       >
         {searchListItem}

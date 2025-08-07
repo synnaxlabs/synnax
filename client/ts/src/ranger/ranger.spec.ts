@@ -178,6 +178,45 @@ describe("Ranger", () => {
     });
   });
 
+  describe("label", () => {
+    it("should set and get a label for the range", async () => {
+      const rng = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const label = await client.labels.create({
+        name: "My New Label",
+        color: "#E774D0",
+      });
+      await rng.addLabel(label.key);
+      const newRange = await client.ranges.retrieve({
+        keys: [rng.key],
+        includeLabels: true,
+      });
+      expect(newRange[0].labels).toHaveLength(1);
+      expect(newRange[0].labels[0]).toEqual(label);
+    });
+  });
+
+  describe("parent", () => {
+    it("should set and get a parent for the range", async () => {
+      const parent = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const child = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
+      const newParent = await client.ranges.retrieve({
+        keys: [child.key],
+        includeParent: true,
+      });
+      expect(newParent[0].parent).toEqual(parent.payload);
+    });
+  });
+
   describe("Alias", () => {
     describe("set + resolve", () => {
       it("should set and resolve an alias for the range", async () => {

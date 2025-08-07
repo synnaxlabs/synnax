@@ -21,7 +21,4 @@ export const labelZ = z.object({
 });
 export interface Label extends z.infer<typeof labelZ> {}
 
-export const ONTOLOGY_TYPE = "label";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 export const LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE = "labeled_by";

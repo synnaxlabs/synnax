@@ -38,11 +38,7 @@ export interface Effect extends z.infer<typeof effectZ> {}
 export const newZ = effectZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
-// We'll need to add this to ontology/payload.ts later
-export const ONTOLOGY_TYPE = "effect";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "effect", key });
 
 export const ontologyIDsFromEffects = (effects: Effect[]): ontology.ID[] =>
   effects.map((e) => ontologyID(e.key));

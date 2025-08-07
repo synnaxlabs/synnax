@@ -29,6 +29,3 @@ export const newZ = userZ
   .omit({ rootUser: true })
   .extend({ password: z.string().min(1) });
 export interface New extends z.infer<typeof newZ> {}
-
-export const ONTOLOGY_TYPE = "user";
-export type OntologyType = typeof ONTOLOGY_TYPE;

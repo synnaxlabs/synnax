@@ -132,19 +132,11 @@ export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void 
     }),
   });
 
-export interface ListParams {
-  term?: string;
-  offset?: number;
-  limit?: number;
-}
+export interface ListParams extends label.MultiRetrieveArgs {}
 
 export const useList = Flux.createList<ListParams, label.Key, label.Label>({
   name: "Labels",
-  retrieve: async ({ client, params }) =>
-    await client.labels.retrieve({
-      ...params,
-      search: params.term,
-    }),
+  retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
   listeners: [
     {

@@ -18,7 +18,6 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { matchRelationshipAndID } from "@/ontology/queries";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
   Flux.useListener({
@@ -55,9 +54,9 @@ const handleLabelRelationshipSet: Flux.ListenerHandler<
   Flux.ListListenerExtraArgs<{}, string, ranger.Range>
 > = async ({ changed, onChange, client }) => {
   const isLabel = ontology.matchRelationship(changed, {
-    from: { type: ranger.ONTOLOGY_TYPE },
+    from: { type: "range" },
     type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-    to: { type: label.ONTOLOGY_TYPE },
+    to: { type: "label" },
   });
   if (isLabel) {
     const label = await client.labels.retrieve({ key: changed.to.key });
@@ -76,9 +75,9 @@ const handleParentRelationshipSet: Flux.ListenerHandler<
   Flux.ListListenerExtraArgs<{}, string, ranger.Range>
 > = async ({ changed, onChange, client }) => {
   const isParent = ontology.matchRelationship(changed, {
-    from: { type: ranger.ONTOLOGY_TYPE },
+    from: { type: "range" },
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: ranger.ONTOLOGY_TYPE },
+    to: { type: "range" },
   });
   if (isParent) {
     const parent = await client.ranges.retrieve(changed.from.key);
@@ -93,7 +92,7 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
-      types: [ranger.ONTOLOGY_TYPE],
+      types: ["range"],
     });
     if (resources.length === 0) return [];
     return await client.ranges.retrieve({
@@ -137,7 +136,7 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
         const isChild = ontology.matchRelationship(changed, {
           from: ranger.ontologyID(params.key),
           type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: { type: ranger.ONTOLOGY_TYPE },
+          to: { type: "range" },
         });
         if (isChild) {
           const range = await client.ranges.retrieve({
@@ -156,7 +155,10 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onDelete, onChange, client, params: { key } }) => {
-          const isChild = matchRelationshipAndID(changed, "to", ranger.ontologyID(key));
+          const isChild = ontology.matchRelationship(changed, {
+            type: "parent",
+            to: ranger.ontologyID(key),
+          });
           if (isChild) return onDelete(changed.to.key);
           const isLabel = changed.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
           if (isLabel)
@@ -180,7 +182,7 @@ export const retrieveParent = Flux.createRetrieve<
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
     const res = await client.ontology.retrieveParents(ranger.ontologyID(key));
-    const parent = res.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
+    const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
     return client.ranges.sugarOntologyResource(parent);
   },
@@ -190,8 +192,10 @@ export const retrieveParent = Flux.createRetrieve<
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
-          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(changed.from.key)),
+          ontology.matchRelationship(changed, {
+            type: "parent",
+            to: ranger.ontologyID(key),
+          }) && onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
@@ -199,8 +203,10 @@ export const retrieveParent = Flux.createRetrieve<
       onChange: Flux.parsedHandler(
         ontology.relationshipZ,
         async ({ changed, onChange, params: { key }, client }) =>
-          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
-          onChange(await client.ranges.retrieve(changed.from.key)),
+          ontology.matchRelationship(changed, {
+            type: "parent",
+            from: ranger.ontologyID(key),
+          }) && onChange(await client.ranges.retrieve(changed.from.key)),
       ),
     },
     {
@@ -359,7 +365,7 @@ export const useLabels = (
 export interface ListParams
   extends Pick<
     ranger.RetrieveRequest,
-    "includeLabels" | "includeParent" | "term" | "offset" | "limit"
+    "includeLabels" | "includeParent" | "searchTerm" | "offset" | "limit"
   > {}
 
 const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {

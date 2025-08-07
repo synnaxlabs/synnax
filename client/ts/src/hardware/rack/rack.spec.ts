@@ -89,7 +89,7 @@ describe("Rack", () => {
           statuses = retrieved.map((r) => r.status);
           return statuses.every((s) => s != null);
         })
-        .toBeTruthy();
+        .toBe(true);
       expect(statuses).toHaveLength(2);
       expect(statuses[0]?.details?.rack).toBe(r1.key);
       expect(statuses[1]?.details?.rack).toBe(r2.key);

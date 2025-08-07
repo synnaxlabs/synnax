@@ -94,7 +94,9 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;

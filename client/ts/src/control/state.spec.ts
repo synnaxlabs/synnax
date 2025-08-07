@@ -16,7 +16,7 @@ const client = newTestClient();
 describe("state", () => {
   it("should receive the initial control state from the cluster", async () => {
     const s = await client.control.openStateTracker();
-    await expect.poll(() => s.states.size > 0).toBeTruthy();
+    await expect.poll(() => s.states.size > 0).toBe(true);
     await s.close();
   });
 });

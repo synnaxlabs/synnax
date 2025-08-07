@@ -50,7 +50,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.loc = (l) => CSS.M("location", location.construct(l));
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
-  CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));
+  CSS.dir = (dir) => dir != null && CSS.M("direction", direction.construct(dir));
   CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (loc) => {

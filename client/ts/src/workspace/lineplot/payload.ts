@@ -27,6 +27,3 @@ export const newZ = linePlotZ
   .partial({ key: true })
   .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
 export interface New extends z.input<typeof newZ> {}
-
-export const ONTOLOGY_TYPE = "lineplot";
-export type OntologyType = typeof ONTOLOGY_TYPE;

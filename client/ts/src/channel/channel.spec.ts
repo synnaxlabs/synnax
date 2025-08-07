@@ -26,7 +26,7 @@ describe("Channel", () => {
       });
       expect(channel.name, "test").toEqual("test");
       expect(channel.leaseholder).toEqual(1);
-      expect(channel.virtual).toBeTruthy();
+      expect(channel.virtual).toBe(true);
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     }, 80000);
 
@@ -61,7 +61,7 @@ describe("Channel", () => {
           requires: [],
         });
       } catch (e) {
-        expect(PathError.matches(e)).toBeTruthy();
+        expect(PathError.matches(e)).toBe(true);
         expect((e as PathError).path).toEqual(["requires"]);
         expect((e as PathError).error.message).contain(
           "calculated channels must require at least one channel",
@@ -130,7 +130,7 @@ describe("Channel", () => {
         });
         expect(channel.virtual).toEqual(true);
         const retrieved = await client.channels.retrieve(channel.key);
-        expect(retrieved.virtual).toBeTruthy();
+        expect(retrieved.virtual).toBe(true);
       });
     });
 

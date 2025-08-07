@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Text } from "@synnaxlabs/pluto";
+import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
 import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
@@ -39,7 +39,8 @@ interface ConfigureButtonProps {
 const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => placeLayout(layout)}>
+    <Button.Button variant="outlined" size="tiny" onClick={() => placeLayout(layout)}>
+      <Icon.Hardware />
       Configure
     </Button.Button>
   );

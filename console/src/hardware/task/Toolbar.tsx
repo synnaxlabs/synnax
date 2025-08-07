@@ -63,7 +63,7 @@ interface StartStopArgs {
   keys: task.Key[];
 }
 
-const filterExternal = (task: task.Task) => task.internal === false;
+const filterExternal = (task: task.Task) => !task.internal && !task.snapshot;
 
 const Content = () => {
   const client = Synnax.use();
@@ -190,7 +190,10 @@ const Content = () => {
           onFetchMore={fetchMore}
           replaceOnSingle
         >
-          <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
+          <List.Items<task.Key, task.Task>
+            emptyContent={<EmptyContent />}
+            onContextMenu={menuProps.open}
+          >
             {({ key, ...p }) => (
               <TaskListItem
                 key={key}

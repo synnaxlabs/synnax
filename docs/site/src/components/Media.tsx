@@ -10,20 +10,24 @@
 import { Video as Core } from "@synnaxlabs/pluto/video";
 import {
   type DetailedHTMLProps,
+  type ImgHTMLAttributes,
   type ReactElement,
   useEffect,
   useRef,
   useState,
 } from "react";
 
-export interface VideoProps
-  extends DetailedHTMLProps<
-    React.VideoHTMLAttributes<HTMLVideoElement>,
-    HTMLVideoElement
-  > {
+interface MediaProps {
   id: string;
   themed?: boolean;
 }
+
+export interface VideoProps
+  extends MediaProps,
+    Omit<
+      DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
+      "id"
+    > {}
 
 const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
@@ -78,7 +82,12 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
   return <Core.Video ref={ref} href={url} loop muted {...rest} />;
 };
 
-export interface ImageProps extends VideoProps {
+export interface ImageProps
+  extends MediaProps,
+    Omit<
+      DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
+      "id"
+    > {
   extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
 }
 

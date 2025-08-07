@@ -106,7 +106,7 @@ export const SelectShowcase = () => (
 export const SelectIconShowcase = () => {
   const [value, setValue] = useState<string>("");
   return (
-    <Select.Simple
+    <Select.Static
       resourceName="Alignments"
       data={[
         { key: "x-center", icon: <Icon.Align.XCenter />, name: "X Center" },

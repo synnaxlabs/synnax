@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -33,7 +42,9 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(range1.key);
       expect(result.current.data).toContain(range2.key);
@@ -79,7 +90,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ term: "special" }, { signal: controller.signal });
+        result.current.retrieve(
+          { searchTerm: "special" },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -87,7 +101,7 @@ describe("queries", () => {
         result.current.data
           .map((key: ranger.Key) => result.current.getItem(key)?.name)
           .includes("special_range"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle includeLabels parameter", async () => {

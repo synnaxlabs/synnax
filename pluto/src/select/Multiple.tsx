@@ -16,19 +16,25 @@ import { Select } from "@/select";
 import { type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { type MultipleTriggerProps } from "@/select/MultipleTrigger";
+import {
+  transformDialogVariant,
+  transformTriggerVariant,
+  type Variant,
+} from "@/select/variant";
 
 export interface MultipleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
 > extends Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
-    Omit<Dialog.FrameProps, "onChange" | "children">,
+    Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<MultipleTriggerProps<K>, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
   renderTag?: Select.MultipleTriggerProps<K>["children"];
   triggerProps?: Select.MultipleTriggerProps<K>;
   dialogProps?: Dialog.FrameProps;
+  variant?: Variant;
 }
 
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
@@ -53,9 +59,10 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   triggerProps,
   virtual = true,
   dialogProps,
+  variant = "connected",
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
-  <Dialog.Frame variant="connected" {...rest}>
+  <Dialog.Frame variant={transformDialogVariant(variant)} {...rest}>
     <Frame<K, E>
       multiple
       value={value}
@@ -73,6 +80,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         icon={icon}
         placeholder={`Select ${resourceName}s`}
         disabled={disabled}
+        variant={transformTriggerVariant(variant)}
         {...triggerProps}
       >
         {renderTag}

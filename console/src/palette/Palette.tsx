@@ -17,7 +17,7 @@ import {
   Input,
   List,
   Select,
-  Status,
+  Text,
   Tooltip,
   Triggers,
   useCombinedStateAndRef,
@@ -110,16 +110,16 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const commandEmptyContent = (
-  <Status.Text variant="disabled" hideIcon center>
+  <Text.Text status="disabled" center>
     No commands found
-  </Status.Text>
+  </Text.Text>
 );
 
 const resourceEmptyContent = (
-  <Status.Text variant="disabled" hideIcon center>
+  <Text.Text status="disabled" center>
     <Icon.Resources />
     No resources found
-  </Status.Text>
+  </Text.Text>
 );
 
 const DialogContent = ({
@@ -150,6 +150,7 @@ const DialogContent = ({
       value={value}
       onChange={handleSelect}
       onFetchMore={fetchMore}
+      itemHeight={36}
       virtual={false}
       initialHover={0}
     >

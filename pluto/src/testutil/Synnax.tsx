@@ -17,13 +17,18 @@ import {
 } from "react";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { createAetherProvider } from "@/testutil/Aether";
 
-const AetherProvider = createAetherProvider({ ...synnax.REGISTRY, ...status.REGISTRY });
+const AetherProvider = createAetherProvider({
+  ...synnax.REGISTRY,
+  ...status.REGISTRY,
+  ...flux.REGISTRY,
+});
 
 interface ClientConnector {
   (connected: boolean): void;

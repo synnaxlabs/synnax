@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const opcuaNav: PageNavNode = {
+export const OPC_UA_NAV: PageNavNode = {
   key: "opc-ua",
   name: "OPC UA",
   children: [

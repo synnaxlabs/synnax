@@ -153,9 +153,9 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Flex.Box>
       <Modals.BottomNavBar gap={6}>
         <Nav.Bar.Start align="center" gap="large">
-          <Status.Text variant={isPending ? "loading" : "success"}>
+          <Status.Summary variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
-          </Status.Text>
+          </Status.Summary>
         </Nav.Bar.Start>
       </Modals.BottomNavBar>
     </Flex.Box>

@@ -92,6 +92,26 @@ export const ButtonShowcase = () => (
               Hello
             </Button.Button>
           </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Preview
+            </Text.Text>
+            <Button.Button size="huge" variant="preview">
+              Hello
+            </Button.Button>
+            <Button.Button size="large" variant="preview">
+              Hello
+            </Button.Button>
+            <Button.Button size="medium" variant="preview">
+              Hello
+            </Button.Button>
+            <Button.Button size="small" variant="preview">
+              Hello
+            </Button.Button>
+            <Button.Button size="tiny" variant="preview">
+              Hello
+            </Button.Button>
+          </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
 
@@ -120,6 +140,10 @@ export const ButtonShowcase = () => (
               <Icon.Add />
               Hello
             </Button.Button>
+            <Button.Button size="large" variant="preview">
+              <Icon.Add />
+              Hello
+            </Button.Button>
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
@@ -135,6 +159,9 @@ export const ButtonShowcase = () => (
               <Icon.Auto />
             </Button.Button>
             <Button.Button size="large" variant="outlined">
+              <Icon.Auto />
+            </Button.Button>
+            <Button.Button size="large" variant="preview">
               <Icon.Auto />
             </Button.Button>
           </Flex.Box>
@@ -159,6 +186,9 @@ export const ButtonShowcase = () => (
             <Button.Button disabled variant="text">
               Hello
             </Button.Button>
+            <Button.Button disabled variant="preview">
+              Hello
+            </Button.Button>
           </Flex.Box>
           <Flex.Box x gap="medium">
             <Text.Text level="small" weight={500}>
@@ -180,6 +210,9 @@ export const ButtonShowcase = () => (
               Link:
             </Text.Text>
             <Button.Button href="https://www.google.com" variant="text">
+              Link to Google
+            </Button.Button>
+            <Button.Button href="https://www.google.com" variant="filled">
               Link to Google
             </Button.Button>
           </Flex.Box>
@@ -230,6 +263,9 @@ export const ButtonShowcase = () => (
             <Button.Button status="warning" variant="text">
               Hello
             </Button.Button>
+            <Button.Button status="warning" variant="preview">
+              Hello
+            </Button.Button>
           </Flex.Box>
           <Flex.Box x gap="medium">
             <Text.Text level="small" weight={500}>
@@ -240,6 +276,9 @@ export const ButtonShowcase = () => (
               Hello
             </Button.Button>
             <Button.Button status="error" variant="text">
+              Hello
+            </Button.Button>
+            <Button.Button status="error" variant="preview">
               Hello
             </Button.Button>
           </Flex.Box>

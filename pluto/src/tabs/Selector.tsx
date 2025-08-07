@@ -253,6 +253,7 @@ const SelectorButton = ({
       justify="center"
       align="center"
       empty
+      tabIndex={0}
       preventClick={isSelected}
       onClick={handleClick}
       onDragOver={handleDragOver}
@@ -327,7 +328,7 @@ const Name = ({
       id={CSS.B(`tab-${tabKey}`)}
       onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
-      overflow="nowrap"
+      overflow="ellipsis"
     />
   );
 };

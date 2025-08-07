@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Flex, Form, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
+import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -18,7 +18,7 @@ import { type DigitalChannel } from "@/hardware/ni/task/types";
 
 interface ListItemProps<C extends DigitalChannel>
   extends Omit<Common.Task.ChannelListItemProps, "name"> {
-  name: RenderProp<C>;
+  name: Component.RenderProp<C>;
 }
 
 const ListItem = <C extends DigitalChannel>({

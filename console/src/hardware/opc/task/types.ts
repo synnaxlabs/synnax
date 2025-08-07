@@ -107,7 +107,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 25,
 };
 
-export const readStatusDataZ = z.object({}).or(z.null());
+export const readStatusDataZ = z.unknown();
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -221,7 +221,7 @@ export const ZERO_WRITE_CONFIG: WriteConfig = {
   channels: [],
 };
 
-export const writeStatusDataZ = z.object({});
+export const writeStatusDataZ = z.unknown();
 export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;

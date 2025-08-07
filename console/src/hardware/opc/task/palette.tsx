@@ -31,6 +31,7 @@ const CREATE_WRITE_COMMAND: Palette.Command = {
 const IMPORT_READ_COMMAND: Palette.Command = {
   key: "opc-ua-import-read-task",
   name: "Import OPC UA Read Task(s)",
+  sortOrder: -1,
   icon: <Icon.Logo.OPC />,
   onSelect: importRead,
 };
@@ -38,6 +39,7 @@ const IMPORT_READ_COMMAND: Palette.Command = {
 const IMPORT_WRITE_COMMAND: Palette.Command = {
   key: "opc-ua-import-write-task",
   name: "Import OPC UA Write Task(s)",
+  sortOrder: -1,
   icon: <Icon.Logo.OPC />,
   onSelect: importWrite,
 };

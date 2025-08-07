@@ -167,25 +167,25 @@ describe("Button", () => {
   describe("status", () => {
     it("should not add a status class to the button when the status is not provided", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("pluto--success");
-      expect(c.getByText("Hello").className).not.toContain("pluto--error");
-      expect(c.getByText("Hello").className).not.toContain("pluto--warning");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-success");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-error");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-warning");
     });
     it("should add the status class to the button when the status is success", () => {
       const c = render(<Button.Button status="success">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--success");
+      expect(c.getByText("Hello").className).toContain("pluto--status-success");
     });
     it("should add the status class to the button when the status is error", () => {
       const c = render(<Button.Button status="error">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--error");
+      expect(c.getByText("Hello").className).toContain("pluto--status-error");
     });
     it("should add the status class to the button when the status is warning", () => {
       const c = render(<Button.Button status="warning">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--warning");
+      expect(c.getByText("Hello").className).toContain("pluto--status-warning");
     });
     it("should add the status class to the button when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--loading");
+      expect(c.getByText("Hello").className).toContain("pluto--status-loading");
     });
   });
 
@@ -385,36 +385,3 @@ describe("Button", () => {
     });
   });
 });
-
-// describe("Toggle", () => {
-//   it("should a button that can be toggled", async () => {
-//     const onChange = vitest.fn();
-//     const ToggleTest = (): ReactElement => {
-//       const [value, setValue] = useState(false);
-//       return (
-//         <Button.Toggle
-//           size="small"
-//           value={value}
-//           onChange={() => {
-//             onChange();
-//             setValue(!value);
-//           }}
-//         >
-//           Hello
-//         </Button.Toggle>
-//       );
-//     };
-//     const c = render(<ToggleTest />);
-//     const label = c.getByText("Hello");
-//     expect(label).toBeTruthy();
-//     const button = label.parentElement as HTMLElement;
-//     expect(button).toBeTruthy();
-//     expect(button.className).not.toContain("filled");
-//     await act(async () => {
-//       await userEvent.click(label);
-//     });
-//     expect(onChange).toHaveBeenCalled();
-//     expect(button.className).toContain("filled");
-//   });
-// });
-// });

@@ -148,9 +148,6 @@ export const DragButton = ({
     <Button.Button
       ref={elRef}
       variant="text"
-      style={{
-        borderLeft: "var(--pluto-border-l5)",
-      }}
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}

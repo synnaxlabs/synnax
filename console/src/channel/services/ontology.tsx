@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
   Flex,
@@ -360,7 +360,7 @@ export const Item = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: channel.ONTOLOGY_TYPE,
+  type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
   onSelect: handleSelect,

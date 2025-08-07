@@ -23,12 +23,6 @@ import { type ReactElement } from "react";
 import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 
-interface SelectMultipleRangesProps
-  extends Omit<
-    Select.MultipleProps<string, Range>,
-    "resourceName" | "data" | "children"
-  > {}
-
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
 );
@@ -75,7 +69,12 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
 
 export const renderTag = Component.renderProp(RangeTag);
 
-const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
+export interface SelectMultipleRangesProps extends Input.Control<string[]> {}
+
+const SelectMultipleRanges = ({
+  value,
+  onChange,
+}: SelectMultipleRangesProps): ReactElement => {
   const entries = useSelectMultiple();
   const { data, retrieve } = List.useStaticData<string>({ data: entries });
   const { fetchMore, search } = List.usePager({ retrieve });
@@ -87,18 +86,15 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
       renderTag={renderTag}
       onFetchMore={fetchMore}
       onSearch={search}
-      {...props}
+      value={value}
+      onChange={onChange}
     >
       {listItem}
     </Select.Multiple>
   );
 };
 
-interface SelectSingleRangeProps
-  extends Omit<
-    Select.SingleProps<string, Range>,
-    "resourceName" | "data" | "children"
-  > {}
+interface SelectSingleRangeProps extends Input.Control<string> {}
 
 const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
   const data = useSelectKeys();

@@ -58,13 +58,12 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 
 const multipleTag = Component.renderProp(MultipleTag);
 
-export interface MultipleTriggerProps<K extends record.Key> {
+export interface MultipleTriggerProps<K extends record.Key>
+  extends Pick<Button.ButtonProps, "variant" | "disabled"> {
   haulType?: string;
-  disabled?: boolean;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   children?: RenderProp<MultipleTagProps<K>>;
-  variant?: "text" | "outlined";
 }
 
 export const staticCanDrop = <K extends record.Key>(

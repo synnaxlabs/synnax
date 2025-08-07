@@ -54,6 +54,7 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
 const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
   key: "ni-import-analog-read-task",
   name: "Import NI Analog Read Task(s)",
+  sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogRead,
 };
@@ -61,6 +62,7 @@ const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
 const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
   key: "ni-import-analog-write-task",
   name: "Import NI Analog Write Task(s)",
+  sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogWrite,
 };
@@ -68,6 +70,7 @@ const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
 const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
   key: "ni-import-digital-read-task",
   name: "Import NI Digital Read Task(s)",
+  sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importDigitalRead,
 };
@@ -75,6 +78,7 @@ const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
 const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
   key: "ni-import-digital-write-task",
   name: "Import NI Digital Write Task(s)",
+  sortOrder: -1,
   icon: <Icon.Import />,
   onSelect: importDigitalWrite,
 };

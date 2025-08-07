@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, rack } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -141,7 +141,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: rack.ONTOLOGY_TYPE,
+  type: "rack",
   icon: <Icon.Rack />,
   hasChildren: true,
   canDrop: () => false,

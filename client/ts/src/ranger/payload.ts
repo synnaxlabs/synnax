@@ -31,9 +31,16 @@ export const payloadZ = z.object({
   timeRange: TimeRange.z,
   stage: stageZ.optional().default("to_do"),
   color: z.string().optional(),
-  labels: nullableArrayZ(label.labelZ).optional(),
-  get parent(): z.ZodNullable<typeof payloadZ> {
-    return payloadZ.nullable();
+  labels: nullableArrayZ(label.labelZ),
+  get parent(): z.ZodUnion<readonly [z.ZodNull, typeof payloadZ]> {
+    // Using as unknown is bad, but unfortunately resolving the output type of this
+    // transform is nearly impossible.
+    return payloadZ
+      .optional()
+      .nullable()
+      .transform((p) => (p === undefined ? null : p)) as unknown as z.ZodUnion<
+      readonly [z.ZodNull, typeof payloadZ]
+    >;
   },
 });
 
@@ -43,9 +50,3 @@ export const newZ = payloadZ
   .omit({ parent: true, labels: true })
   .partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
-
-export const ONTOLOGY_TYPE = "range";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const ALIAS_ONTOLOGY_TYPE = "range-alias";
-export type AliasOntologyType = typeof ALIAS_ONTOLOGY_TYPE;

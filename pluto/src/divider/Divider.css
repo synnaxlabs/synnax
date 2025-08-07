@@ -17,7 +17,7 @@
         border-top: var(--pluto-border);
 
         &.pluto-divider--padded {
-            &.pluto--center {
+            &.pluto--location-center {
                 margin: 0.5rem 0;
             }
             &.pluto--location-top {

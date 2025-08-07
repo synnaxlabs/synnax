@@ -10,10 +10,6 @@
 import { Icon, Text } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import pre from "@/components/code/Code.astro";
-import Details from "@/components/details/Details.astro";
-import table from "@/components/Table.astro";
-
 interface TextFactoryProps {
   level: Text.Level;
   includeAnchor?: boolean;
@@ -37,13 +33,4 @@ export const textFactory = ({
   );
   Component.displayName = `Text.${level}`;
   return Component;
-};
-
-export const mdxOverrides = {
-  pre,
-  table,
-  h1: textFactory({ level: "h1", includeAnchor: true }),
-  h2: textFactory({ level: "h2", includeAnchor: true }),
-  h3: textFactory({ level: "h3", includeAnchor: true }),
-  details: Details,
 };

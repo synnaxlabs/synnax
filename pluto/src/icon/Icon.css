@@ -19,10 +19,7 @@
         transform: scale(1.15);
     }
 
-    &
-        *:is(path, circle):is(:not([fill="none"]), [stroke="#000"], ):not(
-            .pluto-sub__bg
-        ) {
+    & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]):not(.pluto-sub__bg) {
         stroke: inherit !important;
         fill: inherit !important;
     }

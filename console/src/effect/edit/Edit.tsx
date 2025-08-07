@@ -91,9 +91,9 @@ const EffectState = ({ effect }: { effect: effect.Effect }) => {
   const [status, setStatus] = useState<effect.Status | null>(null);
   const addStatus = Status.useAdder();
   return (
-    <Status.Text variant={status?.variant}>
+    <Text.Text variant={status?.variant}>
       {status?.message ?? "Effect has not been deployed yet."}
-    </Status.Text>
+    </Text.Text>
   );
 };
 

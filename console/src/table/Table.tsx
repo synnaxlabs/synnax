@@ -269,17 +269,18 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               className={CSS.BE("table", "add-col")}
               justify="center"
               align="center"
-              size="small"
+              size="tiny"
+              variant="filled"
               onClick={handleAddCol}
             >
               <Icon.Add />
             </Button.Button>
             <Button.Button
               className={CSS.BE("table", "add-row")}
-              variant="filled"
               justify="center"
+              variant="filled"
               align="center"
-              size="small"
+              size="tiny"
               onClick={handleAddRow}
             >
               <Icon.Add />

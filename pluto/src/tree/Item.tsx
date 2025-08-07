@@ -17,13 +17,13 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { type List } from "@/list";
 import { Select } from "@/select";
-import { type ItemRenderProps } from "@/tree/Tree";
+import { type NodeShape } from "@/tree/core";
 
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = ItemRenderProps<K> &
-  Select.ListItemProps<K, E> & {
+> = Select.ListItemProps<K, E> &
+  NodeShape & {
     loading?: boolean;
     useMargin?: boolean;
     offsetMultiplier?: number;

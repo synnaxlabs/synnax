@@ -19,14 +19,14 @@ import {
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
-import { Frame, ONTOLOGY_TYPE } from "@/framer/frame";
+import { Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { type ontology } from "@/ontology";
 
 export const ontologyID = (key: channel.Key): ontology.ID => ({
-  type: ONTOLOGY_TYPE,
+  type: "framer",
   key: key.toString(),
 });
 

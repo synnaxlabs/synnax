@@ -14,7 +14,6 @@ import {
   ontology,
   schematic as clientSchematic,
   table as clientTable,
-  workspace as clientWorkspace,
 } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Synnax, Text, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type record, strings } from "@synnaxlabs/x";
@@ -379,7 +378,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: clientWorkspace.ONTOLOGY_TYPE,
+  type: "workspace",
   icon: <Icon.Workspace />,
   onSelect: handleSelect,
   allowRename: () => true,

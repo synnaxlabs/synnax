@@ -19,7 +19,7 @@ from synnax.util.normalize import normalize
 class _Request(Payload):
     keys: list[uuid.UUID | str] | None = None
     names: list[str] | None = None
-    term: str | None = None
+    search_term: str | None = None
 
 
 class _Response(Payload):
@@ -55,7 +55,7 @@ class RangeRetriever:
 
     @trace("debug")
     def search(self, term: str) -> list[RangePayload]:
-        return self.__execute(_Request(term=term))
+        return self.__execute(_Request(search_term=term))
 
     def __execute(self, req: _Request) -> list[RangePayload]:
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)

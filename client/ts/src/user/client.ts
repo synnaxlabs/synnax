@@ -13,15 +13,7 @@ import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type ontology } from "@/ontology";
-import {
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  ONTOLOGY_TYPE,
-  type User,
-  userZ,
-} from "@/user/payload";
+import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
 
 const retrieveRequestZ = z.object({
@@ -165,4 +157,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "user", key });

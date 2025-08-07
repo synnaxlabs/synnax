@@ -11,9 +11,9 @@ const handleLabelRelationshipSet: Flux.ListenerHandler<
   Flux.ListListenerExtraArgs<{}, string, effect.Effect>
 > = async ({ changed, onChange, client }) => {
   const isLabel = ontology.matchRelationship(changed, {
-    from: { type: effect.ONTOLOGY_TYPE },
+    from: { type: "effect" },
     type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-    to: { type: label.ONTOLOGY_TYPE },
+    to: { type: "label" },
   });
   if (isLabel) {
     const label = await client.labels.retrieve({ key: changed.to.key });

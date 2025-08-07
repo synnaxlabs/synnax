@@ -143,7 +143,7 @@ export const Rule = ({
         className={CSS(className, CSS.BE("rule", "tag"))}
         bordered
         onClick={onSelect}
-        gap={1}
+        empty
         rounded
         style={{
           borderColor: color.cssString(colorVal),
@@ -153,14 +153,14 @@ export const Rule = ({
         {...rest}
       >
         <Text.Editable
-          className={CSS.B("label")}
+          className={CSS.BE("rule", "label")}
           level="small"
           value={internalLabel}
           onChange={setInternalLabel}
           color={textColor}
         />
         <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
-        <Flex.Box gap="small" x align="center">
+        <Flex.Box x align="center" className={CSS.BE("rule", "value")}>
           <Text.Editable
             value={propsPosition.toFixed(2)}
             onChange={(v) => {
@@ -171,12 +171,14 @@ export const Rule = ({
             level="small"
             color={textColor}
           />
-          <Text.MaybeEditable
-            level="small"
-            color={textColor}
-            value={units}
-            onChange={onUnitsChange}
-          />
+          {units.length > 0 && (
+            <Text.MaybeEditable
+              level="small"
+              color={textColor}
+              value={units}
+              onChange={onUnitsChange}
+            />
+          )}
         </Flex.Box>
       </Flex.Box>
     </div>

@@ -80,7 +80,7 @@ describe("XY", () => {
     });
     it("should retrun true if the two points are within the given threshold", () => {
       const p = xy.construct([1, 1]);
-      expect(xy.equals(p, [1.1, 1.1], 0.15)).toBeTruthy();
+      expect(xy.equals(p, [1.1, 1.1], 0.15)).toBe(true);
     });
   });
   test("couple", () => {
@@ -89,15 +89,15 @@ describe("XY", () => {
   });
   describe("isNan", () => {
     it("should return true if x or y is NaN", () => {
-      expect(xy.isNan(xy.construct([1, NaN]))).toBeTruthy();
-      expect(xy.isNan(xy.construct([NaN, 1]))).toBeTruthy();
+      expect(xy.isNan(xy.construct([1, NaN]))).toBe(true);
+      expect(xy.isNan(xy.construct([NaN, 1]))).toBe(true);
     });
   });
   describe("isFinite", () => {
     it("should return true if x or y is finite", () => {
-      expect(xy.isFinite(xy.construct([1, 2]))).toBeTruthy();
-      expect(xy.isFinite(xy.construct([Infinity, 2]))).toBeFalsy();
-      expect(xy.isFinite(xy.construct([1, Infinity]))).toBeFalsy();
+      expect(xy.isFinite(xy.construct([1, 2]))).toBe(true);
+      expect(xy.isFinite(xy.construct([Infinity, 2]))).toBe(false);
+      expect(xy.isFinite(xy.construct([1, Infinity]))).toBe(false);
     });
   });
   describe("distance", () => {

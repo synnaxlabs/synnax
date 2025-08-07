@@ -11,10 +11,9 @@ import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
+import { type Button } from "@/button";
+import { Boolean } from "@/input/Boolean";
 import { type InputProps } from "@/input/types";
-import { preventDefault, stopPropagation } from "@/util/event";
 
 export interface CheckboxProps
   extends InputProps<boolean>,
@@ -30,43 +29,6 @@ export interface CheckboxProps
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  */
-export const Checkbox = ({
-  ref,
-  className,
-  value,
-  disabled,
-  onChange,
-  size = "medium",
-  variant,
-  color,
-  borderColor,
-  borderWidth,
-  bordered,
-  rounded,
-  background,
-  ...rest
-}: CheckboxProps): ReactElement => (
-  <Button.Button
-    el="label"
-    variant="text"
-    className={CSS(CSS.BE("input", "checkbox"), className)}
-    size={size}
-    preventClick
-    {...(rest as Button.ButtonProps<"label">)}
-  >
-    <input
-      className={CSS.BE("input", "checkbox", "input")}
-      type="checkbox"
-      ref={ref}
-      checked={value}
-      onMouseDown={preventDefault}
-      onChange={(e) => onChange?.(e.target.checked)}
-      disabled={disabled}
-      onClick={stopPropagation}
-    />
-    <span
-      className={CSS.BE("input", "checkbox", "checkmark")}
-      onClick={stopPropagation}
-    />
-  </Button.Button>
+export const Checkbox = (props: CheckboxProps): ReactElement => (
+  <Boolean inputType="checkbox" {...props} />
 );

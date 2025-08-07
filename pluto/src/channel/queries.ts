@@ -143,19 +143,24 @@ export const useCalculatedForm = (
   })(args);
 
 export interface ListParams extends channel.RetrieveOptions {
-  term?: string;
+  searchTerm?: string;
   rangeKey?: string;
   internal?: boolean;
   offset?: number;
   limit?: number;
 }
 
+const DEFAULT_LIST_PARAMS: ListParams = {
+  internal: false,
+};
+
 export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>({
   name: "Channels",
   retrieve: async ({ client, params }) =>
     await client.channels.retrieve({
+      ...DEFAULT_LIST_PARAMS,
       ...params,
-      search: params.term,
+      searchTerm: params.searchTerm,
     }),
   retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
   listeners: [

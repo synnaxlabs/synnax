@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { color, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
@@ -25,7 +25,6 @@ export interface TextProps
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: status.Variant;
-  outlineColor?: color.Crude;
   variant?: Variant;
   placeholder?: ReactNode;
   children?: ReactNode;
@@ -67,7 +66,6 @@ export const Text = ({
   status,
   weight,
   style,
-  outlineColor,
   contrast,
   color: pColor,
   sharp,
@@ -80,6 +78,7 @@ export const Text = ({
   borderWidth,
   bordered,
   rounded,
+  tabIndex,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -88,7 +87,6 @@ export const Text = ({
   const focusedRef = useRef(false);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
-    console.log("handleBlur", e.target.value, cachedFocusRef.current);
     focusedRef.current = false;
     if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
     else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
@@ -128,20 +126,13 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
-  const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
-
-  if (hasCustomColor)
-    style = {
-      ...style,
-      [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
-    };
-
   const showPlaceholder =
     (value == null || value.length === 0) &&
     tempValue == null &&
     placeholder != null &&
     typeof placeholder !== "string";
+
+  tabIndex ??= variant === "preview" ? -1 : undefined;
 
   return (
     <Button.Button
@@ -152,7 +143,6 @@ export const Text = ({
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
-        hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,
       )}
@@ -171,6 +161,7 @@ export const Text = ({
       full={full}
       variant={variant}
       rounded={rounded}
+      tabIndex={tabIndex}
     >
       {showPlaceholder && (
         <CoreText.Text
@@ -194,6 +185,7 @@ export const Text = ({
         autoCorrect="off"
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
+        tabIndex={tabIndex}
         onMouseUp={handleMouseUp}
         onBlur={handleBlur}
         disabled={disabled}

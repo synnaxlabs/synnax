@@ -18,7 +18,7 @@ describe("breaker", () => {
     const brk = new breaker.Breaker({ sleepFn: mockSleep });
     const canRetry = await brk.wait();
 
-    expect(canRetry).toBeTruthy();
+    expect(canRetry).toBe(true);
     expect(mockSleep).toHaveBeenCalled();
   });
 
@@ -31,11 +31,11 @@ describe("breaker", () => {
     });
 
     // First attempt
-    expect(await brk.wait()).toBeTruthy();
+    expect(await brk.wait()).toBe(true);
     // Second attempt
-    expect(await brk.wait()).toBeTruthy();
+    expect(await brk.wait()).toBe(true);
     // Third attempt (should fail)
-    expect(await brk.wait()).toBeFalsy();
+    expect(await brk.wait()).toBe(false);
 
     expect(mockSleep).toHaveBeenCalledTimes(2);
   });

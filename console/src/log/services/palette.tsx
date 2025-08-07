@@ -22,6 +22,7 @@ const CREATE_COMMAND: Palette.Command = {
 const IMPORT_COMMAND: Palette.Command = {
   key: "import-log",
   name: "Import Log(s)",
+  sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
 };

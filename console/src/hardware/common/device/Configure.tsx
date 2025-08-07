@@ -188,25 +188,27 @@ export const Configure = <
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
       if (client == null) throw new DisconnectedError();
-      return await client.hardware.devices.retrieve<Properties, Make, Model>(layoutKey);
+      return await client.hardware.devices.retrieve<Properties, Make, Model>({
+        key: layoutKey,
+      });
     },
   });
   if (isPending)
     return (
-      <Status.Text center level="h4" variant="loading">
+      <Status.Summary center level="h4" variant="loading">
         Fetching device from server
-      </Status.Text>
+      </Status.Summary>
     );
-  if (isError) {
-    const color = Status.VARIANT_COLORS.error;
+  if (isError)
     return (
-      <Flex.Box align="center" grow justify="center">
-        <Text.Text color={color} level="h2">
-          Failed to load data for device with key {layoutKey}
-        </Text.Text>
-        <Text.Text color={color}>{error.message}</Text.Text>
-      </Flex.Box>
+      <Status.Summary
+        center
+        level="h4"
+        variant="error"
+        message={`Failed to load data for device with key ${layoutKey}`}
+        description={error.message}
+      />
     );
-  }
+
   return <Internal device={data} {...rest} />;
 };

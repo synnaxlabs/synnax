@@ -30,20 +30,15 @@
         border-top-left-radius: 0rem;
         align-items: center;
         justify-content: center;
-        padding-right: 1rem;
         border-color: var(--pluto-gray-l9);
         backdrop-filter: blur(3rem) saturate(180%);
         -webkit-backdrop-filter: blur(3rem) saturate(180%);
-        & .pluto-text {
-            padding-top: 0.25rem;
-            line-height: 1;
-            font-weight: 500;
+        .pluto-rule__label,
+        .pluto-rule__value {
+            padding: 0.5rem 1rem;
         }
-        & .pluto-label {
-            margin-left: 1rem;
-            line-height: 1;
-            margin-top: 1rem;
-            margin-bottom: 0.75rem;
+        .pluto-rule__value {
+            gap: 2px;
         }
     }
 }

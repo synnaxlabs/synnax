@@ -19,7 +19,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Params,
   remoteZ,
   type Schematic,
@@ -127,4 +126,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "schematic", key });

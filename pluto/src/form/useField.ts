@@ -26,7 +26,6 @@ import {
   type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
-import { type Input } from "@/input";
 import { state } from "@/state";
 
 export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
@@ -46,7 +45,7 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
   status: status.Crude;
-  variant?: Input.Variant;
+  variant?: "preview";
 }
 
 interface UseField {
@@ -105,8 +104,7 @@ export const useField = (<I, O = I>(
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
-  let variant: Input.Variant | undefined;
-  // if (ctx.mode === "preview") variant = "preview";
+  const variant = ctx.mode === "preview" ? "preview" : undefined;
   return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 

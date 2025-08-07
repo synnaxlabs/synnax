@@ -4,5 +4,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"], "html-escaper": ["node_modules/@types/html-escaper"] }
   },
-  "include": ["src/**/*", "static/env.d.ts"]
+  "include": ["src/**/*", "static/env.d.ts", "astro-components.d.ts"]
 }

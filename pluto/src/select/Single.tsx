@@ -16,16 +16,22 @@ import { Select } from "@/select";
 import { type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
 import { type SingleTriggerProps } from "@/select/SingleTrigger";
+import {
+  transformDialogVariant,
+  transformTriggerVariant,
+  type Variant,
+} from "@/select/variant";
 
 export interface SingleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
 > extends Omit<SingleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
-    Omit<Dialog.FrameProps, "onChange" | "children">,
+    Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
+  variant?: Variant;
   triggerProps?: Select.SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
@@ -54,7 +60,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   virtual = true,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
-  <Dialog.Frame {...rest} variant={variant}>
+  <Dialog.Frame {...rest} variant={transformDialogVariant(variant)}>
     <Frame<K, E>
       value={value}
       onChange={onChange}
@@ -71,6 +77,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         icon={icon}
         placeholder={`Select a ${resourceName}`}
         disabled={disabled}
+        variant={transformTriggerVariant(variant)}
         {...triggerProps}
       />
       <Select.Dialog<K>

@@ -11,8 +11,8 @@ import "@/input/Switch.css";
 
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
+import { type Button } from "@/button";
+import { Boolean } from "@/input/Boolean";
 import { type InputProps } from "@/input/types";
 
 export interface SwitchProps
@@ -29,47 +29,6 @@ export interface SwitchProps
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  */
-export const Switch = ({
-  ref,
-  className,
-  value,
-  disabled,
-  onChange,
-  size,
-  variant,
-  style,
-  color,
-  borderColor,
-  borderWidth,
-  bordered,
-  rounded,
-  background,
-  ...rest
-}: SwitchProps): ReactElement => (
-  <Button.Button
-    el="label"
-    variant="text"
-    className={CSS(CSS.BE("input", "switch"), className)}
-    disabled={disabled}
-    size={size}
-    preventClick
-    style={style}
-    color={color}
-    borderColor={borderColor}
-    borderWidth={borderWidth}
-    bordered={bordered}
-    rounded={rounded}
-    background={background}
-  >
-    <input
-      type="checkbox"
-      ref={ref}
-      checked={value}
-      onChange={(e) => onChange(e.target.checked)}
-      value=""
-      disabled={disabled}
-      {...rest}
-    />
-    <span className={CSS(CSS.BE("input", "switch", "track"))} />
-  </Button.Button>
+export const Switch = (props: SwitchProps): ReactElement => (
+  <Boolean {...props} inputType="switch" />
 );

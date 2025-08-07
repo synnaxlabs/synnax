@@ -36,7 +36,7 @@ const reqZ = z.object({
   leaseholder: z.number().optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   rangeKey: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),

@@ -24,6 +24,7 @@ const CREATE_COMMAND: Palette.Command = {
 const IMPORT_COMMAND: Palette.Command = {
   key: "workspace-import",
   name: "Import a Workspace",
+  sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
 };
@@ -31,6 +32,7 @@ const IMPORT_COMMAND: Palette.Command = {
 const EXPORT_COMMAND: Palette.Command = {
   key: "workspace-export",
   name: "Export Current Workspace",
+  sortOrder: -1,
   icon: <Icon.Workspace />,
   onSelect: (ctx) => Workspace.export_(null, ctx),
 };

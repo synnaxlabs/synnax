@@ -65,7 +65,7 @@ func (s *mockIndexingService) RetrieveResource(
 	return ontology.Resource{}, nil
 }
 
-var _ = Describe("Search Indexing", func() {
+var _ = Describe("SearchTerm Indexing", func() {
 	var (
 		mockSvc *mockIndexingService
 	)

@@ -85,9 +85,12 @@ export const wrap = <
     });
     if (variant !== "success")
       return (
-        <Status.Text variant={variant}>
-          {status.message} {status.description}
-        </Status.Text>
+        <Status.Summary
+          variant={variant}
+          message={status.message}
+          description={status.description}
+          center
+        />
       );
     return (
       <Wrapped

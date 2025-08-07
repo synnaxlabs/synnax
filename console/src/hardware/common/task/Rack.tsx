@@ -25,14 +25,7 @@ export const Rack = ({ taskKey }: RackProps) => {
       <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
-      <Text.Text
-        className={CSS.B("rack-name")}
-        level="small"
-        color={9}
-        weight={350}
-        style={{ paddingRight: "0.5rem" }}
-        overflow="ellipsis"
-      >
+      <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
         <Icon.Rack />
         {rack?.name}
       </Text.Text>

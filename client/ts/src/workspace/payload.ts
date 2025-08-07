@@ -23,9 +23,6 @@ export const workspaceZ = z.object({
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}
 
-export const ONTOLOGY_TYPE = "workspace";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 export const newZ = workspaceZ
   .partial({ key: true })
   .transform((p) => ({ ...p, layout: JSON.stringify(p.layout) }));

@@ -14,13 +14,13 @@ import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
-import { useField, type UseFieldOptions } from "@/form/useField";
+import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
-interface FieldChild<I, O> extends Input.Control<I, O> {
-  variant?: Input.Variant;
-}
+interface FieldChild<I, O>
+  extends Input.Control<I, O>,
+    Pick<UseFieldReturn<I, O>, "variant"> {}
 
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &
@@ -68,7 +68,7 @@ export const Field = <I = string | number, O = I>({
     <Input.Item
       padHelpText={padHelpText}
       helpText={helpText}
-      helpTextVariant={field.status.variant}
+      status={field.status.variant}
       label={label}
       required={field.required}
       className={CSS(
@@ -158,10 +158,10 @@ export const SwitchField = buildSwitchField({ inputProps: {} });
 export type SelectFieldProps<
   K extends record.Key,
   E extends record.KeyedNamed<K>,
-> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">;
+> = BuiltFieldProps<K, K, Select.StaticProps<K, E>, "data" | "resourceName">;
 export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
-  props: FieldBuilderProps<K, K, Select.SimpleProps<K, E>>,
+  props: FieldBuilderProps<K, K, Select.StaticProps<K, E>>,
 ) =>
-  fieldBuilder<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">(
-    Select.Simple<K, E>,
+  fieldBuilder<K, K, Select.StaticProps<K, E>, "data" | "resourceName">(
+    Select.Static<K, E>,
   )(props);

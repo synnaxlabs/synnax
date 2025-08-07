@@ -193,6 +193,35 @@ describe("Text", () => {
     });
   });
 
+  describe("status", () => {
+    it("should not add a status classname by default", () => {
+      const c = render(<Text.Text>Hello</Text.Text>);
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-error");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-warning");
+      expect(c.getByText("Hello").className).not.toContain("pluto--status-success");
+    });
+
+    it("should add a status classname if the status is set to error", () => {
+      const c = render(<Text.Text status="error">Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto--status-error");
+    });
+
+    it("should add a status classname if the status is set to warning", () => {
+      const c = render(<Text.Text status="warning">Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto--status-warning");
+    });
+
+    it("should add a status classname if the status is set to success", () => {
+      const c = render(<Text.Text status="success">Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto--status-success");
+    });
+
+    it("should add a status classname if the status is set to loading", () => {
+      const c = render(<Text.Text status="loading">Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto--status-loading");
+    });
+  });
+
   describe("Editable", () => {
     it("should focus and select the text when double clicked", () => {
       const c = render(

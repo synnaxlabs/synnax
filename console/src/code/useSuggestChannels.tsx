@@ -50,7 +50,7 @@ const suggestChannelNames = (
         const beforeWord = lineContent.substring(0, word.startColumn - 1);
         const isInSetCall = /set\s*\($/.test(beforeWord.trim());
 
-        const channels = await searcher.retrieve({ search: word.word });
+        const channels = await searcher.retrieve({ searchTerm: word.word });
         const filteredChannels = IS_DEV
           ? channels
           : channels.filter(({ internal }) => !internal);

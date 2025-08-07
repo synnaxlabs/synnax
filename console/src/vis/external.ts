@@ -11,7 +11,6 @@ import { type Layout } from "@/layout";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/vis/Selector";
 
 export * from "@/vis/Canvas";
-export * from "@/vis/NavControls";
 export * from "@/vis/Selector";
 export * from "@/vis/Toolbar";
 

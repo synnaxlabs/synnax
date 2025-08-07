@@ -59,7 +59,7 @@ describe("Series", () => {
         const a = new Series({
           data: [{ value: 1 }, { value: 2, red: "blue" }, { value: 3, dog: "14" }],
         });
-        expect(a.dataType.equals(DataType.JSON)).toBeTruthy();
+        expect(a.dataType.equals(DataType.JSON)).toBe(true);
         expect(a.length).toEqual(3);
         const buf = a.data.buffer;
         const c = new Series({ data: buf, dataType: DataType.JSON });
@@ -115,7 +115,7 @@ describe("Series", () => {
 
     it("should assume float64 when a single number is passed in", () => {
       const s = new Series(1);
-      expect(s.dataType.equals(DataType.FLOAT64)).toBeTruthy();
+      expect(s.dataType.equals(DataType.FLOAT64)).toBe(true);
     });
 
     it("should assume string when JS strings are passed as data", () => {
@@ -126,14 +126,14 @@ describe("Series", () => {
 
     it("should construct a series from an int32 array", () => {
       const s = new Series(new Int32Array([1, 2, 3]));
-      expect(s.dataType.equals(DataType.INT32)).toBeTruthy();
+      expect(s.dataType.equals(DataType.INT32)).toBe(true);
       expect(s.length).toEqual(3);
       expect(Array.from(s)).toEqual([1, 2, 3]);
     });
 
     it("should assume string when a single string is passed as data", () => {
       const s = new Series("abc");
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(1);
     });
 
@@ -146,7 +146,7 @@ describe("Series", () => {
 
     it("should correctly interpret a bigint as an int64", () => {
       const s = new Series(1n);
-      expect(s.dataType.equals(DataType.INT64)).toBeTruthy();
+      expect(s.dataType.equals(DataType.INT64)).toBe(true);
       expect(s.length).toEqual(1);
     });
 
@@ -917,17 +917,17 @@ describe("Series", () => {
   describe("parse", () => {
     it("should correctly parse a minimum series", () => {
       const s = Series.z.parse({ dataType: "uint8" });
-      expect(s.dataType.equals(DataType.UINT8)).toBeTruthy();
+      expect(s.dataType.equals(DataType.UINT8)).toBe(true);
       expect(s.length).toEqual(0);
     });
     it("should correctly parse a string buffer for data", () => {
       const s = Series.z.parse({ data: "", dataType: "string" });
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(0);
     });
     it("should correctly parse a series with null data", () => {
       const s = Series.z.parse({ data: null, dataType: "string" });
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(0);
     });
   });
@@ -986,7 +986,7 @@ describe("Series", () => {
       const iter = s.subAlignmentIterator(3n, 5n);
       expect(iter.next().value).toEqual(2);
       expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
     it("should clamp the bounds to the alignment", () => {
       const s = new Series({
@@ -997,7 +997,7 @@ describe("Series", () => {
       expect(iter.next().value).toEqual(1);
       expect(iter.next().value).toEqual(2);
       expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
   });
 
@@ -1219,7 +1219,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
       expect(iter.next().value).toEqual(8);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
   });
 
@@ -1240,7 +1240,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(4);
       expect(iter.next().value).toEqual(5);
       expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("Should work correctly when starting at an alignment before the first series", () => {
@@ -1260,7 +1260,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(4);
       expect(iter.next().value).toEqual(5);
       expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("should work correctly when staring at an alignment equal to the upper bound of the first series", () => {
@@ -1276,7 +1276,7 @@ describe("MultiSeries", () => {
       const iter = multi.subAlignmentIterator(7n, 10n);
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("should work correctly when the starting alignment is between two series", () => {
@@ -1292,7 +1292,7 @@ describe("MultiSeries", () => {
       const iter = multi.subAlignmentIterator(7n, 12n);
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("Should work correctly when ending at an alignment after the last series", () => {
@@ -1315,7 +1315,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(8);
       expect(iter.next().value).toEqual(9);
       expect(iter.next().value).toEqual(10);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
   });
 

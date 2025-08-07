@@ -22,8 +22,14 @@ const connParams: SynnaxProps = {
   secure: true,
 };
 
-const provideProps: Pluto.ProviderProps = {
-  theming: { applyCSSVars: false, theme: { colors: { primary: "#be9223" } } },
+const providerProps: Pluto.ProviderProps = {
+  theming: {
+    applyCSSVars: false,
+    theme: {
+      key: "my-theme",
+      colors: { primary: "#be9223" },
+    },
+  },
   connParams,
 };
 
@@ -45,7 +51,7 @@ const LINES: Channel.BaseLineProps[] = [
 
 // eslint-disable-next-line react/display-name
 export const factory = (props: Channel.LinePlotProps) => (): ReactElement => (
-  <Pluto.Provider workerURL={WorkerURL} {...provideProps}>
+  <Pluto.Provider workerURL={WorkerURL} {...providerProps}>
     <Canvas.Canvas style={{ width: "100%", height: 500 }}>
       <Channel.LinePlot
         style={{ width: "calc(100% - 3rem)", height: 500 }}

@@ -18,7 +18,7 @@ import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<TextProps, "type" | "onBlur" | "color" | "value" | "onChange">,
+  extends Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
     DragButtonExtraProps,
     Control<number> {
   selectOnFocus?: boolean;
@@ -131,7 +131,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (disabled) showDragHandle = false;
+  if (disabled || variant === "preview") showDragHandle = false;
 
   return (
     <Text

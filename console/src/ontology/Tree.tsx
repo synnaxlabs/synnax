@@ -221,15 +221,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const handleSyncRelationshipSet = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     const { from, to } = rel;
-    const visibleNode = Core.findNode({
-      tree: nodesRef.current,
-      key: ontology.idToString(from),
-    });
-    if (visibleNode == null) return;
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
-      return [
+      const nextNodes = [
         ...Core.setNode({
           tree: prevNodes,
           destination,
@@ -241,6 +236,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
           ],
         }),
       ];
+      return nextNodes;
     });
   }, []);
   Ontology.useRelationshipSetSynchronizer(handleSyncRelationshipSet);

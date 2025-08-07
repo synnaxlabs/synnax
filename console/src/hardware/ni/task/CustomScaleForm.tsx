@@ -28,7 +28,7 @@ import {
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
-  Select.SimplyEntry<ScaleType>
+  Select.StaticEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -234,7 +234,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
         </Input.Item>
         <Flex.Box x>
           <Input.Item label="Raw Column" padHelpText grow>
-            <Select.Simple
+            <Select.Static
               resourceName="Raw Column"
               value={rawCol}
               onChange={handleRawColChange}
@@ -242,7 +242,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
             />
           </Input.Item>
           <Input.Item label="Scaled Column" padHelpText grow>
-            <Select.Simple
+            <Select.Static
               resourceName="Scaled Column"
               value={scaledCol}
               onChange={handleScaledColChange}

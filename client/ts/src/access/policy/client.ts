@@ -12,12 +12,10 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  ALLOW_ALL_ONTOLOGY_TYPE,
   type Key,
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Policy,
   policyZ,
 } from "@/access/policy/payload";
@@ -33,28 +31,22 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const subjectRetrieveRequestZ = z
-  .object({ for: ontology.idZ })
-  .transform(({ for: forId }) => ({ subjects: [forId] }));
-
-const subjectsRetrieveRequestZ = z
-  .object({ for: ontology.idZ.array() })
-  .transform(({ for: forIds }) => ({ subjects: forIds }));
-
-export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
-export type SubjectRetrieveRequest = z.input<typeof subjectRetrieveRequestZ>;
-export type SubjectsRetrieveRequest = z.input<typeof subjectsRetrieveRequestZ>;
-
-const retrieveArgsZ = z.union([
-  keyRetrieveRequestZ,
-  subjectRetrieveRequestZ,
-  subjectsRetrieveRequestZ,
+const listRetrieveArgsZ = z.union([
+  z
+    .object({ for: ontology.idZ })
+    .transform(({ for: forId }) => ({ subjects: [forId] })),
+  z
+    .object({ for: ontology.idZ.array() })
+    .transform(({ for: forIds }) => ({ subjects: forIds })),
   retrieveRequestZ,
 ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type SingleRetrieveArgs = z.input<typeof keyRetrieveRequestZ>;
+export type ListRetrieveArgs = z.input<typeof listRetrieveArgsZ>;
 
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const retrieveResZ = z.object({ policies: nullableArrayZ(policyZ) });
 
@@ -94,8 +86,8 @@ export class Client {
     return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(args: KeyRetrieveRequest): Promise<Policy>;
-  async retrieve(args: RetrieveArgs): Promise<Policy[]>;
+  async retrieve(args: SingleRetrieveArgs): Promise<Policy>;
+  async retrieve(args: ListRetrieveArgs): Promise<Policy[]>;
   async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
@@ -121,9 +113,9 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "policy", key });
 
 export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
-  type: ALLOW_ALL_ONTOLOGY_TYPE,
+  type: "allow_all",
   key: "",
 };

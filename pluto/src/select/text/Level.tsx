@@ -16,10 +16,20 @@ export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"
 
 export const Level = (props: LevelProps): ReactElement => (
   <Select.Buttons {...props} keys={text.LEVELS}>
-    <Select.Button itemKey="h2">XL</Select.Button>
-    <Select.Button itemKey="h3">L</Select.Button>
-    <Select.Button itemKey="h4">M</Select.Button>
-    <Select.Button itemKey="h5">S</Select.Button>
-    <Select.Button itemKey="small">XS</Select.Button>
+    <Select.Button itemKey="h2" square>
+      XL
+    </Select.Button>
+    <Select.Button itemKey="h3" square>
+      L
+    </Select.Button>
+    <Select.Button itemKey="h4" square>
+      M
+    </Select.Button>
+    <Select.Button itemKey="h5" square>
+      S
+    </Select.Button>
+    <Select.Button itemKey="small" square>
+      XS
+    </Select.Button>
   </Select.Buttons>
 );

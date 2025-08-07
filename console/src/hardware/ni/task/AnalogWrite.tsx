@@ -128,9 +128,9 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;

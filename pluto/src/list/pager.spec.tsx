@@ -32,13 +32,13 @@ describe("pager", () => {
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
-      term: "",
+      searchTerm: "",
     });
     result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 10,
       limit: 10,
-      term: "",
+      searchTerm: "",
     });
   });
 
@@ -59,19 +59,19 @@ describe("pager", () => {
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
-      term: "test",
+      searchTerm: "test",
     });
     result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 10,
       limit: 10,
-      term: "test",
+      searchTerm: "test",
     });
     result.current.search("test2");
     expect(currParams).toEqual({
       offset: 0,
       limit: 10,
-      term: "test2",
+      searchTerm: "test2",
     });
   });
 });

@@ -38,7 +38,7 @@ export const Select = ({
     (key: device.Key) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured } = await client.hardware.devices.retrieve(key);
+        const { configured } = await client.hardware.devices.retrieve({ key });
         if (configured) return;
         placeLayout({ ...configureLayout, key });
       }, "Failed to retrieve device");
@@ -53,14 +53,16 @@ export const Select = ({
       path={path}
       style={{ flexBasis: 150 }}
     >
-      {({ value, onChange }) => (
+      {({ value, onChange, variant }) => (
         <Device.SelectSingle
           value={value}
           onChange={onChange}
           initialParams={{ makes: [make] }}
+          filter={(p) => p.make === make}
           emptyContent={emptyContent}
           grow
           icon={icon}
+          variant={variant}
         />
       )}
     </Form.Field>

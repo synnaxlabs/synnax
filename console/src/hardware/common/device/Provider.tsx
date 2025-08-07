@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Flex, Text } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
 
@@ -57,12 +58,11 @@ export const Provider = <
     const { name } = device;
     const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
     return (
-      <Flex.Box>
-        <Text.Text>{`${name} is not configured.`}</Text.Text>
-        {canConfigure && (
-          <Text.Text onClick={handleConfigure}>{`Configure ${name}.`}</Text.Text>
-        )}
-      </Flex.Box>
+      <EmptyAction
+        message={`${name} is not configured.`}
+        action={canConfigure ? `Configure ${name}.` : ""}
+        onClick={handleConfigure}
+      />
     );
   }
   return children({ device });

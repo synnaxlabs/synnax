@@ -142,12 +142,13 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
-          {({ value, onChange }) => (
+          {({ value, onChange, variant }) => (
             <Device.SelectPort
               value={value}
               onChange={onChange}
               model={deviceModel}
               portType={convertChannelTypeToPortType(channel.type)}
+              triggerProps={{ variant }}
             />
           )}
         </PForm.Field>
@@ -280,7 +281,9 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)

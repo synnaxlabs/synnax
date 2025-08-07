@@ -51,8 +51,8 @@ describe("PreciseTimeScale", () => {
       expect(ticks.length).toBeGreaterThan(0);
       // Verify ticks are within domain
       ticks.forEach((tick) => {
-        expect(tick.valueOf() >= 0n).toBeTruthy();
-        expect(tick.valueOf() <= TimeSpan.microseconds(100).valueOf()).toBeTruthy();
+        expect(tick.valueOf() >= 0n).toBe(true);
+        expect(tick.valueOf() <= TimeSpan.microseconds(100).valueOf()).toBe(true);
       });
     });
 
@@ -67,8 +67,8 @@ describe("PreciseTimeScale", () => {
       const ticks = scale.ticks(5);
       expect(ticks.length).toBeGreaterThan(0);
       ticks.forEach((tick) => {
-        expect(tick.valueOf() >= TimeSpan.microseconds(50).valueOf()).toBeTruthy();
-        expect(tick.valueOf() <= TimeSpan.microseconds(150).valueOf()).toBeTruthy();
+        expect(tick.valueOf() >= TimeSpan.microseconds(50).valueOf()).toBe(true);
+        expect(tick.valueOf() <= TimeSpan.microseconds(150).valueOf()).toBe(true);
       });
     });
   });

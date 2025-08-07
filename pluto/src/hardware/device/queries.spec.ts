@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { device, newTestClient } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -186,7 +195,7 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ search: "special" });
+        result.current.retrieve({ searchTerm: "special" });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -194,7 +203,7 @@ describe("queries", () => {
         result.current.data
           .map((d) => result.current.getItem(d)?.name)
           .includes("special"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should filter devices by makes", async () => {

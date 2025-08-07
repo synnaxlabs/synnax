@@ -1159,9 +1159,11 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-export const analogReadStatusDataZ = z.object({
-  errors: z.array(z.object({ message: z.string(), path: z.string() })),
-});
+export const analogReadStatusDataZ = z
+  .object({
+    errors: z.array(z.object({ message: z.string(), path: z.string() })),
+  })
+  .or(z.null());
 
 export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 

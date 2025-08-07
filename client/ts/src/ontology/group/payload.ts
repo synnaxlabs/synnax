@@ -18,5 +18,3 @@ export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 export const groupZ = z.object({ key: keyZ, name: nameZ });
 export interface Payload extends z.infer<typeof groupZ> {}
-export const ONTOLOGY_TYPE = "group";
-export type OntologyType = typeof ONTOLOGY_TYPE;

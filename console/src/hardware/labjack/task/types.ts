@@ -264,9 +264,11 @@ const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 5,
 };
 
-export const readStatusDataZ = z.object({
-  errors: z.array(z.object({ message: z.string(), path: z.string() })),
-});
+export const readStatusDataZ = z
+  .object({
+    errors: z.array(z.object({ message: z.string(), path: z.string() })),
+  })
+  .or(z.null());
 
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
@@ -319,7 +321,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
   stateRate: 10,
 };
 
-export const writeStatusDataZ = z.object({});
+export const writeStatusDataZ = z.unknown();
 export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;

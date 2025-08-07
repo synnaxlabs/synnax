@@ -55,6 +55,3 @@ export interface New<
   make: Make;
   model: Model;
 }
-
-export const ONTOLOGY_TYPE = "device";
-export type OntologyType = typeof ONTOLOGY_TYPE;

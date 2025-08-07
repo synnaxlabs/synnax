@@ -209,6 +209,17 @@ export const TextShowcase = () => (
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
+
+      <SubcategorySection
+        title="Status Variations"
+        description="Text components with status variations"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text status="error">Error</Text.Text>
+          <Text.Text status="warning">Warning</Text.Text>
+          <Text.Text status="success">Success</Text.Text>
+        </Flex.Box>
+      </SubcategorySection>
     </Flex.Box>
   </Flex.Box>
 );
