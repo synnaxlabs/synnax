@@ -25,6 +25,7 @@
             .pluto--status-error
         ) {
         --pluto-border-color: rgb(var(--pluto-btn-color, var(--pluto-primary-z-rgb)));
+        border-color: var(--pluto-border-color);
         box-shadow: inset 0 0 0 0.5px var(--pluto-border-color);
     }
 

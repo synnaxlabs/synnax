@@ -23,6 +23,7 @@ const CREATE_COMMAND: Palette.Command = {
 const IMPORT_COMMAND: Palette.Command = {
   key: "import-schematic",
   name: "Import Schematic(s)",
+  sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
   visible: Schematic.selectHasPermission,

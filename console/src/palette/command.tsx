@@ -18,6 +18,7 @@ import {
   Synnax as PSynnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { type compare } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -80,6 +81,13 @@ export const listItem = Component.renderProp(
   },
 );
 
+const sort: compare.Comparator<Command> = (a, b) => {
+  if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+  if (typeof a.name === "string" && typeof b.name === "string")
+    return a.name.localeCompare(b.name);
+  return 0;
+};
+
 export const useCommandList = (): UseListReturn<Command> => {
   const store = useStore<RootState, RootAction>();
   const { commands } = useCommandContext();
@@ -108,7 +116,7 @@ export const useCommandList = (): UseListReturn<Command> => {
     },
     [addStatus, client, confirm, handleError, placeLayout, rename, store],
   );
-  const listProps = List.useStaticData<string, Command>({ data });
+  const listProps = List.useStaticData<string, Command>({ data, sort });
   return { ...listProps, handleSelect, listItem };
 };
 
@@ -127,6 +135,7 @@ export interface CommandSelectionContext {
 export interface Command {
   key: string;
   name: ReactElement | string;
+  sortOrder?: number;
   icon?: Icon.ReactElement;
   visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;

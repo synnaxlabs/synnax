@@ -222,6 +222,61 @@ describe("useStaticData", () => {
     });
   });
 
+  describe("sorting functionality", () => {
+    it("should sort data using the provided comparator", () => {
+      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
+      );
+
+      expect(result.current.data).toEqual(["1", "5", "2", "4", "3"]);
+    });
+
+    it("should sort by value in descending order", () => {
+      const sortByValueDesc = (a: TestItem, b: TestItem) => b.value - a.value;
+      
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: mockData, sort: sortByValueDesc }),
+      );
+
+      expect(result.current.data).toEqual(["4", "1", "3", "5", "2"]);
+    });
+
+    it("should maintain sorting when searching", () => {
+      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "Ap" });
+      });
+
+      expect(result.current.data).toEqual(["1", "5"]);
+    });
+
+    it("should combine filter and sort", () => {
+      const filter = (item: TestItem) => item.category === "fruit";
+      const sortByValue = (a: TestItem, b: TestItem) => a.value - b.value;
+      
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: mockData, filter, sort: sortByValue }),
+      );
+
+      expect(result.current.data).toEqual(["2", "5", "1"]);
+    });
+
+    it("should work without sorting function", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: mockData }),
+      );
+
+      expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
+    });
+  });
+
   describe("edge cases", () => {
     it("should handle data updates", () => {
       const { result, rerender } = renderHook(
