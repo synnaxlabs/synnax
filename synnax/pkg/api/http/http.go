@@ -20,17 +20,12 @@ import (
 )
 
 func New(router *fhttp.Router, channels channel.Readable) api.Transport {
-	streamFramerServerOption := fhttp.WithAdditionalCodecs(
-		map[string]func() binary.Codec{
-			"application/sy-framer": func() binary.Codec {
-				return api.NewWSFramerCodec(channels)
-			},
-		},
+	streamFramerServerOption := fhttp.WithCodec(
+		"application/sy-framer",
+		func() binary.Codec { return api.NewWSFramerCodec(channels) },
 	)
 	unaryFramerServerOption := fhttp.WithResponseEncoders(
-		map[string]func() binary.Encoder{
-			fhttp.MIMETextCSV: func() binary.Encoder { return csv.Encoder },
-		},
+		map[string]binary.Encoder{fhttp.MIMETextCSV: csv.Encoder},
 	)
 	return api.Transport{
 		AuthLogin:              fhttp.NewUnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, "/api/v1/auth/login"),

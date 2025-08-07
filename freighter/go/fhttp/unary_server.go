@@ -10,29 +10,59 @@
 package fhttp
 
 import (
-	"bytes"
 	"context"
 	"io"
-	"net/http"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 )
 
+type unaryServerOptions struct {
+	decoders map[string]binary.Decoder
+	encoders map[string]binary.Encoder
+}
+
+type UnaryServerOption func(*unaryServerOptions)
+
+func WithRequestDecoders(decoders map[string]binary.Decoder) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.decoders = decoders }
+}
+
+func WithResponseEncoders(encoders map[string]binary.Encoder) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.encoders = encoders }
+}
+
+func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
+	o := unaryServerOptions{
+		decoders: map[string]binary.Decoder{
+			MIMEApplicationJSON:    binary.JSONCodec,
+			MIMEApplicationMsgPack: binary.MsgPackCodec,
+		},
+		encoders: map[string]binary.Encoder{
+			MIMEApplicationJSON:    binary.JSONCodec,
+			MIMEApplicationMsgPack: binary.MsgPackCodec,
+		},
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
 // UnaryReadable is an interface that allows for stream reading of a response. If the
 // response type implements this interface, then the response can be streamed via http
-// body streaming to the client.
+// response body streaming to the client.
 type UnaryReadable interface {
 	// Read reads the next value from the response to be encoded.
 	Read() (any, error)
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
-	serverOptions
+	unaryServerOptions
 	offers []string
 	freighter.Reporter
 	freighter.MiddlewareCollector
@@ -42,17 +72,20 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryServer[any, any] = (*unaryServer[any, any])(nil)
 
+// NewUnaryServer creates a new unary server that uses HTTP as the transport, connected
+// to the given router at the given path.
 func NewUnaryServer[RQ, RS freighter.Payload](
 	r *Router,
 	path string,
-	opts ...ServerOption,
+	opts ...UnaryServerOption,
 ) freighter.UnaryServer[RQ, RS] {
-	so := newServerOptions(opts)
-	offers := lo.Keys(so.resEncoders)
+	so := newUnaryServerOptions(opts)
+	offers := lo.Keys(so.encoders)
+	allEncodings := append(lo.Keys(so.decoders), offers...)
 	us := &unaryServer[RQ, RS]{
-		serverOptions: so,
-		Reporter:      getReporter(offers),
-		offers:        offers,
+		unaryServerOptions: so,
+		Reporter:           newReporter(allEncodings...),
+		offers:             offers,
 	}
 	r.register(path, fiber.MethodPost, us, us.fiberHandler)
 	return us
@@ -65,11 +98,10 @@ func (us *unaryServer[RQ, RS]) BindHandler(
 }
 
 func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
-	getCodec, ok := us.reqDecoders[fiberCtx.Get(fiber.HeaderContentType)]
+	decoder, ok := us.decoders[fiberCtx.Get(fiber.HeaderContentType)]
 	if !ok {
 		return fiber.ErrUnsupportedMediaType
 	}
-	codec := getCodec()
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		parseRequestCtx(fiberCtx.Context(), fiberCtx, address.Address(fiberCtx.Path())),
@@ -78,7 +110,7 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 				req RQ
 				err error
 			)
-			if err := codec.Decode(
+			if err := decoder.Decode(
 				freighterCtx,
 				fiberCtx.BodyRaw(),
 				&req,
@@ -108,11 +140,10 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 
 func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 	contentType := ctx.Accepts(us.offers...)
-	getCodec, ok := us.resEncoders[contentType]
+	encoder, ok := us.encoders[contentType]
 	if !ok {
 		return fiber.ErrNotAcceptable
 	}
-	codec := getCodec()
 	ctx.Set(fiber.HeaderContentType, contentType)
 	reqCtx := ctx.Context()
 	if uReader, ok := v.(UnaryReadable); ok {
@@ -124,7 +155,7 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 					w.CloseWithError(err)
 					return
 				}
-				if err := codec.EncodeStream(reqCtx, w, v); err != nil {
+				if err := encoder.EncodeStream(reqCtx, w, v); err != nil {
 					w.CloseWithError(err)
 					return
 				}
@@ -132,103 +163,10 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 		}()
 		return ctx.SendStream(r)
 	}
-	b, err := codec.Encode(reqCtx, v)
+	b, err := encoder.Encode(reqCtx, v)
 	if err != nil {
 		return err
 	}
 	_, err = ctx.Write(b)
 	return err
-}
-
-type unaryClient[RQ, RS freighter.Payload] struct {
-	cfg ClientConfig
-	freighter.Reporter
-	freighter.MiddlewareCollector
-}
-
-var _ freighter.UnaryClient[any, any] = (*unaryClient[any, any])(nil)
-
-func NewUnaryClient[RQ, RS freighter.Payload](
-	cfgs ...ClientConfig,
-) (freighter.UnaryClient[RQ, RS], error) {
-	cfg, err := config.New(DefaultClientConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	return &unaryClient[RQ, RS]{cfg: cfg}, nil
-}
-
-func (uc *unaryClient[RQ, RS]) Send(
-	ctx context.Context,
-	target address.Address,
-	req RQ,
-) (RS, error) {
-	var res RS
-	if _, err := uc.MiddlewareCollector.Exec(
-		freighter.Context{
-			Context:  ctx,
-			Role:     freighter.Client,
-			Variant:  freighter.Unary,
-			Protocol: "http",
-			Target:   target,
-			Params:   make(freighter.Params),
-		},
-		func(inCtx freighter.Context) (freighter.Context, error) {
-			b, err := uc.cfg.Encoder.Encode(inCtx, req)
-			if err != nil {
-				return freighter.Context{}, err
-			}
-			httpReq, err := http.NewRequestWithContext(
-				ctx,
-				fiber.MethodPost,
-				"http://"+target.String(),
-				bytes.NewReader(b),
-			)
-			if err != nil {
-				return freighter.Context{}, err
-			}
-			setRequestCtx(httpReq, inCtx)
-			httpReq.Header.Set(fiber.HeaderContentType, uc.cfg.ContentType)
-			httpReq.Header.Set(fiber.HeaderAccept, uc.cfg.Accept)
-			httpRes, err := (&http.Client{}).Do(httpReq)
-			if err != nil {
-				return freighter.Context{}, err
-			}
-			outCtx := parseResponseCtx(httpRes, target)
-			if contentType := httpRes.Header.Get(fiber.HeaderContentType); contentType != uc.cfg.Accept {
-				return freighter.Context{}, errors.Newf(
-					"unexpected response content type: %s, expected: %s",
-					contentType,
-					uc.cfg.Accept,
-				)
-			}
-			decoder := uc.cfg.Decoder
-			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
-				var pld errors.Payload
-				if err := decoder.DecodeStream(
-					inCtx,
-					httpRes.Body,
-					&pld,
-				); err != nil {
-					return freighter.Context{}, err
-				}
-				if err := errors.Decode(ctx, pld); err != nil {
-					return freighter.Context{}, err
-				}
-				return outCtx, nil
-			}
-			if err := uc.cfg.Decoder.DecodeStream(
-				inCtx,
-				httpRes.Body,
-				&res,
-			); err != nil {
-				return freighter.Context{}, err
-			}
-			return outCtx, nil
-		},
-	); err != nil {
-		var r RS
-		return r, err
-	}
-	return res, nil
 }

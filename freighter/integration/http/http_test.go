@@ -24,7 +24,6 @@ import (
 	httpIntegration "github.com/synnaxlabs/freighter/integration/http"
 	"github.com/synnaxlabs/freighter/integration/payload"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -53,10 +52,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 		httpIntegration.BindTo(app)
 
 		unaryEcho = MustSucceed(fhttp.NewUnaryClient[message, message]())
-		textResponseCfg := fhttp.ClientConfig{
-			Decoder: binary.StringCodec,
-			Accept:  fhttp.MIMETextPlain,
-		}
+		textResponseCfg := fhttp.UnaryClientConfig{Decoder: fhttp.TextCodec}
 		unaryTextResponse = MustSucceed(
 			fhttp.NewUnaryClient[message, message](textResponseCfg),
 		)

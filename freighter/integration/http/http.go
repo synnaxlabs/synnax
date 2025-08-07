@@ -64,8 +64,8 @@ func BindTo(app *fiber.App) {
 	unaryTextResponseServer := fhttp.NewUnaryServer[Message, *UnaryTextResponse](
 		router,
 		"/unary/textResponse",
-		fhttp.WithResponseEncoders(map[string]func() binary.Encoder{
-			fhttp.MIMETextPlain: func() binary.Encoder { return binary.StringCodec },
+		fhttp.WithResponseEncoders(map[string]binary.Encoder{
+			fhttp.MIMETextPlain: binary.StringCodec,
 		}),
 	)
 	unaryTextResponseServer.BindHandler(unaryTextResponseHandler)
