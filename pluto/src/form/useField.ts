@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, shallowCopy, type status } from "@synnaxlabs/x";
+import {
+  array,
+  type compare,
+  type record,
+  shallowCopy,
+  type status,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
@@ -20,7 +26,6 @@ import {
   type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
-import { type Input } from "@/input";
 import { state } from "@/state";
 
 export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
@@ -40,7 +45,7 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
   status: status.Crude;
-  variant?: Input.Variant;
+  variant?: "preview";
 }
 
 interface UseField {
@@ -99,8 +104,7 @@ export const useField = (<I, O = I>(
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
-  let variant: Input.Variant | undefined;
-  if (ctx.mode === "preview") variant = "preview";
+  const variant = ctx.mode === "preview" ? "preview" : undefined;
   return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 
@@ -156,86 +160,76 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
-): O | null => {
-  const { get, bind } = useContext(opts?.ctx);
-  return useSyncExternalStore(
-    bind,
-    useCallback(() => get<O>(path, opts)?.value ?? null, [path, get, opts]),
-  );
-}) as UseFieldValue;
+): O | null => useFieldState(path, opts)?.value ?? null) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
-export interface FieldArrayUtils<V> {
-  push: (value: V | V[], sort?: compare.CompareF<V>) => void;
-  add: (value: V | V[], start: number) => void;
-  remove: (index: number | number[]) => void;
-  keepOnly: (indices: number | number[]) => void;
-  set: (values: state.SetArg<V[]>) => void;
-  sort?: (compareFn: compare.CompareF<V>) => void;
+export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
+  push: (value: E | E[], sort?: compare.Comparator<E>) => void;
+  add: (value: E | E[], start: number) => void;
+  remove: (keys: K | K[]) => K[];
+  keepOnly: (keys: K | K[]) => K[];
+  set: (values: state.SetArg<E[]>) => void;
+  value(): E[];
+  sort?: (compareFn: compare.Comparator<E>) => void;
 }
 
-export const fieldArrayUtils = <V = unknown>(
+export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   ctx: ContextValue<any>,
   path: string,
-): FieldArrayUtils<V> => ({
+): FieldListUtils<K, E> => ({
+  value: () => ctx.get<E[]>(path).value,
   add: (value, start) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.splice(start, 0, ...array.toArray(value));
-    ctx.set(path, copy, { validateChildren: false });
+    ctx.set(path, copy);
   },
   push: (value, sort) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
-    ctx.set(path, copy, { validateChildren: false });
+    ctx.set(path, copy);
   },
-  remove: (index) => {
-    const val = ctx.get<V[]>(path).value;
-    const indices = new Set(array.toArray(index));
-    ctx.set(
-      path,
-      val.filter((_, i) => !indices.has(i)),
-    );
+  remove: (key) => {
+    const val = ctx.get<E[]>(path).value;
+    const keys = new Set(array.toArray(key));
+    const next = val.filter(({ key }) => !keys.has(key));
+    ctx.set(path, next);
+    return next.map(({ key }) => key);
   },
-  keepOnly: (index) => {
-    const val = ctx.get<V[]>(path).value;
-    const indices = new Set(array.toArray(index));
-    ctx.set(
-      path,
-      val.filter((_, i) => indices.has(i)),
-    );
+  keepOnly: (key) => {
+    const val = ctx.get<E[]>(path).value;
+    const keys = new Set(array.toArray(key));
+    const next = val.filter(({ key }) => keys.has(key));
+    ctx.set(path, next);
+    return next.map(({ key }) => key);
   },
-  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<V[]>(path).value)),
+  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<E[]>(path).value)),
   sort: (compareFn) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.sort(compareFn);
     ctx.set(path, copy);
   },
 });
 
-export interface UseFieldArrayReturn<V = unknown> {
-  value: V[];
-  push: (value: V | V[]) => void;
-  add: (value: V | V[], start: number) => void;
-  remove: (index: number | number[]) => void;
-  keepOnly: (indices: number | number[]) => void;
-  set: (values: state.SetArg<V[]>) => void;
+export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
+  extends FieldListUtils<K, E> {
+  data: K[];
 }
 
-export const useFieldArray = <V = unknown, Z extends z.ZodType = z.ZodType>(
+export const useFieldList = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  Z extends z.ZodType = z.ZodType,
+>(
   path: string,
   opts: ContextOptions<Z> = {},
-): UseFieldArrayReturn<V> => {
+): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
-  const { get: getState } = ctx;
-  const fState = useSyncExternalStore(
-    ctx.bind,
-    useCallback(() => getState<V[]>(path).value, [path, getState]),
-  );
+  const value = useFieldValue<E[]>(path, opts);
   return useMemo(
-    () => ({ value: fState, ...fieldArrayUtils<V>(ctx, path) }),
-    [fState, ctx, path],
+    () => ({ data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) }),
+    [value, ctx, path],
   );
 };

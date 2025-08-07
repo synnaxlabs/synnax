@@ -80,12 +80,22 @@ export const wrap = <
       store.getState(),
       layoutKey,
     );
-    const res = useRetrieve({ params: { key: taskKey } });
-    if (res.variant !== "success") return <Status.Text {...res} />;
+    const { data, variant, status } = useRetrieve({
+      params: { key: taskKey },
+    });
+    if (variant !== "success")
+      return (
+        <Status.Summary
+          variant={variant}
+          message={status.message}
+          description={status.description}
+          center
+        />
+      );
     return (
       <Wrapped
-        rackKey={res.data ? task.getRackKey(res.data.key) : rackKey}
-        task={res.data ?? getInitialPayload({ deviceKey, config })}
+        rackKey={data ? task.rackKey(data.key) : rackKey}
+        task={data ?? getInitialPayload({ deviceKey, config })}
         layoutKey={layoutKey}
       />
     );

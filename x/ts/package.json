@@ -153,11 +153,6 @@
       "import": "./dist/array.js",
       "require": "./dist/array.cjs"
     },
-    "./search": {
-      "types": "./dist/src/search.d.ts",
-      "import": "./dist/search.js",
-      "require": "./dist/search.cjs"
-    },
     "./unique": {
       "types": "./dist/src//unique/index.d.ts",
       "import": "./dist/unique.js",

@@ -80,16 +80,16 @@ export const AliasInput = ({
   return (
     <Input.Text {...rest}>
       {canSetAlias && (
-        <Button.Icon
+        <Button.Button
           onClick={handleSetValueToAlias}
           tooltip={<Text.Text level="small">Set {name} as label</Text.Text>}
           tooltipLocation={{ y: "top" }}
           variant="outlined"
         >
           <Icon.Sync />
-        </Button.Icon>
+        </Button.Button>
       )}
-      <Button.Icon
+      <Button.Button
         onClick={handleSetAlias}
         disabled={!canSetAlias}
         tooltip={setAliasTooltip}
@@ -97,7 +97,7 @@ export const AliasInput = ({
         variant="outlined"
       >
         {icon}
-      </Button.Icon>
+      </Button.Button>
     </Input.Text>
   );
 };

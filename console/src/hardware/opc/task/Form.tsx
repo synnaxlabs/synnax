@@ -11,15 +11,14 @@ import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
+  type Component,
+  Flex,
   Form as PForm,
   Haul,
   Header as PHeader,
   Icon,
-  List,
-  type RenderProp,
+  Select,
   Text,
-  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
@@ -38,8 +37,8 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
 }
 
 interface ChannelListItemProps<C extends Channel>
-  extends Common.Task.ChannelListItemProps<C> {
-  children: RenderProp<ExtraItemProps>;
+  extends Omit<Common.Task.ChannelListItemProps, "children"> {
+  children: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -50,55 +49,49 @@ const ChannelListItem = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListItemProps<C>) => {
-  const {
-    entry: { nodeName, nodeId },
-  } = rest;
+  const item = PForm.useFieldValue<C>(path);
+  if (item == null) return null;
+  const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";
   let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
-  const { key: channel, id } = getChannelKeyAndID(rest.entry);
+  const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
-      <Align.Space direction="y" gap="small">
-        <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
-        <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="small"
-          weight={350}
-          shade={9}
-          color={opcNodeColor}
-          gap="small"
-        >
+    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
+      <Flex.Box direction="y" gap="small">
+        <ChannelName weight={500} color={10} channel={channel} id={id} />
+        <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
+          <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}
-        </Text.WithIcon>
-      </Align.Space>
-      <Align.Space direction="x" align="center">
+        </Text.Text>
+      </Flex.Box>
+      <Flex.Box direction="x" align="center">
         {children({ path, snapshot: isSnapshot })}
         <Common.Task.EnableDisableButton
           path={`${path}.enabled`}
           isSnapshot={isSnapshot}
         />
-      </Align.Space>
-    </List.ItemFrame>
+      </Flex.Box>
+    </Select.ListItem>
   );
 };
 
 const Header = () => (
-  <PHeader.Header level="p" style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
-    <PHeader.Title weight={500} shade={10}>
+  <PHeader.Header style={{ height: "4.5rem", flexShrink: 0, flexGrow: 0 }}>
+    <PHeader.Title weight={500} color={10} level="p">
       Channels
     </PHeader.Title>
   </PHeader.Header>
 );
 
 const EmptyContent = () => (
-  <Align.Center>
-    <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+  <Flex.Box center>
+    <Text.Text status="disabled" style={{ display: "inline-block", maxWidth: 300 }}>
       No channels added. Drag a variable{" "}
       <Icon.Variable style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }} />{" "}
       from the browser to add a channel to the task.
     </Text.Text>
-  </Align.Center>
+  </Flex.Box>
 );
 
 const CHANNELS_PATH = "config.channels";
@@ -112,7 +105,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHau
 
 interface ChannelListProps<C extends Channel>
   extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
-  children: RenderProp<ExtraItemProps>;
+  children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
   convertHaulItemToChannel: (item: Haul.Item) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
@@ -125,15 +118,15 @@ const ChannelList = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListProps<C>) => {
-  const { value, push, remove } = PForm.useFieldArray<C>(CHANNELS_PATH);
-  const valueRef = useSyncedRef(value);
+  const ctx = PForm.useContext();
+  const fieldListreturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { data, push } = fieldListreturn;
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
+      const channels = ctx.get<C[]>(CHANNELS_PATH).value;
       const dropped = items.filter(filterHaulItem);
       const toAdd = dropped
-        .filter(
-          ({ data }) => !valueRef.current.some(({ nodeId }) => nodeId === data?.nodeId),
-        )
+        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data?.nodeId))
         .map(convertHaulItemToChannel);
       push(toAdd);
       return dropped;
@@ -149,9 +142,9 @@ const ChannelList = <C extends Channel>({
 
   const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
 
-  const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
+  const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
         {children}
       </ChannelListItem>
@@ -160,18 +153,17 @@ const ChannelList = <C extends Channel>({
   );
   return (
     <Common.Task.ChannelList
-      {...rest}
-      channels={value}
       onSelect={setSelected}
       path={CHANNELS_PATH}
-      remove={remove}
       emptyContent={<EmptyContent />}
       header={<Header />}
       selected={selected}
       isDragging={isDragging}
       listItem={listItem}
       grow
+      {...rest}
       {...haulProps}
+      {...fieldListreturn}
     />
   );
 };
@@ -181,7 +173,7 @@ export interface FormProps<C extends Channel>
     Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
   > {
   isSnapshot: boolean;
-  children?: RenderProp<ExtraItemProps>;
+  children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 

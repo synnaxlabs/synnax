@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { status } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 
@@ -33,22 +34,6 @@ export const useStatusSynchronizer = <StatusData extends z.ZodType>(
     }),
   });
 
-export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
-  Flux.useListener({
-    channel: task.SET_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(task.keyZ, async (args) => {
-      onSet(args.changed);
-    }),
-  });
-
-export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =>
-  Flux.useListener({
-    channel: task.DELETE_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(task.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
-  });
-
 interface QueryParams {
   key: task.Key | undefined;
 }
@@ -64,7 +49,11 @@ export const createRetrieveQuery = <
     name: "Task",
     retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
-      return await client.hardware.tasks.retrieve({ key, schemas });
+      return await client.hardware.tasks.retrieve({
+        key,
+        includeStatus: true,
+        schemas,
+      });
     },
     listeners: [
       {
@@ -79,3 +68,67 @@ export const createRetrieveQuery = <
       },
     ],
   });
+
+export interface ListParams {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, task.Key, task.Task>({
+  name: "Task",
+  retrieve: async ({ client, params }) =>
+    await client.hardware.tasks.retrieve({
+      includeStatus: true,
+      ...params,
+    }),
+  retrieveByKey: async ({ client, key }) =>
+    await client.hardware.tasks.retrieve({ key }),
+  listeners: [
+    {
+      channel: task.SET_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(
+        task.keyZ,
+        async ({ client, changed: key, onChange }) =>
+          onChange(key, await client.hardware.tasks.retrieve({ key })),
+      ),
+    },
+    {
+      channel: task.DELETE_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(task.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: task.STATUS_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(
+        task.statusZ(z.unknown()),
+        async ({ changed, onChange, client }) => {
+          onChange(changed.details.task, (prev) => {
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({ ...prev, status: changed });
+          });
+        },
+      ),
+    },
+    {
+      channel: task.COMMAND_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(
+        task.commandZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed.task, (prev) => {
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({
+              ...prev,
+              status: status.create<task.StatusDetails<z.ZodUnknown>>({
+                variant: "loading",
+                message: "Executing command...",
+                details: { task: changed.task, running: true, data: {} },
+              }),
+            });
+          });
+        },
+      ),
+    },
+  ],
+});

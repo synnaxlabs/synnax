@@ -9,7 +9,6 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -22,7 +21,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Params,
   remoteZ,
   type Workspace,
@@ -39,11 +37,12 @@ const DELETE_ENDPOINT = "/workspace/delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   author: userKeyZ.optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({ key: keyZ, layout: z.string() });
@@ -56,8 +55,8 @@ const emptyResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
-export class Client implements AsyncTermSearcher<string, Key, Workspace> {
-  readonly type = ONTOLOGY_TYPE;
+export class Client {
+  readonly type = "workspace";
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
   readonly log: log.Client;
@@ -108,12 +107,17 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
 
   async retrieve(key: Key): Promise<Workspace>;
   async retrieve(keys: Key[]): Promise<Workspace[]>;
-  async retrieve(keys: Params): Promise<Workspace | Workspace[]> {
-    const isMany = Array.isArray(keys);
+  async retrieve(req: RetrieveRequest): Promise<Workspace[]>;
+  async retrieve(keys: Params | RetrieveRequest): Promise<Workspace | Workspace[]> {
+    let req: RetrieveRequest;
+    const isMany: boolean = typeof keys !== "string";
+    if (typeof keys === "string" || Array.isArray(keys))
+      req = { keys: array.toArray(keys) };
+    else req = keys;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      req,
       retrieveReqZ,
       retrieveResZ,
     );
@@ -125,28 +129,6 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
       this.client,
       RETRIEVE_ENDPOINT,
       { author },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
-  }
-
-  async search(term: string): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { search: term },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
-  }
-
-  async page(offset: number, limit: number): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
       retrieveReqZ,
       retrieveResZ,
     );
@@ -166,4 +148,4 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "workspace", key });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, newTestClient } from "@synnaxlabs/client";
+import { label, newTestClient } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -365,10 +365,9 @@ describe("useForm", () => {
 
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const ch = await client.channels.create({
-        name: "Test Channel",
-        virtual: true,
-        dataType: "float32",
+      const ch = await client.labels.create({
+        name: "Initial Name",
+        color: "#000000",
       });
 
       const initialValues = {
@@ -394,21 +393,20 @@ describe("useForm", () => {
             update,
             listeners: [
               {
-                channel: channel.SET_CHANNEL_NAME,
-                onChange: async ({ client, params, onChange }) => {
-                  if (ch.key.toString() !== params.key) return;
-                  const updatedChannel = await client.channels.retrieve(ch.key);
-                  onChange((prev) => {
-                    if (prev == null) return prev;
-                    return {
-                      ...prev,
-                      name: updatedChannel.name,
-                    };
-                  });
-                },
+                channel: label.SET_CHANNEL_NAME,
+                onChange: Flux.parsedHandler(
+                  label.labelZ,
+                  async ({ params, onChange, changed }) => {
+                    if (changed.key !== params.key) return;
+                    onChange((prev) => {
+                      if (prev == null) return prev;
+                      return { ...prev, name: changed.name };
+                    });
+                  },
+                ),
               },
             ],
-          })({ params: { key: ch.key.toString() } }),
+          })({ params: { key: ch.key } }),
         { wrapper: newSynnaxWrapper(client) },
       );
 
@@ -418,13 +416,15 @@ describe("useForm", () => {
         expect(result.current.listenersMounted).toEqual(true);
       });
 
-      // Trigger a channel name change which should invoke the listener
       await act(async () => {
-        await client.channels.rename(ch.key, "Updated Channel Name");
+        await client.labels.create({
+          ...ch,
+          name: "Updated Label Name",
+        });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("Updated Channel Name");
+        expect(result.current.form.value().name).toEqual("Updated Label Name");
         expect(result.current.variant).toEqual("success");
       });
     });
@@ -470,7 +470,7 @@ describe("useForm", () => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(
           result.current.variant,
-          `${result.current.message}:${result.current.description}`,
+          `${result.current.status.message}:${result.current.status.description}`,
         ).toEqual("success");
         expect(result.current.listenersMounted).toEqual(true);
       });
@@ -483,7 +483,7 @@ describe("useForm", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.description).toEqual("Listener error");
+        expect(result.current.status.description).toEqual("Listener error");
       });
     });
   });

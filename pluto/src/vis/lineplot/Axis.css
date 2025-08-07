@@ -9,16 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-axis__label.pluto--y {
+.pluto-axis__label.pluto--direction-y {
     white-space: nowrap;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
 }
 
-.pluto-y-axis.pluto--right {
+.pluto-y-axis.pluto--location-right {
     align-items: end;
 }
 
-.pluto-y-axis.pluto--left {
+.pluto-y-axis.pluto--location-left {
     align-items: start;
 }

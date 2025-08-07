@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto--pack button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
-.pluto-input__internal {
-    z-index: 3;
+.pluto-input {
+    z-index: 4;
 }
 
 @keyframes fade-in-zoom {
@@ -35,17 +35,18 @@
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
-    --pluto-height-tiny: 3rem;
+    --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         fill 0.15s ease-in-out;
-    --pluto-dialog-animation: fade-in-zoom 0.15s ease-in-out;
+    --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
+    --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
 }
 
 .pluto-theme-synnax-light {
     --pluto-shadow-v1:
-        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.04),
-        0px 16px 24px -8px rgba(0, 0, 0, 0.06);
+        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
+        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
 
     --pluto-shadow-v2:
         lch(0 0 0 / 0.022) 0px 6px 18px, lch(0 0 0 / 0.044) 0px 3px 9px,
@@ -66,20 +67,8 @@ html {
     font-size: var(--pluto-base-size);
 }
 
-.pluto--sharp {
-    border-radius: 0 !important;
-}
-
-.pluto--rounded {
-    border-radius: var(--pluto-border-radius);
-}
-
 .pluto--no-wrap {
     white-space: nowrap;
-}
-
-.pluto--bordered {
-    border: var(--pluto-border);
 }
 
 .pluto--bordered-right {
@@ -98,40 +87,20 @@ html {
     border-bottom: var(--pluto-border);
 }
 
-.pluto--x > .pluto--bordered-start {
+.pluto--direction-x > .pluto--bordered-start {
     border-right: var(--pluto-border);
 }
 
-.pluto--x > .pluto--bordered-end {
+.pluto--direction-x > .pluto--bordered-end {
     border-left: var(--pluto-border);
 }
 
-.pluto--y > .pluto--bordered-start {
+.pluto--direction-y > .pluto--bordered-start {
     border-bottom: var(--pluto-border);
 }
 
-.pluto--y > .pluto--bordered-end {
+.pluto--direction-y > .pluto--bordered-end {
     border-top: var(--pluto-border);
-}
-
-.pluto--huge {
-    height: var(--pluto-height-huge);
-}
-
-.pluto--large {
-    height: var(--pluto-height-large);
-}
-
-.pluto--medium {
-    height: var(--pluto-height-medium);
-}
-
-.pluto--tiny {
-    height: var(--pluto-height-tiny);
-}
-
-.pluto--small {
-    height: var(--pluto-height-small);
 }
 
 .pluto--no-select {

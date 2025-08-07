@@ -146,6 +146,8 @@ export interface UseListArgs<
   initialParams?: RetrieveParams;
   /** Optional filter function to apply to items */
   filter?: (item: E) => boolean;
+  /** Optional function to sort the list */
+  sort?: compare.Comparator<E>;
   /** Debounce time for retrieve operations */
   retrieveDebounce?: CrudeTimeSpan;
 }
@@ -165,6 +167,12 @@ export interface UseList<
   (args?: UseListArgs<RetrieveParams, K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
+type ListChangeMode = "prepend" | "append" | "replace";
+
+interface ListenerOnChangeOptions {
+  mode?: ListChangeMode;
+}
+
 /**
  * Extra arguments passed to list listener handlers.
  *
@@ -172,7 +180,7 @@ export interface UseList<
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-interface ListListenerExtraArgs<
+export interface ListListenerExtraArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
@@ -183,7 +191,7 @@ interface ListListenerExtraArgs<
   /** The Synnax client instance */
   client: Client;
   /** Function to update a specific item in the list */
-  onChange: (key: K, e: state.SetArg<E | null>) => void;
+  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
   /** Function to remove an item from the list */
   onDelete: (key: K) => void;
 }
@@ -307,10 +315,12 @@ export const createList =
   (args: UseListArgs<P, K, E> = {}) => {
     const {
       filter = defaultFilter,
+      sort,
       initialParams,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
     } = args;
     const filterRef = useSyncedRef(filter);
+    const sortRef = useSyncedRef(sort);
     const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
@@ -331,6 +341,20 @@ export const createList =
           if (key === changed) notify();
         }),
       [listenersRef],
+    );
+
+    const updateSortedData = useCallback(
+      (keys: K[]) => {
+        if (sortRef.current == null) return keys;
+
+        const allItems = keys
+          .map((key) => dataRef.current.get(key))
+          .filter((item): item is E => item != null);
+
+        allItems.sort(sortRef.current);
+        return allItems.map((item) => item.key);
+      },
+      [sortRef],
     );
 
     const retrieveAsync = useCallback(
@@ -358,6 +382,8 @@ export const createList =
           let value = await retrieve({ client, params });
           if (signal?.aborted) return;
           value = value.filter(filterRef.current);
+          if (sortRef.current != null) value = value.sort(sortRef.current);
+
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
 
@@ -394,17 +420,34 @@ export const createList =
                           return { ...p, data: p.data.filter((key) => key !== k) };
                         });
                       },
-                      onChange: (k, setter) => {
+                      onChange: (k, setter, opts = {}) => {
+                        const { mode = "append" } = opts;
                         const prev = dataRef.current.get(k) ?? null;
                         if (prev != null && !filterRef.current(prev)) return;
                         const res = state.executeSetter(setter, prev);
-                        if (res == null) return;
-                        if (prev == null)
-                          setResult((p) => {
-                            if (p.data == null) return p;
-                            return { ...p, data: [...p.data, k] };
-                          });
-                        dataRef.current.set(k, { ...res });
+                        if (res == null || !filterRef.current(res)) return;
+
+                        dataRef.current.set(k, res);
+
+                        setResult((p) => {
+                          if (p.data == null) return p;
+                          let newData: K[];
+                          if (prev == null)
+                            if (sortRef.current != null)
+                              newData = updateSortedData([...p.data, k]);
+                            else
+                              newData =
+                                mode === "prepend" ? [k, ...p.data] : [...p.data, k];
+                          else if (sortRef.current != null) {
+                            const currentIndex = p.data.indexOf(k);
+                            const sortedData = updateSortedData(p.data);
+                            const newIndex = sortedData.indexOf(k);
+                            if (currentIndex !== newIndex) newData = sortedData;
+                            else newData = p.data;
+                          } else newData = p.data;
+                          return { ...p, data: newData };
+                        });
+
                         notifyListeners(k);
                       },
                     });

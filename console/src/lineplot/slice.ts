@@ -348,7 +348,7 @@ export const { actions, reducer } = createSlice({
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.plots[payload.key].remoteCreated = true;
     },
-    selectRule: (
+    setSelectedRule: (
       state,
       { payload }: PayloadAction<{ key: string; ruleKey: string | string[] }>,
     ) => {
@@ -379,7 +379,7 @@ export const {
   setControlState,
   storeViewport,
   setViewportMode,
-  selectRule,
+  setSelectedRule,
   setRemoteCreated,
   setSelection,
   create: internalCreate,

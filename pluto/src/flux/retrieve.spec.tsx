@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, newTestClient } from "@synnaxlabs/client";
+import { label, newTestClient } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,7 +32,7 @@ describe("retrieve", () => {
         );
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(null);
-        expect(result.current.message).toEqual("Retrieving Resource");
+        expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
       it("should return a success result when the data is fetched", async () => {
@@ -46,7 +47,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.message).toEqual("Retrieved Resource");
+          expect(result.current.status.message).toEqual("Retrieved Resource");
         });
       });
 
@@ -64,8 +65,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(null);
-          expect(result.current.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.description).toEqual("test");
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual("test");
         });
       });
 
@@ -81,8 +82,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(null);
-          expect(result.current.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.description).toEqual(
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual(
             "Cannot retrieve Resource because no cluster is connected.",
           );
         });
@@ -91,25 +92,24 @@ describe("retrieve", () => {
 
     describe("listeners", () => {
       it("should correctly update the resource when the listener changes", async () => {
-        const ch = await client.channels.create({
-          name: "Test Channel",
-          virtual: true,
-          dataType: "float32",
+        const ch = await client.labels.create({
+          name: "Test Label",
+          color: "#000000",
         });
         const { result } = renderHook(
           () =>
-            Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
+            Flux.createRetrieve<{ key: label.Key }, label.Label>({
               name: "Resource",
               retrieve: async ({ client, params: { key } }) =>
-                await client.channels.retrieve(key),
+                await client.labels.retrieve({ key }),
               listeners: [
                 {
-                  channel: channel.SET_CHANNEL_NAME,
+                  channel: label.SET_CHANNEL_NAME,
                   onChange: Flux.parsedHandler(
-                    channel.keyZ,
-                    async ({ client, params: { key }, onChange, changed }) => {
-                      if (key !== changed) return;
-                      onChange(await client.channels.retrieve(key));
+                    label.labelZ,
+                    async ({ params: { key }, onChange, changed }) => {
+                      if (key !== changed.key) return;
+                      onChange(changed);
                     },
                   ),
                 },
@@ -123,47 +123,55 @@ describe("retrieve", () => {
           expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
-          await client.channels.rename(ch.key, "Test Channel 2");
+          await client.labels.create({
+            ...ch,
+            name: "Test Label 2",
+          });
         });
-        await waitFor(() => {
-          expect(
-            result.current.variant,
-            `${result.current.message}:${result.current.description}`,
-          ).toEqual("success");
-          expect(result.current.data?.name).toEqual("Test Channel 2");
-        });
+        await waitFor(
+          () => {
+            expect(result.current.data?.name).toEqual("Test Label 2");
+            expect(
+              result.current.variant,
+              `${result.current.status.message}:${result.current.status.description}`,
+            ).toEqual("success");
+          },
+          { timeout: 1000 },
+        );
       });
 
       it("should move the query into an error state when the listener throws an error", async () => {
-        const ch = await client.channels.create({
-          name: "Test Channel",
+        const signalChannelName = `signal_${uuid.create()}`;
+        await client.channels.create({
+          name: signalChannelName,
           virtual: true,
           dataType: "float32",
         });
+
         const { result } = renderHook(
           () =>
-            Flux.createRetrieve<{ key: channel.Key }, channel.Channel>({
+            Flux.createRetrieve<{}, number>({
               name: "Resource",
-              retrieve: async ({ client, params: { key } }) =>
-                await client.channels.retrieve(key),
+              retrieve: async () => 5,
               listeners: [
                 {
-                  channel: channel.SET_CHANNEL_NAME,
+                  channel: signalChannelName,
                   onChange: async () => {
                     throw new Error("test");
                   },
                 },
               ],
-            }).useDirect({ params: { key: ch.key } }),
+            }).useDirect({ params: {} }),
           { wrapper: newSynnaxWrapper(client) },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(ch);
           expect(result.current.listenersMounted).toEqual(true);
         });
         await act(async () => {
-          await client.channels.rename(ch.key, "Test Channel 2");
+          const writer = await client.openWriter(signalChannelName);
+          await writer.write(signalChannelName, 12);
+          await writer.close();
         });
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");

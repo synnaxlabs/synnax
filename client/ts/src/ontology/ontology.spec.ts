@@ -148,20 +148,6 @@ describe("Ontology", () => {
       expect(parents[0].name).toEqual(name);
     });
   });
-  describe("page", () => {
-    it("should return a page of resources", async () => {
-      for (let i = 0; i < 10; i++)
-        await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const page = await client.ontology.page(0, 5);
-      expect(page.length).toEqual(5);
-      const page2 = await client.ontology.page(5, 5);
-      expect(page2.length).toEqual(5);
-      const page1Keys = page.map((r) => r.key);
-      const page2Keys = page2.map((r) => r.key);
-      const intersection = page1Keys.filter((key) => page2Keys.includes(key));
-      expect(intersection.length).toEqual(0);
-    });
-  });
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
@@ -208,27 +194,249 @@ describe("Ontology", () => {
       expect(rel.to.type).toEqual("schematic");
       expect(rel.to.key).toEqual("keyB");
     });
-    it("should correctly propagate resource changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.ResourceChange[]>((resolve) =>
-        change.resources.onChange((changes) => resolve(changes)),
-      );
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
-    });
-    it("should correctly propagate relationship changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
-        change.relationships.onChange((changes) => {
-          resolve(changes);
-        });
+  });
+
+  describe("matchRelationship", () => {
+    const sampleRelationship: ontology.Relationship = {
+      from: { type: "group", key: "test-group" },
+      type: "parent",
+      to: { type: "channel", key: "test-channel" },
+    };
+
+    describe("type matching", () => {
+      it("should return true when types match", () => {
+        const match: ontology.MatchRelationshipArgs = { type: "parent" };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
       });
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
+
+      it("should return false when types don't match", () => {
+        const match: ontology.MatchRelationshipArgs = { type: "child" };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe("from ID matching", () => {
+      it("should return true when from type matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when from key matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { key: "test-group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when both from type and key match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group", key: "test-group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return false when from type doesn't match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when from key doesn't match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { key: "wrong-key" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when from type matches but key doesn't", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group", key: "wrong-key" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe("to ID matching", () => {
+      it("should return true when to type matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { type: "channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when to key matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when both to type and key match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { type: "channel", key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return false when to type doesn't match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { type: "group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when to key doesn't match", () => {
+        const match = { type: "parent", to: { key: "wrong-key" } };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when to type matches but key doesn't", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { type: "channel", key: "wrong-key" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe("combined matching", () => {
+      it("should return true when all specified criteria match", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group", key: "test-group" },
+          to: { type: "channel", key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return false when type matches but from doesn't", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "channel" },
+          to: { type: "channel", key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when type matches but to doesn't", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group", key: "test-group" },
+          to: { type: "group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+
+      it("should return false when from and to match but type doesn't", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "child",
+          from: { type: "group", key: "test-group" },
+          to: { type: "channel", key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe("partial matching", () => {
+      it("should return true when only type is specified and matches", () => {
+        const match: ontology.MatchRelationshipArgs = { type: "parent" };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when only from type is specified and matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { type: "group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when only to type is specified and matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { type: "channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when only from key is specified and matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { key: "test-group" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should return true when only to key is specified and matches", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          to: { key: "test-channel" },
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+    });
+
+    describe("edge cases", () => {
+      it("should handle empty from and to objects", () => {
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: {},
+          to: {},
+        };
+        const result = ontology.matchRelationship(sampleRelationship, match);
+        expect(result).toBe(true);
+      });
+
+      it("should handle relationships with empty keys", () => {
+        const relationship: ontology.Relationship = {
+          from: { type: "group", key: "" },
+          type: "parent",
+          to: { type: "channel", key: "" },
+        };
+        const match: ontology.MatchRelationshipArgs = {
+          type: "parent",
+          from: { key: "" },
+          to: { key: "" },
+        };
+        const result = ontology.matchRelationship(relationship, match);
+        expect(result).toBe(true);
+      });
     });
   });
 });

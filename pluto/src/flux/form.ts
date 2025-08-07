@@ -69,7 +69,8 @@ export interface AfterSaveArgs<FormParams extends Params, Z extends z.ZodObject>
  * @template FormParams The type of parameters for the form query
  * @template Z The Zod schema type for form validation
  */
-export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
+export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject>
+  extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
   /** Whether to automatically save form changes */
@@ -149,32 +150,18 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   });
   const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
 
-  return ({ params, initialValues, autoSave = false, afterSave }) => {
+  return ({
+    params,
+    initialValues,
+    autoSave = false,
+    afterSave,
+    sync,
+    onHasTouched,
+    mode,
+  }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null, false));
-
-    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
-      setter,
-    ) => {
-      const nextStatus = state.executeSetter(setter, {
-        ...resultRef.current,
-        data: form.value(),
-      } as Result<z.infer<Schema>>);
-      resultRef.current = nextStatus;
-      if (nextStatus.data != null) {
-        form.set("", nextStatus.data);
-        form.setCurrentStateAsInitialValues();
-      }
-      setResult(nextStatus);
-    };
-
-    retrieveHook.useEffect({ params, onChange: handleResultChange });
-
-    const { updateAsync } = updateHook.useObservable({
-      params,
-      onChange: handleResultChange,
-    });
 
     const form = Form.use<Schema>({
       schema,
@@ -182,6 +169,30 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       onChange: ({ path }) => {
         if (autoSave && path !== "") handleSave();
       },
+      sync,
+      onHasTouched,
+      mode,
+    });
+
+    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> =
+      useCallback(
+        (setter) => {
+          const nextStatus = state.executeSetter(setter, resultRef.current);
+          resultRef.current = nextStatus;
+          if (nextStatus.data != null) {
+            form.set("", nextStatus.data);
+            form.setCurrentStateAsInitialValues();
+          }
+          setResult(nextStatus);
+        },
+        [form],
+      );
+
+    retrieveHook.useEffect({ params, onChange: handleResultChange });
+
+    const { updateAsync } = updateHook.useObservable({
+      params,
+      onChange: handleResultChange,
     });
 
     const handleSave = useCallback(

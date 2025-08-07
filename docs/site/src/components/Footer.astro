@@ -1,31 +1,30 @@
 ---
 import { Logo } from "@synnaxlabs/media";
-import { Icon } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Icon, Flex } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 ---
 
-<Align.Space el="footer">
-    <Align.Space className="content" align="start" justify="spaceBetween" direction="x">
-        <Align.Space align="start">
+<Flex.Box el="footer">
+    <Flex.Box className="content" align="start" justify="between" direction="x">
+        <Flex.Box align="start">
             <a href="https://synnaxlabs.com">
                 <Logo style={{ height: "5rem" }} variant="title" />
             </a>
             <Text.Text level="small" className="copyright">
                 &copy 2024 Synnax Labs Inc.
             </Text.Text>
-            <Text.Link level="small" href="/privacy-policy"> Privacy Policy </Text.Link>
-        </Align.Space>
-        <Align.Space direction="x">
-            <Text.Link level="p" href="https://www.linkedin.com/company/synnaxlabs/">
+            <Text.Text level="small" href="/privacy-policy"> Privacy Policy </Text.Text>
+        </Flex.Box>
+        <Flex.Box direction="x">
+            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
                 <Icon.Logo.LinkedIn className="link" />
-            </Text.Link>
-            <Text.Link level="p" href="https://github.com/synnaxlabs/synnax">
+            </Text.Text>
+            <Text.Text href="https://github.com/synnaxlabs/synnax">
                 <Icon.Logo.Github className="link" />
-            </Text.Link>
-        </Align.Space>
-    </Align.Space>
-</Align.Space>
+            </Text.Text>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     footer {

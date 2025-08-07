@@ -10,26 +10,69 @@
 import { type rack } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { type List } from "@/list";
+import { Component } from "@/component";
+import { type Dialog } from "@/dialog";
+import { type Flux } from "@/flux";
+import { Rack } from "@/hardware/rack";
+import { useList } from "@/hardware/rack/queries";
+import { Icon } from "@/icon";
+import { List } from "@/list";
+import { type ListParams } from "@/ranger/queries";
 import { Select } from "@/select";
-import { Synnax } from "@/synnax";
-
-const COLUMNS: Array<List.ColumnSpec<rack.Key, rack.Rack>> = [
-  { key: "name", name: "Name" },
-  { key: "location", name: "Location" },
-];
+import { Text } from "@/text";
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<rack.Key, rack.Rack>, "columns"> {}
+  extends Omit<
+      Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
+      "data" | "useListItem"
+    >,
+    Flux.UseListArgs<ListParams, rack.Key, rack.Payload>,
+    Omit<Dialog.FrameProps, "onChange">,
+    Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
 
-export const SelectSingle = (props: SelectSingleProps): ReactElement => {
-  const client = Synnax.use();
+const listItemRenderProp = Component.renderProp(
+  (props: List.ItemRenderProps<rack.Key>) => {
+    const { itemKey } = props;
+    const item = List.useItem<rack.Key, rack.Rack>(itemKey);
+    return (
+      <Select.ListItem {...props} align="center" justify="between">
+        <Text.Text>{item?.name}</Text.Text>
+        <Rack.StatusIndicator status={item?.status} tooltipLocation="left" />
+      </Select.ListItem>
+    );
+  },
+);
+
+export const SelectSingle = ({
+  value,
+  onChange,
+  filter,
+  allowNone,
+  emptyContent,
+  initialParams,
+  ...rest
+}: SelectSingleProps): ReactElement => {
+  const { data, retrieve, getItem, subscribe, status } = useList({
+    initialParams: { includeStatus: true, ...initialParams },
+    filter,
+  });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Single<rack.Key, rack.Rack>
-      columns={COLUMNS}
-      searcher={client?.hardware.racks}
-      entryRenderKey="name"
-      {...props}
-    />
+    <Select.Single<rack.Key, rack.Payload | undefined>
+      resourceName="Driver"
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      emptyContent={emptyContent}
+      status={status}
+      icon={<Icon.Rack />}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

@@ -9,23 +9,19 @@
 
 import "@/button/Button.css";
 
-import { color, type status } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
+import { color, record } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import {
-  type ComponentPropsWithRef,
-  type ReactElement,
-  useCallback,
-  useRef,
-} from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
+import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
-import { type ComponentSize } from "@/util/component";
+
+export type ElementType = "button" | "a" | "div" | "label";
 
 /** The variant of button */
 export type Variant =
@@ -36,31 +32,37 @@ export type Variant =
   | "preview"
   | "shadow";
 
-/** The base props accepted by all button types in this directory. */
-export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"> {
+export interface ExtensionProps
+  extends Omit<Text.ExtensionProps, "variant">,
+    Tooltip.WrapProps {
   variant?: Variant;
-  size?: ComponentSize;
-  sharp?: boolean;
-  loading?: boolean;
-  triggers?: Triggers.Trigger | Triggers.Trigger[];
-  status?: status.Variant;
-  color?: color.Crude;
-  textShade?: Text.Shade;
+  trigger?: Triggers.Trigger;
+  triggerIndicator?: boolean | Triggers.Trigger;
+  textColor?: Text.TextProps["color"];
+  textVariant?: Text.Variant;
+  contrast?: Text.Shade | false;
+  disabled?: boolean;
+  preventClick?: boolean;
+  onClickDelay?: number | TimeSpan;
 }
 
 /** The props for the {@link Button} component. */
-export type ButtonProps = Omit<
-  Text.WithIconProps<"button">,
-  "size" | "startIcon" | "endIcon" | "level"
+export type ButtonProps<E extends ElementType = "button"> = Omit<
+  Generic.OptionalElementProps<E>,
+  "color"
 > &
-  Tooltip.WrapProps &
-  BaseProps & {
-    level?: Text.Level;
-    startIcon?: Icon.ReactElement | Icon.ReactElement[];
-    endIcon?: Icon.ReactElement | Icon.ReactElement[];
-    disabled?: boolean;
-    onClickDelay?: number | TimeSpan;
-  };
+  ExtensionProps;
+
+const MODULE_CLASS = "btn";
+
+const resolveTriggerIndicator = (
+  triggerIndicator: boolean | Triggers.Trigger | undefined,
+  trigger: Triggers.Trigger | undefined,
+): Triggers.Trigger | undefined => {
+  if (triggerIndicator === true) return trigger;
+  if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
+  return undefined;
+};
 
 /**
  * Use is a basic button component.
@@ -81,133 +83,145 @@ export type ButtonProps = Omit<
  * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
- * @param props.loading - Whether the button is in a loading state. This will cause the
- * button to render a loading spinner.
  */
-export const Button = Tooltip.wrap(
-  ({
-    size,
-    variant = "filled",
-    type = "button",
-    className,
-    children,
-    gap,
-    sharp = false,
-    disabled = false,
-    loading = false,
-    level,
-    triggers,
-    startIcon = [],
-    onClickDelay = 0,
-    onClick,
-    color: colorVal,
-    status,
-    style,
-    onMouseDown,
-    shade = 0,
-    textShade,
-    tabIndex,
-    ...rest
-  }: ButtonProps): ReactElement => {
-    if (variant == "outlined" && shade == null) shade = 0;
-    const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    if (loading)
-      startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
-    const isDisabled = disabled || loading;
-    gap ??= size === "small" ? "small" : "medium";
-    // We implement the shadow variant to maintain compatibility with the input
-    // component API.
-    if (variant == "shadow") variant = "text";
+const Core = <E extends ElementType = "button">({
+  size,
+  variant = "outlined",
+  className,
+  disabled,
+  preventClick,
+  level,
+  trigger,
+  triggerIndicator,
+  onClickDelay = 0,
+  onClick,
+  color: colorVal,
+  status,
+  style,
+  onMouseDown,
+  textColor,
+  textVariant,
+  tabIndex,
+  contrast,
+  children,
+  ...rest
+}: ButtonProps<E>): ReactElement => {
+  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+  const isDisabled = disabled === true || status === "loading" || status === "disabled";
+  // We implement the shadow variant to maintain compatibility with the input
+  // component API.
+  if (variant == "shadow") variant = "text";
+  else if (variant === "preview") preventClick = true;
 
-    const handleClick: ButtonProps["onClick"] = (e) => {
-      if (isDisabled || variant === "preview") return;
-      if (parsedDelay.isZero) return onClick?.(e);
-    };
+  if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
-    const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (isDisabled || variant === "preview" || preventClick === true) return;
+    // @ts-expect-error - TODO: fix this
+    if (parsedDelay.isZero) return onClick?.(e);
+  };
 
-    const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
-      if (tabIndex == -1) e.preventDefault();
-      onMouseDown?.(e);
-      if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
-      document.addEventListener(
-        "mouseup",
-        () => toRef.current != null && clearTimeout(toRef.current),
-      );
-      toRef.current = setTimeout(() => {
-        onClick?.(e);
-        toRef.current = null;
-      }, parsedDelay.milliseconds);
-    };
+  const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    Triggers.use({
-      triggers,
-      callback: useCallback<(e: Triggers.UseEvent) => void>(
-        ({ stage }) => {
-          if (stage !== "end" || isDisabled || variant === "preview") return;
-          handleClick(
-            new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
-          );
-        },
-        [handleClick, isDisabled],
-      ),
-    });
-
-    let pStyle = style;
-    const res = color.colorZ.safeParse(colorVal);
-    const hasCustomColor =
-      res.success && (variant === "filled" || variant === "outlined");
-    if (hasCustomColor) {
-      const theme = Theming.use();
-      pStyle = {
-        ...pStyle,
-        [CSS.var("btn-color")]: color.rgbString(res.data),
-        [CSS.var("btn-text-color")]: color.rgbCSS(
-          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-        ),
-      };
-    }
-
-    if (!parsedDelay.isZero)
-      pStyle = {
-        ...pStyle,
-        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
-      };
-
-    if (size == null && level != null) size = Text.LevelComponentSizes[level];
-    else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
-    else size ??= "medium";
-
-    return (
-      <Text.WithIcon<"button", any>
-        el="button"
-        className={CSS(
-          CSS.B("btn"),
-          CSS.M("clickable"),
-          CSS.size(size),
-          CSS.sharp(sharp),
-          CSS.shade(shade),
-          variant !== "preview" && CSS.disabled(isDisabled),
-          status != null && CSS.M(status),
-          CSS.M(variant),
-          hasCustomColor && CSS.BM("btn", "custom-color"),
-          className,
-        )}
-        tabIndex={tabIndex}
-        type={type}
-        level={level ?? Text.ComponentSizeLevels[size]}
-        gap={gap}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        noWrap
-        style={pStyle}
-        startIcon={startIcon}
-        color={colorVal}
-        {...rest}
-        shade={textShade}
-      >
-        {children}
-      </Text.WithIcon>
+  const handleMouseDown = (e: any) => {
+    if (tabIndex == -1) e.preventDefault();
+    onMouseDown?.(e);
+    if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
+    document.addEventListener(
+      "mouseup",
+      () => toRef.current != null && clearTimeout(toRef.current),
     );
-  },
-);
+    toRef.current = setTimeout(() => {
+      onClick?.(e);
+      toRef.current = null;
+    }, parsedDelay.milliseconds);
+  };
+
+  Triggers.use({
+    triggers: trigger,
+    callback: useCallback<(e: Triggers.UseEvent) => void>(
+      ({ stage }) => {
+        if (stage !== "end" || isDisabled || variant === "preview") return;
+        handleClick(
+          new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
+        );
+      },
+      [handleClick, isDisabled],
+    ),
+  });
+
+  let pStyle = style;
+  const res = color.colorZ.safeParse(colorVal);
+  const hasCustomColor =
+    res.success && (variant === "filled" || variant === "outlined");
+  if (hasCustomColor) {
+    const theme = Theming.use();
+    pStyle = {
+      ...pStyle,
+      [CSS.var("btn-color")]: color.rgbString(res.data),
+      [CSS.var("btn-text-color")]: color.rgbCSS(
+        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+      ),
+    };
+  }
+
+  if (!parsedDelay.isZero)
+    pStyle = {
+      ...pStyle,
+      [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+    };
+
+  if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
+  else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
+  else size ??= "medium";
+
+  const isLoading = status === "loading";
+  const square = Text.isSquare(children);
+
+  const parsedTriggerIndicator = resolveTriggerIndicator(triggerIndicator, trigger);
+
+  return (
+    <Text.Text<E>
+      direction="x"
+      className={CSS(
+        CSS.B(MODULE_CLASS),
+        contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
+        preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
+        variant !== "preview" && CSS.disabled(isDisabled),
+        CSS.BM(MODULE_CLASS, variant),
+        hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
+        className,
+      )}
+      size={size}
+      tabIndex={tabIndex}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      style={pStyle}
+      color={textColor}
+      gap={size === "small" || size === "tiny" ? "small" : undefined}
+      bordered={variant !== "text"}
+      defaultEl={"button"}
+      level={level}
+      variant={textVariant}
+      square={square}
+      overflow="nowrap"
+      status={status}
+      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
+    >
+      {(!isLoading || !square) && children}
+      {isLoading && <Icon.Loading />}
+      {parsedTriggerIndicator != null && (
+        <Triggers.Text
+          className={CSS.B("trigger-indicator")}
+          aria-label="trigger-indicator"
+          trigger={parsedTriggerIndicator}
+          color={9}
+          gap="tiny"
+          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+        />
+      )}
+    </Text.Text>
+  );
+};
+
+export const Button = Tooltip.wrap(Core) as typeof Core;

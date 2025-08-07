@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import {
-  Align,
-  componentRenderProp,
-  Form as PForm,
-  type Haul,
-  Icon,
-} from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
@@ -74,14 +68,14 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   />
 );
 
-const isIndexItem = componentRenderProp(IsIndexItem);
+const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
       <Device.Select />
-      <Align.Space x>
+      <Flex.Box x>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"
@@ -104,7 +98,7 @@ const Properties = (): ReactElement => {
         )}
         <Common.Task.Fields.DataSaving />
         <Common.Task.Fields.AutoStart />
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };
@@ -232,7 +226,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   const previous = await client.hardware.devices.retrieve<
     Device.Properties,
     Device.Make
-  >(config.device);
+  >({ key: config.device });
   const device = await client.hardware.devices.create<Device.Properties, Device.Make>({
     ...previous,
     properties: Device.migrateProperties(previous.properties),

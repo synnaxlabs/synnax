@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -49,15 +49,15 @@ export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Align.Space x grow>
+    <Flex.Box x grow>
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -69,9 +69,7 @@ const ChannelListItem = ({
   isRunning,
   ...rest
 }: ChannelListItemProps) => {
-  const {
-    entry: { channel, enabled, port, type },
-  } = rest;
+  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
@@ -101,7 +99,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
+const channelDetails = Component.renderProp(ChannelDetails);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -116,8 +114,14 @@ const Form: FC<
     configured,
   } as Common.Task.UseTareProps<AIChannel>);
   const listItem = useCallback(
-    ({ key, ...rest }: Common.Task.ChannelListItemProps<AIChannel>) => (
-      <ChannelListItem key={key} {...rest} onTare={tare} isRunning={isRunning} />
+    ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
+      <ChannelListItem
+        key={key}
+        itemKey={itemKey}
+        {...rest}
+        onTare={tare}
+        isRunning={isRunning}
+      />
     ),
     [tare, isRunning],
   );
@@ -160,7 +164,9 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.hardware.devices.retrieve<Device.Properties>(devices);
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>({
+    keys: devices,
+  });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
     const first = allDevices[0];

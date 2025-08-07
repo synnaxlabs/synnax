@@ -141,7 +141,7 @@ const decode = (payload: errors.Payload): Error | null => {
 };
 
 const encode = (): errors.Payload => {
-  throw new Error("Not implemented");
+  throw new errors.NotImplemented();
 };
 
 errors.register({ encode, decode });

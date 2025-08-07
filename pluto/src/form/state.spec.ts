@@ -260,45 +260,27 @@ describe("State", () => {
       expect(isValid).toBe(true);
     });
 
-    it("should return false for invalid data", () => {
+    it("should return true even if untouched fields are invalid", () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
       const state = new State(invalidValues, basicSchema);
       const isValid = state.validate();
-      expect(isValid).toBe(false);
+      expect(isValid).toBe(true);
     });
 
     it("should set error status for invalid fields", () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
       const state = new State(invalidValues, basicSchema);
+      state.setTouched("email");
       state.validate();
       const fieldState = state.getState("email");
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
     });
 
-    it("should validate only specific path when provided", () => {
-      const invalidValues = { ...initialValues, email: "invalid-email", age: -1 };
-      const state = new State(invalidValues, basicSchema);
-      const isValid = state.validate("email");
-      expect(isValid).toBe(false);
-      expect(state.getState("email").status.variant).toBe("error");
-      // Age should not be validated when only validating email path
-      expect(state.getState("age").status.variant).toBe("success");
-    });
-
-    it("should validate children when validateChildren is true", () => {
-      const invalidValues = {
-        ...initialValues,
-        profile: { ...initialValues.profile, website: "invalid-url" },
-      };
-      const state = new State(invalidValues, basicSchema);
-      state.validate("profile", true);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-    });
-
     it("should return true for warnings (non-error variants)", () => {
       const warningValues = { ...initialValues, name: "admin", age: 16 };
       const state = new State(warningValues, basicSchema);
+      state.setTouched("name");
       const isValid = state.validate();
       expect(isValid).toBe(true);
       expect(state.getState("name").status.variant).toBe("warning");
@@ -306,6 +288,7 @@ describe("State", () => {
 
     it("should clear previous validation errors on successful validation", () => {
       const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+      state.setTouched("email");
       state.validate();
       expect(state.getState("email").status.variant).toBe("error");
 
@@ -331,6 +314,7 @@ describe("State", () => {
     it("should return false for invalid data", async () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
       const state = new State(invalidValues, basicSchema);
+      state.setTouched("email");
       const isValid = await state.validateAsync();
       expect(isValid).toBe(false);
     });
@@ -338,6 +322,7 @@ describe("State", () => {
     it("should set error status for invalid fields", async () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
       const state = new State(invalidValues, basicSchema);
+      state.setTouched("email");
       await state.validateAsync();
       const fieldState = state.getState("email");
       expect(fieldState.status.variant).toBe("error");
@@ -455,6 +440,150 @@ describe("State", () => {
       state.onChange(observer);
       state.notify();
       expect(observer).toHaveBeenCalled();
+    });
+  });
+
+  describe("path validation", () => {
+    it("should validate only specified path and its children", () => {
+      const invalidValues = {
+        ...initialValues,
+        name: "",
+        email: "invalid-email",
+        profile: { ...initialValues.profile, website: "invalid-url" },
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("name");
+      state.setTouched("email");
+      state.setTouched("profile.website");
+
+      const isValid = state.validate(true, "profile");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("profile.website").status.variant).toBe("error");
+      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.getState("email").status.variant).toBe("success");
+    });
+
+    it("should validate specific field path", () => {
+      const invalidValues = {
+        ...initialValues,
+        name: "",
+        email: "invalid-email",
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("name");
+      state.setTouched("email");
+
+      const isValid = state.validate(true, "email");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("email").status.variant).toBe("error");
+      expect(state.getState("name").status.variant).toBe("success");
+    });
+
+    it("should validate parent path and include child errors", () => {
+      const invalidValues = {
+        ...initialValues,
+        name: "",
+        profile: { ...initialValues.profile, website: "invalid-url" },
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("name");
+      state.setTouched("profile.website");
+
+      const isValid = state.validate(true, "profile");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("profile.website").status.variant).toBe("error");
+      expect(state.getState("name").status.variant).toBe("success");
+    });
+
+    it("should validate child path when parent is specified", () => {
+      const invalidValues = {
+        ...initialValues,
+        email: "invalid-email",
+        profile: { ...initialValues.profile, website: "invalid-url" },
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("email");
+      state.setTouched("profile.website");
+
+      const isValid = state.validate(true, "profile.website");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("profile.website").status.variant).toBe("error");
+      expect(state.getState("email").status.variant).toBe("success");
+    });
+
+    it("should return true when validating path with no errors", () => {
+      const partiallyInvalidValues = {
+        ...initialValues,
+        email: "invalid-email",
+      };
+      const state = new State(partiallyInvalidValues, basicSchema);
+      state.setTouched("email");
+      state.setTouched("name");
+
+      const isValid = state.validate(true, "name");
+
+      expect(isValid).toBe(true);
+      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.getState("email").status.variant).toBe("success");
+    });
+
+    it("should handle array paths correctly", () => {
+      const invalidValues = {
+        ...initialValues,
+        tags: ["", "valid-tag"],
+      };
+      const arraySchema = z.object({
+        ...basicSchema.shape,
+        tags: z.array(z.string().min(1, "Tag cannot be empty")),
+      });
+      const state = new State(invalidValues, arraySchema);
+      state.setTouched("tags.0");
+      state.setTouched("tags.1");
+
+      const isValid = state.validate(true, "tags.0");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("tags.0").status.variant).toBe("error");
+    });
+  });
+
+  describe("async path validation", () => {
+    it("should validate only specified path asynchronously", async () => {
+      const invalidValues = {
+        ...initialValues,
+        name: "",
+        email: "invalid-email",
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("name");
+      state.setTouched("email");
+
+      const isValid = await state.validateAsync(true, "email");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("email").status.variant).toBe("error");
+      expect(state.getState("name").status.variant).toBe("success");
+    });
+
+    it("should validate nested paths asynchronously", async () => {
+      const invalidValues = {
+        ...initialValues,
+        name: "",
+        profile: { ...initialValues.profile, website: "invalid-url" },
+      };
+      const state = new State(invalidValues, basicSchema);
+      state.setTouched("name");
+      state.setTouched("profile.website");
+
+      const isValid = await state.validateAsync(true, "profile");
+
+      expect(isValid).toBe(false);
+      expect(state.getState("profile.website").status.variant).toBe("error");
+      expect(state.getState("name").status.variant).toBe("success");
     });
   });
 

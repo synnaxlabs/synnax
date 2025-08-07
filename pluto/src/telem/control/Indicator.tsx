@@ -61,7 +61,7 @@ export const Indicator = ({
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
-      <Text.Text level="p">{status.message}</Text.Text>
+      <Text.Text>{status.message}</Text.Text>
       <div
         className={CSS.B("indicator")}
         style={{

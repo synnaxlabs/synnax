@@ -105,7 +105,18 @@ export const useForm = (args: Flux.UseFormArgs<FluxParams, typeof formSchema>) =
     initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
-    listeners: [],
+    listeners: [
+      {
+        channel: channel.SET_CHANNEL_NAME,
+        onChange: Flux.parsedHandler(
+          channel.keyZ,
+          async ({ changed, onChange, params, client }) => {
+            if (params.key !== changed) return;
+            onChange(channelToFormValues(await client.channels.retrieve(changed)));
+          },
+        ),
+      },
+    ],
   })(args);
 
 export const useCalculatedForm = (
@@ -117,5 +128,56 @@ export const useCalculatedForm = (
     initialValues: ZERO_FORM_VALUES,
     retrieve,
     update,
-    listeners: [],
+    listeners: [
+      {
+        channel: channel.SET_CHANNEL_NAME,
+        onChange: Flux.parsedHandler(
+          channel.keyZ,
+          async ({ changed, onChange, params, client }) => {
+            if (params.key !== changed) return;
+            onChange(channelToFormValues(await client.channels.retrieve(changed)));
+          },
+        ),
+      },
+    ],
   })(args);
+
+export interface ListParams extends channel.RetrieveOptions {
+  searchTerm?: string;
+  rangeKey?: string;
+  internal?: boolean;
+  offset?: number;
+  limit?: number;
+}
+
+const DEFAULT_LIST_PARAMS: ListParams = {
+  internal: false,
+};
+
+export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>({
+  name: "Channels",
+  retrieve: async ({ client, params }) =>
+    await client.channels.retrieve({
+      ...DEFAULT_LIST_PARAMS,
+      ...params,
+      searchTerm: params.searchTerm,
+    }),
+  retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
+  listeners: [
+    {
+      channel: channel.SET_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(
+        channel.keyZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed, await client.channels.retrieve(changed));
+        },
+      ),
+    },
+    {
+      channel: channel.DELETE_CHANNEL_NAME,
+      onChange: Flux.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
+});

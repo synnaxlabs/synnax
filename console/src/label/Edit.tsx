@@ -9,70 +9,141 @@
 
 import "@/label/Edit.css";
 
-import { label } from "@synnaxlabs/client";
+import { type label } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Color,
-  componentRenderProp,
+  Component,
+  CSS as PCSS,
+  Divider,
+  Flex,
+  type Flux,
   Form,
   Icon,
   Input,
+  Label,
   List,
   Text,
+  useClickOutside,
 } from "@synnaxlabs/pluto";
-import { type change, color, uuid } from "@synnaxlabs/x";
-import { z } from "zod";
+import { color } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
-const formSchema = z.object({
-  labels: label.newZ.array(),
-});
+interface LabelListItemProps extends List.ItemProps<label.Key> {
+  isCreate?: boolean;
+  visible?: boolean;
+  onClose?: () => void;
+}
 
-const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
-  const { index } = props;
-  const utils = Form.fieldArrayUtils(Form.useContext(), "labels");
+const LabelListItem = ({
+  isCreate = false,
+  onClose,
+  visible = true,
+  ...rest
+}: LabelListItemProps) => {
+  const { itemKey } = rest;
+  const initialValues = List.useItem<string, label.Label>(itemKey);
+  const { form, save } = Label.useForm({
+    params: {},
+    initialValues,
+    autoSave: !isCreate,
+    afterSave: useCallback(
+      ({ form }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+        onClose?.();
+        if (isCreate)
+          form.reset({
+            name: "",
+            color: "#000000",
+          });
+      },
+      [isCreate, onClose],
+    ),
+    sync: true,
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { update: handleDelete } = Label.useDelete({ params: { key: itemKey } });
+  useEffect(() => {
+    if (isCreate && visible) inputRef.current?.focus();
+  }, [isCreate, visible]);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside({
+    ref,
+    onClickOutside: useCallback(() => {
+      if (!isCreate) return;
+      if (form.validate()) save();
+      else onClose?.();
+    }, [isCreate, form, save, onClose]),
+  });
   return (
-    <List.ItemFrame
+    <List.Item
+      ref={ref}
       highlightHovered={false}
-      className={CSS.BE("label", "list-item")}
-      allowSelect={false}
+      className={CSS(
+        CSS.BE("label", "list-item"),
+        isCreate && CSS.M("create"),
+        PCSS.visible(visible),
+      )}
       align="center"
-      style={{ padding: "2rem 4rem" }}
-      justify="spaceBetween"
-      {...props}
+      justify="between"
+      {...rest}
     >
-      <Align.Space x gap="small">
-        <Form.Field<string>
-          hideIfNull
-          path={`labels.${index}.color`}
-          padHelpText={false}
-          showLabel={false}
+      <Flex.Box x gap="small" align="center">
+        <Form.Form<typeof Label.formSchema> {...form}>
+          <Form.Field<string>
+            hideIfNull
+            path={`color`}
+            padHelpText={false}
+            showLabel={false}
+          >
+            {({ onChange, variant: _, ...p }) => (
+              <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
+            )}
+          </Form.Field>
+          <Form.TextField
+            showLabel={false}
+            hideIfNull
+            path={`name`}
+            showHelpText={false}
+            padHelpText={false}
+            inputProps={{
+              ref: inputRef,
+              placeholder: "Label Name",
+              selectOnFocus: true,
+              autoFocus: isCreate,
+              resetOnBlurIfEmpty: true,
+              onlyChangeOnBlur: !isCreate,
+            }}
+          />
+        </Form.Form>
+      </Flex.Box>
+      {isCreate ? (
+        <Flex.Box pack>
+          <Button.Button
+            variant="filled"
+            size="small"
+            onClick={() => save()}
+            trigger={visible ? ["Enter"] : undefined}
+          >
+            <Icon.Check />
+          </Button.Button>
+          <Button.Button variant="outlined" size="small" onClick={onClose}>
+            <Icon.Close />
+          </Button.Button>
+        </Flex.Box>
+      ) : (
+        <Button.Button
+          className={CSS.BE("label", "delete")}
+          variant="outlined"
+          size="small"
+          onClick={() => handleDelete()}
         >
-          {({ onChange, variant: _, ...p }) => (
-            <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
-          )}
-        </Form.Field>
-        <Form.TextField
-          showLabel={false}
-          hideIfNull
-          path={`labels.${index}.name`}
-          padHelpText={false}
-          inputProps={{
-            placeholder: "Label Name",
-            variant: "shadow",
-            selectOnFocus: true,
-            resetOnBlurIfEmpty: true,
-            onlyChangeOnBlur: true,
-          }}
-        />
-      </Align.Space>
-      <Button.Icon onClick={() => utils.remove(index)} style={{ width: "fit-content" }}>
-        <Icon.Delete />
-      </Button.Icon>
-    </List.ItemFrame>
+          <Icon.Delete />
+        </Button.Button>
+      )}
+    </List.Item>
   );
 };
 
@@ -84,97 +155,81 @@ export const EDIT_LAYOUT: Layout.BaseState = {
   name: "Labels.Edit",
   location: "modal",
   icon: "Label",
-  window: { navTop: true, size: { height: 800, width: 500 } },
+  window: { navTop: true, size: { height: 700, width: 450 } },
 };
 
-const listItem = componentRenderProp(LabelListItem);
-
-const initialState = formSchema.parse({ labels: [] });
+const listItem = Component.renderProp(LabelListItem);
 
 export const Edit: Layout.Renderer = () => {
-  const methods = Form.useSynced<
-    typeof formSchema,
-    change.Change<string, label.Label>[]
-  >({
-    values: initialState,
-    key: ["labels"],
-    name: "Labels",
-    queryFn: async ({ client }) => ({ labels: await client.labels.page(0, 100) }),
-    applyChanges: async ({ values, path, prev, client }) => {
-      if (path === "labels") {
-        const tPrev = prev as label.Label[];
-        if (values.labels.length >= tPrev.length) return;
-        const newKeys = values.labels.map((l) => l.key);
-        const oldKeys = tPrev.map((l) => l.key);
-        const key = oldKeys.find((k) => !newKeys.includes(k));
-        if (key == null) return;
-        await client.labels.delete(key);
-        return;
-      }
-      const idx = Number(path.split(".")[1]);
-      const label = values.labels[idx];
-      if (label == null) return;
-      await client.labels.create({ ...label, color: color.hex(label.color) });
-    },
-  });
-
-  const arr = Form.useFieldArray<label.Label, typeof formSchema>("labels", {
-    ctx: methods,
-  });
-  const theme = Layout.useSelectTheme();
-
+  const { data, getItem, retrieve, subscribe } = Label.useList();
+  const { fetchMore, search } = List.usePager({ retrieve });
+  const [newFormVisible, setNewFormVisible] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Align.Space y style={{ padding: "2rem" }} grow>
-      <Form.Form<typeof formSchema> {...methods}>
-        <List.List
-          data={arr.value}
-          emptyContent={
-            <Align.Center>
-              <Text.Text level="h3" shade={10}>
-                No labels created
+    <Flex.Box y grow empty>
+      <List.Frame<label.Key, label.Label>
+        data={data}
+        getItem={getItem}
+        onFetchMore={fetchMore}
+        subscribe={subscribe}
+      >
+        <Flex.Box x justify="between" style={{ padding: "2rem" }}>
+          <Input.Text
+            placeholder={
+              <Text.Text>
+                <Icon.Search />
+                Search Labels
               </Text.Text>
-            </Align.Center>
-          }
-        >
-          <Align.Space x justify="spaceBetween">
-            <List.Filter>
-              {(p) => (
-                <Input.Text
-                  {...p}
-                  placeholder="Search Labels"
-                  style={{ width: "unset" }}
-                />
-              )}
-            </List.Filter>
-            <Button.Button
-              onClick={() => {
-                const newColors = theme?.colors.visualization.palettes.default ?? [];
-                const v = color.hex(newColors[arr.value.length % newColors.length]);
-                arr.push({
-                  key: uuid.create(),
-                  name: "New Label",
-                  color: v,
-                });
-              }}
-              startIcon={<Icon.Add />}
-              style={{ width: "fit-content" }}
-              gap="small"
-            >
-              Add Label
-            </Button.Button>
-          </Align.Space>
-          <List.Core
-            style={{
-              borderRadius: "1rem",
-              border: "var(--pluto-border)",
-              maxHeight: "calc(100% - 10rem)",
+            }
+            value={searchTerm}
+            onChange={(v) => {
+              setSearchTerm(v);
+              search(v);
             }}
+          />
+          <Button.Button
+            variant="filled"
+            style={{ width: "fit-content" }}
+            gap="small"
+            onClick={() => setNewFormVisible(true)}
+          >
+            <Icon.Add />
+            Add Label
+          </Button.Button>
+        </Flex.Box>
+        <Divider.Divider x />
+        <Flex.Box
+          y
+          style={{
+            borderRadius: "1rem",
+            height: "100%",
+          }}
+          empty
+        >
+          <LabelListItem
+            key="form"
+            index={0}
+            itemKey=""
+            isCreate
+            visible={newFormVisible}
+            onClose={() => setNewFormVisible(false)}
+          />
+          <List.Items
             grow
+            emptyContent={
+              !newFormVisible && (
+                <Flex.Box center>
+                  <Text.Text level="h4" color={8}>
+                    No labels created
+                  </Text.Text>
+                </Flex.Box>
+              )
+            }
           >
             {listItem}
-          </List.Core>
-        </List.List>
-      </Form.Form>
-    </Align.Space>
+          </List.Items>
+        </Flex.Box>
+      </List.Frame>
+    </Flex.Box>
   );
 };

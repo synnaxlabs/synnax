@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { componentRenderProp, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -83,7 +83,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+      <Menu.Item itemKey="rename" onClick={handleRename}>
+        <Icon.Rename />
         Rename
       </Menu.Item>
       <Menu.Divider />
@@ -91,7 +92,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   );
 };
 
-const contextMenuItems = componentRenderProp(ContextMenuItem);
+const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const TaskForm: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
@@ -123,9 +124,9 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   dev.properties = Device.migrateProperties(dev.properties);
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {

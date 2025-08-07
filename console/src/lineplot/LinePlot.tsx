@@ -74,7 +74,6 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
-  selectRule,
   setActiveToolbarTab,
   setAxis,
   setControlState,
@@ -83,6 +82,7 @@ import {
   setRanges,
   setRemoteCreated,
   setRule,
+  setSelectedRule,
   setSelection,
   setXChannel,
   setYChannels,
@@ -146,25 +146,16 @@ const RangeAnnotationContextMenu = ({
   };
   return (
     <PMenu.Menu level="small">
-      <PMenu.Item
-        itemKey="download"
-        startIcon={<Icon.Download />}
-        onClick={handleDownloadAsCSV}
-      >
+      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.Download />
         Download as CSV
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="line-plot"
-        startIcon={<Icon.LinePlot />}
-        onClick={handleOpenInNewPlot}
-      >
+      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+        <Icon.LinePlot />
         Open in New Plot
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="metadata"
-        startIcon={<Icon.Annotate />}
-        onClick={handleViewDetails}
-      >
+      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
         View Details
       </PMenu.Item>
     </PMenu.Menu>
@@ -419,22 +410,22 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       <PMenu.Menu onChange={handleSelect} gap="small" level="small">
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy ISO Time Range
+            <PMenu.Item itemKey="iso">
+              <Icon.Range /> Copy ISO Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy Python Time Range
+            <PMenu.Item itemKey="python">
+              <Icon.Python /> Copy Python Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy TypeScript Time Range
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create Range from Selection
+            <PMenu.Item itemKey="typescript">
+              <Icon.TypeScript /> Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download Region as CSV
+            <PMenu.Item itemKey="range">
+              <Icon.Add /> Create Range from Selection
+            </PMenu.Item>
+            <PMenu.Divider />
+            <PMenu.Item itemKey="download">
+              <Icon.Download /> Download Region as CSV
             </PMenu.Item>
           </>
         )}
@@ -483,7 +474,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
+          onSelectRule={(ruleKey) =>
+            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
+          }
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           rangeAnnotationProvider={rangeAnnotationProvider}
         >

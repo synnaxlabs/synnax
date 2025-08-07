@@ -14,11 +14,11 @@
     height: 100%;
     z-index: 1000000000;
 
-    &.pluto--x {
+    &.pluto--direction-x {
         cursor: ns-resize;
     }
 
-    &.pluto--y {
+    &.pluto--direction-y {
         cursor: ew-resize;
     }
 }

@@ -9,15 +9,15 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Channel,
+  Flex,
   Form,
   Input,
   Nav,
-  Select,
   Status,
   Synnax,
+  Telem,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
@@ -58,11 +58,11 @@ const GLOBALS: Variable[] = [
 
 export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const client = Synnax.use();
-  const { channelKey } = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
-  const isEdit = channelKey !== 0;
+  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
+  const isEdit = args?.channelKey !== 0;
 
   const { form, variant, save } = Channel.useCalculatedForm({
-    params: { key: channelKey },
+    params: { key: args?.channelKey },
   });
 
   const handleError = Status.useErrorHandler();
@@ -95,15 +95,15 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   );
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
-      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
+    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
@@ -123,17 +123,16 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space x>
+          <Flex.Box x>
             <Form.Field<string>
               path="dataType"
               label="Output Data Type"
               style={{ width: 150 }}
             >
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   style={{ width: 150 }}
                 />
@@ -160,33 +159,31 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
-            <Align.Space x align="center" gap="small">
+            <Flex.Box x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text level="p" shade={11}>
-                Create More
-              </Text.Text>
-            </Align.Space>
+              <Text.Text>Create More</Text.Text>
+            </Flex.Box>
           )}
-          <Align.Space x align="center">
+          <Flex.Box x align="center">
             <Button.Button
-              disabled={variant === "loading"}
-              loading={variant === "loading"}
-              triggers={Triggers.SAVE}
+              status={variant}
+              trigger={Triggers.SAVE}
+              variant="filled"
               onClick={() => save()}
             >
               {isEdit ? "Save" : "Create"}
             </Button.Button>
-          </Align.Space>
+          </Flex.Box>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

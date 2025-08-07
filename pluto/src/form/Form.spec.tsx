@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -22,7 +22,7 @@ const basicFormSchema = z
     optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
     nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
-    array: z.array(z.object({ name: z.string() })),
+    array: z.array(z.object({ key: z.string(), name: z.string() })),
   })
   .check((ctx) => {
     if (ctx.value.name === "Billy Bob")
@@ -39,7 +39,7 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
   name: "John Doe",
   age: 42,
   nested: { ssn: "123-45-6789", ein: "" },
-  array: [{ name: "John Doe" }],
+  array: [{ key: "key1", name: "John Doe" }],
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
@@ -317,7 +317,7 @@ describe("Form", () => {
       const { result } = renderHook(() => Form.useFieldValue("array"), {
         wrapper,
       });
-      expect(result.current).toEqual([{ name: "John Doe" }]);
+      expect(result.current).toEqual([{ key: "key1", name: "John Doe" }]);
     });
 
     it("should return array element values correctly", () => {
@@ -332,6 +332,36 @@ describe("Form", () => {
         wrapper,
       });
       expect(result.current).toEqual({ ssn: "123-45-6789", ein: "" });
+    });
+
+    it("should update a parent value state when a child value changes", async () => {
+      const { result } = renderHook(
+        () => {
+          const child = Form.useField("nested.ssn");
+          const parent = Form.useField<{ ssn: string }>("nested");
+          return { child, parent };
+        },
+        {
+          wrapper,
+        },
+      );
+      act(() => result.current.child.onChange("123-45-6786"));
+      expect(result.current.parent.value?.ssn).toEqual("123-45-6786");
+    });
+
+    it("should update an array parent when a child in the array changes", async () => {
+      const { result } = renderHook(
+        () => {
+          const ctx = Form.useContext();
+          const parent = Form.useFieldValue<string[]>("array");
+          return { ctx, parent };
+        },
+        {
+          wrapper,
+        },
+      );
+      act(() => result.current.ctx.set("array.key1.name", "Cat"));
+      expect(result.current.parent).toEqual([{ key: "key1", name: "Cat" }]);
     });
   });
 
@@ -449,35 +479,278 @@ describe("Form", () => {
     });
   });
 
-  describe("useFieldArray", () => {
+  describe("useFieldLIst", () => {
     it("should return the array as the value", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      expect(res.result.current.value).toEqual([{ name: "John Doe" }]);
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      expect(res.result.current.data).toEqual(["key1"]);
     });
     it("should correctly push a value onto the start of the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      res.result.current.push({ name: "Jane Doe" });
+      const res = renderHook(
+        () => Form.useFieldList<string, record.KeyedNamed>("array"),
+        { wrapper },
+      );
+      res.result.current.push({ key: "key2", name: "Jane Doe" });
       res.rerender();
-      expect(res.result.current.value).toEqual([
-        { name: "John Doe" },
-        { name: "Jane Doe" },
-      ]);
+      expect(res.result.current.data).toEqual(["key1", "key2"]);
     });
 
     it("should correctly remove the given index from the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      res.result.current.remove(0);
-      res.rerender();
-      expect(res.result.current.value).toEqual([]);
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      act(() => {
+        res.result.current.remove("key1");
+      });
+      expect(res.result.current.data).toEqual([]);
     });
 
     it("should correctly keep only the given index in the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      res.result.current.push({ name: "Jane Doe" });
+      const res = renderHook(
+        () => Form.useFieldList<string, record.KeyedNamed>("array"),
+        { wrapper },
+      );
+      res.result.current.push({ key: "key2", name: "Jane Doe" });
       res.rerender();
-      res.result.current.keepOnly(1);
+      res.result.current.keepOnly("key2");
       res.rerender();
-      expect(res.result.current.value).toEqual([{ name: "Jane Doe" }]);
+      expect(res.result.current.data).toEqual(["key2"]);
+    });
+  });
+
+  describe("reset functionality", () => {
+    describe("reset()", () => {
+      it("should reset all form values to initial values", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        result.current.set("name", "Jane Doe");
+        result.current.set("age", 25);
+        result.current.set("nested.ssn", "987-65-4321");
+        result.current.set("array.0.name", "Changed Name");
+
+        expect(result.current.get("name").value).toBe("Jane Doe");
+        expect(result.current.get("age").value).toBe(25);
+        expect(result.current.get("nested.ssn").value).toBe("987-65-4321");
+        expect(result.current.get("array.0.name").value).toBe("Changed Name");
+
+        result.current.reset();
+
+        expect(result.current.get("name").value).toBe("John Doe");
+        expect(result.current.get("age").value).toBe(42);
+        expect(result.current.get("nested.ssn").value).toBe("123-45-6789");
+        expect(result.current.get("array.0.name").value).toBe("John Doe");
+      });
+
+      it("should reset form values to new provided values", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        const newValues = {
+          name: "New Name",
+          age: 30,
+          nested: { ssn: "555-55-5555", ein: "12-3456789" },
+          array: [{ key: "newKey", name: "New Array Name" }],
+        };
+
+        result.current.set("name", "Temporary Name");
+        expect(result.current.get("name").value).toBe("Temporary Name");
+
+        result.current.reset(newValues);
+
+        expect(result.current.get("name").value).toBe("New Name");
+        expect(result.current.get("age").value).toBe(30);
+        expect(result.current.get("nested.ssn").value).toBe("555-55-5555");
+        expect(result.current.get("nested.ein").value).toBe("12-3456789");
+        expect(result.current.get("array.0.name").value).toBe("New Array Name");
+      });
+
+      it("should clear all validation errors when resetting", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        // Set invalid values to trigger validation errors
+        result.current.set("name", "Billy Bob"); // Required field
+        result.current.set("age", 3); // Below minimum
+
+        // Verify errors are present
+        expect(result.current.get("name").status.variant).toBe("warning");
+        expect(result.current.get("age").status.variant).toBe("error");
+
+        // Reset form
+        result.current.reset();
+
+        // Verify errors are cleared
+        expect(result.current.get("name").status.variant).toBe("success");
+        expect(result.current.get("age").status.variant).toBe("success");
+      });
+
+      it("should clear all touched states when resetting", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe");
+        result.current.set("age", 25);
+        result.current.set("nested.ssn", "987-65-4321");
+        expect(result.current.get("name").touched).toBe(true);
+        expect(result.current.get("age").touched).toBe(true);
+        expect(result.current.get("nested.ssn").touched).toBe(true);
+        result.current.reset();
+        expect(result.current.get("name").touched).toBe(false);
+        expect(result.current.get("age").touched).toBe(false);
+        expect(result.current.get("nested.ssn").touched).toBe(false);
+      });
+
+      it("should call onChange handler when resetting", () => {
+        const onChange = vi.fn();
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+            onChange,
+          }),
+        );
+
+        result.current.set("name", "Jane Doe");
+        onChange.mockClear();
+
+        result.current.reset();
+
+        expect(onChange).toHaveBeenCalled();
+      });
+
+      it("should call onHasTouched with false when resetting from touched state", () => {
+        const onHasTouched = vi.fn();
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+            onHasTouched,
+          }),
+        );
+        result.current.set("name", "Jane Doe");
+        expect(onHasTouched).toHaveBeenLastCalledWith(true);
+        result.current.reset();
+        expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      });
+
+      it("should handle resetting nested objects correctly", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        // Change nested values
+        result.current.set("nested.ssn", "999-99-9999");
+        result.current.set("nested.ein", "98-7654321");
+
+        // Verify changes
+        expect(result.current.get("nested.ssn").value).toBe("999-99-9999");
+        expect(result.current.get("nested.ein").value).toBe("98-7654321");
+
+        // Reset form
+        result.current.reset();
+
+        // Verify nested values are reset
+        expect(result.current.get("nested.ssn").value).toBe("123-45-6789");
+        expect(result.current.get("nested.ein").value).toBe("");
+      });
+
+      it("should handle resetting array values correctly", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        // Modify array
+        result.current.set("array", [
+          { key: "key1", name: "Modified Name" },
+          { key: "key2", name: "New Item" },
+        ]);
+
+        // Verify changes
+        expect(result.current.get("array").value).toHaveLength(2);
+        expect(result.current.get("array.0.name").value).toBe("Modified Name");
+
+        // Reset form
+        result.current.reset();
+
+        // Verify array is reset
+        expect(result.current.get("array").value).toHaveLength(1);
+        expect(result.current.get("array.0.name").value).toBe("John Doe");
+        expect(result.current.get("array.0.key").value).toBe("key1");
+      });
+    });
+
+    describe("setCurrentStateAsInitialValues()", () => {
+      it("should set current form state as new initial values", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        // Change values
+        result.current.set("name", "Jane Doe");
+        result.current.set("age", 25);
+
+        // Set current state as initial
+        result.current.setCurrentStateAsInitialValues();
+
+        // Values should remain the same
+        expect(result.current.get("name").value).toBe("Jane Doe");
+        expect(result.current.get("age").value).toBe(25);
+
+        // But touched states should be cleared
+        expect(result.current.get("name").touched).toBe(false);
+        expect(result.current.get("age").touched).toBe(false);
+
+        // Now resetting should go to the new "initial" values
+        result.current.set("name", "Another Name");
+        result.current.reset();
+        expect(result.current.get("name").value).toBe("Jane Doe"); // New initial value
+        expect(result.current.get("age").value).toBe(25); // New initial value
+      });
+
+      it("should call onHasTouched with false when setting current state as initial", () => {
+        const onHasTouched = vi.fn();
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+            onHasTouched,
+          }),
+        );
+
+        // Touch a field
+        result.current.set("name", "Jane Doe");
+        expect(onHasTouched).toHaveBeenLastCalledWith(true);
+
+        // Set current state as initial
+        result.current.setCurrentStateAsInitialValues();
+
+        // Should call onHasTouched with false
+        expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      });
+
+      it("should handle nested and array values when setting current state as initial", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+
+        // Change nested and array values
+        result.current.set("nested.ssn", "999-99-9999");
+        result.current.set("array.0.name", "New Array Name");
+
+        // Set current state as initial
+        result.current.setCurrentStateAsInitialValues();
+
+        // Values should remain the same but not be touched
+        expect(result.current.get("nested.ssn").value).toBe("999-99-9999");
+        expect(result.current.get("nested.ssn").touched).toBe(false);
+        expect(result.current.get("array.0.name").value).toBe("New Array Name");
+        expect(result.current.get("array.0.name").touched).toBe(false);
+
+        // Changing back to original values should now mark as touched
+        result.current.set("nested.ssn", "123-45-6789");
+        expect(result.current.get("nested.ssn").touched).toBe(true);
+      });
     });
   });
 
@@ -570,26 +843,30 @@ describe("Form", () => {
       expect(result.current.get("name").touched).toBe(true);
     });
 
-    it("no fields should be touched when the form is reset to the initial values", () => {
+    it("should properly track touched state through reset and setCurrentStateAsInitialValues", () => {
       const { result } = renderHook(() =>
         Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
       );
+
+      // Change value and verify touched
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);
+
+      // Reset should clear touched state
       result.current.reset();
       expect(result.current.get("name").touched).toBe(false);
-    });
 
-    it("no fields should be touched when the form is reset to the initial values", () => {
-      const { result } = renderHook(() =>
-        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
-      );
+      // Change again and set as initial values
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);
       result.current.setCurrentStateAsInitialValues();
       expect(result.current.get("name").touched).toBe(false);
+
+      // Now changing back to original should mark as touched
       result.current.set("name", "John Doe");
       expect(result.current.get("name").touched).toBe(true);
+
+      // And changing back to new initial should clear touched
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(false);
     });

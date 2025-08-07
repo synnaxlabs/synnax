@@ -74,7 +74,7 @@ within the `button` module in a file called `Icon.tsx` and the component is name
 import { Button } from "@/button";
 
 const MyComponent = () => {
-  return <Button.Icon>...</Button.Icon>;
+  return <Button.Button>...</Button.Button>;
 };
 ```
 

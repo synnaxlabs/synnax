@@ -12,7 +12,8 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
-export const modeZ = z.enum(["fire", "momentary", "pulse"]);
+export const MODES = ["fire", "momentary", "pulse"] as const;
+export const modeZ = z.enum(MODES);
 
 export type Mode = z.infer<typeof modeZ>;
 

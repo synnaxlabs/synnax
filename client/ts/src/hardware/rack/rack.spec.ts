@@ -34,21 +34,21 @@ describe("Rack", () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.hardware.racks.retrieve(r.key);
+      const retrieved = await client.hardware.racks.retrieve({ key: r.key });
       expect(retrieved.name).toBe("updated");
     });
   });
   describe("retrieve", () => {
     it("should retrieve a rack by its key", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
-      const retrieved = await client.hardware.racks.retrieve(r.key);
+      const retrieved = await client.hardware.racks.retrieve({ key: r.key });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toBe("test");
     });
     it("should retrieve a rack by its name", async () => {
       const name = `TimeStamp.now().toString()}-${Math.random()}`;
       const r = await client.hardware.racks.create({ name });
-      const retrieved = await client.hardware.racks.retrieve(name);
+      const retrieved = await client.hardware.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
     });
@@ -66,7 +66,8 @@ describe("Rack", () => {
       let status: rack.Status | undefined;
       await expect
         .poll(async () => {
-          const retrieved = await client.hardware.racks.retrieve(r.key, {
+          const retrieved = await client.hardware.racks.retrieve({
+            key: r.key,
             includeStatus: true,
           });
           status = retrieved.status;
@@ -81,13 +82,14 @@ describe("Rack", () => {
       let statuses: (rack.Status | undefined)[] = [];
       await expect
         .poll(async () => {
-          const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
+          const retrieved = await client.hardware.racks.retrieve({
+            keys: [r1.key, r2.key],
             includeStatus: true,
           });
           statuses = retrieved.map((r) => r.status);
           return statuses.every((s) => s != null);
         })
-        .toBeTruthy();
+        .toBe(true);
       expect(statuses).toHaveLength(2);
       expect(statuses[0]?.details?.rack).toBe(r1.key);
       expect(statuses[1]?.details?.rack).toBe(r2.key);

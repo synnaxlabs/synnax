@@ -14,7 +14,6 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
-import { signals } from "@/signals";
 
 export const SET_ALIAS_CHANNEL_NAME = "sy_range_alias_set";
 export const DELETE_ALIAS_CHANNEL_NAME = "sy_range_alias_delete";
@@ -118,15 +117,6 @@ export class Aliaser {
       deleteResZ,
     );
   }
-
-  async openChangeTracker(): Promise<signals.Observable<string, Alias>> {
-    return await signals.openObservable<string, Alias>(
-      this.frameClient,
-      SET_ALIAS_CHANNEL_NAME,
-      DELETE_ALIAS_CHANNEL_NAME,
-      decodeAliasChanges(this.rangeKey),
-    );
-  }
 }
 
 export const aliasZ = z.object({
@@ -151,22 +141,3 @@ export const decodeDeleteAliasChange = (
   const [range, channel] = deletedAlias.split(SEPARATOR);
   return { range, channel: Number(channel) };
 };
-
-const decodeAliasChanges =
-  (rangeKey: Key): signals.Decoder<string, Alias> =>
-  (variant, data) => {
-    if (variant === "delete")
-      return data
-        .toStrings()
-        .filter((k) => decodeDeleteAliasChange(k).range === rangeKey)
-        .map((alias) => ({
-          variant,
-          key: alias,
-          value: undefined,
-        }));
-    return data.parseJSON(aliasZ).map((alias) => ({
-      variant,
-      key: alias.alias,
-      value: alias,
-    }));
-  };
