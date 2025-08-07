@@ -138,7 +138,6 @@ func (u *UnaryTextResponse) Read() (any, error) {
 	case readingMessage:
 		u.readingEnum = readingDone
 		if u.req.Message == "error" {
-			fmt.Println("found an error, sending it!")
 			return nil, errors.New("failed to read message")
 		}
 		return fmt.Sprintf("Message: %s", u.req.Message), nil

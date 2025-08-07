@@ -102,7 +102,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         role: "client",
       },
       async (ctx: Context): Promise<[Context, Error | null]> => {
-        console.log("executeMiddleware", ctx);
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = { ...this.headers, ...ctx.params };
         let httpRes: Response;
@@ -120,7 +119,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
 
           return [outCtx, null];
         }
-        console.log("httpRes", httpRes);
         const data = await httpRes.arrayBuffer();
         try {
           if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
