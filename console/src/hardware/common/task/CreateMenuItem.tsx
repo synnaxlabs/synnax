@@ -13,6 +13,9 @@ export interface CreateMenuItemProps extends Omit<Menu.ItemProps, "startIcon"> {
 
 const CreateTaskIcon = Icon.createComposite(Icon.Task, { topRight: Icon.Add });
 
-export const CreateMenuItem = (props: CreateMenuItemProps) => (
-  <Menu.Item {...props} startIcon={<CreateTaskIcon />} />
+export const CreateMenuItem = ({ children, ...rest }: CreateMenuItemProps) => (
+  <Menu.Item {...rest}>
+    <CreateTaskIcon />
+    {children}
+  </Menu.Item>
 );

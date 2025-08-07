@@ -31,6 +31,3 @@ export interface New extends z.input<typeof newZ> {}
 export const remoteZ = tableZ.extend({
   data: z.string().transform(parseWithoutKeyConversion),
 });
-
-export const ONTOLOGY_TYPE = "table";
-export type OntologyType = typeof ONTOLOGY_TYPE;

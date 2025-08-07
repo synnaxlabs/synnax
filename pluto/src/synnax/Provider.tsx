@@ -51,7 +51,7 @@ export interface ProviderProps extends PropsWithChildren {
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
   connecting: "loading",
-  disconnected: "info",
+  disconnected: "disabled",
   failed: "error",
 };
 

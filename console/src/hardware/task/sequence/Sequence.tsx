@@ -9,8 +9,8 @@
 
 import { type channel, rack, task } from "@synnaxlabs/client";
 import {
-  Align,
   Channel,
+  Flex,
   Form,
   Icon,
   type Input,
@@ -121,7 +121,7 @@ const Internal = ({
         ...base,
         config: {
           ...base.config,
-          rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+          rack: rackKey ?? task.rackKey(base.key ?? "0"),
         },
       },
       layoutKey,
@@ -142,7 +142,7 @@ const Internal = ({
   });
 
   return (
-    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
+    <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
       <Form.Form<FormSchema<typeof configZ>> {...methods}>
         <Form.Field<string>
           path="config.script"
@@ -153,30 +153,33 @@ const Internal = ({
         >
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
-        <Align.Pack
+        <Flex.Box
+          pack
           y
           bordered={false}
+          full="x"
           style={{
-            width: "100%",
             background: "var(--pluto-gray-l0)",
             boxShadow: "var(--pluto-shadow-v1)",
             borderTop: "var(--pluto-border)",
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
-          <Align.Space
-            y
-            style={{ padding: "2rem", paddingBottom: "3rem" }}
-            gap="medium"
-          >
-            <Align.Space x>
+          <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
+            <Flex.Box x>
               <Form.Field<rack.Key>
                 path="config.rack"
                 label="Location"
                 padHelpText={false}
                 grow
               >
-                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
+                {({ value, onChange }) => (
+                  <Rack.SelectSingle
+                    allowNone={false}
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               </Form.Field>
               <Form.NumericField
                 label="Loop Rate"
@@ -189,7 +192,7 @@ const Internal = ({
                   dragScale: { x: 1, y: 1 },
                 }}
               />
-            </Align.Space>
+            </Flex.Box>
             <Form.Field<channel.Key[]>
               path="config.read"
               label="Read From"
@@ -242,7 +245,7 @@ const Internal = ({
                 />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Controls
             layoutKey={layoutKey}
             status={status}
@@ -257,9 +260,9 @@ const Internal = ({
               borderTop: "var(--pluto-border)",
             }}
           />
-        </Align.Pack>
+        </Flex.Box>
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

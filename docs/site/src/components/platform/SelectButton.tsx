@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Select, Text } from "@synnaxlabs/pluto";
+import { Select } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
 import {
@@ -45,36 +45,15 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
   };
 
   return (
-    <Select.DropdownButton
+    <Select.Static
       className="styled-scrollbar"
       location="bottom"
+      resourceName="Platform"
       data={data}
       value={platform}
+      allowNone={false}
       onChange={handleChange}
-      columns={[
-        {
-          key: "icon",
-          name: "icon",
-          render: ({ entry: { name, icon } }) => (
-            <Text.WithIcon level="small" startIcon={icon}>
-              {name}
-            </Text.WithIcon>
-          ),
-        },
-      ]}
-    >
-      {(p) => (
-        <Select.BaseButton
-          {...p}
-          gap="small"
-          size="medium"
-          variant="outlined"
-          startIcon={p.selected?.icon}
-          level="small"
-        >
-          {p.selected?.name}
-        </Select.BaseButton>
-      )}
-    </Select.DropdownButton>
+      virtual={false}
+    />
   );
 };

@@ -22,7 +22,7 @@ import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { Status } from "@/status";
 
-export interface OnChangeProps<Z extends z.ZodType> {
+export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
   values: z.infer<Z>;
   /** The path that was changed. */
@@ -33,11 +33,11 @@ export interface OnChangeProps<Z extends z.ZodType> {
   valid: boolean;
 }
 
-export interface UseProps<Z extends z.ZodType> {
+export interface UseArgs<Z extends z.ZodType> {
   values: z.infer<Z>;
   mode?: Mode;
   sync?: boolean;
-  onChange?: (props: OnChangeProps<Z>) => void;
+  onChange?: (props: OnChangeArgs<Z>) => void;
   onHasTouched?: (value: boolean) => void;
   schema?: Z;
 }
@@ -51,7 +51,7 @@ export const use = <Z extends z.ZodType>({
   mode = "normal",
   onChange,
   onHasTouched,
-}: UseProps<Z>): UseReturn<Z> => {
+}: UseArgs<Z>): UseReturn<Z> => {
   const ref = useInitializerRef<State<Z>>(() => new State<Z>(initialValues, schema));
   const onChangeRef = useSyncedRef(onChange);
   const handleError = Status.useErrorHandler();
@@ -59,6 +59,7 @@ export const use = <Z extends z.ZodType>({
 
   const setCurrentStateAsInitialValues = useCallback(() => {
     ref.current.setCurrentStateAsInitialValues();
+    onHasTouchedRef.current?.(false);
   }, []);
 
   const bind: BindFunc = useCallback(
@@ -78,28 +79,36 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const reset = useCallback((values?: z.infer<Z>) => {
+    const prevValues = ref.current.values;
+    const prevHasTouched = ref.current.hasBeenTouched;
     ref.current.reset(values);
+    const valuesChanged = prevValues !== ref.current.values;
+    if (valuesChanged)
+      onChangeRef.current?.({
+        values: ref.current.values,
+        path: "",
+        prev: prevValues,
+        valid: true,
+      });
     ref.current.notify();
+    const hasTouched = ref.current.hasBeenTouched;
+    if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   }, []);
 
-  const validateAsync = useCallback(
-    async (path?: string, validateChildren?: boolean): Promise<boolean> => {
-      const valid = await ref.current.validateAsync(path, validateChildren);
-      ref.current.notify();
-      return valid;
-    },
-    [],
-  );
-
-  const validate = useCallback((path?: string, validateChildren?: boolean): boolean => {
-    const valid = ref.current.validate(path, validateChildren);
+  const validateAsync = useCallback(async (path?: string): Promise<boolean> => {
+    const valid = await ref.current.validateAsync(true, path);
     ref.current.notify();
     return valid;
   }, []);
 
-  const set: SetFunc = useCallback((path, value, opts = {}): void => {
+  const validate = useCallback((path?: string): boolean => {
+    const valid = ref.current.validate(true, path);
+    ref.current.notify();
+    return valid;
+  }, []);
+
+  const set: SetFunc = useCallback((path, value): void => {
     const prev = deep.get(ref.current.values, path, { optional: true });
-    const { validateChildren = true } = opts;
     const prevHasTouched = ref.current.hasBeenTouched;
     ref.current.setValue(path, value);
     const finish = () => {
@@ -109,10 +118,10 @@ export const use = <Z extends z.ZodType>({
       if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
     };
     try {
-      ref.current.validate(path, validateChildren);
+      ref.current.validate();
     } catch (_) {
       return handleError(async () => {
-        await ref.current.validateAsync(path, validateChildren);
+        await ref.current.validateAsync();
         finish();
       }, "Failed to validate form");
     }

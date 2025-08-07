@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Ontology, Text } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Button, Flex, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -18,34 +18,29 @@ export interface ParentRangeButtonProps {
 }
 
 export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
-  const parentRange =
-    Ontology.useParents(task.ontologyID(taskKey))?.data?.find(
-      ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
-    ) ?? null;
+  const { data: parentRangeID } = Ontology.retrieveParentID.useDirect({
+    params: { id: task.ontologyID(taskKey) },
+  });
+  const { data: parentRange } = Ranger.retrieveQuery.useDirect({
+    params: { key: parentRangeID?.key ?? "" },
+  });
   const placeLayout = Layout.usePlacer();
   if (parentRange == null) return null;
-  const handleClick = () =>
-    placeLayout({
-      ...OVERVIEW_LAYOUT,
-      key: parentRange.id.key,
-      name: parentRange.name,
-    });
+  const { key, name } = parentRange;
+  const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
   return (
-    <Align.Space x align="center" gap="small">
-      <Text.Text level="p" shade={11}>
-        Snapshotted to
-      </Text.Text>
+    <Flex.Box x align="center" gap="small">
+      <Text.Text>Snapshotted to</Text.Text>
       <Button.Button
         gap="small"
         onClick={handleClick}
-        shade={11}
-        startIcon={<Icon.Range />}
         style={{ padding: "1rem" }}
         variant="text"
         weight={400}
       >
-        {parentRange.name}
+        <Icon.Range />
+        {name}
       </Button.Button>
-    </Align.Space>
+    </Flex.Box>
   );
 };

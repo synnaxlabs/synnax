@@ -14,7 +14,6 @@ export * from "@/flux/Context";
 export * from "@/flux/form";
 export * from "@/flux/list";
 export * from "@/flux/listeners";
-export * from "@/flux/pager";
 export * from "@/flux/Provider";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";

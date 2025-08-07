@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, color, deep, type record, scale } from "@synnaxlabs/x";
+import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Align } from "@/align";
 import { Color } from "@/color";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type ButtonProps } from "@/select/Button";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
 import { type Text } from "@/text";
@@ -30,20 +30,20 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
+          <Flex.Box y style={{ padding: "2rem" }}>
             <Value.TelemForm path="" />
-          </Align.Space>
+          </Flex.Box>
         );
       case "redline":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
+          <Flex.Box y style={{ padding: "2rem" }}>
             <RedlineForm />
-          </Align.Space>
+          </Flex.Box>
         );
       default:
         return (
-          <Align.Space y grow empty style={{ padding: "2rem" }}>
-            <Align.Space x>
+          <Flex.Box y grow empty style={{ padding: "2rem" }}>
+            <Flex.Box x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
               </Input.Item>
@@ -69,10 +69,12 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 hideIfNull
                 padHelpText={false}
               >
-                {(p) => <Select.Text.Level {...p} />}
+                {({ value, onChange, variant: __, ...rest }) => (
+                  <Select.Text.Level value={value} onChange={onChange} {...rest} />
+                )}
               </Form.Field>
-            </Align.Space>
-          </Align.Space>
+            </Flex.Box>
+          </Flex.Box>
         );
     }
   }, []);
@@ -84,7 +86,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     ],
     content,
   });
-  return <Tabs.Tabs {...tabsProps} />;
+  return <Tabs.Tabs {...tabsProps} size="small" />;
 };
 
 const RedlineForm = (): ReactElement => {
@@ -92,7 +94,7 @@ const RedlineForm = (): ReactElement => {
   const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
   const s = scale.Scale.scale<number>(0, 1).scale(b);
   return (
-    <Align.Space x grow>
+    <Flex.Box x grow>
       <Form.NumericField
         inputProps={{ size: "small", showDragHandle: false }}
         style={{ width: 60 }}
@@ -145,24 +147,30 @@ const RedlineForm = (): ReactElement => {
         label="Upper"
         path="redline.bounds.upper"
       />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Align.Space x grow style={{ padding: "2rem" }}>
+  <Flex.Box x grow style={{ padding: "2rem" }}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {(p) => <Select.Text.Level {...p} />}
+      {({ value, onChange, variant: __, ...rest }) => (
+        <Select.Text.Level value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<Text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {(p) => <Select.Text.Weight {...p} />}
+      {({ value, onChange, variant: ___, ...rest }) => (
+        <Select.Text.Weight value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
-    <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
-      {(p) => <Select.TextAlignment {...p} />}
+    <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
+      {({ value, onChange, variant: ___, ...rest }) => (
+        <Flex.SelectAlignment value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<color.Crude>
       path="backgroundColor"
@@ -172,27 +180,17 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     >
       {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
     </Form.Field>
-  </Align.Space>
+  </Flex.Box>
 );
 
-type VariantEntry = record.KeyedNamed<Variant>;
-
-const VARIANT_DATA: VariantEntry[] = [
-  { key: "text", name: "Text" },
-  { key: "value", name: "Value" },
+export const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
+  { key: "text", name: "Text", icon: <Icon.Text /> },
+  { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-interface SelectVariantProps
-  extends Omit<
-    ButtonProps<Variant, VariantEntry>,
-    "data" | "entryRenderKey" | "allowMultiple"
-  > {}
+export interface SelectVariantProps
+  extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
 
-const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Button<Variant, VariantEntry>
-    {...props}
-    data={VARIANT_DATA}
-    allowMultiple={false}
-    entryRenderKey="name"
-  />
+export const SelectVariant = (props: SelectVariantProps) => (
+  <Select.Static data={VARIANT_DATA} {...props} resourceName="Variant" />
 );

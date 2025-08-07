@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, user } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { ontology, type user } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -19,9 +19,10 @@ import { useSelectHasPermission } from "@/user/selectors";
 
 const editPermissions = ({
   placeLayout,
-  selection: { resources },
+  selection: { resourceIDs },
+  state: { getResource },
 }: Ontology.TreeContextMenuProps) => {
-  const user = resources[0].data as user.User;
+  const user = getResource(resourceIDs[0]).data as user.User;
   const layout = Permissions.createEditLayout(user);
   placeLayout(layout);
 };
@@ -29,19 +30,23 @@ const editPermissions = ({
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "User" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
+      const resources = getResource(resourceIDs);
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
+          keys: resourceIDs.map((id) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resources }, client }) =>
-      await client.user.delete(resources.map(({ id }) => id.key)),
+    mutationFn: async ({ selection: { resourceIDs }, client }) =>
+      await client.user.delete(resourceIDs.map((id) => id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.Canceled.matches(e)) return;
@@ -53,20 +58,21 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
-    selection: { nodes, resources },
+    state: { getResource },
+    selection: { resourceIDs },
   } = props;
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     delete: () => handleDelete(props),
   };
-  const singleResource = resources.length === 1;
-  const hasRootUser = resources.some((resource) => {
-    const user = resource.data as user.User;
+  const singleResource = resourceIDs.length === 1;
+  const hasRootUser = resourceIDs.some((id) => {
+    const user = getResource(id).data as user.User;
     return user.rootUser;
   });
-  const isNotCurrentUser = resources[0].name !== client.props.username;
+  const isNotCurrentUser = getResource(resourceIDs[0]).name !== client.props.username;
   const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
 
@@ -75,13 +81,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {singleResource && isNotCurrentUser && (
         <>
           {canEditPermissions && !hasRootUser && (
-            <PMenu.Item itemKey="permissions" startIcon={<Icon.Access />}>
+            <PMenu.Item itemKey="permissions">
+              <Icon.Access />
               Edit Permissions
             </PMenu.Item>
           )}
           {canEditOrDelete && (
             <>
-              <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+              <PMenu.Item itemKey="rename">
+                <Icon.Rename />
                 Change Username
               </PMenu.Item>
               <PMenu.Divider />
@@ -107,7 +115,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: user.ONTOLOGY_TYPE,
+  type: "user",
   icon: <Icon.User />,
   allowRename: () => true,
   onRename: handleRename,

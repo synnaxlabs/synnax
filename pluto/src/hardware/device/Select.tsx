@@ -7,84 +7,93 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack } from "@synnaxlabs/client";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import "@/hardware/device/Select.css";
+
+import { type device } from "@synnaxlabs/client";
+import { type ReactElement } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
-import { useAsyncEffect } from "@/hooks";
-import { type List } from "@/list";
+import { Component } from "@/component";
+import { CSS } from "@/css";
+import { type Flux } from "@/flux";
+import { Device } from "@/hardware/device";
+import { type ListParams, useList } from "@/hardware/device/queries";
+import { Icon } from "@/icon";
+import { List } from "@/list";
 import { Select } from "@/select";
-import { Synnax } from "@/synnax";
+import { Text } from "@/text";
 
-interface Entry extends device.Device {
-  rackName?: string;
-}
-
-const COLUMNS: Array<List.ColumnSpec<device.Key, Entry>> = [
-  { key: "name", name: "Name" },
-  {
-    key: "location",
-    name: "Location",
-    render: ({ entry: { location, rackName } }) => (
-      <Breadcrumb.Breadcrumb
-        level="small"
-        shade={9}
-        weight={450}
-        style={{ marginTop: "0.25rem" }}
-        gap="tiny"
+const listItemRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
+    const item = List.useItem<device.Key, device.Device>(itemKey);
+    return (
+      <Select.ListItem
+        itemKey={itemKey}
+        {...rest}
+        className={CSS.BE("device", "list-item")}
+        justify="between"
+        align="center"
       >
-        {rackName ? `${rackName}.${location}` : location}
-      </Breadcrumb.Breadcrumb>
-    ),
+        <Text.Text align="center">
+          <Device.StatusIndicator status={item?.status} />
+          {item?.name}
+        </Text.Text>
+        <Breadcrumb.Breadcrumb
+          level="small"
+          color={9}
+          weight={450}
+          style={{ marginTop: "0.25rem" }}
+          gap="tiny"
+        >
+          {item?.location.split(".").map((segment) => (
+            <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
+          ))}
+        </Breadcrumb.Breadcrumb>
+      </Select.ListItem>
+    );
   },
-];
+);
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<device.Key, Entry>, "columns"> {
-  searchOptions?: device.RetrieveOptions;
-}
+  extends Omit<
+      Select.SingleProps<device.Key, device.Device | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, device.Key, device.Device> {}
 
 export const SelectSingle = ({
-  searchOptions,
-  filter: originalFilter,
+  onChange,
+  value,
+  filter,
+  allowNone,
+  emptyContent,
+  initialParams,
+  disabled,
+  icon = <Icon.Device />,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const client = Synnax.use();
-  let searcher: AsyncTermSearcher<string, device.Key, Entry> | undefined =
-    client?.hardware.devices;
-  if (searchOptions != null && client != null)
-    searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
-  const [rackMap, setRackMap] = useState(new Map<rack.Key, string>());
-  const filter = useCallback(
-    (items: device.Device[]) => {
-      const newItems = originalFilter?.(items) ?? items;
-      return newItems.map((item) => ({
-        ...item,
-        rackName: rackMap.get(item.rack),
-      }));
-    },
-    [originalFilter, rackMap],
-  );
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) {
-        setRackMap(new Map());
-        return;
-      }
-      const racks = await client.hardware.racks.retrieve([]);
-      if (signal.aborted) return;
-      setRackMap(new Map(racks.map(({ key, name }) => [key, name])));
-    },
-    [client?.key],
-  );
+  const { data, retrieve, getItem, subscribe, status } = useList({
+    filter,
+    initialParams,
+  });
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Single<device.Key, Entry>
-      columns={COLUMNS}
-      searcher={searcher}
-      entryRenderKey="name"
-      filter={filter}
+    <Select.Single<device.Key, device.Device | undefined>
+      resourceName="Device"
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      emptyContent={emptyContent}
+      status={status}
+      disabled={disabled}
+      icon={icon}
       {...rest}
-    />
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

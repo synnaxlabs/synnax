@@ -24,11 +24,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   const {
-    selection: { resources },
+    selection: { resourceIDs },
   } = props;
-  if (resources.length !== 1) return null;
+  if (resourceIDs.length !== 1) return null;
   const handleEditConnection = () =>
-    placeLayout({ ...Device.CONNECT_LAYOUT, key: resources[0].id.key });
+    placeLayout({ ...Device.CONNECT_LAYOUT, key: resourceIDs[0].key });
   return (
     <Common.DeviceServices.ContextMenuItems
       {...props}
@@ -36,11 +36,8 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     >
       <>
-        <Menu.Item
-          itemKey="opc.connect"
-          startIcon={<Icon.Connect />}
-          onClick={handleEditConnection}
-        >
+        <Menu.Item itemKey="opc.connect" onClick={handleEditConnection}>
+          <Icon.Connect />
           Edit Connection
         </Menu.Item>
         <Menu.Divider />

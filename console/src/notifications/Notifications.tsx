@@ -9,7 +9,7 @@
 
 import "@/notifications/Notifications.css";
 
-import { type Button, List, Status } from "@synnaxlabs/pluto";
+import { type Button, Flex, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
@@ -36,22 +36,20 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
       if (result != null) return result;
     }
     return status;
-  });
+  }) as Sugared[];
   return createPortal(
-    <List.List<string, Status.NotificationSpec | Sugared> data={sugared}>
-      <List.Core<string, Sugared> className={CSS(CSS.B("notifications"))} gap="medium">
-        {({ entry }) => (
-          <Status.Notification
-            key={entry.key}
-            status={entry}
-            silence={silence}
-            actions={entry.actions}
-          >
-            {entry.content}
-          </Status.Notification>
-        )}
-      </List.Core>
-    </List.List>,
+    <Flex.Box y className={CSS.B("notifications")}>
+      {sugared.map((status) => (
+        <Status.Notification
+          key={status.key}
+          status={status}
+          silence={silence}
+          actions={status.actions}
+        >
+          {status.content}
+        </Status.Notification>
+      ))}
+    </Flex.Box>,
     document.getElementById("root") as HTMLElement,
   );
 };

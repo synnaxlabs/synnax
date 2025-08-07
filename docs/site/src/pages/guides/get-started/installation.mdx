@@ -5,7 +5,7 @@ description: "Install the Synnax core components."
 platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
-import { Align, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
+import { Flex, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
 
 import { Console } from "@/components/console";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
@@ -42,9 +42,9 @@ latest version of the console for your OS:
 
 <br />
 <br />
-<Align.Space direction="y" justify="center" align="center">
+<Flex.Box direction="y" justify="center" align="center">
   <Console.DownloadButton client:load />
-</Align.Space>
+</Flex.Box>
 <br />
 <br />
 
@@ -224,13 +224,13 @@ To install the Synnax cluster on Windows, download and run the latest Synnax ins
 
 <br />
 <br />
-<Align.Space direction="y" justify="center" align="center">
+<Flex.Box direction="y" justify="center" align="center">
   <WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
   </small>
-</Align.Space>
+</Flex.Box>
 <br />
 <br />
 

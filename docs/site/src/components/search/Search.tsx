@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, componentRenderProp, Icon } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Dropdown } from "@synnaxlabs/pluto/dropdown";
+import {
+  Breadcrumb,
+  Component,
+  Dialog,
+  Flex,
+  Icon,
+  Select,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { Triggers } from "@synnaxlabs/pluto/triggers";
 import { caseconv, deep } from "@synnaxlabs/x";
-import React, {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import z from "zod";
 
 interface SearchResult {
   key: string;
@@ -39,44 +38,33 @@ const ALGOLIA_HEADERS = {
   "X-Algolia-Application-Id": ALGOLIA_APP_ID,
 };
 
-export const Search = (): ReactElement => {
-  const { close, open, toggle, visible } = Dropdown.use();
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") close();
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        open();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-  return (
-    <Triggers.Provider>
-      <Dropdown.Dialog
-        variant="modal"
-        close={close}
-        visible={visible}
-        className="search-box"
+export const Search = (): ReactElement => (
+  <Triggers.Provider>
+    <Dialog.Frame variant="modal" className="search-box">
+      <Dialog.Trigger
+        variant="outlined"
+        justify="center"
+        size="large"
+        textColor={8}
+        trigger={["Control", "K"]}
+        triggerIndicator
       >
-        <Button.Button
-          startIcon={<Icon.Search />}
-          onClick={toggle}
-          variant="outlined"
-          justify="center"
-          size="large"
-          endIcon={<Triggers.Text level="small" trigger={["Control", "K"]} />}
-        >
-          Search
-        </Button.Button>
-        <SearchDialogContent close={close} visible={visible} />
-      </Dropdown.Dialog>
-    </Triggers.Provider>
-  );
-};
+        <Icon.Search />
+        Search
+      </Dialog.Trigger>
+      <Dialog.Dialog
+        bordered={false}
+        pack
+        rounded={1}
+        className="search-results__content"
+      >
+        <SearchDialogContent />
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  </Triggers.Provider>
+);
 
-const ICONS: Record<string, ReactElement> = {
+const ICONS: Record<string, Icon.ReactElement> = {
   "python-client": <Icon.Python />,
   "typescript-client": <Icon.TypeScript />,
   cluster: <Icon.Cluster />,
@@ -90,11 +78,11 @@ const ICONS: Record<string, ReactElement> = {
   releases: <Icon.Release />,
 };
 
-export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
-  const {
-    entry: { key, href, title, content },
-    hovered,
-  } = props;
+export const SearchListItem = (props: List.ItemRenderProps<string>) => {
+  const { itemKey } = props;
+  const item = List.useItem<string, SearchResult>(itemKey);
+  if (item == null) return null;
+  const { href, title, content } = item;
   const icon = Object.entries(ICONS).find(([k]) => href.includes(k))?.[1];
   const path = deep.transformPath(
     href,
@@ -109,111 +97,144 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
     "/",
   );
   return (
-    <List.ItemFrame
-      id={key.toString()}
+    <Select.ListItem<string, "a">
+      id={itemKey}
       el="a"
       direction="y"
       style={{ padding: "2.5rem 3rem" }}
       gap="medium"
-      className={`search-result ${hovered ? "hovered" : ""}`}
       aria-selected={true}
       href={href}
-      key={key}
       {...props}
     >
-      <Align.Space direction="y" empty>
-        <Text.Text level="h4" dangerouslySetInnerHTML={{ __html: title }} />
-        <Breadcrumb.Breadcrumb level="small" separator="/" icon={icon}>
-          {path}
+      <Flex.Box direction="y" empty>
+        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} gap="tiny" />
+        <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
+          {icon}
+          {path.split("/").map((segment, index) => (
+            <Breadcrumb.Segment key={index} color={8}>
+              {segment}
+            </Breadcrumb.Segment>
+          ))}
         </Breadcrumb.Breadcrumb>
-      </Align.Space>
+      </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
-    </List.ItemFrame>
+    </Select.ListItem>
   );
 };
 
-const searchListItem = componentRenderProp(SearchListItem);
+const searchListItem = Component.renderProp(SearchListItem);
 
-interface SearchDialogContentProps
-  extends Pick<Dropdown.DialogProps, "close" | "visible"> {}
+const hitSchema = z.object({
+  objectID: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  content: z.string(),
+  href: z.string(),
+  _snippetResult: z
+    .object({
+      title: z
+        .object({
+          value: z.string(),
+        })
+        .optional(),
+      content: z
+        .object({
+          value: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
-const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
-  const [results, setResults] = useState<SearchResult[]>([]);
+const hitsSchema = hitSchema.array();
+
+const search = async (term: string) => {
+  const res = await fetch(ALGOLIA_URL, {
+    method: "POST",
+    headers: ALGOLIA_HEADERS,
+    body: JSON.stringify({
+      params: `query=${term}&hitsPerPage=5&attributesToSnippet=content,title:20&highlightPreTag=<b>&highlightPostTag=</b>`,
+    }),
+  });
+  const json = await res.json();
+  const hits = hitsSchema.safeParse(json.hits);
+  if (!hits.success) {
+    console.error(hits.error.issues);
+    return [];
+  }
+
+  return hits.data.map((hit) => ({
+    key: hit.objectID,
+    title: hit._snippetResult?.title?.value ?? hit.title,
+    description: hit.description,
+    content: hit._snippetResult?.content?.value ?? hit.content,
+    href: hit.href,
+  })) as SearchResult[];
+};
+
+const SearchDialogContent = () => {
+  const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const handleSearch = useCallback(async (query: string) => {
-    setValue(query);
-    const res = await fetch(ALGOLIA_URL, {
-      method: "POST",
-      headers: ALGOLIA_HEADERS,
-      body: JSON.stringify({
-        params: `query=${query}&hitsPerPage=5&attributesToSnippet=content,title:20&highlightPreTag=<b>&highlightPostTag=</b>`,
-      }),
-    });
-    const json = await res.json();
-    setResults(
-      json.hits.map((hit: unknown) => ({
-        key: hit.objectID,
-        title: hit._snippetResult?.title?.value ?? hit.title,
-        description: hit.description,
-        content: hit._snippetResult.content.value,
-        href: hit.href,
-      })) as SearchResult[],
-    );
-  }, []);
-
+  const [data, setData] = useState<SearchResult[]>([]);
+  const handleSearch = useCallback(
+    (query: string) => {
+      setValue(query);
+      void search(query)
+        .then((data) => {
+          setData(data);
+        })
+        .catch(console.error);
+    },
+    [visible],
+  );
   useEffect(() => {
-    handleSearch("").catch(console.error);
-    inputRef.current?.focus();
+    if (visible) handleSearch("");
   }, [visible]);
-
+  const { data: items, getItem } = List.useStaticData<string, SearchResult>({
+    data: data ?? [],
+  });
   return (
-    <List.List
-      data={results}
-      emptyContent={
-        <Align.Center style={{ height: "100%" }}>
-          <Text.Text level="p" shade={11} weight={400}>
+    <Select.Frame<string, SearchResult>
+      data={items}
+      getItem={getItem}
+      value=""
+      onChange={(k: string | null) => {
+        if (k == null) return;
+        document.getElementById(k)?.click();
+        close();
+      }}
+    >
+      <Input.Text
+        className="search-results__input"
+        ref={inputRef}
+        placeholder={
+          <>
+            <Icon.Search />
+            Search
+          </>
+        }
+        borderColor={6}
+        autoFocus
+        value={value}
+        onChange={handleSearch}
+        size="huge"
+        full="x"
+      />
+      <List.Items<string, SearchResult>
+        className="styled-scrollbar"
+        background={0}
+        bordered
+        borderColor={6}
+        emptyContent={
+          <Text.Text center status="disabled">
             {value.length === 0 ? "Type to search..." : "No Results"}
           </Text.Text>
-        </Align.Center>
-      }
-    >
-      <List.Selector<string, SearchResult>
-        value=""
-        allowMultiple={false}
-        onChange={(k: string) => {
-          document.getElementById(k)?.click();
-          close();
-        }}
+        }
       >
-        <List.Hover>
-          <Align.Pack className="search-results__content" direction="y">
-            <Input.Text
-              className="search-results__input"
-              ref={inputRef}
-              placeholder={
-                <Text.WithIcon level="h2" startIcon={<Icon.Search />}>
-                  Search
-                </Text.WithIcon>
-              }
-              autoFocus
-              value={value}
-              onChange={(v: string) => {
-                void handleSearch(v);
-              }}
-              size="huge"
-            />
-            <List.Core<string, SearchResult>
-              className="styled-scrollbar"
-              background={0}
-              bordered
-              borderShade={6}
-            >
-              {searchListItem}
-            </List.Core>
-          </Align.Pack>
-        </List.Hover>
-      </List.Selector>
-    </List.List>
+        {searchListItem}
+      </List.Items>
+    </Select.Frame>
   );
 };

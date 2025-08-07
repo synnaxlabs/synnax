@@ -14,9 +14,11 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,9 +27,25 @@ import (
 )
 
 type (
-	Range       = ranger.Range
+	Range struct {
+		ranger.Range
+		Labels []label.Label `json:"labels" msgpack:"labels"`
+		Parent *ranger.Range `json:"parent" msgpack:"parent"`
+	}
 	RangeKVPair = ranger.KVPair
 )
+
+func translateRangesToService(ranges []Range) []ranger.Range {
+	return lo.Map(ranges, func(item Range, index int) ranger.Range {
+		return item.Range
+	})
+}
+
+func translateRangesFromService(ranges []ranger.Range) []Range {
+	return lo.Map(ranges, func(item ranger.Range, index int) Range {
+		return Range{Range: item}
+	})
+}
 
 type RangeService struct {
 	dbProvider
@@ -62,24 +80,27 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateManyWithParent(ctx, &req.Ranges, req.Parent)
+		svcRanges := translateRangesToService(req.Ranges)
+		err := s.internal.NewWriter(tx).CreateManyWithParent(ctx, &svcRanges, req.Parent)
 		if err != nil {
 			return err
 		}
-		res = RangeCreateResponse{Ranges: req.Ranges}
+		res = RangeCreateResponse{Ranges: translateRangesFromService(svcRanges)}
 		return nil
 	})
 }
 
 type (
 	RangeRetrieveRequest struct {
-		Keys         []uuid.UUID     `json:"keys" msgpack:"keys"`
-		Names        []string        `json:"names" msgpack:"names"`
-		Term         string          `json:"term" msgpack:"term"`
-		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
-		HasLabels    []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
-		Limit        int             `json:"limit" msgpack:"limit"`
-		Offset       int             `json:"offset" msgpack:"offset"`
+		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
+		Names         []string        `json:"names" msgpack:"names"`
+		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
+		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		Limit         int             `json:"limit" msgpack:"limit"`
+		Offset        int             `json:"offset" msgpack:"offset"`
+		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
+		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
 	}
 	RangeRetrieveResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -88,11 +109,11 @@ type (
 
 func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (res RangeRetrieveResponse, _ error) {
 	var (
-		resRanges       []ranger.Range
-		q               = s.internal.NewRetrieve().Entries(&resRanges)
+		svcRanges       []ranger.Range
+		q               = s.internal.NewRetrieve().Entries(&svcRanges)
 		hasNames        = len(req.Names) > 0
 		hasKeys         = len(req.Keys) > 0
-		hasSearch       = req.Term != ""
+		hasSearch       = req.SearchTerm != ""
 		hasOverlapsWith = !req.OverlapsWith.IsZero()
 	)
 	if hasOverlapsWith {
@@ -105,7 +126,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasSearch {
-		q = q.Search(req.Term)
+		q = q.Search(req.SearchTerm)
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -117,14 +138,36 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	if err != nil {
 		return RangeRetrieveResponse{}, err
 	}
+	apiRanges := translateRangesFromService(svcRanges)
+	if req.IncludeLabels {
+		for i, rng := range apiRanges {
+			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
+				return RangeRetrieveResponse{}, err
+			}
+			apiRanges[i] = rng
+		}
+	}
+	if req.IncludeParent {
+		for i, rng := range apiRanges {
+			parent, err := rng.RetrieveParent(ctx)
+			if errors.Is(err, query.NotFound) {
+				continue
+			}
+			if err != nil {
+				return RangeRetrieveResponse{}, err
+			}
+			rng.Parent = &parent
+			apiRanges[i] = rng
+		}
+	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: ranger.OntologyIDsFromRanges(resRanges),
+		Objects: ranger.OntologyIDsFromRanges(svcRanges),
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
 	}
-	return RangeRetrieveResponse{Ranges: resRanges}, err
+	return RangeRetrieveResponse{Ranges: apiRanges}, err
 }
 
 type RangeRenameRequest struct {
@@ -383,7 +426,7 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 		Exec(ctx, nil); err != nil {
 		return res, err
 	}
-	aliases, err := r.ListAliases(ctx)
+	aliases, err := r.RetrieveAliases(ctx)
 	if err != nil {
 		return res, err
 	}

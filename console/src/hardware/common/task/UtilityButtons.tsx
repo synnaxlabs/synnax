@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -23,14 +23,14 @@ interface UtilityButtonProps {
 }
 
 const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps) => (
-  <Button.Icon
+  <Button.Button
     tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
     tooltipLocation="left"
     variant="text"
     {...rest}
   >
     <Icon style={{ color: "var(--pluto-gray-l9)" }} />
-  </Button.Icon>
+  </Button.Button>
 );
 
 export interface UtilityButtonsProps {
@@ -67,7 +67,7 @@ export const UtilityButtons = ({
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   const hasDisabledButtons = taskKey === "";
   return (
-    <Align.Space x empty>
+    <Flex.Box x empty>
       <UtilityButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}
@@ -92,6 +92,6 @@ export const UtilityButtons = ({
       >
         {Icon.Link}
       </UtilityButton>
-    </Align.Space>
+    </Flex.Box>
   );
 };

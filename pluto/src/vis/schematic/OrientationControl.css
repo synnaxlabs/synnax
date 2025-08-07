@@ -50,7 +50,7 @@
             left: unset;
         }
 
-        &.pluto--y {
+        &.pluto--direction-y {
             transform: rotate(90deg);
         }
     }

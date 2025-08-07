@@ -13,14 +13,14 @@ import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
-import { Text, type TextExtraProps } from "@/input/Text";
-import { type BaseProps } from "@/input/types";
+import { Text, type TextProps } from "@/input/Text";
+import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type" | "onBlur" | "color">,
+  extends Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
     DragButtonExtraProps,
-    TextExtraProps {
+    Control<number> {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
@@ -64,6 +64,7 @@ export const Numeric = ({
   disabled,
   onBlur,
   units,
+  size,
   ...rest
 }: NumericProps): ReactElement => {
   // We need to keep the actual value as a valid number, but we need to let the user
@@ -130,7 +131,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (variant === "preview" || disabled) showDragHandle = false;
+  if (disabled || variant === "preview") showDragHandle = false;
 
   return (
     <Text
@@ -149,6 +150,7 @@ export const Numeric = ({
         onBlur?.();
       }}
       onBlur={handleBlur}
+      size={size}
       {...rest}
     >
       {showDragHandle && (
@@ -159,6 +161,7 @@ export const Numeric = ({
           dragScale={dragScale}
           resetValue={resetValue}
           onBlur={handleBlur}
+          size={size}
         />
       )}
       {children}

@@ -12,15 +12,15 @@ import "@/ranger/TimeRangeChip.css";
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
-  extends Align.SpaceProps<"div">,
-    Pick<Text.TextProps, "level" | "shade"> {
+  extends Flex.BoxProps<"div">,
+    Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
   labeled?: boolean;
@@ -29,7 +29,7 @@ export interface TimeRangeChipProps
 export const TimeRangeChip = ({
   timeRange,
   level = "p",
-  shade = 9,
+  color = 9,
   showSpan = false,
   labeled = false,
   ...rest
@@ -42,9 +42,9 @@ export const TimeRangeChip = ({
   const span = startTS.span(endTS);
 
   let startTime = (
-    <Align.Space x align="center" gap="small">
+    <Flex.Box x align="center" gap="small">
       {startTS.isToday && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           Today
         </Text.Text>
       )}
@@ -52,12 +52,12 @@ export const TimeRangeChip = ({
         level={level}
         displayTZ="local"
         format={startFormat}
-        shade={shade}
+        color={color}
         weight={450}
       >
         {startTS}
       </Text.DateTime>
-    </Align.Space>
+    </Flex.Box>
   );
 
   let endTime = (
@@ -69,14 +69,14 @@ export const TimeRangeChip = ({
           level={level}
           displayTZ="local"
           format={endFormat}
-          shade={shade}
+          color={color}
           weight={450}
         >
           {endTS}
         </Text.DateTime>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} shade={shade} weight={450}>
+        <Text.Text level={level} color={color} weight={450}>
           ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
@@ -96,10 +96,8 @@ export const TimeRangeChip = ({
     );
   }
 
-  const levelVar = CSS.levelSizeVar(level);
-
   return (
-    <Align.Space
+    <Flex.Box
       x
       gap="small"
       className={CSS(CSS.B("time-range-chip"))}
@@ -107,14 +105,8 @@ export const TimeRangeChip = ({
       {...rest}
     >
       {startTime}
-      <Icon.Arrow.Right
-        color="var(--pluto-gray-l9)"
-        style={{
-          width: levelVar,
-          height: levelVar,
-        }}
-      />
+      <Icon.Arrow.Right color={9} style={{ width: "1rem", height: "1rem" }} />
       {endTime}
-    </Align.Space>
+    </Flex.Box>
   );
 };

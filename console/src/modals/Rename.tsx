@@ -42,13 +42,14 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           <Button.Button
             status="success"
             disabled={!allowEmpty && name.length === 0}
+            variant="filled"
             onClick={() => {
               if (allowEmpty && name.length === 0) return onFinish(null);
               if (!allowEmpty && name.length === 0)
                 return setError(`${label} is required`);
               return onFinish(name);
             }}
-            triggers={SAVE_TRIGGER}
+            trigger={SAVE_TRIGGER}
           >
             Create
           </Button.Button>
@@ -62,14 +63,14 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           label={label}
           required={!allowEmpty}
           helpText={error}
-          helpTextVariant={error != null ? "error" : "success"}
+          status={error != null ? "error" : "success"}
           padHelpText
         >
           <Input.Text
             autoFocus
             placeholder={label}
             level="h2"
-            variant="natural"
+            variant="text"
             value={name}
             onChange={setName}
           />

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { ontology } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -43,8 +43,12 @@ const handleSelect: Ontology.HandleSelect = ({
 const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      const resources = resourceIDs.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -57,16 +61,20 @@ const useDelete = () => {
     mutationFn: async (props: Ontology.TreeContextMenuProps) => {
       const {
         client,
-        selection: { resources },
+        selection: { resourceIDs },
         removeLayout,
       } = props;
-      await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
-      removeLayout(...resources.map(({ id }) => id.key));
+      const keys = resourceIDs.map((id) => id.key);
+      await client.hardware.tasks.delete(keys);
+      removeLayout(...keys);
     },
-    onError: (e: Error, { handleError, selection: { resources } }) => {
+    onError: (
+      e: Error,
+      { handleError, selection: { resourceIDs }, state: { getResource } },
+    ) => {
       let message = "Failed to delete tasks";
-      if (resources.length === 1)
-        message = `Failed to delete task ${resources[0].name}`;
+      if (resourceIDs.length === 1)
+        message = `Failed to delete task ${getResource(resourceIDs[0]).name}`;
       if (errors.Canceled.matches(e)) return;
       handleError(e, message);
     },
@@ -74,8 +82,16 @@ const useDelete = () => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleError } = props;
-  const { resources, nodes } = selection;
+  const {
+    store,
+    selection,
+    client,
+    addStatus,
+    handleError,
+    state: { getResource, shape },
+  } = props;
+  const { resourceIDs } = selection;
+  const resources = getResource(resourceIDs);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Common.Task.useExport();
@@ -95,17 +111,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    export: () => handleExport(resources[0].id.key),
-    rangeSnapshot: () => snap(props.selection.resources),
+    export: () => handleExport(resourceIDs[0].key),
+    rangeSnapshot: () => snap(resources),
     group: () => group(props),
   };
-  const singleResource = resources.length === 1;
+  const singleResource = resourceIDs.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />
@@ -114,7 +130,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       {singleResource && (
         <>
-          <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
             {`${resources[0].data?.snapshot ? "View" : "Edit"} Configuration`}
           </PMenu.Item>
           <Menu.RenameItem />
@@ -123,7 +140,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete">
+        <Icon.Delete />
         Delete
       </PMenu.Item>
       <PMenu.Divider />
@@ -161,7 +179,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: task.ONTOLOGY_TYPE,
+  type: "task",
   icon: <Icon.Task />,
   hasChildren: false,
   onSelect: handleSelect,

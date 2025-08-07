@@ -97,14 +97,15 @@ export const OpenButton = (): ReactElement => {
     placeLayout(LAYOUT);
   };
   return (
-    <Button.Icon
+    <Button.Button
       size="small"
-      shade={2}
+      variant="text"
       onClick={handleDocs}
+      contrast={2}
       className={CSS.BE("docs", "open-button")}
       tooltip={<Text.Text level="small">Open Documentation</Text.Text>}
     >
       <Icon.QuestionMark />
-    </Button.Icon>
+    </Button.Button>
   );
 };

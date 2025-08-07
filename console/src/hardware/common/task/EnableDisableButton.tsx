@@ -10,7 +10,7 @@
 import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
 
 export interface EnableDisableButtonProps
-  extends Omit<Button.ToggleIconProps, "onChange" | "value" | "children"> {
+  extends Omit<Button.ToggleProps, "onChange" | "value" | "children"> {
   path: string;
   isSnapshot: boolean;
 }
@@ -25,7 +25,7 @@ export const EnableDisableButton = ({
   if (fs == null) return null;
   const { value } = fs;
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       disabled={isSnapshot}
       onChange={(v) => set(path, v)}
       size="small"
@@ -41,6 +41,6 @@ export const EnableDisableButton = ({
       {...rest}
     >
       <Status.Indicator />
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };

@@ -9,18 +9,9 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import {
-  Align,
-  CSS as PCSS,
-  Haul,
-  Input,
-  List,
-  Schematic,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Flex, Haul, Input, List, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -69,68 +60,71 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [startDrag],
   );
 
+  const { data, retrieve } = List.useStaticData<Schematic.Variant, Schematic.Spec>({
+    data: LIST_DATA,
+  });
+  const [searchTerm, setSearchTerm] = useState("");
   return (
-    <List.List data={LIST_DATA}>
-      <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
-        <List.Filter>
-          {(p) => <Input.Text {...p} placeholder="Type to search..." size="small" />}
-        </List.Filter>
-      </Align.Space>
-      <List.Core<string, Schematic.Spec>
-        x
-        className={CSS(
-          CSS.B("schematic-symbols"),
-          PCSS.BE("symbol", "container"),
-          PCSS.M("editable"),
-        )}
-        wrap
-      >
-        {(p) => (
-          <SymbolsButton
-            key={p.key}
-            symbolSpec={p.entry}
-            onClick={() => handleAddElement(p.entry.key)}
+    <>
+      <Flex.Box style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
+        <Input.Text
+          value={searchTerm}
+          onChange={(searchTerm) => {
+            setSearchTerm(searchTerm);
+            retrieve({ searchTerm });
+          }}
+          placeholder="Type to search..."
+          size="small"
+          full="x"
+        />
+      </Flex.Box>
+      <Flex.Box x className={CSS.B("schematic-symbols")} wrap>
+        {data.map((key: Schematic.Variant, i: number) => (
+          <ListItem
+            key={key}
+            index={i}
+            itemKey={key}
+            onClick={() => handleAddElement(key)}
             theme={theme}
             startDrag={handleDragStart}
             onDragEnd={onDragEnd}
           />
-        )}
-      </List.Core>
-    </List.List>
+        ))}
+      </Flex.Box>
+    </>
   );
 };
 
-interface SymbolsButtonProps extends PropsWithChildren, Align.SpaceProps {
-  symbolSpec: Schematic.Spec;
+interface SymbolsButtonProps extends List.ItemProps<Schematic.Variant> {
   theme: Theming.Theme;
   startDrag: (key: string) => void;
 }
 
-const SymbolsButton = ({
-  children,
-  symbolSpec: { name, key, Preview, defaultProps },
-  theme,
-  startDrag,
+const ListItem = ({
   onDragEnd,
-  ...rest
-}: SymbolsButtonProps): ReactElement => {
-  const defaultProps_ = useMemo(() => defaultProps(theme), [defaultProps, theme]);
-
+  theme,
+  translate: _,
+  startDrag,
+  itemKey,
+}: SymbolsButtonProps): ReactElement | null => {
+  const spec = Schematic.SYMBOLS[itemKey];
+  const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
+  if (spec == null) return null;
+  const { name, Preview } = spec;
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.BE("schematic-symbols", "button"))}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       gap="tiny"
       draggable
-      {...rest}
-      onDragStart={() => startDrag(key)}
+      onDragStart={() => startDrag(itemKey)}
       onDragEnd={onDragEnd}
     >
       <Text.Text level="small">{name}</Text.Text>
-      <Align.Space className="preview-wrapper" align="center" justify="center">
+      <Flex.Box className="preview-wrapper" align="center" justify="center">
         <Preview {...defaultProps_} scale={0.75} />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };

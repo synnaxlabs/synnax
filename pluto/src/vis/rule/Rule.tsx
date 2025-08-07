@@ -16,9 +16,9 @@ import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
@@ -28,7 +28,7 @@ import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
-    Omit<Align.SpaceProps, "color">,
+    Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   label?: string;
   onLabelChange?: (label: string) => void;
@@ -137,13 +137,13 @@ export const Rule = ({
         onDragStart={handleDragStart}
         draggable
       />
-      <Align.Space
+      <Flex.Box
         x
         align="center"
         className={CSS(className, CSS.BE("rule", "tag"))}
         bordered
         onClick={onSelect}
-        gap={1}
+        empty
         rounded
         style={{
           borderColor: color.cssString(colorVal),
@@ -153,14 +153,14 @@ export const Rule = ({
         {...rest}
       >
         <Text.Editable
-          className={CSS.B("label")}
+          className={CSS.BE("rule", "label")}
           level="small"
           value={internalLabel}
           onChange={setInternalLabel}
           color={textColor}
         />
         <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
-        <Align.Space gap="small" x align="center">
+        <Flex.Box x align="center" className={CSS.BE("rule", "value")}>
           <Text.Editable
             value={propsPosition.toFixed(2)}
             onChange={(v) => {
@@ -171,14 +171,16 @@ export const Rule = ({
             level="small"
             color={textColor}
           />
-          <Text.MaybeEditable
-            level="small"
-            color={textColor}
-            value={units}
-            onChange={onUnitsChange}
-          />
-        </Align.Space>
-      </Align.Space>
+          {units.length > 0 && (
+            <Text.MaybeEditable
+              level="small"
+              color={textColor}
+              value={units}
+              onChange={onUnitsChange}
+            />
+          )}
+        </Flex.Box>
+      </Flex.Box>
     </div>
   );
 

@@ -9,10 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Status } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
-
-const PREFIX = "new-device-";
 
 export const useListenForChanges = () => {
   const addStatus = Status.useAdder();
@@ -21,7 +18,6 @@ export const useListenForChanges = () => {
       if (dev.configured) return;
       addStatus<device.Device>({
         variant: "info",
-        key: `${PREFIX}${dev.key}`,
         message: `New ${dev.model} connected`,
         details: dev,
       });
@@ -32,8 +28,8 @@ export const useListenForChanges = () => {
 };
 
 export const getKeyFromStatus = ({
-  key,
-}: Status.NotificationSpec): device.Key | null => {
-  if (!key.startsWith(PREFIX)) return null;
-  return strings.trimPrefix(key, PREFIX);
+  details,
+}: Status.NotificationSpec<device.Device>): device.Key | null => {
+  if (details == null || details.configured || !("key" in details)) return null;
+  return details.key;
 };

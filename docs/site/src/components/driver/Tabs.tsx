@@ -16,8 +16,7 @@ const TABS = PLATFORMS.filter(({ key }) => key === "Linux").map(({ key, ...p }) 
   tabKey: key,
 }));
 TABS.unshift({
-  key: "ni-linux-rt",
-  tabKey: "ni-linux-rt",
+  tabKey: "ni-linux-rt" as Platform,
   name: "NI Linux RT",
   icon: <Icon.Logo.NI />,
 });

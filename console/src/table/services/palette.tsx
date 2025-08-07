@@ -22,6 +22,7 @@ const CREATE_COMMAND: Palette.Command = {
 const IMPORT_COMMAND: Palette.Command = {
   key: "import-table",
   name: "Import Table(s)",
+  sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
 };

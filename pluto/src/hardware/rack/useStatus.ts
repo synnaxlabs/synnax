@@ -20,7 +20,8 @@ export const useStatus = (key: rack.Key): rack.Status | undefined => {
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const { status } = await client.hardware.racks.retrieve(key, {
+      const { status } = await client.hardware.racks.retrieve({
+        key,
         includeStatus: true,
       });
       if (signal.aborted) return;

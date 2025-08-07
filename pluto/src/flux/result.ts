@@ -32,21 +32,24 @@ import { type state } from "@/state";
  * ```
  */
 export type Result<Data extends state.State> =
-  | (status.Status<status.ExceptionDetails, "error"> & {
-      /** The data payload, null when in error state */
+  | {
+      variant: "error";
+      status: status.Status<status.ExceptionDetails, "error">;
       data: null;
       listenersMounted: boolean;
-    })
-  | (status.Status<undefined, "loading"> & {
-      /** The data payload, may be null or contain previous data while loading */
-      data: null | Data;
-      listenersMounted: boolean;
-    })
-  | (status.Status<undefined, "success"> & {
-      /** The successfully retrieved data */
+    }
+  | {
+      variant: "success";
+      status: status.Status<undefined, "success">;
       data: Data;
       listenersMounted: boolean;
-    });
+    }
+  | {
+      variant: "loading";
+      status: status.Status<undefined, "loading">;
+      data: null | Data;
+      listenersMounted: boolean;
+    };
 
 /**
  * Factory function to create a loading result state.
@@ -69,7 +72,8 @@ export const pendingResult = <Data extends state.State>(
   data: Data | null,
   listenersMounted: boolean,
 ): Result<Data> => ({
-  ...status.create<undefined, "loading">({
+  variant: "loading",
+  status: status.create<undefined, "loading">({
     variant: "loading",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
@@ -98,7 +102,8 @@ export const successResult = <Data extends state.State>(
   data: Data,
   listenersMounted: boolean,
 ): Result<Data> => ({
-  ...status.create<undefined, "success">({
+  variant: "success",
+  status: status.create<undefined, "success">({
     variant: "success",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
@@ -127,7 +132,8 @@ export const errorResult = <Data extends state.State>(
   error: unknown,
   listenersMounted: boolean,
 ): Result<Data> => ({
-  ...status.fromException(error, `Failed to ${op} ${name}`),
+  variant: "error",
+  status: status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
   listenersMounted,
 });

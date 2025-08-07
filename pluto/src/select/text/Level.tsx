@@ -9,25 +9,27 @@
 
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/select/Button";
-import { type text } from "@/text/core";
+import { Select } from "@/select";
+import { text } from "@/text/core";
 
-export interface LevelEntry {
-  key: text.Level;
-  label: string;
-}
-
-export interface LevelProps
-  extends Omit<ButtonProps<text.Level, LevelEntry>, "data" | "entryRenderKey"> {}
-
-const DATA: LevelEntry[] = [
-  { key: "h2", label: "XL" },
-  { key: "h3", label: "L" },
-  { key: "h4", label: "M" },
-  { key: "h5", label: "S" },
-  { key: "small", label: "XS" },
-];
+export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"> {}
 
 export const Level = (props: LevelProps): ReactElement => (
-  <Button {...props} data={DATA} entryRenderKey="label" />
+  <Select.Buttons {...props} keys={text.LEVELS}>
+    <Select.Button itemKey="h2" square>
+      XL
+    </Select.Button>
+    <Select.Button itemKey="h3" square>
+      L
+    </Select.Button>
+    <Select.Button itemKey="h4" square>
+      M
+    </Select.Button>
+    <Select.Button itemKey="h5" square>
+      S
+    </Select.Button>
+    <Select.Button itemKey="small" square>
+      XS
+    </Select.Button>
+  </Select.Buttons>
 );

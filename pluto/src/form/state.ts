@@ -52,8 +52,8 @@ const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
   values: z.infer<Z>;
-
   initialValues: z.infer<Z>;
+
   private readonly statuses: Map<string, status.Crude>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, {}>;
@@ -65,11 +65,11 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses = new Map();
     this.touched = new Set();
     this.cachedRefs = new Map();
-    this.initialValues = values;
+    this.initialValues = deep.copy(this.values);
   }
 
   setValue(path: string, value: unknown) {
-    if (path == "") this.values = value as z.infer<Z>;
+    if (path == "") this.values = deep.copy(value) as z.infer<Z>;
     else deep.set(this.values, path, value);
     this.checkTouched(path, value);
     this.updateCachedRefs(path);
@@ -132,46 +132,37 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.cachedRefs.delete(path);
   }
 
-  validate(path: string = "", validateChildren: boolean = true): boolean {
+  validate(validateUntouched?: boolean, path?: string): boolean {
     if (this.schema == null) return true;
     const result = this.schema.safeParse(this.values);
-    return this.processValidation(path, validateChildren, result);
+    return this.processValidation(validateUntouched, result, path);
   }
 
-  async validateAsync(
-    path: string = "",
-    validateChildren: boolean = true,
-  ): Promise<boolean> {
+  async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
     if (this.schema == null) return true;
     const result = await this.schema.safeParseAsync(this.values);
-    return this.processValidation(path, validateChildren, result);
+    return this.processValidation(validateUntouched, result, path);
   }
 
   private processValidation(
-    path: string = "",
-    validateChildren: boolean = true,
+    validateUntouched: boolean = false,
     result: z.ZodSafeParseResult<z.infer<Z>>,
+    path?: string,
   ): boolean {
     if (this.schema == null) return true;
     const cachedRefsToClear = new Set<string>();
     this.statuses.forEach((status, childPath) => {
-      if (deep.pathsMatch(childPath, path) && status.variant !== "success")
-        cachedRefsToClear.add(childPath);
+      if (status.variant !== "success") cachedRefsToClear.add(childPath);
     });
     cachedRefsToClear.forEach((path) => this.clearStatus(path));
     // Parse was a complete success. No errors encountered.
     if (result.success) return true;
-
     let success = true;
-    let matcher = (a: string, b: string) => a === b;
-    if (validateChildren) matcher = (a: string, b: string) => deep.pathsMatch(a, b);
-
     result.error.issues.forEach((issue) => {
       const { message } = issue;
       const issuePath = issue.path.join(".");
-      // If we're only validating a sub-path and it doesn't match a particular issue,
-      // skip it.
-      if (!matcher(issuePath, path)) return;
+      if (path != null && !deep.pathsMatch(issuePath, path) && !deep.pathsMatch(path, issuePath)) return;
+      if (!validateUntouched && !this.touched.has(issuePath)) return;
       const variant = getVariant(issue);
       if (variant !== "warning") success = false;
       this.setStatus(issuePath, { key: issuePath, variant, message });
@@ -215,9 +206,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return cachedRef;
   }
 
-  private updateCachedRefs(parentPath: string) {
-    this.cachedRefs.forEach((_, childPath) => {
-      if (deep.pathsMatch(childPath, parentPath)) this.cachedRefs.set(childPath, {});
+  private updateCachedRefs(fieldPath: string) {
+    this.cachedRefs.forEach((_, refPath) => {
+      if (deep.pathsMatch(refPath, fieldPath) || deep.pathsMatch(fieldPath, refPath))
+        this.cachedRefs.set(refPath, {});
     });
   }
 }

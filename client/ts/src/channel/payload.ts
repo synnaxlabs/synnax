@@ -63,8 +63,5 @@ export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
   dataType: CrudeDataType;
 }
 
-export const ONTOLOGY_TYPE = "channel";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 export const calculationStatusZ = status.statusZ();
 export type CalculationStatus = z.infer<typeof calculationStatusZ>;

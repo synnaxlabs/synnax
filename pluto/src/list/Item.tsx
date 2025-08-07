@@ -9,52 +9,71 @@
 
 import "@/list/Item.css";
 
-import { type Optional, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Button } from "@/button";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { type ItemProps } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 
-export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Optional<ItemProps<K, E>, "sourceIndex">,
-    Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
-  draggingOver?: boolean;
-  rightAligned?: boolean;
-  highlightHovered?: boolean;
-  allowSelect?: boolean;
+export interface ItemRenderProps<K extends record.Key = record.Key> {
+  index: number;
+  key: K;
+  itemKey: K;
+  className?: string;
+  translate?: number;
 }
 
-export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
-  entry,
-  selected,
-  hovered,
-  onSelect,
+export type ItemProps<
+  K extends record.Key,
+  E extends Button.ElementType = "div",
+> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate"> &
+  ItemRenderProps<K> & {
+    draggingOver?: boolean;
+    rightAligned?: boolean;
+    highlightHovered?: boolean;
+    onSelect?: (key: K) => void;
+    selected?: boolean;
+    hovered?: boolean;
+  };
+
+export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+
+export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
+  itemKey,
   className,
-  direction = "x",
-  draggingOver: __,
+  index,
+  el,
+  draggingOver = false,
   rightAligned = false,
   highlightHovered = false,
-  allowSelect = true,
+  selected = false,
   translate,
+  onSelect,
+  onClick,
+  hovered,
   style,
-  sourceIndex: _,
   ...rest
-}: ItemFrameProps<K, E>): ReactElement => (
-  <Align.Space
-    id={entry.key.toString()}
-    direction={direction}
-    onClick={() => onSelect?.(entry.key)}
-    tabIndex={0}
+}: ItemProps<K, E>): ReactElement => (
+  // @ts-expect-error - generic element issues
+  <Button.Button<E>
+    el={el}
+    defaultEl="div"
+    id={itemKey.toString()}
+    variant="text"
+    onClick={(e: any) => {
+      onSelect?.(itemKey);
+      onClick?.(e);
+    }}
     className={CSS(
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
-      allowSelect && CSS.M("selectable"),
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),
+      draggingOver && CSS.M("dragging-over"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
     )}

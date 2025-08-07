@@ -82,7 +82,7 @@ type (
 	HardwareRetrieveRackRequest struct {
 		Keys          []rack.Key `json:"keys" msgpack:"keys"`
 		Names         []string   `json:"names" msgpack:"names"`
-		Search        string     `json:"search" msgpack:"search"`
+		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
 		Embedded      bool       `json:"embedded" msgpack:"embedded"`
 		HostIsNode    bool       `json:"host_is_node" msgpack:"host_is_node"`
 		Limit         int        `json:"limit" msgpack:"limit"`
@@ -96,7 +96,7 @@ type (
 
 func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrieveRackRequest) (res HardwareRetrieveRackResponse, _ error) {
 	var (
-		hasSearch = len(req.Search) > 0
+		hasSearch = len(req.SearchTerm) > 0
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasLimit  = req.Limit > 0
@@ -111,7 +111,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 		q = q.WhereNames(req.Names...)
 	}
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.SearchTerm)
 	}
 	if hasLimit {
 		q = q.Limit(req.Limit)
@@ -232,7 +232,7 @@ type (
 		Names         []string   `json:"names" msgpack:"names"`
 		Types         []string   `json:"types" msgpack:"types"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
-		Search        string     `json:"search" msgpack:"search"`
+		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
 	}
@@ -246,7 +246,7 @@ func (svc *HardwareService) RetrieveTask(
 	req HardwareRetrieveTaskRequest,
 ) (res HardwareRetrieveTaskResponse, _ error) {
 	var (
-		hasSearch = len(req.Search) > 0
+		hasSearch = len(req.SearchTerm) > 0
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasTypes  = len(req.Types) > 0
@@ -264,7 +264,7 @@ func (svc *HardwareService) RetrieveTask(
 		q = q.WhereTypes(req.Types...)
 	}
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.SearchTerm)
 	}
 	if hasLimit {
 		q = q.Limit(req.Limit)
@@ -399,7 +399,7 @@ type HardwareRetrieveDeviceRequest struct {
 	Models         []string   `json:"models" msgpack:"models"`
 	Locations      []string   `json:"locations" msgpack:"locations"`
 	Racks          []rack.Key `json:"racks" msgpack:"racks"`
-	Search         string     `json:"search" msgpack:"search"`
+	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
@@ -412,7 +412,7 @@ type HardwareRetrieveDeviceResponse struct {
 
 func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetrieveDeviceRequest) (res HardwareRetrieveDeviceResponse, _ error) {
 	var (
-		hasSearch    = len(req.Search) > 0
+		hasSearch    = len(req.SearchTerm) > 0
 		hasKeys      = len(req.Keys) > 0
 		hasNames     = len(req.Names) > 0
 		hasMakes     = len(req.Makes) > 0
@@ -427,7 +427,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.SearchTerm)
 	}
 	if hasNames {
 		q = q.WhereNames(req.Names...)

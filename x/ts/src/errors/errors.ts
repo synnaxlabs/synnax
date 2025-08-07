@@ -260,3 +260,6 @@ export interface NativePayload {
   /** The stack trace of the error */
   stack?: string;
 }
+
+/** Error for representing a method that is not implemented */
+export class NotImplemented extends createTyped("not_implemented") {}

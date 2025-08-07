@@ -8,141 +8,141 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
-  Button,
-  componentRenderProp,
+  Component,
   Icon,
   Input,
-  type List,
+  List,
   Ranger,
   Select,
-  Status,
   Tag,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/range/Create";
+import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
-
-interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
 
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
 );
 
-const listColumns: Array<List.ColumnSpec<string, Range>> = [
-  { key: "name", name: "Name", weight: 450 },
-  {
-    key: "start",
-    name: "Start",
-    width: 150,
-    render: ({ entry }) => {
-      if (entry.variant === "dynamic")
-        return (
-          <Text.WithIcon level="p" startIcon={dynamicIcon} shade={11}>
-            {new TimeSpan(entry.span).toString()}
-          </Text.WithIcon>
-        );
-      return <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />;
-    },
-  },
-];
+const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const range = useSelect(itemKey);
+  if (range == null) return null;
+  const { variant, name } = range;
+  return (
+    <Select.ListItem {...props}>
+      <Text.Text style={{ width: 100 }}>{name}</Text.Text>
+      {variant === "dynamic" ? (
+        <Text.Text>
+          {dynamicIcon}
+          {new TimeSpan(range.span).toString()}
+        </Text.Text>
+      ) : (
+        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
+      )}
+    </Select.ListItem>
+  );
+});
 
-const RenderTag = ({
-  entry,
-  onClose,
-}: Select.MultipleTagProps<string, Range>): ReactElement => (
-  <Tag.Tag
-    icon={entry?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
-    onClose={onClose}
-    shade={11}
-    level="small"
-  >
-    {entry?.name}
-  </Tag.Tag>
-);
+interface RenderTagProps {
+  itemKey: string;
+}
 
-const renderTag = componentRenderProp(RenderTag);
+const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
+  const range = useSelect(itemKey);
+  const { onSelect } = Select.useItemState(itemKey);
+  if (range == null) return null;
+  return (
+    <Tag.Tag
+      icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
+      onClose={onSelect}
+      level="small"
+      size="small"
+    >
+      {range.name}
+    </Tag.Tag>
+  );
+};
 
-const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
-  <Select.Multiple
-    columns={listColumns}
-    entryRenderKey="name"
-    renderTag={renderTag}
-    {...props}
-  />
-);
+export const renderTag = Component.renderProp(RangeTag);
 
-interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
+export interface SelectMultipleRangesProps extends Input.Control<string[]> {}
 
-const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
-  <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
-);
+const SelectMultipleRanges = ({
+  value,
+  onChange,
+}: SelectMultipleRangesProps): ReactElement => {
+  const entries = useSelectMultiple();
+  const { data, retrieve } = List.useStaticData<string>({ data: entries });
+  const { fetchMore, search } = List.usePager({ retrieve });
+  return (
+    <Select.Multiple<string, Range>
+      resourceName="Range"
+      data={data}
+      icon={<Icon.Range />}
+      renderTag={renderTag}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      value={value}
+      onChange={onChange}
+    >
+      {listItem}
+    </Select.Multiple>
+  );
+};
+
+interface SelectSingleRangeProps extends Input.Control<string> {}
+
+const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
+  const data = useSelectKeys();
+  return (
+    <Select.Single<string, Range>
+      resourceName="Range"
+      value={value}
+      onChange={onChange}
+      data={data}
+      icon={<Icon.Range />}
+    >
+      {listItem}
+    </Select.Single>
+  );
+};
 
 interface SelectMultipleInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange">,
-    Pick<SelectMultipleRangesProps, "data"> {
+  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
+    SelectMultipleRangesProps {
   value: string[];
   onChange: (value: string[]) => void;
   selectProps?: Partial<SelectMultipleRangesProps>;
 }
 
-const SelectEmptyContent = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
-  return (
-    <Align.Center style={{ height: 150 }} x>
-      <Status.Text variant="disabled" hideIcon>
-        No Ranges:
-      </Status.Text>
-      <Button.Button variant="outlined" onClick={() => placeLayout(CREATE_LAYOUT)}>
-        Define a Range
-      </Button.Button>
-    </Align.Center>
-  );
-};
-
 export const SelectMultipleInputItem = ({
   value,
   onChange,
-  data,
   selectProps,
   ...rest
 }: SelectMultipleInputItemProps): ReactElement => (
   <Input.Item x label="Ranges" {...rest}>
-    <SelectMultipleRanges
-      data={data}
-      value={value}
-      onChange={onChange}
-      emptyContent={<SelectEmptyContent />}
-      {...selectProps}
-    />
+    <SelectMultipleRanges value={value} onChange={onChange} {...selectProps} />
   </Input.Item>
 );
 
 interface SelectInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange">,
-    Input.Control<string>,
-    Pick<SelectSingleRangeProps, "data"> {
+  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
+    SelectSingleRangeProps {
   selectProps?: Partial<SelectSingleRangeProps>;
 }
 
 export const SelectInputItem = ({
   value,
   onChange,
-  data,
   selectProps,
   ...rest
 }: SelectInputItemProps): ReactElement => (
   <Input.Item label="Range:" {...rest}>
-    <SelectRange
-      value={value}
-      onChange={onChange}
-      data={data}
-      emptyContent={<SelectEmptyContent />}
-      {...selectProps}
-    />
+    <SelectRange value={value} onChange={onChange} {...selectProps} />
   </Input.Item>
 );

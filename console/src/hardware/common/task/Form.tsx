@@ -16,7 +16,7 @@ import {
   task,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { Align, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
@@ -171,7 +171,7 @@ export const useForm = <
       };
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(client, config, name);
-      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
+      if (task_.key != "" && rackKey != task.rackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:
@@ -180,7 +180,7 @@ export const useForm = <
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;
-        await client.hardware.tasks.delete(BigInt(task_.key));
+        await client.hardware.tasks.delete(task_.key);
       }
 
       methods.setCurrentStateAsInitialValues();
@@ -239,35 +239,35 @@ export const wrapForm = <
       useForm({ ...rest, layoutKey, schemas, type, onConfigure });
     const { isSnapshot, methods, configured, task } = formProps;
     return (
-      <Align.Space
+      <Flex.Box
         y
         className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
-        <Align.Space grow>
+        <Flex.Box grow>
           <PForm.Form<FormSchema<Config>>
             {...methods}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            <Align.Space x justify="spaceBetween">
+            <Flex.Box x justify="between">
               <PForm.Field<string> path="name">
-                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
+                {(p) => <Input.Text variant="text" level="h2" {...p} />}
               </PForm.Field>
-              <Align.Space align="end" gap="small">
+              <Flex.Box align="end" gap="small">
                 <UtilityButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
                   taskKey={task.key}
                 />
                 <Rack taskKey={task.key} />
-              </Align.Space>
-            </Align.Space>
+              </Flex.Box>
+            </Flex.Box>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} x wrap>
+            <Flex.Box className={CSS.B("task-properties")} x wrap>
               <Properties />
-            </Align.Space>
-            <Align.Space
+            </Flex.Box>
+            <Flex.Box
               x
               className={CSS.B("task-channel-form-container")}
               bordered
@@ -276,7 +276,7 @@ export const wrapForm = <
               empty
             >
               <Form {...formProps} />
-            </Align.Space>
+            </Flex.Box>
           </PForm.Form>
           <Controls
             layoutKey={layoutKey}
@@ -287,8 +287,8 @@ export const wrapForm = <
             isSnapshot={isSnapshot}
             hasBeenConfigured={configured}
           />
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;

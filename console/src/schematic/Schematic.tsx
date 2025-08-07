@@ -395,7 +395,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             )}
             <Diagram.FitViewControl />
             {!schematic.snapshot && (
-              <Button.ToggleIcon
+              <Button.Toggle
                 value={schematic.control === "acquired"}
                 onChange={acquireControl}
                 tooltipLocation={location.BOTTOM_LEFT}
@@ -410,7 +410,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 }
               >
                 <Icon.Circle />
-              </Button.ToggleIcon>
+              </Button.Toggle>
             )}
           </Diagram.Controls>
         </Diagram.Diagram>

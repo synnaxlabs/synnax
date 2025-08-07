@@ -27,24 +27,15 @@
 .console-palette__content {
     width: 100%;
     max-width: 1200px;
-    height: 500px;
+    max-height: 500px;
     width: 95vw;
-    min-height: 400px;
     max-width: 1200px;
-    background: transparent !important;
-    overflow: hidden;
-    .pluto-input__internal {
-        border-color: var(--pluto-primary-z);
-        border-width: 1px;
-    }
+    overflow: visible !important;
 }
 
 .console-palette__list {
     overflow-y: auto;
     border-bottom-left-radius: 1rem;
     border-bottom-right-radius: 1rem;
-
-    & .pluto-status-text {
-        height: 150px;
-    }
+    position: relative;
 }

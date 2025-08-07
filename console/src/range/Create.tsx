@@ -11,8 +11,8 @@ import "@/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Form,
   Icon,
   Input,
@@ -21,8 +21,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
@@ -59,34 +60,35 @@ export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 export const Create: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
 
   const client = Synnax.use();
   const clientExists = client != null;
   const { form, save, variant } = Ranger.useForm({
-    params: { key: args.key },
+    params: { key: args?.key },
     autoSave: false,
     initialValues: {
-      key: "",
+      key: uuid.create(),
       name: "",
       labels: [],
       timeRange: { start: now, end: now },
       parent: "",
       ...args,
     },
+    afterSave: () => onClose(),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== args.key),
-    [args.key],
+    (data: ranger.Payload) => data.key !== args?.key,
+    [args?.key],
   );
 
   return (
-    <Align.Space className={CSS.B("range-create-layout")} grow empty>
-      <Align.Space
+    <Flex.Box className={CSS.B("range-create-layout")} grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1rem 3rem" }}
@@ -98,92 +100,64 @@ export const Create: Layout.Renderer = (props) => {
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Range Name"
                 {...p}
               />
             )}
           </Form.Field>
-          <Align.Space x gap="large">
+          <Flex.Box x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
+            <Text.Text level="h4">
+              <Icon.Arrow.Right />
+            </Text.Text>
             <Form.Field<number> path="timeRange.end" label="To">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-          </Align.Space>
-          <Align.Space x>
+          </Flex.Box>
+          <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
-              {({ onChange, ...p }) => (
+              {({ onChange, value }) => (
                 <Ranger.SelectSingle
-                  dropdownVariant="modal"
                   style={{ width: "fit-content" }}
-                  zIndex={100}
+                  zIndex={-1}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e) => (
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      gap="small"
-                    >
-                      {e.name}
-                    </Text.WithIcon>
-                  )}
-                  inputPlaceholder="Search Ranges"
-                  triggerTooltip="Select Parent Range"
-                  placeholder={
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      gap="small"
-                    >
-                      Parent Range
-                    </Text.WithIcon>
-                  }
-                  onChange={(v: string) => onChange(v ?? "")}
-                  {...p}
+                  value={value}
+                  onChange={(v: ranger.Key) => onChange(v ?? "")}
+                  icon={<ParentRangeIcon />}
+                  allowNone
                 />
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
               {({ variant, ...p }) => (
-                <Label.SelectMultiple
-                  entryRenderKey="name"
-                  dropdownVariant="floating"
-                  zIndex={100}
-                  location="bottom"
-                  {...p}
-                />
+                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            variant="outlined"
-            onClick={() => save()}
-            disabled={variant === "loading"}
-          >
+          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
+            variant="filled"
             onClick={() => save()}
-            disabled={!clientExists || variant === "loading"}
+            disabled={!clientExists}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={variant === "loading"}
-            triggers={Triggers.SAVE}
+            status={variant}
+            trigger={Triggers.SAVE}
           >
             Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

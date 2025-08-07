@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const pythonSequencesNav: PageNavNode = {
+export const PYTHON_SEQUENCES_NAV: PageNavNode = {
   key: "python",
   name: "Python Sequences",
   children: [
