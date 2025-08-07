@@ -16,6 +16,7 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -32,6 +33,7 @@ type UnaryReadable interface {
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
+	offers []string
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	handle   func(context.Context, RQ) (RS, error)
@@ -46,9 +48,11 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 	opts ...ServerOption,
 ) freighter.UnaryServer[RQ, RS] {
 	so := newServerOptions(opts)
+	offers := lo.Keys(so.resEncoders)
 	us := &unaryServer[RQ, RS]{
 		serverOptions: so,
-		Reporter:      getReporter(so),
+		Reporter:      getReporter(offers),
+		offers:        offers,
 	}
 	r.register(path, fiber.MethodPost, us, us.fiberHandler)
 	return us
@@ -103,7 +107,7 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 }
 
 func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
-	contentType := ctx.Accepts(us.resEncoders.Keys()...)
+	contentType := ctx.Accepts(us.offers...)
 	getCodec, ok := us.resEncoders[contentType]
 	if !ok {
 		return fiber.ErrNotAcceptable

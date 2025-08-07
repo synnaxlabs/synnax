@@ -19,6 +19,7 @@ import (
 	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -363,9 +364,10 @@ func NewStreamServer[RQ, RS freighter.Payload](
 	opts ...ServerOption,
 ) freighter.StreamServer[RQ, RS] {
 	so := newServerOptions(opts)
+	offers := lo.Keys(so.resEncoders)
 	s := &streamServer[RQ, RS]{
 		serverOptions:   newServerOptions(opts),
-		Reporter:        getReporter(so),
+		Reporter:        getReporter(offers),
 		path:            path,
 		Instrumentation: r.Instrumentation,
 		serverCtx:       r.streamCtx,
@@ -400,11 +402,11 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// stream stops processing values, we need to use the underlying server ctx as the
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
-	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	getDecoder, ok := s.reqDecoders[headerContentType]
+	contentType := iCtx.Params[fiber.HeaderContentType].(string)
+	getDecoder, ok := s.reqDecoders[contentType]
 	if !ok {
 		return upgradeCtx.Status(fiber.StatusUnsupportedMediaType).SendString(
-			fmt.Sprintf("unsupported content type: %s", headerContentType),
+			fmt.Sprintf("unsupported content type: %s", contentType),
 		)
 	}
 	decoder := getDecoder()

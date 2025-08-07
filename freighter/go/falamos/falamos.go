@@ -119,7 +119,7 @@ func keyF(k string) string { return keyPrefix + k }
 
 // Get implements alamos.TraceCarrier.
 func (c carrier) Get(key string) string {
-	v, ok := c.Context.Get(keyF(key))
+	v, ok := c.Context.Params[keyF(key)]
 	if !ok {
 		return ""
 	}
@@ -131,7 +131,7 @@ func (c carrier) Get(key string) string {
 }
 
 // Set implements alamos.TraceCarrier.
-func (c carrier) Set(key, value string) { c.Context.Set(keyF(key), value) }
+func (c carrier) Set(key, value string) { c.Context.Params[keyF(key)] = value }
 
 // Keys implements alamos.TraceCarrier.
 func (c carrier) Keys() []string {

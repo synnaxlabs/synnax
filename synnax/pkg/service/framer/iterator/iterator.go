@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
-	"github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -154,7 +153,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(maps.Map[channel.Key, channel.Channel])
+		calculated = make(map[channel.Key]channel.Channel)
 		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().
@@ -174,7 +173,8 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, nil
 	}
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculated.Contains(item)
+		_, ok := calculated[item]
+		return !ok
 	})
 	cfg.Keys = append(cfg.Keys, required.Elements()...)
 	var requiredCh []channel.Channel
@@ -186,11 +186,13 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, err
 	}
 	calculators := make([]*calculation.Calculator, len(calculated))
-	for i, v := range calculated.Values() {
+	i := 0
+	for _, v := range calculated {
 		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 		if err != nil {
 			return nil, err
 		}
+		i++
 	}
 	return newCalculationTransform(calculators), nil
 }

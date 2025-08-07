@@ -58,7 +58,7 @@ var _ = Describe("FAlamos", func() {
 				},
 				freighter.NoopMiddlewareHandler,
 			))
-			_, ok := oCtx.Get("alamos-traceparent")
+			_, ok := oCtx.Params["alamos-traceparent"]
 			Expect(ok).To(BeTrue())
 			serverIns := Instrumentation(
 				"falamos",
@@ -75,7 +75,7 @@ var _ = Describe("FAlamos", func() {
 				},
 				freighter.NoopMiddlewareHandler,
 			))
-			_, ok = oCtx.Get("alamos-traceparent")
+			_, ok = oCtx.Params["alamos-traceparent"]
 			Expect(ok).To(BeTrue())
 		})
 	})

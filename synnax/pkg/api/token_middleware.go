@@ -39,10 +39,10 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		if err != nil {
 			return ctx, err
 		}
-		setSubject(ctx.Params, user.OntologyID(userKey))
+		ctx.Params[subjectKey] = user.OntologyID(userKey)
 		oCtx, err := next(ctx)
 		if newTK != "" {
-			oCtx.Set(tokenRefreshHeader, newTK)
+			oCtx.Params[tokenRefreshHeader] = newTK
 		}
 		return oCtx, err
 	})
@@ -59,10 +59,10 @@ var (
 )
 
 func tryParseToken(p freighter.Params) (string, error) {
-	tkParam, ok := p.Get(fiber.HeaderAuthorization)
+	tkParam, ok := p[fiber.HeaderAuthorization]
 	if !ok {
 		// GRPC sends a lowercase header
-		tkParam, ok = p.Get(strings.ToLower(fiber.HeaderAuthorization))
+		tkParam, ok = p[strings.ToLower(fiber.HeaderAuthorization)]
 		if !ok {
 			return "", noAuthenticationParam
 		}
@@ -83,12 +83,8 @@ func tryParseToken(p freighter.Params) (string, error) {
 
 const subjectKey = "Subject"
 
-func setSubject(p freighter.Params, subject ontology.ID) {
-	p.Set(subjectKey, subject)
-}
-
 func getSubject(ctx context.Context) ontology.ID {
-	s, ok := freighter.ExtractContext(ctx).Get(subjectKey)
+	s, ok := freighter.ExtractContext(ctx).Params[subjectKey]
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
 		return user.OntologyID(uuid.Nil)

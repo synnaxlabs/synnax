@@ -10,24 +10,24 @@
 package fhttp
 
 import (
+	"maps"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/maps"
-	"github.com/synnaxlabs/x/set"
 )
 
 var (
-	defaultEncoders = maps.Map[string, func() binary.Encoder]{}
-	defaultDecoders = maps.Map[string, func() binary.Decoder]{}
-	defaultCodecs   = maps.Map[string, func() binary.Codec]{
+	defaultEncoders = map[string]func() binary.Encoder{}
+	defaultDecoders = map[string]func() binary.Decoder{}
+	defaultCodecs   = map[string]func() binary.Codec{
 		MIMEApplicationJSON:    func() binary.Codec { return binary.JSONCodec },
 		MIMEApplicationMsgPack: func() binary.Codec { return binary.MsgPackCodec },
 	}
 )
 
 type serverOptions struct {
-	reqDecoders maps.Map[string, func() binary.Decoder]
-	resEncoders maps.Map[string, func() binary.Encoder]
+	reqDecoders map[string]func() binary.Decoder
+	resEncoders map[string]func() binary.Encoder
 }
 
 type ServerOption func(*serverOptions)
@@ -47,8 +47,8 @@ func WithAdditionalCodecs(codecs map[string]func() binary.Codec) ServerOption {
 
 func newServerOptions(opts []ServerOption) serverOptions {
 	so := serverOptions{
-		reqDecoders: defaultDecoders.Copy(),
-		resEncoders: defaultEncoders.Copy(),
+		reqDecoders: maps.Clone(defaultDecoders),
+		resEncoders: maps.Clone(defaultEncoders),
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -56,14 +56,10 @@ func newServerOptions(opts []ServerOption) serverOptions {
 	return so
 }
 
-func getReporter(so serverOptions) freighter.Reporter {
-	encodings := set.New(so.reqDecoders.Keys()...)
-	for contentType := range so.resEncoders {
-		encodings.Add(contentType)
-	}
+func getReporter(offers []string) freighter.Reporter {
 	return freighter.Reporter{
 		Protocol:  "http",
-		Encodings: encodings.Elements(),
+		Encodings: offers,
 	}
 }
 

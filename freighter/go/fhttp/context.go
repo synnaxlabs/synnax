@@ -88,7 +88,7 @@ func parseResponseCtx(res *http.Response, target address.Address) freighter.Cont
 		),
 	}
 	for k, v := range res.Header {
-		ctx.Set(k, v[0])
+		ctx.Params[k] = v[0]
 	}
 	return ctx
 }
