@@ -19,9 +19,9 @@ import (
 var (
 	defaultEncoders = map[string]func() binary.Encoder{}
 	defaultDecoders = map[string]func() binary.Decoder{}
-	defaultCodecs   = map[string]func() binary.Codec{
-		MIMEApplicationJSON:    func() binary.Codec { return binary.JSONCodec },
-		MIMEApplicationMsgPack: func() binary.Codec { return binary.MsgPackCodec },
+	defaultCodecs   = map[string]binary.Codec{
+		MIMEApplicationJSON:    binary.JSONCodec,
+		MIMEApplicationMsgPack: binary.MsgPackCodec,
 	}
 )
 
@@ -64,8 +64,8 @@ func getReporter(offers []string) freighter.Reporter {
 }
 
 func init() {
-	for contentType, getCodec := range defaultCodecs {
-		defaultDecoders[contentType] = func() binary.Decoder { return getCodec() }
-		defaultEncoders[contentType] = func() binary.Encoder { return getCodec() }
+	for contentType, codec := range defaultCodecs {
+		defaultDecoders[contentType] = func() binary.Decoder { return codec }
+		defaultEncoders[contentType] = func() binary.Encoder { return codec }
 	}
 }
