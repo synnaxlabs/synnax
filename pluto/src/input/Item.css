@@ -17,6 +17,9 @@
     &:focus-within .pluto-input-label {
         color: var(--pluto-primary-z);
     }
+    &:has(.pluto--visible) .pluto-input-label {
+        color: var(--pluto-primary-z);
+    }
     & > *:not(.pluto-input-label):not(.pluto-input-help-text) {
         flex-grow: inherit;
     }
