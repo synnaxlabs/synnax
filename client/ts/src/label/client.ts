@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import z from "zod";
 
-import { type Key, keyZ, type Label, labelZ, ONTOLOGY_TYPE } from "@/label/payload";
+import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -46,24 +46,20 @@ const RETRIEVE_ENDPOINT = "/label/retrieve";
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   for: ontology.idZ.optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
 
-const keyRetrieveRequestZ = z
-  .object({
-    key: keyZ,
-  })
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
-
-const retrieveArgsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
 
@@ -75,8 +71,8 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: KeyRetrieveRequest): Promise<Label>;
-  async retrieve(args: RetrieveArgs): Promise<Label[]>;
+  async retrieve(args: SingleRetrieveArgs): Promise<Label>;
+  async retrieve(args: MultiRetrieveArgs): Promise<Label[]>;
   async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
     const isSingle = "key" in args;
     const res = await sendRequired(
@@ -137,4 +133,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "label", key });

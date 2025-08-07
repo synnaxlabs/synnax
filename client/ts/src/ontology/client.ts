@@ -32,12 +32,12 @@ const retrieveReqZ = z.object({
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
-  term: z.string().optional(),
+  searchTerm: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   types: resourceTypeZ.array().optional(),
 });
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
   extends Pick<
@@ -60,20 +60,6 @@ export class Client {
     this.writer = new Writer(unary);
     this.groups = new group.Client(unary);
     this.framer = framer;
-  }
-
-  /**
-   * Executes a fuzzy search on the ontology for resources with names/fields similar to the
-   * given term.
-   *
-   * @param term The search term.
-   * @param options Additional options for the search.
-   * @param options.excludeFieldData Whether to exclude the field data of the resources in
-   * the results.
-   * @returns A list of resources that match the search term.
-   */
-  async search(term: string, options?: RetrieveOptions): Promise<Resource[]> {
-    return await this.execRetrieve({ term, ...options });
   }
 
   /**

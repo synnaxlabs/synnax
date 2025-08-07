@@ -63,15 +63,15 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   const { data, retrieve } = List.useStaticData<Schematic.Variant, Schematic.Spec>({
     data: LIST_DATA,
   });
-  const [search, setSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   return (
     <>
       <Flex.Box style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
         <Input.Text
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            retrieve({ term: v });
+          value={searchTerm}
+          onChange={(searchTerm) => {
+            setSearchTerm(searchTerm);
+            retrieve({ searchTerm });
           }}
           placeholder="Type to search..."
           size="small"

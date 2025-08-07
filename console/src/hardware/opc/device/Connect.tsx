@@ -259,7 +259,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
-      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      const dev = await client.hardware.devices.retrieve<Properties>({
+        key: layoutKey,
+      });
       dev.properties = migrateProperties(dev.properties);
       return [
         { name: dev.name, rack: dev.rack, connection: dev.properties.connection },

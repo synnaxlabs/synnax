@@ -117,11 +117,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
 
 export const useChildren = createDependentsListHook("to");
 
-export interface ListParams {
-  offset?: number;
-  limit?: number;
-  term?: string;
-}
+export interface ListParams extends ontology.RetrieveRequest {}
 
 export const useResourceList = Flux.createList<ListParams, string, ontology.Resource>({
   name: "useResourceList",

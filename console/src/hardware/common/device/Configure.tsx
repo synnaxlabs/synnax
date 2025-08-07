@@ -188,7 +188,9 @@ export const Configure = <
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
       if (client == null) throw new DisconnectedError();
-      return await client.hardware.devices.retrieve<Properties, Make, Model>(layoutKey);
+      return await client.hardware.devices.retrieve<Properties, Make, Model>({
+        key: layoutKey,
+      });
     },
   });
   if (isPending)

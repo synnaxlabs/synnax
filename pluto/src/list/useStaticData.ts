@@ -23,7 +23,7 @@ export interface UseStaticDataReturn<
 }
 
 export interface RetrieveParams {
-  term?: string;
+  searchTerm?: string;
   offset?: number;
   limit?: number;
 }
@@ -61,8 +61,8 @@ export const useStaticData = <
   );
   const res = useMemo(() => {
     let keys = filteredData.map((d) => d.key);
-    if (params.term != null && params.term.length > 0 && fuse != null)
-      keys = fuse.search(params.term).map((d) => d.item.key);
+    if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null)
+      keys = fuse.search(params.searchTerm).map((d) => d.item.key);
     return { getItem, data: keys };
   }, [filteredData, params, getItem, fuse]);
   return { ...res, retrieve: setParams };

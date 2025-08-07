@@ -21,7 +21,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Params,
   remoteZ,
   type Workspace,
@@ -38,7 +37,7 @@ const DELETE_ENDPOINT = "/workspace/delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   author: userKeyZ.optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
@@ -57,7 +56,7 @@ export const SET_CHANNEL_NAME = "sy_workspace_set";
 export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
 export class Client {
-  readonly type = ONTOLOGY_TYPE;
+  readonly type = "workspace";
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
   readonly log: log.Client;
@@ -136,28 +135,6 @@ export class Client {
     return res.workspaces;
   }
 
-  async search(term: string): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { search: term },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
-  }
-
-  async page(offset: number, limit: number): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
-  }
-
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
@@ -171,4 +148,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "workspace", key });

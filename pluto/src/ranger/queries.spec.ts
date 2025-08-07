@@ -42,7 +42,9 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(range1.key);
       expect(result.current.data).toContain(range2.key);
@@ -88,7 +90,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ term: "special" }, { signal: controller.signal });
+        result.current.retrieve(
+          { searchTerm: "special" },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -96,7 +101,7 @@ describe("queries", () => {
         result.current.data
           .map((key: ranger.Key) => result.current.getItem(key)?.name)
           .includes("special_range"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle includeLabels parameter", async () => {

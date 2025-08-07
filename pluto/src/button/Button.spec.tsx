@@ -385,36 +385,3 @@ describe("Button", () => {
     });
   });
 });
-
-// describe("Toggle", () => {
-//   it("should a button that can be toggled", async () => {
-//     const onChange = vitest.fn();
-//     const ToggleTest = (): ReactElement => {
-//       const [value, setValue] = useState(false);
-//       return (
-//         <Button.Toggle
-//           size="small"
-//           value={value}
-//           onChange={() => {
-//             onChange();
-//             setValue(!value);
-//           }}
-//         >
-//           Hello
-//         </Button.Toggle>
-//       );
-//     };
-//     const c = render(<ToggleTest />);
-//     const label = c.getByText("Hello");
-//     expect(label).toBeTruthy();
-//     const button = label.parentElement as HTMLElement;
-//     expect(button).toBeTruthy();
-//     expect(button.className).not.toContain("filled");
-//     await act(async () => {
-//       await userEvent.click(label);
-//     });
-//     expect(onChange).toHaveBeenCalled();
-//     expect(button.className).toContain("filled");
-//   });
-// });
-// });

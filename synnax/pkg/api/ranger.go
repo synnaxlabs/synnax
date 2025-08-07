@@ -95,7 +95,7 @@ type (
 	RangeRetrieveRequest struct {
 		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
-		Term          string          `json:"term" msgpack:"term"`
+		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
 		Limit         int             `json:"limit" msgpack:"limit"`
@@ -114,7 +114,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		q               = s.internal.NewRetrieve().Entries(&svcRanges)
 		hasNames        = len(req.Names) > 0
 		hasKeys         = len(req.Keys) > 0
-		hasSearch       = req.Term != ""
+		hasSearch       = req.SearchTerm != ""
 		hasOverlapsWith = !req.OverlapsWith.IsZero()
 	)
 	if hasOverlapsWith {
@@ -127,7 +127,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasSearch {
-		q = q.Search(req.Term)
+		q = q.Search(req.SearchTerm)
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

@@ -24,7 +24,6 @@ import {
   type KeyOrName,
   type Name,
   type New,
-  ONTOLOGY_TYPE,
   type Params,
   type Payload,
   payloadZ,
@@ -217,7 +216,7 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client {
-  readonly type = ONTOLOGY_TYPE;
+  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -440,6 +439,6 @@ export const resolveCalculatedIndex = async (
 };
 
 export const ontologyID = (key: Key): ontology.ID => ({
-  type: ONTOLOGY_TYPE,
+  type: "channel",
   key: key.toString(),
 });

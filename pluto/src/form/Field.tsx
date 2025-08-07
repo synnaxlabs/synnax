@@ -154,10 +154,10 @@ export const SwitchField = buildSwitchField({ inputProps: {} });
 export type SelectFieldProps<
   K extends record.Key,
   E extends record.KeyedNamed<K>,
-> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">;
+> = BuiltFieldProps<K, K, Select.StaticProps<K, E>, "data" | "resourceName">;
 export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
-  props: FieldBuilderProps<K, K, Select.SimpleProps<K, E>>,
+  props: FieldBuilderProps<K, K, Select.StaticProps<K, E>>,
 ) =>
-  fieldBuilder<K, K, Select.SimpleProps<K, E>, "data" | "resourceName">(
-    Select.Simple<K, E>,
+  fieldBuilder<K, K, Select.StaticProps<K, E>, "data" | "resourceName">(
+    Select.Static<K, E>,
   )(props);

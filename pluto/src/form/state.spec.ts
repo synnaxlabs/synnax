@@ -100,7 +100,7 @@ describe("State", () => {
       const state = new State(initialValues, basicSchema);
       state.setValue("name", "Jane Doe");
       const fieldState = state.getState("name");
-      expect(fieldState.touched).toBeTruthy();
+      expect(fieldState.touched).toBe(true);
     });
 
     it("should not mark field as touched when value equals initial", () => {
@@ -108,7 +108,7 @@ describe("State", () => {
       state.setValue("name", "Jane Doe");
       state.setValue("name", "John Doe"); // Back to initial
       const fieldState = state.getState("name");
-      expect(fieldState.touched).toBeFalsy();
+      expect(fieldState.touched).toBe(false);
     });
   });
 
@@ -144,7 +144,7 @@ describe("State", () => {
       const state = new State(initialValues, basicSchema);
       state.setTouched("name");
       const fieldState = state.getState("name");
-      expect(fieldState.touched).toBeTruthy();
+      expect(fieldState.touched).toBe(true);
     });
 
     it("should clear touched state for specific field", () => {
@@ -152,7 +152,7 @@ describe("State", () => {
       state.setTouched("name");
       state.clearTouched("name");
       const fieldState = state.getState("name");
-      expect(fieldState.touched).toBeFalsy();
+      expect(fieldState.touched).toBe(false);
     });
 
     it("should clear all touched states when no path provided", () => {
@@ -160,8 +160,8 @@ describe("State", () => {
       state.setTouched("name");
       state.setTouched("email");
       state.clearTouched();
-      expect(state.getState("name").touched).toBeFalsy();
-      expect(state.getState("email").touched).toBeFalsy();
+      expect(state.getState("name").touched).toBe(false);
+      expect(state.getState("email").touched).toBe(false);
     });
   });
 
@@ -176,7 +176,7 @@ describe("State", () => {
 
       expect(state.values).toEqual(initialValues);
       expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBeFalsy();
+      expect(state.getState("name").touched).toBe(false);
     });
 
     it("should reset to new initial values when provided", () => {
@@ -198,7 +198,7 @@ describe("State", () => {
       state.reset();
 
       expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBeFalsy();
+      expect(state.getState("name").touched).toBe(false);
     });
   });
 
@@ -211,20 +211,20 @@ describe("State", () => {
       state.setCurrentStateAsInitialValues();
 
       expect(state.initialValues.name).toBe("Jane Doe");
-      expect(state.getState("name").touched).toBeFalsy();
+      expect(state.getState("name").touched).toBe(false);
     });
 
     it("should make previously touched fields untouched", () => {
       const state = new State(initialValues, basicSchema);
       state.setValue("name", "Jane Doe");
       state.setValue("email", "jane@example.com");
-      expect(state.getState("name").touched).toBeTruthy();
-      expect(state.getState("email").touched).toBeTruthy();
+      expect(state.getState("name").touched).toBe(true);
+      expect(state.getState("email").touched).toBe(true);
 
       state.setCurrentStateAsInitialValues();
 
-      expect(state.getState("name").touched).toBeFalsy();
-      expect(state.getState("email").touched).toBeFalsy();
+      expect(state.getState("name").touched).toBe(false);
+      expect(state.getState("email").touched).toBe(false);
     });
   });
 
@@ -257,14 +257,14 @@ describe("State", () => {
     it("should return true for valid data", () => {
       const state = new State(initialValues, basicSchema);
       const isValid = state.validate();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
     });
 
     it("should return true even if untouched fields are invalid", () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
       const state = new State(invalidValues, basicSchema);
       const isValid = state.validate();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
     });
 
     it("should set error status for invalid fields", () => {
@@ -282,7 +282,7 @@ describe("State", () => {
       const state = new State(warningValues, basicSchema);
       state.setTouched("name");
       const isValid = state.validate();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
       expect(state.getState("name").status.variant).toBe("warning");
     });
 
@@ -300,7 +300,7 @@ describe("State", () => {
     it("should return true when no schema is provided", () => {
       const state = new State(initialValues);
       const isValid = state.validate();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
     });
   });
 
@@ -308,7 +308,7 @@ describe("State", () => {
     it("should return true for valid data", async () => {
       const state = new State(initialValues, basicSchema);
       const isValid = await state.validateAsync();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
     });
 
     it("should return false for invalid data", async () => {
@@ -316,7 +316,7 @@ describe("State", () => {
       const state = new State(invalidValues, basicSchema);
       state.setTouched("email");
       const isValid = await state.validateAsync();
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
     });
 
     it("should set error status for invalid fields", async () => {
@@ -332,20 +332,20 @@ describe("State", () => {
     it("should return true when no schema is provided", async () => {
       const state = new State(initialValues);
       const isValid = await state.validateAsync();
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
     });
   });
 
   describe("hasBeenTouched", () => {
     it("should return false initially", () => {
       const state = new State(initialValues, basicSchema);
-      expect(state.hasBeenTouched).toBeFalsy();
+      expect(state.hasBeenTouched).toBe(false);
     });
 
     it("should return true when any field is touched", () => {
       const state = new State(initialValues, basicSchema);
       state.setTouched("name");
-      expect(state.hasBeenTouched).toBeTruthy();
+      expect(state.hasBeenTouched).toBe(true);
     });
 
     it("should return false when all touched states are cleared", () => {
@@ -353,7 +353,7 @@ describe("State", () => {
       state.setTouched("name");
       state.setTouched("email");
       state.clearTouched();
-      expect(state.hasBeenTouched).toBeFalsy();
+      expect(state.hasBeenTouched).toBe(false);
     });
   });
 
@@ -363,8 +363,8 @@ describe("State", () => {
       const fieldState = state.getState("name");
       expect(fieldState.value).toBe("John Doe");
       expect(fieldState.status.variant).toBe("success");
-      expect(fieldState.touched).toBeFalsy();
-      expect(fieldState.required).toBeTruthy();
+      expect(fieldState.touched).toBe(false);
+      expect(fieldState.required).toBe(true);
     });
 
     it("should return field state for nested field", () => {
@@ -411,7 +411,7 @@ describe("State", () => {
 
     it("should correctly determine required status from schema", () => {
       const state = new State(initialValues, basicSchema);
-      expect(state.getState("name").required).toBeTruthy();
+      expect(state.getState("name").required).toBe(true);
       expect(state.getState("optionalField", { optional: true })).toBeNull();
     });
 
@@ -458,7 +458,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "profile");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("profile.website").status.variant).toBe("error");
       expect(state.getState("name").status.variant).toBe("success");
       expect(state.getState("email").status.variant).toBe("success");
@@ -476,7 +476,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "email");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("email").status.variant).toBe("error");
       expect(state.getState("name").status.variant).toBe("success");
     });
@@ -493,7 +493,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "profile");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("profile.website").status.variant).toBe("error");
       expect(state.getState("name").status.variant).toBe("success");
     });
@@ -510,7 +510,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "profile.website");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("profile.website").status.variant).toBe("error");
       expect(state.getState("email").status.variant).toBe("success");
     });
@@ -526,7 +526,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "name");
 
-      expect(isValid).toBeTruthy();
+      expect(isValid).toBe(true);
       expect(state.getState("name").status.variant).toBe("success");
       expect(state.getState("email").status.variant).toBe("success");
     });
@@ -546,7 +546,7 @@ describe("State", () => {
 
       const isValid = state.validate(true, "tags.0");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("tags.0").status.variant).toBe("error");
     });
   });
@@ -564,7 +564,7 @@ describe("State", () => {
 
       const isValid = await state.validateAsync(true, "email");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("email").status.variant).toBe("error");
       expect(state.getState("name").status.variant).toBe("success");
     });
@@ -581,7 +581,7 @@ describe("State", () => {
 
       const isValid = await state.validateAsync(true, "profile");
 
-      expect(isValid).toBeFalsy();
+      expect(isValid).toBe(false);
       expect(state.getState("profile.website").status.variant).toBe("error");
       expect(state.getState("name").status.variant).toBe("success");
     });

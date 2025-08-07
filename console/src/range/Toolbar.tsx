@@ -9,7 +9,7 @@
 
 import "@/range/Toolbar.css";
 
-import { DisconnectedError, ranger } from "@synnaxlabs/client";
+import { DisconnectedError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -67,7 +67,7 @@ const List = (): ReactElement => {
 
   const dropProps = Haul.useDrop({
     type: "range-toolbar",
-    canDrop: Haul.canDropOfType(ranger.ONTOLOGY_TYPE),
+    canDrop: Haul.canDropOfType("range"),
     onDrop: ({ items }) => {
       const ranges = items.map(
         ({ data, key }) =>

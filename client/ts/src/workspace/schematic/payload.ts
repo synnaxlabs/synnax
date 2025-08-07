@@ -32,6 +32,3 @@ export interface New extends z.input<typeof newZ> {}
 export const remoteZ = schematicZ.extend({
   data: z.string().transform(parseWithoutKeyConversion),
 });
-
-export const ONTOLOGY_TYPE = "schematic";
-export type OntologyType = typeof ONTOLOGY_TYPE;

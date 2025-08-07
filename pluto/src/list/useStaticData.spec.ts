@@ -77,7 +77,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "Apple" });
+        result.current.retrieve({ searchTerm: "Apple" });
       });
 
       expect(result.current.data).toEqual(["1"]);
@@ -88,7 +88,7 @@ describe("useStaticData", () => {
         useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
-        result.current.retrieve({ term: "Ap" });
+        result.current.retrieve({ searchTerm: "Ap" });
       });
 
       expect(result.current.data).toContain("5");
@@ -101,7 +101,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "" });
+        result.current.retrieve({ searchTerm: "" });
       });
 
       expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
@@ -113,7 +113,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "xyz123" });
+        result.current.retrieve({ searchTerm: "xyz123" });
       });
 
       expect(result.current.data).toEqual([]);
@@ -124,7 +124,7 @@ describe("useStaticData", () => {
         useStaticData<string, TestItem>({ data: mockData }),
       );
       act(() => {
-        result.current.retrieve({ term: "vegetable" });
+        result.current.retrieve({ searchTerm: "vegetable" });
       });
       expect(result.current.data).toContain("3");
       expect(result.current.data).toContain("4");
@@ -160,7 +160,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "A" });
+        result.current.retrieve({ searchTerm: "A" });
       });
 
       expect(result.current.data).toContain("1");
@@ -178,7 +178,7 @@ describe("useStaticData", () => {
       const initialData = result.current.data;
 
       act(() => {
-        result.current.retrieve({ term: "Apple" });
+        result.current.retrieve({ searchTerm: "Apple" });
       });
 
       expect(result.current.data).not.toEqual(initialData);
@@ -191,13 +191,13 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "Apple", offset: 0 });
+        result.current.retrieve({ searchTerm: "Apple", offset: 0 });
       });
 
       expect(result.current.data).toEqual(["1"]);
 
       act(() => {
-        result.current.retrieve({ term: "Banana" });
+        result.current.retrieve({ searchTerm: "Banana" });
       });
 
       expect(result.current.data).toEqual(["2"]);
@@ -209,13 +209,13 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "Apple" });
+        result.current.retrieve({ searchTerm: "Apple" });
       });
 
       expect(result.current.data).toEqual(["1"]);
 
       act(() => {
-        result.current.retrieve({ term: undefined });
+        result.current.retrieve({ searchTerm: undefined });
       });
 
       expect(result.current.data).toEqual(["1", "2", "3", "4", "5"]);
@@ -243,7 +243,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "A" });
+        result.current.retrieve({ searchTerm: "A" });
       });
 
       expect(result.current.data.length).toBeGreaterThan(0);
@@ -256,7 +256,7 @@ describe("useStaticData", () => {
       );
 
       act(() => {
-        result.current.retrieve({ term: "Apple" });
+        result.current.retrieve({ searchTerm: "Apple" });
       });
 
       expect(result.current.getItem("1")).toBeDefined();

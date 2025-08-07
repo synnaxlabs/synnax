@@ -202,7 +202,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: group.ONTOLOGY_TYPE,
+  type: "group",
   icon: <Icon.Group />,
   canDrop: () => true,
   // This haul item allows the group to be dragged between nodes in the tree.

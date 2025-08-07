@@ -68,7 +68,7 @@ describe("queries", () => {
         result.current.data
           .map((key: rack.Key) => result.current.getItem(key)?.name)
           .includes("special"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {

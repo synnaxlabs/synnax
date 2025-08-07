@@ -16,7 +16,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Payload,
   rackZ,
   type Status,
@@ -37,52 +36,47 @@ export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
+const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
-type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+const singleRetrieveArgsZ = z.union([
+  z
+    .object({
+      key: keyZ,
+      includeStatus: z.boolean().optional(),
+    })
+    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+  z
+    .object({
+      name: z.string(),
+      includeStatus: z.boolean().optional(),
+    })
+    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+]);
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 
-const keyRetrieveReqZ = z
-  .object({
-    key: keyZ,
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+const multiRetrieveArgsZ = retrieveReqZ;
 
-type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
+export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
 
-const nameRetrieveReqZ = z
-  .object({
-    name: z.string(),
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
-
-type NameRetrieveRequest = z.input<typeof nameRetrieveReqZ>;
-
-const retrieveArgsZ = z.union([keyRetrieveReqZ, nameRetrieveReqZ, retrieveReqZ]);
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
-
 const createReqZ = z.object({ racks: newZ.array() });
-
 const createResZ = z.object({ racks: rackZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-
 const deleteResZ = z.object({});
 
-export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
-
 export class Client {
-  readonly type = ONTOLOGY_TYPE;
+  readonly type = "rack";
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
 
@@ -113,24 +107,22 @@ export class Client {
       createResZ,
     );
     const sugared = this.sugar(res.racks);
-    if (isSingle) return sugared[0];
-    return sugared;
+    return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(params: KeyRetrieveRequest | NameRetrieveRequest): Promise<Rack>;
-  async retrieve(request: RetrieveRequest): Promise<Rack[]>;
-
-  async retrieve(params: RetrieveArgs): Promise<Rack | Rack[]> {
-    const isSingle = "key" in params || "name" in params;
+  async retrieve(args: SingleRetrieveArgs): Promise<Rack>;
+  async retrieve(args: MultiRetrieveArgs): Promise<Rack[]>;
+  async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
+    const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      params,
+      args,
       retrieveArgsZ,
       retrieveResZ,
     );
     const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", params, sugared, isSingle);
+    checkForMultipleOrNoResults("Rack", args, sugared, isSingle);
     return isSingle ? sugared[0] : sugared;
   }
 
@@ -141,8 +133,7 @@ export class Client {
     const sugared = array
       .toArray(payloads)
       .map(({ key, name, status }) => new Rack(key, name, this.tasks, status));
-    if (isSingle) return sugared[0];
-    return sugared;
+    return isSingle ? sugared[0] : sugared;
   }
 }
 
@@ -201,6 +192,6 @@ export class Rack {
 }
 
 export const ontologyID = (key: Key): ontology.ID => ({
-  type: ONTOLOGY_TYPE,
+  type: "rack",
   key: key.toString(),
 });

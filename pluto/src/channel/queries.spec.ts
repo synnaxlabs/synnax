@@ -81,7 +81,10 @@ describe("queries", () => {
         wrapper: newSynnaxWrapper(client),
       });
       act(() => {
-        result.current.retrieve({ term: "special" }, { signal: controller.signal });
+        result.current.retrieve(
+          { searchTerm: "special" },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -89,7 +92,7 @@ describe("queries", () => {
         result.current.data
           .map((key: channel.Key) => result.current.getItem(key)?.name)
           .includes("special_channel"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -119,7 +122,7 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBeTruthy();
+        expect(result.current.listenersMounted).toBe(true);
       });
       const initialLength = result.current.data.length;
 
@@ -150,7 +153,7 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBeTruthy();
+        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
 
@@ -176,7 +179,7 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBeTruthy();
+        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.data).toContain(testChannel.key);
 
@@ -572,7 +575,7 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBeTruthy();
+        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.form.value().name).toEqual("updateCalculated");
 

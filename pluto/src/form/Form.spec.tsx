@@ -94,7 +94,7 @@ describe("Form", () => {
           Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const field = result.current.get("age");
-        expect(field.required).toBeTruthy();
+        expect(field.required).toBe(true);
       });
     });
 
@@ -144,7 +144,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        expect(result.current.validate()).toBeFalsy();
+        expect(result.current.validate()).toBe(false);
         expect(result.current.get("age").status.variant).toEqual("error");
       });
       it("should call a bound listener if a validation error occurs", () => {
@@ -166,7 +166,7 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        expect(result.current.validate()).toBeTruthy();
+        expect(result.current.validate()).toBe(true);
       });
     });
   });
@@ -211,7 +211,7 @@ describe("Form", () => {
 
     it("should return true if a field is required in the schema", () => {
       const { result } = renderHook(() => Form.useField<string>("name"), { wrapper });
-      expect(result.current.required).toBeTruthy();
+      expect(result.current.required).toBe(true);
     });
 
     it("should set the default value if the field is null", () => {
@@ -238,8 +238,8 @@ describe("Form", () => {
       });
       expect(result.current?.value).toBe("John Doe");
       expect(result.current?.status.variant).toBe("success");
-      expect(result.current?.touched).toBeFalsy();
-      expect(result.current?.required).toBeTruthy();
+      expect(result.current?.touched).toBe(false);
+      expect(result.current?.required).toBe(true);
     });
 
     it("should return the correct nested field state", () => {
@@ -248,7 +248,7 @@ describe("Form", () => {
       });
       expect(result.current?.value).toBe("123-45-6789");
       expect(result.current?.status.variant).toBe("success");
-      expect(result.current?.required).toBeTruthy();
+      expect(result.current?.required).toBe(true);
     });
 
     it("should return null for optional fields when they don't exist", () => {
@@ -277,7 +277,7 @@ describe("Form", () => {
         { wrapper },
       );
 
-      expect(requiredResult.current?.required).toBeTruthy();
+      expect(requiredResult.current?.required).toBe(true);
       expect(optionalResult.current?.required).toBeUndefined();
     });
   });
@@ -370,28 +370,28 @@ describe("Form", () => {
       const { result } = renderHook(() => Form.useFieldValid("name"), {
         wrapper,
       });
-      expect(result.current).toBeTruthy();
+      expect(result.current).toBe(true);
     });
 
     it("should return false for non-existent optional fields", () => {
       const { result } = renderHook(() => Form.useFieldValid("nonExistentField"), {
         wrapper,
       });
-      expect(result.current).toBeFalsy();
+      expect(result.current).toBe(false);
     });
 
     it("should work with nested fields", () => {
       const { result } = renderHook(() => Form.useFieldValid("nested.ssn"), {
         wrapper,
       });
-      expect(result.current).toBeTruthy();
+      expect(result.current).toBe(true);
     });
 
     it("should work with array fields", () => {
       const { result } = renderHook(() => Form.useFieldValid("array.0.name"), {
         wrapper,
       });
-      expect(result.current).toBeTruthy();
+      expect(result.current).toBe(true);
     });
   });
 
@@ -592,13 +592,13 @@ describe("Form", () => {
         result.current.set("name", "Jane Doe");
         result.current.set("age", 25);
         result.current.set("nested.ssn", "987-65-4321");
-        expect(result.current.get("name").touched).toBeTruthy();
-        expect(result.current.get("age").touched).toBeTruthy();
-        expect(result.current.get("nested.ssn").touched).toBeTruthy();
+        expect(result.current.get("name").touched).toBe(true);
+        expect(result.current.get("age").touched).toBe(true);
+        expect(result.current.get("nested.ssn").touched).toBe(true);
         result.current.reset();
-        expect(result.current.get("name").touched).toBeFalsy();
-        expect(result.current.get("age").touched).toBeFalsy();
-        expect(result.current.get("nested.ssn").touched).toBeFalsy();
+        expect(result.current.get("name").touched).toBe(false);
+        expect(result.current.get("age").touched).toBe(false);
+        expect(result.current.get("nested.ssn").touched).toBe(false);
       });
 
       it("should call onChange handler when resetting", () => {
@@ -698,8 +698,8 @@ describe("Form", () => {
         expect(result.current.get("age").value).toBe(25);
 
         // But touched states should be cleared
-        expect(result.current.get("name").touched).toBeFalsy();
-        expect(result.current.get("age").touched).toBeFalsy();
+        expect(result.current.get("name").touched).toBe(false);
+        expect(result.current.get("age").touched).toBe(false);
 
         // Now resetting should go to the new "initial" values
         result.current.set("name", "Another Name");
@@ -743,13 +743,13 @@ describe("Form", () => {
 
         // Values should remain the same but not be touched
         expect(result.current.get("nested.ssn").value).toBe("999-99-9999");
-        expect(result.current.get("nested.ssn").touched).toBeFalsy();
+        expect(result.current.get("nested.ssn").touched).toBe(false);
         expect(result.current.get("array.0.name").value).toBe("New Array Name");
-        expect(result.current.get("array.0.name").touched).toBeFalsy();
+        expect(result.current.get("array.0.name").touched).toBe(false);
 
         // Changing back to original values should now mark as touched
         result.current.set("nested.ssn", "123-45-6789");
-        expect(result.current.get("nested.ssn").touched).toBeTruthy();
+        expect(result.current.get("nested.ssn").touched).toBe(true);
       });
     });
   });
@@ -761,7 +761,7 @@ describe("Form", () => {
       );
       result.current.set("name", "Jane Doe");
       const field = result.current.get("name");
-      expect(field.touched).toBeTruthy();
+      expect(field.touched).toBe(true);
     });
 
     it("should not mark a field as touched when setting it to its initial value", () => {
@@ -770,7 +770,7 @@ describe("Form", () => {
       );
       result.current.set("name", "John Doe");
       const field = result.current.get("name");
-      expect(field.touched).toBeFalsy();
+      expect(field.touched).toBe(false);
     });
 
     it("should mark a field as untouched when resetting to initial value", () => {
@@ -778,9 +778,9 @@ describe("Form", () => {
         Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
       );
       result.current.set("name", "Jane Doe");
-      expect(result.current.get("name").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
       result.current.set("name", "John Doe");
-      expect(result.current.get("name").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
     });
 
     it("should clear all touched states when resetting the form", () => {
@@ -789,11 +789,11 @@ describe("Form", () => {
       );
       result.current.set("name", "Jane Doe");
       result.current.set("age", 25);
-      expect(result.current.get("name").touched).toBeTruthy();
-      expect(result.current.get("age").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
+      expect(result.current.get("age").touched).toBe(true);
       result.current.reset(deep.copy(initialFormValues));
-      expect(result.current.get("name").touched).toBeFalsy();
-      expect(result.current.get("age").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
+      expect(result.current.get("age").touched).toBe(false);
     });
 
     it("should call onHasTouched when form touched state changes", () => {
@@ -828,19 +828,19 @@ describe("Form", () => {
       // Change some values and verify they're marked as touched
       result.current.set("name", "Jane Doe");
       result.current.set("age", 25);
-      expect(result.current.get("name").touched).toBeTruthy();
-      expect(result.current.get("age").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
+      expect(result.current.get("age").touched).toBe(true);
 
       // Take a snapshot - this should become the new "initial" state
       result.current.setCurrentStateAsInitialValues();
 
       // Verify fields are now untouched
-      expect(result.current.get("name").touched).toBeFalsy();
-      expect(result.current.get("age").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
+      expect(result.current.get("age").touched).toBe(false);
 
       // Verify changing back to the old initial values now marks as touched
       result.current.set("name", "John Doe");
-      expect(result.current.get("name").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
     });
 
     it("should properly track touched state through reset and setCurrentStateAsInitialValues", () => {
@@ -850,25 +850,25 @@ describe("Form", () => {
 
       // Change value and verify touched
       result.current.set("name", "Jane Doe");
-      expect(result.current.get("name").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
 
       // Reset should clear touched state
       result.current.reset();
-      expect(result.current.get("name").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
 
       // Change again and set as initial values
       result.current.set("name", "Jane Doe");
-      expect(result.current.get("name").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
       result.current.setCurrentStateAsInitialValues();
-      expect(result.current.get("name").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
 
       // Now changing back to original should mark as touched
       result.current.set("name", "John Doe");
-      expect(result.current.get("name").touched).toBeTruthy();
+      expect(result.current.get("name").touched).toBe(true);
 
       // And changing back to new initial should clear touched
       result.current.set("name", "Jane Doe");
-      expect(result.current.get("name").touched).toBeFalsy();
+      expect(result.current.get("name").touched).toBe(false);
     });
   });
 });

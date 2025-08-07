@@ -355,7 +355,7 @@ describe("Mosaic", () => {
 
         expect(result.key).toBe(1);
 
-        expect(verifyKeyHierarchy(result)).toBeTruthy();
+        expect(verifyKeyHierarchy(result)).toBe(true);
       });
     });
 

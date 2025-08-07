@@ -107,7 +107,7 @@ describe("Task", async () => {
             });
             return retrieved.status?.variant === communicatedStatus.variant;
           })
-          .toBeTruthy();
+          .toBe(true);
       });
     });
 
@@ -141,7 +141,7 @@ describe("Task", async () => {
           rack: testRack.key,
         });
         expect(result.length).toBeGreaterThanOrEqual(3);
-        expect(result.every((t) => task.rackKey(t.key) === testRack.key)).toBeTruthy();
+        expect(result.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
       });
 
       it("should retrieve tasks by multiple keys", async () => {
@@ -159,7 +159,7 @@ describe("Task", async () => {
           names: namesToQuery,
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((t) => namesToQuery.includes(t.name))).toBeTruthy();
+        expect(result.every((t) => namesToQuery.includes(t.name))).toBe(true);
       });
 
       it("should retrieve tasks by types", async () => {
@@ -167,7 +167,7 @@ describe("Task", async () => {
           types: ["ni"],
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((t) => t.type === "ni")).toBeTruthy();
+        expect(result.every((t) => t.type === "ni")).toBe(true);
       });
 
       it("should retrieve tasks by multiple types", async () => {
@@ -176,7 +176,7 @@ describe("Task", async () => {
           types: typesToQuery,
         });
         expect(result.length).toBeGreaterThanOrEqual(4);
-        expect(result.every((t) => typesToQuery.includes(t.type))).toBeTruthy();
+        expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
       it("should support pagination with limit and offset", async () => {
@@ -196,9 +196,9 @@ describe("Task", async () => {
 
           const firstPageKeys = firstPage.map((t) => t.key);
           const secondPageKeys = secondPage.map((t) => t.key);
-          expect(
-            firstPageKeys.every((key) => !secondPageKeys.includes(key)),
-          ).toBeTruthy();
+          expect(firstPageKeys.every((key) => !secondPageKeys.includes(key))).toBe(
+            true,
+          );
         }
       });
 
@@ -209,7 +209,7 @@ describe("Task", async () => {
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
-        expect(result.every((t) => t.type === "ni")).toBeTruthy();
+        expect(result.every((t) => t.type === "ni")).toBe(true);
 
         await expect
           .poll(async () => {
@@ -220,7 +220,7 @@ describe("Task", async () => {
             });
             return tasks.every((t) => t.status !== undefined);
           })
-          .toBeTruthy();
+          .toBe(true);
       });
 
       it("should handle empty results gracefully", async () => {
@@ -236,7 +236,7 @@ describe("Task", async () => {
           types: ["labjack"],
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
-        expect(result.every((t) => t.type === "labjack")).toBeTruthy();
+        expect(result.every((t) => t.type === "labjack")).toBe(true);
       });
 
       it("should handle limit without offset", async () => {
@@ -261,7 +261,7 @@ describe("Task", async () => {
             });
             return tasks.every((t) => t.status !== undefined);
           })
-          .toBeTruthy();
+          .toBe(true);
       });
     });
   });

@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestSearch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Search Suite")
+	RunSpecs(t, "SearchTerm Suite")
 }

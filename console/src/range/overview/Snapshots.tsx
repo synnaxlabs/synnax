@@ -11,9 +11,7 @@ import {
   DisconnectedError,
   type ontology,
   ranger,
-  schematic,
   type Synnax as Client,
-  task,
 } from "@synnaxlabs/client";
 import {
   Component,
@@ -41,8 +39,8 @@ interface SnapshotService {
   onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
 }
 
-const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotService> = {
-  [schematic.ONTOLOGY_TYPE]: {
+const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
+  schematic: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
@@ -52,7 +50,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
       );
     },
   },
-  [task.ONTOLOGY_TYPE]: {
+  task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       retrieveAndPlaceTaskLayout(client, key, placeLayout),

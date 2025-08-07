@@ -75,7 +75,7 @@ export const SelectPort = ({
           {children}
         </Flex.Box>
         <Select.Dialog<string>
-          onSearch={(term) => retrieve({ term })}
+          onSearch={(term) => retrieve({ searchTerm: term })}
           emptyContent={emptyContent}
           resourceName="Port"
           {...dialogProps}

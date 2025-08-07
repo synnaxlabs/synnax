@@ -38,7 +38,7 @@ export const Select = ({
     (key: device.Key) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured } = await client.hardware.devices.retrieve(key);
+        const { configured } = await client.hardware.devices.retrieve({ key });
         if (configured) return;
         placeLayout({ ...configureLayout, key });
       }, "Failed to retrieve device");

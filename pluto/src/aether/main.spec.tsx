@@ -88,7 +88,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
@@ -113,7 +113,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 1 });

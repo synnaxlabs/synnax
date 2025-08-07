@@ -49,7 +49,8 @@ describe("Device", async () => {
       model: "dog",
       properties,
     });
-    const retrieved = await client.hardware.devices.retrieve(d.key);
+    const retrieved = await client.hardware.devices.retrieve({ key: d.key });
+    expect(retrieved.key).toEqual(d.key);
     expect(retrieved.properties).toEqual(properties);
   });
   describe("retrieve", () => {
@@ -63,7 +64,7 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.hardware.devices.retrieve(d.key);
+      const retrieved = await client.hardware.devices.retrieve({ key: d.key });
       expect(retrieved.key).toBe(d.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.make).toBe("ni");
@@ -87,7 +88,9 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key]);
+      const retrieved = await client.hardware.devices.retrieve({
+        keys: [d1.key, d2.key],
+      });
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
@@ -105,7 +108,7 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve(d.key);
+        const retrieved = await client.hardware.devices.retrieve({ key: d.key });
         expect(retrieved.status).toBeUndefined();
       });
 
@@ -122,12 +125,13 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const { status } = await client.hardware.devices.retrieve(d.key, {
+            const { status } = await client.hardware.devices.retrieve({
+              key: d.key,
               includeStatus: true,
             });
             return status != null;
           })
-          .toBeTruthy();
+          .toBe(true);
       });
 
       it("should include state for multiple devices", async () => {
@@ -153,14 +157,14 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrievedDevices = await client.hardware.devices.retrieve(
-              [d1.key, d2.key],
-              { includeStatus: true },
-            );
+            const retrievedDevices = await client.hardware.devices.retrieve({
+              keys: [d1.key, d2.key],
+              includeStatus: true,
+            });
             if (retrievedDevices.length !== 2) return false;
             return retrievedDevices.every(({ status }) => status !== undefined);
           })
-          .toBeTruthy();
+          .toBe(true);
       });
 
       it("should handle state with type-safe details", async () => {
@@ -177,7 +181,8 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.devices.retrieve(key, {
+            const retrieved = await client.hardware.devices.retrieve({
+              key,
               includeStatus: true,
             });
             return (
@@ -186,7 +191,7 @@ describe("Device", async () => {
               retrieved.status.details.device === key
             );
           })
-          .toBeTruthy();
+          .toBe(true);
       });
     });
 
@@ -239,7 +244,7 @@ describe("Device", async () => {
           makes: ["ni"],
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((d) => d.make === "ni")).toBeTruthy();
+        expect(result.every((d) => d.make === "ni")).toBe(true);
       });
 
       it("should retrieve devices by models", async () => {
@@ -258,7 +263,7 @@ describe("Device", async () => {
           locations: ["Lab1"],
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((d) => d.location === "Lab1")).toBeTruthy();
+        expect(result.every((d) => d.location === "Lab1")).toBe(true);
       });
 
       it("should retrieve devices by racks", async () => {
@@ -266,15 +271,15 @@ describe("Device", async () => {
           racks: [testRack.key],
         });
         expect(result.length).toBeGreaterThanOrEqual(5);
-        expect(result.every((d) => d.rack === testRack.key)).toBeTruthy();
+        expect(result.every((d) => d.rack === testRack.key)).toBe(true);
       });
 
       it("should retrieve devices by search term", async () => {
         const result = await client.hardware.devices.retrieve({
-          search: "sensor",
+          searchTerm: "sensor",
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((d) => d.name.includes("sensor"))).toBeTruthy();
+        expect(result.every((d) => d.name.includes("sensor"))).toBe(true);
       });
 
       it("should support pagination with limit and offset", async () => {
@@ -294,9 +299,7 @@ describe("Device", async () => {
 
         const firstPageKeys = firstPage.map((d) => d.key);
         const secondPageKeys = secondPage.map((d) => d.key);
-        expect(
-          firstPageKeys.every((key) => !secondPageKeys.includes(key)),
-        ).toBeTruthy();
+        expect(firstPageKeys.every((key) => !secondPageKeys.includes(key))).toBe(true);
       });
 
       it("should support combined filters", async () => {
@@ -308,7 +311,7 @@ describe("Device", async () => {
         expect(result.length).toBeGreaterThanOrEqual(1);
         expect(
           result.every((d) => d.make === "ni" && ["Lab1", "Lab2"].includes(d.location)),
-        ).toBeTruthy();
+        ).toBe(true);
 
         await expect
           .poll(async () => {
@@ -319,7 +322,7 @@ describe("Device", async () => {
             });
             return devices.every((d) => d.status !== undefined);
           })
-          .toBeTruthy();
+          .toBe(true);
       });
     });
   });

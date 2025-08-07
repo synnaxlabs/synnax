@@ -48,7 +48,7 @@ describe("error", () => {
     ];
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {
-        expect(type.matches(error)).toBeTruthy();
+        expect(type.matches(error)).toBe(true);
       }),
     );
   });
@@ -61,11 +61,11 @@ test("client", async () => {
   try {
     await client.channels.retrieve(id.create());
   } catch (e) {
-    expect(NotFoundError.matches(e)).toBeTruthy();
+    expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
     await client.workspaces.schematic.retrieve(uuid.create());
   } catch (e) {
-    expect(NotFoundError.matches(e)).toBeTruthy();
+    expect(NotFoundError.matches(e)).toBe(true);
   }
 });

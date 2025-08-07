@@ -9,7 +9,7 @@
 
 import "@/hardware/device/ontology.css";
 
-import { device, ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -31,7 +31,7 @@ import { Ontology } from "@/ontology";
 
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name }) => {
-    const device = await client.hardware.devices.retrieve(id.key);
+    const device = await client.hardware.devices.retrieve({ key: id.key });
     await client.hardware.devices.create({ ...device, name });
   },
 };
@@ -61,7 +61,7 @@ const useHandleChangeIdentifier = () => {
   }: Ontology.TreeContextMenuProps) => {
     const resource = getResource(resourceIDs[0]);
     handleError(async () => {
-      const device = await client.hardware.devices.retrieve(resource.id.key);
+      const device = await client.hardware.devices.retrieve({ key: resource.id.key });
       const identifier =
         typeof device.properties.identifier === "string"
           ? device.properties.identifier
@@ -219,7 +219,7 @@ const Item = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: device.ONTOLOGY_TYPE,
+  type: "device",
   icon,
   hasChildren: false,
   allowRename: () => true,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import { ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import {
   type Haul,
   Icon,
@@ -192,7 +192,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes(Tree.removeNode({ tree: nodes, keys: stringIDs }));
       const rangesToRemove = resourceIDs
-        .filter((id) => id.type === ranger.ONTOLOGY_TYPE)
+        .filter((id) => id.type === "range")
         .map((id) => id.key);
       store.dispatch(remove({ keys: rangesToRemove }));
       removeLayout(...resourceIDs.map((id) => ontology.idToString(id)));
@@ -302,7 +302,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
-  { type: ranger.ONTOLOGY_TYPE, key: id.key },
+  { type: "range", key: id.key },
 ];
 
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
@@ -329,7 +329,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: ranger.ONTOLOGY_TYPE,
+  type: "range",
   icon: <Icon.Range />,
   onSelect: handleSelect,
   canDrop: () => true,

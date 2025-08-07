@@ -49,7 +49,7 @@ const MaxVoltageField = PForm.buildNumericField({
 
 const SelectScaleTypeField = PForm.buildSelectField<
   ScaleType,
-  Select.SimplyEntry<ScaleType>
+  Select.StaticEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -143,7 +143,7 @@ interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
 interface SelectCJCSourceFieldProps
   extends Optional<
-    Select.SimpleProps<string, CJCSourceEntry>,
+    Select.StaticProps<string, CJCSourceEntry>,
     "data" | "resourceName"
   > {
   model: Device.Model;
@@ -160,7 +160,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
     return [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
   }, [model]);
   return (
-    <Select.Simple<string, CJCSourceEntry>
+    <Select.Static<string, CJCSourceEntry>
       data={data}
       allowNone={false}
       {...rest}

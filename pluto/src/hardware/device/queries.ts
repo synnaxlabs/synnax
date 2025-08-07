@@ -32,7 +32,7 @@ export const retrieve = <
   Flux.createRetrieve<RetrieveParams, device.Device<Properties, Make, Model>>({
     name: "Device",
     retrieve: async ({ client, params }) =>
-      await client.hardware.devices.retrieve(params.key, { includeStatus: true }),
+      await client.hardware.devices.retrieve({ key: params.key, includeStatus: true }),
     listeners: [
       {
         channel: device.SET_CHANNEL_NAME,
@@ -52,13 +52,14 @@ export const retrieve = <
     ],
   });
 
-export interface ListParams extends device.RetrieveRequest {}
+export interface ListParams extends device.MultiRetrieveArgs {}
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: "Devices",
   retrieve: async ({ client, params }) =>
     await client.hardware.devices.retrieve({ includeStatus: true, ...params }),
-  retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
+  retrieveByKey: async ({ client, key }) =>
+    await client.hardware.devices.retrieve({ key, includeStatus: true }),
   listeners: [
     {
       channel: device.SET_CHANNEL_NAME,

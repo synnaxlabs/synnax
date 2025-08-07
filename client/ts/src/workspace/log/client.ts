@@ -19,7 +19,6 @@ import {
   logZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Params,
 } from "@/workspace/log/payload";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
@@ -108,4 +107,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "log", key });
