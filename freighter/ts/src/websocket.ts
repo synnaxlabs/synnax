@@ -11,7 +11,6 @@ import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
-import { HEADER_CONTENT_TYPE } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
 
@@ -194,7 +193,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   private buildURL(target: string, ctx: Context): string {
     const qs = buildQueryString(
-      { [HEADER_CONTENT_TYPE]: this.encoder.contentType, ...ctx.params },
+      { "Content-Type": this.encoder.contentType, ...ctx.params },
       FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;

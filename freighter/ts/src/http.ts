@@ -22,8 +22,6 @@ const shouldCastToUnreachable = (err: Error): boolean =>
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
-export const HEADER_CONTENT_TYPE = "Content-Type";
-
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  *
@@ -63,7 +61,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   get headers(): Record<string, string> {
     return {
       Accept: this.decoder.contentType,
-      [HEADER_CONTENT_TYPE]: this.encoder.contentType,
+      "Content-Type": this.encoder.contentType,
     };
   }
 
