@@ -44,7 +44,7 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 	r *Router,
 	path string,
 	opts ...ServerOption,
-) *unaryServer[RQ, RS] {
+) freighter.UnaryServer[RQ, RS] {
 	so := newServerOptions(opts)
 	us := &unaryServer[RQ, RS]{
 		serverOptions: so,
@@ -146,7 +146,7 @@ var _ freighter.UnaryClient[any, any] = (*unaryClient[any, any])(nil)
 
 func NewUnaryClient[RQ, RS freighter.Payload](
 	cfgs ...ClientConfig,
-) (*unaryClient[RQ, RS], error) {
+) (freighter.UnaryClient[RQ, RS], error) {
 	cfg, err := config.New(DefaultClientConfig, cfgs...)
 	if err != nil {
 		return nil, err

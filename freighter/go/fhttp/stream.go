@@ -280,7 +280,7 @@ type streamClient[RQ, RS freighter.Payload] struct {
 
 func NewStreamClient[RQ, RS freighter.Payload](
 	cfgs ...ClientConfig,
-) (*streamClient[RQ, RS], error) {
+) (freighter.StreamClient[RQ, RS], error) {
 	cfg, err := config.New(DefaultClientConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func NewStreamServer[RQ, RS freighter.Payload](
 	r *Router,
 	path string,
 	opts ...ServerOption,
-) *streamServer[RQ, RS] {
+) freighter.StreamServer[RQ, RS] {
 	so := newServerOptions(opts)
 	s := &streamServer[RQ, RS]{
 		serverOptions:   newServerOptions(opts),

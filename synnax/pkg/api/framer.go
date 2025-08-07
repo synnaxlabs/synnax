@@ -77,7 +77,7 @@ type FrameReadRequest struct {
 	ChannelNames map[channel.Key]string `json:"channel_names" msgpack:"channel_names"`
 }
 
-type FrameReadResponse = *frameUnaryReadable
+type FrameReadResponse = fhttp.UnaryReadable
 
 type frameUnaryReadable struct {
 	metaData        frameReadMetadata
@@ -549,14 +549,14 @@ type wsFramerCodec struct {
 func NewStaticWSFramerCodec(
 	channelKeys channel.Keys,
 	dataTypes []telem.DataType,
-) *wsFramerCodec {
+) xbinary.Codec {
 	return &wsFramerCodec{
 		lowPerfCodec: xbinary.JSONCodec,
 		codec:        codec.NewStatic(channelKeys, dataTypes),
 	}
 }
 
-func NewWSFramerCodec(channels channel.Readable) *wsFramerCodec {
+func NewWSFramerCodec(channels channel.Readable) xbinary.Codec {
 	return &wsFramerCodec{
 		lowPerfCodec: xbinary.JSONCodec,
 		codec:        codec.NewDynamic(channels),

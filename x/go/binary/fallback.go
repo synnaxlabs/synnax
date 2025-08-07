@@ -24,7 +24,7 @@ type decodeFallbackCodec struct {
 
 var _ Codec = (*decodeFallbackCodec)(nil)
 
-func NewDecodeFallbackCodec(base Codec, codecs ...Codec) *decodeFallbackCodec {
+func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 	return &decodeFallbackCodec{Codecs: append([]Codec{base}, codecs...)}
 }
 
