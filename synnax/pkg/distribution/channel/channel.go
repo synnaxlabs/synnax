@@ -27,14 +27,15 @@ import (
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
-// unique across the entire cluster. It is composed of a uint32 Key representing the
-// node holding the lease on the channel, and a uint16 key representing a unique
+// unique across the entire cluster. It is composed of a uint12 Key representing the
+// node holding the lease on the channel, and a uint20 key representing a unique
 // node-local identifier.
 type Key uint32
 
-// LocalKey represents a unique identifier for a Channel with relation to its leaseholder.
-// It has a maximum addressable space of 2^20 (1,048,576) unique keys. This is the limiting
-// factor of the number of channels that can be created per node in Synnax.
+// LocalKey represents a unique identifier for a Channel with relation to its
+// leaseholder. It has a maximum addressable space of 2^20 (1,048,576) unique keys. This
+// is the limiting factor of the number of channels that can be created per node in
+// Synnax.
 type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
@@ -59,8 +60,8 @@ func ParseKey(s string) (Key, error) {
 	return Key(k), nil
 }
 
-// Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
-// node for the Channel.
+// Leaseholder returns the id of the node embedded in the key. This node is the
+// leaseholder node for the Channel.
 func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
@@ -93,8 +94,8 @@ func Names(channels []Channel) []string {
 	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
 }
 
-// KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does
-// not copy the slice, it just reinterprets the memory.
+// KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does not
+// copy the slice, it just reinterprets the memory.
 func KeysFromUint32(keys []uint32) Keys { return unsafe.ReinterpretSlice[uint32, Key](keys) }
 
 // KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.ID(s). This
@@ -149,22 +150,22 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // followed by the keys that are absent in k.
 func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
 
-// Channel is a collection is a container representing a collection of samples across
-// a time range. The data within a channel typically arrives from a single source. This
+// Channel is a collection is a container representing a collection of samples across a
+// time range. The data within a channel typically arrives from a single source. This
 // can be a physical sensor, software sensor, metric, event, or any other entity that
 // emits regular, consistent, and time-ordered values.
 //
 // This Channel type (for the distribution layer) extends a cesium.DB's channel via
 // composition to add fields necessary for cluster wide distribution.
 //
-// Key Channel "belongs to" a specific Node. Because delta is oriented towards data collection
-// close to the hardware, it's natural to assume a sensor writes to one and only device.
-// For example, we may have a temperature sensor for a carbon fiber oven connected to a
-// Linux box. The temperature sensor is a Channel that writes to Node residing on the
-// Linux box.
+// Key Channel "belongs to" a specific Node. Because delta is oriented towards data
+// collection close to the hardware, it's natural to assume a sensor writes to one and
+// only device. For example, we may have a temperature sensor for a carbon fiber oven
+// connected to a Linux box. The temperature sensor is a Channel that writes to Node
+// residing on the Linux box.
 //
-// Series for a channel can only be written through the leaseholder. This helps solve a lot
-// of consistency and atomicity issues.
+// Series for a channel can only be written through the leaseholder. This helps solve a
+// lot of consistency and atomicity issues.
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
@@ -173,9 +174,9 @@ type Channel struct {
 	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
-	// be int64 values written in ascending order. LocalIndex channels are most commonly
-	// unix nanosecond timestamps.
+	// IsIndex is set to true if the channel is an index channel. LocalIndex channels
+	// must be int64 values written in ascending order. LocalIndex channels are most
+	// commonly unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
@@ -190,8 +191,8 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// Internal determines if a channel is a channel created by Synnax or
-	// created by the user.
+	// Internal determines if a channel is a channel created by Synnax or created by the
+	// user.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
@@ -206,10 +207,10 @@ func (c Channel) IsCalculated() bool {
 }
 
 // Equals returns true if the two channels are meaningfully equal to each other. This
-// function should be used instead of a direct comparison, as it takes into account
-// the contents of the Requires field, ignoring the order of the keys.
-// If the exclude parameter is provided, the function will ignore the fields specified
-// in the exclude parameter.
+// function should be used instead of a direct comparison, as it takes into account the
+// contents of the Requires field, ignoring the order of the keys. If the exclude
+// parameter is provided, the function will ignore the fields specified in the exclude
+// parameter.
 func (c Channel) Equals(other Channel, exclude ...string) bool {
 	comparisons := []struct {
 		field string
@@ -267,9 +268,8 @@ func (c Channel) Index() Key {
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
 
-// SetOptions implements the gorp.Entry interface. Returns a set of options that
-// tell an aspen.DB to properly lease the Channel to the node it will be recording data
-// from.
+// SetOptions implements the gorp.Entry interface. Returns a set of options that tell an
+// aspen.DB to properly lease the Channel to the node it will be recording data from.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
 		return []any{cluster.Bootstrapper}
@@ -280,12 +280,12 @@ func (c Channel) SetOptions() []any {
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
 
-// Free returns true if the channel is leased to a particular node i.e. it is not
-// a non-leased virtual channel.
+// Free returns true if the channel is leased to a particular node i.e. it is not a
+// non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == cluster.Free }
 
-// Storage returns the storage layer representation of the channel for creation
-// in the storage ts.DB.
+// Storage returns the storage layer representation of the channel for creation in the
+// storage ts.DB.
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),

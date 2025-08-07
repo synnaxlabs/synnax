@@ -22,7 +22,7 @@ const contentTypeZ = z
 const readRequestZ = z.object({
   keys: channel.keyZ.array(),
   timeRange: TimeRange.z,
-  channelNames: z.record(channel.keyStringZ, z.string()).optional(),
+  channelNames: z.record(channel.keyZ, z.string()).optional(),
   contentType: contentTypeZ,
 });
 export interface ReadRequest extends z.input<typeof readRequestZ> {}

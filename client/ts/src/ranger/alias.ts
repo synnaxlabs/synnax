@@ -25,7 +25,7 @@ const resolveResZ = z.object({ aliases: z.record(z.string(), channel.keyZ) });
 
 const setReqZ = z.object({
   range: keyZ,
-  aliases: z.record(channel.keyStringZ, z.string()),
+  aliases: z.record(channel.keyZ, z.string()),
 });
 
 const setResZ = z.unknown();
