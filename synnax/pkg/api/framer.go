@@ -120,7 +120,7 @@ func (m frameReadMetadata) MarshalCSV() ([][]string, error) {
 	return [][]string{records}, nil
 }
 
-func (fs *FrameService) Read(
+func (s *FrameService) Read(
 	ctx context.Context,
 	req FrameReadRequest,
 ) (FrameReadResponse, error) {
@@ -130,8 +130,8 @@ func (fs *FrameService) Read(
 		channels []channel.Channel
 		allKeys  channel.Keys
 	)
-	if err := fs.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := fs.
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.
 			channel.
 			NewRetrieve().
 			WhereKeys(keys...).
@@ -143,7 +143,7 @@ func (fs *FrameService) Read(
 			indexKeys[i] = c.Index()
 		}
 		allKeys = append(keys, indexKeys...).Unique()
-		if err := fs.
+		if err := s.
 			channel.
 			NewRetrieve().
 			WhereKeys(allKeys...).
@@ -163,7 +163,7 @@ func (fs *FrameService) Read(
 	response.frameChannel = make(chan Frame, 1)
 	response.errorChannel = make(chan error, 1)
 	go func() {
-		iter, err := fs.internal.Iterator.Open(ctx, framer.IteratorConfig{
+		iter, err := s.internal.Iterator.Open(ctx, framer.IteratorConfig{
 			Keys:   allKeys,
 			Bounds: req.TimeRange,
 		})
@@ -193,20 +193,20 @@ type FrameDeleteRequest struct {
 	Names  []string        `json:"names" msgpack:"names" validate:"names"`
 }
 
-func (fs *FrameService) Delete(
+func (s *FrameService) Delete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := fs.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, fs.dbProvider.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.dbProvider.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
-		w := fs.internal.NewDeleter()
+		w := s.internal.NewDeleter()
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
 				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
@@ -231,13 +231,13 @@ const (
 	iteratorRequestBufferSize  = 2
 )
 
-func (fs *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) error {
-	iter, err := fs.openIterator(ctx, stream)
+func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) error {
+	iter, err := s.openIterator(ctx, stream)
 	if err != nil {
 		return err
 	}
 
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(fs.Instrumentation.Child("frame_iterator")))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_iterator")))
 	// Cancellation here would occur for one of two reasons. Either we encounter a fatal
 	// error (transport or iterator internal) and we need to free all resources, OR the
 	// client executed the close command on the iterator (in which case resources have
@@ -263,19 +263,19 @@ func (fs *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream)
 	return sCtx.Wait()
 }
 
-func (fs *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, error) {
+func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, error) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, err
 	}
-	if err = fs.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
-	iter, err := fs.internal.NewStreamIterator(ctx, framer.IteratorConfig{
+	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds:    req.Bounds,
 		Keys:      req.Keys,
 		ChunkSize: req.ChunkSize,
@@ -298,10 +298,10 @@ const (
 	streamingResponseBufferSize = 200
 )
 
-func (fs *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(fs.Instrumentation.Child("frame_streamer")))
+func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
 	defer cancel()
-	streamer, err := fs.openStreamer(sCtx, getSubject(ctx), stream)
+	streamer, err := s.openStreamer(sCtx, getSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func (fs *FrameService) Stream(ctx context.Context, stream StreamerStream) error
 	return sCtx.Wait()
 }
 
-func (fs *FrameService) openStreamer(
+func (s *FrameService) openStreamer(
 	ctx context.Context,
 	subject ontology.ID,
 	stream StreamerStream,
@@ -331,14 +331,14 @@ func (fs *FrameService) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err = fs.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.Retrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := fs.internal.NewStreamer(ctx, req)
+	reader, err := s.internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -438,15 +438,15 @@ const (
 // expected to return a FrameWriterResponse.CloseMsg with the error, and then wait for a
 // reasonable amount of time for the client to close the connection before forcibly
 // terminating the connection.
-func (fs *FrameService) Write(ctx context.Context, stream FrameWriterStream) error {
-	cancelCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(fs.Instrumentation.Child("frame_writer")))
+func (s *FrameService) Write(ctx context.Context, stream FrameWriterStream) error {
+	cancelCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter a fatal
 	// error (transport or writer internal) and we need to free all resources, OR the
 	// client executed the close command on the writer (in which case resources have
 	// already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := fs.openWriter(cancelCtx, getSubject(ctx), stream)
+	w, err := s.openWriter(cancelCtx, getSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -493,7 +493,7 @@ func (fs *FrameService) Write(ctx context.Context, stream FrameWriterStream) err
 	return err
 }
 
-func (fs *FrameService) openWriter(
+func (s *FrameService) openWriter(
 	ctx context.Context,
 	subject ontology.ID,
 	srv FrameWriterStream,
@@ -503,7 +503,7 @@ func (fs *FrameService) openWriter(
 		return nil, err
 	}
 
-	if err = fs.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.Create,
 		Objects: framer.OntologyIDs(req.Config.Keys),
@@ -516,7 +516,7 @@ func (fs *FrameService) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err := fs.internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -531,7 +531,7 @@ func (fs *FrameService) openWriter(
 	}
 
 	channels := make([]channel.Channel, 0, len(req.Config.Keys))
-	if err = fs.channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err = s.channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return w, err
 	}
 	// Let the client know the writer is ready to receive segments.
@@ -721,5 +721,3 @@ func (c *wsFramerCodec) decodeStreamRequest(
 	}
 	return c.codec.Update(ctx, v.Payload.Keys)
 }
-
-const framerContentType = "application/sy-framer"
