@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DisconnectedError } from "@synnaxlabs/client";
-import { type Channel, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { type Channel, Status, Synnax } from "@synnaxlabs/pluto";
 import { type TimeRange } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -22,7 +22,7 @@ export interface DownloadArgs {
 
 export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   return useCallback(
     ({ timeRange, lines, name }: DownloadArgs) =>
       handleError(async () => {
