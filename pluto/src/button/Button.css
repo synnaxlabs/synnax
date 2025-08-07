@@ -155,7 +155,7 @@
         }
     }
     &:not(.pluto--square) .pluto-trigger-indicator {
-        margin-right: -1rem;
+        margin-left: auto;
     }
 
     &.pluto--square {

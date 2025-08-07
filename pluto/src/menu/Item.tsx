@@ -21,7 +21,6 @@ export interface ItemProps extends Button.ButtonProps {
 
 export const Item = ({
   itemKey,
-  trigger,
   className,
   onClick,
   size,

@@ -253,6 +253,7 @@ const SelectorButton = ({
       justify="center"
       align="center"
       empty
+      tabIndex={0}
       preventClick={isSelected}
       onClick={handleClick}
       onDragOver={handleDragOver}

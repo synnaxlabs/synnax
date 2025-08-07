@@ -64,13 +64,7 @@ export const listItem = Component.renderProp(
     if (cmd == null) return null;
     const { icon, name, endContent } = cmd;
     return (
-      <Select.ListItem
-        highlightHovered
-        style={{ height: "6.5rem" }}
-        justify="between"
-        align="center"
-        {...props}
-      >
+      <Select.ListItem highlightHovered justify="between" align="center" {...props}>
         <Text.Text weight={400} gap="medium">
           {icon}
           {name}

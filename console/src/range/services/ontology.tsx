@@ -308,13 +308,7 @@ const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
   const resource = List.useItem<string, ontology.Resource>(props.itemKey);
   return (
-    <Select.ListItem
-      y
-      gap="tiny"
-      style={{ padding: "1.5rem" }}
-      highlightHovered
-      {...props}
-    >
+    <Select.ListItem gap="tiny" highlightHovered justify="between" {...props}>
       <Text.Text weight={450} gap="medium">
         <Icon.Range />
         {resource?.name}

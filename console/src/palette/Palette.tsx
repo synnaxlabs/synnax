@@ -147,7 +147,7 @@ const DialogContent = ({
       value={value}
       onChange={handleSelect}
       onFetchMore={fetchMore}
-      itemHeight={39}
+      itemHeight={36}
       virtual={false}
       initialHover={0}
     >
