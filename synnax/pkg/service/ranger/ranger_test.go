@@ -46,7 +46,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			EnableSearch: config.True(),
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		lab := MustSucceed(label.OpenService(ctx, label.Config{DB: db, Ontology: otg}))
+		lab := MustSucceed(label.OpenService(ctx, label.Config{DB: db, Ontology: otg, Group: g}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
 			DB:       db,
 			Ontology: otg,
