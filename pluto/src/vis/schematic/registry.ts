@@ -435,13 +435,13 @@ const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
 const ZERO_BOX_BORDER_RADIUS = 3;
 
 const threeWayValve: Spec<ThreeWayValveProps> = {
-  name: "Three Way Valve",
+  name: "Three Way",
   key: "threeWayValve",
   Form: CommonToggleForm,
   Symbol: ThreeWayValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
-    ...zeroLabel("Three Way Valve"),
+    ...zeroLabel("Three Way"),
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: Primitives.ThreeWayValve,
@@ -449,7 +449,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
 };
 
 const valve: Spec<ValveProps> = {
-  name: "Valve",
+  name: "Generic",
   key: "valve",
   Form: CommonToggleForm,
   Symbol: Valve,
@@ -463,7 +463,7 @@ const valve: Spec<ValveProps> = {
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
-  name: "Solenoid Valve",
+  name: "Solenoid",
   key: "solenoidValve",
   Form: CommonToggleForm,
   Symbol: SolenoidValve,
@@ -478,7 +478,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
 };
 
 const fourWayValve: Spec<FourWayValveProps> = {
-  name: "Four Way Valve",
+  name: "Four Way",
   key: "fourWayValve",
   Form: CommonToggleForm,
   Symbol: FourWayValve,
@@ -492,7 +492,7 @@ const fourWayValve: Spec<FourWayValveProps> = {
 };
 
 const angledValve: Spec<AngledValveProps> = {
-  name: "Angled Valve",
+  name: "Angled",
   key: "angledValve",
   Form: CommonToggleForm,
   Symbol: AngledValve,
@@ -506,7 +506,7 @@ const angledValve: Spec<AngledValveProps> = {
 };
 
 const ballValve: Spec<BallValveProps> = {
-  name: "Ball Valve",
+  name: "Ball",
   key: "ballValve",
   Form: CommonToggleForm,
   Symbol: BallValve,
@@ -520,7 +520,7 @@ const ballValve: Spec<BallValveProps> = {
 };
 
 const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
-  name: "Three-Way Ball Valve",
+  name: "Three-Way Ball",
   key: "threeWayBallValve",
   Form: CommonToggleForm,
   Symbol: ThreeWayBallValve,
@@ -534,7 +534,7 @@ const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
 };
 
 const gateValve: Spec<GateValveProps> = {
-  name: "Gate Valve",
+  name: "Gate",
   key: "gateValve",
   Form: CommonToggleForm,
   Symbol: GateValve,
@@ -548,7 +548,7 @@ const gateValve: Spec<GateValveProps> = {
 };
 
 const butterflyValveOne: Spec<ButterflyValveOneProps> = {
-  name: "Butterfly Valve (Remote)",
+  name: "Butterfly (Remote)",
   key: "butterflyValveOne",
   Form: CommonToggleForm,
   Symbol: ButterflyValveOne,
@@ -562,7 +562,7 @@ const butterflyValveOne: Spec<ButterflyValveOneProps> = {
 };
 
 const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
-  name: "Butterfly Valve (Manual)",
+  name: "Butterfly (Manual)",
   key: "butterflyValveTwo",
   Form: CommonToggleForm,
   Symbol: ButterflyValveTwo,
@@ -576,7 +576,7 @@ const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
 };
 
 const breatherValve: Spec<BreatherValveProps> = {
-  name: "Breather Valve",
+  name: "Breather",
   key: "breatherValve",
   Form: CommonDummyToggleForm,
   Symbol: BreatherValve,
@@ -604,7 +604,7 @@ const pump: Spec<PumpProps> = {
 };
 
 const screwPump: Spec<ScrewPumpProps> = {
-  name: "Screw Pump",
+  name: "Screw",
   key: "screwPump",
   Form: CommonToggleForm,
   Symbol: ScrewPump,
@@ -707,7 +707,7 @@ const box: Spec<BoxProps> = {
 };
 
 const reliefValve: Spec<ReliefValveProps> = {
-  name: "Relief Valve",
+  name: "Relief",
   key: "reliefValve",
   Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
@@ -721,7 +721,7 @@ const reliefValve: Spec<ReliefValveProps> = {
 };
 
 const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
-  name: "Spring Loaded Relief Valve",
+  name: "Spring Loaded Relief",
   key: "springLoadedReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: SpringLoadedReliefValve,
@@ -735,7 +735,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
 };
 
 const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
-  name: "Angled Spring Loaded Relief Valve",
+  name: "Angled Spring Loaded Relief",
   key: "angledSpringLoadedReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: AngledSpringLoadedReliefValve,
@@ -763,7 +763,7 @@ const regulator: Spec<RegulatorProps> = {
 };
 
 const regulatorManual: Spec<RegulatorManualProps> = {
-  name: "Manual Regulator",
+  name: "Manual",
   key: "regulatorManual",
   Form: CommonStyleForm,
   Symbol: RegulatorManual,
@@ -777,7 +777,7 @@ const regulatorManual: Spec<RegulatorManualProps> = {
 };
 
 const electricRegulator: Spec<ElectricRegulatorProps> = {
-  name: "Electric Regulator",
+  name: "Electric",
   key: "electricRegulator",
   Form: CommonStyleForm,
   Symbol: ElectricRegulator,
@@ -791,7 +791,7 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
 };
 
 const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
-  name: "Electric Regulator Motorized",
+  name: "Motorized",
   key: "electricRegulatorMotorized",
   Form: CommonStyleForm,
   Symbol: ElectricRegulatorMotorized,
@@ -805,7 +805,7 @@ const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
 };
 
 const burstDisc: Spec<BurstDiscProps> = {
-  name: "Burst Disc",
+  name: "Standard",
   key: "burstDisc",
   Form: CommonStyleForm,
   Symbol: BurstDisc,
@@ -819,7 +819,7 @@ const burstDisc: Spec<BurstDiscProps> = {
 };
 
 const isoBurstDisc: Spec<ISOBurstDiscProps> = {
-  name: "ISO Burst Disc",
+  name: "ISO",
   key: "isoBurstDisc",
   Form: CommonStyleForm,
   Symbol: ISOBurstDisc,
@@ -861,7 +861,7 @@ const isoCap: Spec<ISOCapProps> = {
 };
 
 const manualValve: Spec<ManualValveProps> = {
-  name: "Manual Valve",
+  name: "Manual",
   key: "manualValve",
   Form: CommonDummyToggleForm,
   Symbol: ManualValve,
@@ -875,7 +875,7 @@ const manualValve: Spec<ManualValveProps> = {
 };
 
 const orificePlate: Spec<OrificePlateProps> = {
-  name: "Orifice Plate",
+  name: "Plate",
   key: "orificePlate",
   Form: CommonStyleForm,
   Symbol: OrificePlate,
@@ -917,7 +917,7 @@ const filter: Spec<FilterProps> = {
 };
 
 const flowStraightener: Spec<FlowStraightenerProps> = {
-  name: "Flow Straightener",
+  name: "Straightener",
   key: "flowStraightener",
   Form: CommonStyleForm,
   Symbol: FlowStraightener,
@@ -931,7 +931,7 @@ const flowStraightener: Spec<FlowStraightenerProps> = {
 };
 
 const heaterElement: Spec<HeaterElementProps> = {
-  name: "Heater Element",
+  name: "Heater",
   key: "heaterElement",
   Form: CommonStyleForm,
   Symbol: HeaterElement,
@@ -945,7 +945,7 @@ const heaterElement: Spec<HeaterElementProps> = {
 };
 
 const needleValve: Spec<NeedleValveProps> = {
-  name: "Needle Valve",
+  name: "Needle",
   key: "needleValve",
   Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
@@ -959,7 +959,7 @@ const needleValve: Spec<NeedleValveProps> = {
 };
 
 const checkValve: Spec<CheckValveProps> = {
-  name: "Check Valve",
+  name: "Check",
   key: "checkValve",
   Form: CommonStyleForm,
   Symbol: CheckValve,
@@ -987,7 +987,7 @@ const orifice: Spec<OrificeProps> = {
 };
 
 const angledReliefValve: Spec<ReliefValveProps> = {
-  name: "Angled Relief Valve",
+  name: "Angled Relief",
   key: "angledReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
@@ -1050,7 +1050,7 @@ const switch_: Spec<SwitchProps> = {
 };
 
 const vacuumPump: Spec<VacuumPumpProps> = {
-  name: "Vacuum Pump",
+  name: "Vacuum",
   key: "vacuumPump",
   Symbol: VacuumPump,
   Form: CommonToggleForm,
@@ -1078,7 +1078,7 @@ const compressor: Spec<CompressorProps> = {
 };
 
 const cavityPump: Spec<CavityPumpProps> = {
-  name: "Cavity Pump",
+  name: "Cavity",
   key: "cavityPump",
   Symbol: CavityPump,
   Form: CommonToggleForm,
@@ -1092,7 +1092,7 @@ const cavityPump: Spec<CavityPumpProps> = {
 };
 
 const pistonPump: Spec<PistonPumpProps> = {
-  name: "Piston Pump",
+  name: "Piston",
   key: "pistonPump",
   Symbol: PistonPump,
   Form: CommonToggleForm,
@@ -1106,7 +1106,7 @@ const pistonPump: Spec<PistonPumpProps> = {
 };
 
 const staticMixer: Spec<StaticMixerProps> = {
-  name: "Static Mixer",
+  name: "Static",
   key: "staticMixer",
   Symbol: StaticMixer,
   Form: CommonStyleForm,
@@ -1120,7 +1120,7 @@ const staticMixer: Spec<StaticMixerProps> = {
 };
 
 const rotaryMixer: Spec<RotaryMixerProps> = {
-  name: "Rotary Mixer",
+  name: "Rotary",
   key: "rotaryMixer",
   Symbol: RotaryMixer,
   Form: CommonToggleForm,
@@ -1179,7 +1179,7 @@ const agitator: Spec<AgitatorProps> = {
 };
 
 const propellerAgitator: Spec<PropellerAgitatorProps> = {
-  name: "Propeller Agitator",
+  name: "Propeller",
   key: "propellerAgitator",
   Symbol: PropellerAgitator,
   Form: CommonToggleForm,
@@ -1193,7 +1193,7 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
 };
 
 const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
-  name: "Flat Blade Agitator",
+  name: "Flat Blade",
   key: "flatBladeAgitator",
   Symbol: FlatBladeAgitator,
   Form: CommonToggleForm,
@@ -1207,7 +1207,7 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
 };
 
 const paddleAgitator: Spec<PaddleAgitatorProps> = {
-  name: "Paddle Agitator",
+  name: "Paddle",
   key: "paddleAgitator",
   Symbol: PaddleAgitator,
   Form: CommonToggleForm,
@@ -1221,7 +1221,7 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
 };
 
 const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
-  name: "Cross Beam Agitator",
+  name: "Cross Beam",
   key: "crossBeamAgitator",
   Symbol: CrossBeamAgitator,
   Form: CommonToggleForm,
@@ -1235,7 +1235,7 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
 };
 
 const helicalAgitator: Spec<HelicalAgitatorProps> = {
-  name: "Helical Agitator",
+  name: "Helical",
   key: "helicalAgitator",
   Symbol: HelicalAgitator,
   Form: CommonToggleForm,
@@ -1269,7 +1269,7 @@ const textBox: Spec<TextBoxProps> = {
 };
 
 const offPageReference: Spec<OffPageReferenceProps> = {
-  name: "Off Page Reference",
+  name: "Off Page",
   key: "offPageReference",
   Form: OffPageReferenceForm,
   Symbol: OffPageReference,
@@ -1283,7 +1283,7 @@ const offPageReference: Spec<OffPageReferenceProps> = {
 };
 
 const isoCheckValve: Spec<ISOCheckValveProps> = {
-  name: "ISO Check Valve",
+  name: "ISO Check",
   key: "isoCheckValve",
   Form: CommonStyleForm,
   Symbol: ISOCheckValve,
@@ -1297,7 +1297,7 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
 };
 
 const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
-  name: "Check Valve Variant",
+  name: "Check (Arrow)",
   key: "checkValveWithArrow",
   Form: CommonStyleForm,
   Symbol: CheckValveWithArrow,
@@ -1353,7 +1353,7 @@ const crossJunction: Spec<CrossJunctionProps> = {
 };
 
 const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
-  name: "Flowmeter General",
+  name: "General",
   key: "flowmeterGeneral",
   Form: CommonStyleForm,
   Symbol: FlowmeterGeneral,
@@ -1367,7 +1367,7 @@ const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
 };
 
 const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
-  name: "Flowmeter Electromagnetic",
+  name: "Electromagnetic",
   key: "flowmeterElectromagnetic",
   Form: CommonStyleForm,
   Symbol: FlowmeterElectromagnetic,
@@ -1381,7 +1381,7 @@ const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
 };
 
 const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
-  name: "Flowmeter Variable Area",
+  name: "Variable Area",
   key: "flowmeterVariableArea",
   Form: CommonStyleForm,
   Symbol: FlowmeterVariableArea,
@@ -1395,7 +1395,7 @@ const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
 };
 
 const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
-  name: "Flowmeter Coriolis",
+  name: "Coriolis",
   key: "flowmeterCoriolis",
   Form: CommonStyleForm,
   Symbol: FlowmeterCoriolis,
@@ -1409,7 +1409,7 @@ const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
 };
 
 const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
-  name: "Flowmeter Nozzle",
+  name: "Nozzle",
   key: "flowmeterNozzle",
   Form: CommonStyleForm,
   Symbol: FlowmeterNozzle,
@@ -1423,7 +1423,7 @@ const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
 };
 
 const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
-  name: "Flowmeter Venturi",
+  name: "Venturi",
   key: "flowmeterVenturi",
   Form: CommonStyleForm,
   Symbol: FlowmeterVenturi,
@@ -1437,7 +1437,7 @@ const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
 };
 
 const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
-  name: "Flowmeter Ring Piston",
+  name: "Ring Piston",
   key: "flowmeterRingPiston",
   Form: CommonStyleForm,
   Symbol: FlowmeterRingPiston,
@@ -1451,7 +1451,7 @@ const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
 };
 
 const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = {
-  name: "Flowmeter Positive Displacement",
+  name: "Positive Displacement",
   key: "flowmeterPositiveDisplacement",
   Form: CommonStyleForm,
   Symbol: FlowmeterPositiveDisplacement,
@@ -1465,7 +1465,7 @@ const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = 
 };
 
 const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
-  name: "Flowmeter Turbine",
+  name: "Turbine",
   key: "flowmeterTurbine",
   Form: CommonStyleForm,
   Symbol: FlowmeterTurbine,
@@ -1479,7 +1479,7 @@ const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
 };
 
 const flowmeterPulse: Spec<FlowmeterPulseProps> = {
-  name: "Flowmeter Pulse",
+  name: "Pulse",
   key: "flowmeterPulse",
   Form: CommonStyleForm,
   Symbol: FlowmeterPulse,
@@ -1493,7 +1493,7 @@ const flowmeterPulse: Spec<FlowmeterPulseProps> = {
 };
 
 const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
-  name: "Flowmeter Float Sensor",
+  name: "Float Sensor",
   key: "flowmeterFloatSensor",
   Form: CommonStyleForm,
   Symbol: FlowmeterFloatSensor,
@@ -1507,7 +1507,7 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
 };
 
 const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
-  name: "Flowmeter Orifice",
+  name: "Orifice",
   key: "flowmeterOrifice",
   Form: CommonStyleForm,
   Symbol: FlowmeterOrifice,
@@ -1521,7 +1521,7 @@ const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
 };
 
 const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
-  name: "Heat Exchanger General",
+  name: "General",
   key: "heatExchangerGeneral",
   Form: CommonStyleForm,
   Symbol: HeatExchangerGeneral,
@@ -1535,7 +1535,7 @@ const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
 };
 
 const heatExchangerM: Spec<HeatExchangerMProps> = {
-  name: "Heat Exchanger M",
+  name: "M-Type",
   key: "heatExchangerM",
   Form: CommonStyleForm,
   Symbol: HeatExchangerM,
@@ -1549,7 +1549,7 @@ const heatExchangerM: Spec<HeatExchangerMProps> = {
 };
 
 const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
-  name: "Heat Exchanger Straight Tube",
+  name: "Straight Tube",
   key: "heatExchangerStraightTube",
   Form: CommonStyleForm,
   Symbol: HeatExchangerStraightTube,
@@ -1563,7 +1563,7 @@ const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
 };
 
 const turboCompressor: Spec<TurboCompressorProps> = {
-  name: "Turbo Compressor",
+  name: "Turbo",
   key: "turboCompressor",
   Form: CommonToggleForm,
   Symbol: TurboCompressor,
@@ -1577,7 +1577,7 @@ const turboCompressor: Spec<TurboCompressorProps> = {
 };
 
 const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
-  name: "Roller Vane Compressor",
+  name: "Roller Vane",
   key: "rollerVaneCompressor",
   Form: CommonToggleForm,
   Symbol: RollerVaneCompressor,
@@ -1591,7 +1591,7 @@ const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
 };
 
 const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
-  name: "Liquid Ring Compressor",
+  name: "Liquid Ring",
   key: "liquidRingCompressor",
   Form: CommonToggleForm,
   Symbol: LiquidRingCompressor,
@@ -1605,7 +1605,7 @@ const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
 };
 
 const ejectorCompressor: Spec<EjectorCompressorProps> = {
-  name: "Ejector Compressor",
+  name: "Ejector",
   key: "ejectorCompressor",
   Form: CommonToggleForm,
   Symbol: EjectorCompressor,
@@ -1619,7 +1619,7 @@ const ejectorCompressor: Spec<EjectorCompressorProps> = {
 };
 
 const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
-  name: "Centrifugal Compressor",
+  name: "Centrifugal",
   key: "centrifugalCompressor",
   Form: CommonToggleForm,
   Symbol: CentrifugalCompressor,
@@ -1633,7 +1633,7 @@ const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
 };
 
 const diaphragmPump: Spec<DiaphragmPumpProps> = {
-  name: "Diaphragm Pump",
+  name: "Diaphragm",
   key: "diaphragmPump",
   Form: CommonToggleForm,
   Symbol: DiaphragmPump,
@@ -1647,7 +1647,7 @@ const diaphragmPump: Spec<DiaphragmPumpProps> = {
 };
 
 const ejectionPump: Spec<EjectionPumpProps> = {
-  name: "Ejection Pump",
+  name: "Ejection",
   key: "ejectionPump",
   Form: CommonToggleForm,
   Symbol: EjectionPump,
@@ -1661,7 +1661,7 @@ const ejectionPump: Spec<EjectionPumpProps> = {
 };
 
 const flameArrestor: Spec<FlameArrestorProps> = {
-  name: "Flame Arrestor",
+  name: "Standard",
   key: "flameArrestor",
   Form: CommonStyleForm,
   Symbol: FlameArrestor,
@@ -1675,7 +1675,7 @@ const flameArrestor: Spec<FlameArrestorProps> = {
 };
 
 const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
-  name: "Flame Arrestor (Explosion-Proof)",
+  name: "Explosion-Proof",
   key: "flameArrestorExplosion",
   Form: CommonStyleForm,
   Symbol: FlameArrestorExplosion,
@@ -1689,7 +1689,7 @@ const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
 };
 
 const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
-  name: "Flame Arrestor (Detonation-Proof)",
+  name: "Detonation-Proof",
   key: "flameArrestorDetonation",
   Form: CommonStyleForm,
   Symbol: FlameArrestorDetonation,
@@ -1703,7 +1703,7 @@ const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
 };
 
 const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
-  name: "Flame Arrestor (Fire Resistant)",
+  name: "Fire Resistant",
   key: "flameArrestorFireRes",
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireRes,
@@ -1717,7 +1717,7 @@ const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
 };
 
 const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> = {
-  name: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
+  name: "Fire Resistant & Detonation-Proof",
   key: "flameArrestorFireResDetonation",
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireResDetonation,
@@ -1773,7 +1773,7 @@ const strainer: Spec<StrainerProps> = {
 };
 
 const strainerCone: Spec<StrainerConeProps> = {
-  name: "Strainer Cone",
+  name: "Cone",
   key: "strainerCone",
   Form: CommonStyleForm,
   Symbol: StrainerCone,
@@ -1889,13 +1889,43 @@ export interface SymbolGroup extends group.Payload {
 
 export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
-    key: "pumps",
-    name: "Pumps",
-    symbols: ["diaphragmPump", "ejectionPump", "vacuumPump"],
+    key: "shapes",
+    name: "Shapes",
+    symbols: ["polygon", "circle", "box"],
   },
   {
-    name: "Valves",
+    key: "general",
+    name: "General",
+    symbols: ["value", "setpoint", "textBox", "offPageReference"],
+  },
+  {
+    key: "controls",
+    name: "Controls",
+    symbols: ["button", "switch", "light"],
+  },
+  {
+    key: "tanks",
+    name: "Tanks",
+    symbols: ["tank", "cylinder"],
+  },
+  {
+    key: "junctions",
+    name: "Junctions",
+    symbols: ["tJunction", "crossJunction"],
+  },
+  {
+    key: "pumps",
+    name: "Pumps",
+    symbols: ["pump", "screwPump", "pistonPump", "cavityPump", "diaphragmPump", "ejectionPump", "vacuumPump"],
+  },
+  {
+    key: "compressors",
+    name: "Compressors",
+    symbols: ["compressor", "turboCompressor", "rollerVaneCompressor", "liquidRingCompressor", "ejectorCompressor", "centrifugalCompressor"],
+  },
+  {
     key: "valves",
+    name: "Valves",
     symbols: [
       "valve",
       "solenoidValve",
@@ -1912,18 +1942,21 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
       "needleValve",
       "reliefValve",
       "angledReliefValve",
-      "checkValve",
-      "regulator",
-      "regulatorManual",
-      "electricRegulator",
-      "electricRegulatorMotorized",
       "springLoadedReliefValve",
       "angledSpringLoadedReliefValve",
+      "checkValve",
+      "isoCheckValve",
+      "checkValveWithArrow",
     ],
   },
   {
-    name: "Flow Control",
-    key: "flowControl",
+    key: "regulators",
+    name: "Regulators",
+    symbols: ["regulator", "regulatorManual", "electricRegulator", "electricRegulatorMotorized"],
+  },
+  {
+    key: "flowMeters",
+    name: "Flow Meters",
     symbols: [
       "flowmeterGeneral",
       "flowmeterElectromagnetic",
@@ -1940,85 +1973,48 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
     ],
   },
   {
-    name: "Flow Control",
-    key: "flowControl",
-    symbols: [
-      "flowmeterGeneral",
-      "flowmeterElectromagnetic",
-      "flowmeterVariableArea",
-      "flowmeterCoriolis",
-      "flowmeterNozzle",
-      "flowmeterVenturi",
-      "flowmeterRingPiston",
-      "flowmeterPositiveDisplacement",
-      "flowmeterTurbine",
-      "flowmeterPulse",
-      "flowmeterFloatSensor",
-      "flowmeterOrifice",
-    ],
-  },
-  {
-    name: "Flow Control",
-    key: "flowControl",
-    symbols: [
-      "flowmeterGeneral",
-      "flowmeterElectromagnetic",
-      "flowmeterVariableArea",
-      "flowmeterCoriolis",
-      "flowmeterNozzle",
-      "flowmeterVenturi",
-      "flowmeterRingPiston",
-      "flowmeterPositiveDisplacement",
-      "flowmeterTurbine",
-      "flowmeterPulse",
-      "flowmeterFloatSensor",
-      "flowmeterOrifice",
-    ],
-  },
-  {
-    name: "Tanks",
-    key: "tanks",
-    symbols: ["tank", "cylinder"],
-  },
-  {
-    name: "Shapes",
-    key: "shapes",
-    symbols: ["polygon", "circle"],
-  },
-  {
-    name: "General",
-    key: "general",
-    symbols: [
-      "box",
-      "circle",
-      "value",
-      "setpoint",
-      "switch",
-      "textBox",
-      "offPageReference",
-      "tJunction",
-      "crossJunction",
-    ],
-  },
-  {
-    name: "Heat Exchangers",
     key: "heatExchangers",
+    name: "Heat Exchangers",
     symbols: ["heatExchangerGeneral", "heatExchangerM", "heatExchangerStraightTube"],
   },
   {
-    name: "Mixers",
     key: "mixers",
-    symbols: ["staticMixer", "rotaryMixer", "burstDisc", "isoBurstDisc"],
+    name: "Mixers",
+    symbols: ["staticMixer", "rotaryMixer"],
   },
   {
-    name: "Agitators",
     key: "agitators",
+    name: "Agitators",
     symbols: [
       "agitator",
       "propellerAgitator",
       "flatBladeAgitator",
       "paddleAgitator",
       "crossBeamAgitator",
+      "helicalAgitator",
     ],
+  },
+  {
+    key: "safety",
+    name: "Safety",
+    symbols: [
+      "burstDisc",
+      "isoBurstDisc",
+      "flameArrestor",
+      "flameArrestorDetonation",
+      "flameArrestorExplosion",
+      "flameArrestorFireRes",
+      "flameArrestorFireResDetonation",
+    ],
+  },
+  {
+    key: "filters",
+    name: "Filters & Strainers",
+    symbols: ["filter", "isoFilter", "strainer", "strainerCone", "flowStraightener"],
+  },
+  {
+    key: "fittings",
+    name: "Fittings & Accessories",
+    symbols: ["cap", "isoCap", "orifice", "orificePlate", "vent", "nozzle", "heaterElement", "thruster"],
   },
 ];

@@ -32,7 +32,10 @@ export const ZERO_STATE: State = { ...v3.ZERO_STATE, version: VERSION, authority
 
 export const sliceStateZ = v3.sliceStateZ
   .omit({ version: true, schematics: true })
-  .extend({ version: z.literal(VERSION), schematics: z.record(z.string(), stateZ) });
+  .extend({
+    version: z.literal(VERSION),
+    schematics: z.record(z.string(), stateZ),
+  });
 
 export interface SliceState extends Omit<v3.SliceState, "version" | "schematics"> {
   schematics: Record<string, State>;

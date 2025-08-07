@@ -82,7 +82,10 @@ const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
+export const toolbarStateZ = z.object({
+  activeTab: toolbarTabZ,
+  selectedSymbolGroup: z.string().optional().default("general"),
+});
 export type ToolbarState = z.infer<typeof toolbarStateZ>;
 
 export const sliceStateZ = z.object({
@@ -118,6 +121,6 @@ export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "symbols" },
+  toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
   schematics: {},
 };

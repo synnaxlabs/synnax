@@ -12,7 +12,6 @@ import "@/os/Controls/Mac.css";
 import { type ReactElement } from "react";
 
 import { type Button } from "@/button";
-import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type InternalControlsProps } from "@/os/Controls/types";
@@ -131,7 +130,6 @@ const TrafficLight = ({
     className={CSS(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
     disabled={disabled}
-    size={"" as Component.Size}
     {...rest}
   />
 );

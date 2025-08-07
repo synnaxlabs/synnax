@@ -15,9 +15,7 @@ import { Flux } from "@/flux";
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
   Flux.useListener({
     channel: device.SET_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(device.deviceZ, async ({ changed }) =>
-      onSet(changed as device.Device),
-    ),
+    onChange: Flux.parsedHandler(device.deviceZ, async ({ changed }) => onSet(changed)),
   });
 
 export interface RetrieveParams {
