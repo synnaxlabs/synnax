@@ -209,7 +209,7 @@ const Item = ({
           className={CSS.B("location")}
           overflow="nowrap"
         >
-          {resource.data?.location as string}
+          {typeof resource.data?.location === "string" ? resource.data.location : ""}
         </Text.Text>
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />

@@ -81,7 +81,7 @@ func (db *DB) Delete(
 		newPointers            = make([]pointer, 0)
 	)
 
-	// SearchTerm for the start position: the first domain greater or containing tr.Start.
+	// Search for the start position: the first domain greater or containing tr.Start.
 	db.idx.mu.RLock()
 	startDomain, exact := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
 	if exact {
