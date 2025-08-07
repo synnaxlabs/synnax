@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type group } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
@@ -1881,3 +1882,143 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   strainer,
   strainerCone,
 };
+
+export interface SymbolGroup extends group.Payload {
+  symbols: Variant[];
+}
+
+export const SYMBOL_GROUPS: SymbolGroup[] = [
+  {
+    key: "pumps",
+    name: "Pumps",
+    symbols: ["diaphragmPump", "ejectionPump", "vacuumPump"],
+  },
+  {
+    name: "Valves",
+    key: "valves",
+    symbols: [
+      "valve",
+      "solenoidValve",
+      "threeWayValve",
+      "fourWayValve",
+      "angledValve",
+      "ballValve",
+      "threeWayBallValve",
+      "gateValve",
+      "butterflyValveOne",
+      "butterflyValveTwo",
+      "breatherValve",
+      "manualValve",
+      "needleValve",
+      "reliefValve",
+      "angledReliefValve",
+      "checkValve",
+      "regulator",
+      "regulatorManual",
+      "electricRegulator",
+      "electricRegulatorMotorized",
+      "springLoadedReliefValve",
+      "angledSpringLoadedReliefValve",
+    ],
+  },
+  {
+    name: "Flow Control",
+    key: "flowControl",
+    symbols: [
+      "flowmeterGeneral",
+      "flowmeterElectromagnetic",
+      "flowmeterVariableArea",
+      "flowmeterCoriolis",
+      "flowmeterNozzle",
+      "flowmeterVenturi",
+      "flowmeterRingPiston",
+      "flowmeterPositiveDisplacement",
+      "flowmeterTurbine",
+      "flowmeterPulse",
+      "flowmeterFloatSensor",
+      "flowmeterOrifice",
+    ],
+  },
+  {
+    name: "Flow Control",
+    key: "flowControl",
+    symbols: [
+      "flowmeterGeneral",
+      "flowmeterElectromagnetic",
+      "flowmeterVariableArea",
+      "flowmeterCoriolis",
+      "flowmeterNozzle",
+      "flowmeterVenturi",
+      "flowmeterRingPiston",
+      "flowmeterPositiveDisplacement",
+      "flowmeterTurbine",
+      "flowmeterPulse",
+      "flowmeterFloatSensor",
+      "flowmeterOrifice",
+    ],
+  },
+  {
+    name: "Flow Control",
+    key: "flowControl",
+    symbols: [
+      "flowmeterGeneral",
+      "flowmeterElectromagnetic",
+      "flowmeterVariableArea",
+      "flowmeterCoriolis",
+      "flowmeterNozzle",
+      "flowmeterVenturi",
+      "flowmeterRingPiston",
+      "flowmeterPositiveDisplacement",
+      "flowmeterTurbine",
+      "flowmeterPulse",
+      "flowmeterFloatSensor",
+      "flowmeterOrifice",
+    ],
+  },
+  {
+    name: "Tanks",
+    key: "tanks",
+    symbols: ["tank", "cylinder"],
+  },
+  {
+    name: "Shapes",
+    key: "shapes",
+    symbols: ["polygon", "circle"],
+  },
+  {
+    name: "General",
+    key: "general",
+    symbols: [
+      "box",
+      "circle",
+      "value",
+      "setpoint",
+      "switch",
+      "textBox",
+      "offPageReference",
+      "tJunction",
+      "crossJunction",
+    ],
+  },
+  {
+    name: "Heat Exchangers",
+    key: "heatExchangers",
+    symbols: ["heatExchangerGeneral", "heatExchangerM", "heatExchangerStraightTube"],
+  },
+  {
+    name: "Mixers",
+    key: "mixers",
+    symbols: ["staticMixer", "rotaryMixer", "burstDisc", "isoBurstDisc"],
+  },
+  {
+    name: "Agitators",
+    key: "agitators",
+    symbols: [
+      "agitator",
+      "propellerAgitator",
+      "flatBladeAgitator",
+      "paddleAgitator",
+      "crossBeamAgitator",
+    ],
+  },
+];

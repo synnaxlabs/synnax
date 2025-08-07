@@ -9,7 +9,16 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { Flex, Haul, Input, List, Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import { type group } from "@synnaxlabs/client";
+import {
+  Flex,
+  Haul,
+  Input,
+  type List,
+  Schematic,
+  Text,
+  Theming,
+} from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -17,13 +26,12 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { addElement } from "@/schematic/slice";
 
-const LIST_DATA = Object.values(Schematic.SYMBOLS);
-
-export interface SymbolsProps {
+export interface GroupProps {
   layoutKey: string;
+  groupKey: group.Key;
 }
 
-export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
+export const Symbols = ({ layoutKey, groupKey }: GroupProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
@@ -60,38 +68,22 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [startDrag],
   );
 
-  const { data, retrieve } = List.useStaticData<Schematic.Variant, Schematic.Spec>({
-    data: LIST_DATA,
-  });
-  const [searchTerm, setSearchTerm] = useState("");
+  const symbols = Schematic.SYMBOL_GROUPS.find((g) => g.key === groupKey)?.symbols;
+
   return (
-    <>
-      <Flex.Box style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
-        <Input.Text
-          value={searchTerm}
-          onChange={(searchTerm) => {
-            setSearchTerm(searchTerm);
-            retrieve({ searchTerm });
-          }}
-          placeholder="Type to search..."
-          size="small"
-          full="x"
+    <Flex.Box x className={CSS.B("schematic-symbols")} wrap>
+      {symbols.map((key: Schematic.Variant, i: number) => (
+        <ListItem
+          key={key}
+          index={i}
+          itemKey={key}
+          onClick={() => handleAddElement(key)}
+          theme={theme}
+          startDrag={handleDragStart}
+          onDragEnd={onDragEnd}
         />
-      </Flex.Box>
-      <Flex.Box x className={CSS.B("schematic-symbols")} wrap>
-        {data.map((key: Schematic.Variant, i: number) => (
-          <ListItem
-            key={key}
-            index={i}
-            itemKey={key}
-            onClick={() => handleAddElement(key)}
-            theme={theme}
-            startDrag={handleDragStart}
-            onDragEnd={onDragEnd}
-          />
-        ))}
-      </Flex.Box>
-    </>
+      ))}
+    </Flex.Box>
   );
 };
 
