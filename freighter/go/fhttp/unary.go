@@ -110,9 +110,9 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 	}
 	codec := getCodec()
 	ctx.Set(fiber.HeaderContentType, contentType)
+	reqCtx := ctx.Context()
 	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
-		reqCtx := ctx.Context()
 		go func() {
 			for {
 				v, err := uReader.Read()
@@ -128,7 +128,7 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 		}()
 		return ctx.SendStream(r)
 	}
-	b, err := codec.Encode(ctx.Context(), v)
+	b, err := codec.Encode(reqCtx, v)
 	if err != nil {
 		return err
 	}
