@@ -49,6 +49,7 @@ export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
           timeRange,
           channelNames,
           keys: channelKeys,
+          contentType: "csv",
         });
         // Ideally, we would pass `res.body` directly to `writeFile`, that way we avoid
         // loading the data for the CSV into memory. However, there are currently bugs
