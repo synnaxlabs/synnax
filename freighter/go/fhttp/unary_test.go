@@ -153,30 +153,6 @@ var _ = Describe("Unary", func() {
 				Expect(binary.GobCodec.Decode(ctx, body, &decodedRes)).To(Succeed())
 				Expect(decodedRes).To(Equal(testReq))
 			})
-			It("should allow adding additional codecs for both request and response", func() {
-				so := fhttp.WithResponseEncoders(map[string]binary.Encoder{
-					"application/x-gob": binary.GobCodec,
-				})
-				server := fhttp.NewUnaryServer[Request, Response](router, "/", so)
-				server.BindHandler(func(_ context.Context, req Request) (Response, error) {
-					return req, nil
-				})
-				router.BindTo(app)
-				req.Header.Set(fiber.HeaderContentType, "application/x-gob")
-				req.Header.Set(fiber.HeaderAccept, "application/x-gob")
-				testReq := Request{ID: 1, Message: "Hello, World!"}
-				gobData := MustSucceed(binary.GobCodec.Encode(ctx, testReq))
-				req.Body = io.NopCloser(bytes.NewBuffer(gobData))
-				req.ContentLength = int64(len(gobData))
-				res := MustSucceed(app.Test(req))
-				Expect(res.StatusCode).To(Equal(fiber.StatusOK))
-				Expect(res.Header.Get(fiber.HeaderContentType)).
-					To(Equal("application/x-gob"))
-				var decodedRes Response
-				body := MustSucceed(io.ReadAll(res.Body))
-				Expect(binary.GobCodec.Decode(ctx, body, &decodedRes)).To(Succeed())
-				Expect(decodedRes).To(Equal(testReq))
-			})
 		})
 		Describe("Error Handling", func() {
 			BeforeEach(func() {
