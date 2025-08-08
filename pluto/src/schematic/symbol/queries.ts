@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { z } from "zod";
+import { ontology, schematic } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -60,34 +59,48 @@ export const useList = Flux.createList<ListParams, string, schematic.symbol.Symb
   ],
 });
 
-interface FormParams {
+export interface UseFormParams {
   key?: string;
+  parent?: ontology.ID;
 }
 
-export const formSchema = z.object({
-  key: z.string().optional(),
-  name: z.string(),
-  data: z.record(z.string(), z.unknown()),
-});
+export const formSchema = schematic.symbol.symbolZ
+  .partial({
+    key: true,
+  })
+  .extend({
+    parent: ontology.idZ,
+  });
 
-export const useForm = Flux.createForm<FormParams, typeof formSchema>({
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
   name: "SchematicSymbols",
-  initialValues: { name: "", data: { svg: "", states: [] } },
+  initialValues: { name: "", data: { svg: "", states: [] }, parent: ontology.ROOT_ID },
   schema: formSchema,
-  retrieve: async ({ client, params: { key } }) => {
+  retrieve: async ({ client, params: { key, parent } }) => {
     if (key == null) return null;
     const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
-    return symbol;
+    return {
+      name: symbol.name,
+      data: symbol.data,
+      key: symbol.key,
+      parent: parent ?? ontology.ROOT_ID,
+    };
   },
-  update: async ({ client, value, onChange }) =>
-    onChange(await client.workspaces.schematic.symbols.create(value)),
+  update: async ({ client, value, onChange, params }) => {
+    const created = await client.workspaces.schematic.symbols.create({
+      ...value,
+      parent: params.parent ?? ontology.ROOT_ID,
+    });
+    onChange({ ...created, parent: params.parent ?? ontology.ROOT_ID });
+  },
   listeners: [
     {
       channel: schematic.symbol.SET_CHANNEL_NAME,
       onChange: Flux.parsedHandler(
         schematic.symbol.symbolZ,
         async ({ changed, onChange, params }) =>
-          (params.key == null || changed.key !== params.key) && onChange(changed),
+          (params.key == null || changed.key !== params.key) &&
+          onChange({ ...changed, parent: params.parent ?? ontology.ROOT_ID }),
       ),
     },
   ],

@@ -27,11 +27,14 @@ type Writer struct {
 	otg       *ontology.Ontology
 }
 
-// Create creates the given symbol. If the symbol does not
-// have a key, a new key will be generated.
+// Create creates the given symbol as a child of the ontology.Resource with the given
+// parent ID. If the symbol does not have a key, a new key will be generated. If the symbol
+// already exists, it will be updated and the existing parent relationship will be deleted 
+// and replaced with the new parent relationship.
 func (w Writer) Create(
 	ctx context.Context,
 	s *Symbol,
+	parent ontology.ID,
 ) (err error) {
 	var exists bool
 	if s.Key == uuid.Nil {
@@ -45,11 +48,21 @@ func (w Writer) Create(
 	if err = gorp.NewCreate[uuid.UUID, Symbol]().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if exists {
+	otgID := OntologyID(s.Key)
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	otgID := OntologyID(s.Key)
-	return w.otgWriter.DefineResource(ctx, otgID)
+	// Symbol already exists = delete incoming relationships and define new parent
+	// Symbol does not exist = define parent
+	if exists {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+			return
+		}
+	}
+	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		return
+	}
+	return
 }
 
 // Rename renames the symbol with the given key to the provided name.

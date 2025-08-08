@@ -21,7 +21,7 @@ type Symbol struct {
 	// Name is a human-readable name for the symbol.
 	Name string `json:"name" msgpack:"name"`
 	// Data is JSON-encoded data containing SVG, states and regions for the symbol.
-	Data string `json:"data" msgpack:"data"`
+	Data map[string]any `json:"data" msgpack:"data"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Symbol{}

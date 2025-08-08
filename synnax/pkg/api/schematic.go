@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
@@ -180,6 +181,7 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 type (
 	SymbolCreateRequest struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+		Parent  ontology.ID     `json:"parent" msgpack:"parent"`
 	}
 	SymbolCreateResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -195,8 +197,9 @@ func (s *SchematicService) CreateSymbol(ctx context.Context, req SymbolCreateReq
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		writer := s.internal.Symbol.NewWriter(tx)
 		for i, sym := range req.Symbols {
-			if err = s.internal.Symbol.NewWriter(tx).Create(ctx, &sym); err != nil {
+			if err = writer.Create(ctx, &sym, req.Parent); err != nil {
 				return err
 			}
 			req.Symbols[i] = sym
@@ -264,4 +267,25 @@ func (s *SchematicService) DeleteSymbol(ctx context.Context, req SymbolDeleteReq
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.Symbol.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
+}
+
+type SymbolRetrieveGroupRequest struct{}
+
+type SymbolRetrieveGroupResponse struct {
+	Group group.Group `json:"group" msgpack:"group"`
+}
+
+func (s *SchematicService) RetrieveSymbolGroup(
+	ctx context.Context,
+	_ SymbolRetrieveGroupRequest,
+) (SymbolRetrieveGroupResponse, error) {
+	g := s.internal.Symbol.Group()
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{g.OntologyID()},
+	}); err != nil {
+		return SymbolRetrieveGroupResponse{}, err
+	}
+	return SymbolRetrieveGroupResponse{Group: g}, nil
 }

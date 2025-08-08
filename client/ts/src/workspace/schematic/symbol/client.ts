@@ -11,7 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
+import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 import {
@@ -19,16 +20,17 @@ import {
   keyZ,
   type New,
   newZ,
-  remoteZ,
   type Symbol,
+  symbolZ,
 } from "@/workspace/schematic/symbol/payload";
 
 const RETRIEVE_ENDPOINT = "/workspace/schematic/symbol/retrieve";
 const CREATE_ENDPOINT = "/workspace/schematic/symbol/create";
 const RENAME_ENDPOINT = "/workspace/schematic/symbol/rename";
 const DELETE_ENDPOINT = "/workspace/schematic/symbol/delete";
+const RETRIEVE_GROUP_ENDPOINT = "/workspace/schematic/symbol/retrieve_group";
 
-const createReqZ = z.object({ symbols: newZ.array() });
+const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -49,12 +51,23 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
 
-const retrieveResZ = z.object({ symbols: nullableArrayZ(remoteZ) });
-const createResZ = z.object({ symbols: remoteZ.array() });
+const retrieveResZ = z.object({ symbols: nullableArrayZ(symbolZ) });
+const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
+const retrieveGroupReqZ = z.object({});
+const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
+
+export interface CreateArgs extends New {
+  parent: ontology.ID;
+}
+
+export interface CreateMultipleArgs {
+  symbols: New[];
+  parent: ontology.ID;
+}
 
 export class Client {
   private readonly client: UnaryClient;
@@ -63,14 +76,15 @@ export class Client {
     this.client = client;
   }
 
-  async create(symbol: New): Promise<Symbol>;
-  async create(symbols: New[]): Promise<Symbol[]>;
-  async create(symbols: New | New[]): Promise<Symbol | Symbol[]> {
-    const isMany = Array.isArray(symbols);
+  async create(options: CreateArgs): Promise<Symbol>;
+  async create(options: CreateMultipleArgs): Promise<Symbol[]>;
+  async create(options: CreateArgs | CreateMultipleArgs): Promise<Symbol | Symbol[]> {
+    const isMany = "symbols" in options;
+    const symbols = isMany ? options.symbols : [options];
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { symbols: array.toArray(symbols) },
+      { symbols, parent: options.parent },
       createReqZ,
       createResZ,
     );
@@ -113,6 +127,20 @@ export class Client {
       emptyResZ,
     );
   }
+
+  async retrieveGroup(): Promise<group.Payload> {
+    const res = await sendRequired(
+      this.client,
+      RETRIEVE_GROUP_ENDPOINT,
+      {},
+      retrieveGroupReqZ,
+      retrieveGroupResZ,
+    );
+    return res.group;
+  }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "schematic_symbol", key });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: "schematic_symbol",
+  key,
+});

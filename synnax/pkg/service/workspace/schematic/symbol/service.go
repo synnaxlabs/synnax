@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -31,6 +32,9 @@ type Config struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Group is used to create and manage the permanent group for symbols.
+	// [OPTIONAL]
+	Group *group.Service
 	// Signals is used to propagate changes to symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -46,6 +50,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -62,6 +67,7 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	signals io.Closer
+	group   group.Group
 }
 
 // NewService instantiates a new symbol service using the provided configurations. Each
@@ -73,6 +79,16 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
+	
+	// Create or retrieve the permanent symbols group
+	if cfg.Group != nil {
+		g, err := cfg.Group.CreateOrRetrieve(ctx, "Schematic Symbols", ontology.RootID)
+		if err != nil {
+			return nil, err
+		}
+		s.group = g
+	}
+	
 	cfg.Ontology.RegisterService(ctx, s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Symbol](cfg.DB))
@@ -102,6 +118,9 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.DB,
 	}
 }
+
+// Group returns the permanent group for schematic symbols.
+func (s *Service) Group() group.Group { return s.group }
 
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error {

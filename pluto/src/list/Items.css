@@ -29,5 +29,6 @@
         display: flex;
         flex-direction: inherit;
         flex-wrap: inherit;
+        gap: inherit;
     }
 }
