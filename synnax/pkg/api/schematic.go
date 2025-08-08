@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -174,4 +175,93 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 		return SchematicCopyResponse{}, err
 	}
 	return res, err
+}
+
+type (
+	SymbolCreateRequest struct {
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+	}
+	SymbolCreateResponse struct {
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+	}
+)
+
+func (s *SchematicService) CreateSymbol(ctx context.Context, req SymbolCreateRequest) (res SymbolCreateResponse, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: symbol.OntologyIDsFromSymbols(req.Symbols),
+	}); err != nil {
+		return res, err
+	}
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		for i, sym := range req.Symbols {
+			if err = s.internal.Symbol.NewWriter(tx).Create(ctx, &sym); err != nil {
+				return err
+			}
+			req.Symbols[i] = sym
+		}
+		res.Symbols = req.Symbols
+		return nil
+	})
+}
+
+type (
+	SymbolRetrieveRequest struct {
+		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	}
+	SymbolRetrieveResponse struct {
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+	}
+)
+
+func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SymbolRetrieveRequest) (res SymbolRetrieveResponse, err error) {
+	err = s.internal.Symbol.NewRetrieve().
+		WhereKeys(req.Keys...).Entries(&res.Symbols).Exec(ctx, nil)
+	if err != nil {
+		return SymbolRetrieveResponse{}, err
+	}
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: symbol.OntologyIDs(req.Keys),
+	}); err != nil {
+		return SymbolRetrieveResponse{}, err
+	}
+	return res, err
+}
+
+type SymbolRenameRequest struct {
+	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string    `json:"name" msgpack:"name"`
+}
+
+func (s *SchematicService) RenameSymbol(ctx context.Context, req SymbolRenameRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Update,
+		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.Symbol.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	})
+}
+
+type SymbolDeleteRequest struct {
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
+
+func (s *SchematicService) DeleteSymbol(ctx context.Context, req SymbolDeleteRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Delete,
+		Objects: symbol.OntologyIDs(req.Keys),
+	}); err != nil {
+		return res, err
+	}
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.Symbol.NewWriter(tx).Delete(ctx, req.Keys...)
+	})
 }

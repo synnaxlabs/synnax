@@ -82,6 +82,7 @@ export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";
+export { symbol as Symbol } from "@/schematic";
 export {
   type CrudeDataType,
   type CrudeDensity,

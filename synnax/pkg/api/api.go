@@ -113,6 +113,11 @@ type Transport struct {
 	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
+	// SCHEMATIC SYMBOL
+	SchematicSymbolCreate   freighter.UnaryServer[SymbolCreateRequest, SymbolCreateResponse]
+	SchematicSymbolRetrieve freighter.UnaryServer[SymbolRetrieveRequest, SymbolRetrieveResponse]
+	SchematicSymbolDelete   freighter.UnaryServer[SymbolDeleteRequest, types.Nil]
+	SchematicSymbolRename   freighter.UnaryServer[SymbolRenameRequest, types.Nil]
 	// LOG
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
@@ -258,6 +263,12 @@ func (a *Layer) BindTo(t Transport) {
 		t.SchematicSetData,
 		t.SchematicCopy,
 
+		// SCHEMATIC SYMBOL
+		t.SchematicSymbolCreate,
+		t.SchematicSymbolRetrieve,
+		t.SchematicSymbolDelete,
+		t.SchematicSymbolRename,
+
 		// LINE PLOT
 		t.LinePlotCreate,
 		t.LinePlotRename,
@@ -368,6 +379,12 @@ func (a *Layer) BindTo(t Transport) {
 	t.SchematicRename.BindHandler(a.Schematic.Rename)
 	t.SchematicSetData.BindHandler(a.Schematic.SetData)
 	t.SchematicCopy.BindHandler(a.Schematic.Copy)
+
+	// SCHEMATIC SYMBOL
+	t.SchematicSymbolCreate.BindHandler(a.Schematic.CreateSymbol)
+	t.SchematicSymbolRetrieve.BindHandler(a.Schematic.RetrieveSymbol)
+	t.SchematicSymbolDelete.BindHandler(a.Schematic.DeleteSymbol)
+	t.SchematicSymbolRename.BindHandler(a.Schematic.RenameSymbol)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(a.LinePlot.Create)

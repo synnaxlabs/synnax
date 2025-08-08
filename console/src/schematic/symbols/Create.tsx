@@ -1,6 +1,17 @@
 import "@/schematic/symbols/Create.css";
 
-import { Button, Color, Flex, Haul, Icon, Nav, Status, Text } from "@synnaxlabs/pluto";
+import { type schematic } from "@synnaxlabs/client";
+import {
+  Button,
+  Color,
+  Flex,
+  Haul,
+  Icon,
+  Nav,
+  Status,
+  Text,
+  useCombinedStateAndRef,
+} from "@synnaxlabs/pluto";
 import { color, uuid } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -39,62 +50,36 @@ export const createCreateLayout = (
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
 
-interface StateConfig {
-  id: string;
-  name: string;
-  regions: RegionConfig[];
-  color: string;
-}
-
-interface BaseColorConfig {
-  regions: RegionConfig[];
-  color: string;
-}
-
-interface RegionConfig {
-  id: string;
-  selector: string;
-  name?: string;
-  fillColor?: string;
-  strokeColor?: string;
-  useCustomColors?: boolean;
+interface SelectionState {
+  selectedState: string | null;
+  selectedRegion: string | null;
 }
 
 export const Create: Layout.Renderer = (): ReactElement => {
-  const [svgContent, setSvgContent] = useState<string>("");
-  const [svgPath, setSvgPath] = useState<string>("");
+  const [spec, setSpec, specRef] = useCombinedStateAndRef<schematic.symbol.Spec>(
+    () => ({
+      id: uuid.create(),
+      name: "New Symbol",
+      svg: "",
+      states: [
+        { id: uuid.create(), name: "Base", regions: [], color: "#000000" },
+        { id: uuid.create(), name: "Active", regions: [], color: "#000000" },
+        { id: uuid.create(), name: "Inactive", regions: [], color: "#000000" },
+      ],
+    }),
+  );
   const [draggingOver, setDraggingOver] = useState(false);
-  const [hoveredElement, setHoveredElement] = useState<SVGElement | null>(null);
-  const [activeRegion, setActiveRegion] = useState<string | null>(null); // ID of currently selected region
-  const [currentMode, setCurrentMode] = useState<string>("active"); // Can be state ID or "base"
-  const [states, setStates] = useState<StateConfig[]>([
-    { id: "active", name: "Active", regions: [], color: "#10b981" },
-    { id: "inactive", name: "Inactive", regions: [], color: "#6b7280" },
-  ]);
-  const [baseColorState, setBaseColorState] = useState<BaseColorConfig>({
-    regions: [],
-    color: "#f59e0b",
-  }); // Base amber
+  const [selection, setSelection, selectionRef] =
+    useCombinedStateAndRef<SelectionState>({
+      selectedState: null,
+      selectedRegion: null,
+    });
+  const [currentMode, setCurrentMode, currentModeRef] =
+    useCombinedStateAndRef<string>("active");
   const svgContainerRef = useRef<HTMLDivElement>(null);
 
-  // Refs to avoid stale closures in event handlers
-  const currentModeRef = useRef(currentMode);
-  const statesRef = useRef(states);
-  const baseColorStateRef = useRef(baseColorState);
-
-  // Keep refs in sync
-  useEffect(() => {
-    currentModeRef.current = currentMode;
-  }, [currentMode]);
-
-  useEffect(() => {
-    statesRef.current = states;
-  }, [states]);
-
-  useEffect(() => {
-    baseColorStateRef.current = baseColorState;
-  }, [baseColorState]);
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
 
   const handleFileSelect = () =>
     handleError(async () => {
@@ -105,16 +90,8 @@ export const Create: Layout.Renderer = (): ReactElement => {
       if (path == null) return;
       const contents = await readFile(path);
       if (contents == null) return;
-      const svgText = new TextDecoder().decode(contents);
-      setSvgContent(svgText);
-      setSvgPath(path);
-      setStates([
-        { id: "active", name: "Active", regions: [], color: "#10b981" },
-        { id: "inactive", name: "Inactive", regions: [], color: "#6b7280" },
-      ]);
-      setBaseColorState({ regions: [], color: "#f59e0b" });
-      setHoveredElement(null);
-      setActiveRegion(null);
+      const svg = new TextDecoder().decode(contents);
+      setSpec((prev) => ({ ...prev, svg }));
     }, "Failed to load SVG file");
 
   const handleFileDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
@@ -125,23 +102,13 @@ export const Create: Layout.Renderer = (): ReactElement => {
 
     const file = event.dataTransfer.files[0];
     if (!file.name.toLowerCase().endsWith(".svg")) {
-      handleError(() => {
-        throw new Error("Please select an SVG file");
-      }, "Invalid file type");
+      addStatus({ message: "Invalid file type", variant: "error" });
       return items;
     }
 
     handleError(async () => {
-      const text = await file.text();
-      setSvgContent(text);
-      setSvgPath(file.name);
-      setStates([
-        { id: "active", name: "Active", regions: [], color: "#10b981" },
-        { id: "inactive", name: "Inactive", regions: [], color: "#6b7280" },
-      ]);
-      setBaseColorState({ regions: [], color: "#f59e0b" });
-      setHoveredElement(null);
-      setActiveRegion(null);
+      const svg = await file.text();
+      setSpec((prev) => ({ ...prev, svg }));
     }, "Failed to load dropped SVG file");
     return items;
   };
@@ -156,79 +123,71 @@ export const Create: Layout.Renderer = (): ReactElement => {
   const injectSVG = (svgString: string) => {
     if (!svgContainerRef.current) return;
 
-    // Parse SVG string
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
     const svgElement = svgDoc.documentElement;
 
-    // Clear container
     svgContainerRef.current.innerHTML = "";
 
-    // Add event listeners to all SVG elements
     const addInteractivity = (element: Element) => {
       if (element instanceof SVGElement && element.tagName !== "svg") {
         element.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
 
         element.addEventListener("mouseenter", () => {
-          setHoveredElement(element);
-          
+          setSelection((prev) => ({ ...prev, hoveredElement: element }));
+
           // Special handling for stroke-only elements (lines, polylines)
-          if (element.tagName === "line" || element.tagName === "polyline") {
+          if (element.tagName === "line" || element.tagName === "polyline")
             // Use glow effect for pure stroke elements
             element.style.filter = "drop-shadow(0 0 3px rgba(99, 102, 241, 0.8))";
-          } else {
+          else {
             // Check if element has a visible fill color
             const fillAttr = element.getAttribute("fill");
-            const hasVisibleFill = fillAttr && fillAttr !== "none" && fillAttr !== "transparent";
-            
-            if (hasVisibleFill) {
+            const hasVisibleFill =
+              fillAttr && fillAttr !== "none" && fillAttr !== "transparent";
+
+            if (hasVisibleFill)
               // Apply brightness filter to existing fill
               element.style.filter = "brightness(1.3)";
-            } else {
+            else {
               // Apply light blue overlay for transparent/none fills
               element.style.fill = "rgba(99, 102, 241, 0.2)";
               element.style.fillOpacity = "1";
             }
           }
-          
+
           element.classList.add(CSS.BEM("schematic", "svg-region", "hover"));
         });
 
         element.addEventListener("mouseleave", () => {
-          setHoveredElement(null);
-          
-          // Clear hover effects
+          setSelection((prev) => ({ ...prev, hoveredElement: null }));
+
           element.style.filter = "";
           element.style.fill = "";
           element.style.fillOpacity = "";
-          
+
           element.classList.remove(CSS.BEM("schematic", "svg-region", "hover"));
         });
 
         element.addEventListener("click", (e) => {
           e.stopPropagation();
 
-          // Generate selector at click time
           let selector: string;
           if (element.id) selector = `#${element.id}`;
           else {
-            // Check if element already has data-region-id
             const existingDataId = element.getAttribute("data-region-id");
             if (existingDataId) selector = `[data-region-id="${existingDataId}"]`;
             else {
-              // Generate new data attribute for selection
               const regionId = uuid.create();
               const dataId = `region-${regionId}`;
               element.setAttribute("data-region-id", dataId);
               selector = `[data-region-id="${dataId}"]`;
             }
           }
-
           handleRegionClick(element, selector);
         });
       }
 
-      // Recursively add to children
       Array.from(element.children).forEach(addInteractivity);
     };
 
@@ -239,8 +198,8 @@ export const Create: Layout.Renderer = (): ReactElement => {
   const handleRegionClick = (element: SVGElement, selector: string) => {
     // Use refs to get current values and avoid stale closures
     const currentModeValue = currentModeRef.current;
-    const currentStates = statesRef.current;
-    const currentBaseState = baseColorStateRef.current;
+    const currentStates = specRef.current.states;
+    const currentBaseState = specRef.current.states[0];
 
     console.log("Clicking element in mode:", currentModeValue);
 
@@ -253,29 +212,31 @@ export const Create: Layout.Renderer = (): ReactElement => {
       );
 
       if (existingRegion) {
-        console.log("Removing region from base colors");
-        setBaseColorState((prev) => ({
+        setSpec((prev) => ({
           ...prev,
-          regions: prev.regions.filter((r) => r.id !== existingRegion.id),
+          states: prev.states.map((s) => ({
+            ...s,
+            regions: s.regions.filter((r) => r.id !== existingRegion.id),
+          })),
         }));
-        setActiveRegion(null);
+        setSelection((prev) => ({ ...prev, selectedRegion: null }));
       } else {
-        console.log("Adding region to base colors");
         const regionId = uuid.create();
-        const newRegion: RegionConfig = {
+        const newRegion: schematic.symbol.Region = {
           id: regionId,
           selector,
           name: element.tagName.toLowerCase(),
-          useCustomColors: false,
         };
-        setBaseColorState((prev) => ({
+        setSpec((prev) => ({
           ...prev,
-          regions: [...prev.regions, newRegion],
+          states: prev.states.map((s) => ({
+            ...s,
+            regions: [...s.regions, newRegion],
+          })),
         }));
-        setActiveRegion(regionId);
+        setSelection((prev) => ({ ...prev, selectedRegion: regionId }));
       }
     } else {
-      // Handle dynamic states
       const targetStateIndex = currentStates.findIndex(
         (s) => s.id === currentModeValue,
       );
@@ -285,38 +246,33 @@ export const Create: Layout.Renderer = (): ReactElement => {
       const existingRegion = targetState.regions.find((r) => r.selector === selector);
 
       if (existingRegion) {
-        console.log("Removing region from state:", currentModeValue);
-        setStates((prev) =>
-          prev.map((state, index) =>
-            index === targetStateIndex
-              ? {
-                  ...state,
-                  regions: state.regions.filter((r) => r.id !== existingRegion.id),
-                }
-              : state,
-          ),
-        );
-        setActiveRegion(null);
+        setSpec((prev) => ({
+          ...prev,
+          states: prev.states.map((s) => ({
+            ...s,
+            regions: s.regions.filter((r) => r.id !== existingRegion.id),
+          })),
+        }));
+        setSelection((prev) => ({ ...prev, selectedRegion: null }));
       } else {
-        console.log("Adding region to state:", currentModeValue);
         const regionId = uuid.create();
-        const newRegion: RegionConfig = {
+        const newRegion: schematic.symbol.Region = {
           id: regionId,
           selector,
           name: element.tagName.toLowerCase(),
-          useCustomColors: false,
         };
-        setStates((prev) =>
-          prev.map((state, index) =>
-            index === targetStateIndex
+        setSpec((prev) => ({
+          ...prev,
+          states: prev.states.map((s) =>
+            s.id === currentModeValue
               ? {
-                  ...state,
-                  regions: [...state.regions, newRegion],
+                  ...s,
+                  regions: [...s.regions, newRegion],
                 }
-              : state,
+              : s,
           ),
-        );
-        setActiveRegion(regionId);
+        }));
+        setSelection((prev) => ({ ...prev, selectedRegion: regionId }));
       }
     }
   };
@@ -325,9 +281,6 @@ export const Create: Layout.Renderer = (): ReactElement => {
   const applyLivePreview = () => {
     if (!svgContainerRef.current) return;
 
-    console.log("Applying live preview for mode:", currentMode);
-
-    // Clear ALL visual styling from ALL elements (not just data-region-id ones)
     const allElements = svgContainerRef.current.querySelectorAll("*");
     allElements.forEach((element) => {
       if (element instanceof SVGElement) {
@@ -342,32 +295,16 @@ export const Create: Layout.Renderer = (): ReactElement => {
       }
     });
 
-    // Apply styling based on current mode only - this is a preview of what you're configuring
-    console.log("Applying preview for current mode:", currentMode);
-
-    // First apply base color overrides (lowest priority)
-    baseColorState.regions.forEach((region) => {
-      const element = svgContainerRef.current?.querySelector(region.selector);
-      if (element && element instanceof SVGElement)
-        if (region.useCustomColors) {
-          if (region.fillColor) {
-            element.setAttribute("fill", region.fillColor);
-            element.setAttribute("fill-opacity", "1");
-          }
-          if (region.strokeColor) {
-            element.style.stroke = region.strokeColor;
-            element.style.strokeWidth = "2px";
-          }
-        } else {
-          element.setAttribute("fill", baseColorState.color);
-          element.setAttribute("fill-opacity", "1");
-        }
-      // Don't add selected class here - only for visual grouping
+    const baseState = specRef.current.states[0];
+    baseState.regions.forEach(({ selector, fillColor, strokeColor }) => {
+      const element = svgContainerRef.current?.querySelector(selector);
+      if (element == null || !(element instanceof SVGElement)) return;
+      element.style.fill = fillColor ?? baseState.color;
+      element.style.stroke = strokeColor ?? baseState.color;
     });
 
-    // Then apply current mode's colors (highest priority for preview)
     if (currentMode !== "base") {
-      const currentState = states.find((s) => s.id === currentMode);
+      const currentState = specRef.current.states.find((s) => s.id === currentMode);
       if (currentState)
         currentState.regions.forEach((region) => {
           const element = svgContainerRef.current?.querySelector(region.selector);
@@ -388,31 +325,32 @@ export const Create: Layout.Renderer = (): ReactElement => {
           // Don't add selected class here - only for visual grouping
         });
     }
-    // Note: If currentMode === "base", only base colors are applied
-
-    // Highlight the single active region
-    if (activeRegion) {
+    if (selection.selectedRegion) {
       // Find the element using region ID - it could be stored as data attribute or element ID
       let element: SVGElement | null = null;
 
       // First try to find by data-region-id
       element = svgContainerRef.current?.querySelector(
-        `[data-region-id="region-${activeRegion}"]`,
+        `[data-region-id="region-${selection.selectedRegion}"]`,
       ) as SVGElement;
 
       // If not found and activeRegion looks like an element ID, try finding by ID
-      if (!element && activeRegion && !activeRegion.includes("-"))
+      if (
+        !element &&
+        selection.selectedRegion &&
+        !selection.selectedRegion.includes("-")
+      )
         element = svgContainerRef.current?.querySelector(
-          `#${activeRegion}`,
+          `#${selection.selectedRegion}`,
         ) as SVGElement;
 
       // If still not found, try to find the region by matching against all regions
       if (!element) {
         const allRegions = [
-          ...baseColorState.regions,
-          ...states.flatMap((s) => s.regions),
+          ...specRef.current.states[0].regions,
+          ...specRef.current.states.flatMap((s) => s.regions),
         ];
-        const targetRegion = allRegions.find((r) => r.id === activeRegion);
+        const targetRegion = allRegions.find((r) => r.id === selection.selectedRegion);
         if (targetRegion)
           element = svgContainerRef.current?.querySelector(
             targetRegion.selector,
@@ -426,21 +364,26 @@ export const Create: Layout.Renderer = (): ReactElement => {
 
   // Inject SVG when content changes
   useEffect(() => {
-    if (svgContent) {
-      injectSVG(svgContent);
+    if (specRef.current.svg) {
+      injectSVG(specRef.current.svg);
       applyLivePreview();
     }
-  }, [svgContent]);
+  }, [specRef.current.svg]);
 
   // Update live preview when mode, states, or active region changes
   useEffect(() => {
     applyLivePreview();
-  }, [currentMode, states, baseColorState, activeRegion]);
+  }, [
+    currentMode,
+    specRef.current.states,
+    specRef.current.states[0],
+    selection.selectedRegion,
+  ]);
 
   return (
     <Flex.Box y full className={CSS.BE("schematic", "create", "symbol")}>
       <Flex.Box grow className={CSS.BE("schematic", "create", "symbol", "content")}>
-        {svgContent === "" ? (
+        {specRef.current.svg.length === 0 ? (
           <Flex.Box
             grow
             align="center"
@@ -471,7 +414,8 @@ export const Create: Layout.Renderer = (): ReactElement => {
                   <strong>
                     {currentMode === "base"
                       ? "Base Colors"
-                      : states.find((s) => s.id === currentMode)?.name || "Unknown"}
+                      : specRef.current.states.find((s) => s.id === currentMode)
+                          ?.name || "Unknown"}
                   </strong>{" "}
                   state
                 </Text.Text>
@@ -479,20 +423,24 @@ export const Create: Layout.Renderer = (): ReactElement => {
                   variant="outlined"
                   size="small"
                   onClick={() => {
-                    setSvgContent("");
-                    setSvgPath("");
-                    setStates([
-                      { id: "active", name: "Active", regions: [], color: "#10b981" },
-                      {
-                        id: "inactive",
-                        name: "Inactive",
-                        regions: [],
-                        color: "#6b7280",
-                      },
-                    ]);
-                    setBaseColorState({ regions: [], color: "#f59e0b" });
-                    setHoveredElement(null);
-                    setActiveRegion(null);
+                    setSpec((prev) => ({
+                      ...prev,
+                      states: [
+                        {
+                          id: uuid.create(),
+                          name: "Active",
+                          regions: [],
+                          color: "#10b981",
+                        },
+                        {
+                          id: uuid.create(),
+                          name: "Inactive",
+                          regions: [],
+                          color: "#6b7280",
+                        },
+                      ],
+                    }));
+                    setSelection((prev) => ({ ...prev, selectedRegion: null }));
                   }}
                 >
                   <Icon.Close />

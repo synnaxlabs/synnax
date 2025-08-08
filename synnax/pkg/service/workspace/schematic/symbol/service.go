@@ -7,37 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schematic
+package symbol
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening a schematic service.
+// Config is the configuration for opening a symbol service.
 type Config struct {
-	// DB is the database that the schematic service will store schematics in.
+	// DB is the database that the symbol service will store symbols in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between schematics and other entities in
+	// Ontology is used to define relationships between symbols and other entities in
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
+	// Signals is used to propagate changes to symbols throughout the cluster.
 	// [OPTIONAL]
 	Signals *signals.Provider
 }
 
 var (
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a schematic service.
+	// DefaultConfig is the default configuration for opening a symbol service.
 	DefaultConfig = Config{}
 )
 
@@ -51,19 +52,19 @@ func (c Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("Schematic")
+	v := validate.New("Symbol")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
 	return v.Error()
 }
 
-// Service is the primary service for retrieving and modifying schematics from Synnax.
-type Service struct{ 
+// Service is the primary service for retrieving and modifying symbols from Synnax.
+type Service struct {
 	Config
-	Symbol *symbol.Service
+	signals io.Closer
 }
 
-// NewService instantiates a new schematic service using the provided configurations. Each
+// NewService instantiates a new symbol service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
 func NewService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -73,19 +74,16 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(ctx, s)
-	
-	if s.Symbol, err = symbol.NewService(ctx, symbol.Config{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Signals:  cfg.Signals,
-	}); err != nil {
-		return nil, err
+	if cfg.Signals != nil {
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Symbol](cfg.DB))
+		if err != nil {
+			return nil, err
+		}
 	}
-	
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
+// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
@@ -97,10 +95,18 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// NewRetrieve opens a new query build for retrieving logs from Synnax.
+// NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   gorp.NewRetrieve[uuid.UUID, Schematic](),
+		gorp:   gorp.NewRetrieve[uuid.UUID, Symbol](),
 		baseTX: s.DB,
 	}
+}
+
+// Close closes the symbol service, shutting down signal publishers.
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
 }
