@@ -721,3 +721,35 @@ func (c *wsFramerCodec) decodeStreamRequest(
 	}
 	return c.codec.Update(ctx, v.Payload.Keys)
 }
+
+var ReadCSVFrameEncoder xbinary.Encoder = &readCSVFrameEncoder{}
+
+type readCSVFrameEncoder struct{}
+
+var _ xbinary.Encoder = (*readCSVFrameEncoder)(nil)
+
+func (e *readCSVFrameEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	return xbinary.WrapStreamEncoder(e.EncodeStream, ctx, v)
+
+}
+
+func (e *readCSVFrameEncoder) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	v any,
+) error {
+	switch v := v.(type) {
+	case frameReadMetadata:
+		return csv.Encoder.EncodeStream(ctx, w, v)
+	case Frame:
+		return v.WriteCSV(w)
+	case error:
+		return v
+	}
+	panic(
+		fmt.Sprintf(
+			"incompatible type %s provided to readCSVFrameEncoder",
+			reflect.TypeOf(v),
+		),
+	)
+}

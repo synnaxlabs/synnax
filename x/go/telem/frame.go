@@ -13,16 +13,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"iter"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bit"
-	"github.com/synnaxlabs/x/encoding/csv"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -48,8 +51,6 @@ type Frame[K types.Numeric] struct {
 		bit.Mask128
 	}
 }
-
-var _ csv.Marshaler = Frame[int]{}
 
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
@@ -511,20 +512,101 @@ func (f Frame[K]) getLargestSeriesLength() int64 {
 	return length
 }
 
-// MarshalCSV converts the frame into a CSV representation. Each series corresponds to a
-// different column in the CSV. If the keys are not unique, the series will be repeated
-// for each occurrence of the key.
-func (f Frame[K]) MarshalCSV() ([][]string, error) {
+// these byte arrays are pre-allocated to avoid allocations when writing to CSV.
+var (
+	commaBytes   = []byte(",")
+	newlineBytes = []byte("\r\n")
+)
+
+// WriteCSV writes the frame as a CSV to the given writer.
+func (f Frame[K]) WriteCSV(w io.Writer) error {
 	rowCount := f.getLargestSeriesLength()
-	records := make([][]string, rowCount)
-	columnCount := f.Count()
-	for i := range int(rowCount) {
-		records[i] = make([]string, columnCount)
+	colCount := f.Count()
+	writers := make([]cellWriter, colCount)
+	// buf is 36 bytes long to hold a UUID string, which is the longest data type we
+	// support writing to CSV.
+	var buf [36]byte
+
+	// Helper function to allocate a cellWriter for a given DataType.
+	for i, s := range f.SeriesI() {
+		writer, err := allocateCellWriter(s.DataType, buf)
+		if err != nil {
+			return err
+		}
+		writers[i] = writer
 	}
-	for col, s := range f.SeriesI() {
-		for row, entry := range s.AsCSVStrings() {
-			records[row][col] = entry
+
+	for row := range rowCount {
+		for col := range colCount {
+			s := f.SeriesAt(col)
+			if row < s.Len() {
+				if err := writers[col](s, int(row), w); err != nil {
+					return err
+				}
+			}
+			if col != colCount-1 {
+				if _, err := w.Write(commaBytes); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err := w.Write(newlineBytes); err != nil {
+			return err
 		}
 	}
-	return records, nil
+	return nil
+}
+
+type cellWriter func(s Series, row int, w io.Writer) error
+
+func allocateCellWriter(dt DataType, buf [36]byte) (cellWriter, error) {
+	switch dt {
+	case Int8T, Int16T, Int32T, Int64T, TimeStampT:
+		unmarshal := UnmarshalF[int64](dt)
+		return func(s Series, row int, w io.Writer) error {
+			v := unmarshal(s.At(row))
+			b := strconv.AppendInt(buf[:0], v, 10)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case Uint8T, Uint16T, Uint32T, Uint64T:
+		unmarshal := UnmarshalF[uint64](dt)
+		return func(s Series, row int, w io.Writer) error {
+			v := unmarshal(s.At(row))
+			b := strconv.AppendUint(buf[:0], v, 10)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case UUIDT:
+		return func(s Series, row int, w io.Writer) error {
+			data := s.At(row)
+			v := UnmarshalUUID(data)
+			uuid.EncodeStringBytes(buf[:], v)
+			_, err := w.Write(buf[:])
+			return err
+		}, nil
+	case Float32T:
+		return func(s Series, row int, w io.Writer) error {
+			v := UnmarshalFloat32[float64](s.At(row))
+			b := strconv.AppendFloat(buf[:0], v, 'f', -1, 32)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case Float64T:
+		return func(s Series, row int, w io.Writer) error {
+			v := UnmarshalFloat64[float64](s.At(row))
+			b := strconv.AppendFloat(buf[:0], v, 'f', -1, 64)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	default:
+		// We don't currently support writing variable density series to CSV for a
+		// frame. This is because 1) writing variable density series involves
+		// searching the data for newlines or quotes that need to be escaped in the
+		// CSV entry, 2) the performance is poor due to the O(n) time complexity of
+		// the current implementation of the At() method on a variable density
+		// series, and 3) variable density series are not currently stored in
+		// Cesium, so they could only exist in a frame from calculated channels.
+		return nil, errors.Newf("unsupported data type: %s", dt)
+	}
 }

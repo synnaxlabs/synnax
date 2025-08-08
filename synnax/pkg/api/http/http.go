@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/encoding/csv"
 )
 
 func New(router *fhttp.Router, channels channel.Readable) api.Transport {
@@ -25,7 +24,7 @@ func New(router *fhttp.Router, channels channel.Readable) api.Transport {
 		func() binary.Codec { return api.NewWSFramerCodec(channels) },
 	)
 	unaryFramerServerOption := fhttp.WithResponseEncoders(
-		map[string]binary.Encoder{fhttp.MIMETextCSV: csv.Encoder},
+		map[string]binary.Encoder{fhttp.MIMETextCSV: api.ReadCSVFrameEncoder},
 	)
 	return api.Transport{
 		AuthLogin:              fhttp.NewUnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, "/api/v1/auth/login"),
