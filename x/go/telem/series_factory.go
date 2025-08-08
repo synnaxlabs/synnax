@@ -140,6 +140,10 @@ func MarshalUUIDs(uuids uuid.UUIDs) []byte {
 	return b
 }
 
+func UnmarshalUUID(b []byte) uuid.UUID {
+	return uuid.UUID(b)
+}
+
 // UnmarshalUUIDs unmarshals a byte slice into a slice of UUIDs.
 func UnmarshalUUIDs(b []byte) uuid.UUIDs {
 	uuids := make([]uuid.UUID, len(b)/16)

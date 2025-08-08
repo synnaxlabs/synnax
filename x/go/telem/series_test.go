@@ -259,7 +259,15 @@ var _ = Describe("Series", func() {
 				Expect(telem.UnmarshalUUIDs(bytes)).To(Equal(ids))
 			})
 		})
-
+		Describe("UnmarshalUUID", func() {
+			It("should unmarshal a single UUID", func() {
+				uuid := uuid.New()
+				Expect(telem.UnmarshalUUID([]byte(uuid[:]))).To(Equal(uuid))
+			})
+			It("should panic if the byte slice is not long enough", func() {
+				Expect(func() { telem.UnmarshalUUID([]byte{}) }).To(Panic())
+			})
+		})
 		Describe("StaticJSONV", func() {
 			It("Should correctly marshal a static JSON data structure", func() {
 				data := map[string]any{
