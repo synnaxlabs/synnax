@@ -31,7 +31,7 @@ func (mpc *msgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 
 // Decode implements the Decoder interface.
 func (mpc *msgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	return WrapStreamDecoder(mpc, ctx, data, value)
+	return WrapStreamDecoder(mpc.DecodeStream, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.

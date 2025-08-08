@@ -570,7 +570,7 @@ func (c *wsFramerCodec) Decode(
 	data []byte,
 	value any,
 ) error {
-	return xbinary.WrapStreamDecoder(c, ctx, data, value)
+	return xbinary.WrapStreamDecoder(c.DecodeStream, ctx, data, value)
 }
 
 var (
@@ -598,7 +598,7 @@ func (c *wsFramerCodec) DecodeStream(
 }
 
 func (c *wsFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return xbinary.WrapStreamEncoder(c, ctx, value)
+	return xbinary.WrapStreamEncoder(c.EncodeStream, ctx, value)
 }
 
 func (c *wsFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {

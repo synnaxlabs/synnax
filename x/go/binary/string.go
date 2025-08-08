@@ -31,7 +31,7 @@ var _ Codec = (*stringCodec)(nil)
 
 // Encode encodes a value to its string representation.
 func (sc *stringCodec) Encode(ctx context.Context, v any) ([]byte, error) {
-	return WrapStreamEncoder(sc, ctx, v)
+	return WrapStreamEncoder(sc.EncodeStream, ctx, v)
 }
 
 // EncodeStream encodes a value to its string representation and writes it to a writer.
@@ -42,7 +42,7 @@ func (sc *stringCodec) EncodeStream(_ context.Context, w io.Writer, v any) error
 
 // Decode decodes the plaintext string into the provided value.
 func (sc *stringCodec) Decode(ctx context.Context, b []byte, v any) error {
-	return WrapStreamDecoder(sc, ctx, b, v)
+	return WrapStreamDecoder(sc.DecodeStream, ctx, b, v)
 }
 
 // DecodeStream decodes the plaintext string from a reader into the provided value.

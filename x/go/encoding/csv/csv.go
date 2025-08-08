@@ -31,7 +31,7 @@ var _ binary.Encoder = (*encoder)(nil)
 // Encode encodes a value to its CSV representation in bytes. The value must either
 // implement the Marshaler interface or be a [][]string or []string.
 func (enc *encoder) Encode(ctx context.Context, v any) ([]byte, error) {
-	return binary.WrapStreamEncoder(enc, ctx, v)
+	return binary.WrapStreamEncoder(enc.EncodeStream, ctx, v)
 }
 
 // EncodeStream encodes a value to a CSV representation in bytes and writes it to a

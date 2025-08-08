@@ -92,9 +92,13 @@ func MarshalStringUint64(n uint64) ([]byte, error) {
 
 // WrapStreamEncoder is a helper function for implementing Encoder.Encode. It calls
 // Encoder.EncodeStream and returns the data written to the buffer.
-func WrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, error) {
+func WrapStreamEncoder(
+	encodeStream func(context.Context, io.Writer, any) error,
+	ctx context.Context,
+	value any,
+) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := enc.EncodeStream(ctx, &buf, value); err != nil {
+	if err := encodeStream(ctx, &buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -102,6 +106,11 @@ func WrapStreamEncoder(enc Encoder, ctx context.Context, value any) ([]byte, err
 
 // WrapStreamDecoder is a helper function for implementing Decoder.DecodeStream. It
 // calls Decoder.DecodeStream and returns the error.
-func WrapStreamDecoder(dec Decoder, ctx context.Context, data []byte, value any) error {
-	return dec.DecodeStream(ctx, bytes.NewReader(data), value)
+func WrapStreamDecoder(
+	decodeStream func(context.Context, io.Reader, any) error,
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
+	return decodeStream(ctx, bytes.NewReader(data), value)
 }
