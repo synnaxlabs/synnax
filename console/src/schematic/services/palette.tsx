@@ -11,6 +11,7 @@ import { type Palette } from "@/palette";
 import { Schematic } from "@/schematic";
 import { CreateIcon, ImportIcon } from "@/schematic/services/Icon";
 import { import_ } from "@/schematic/services/import";
+import { createCreateLayout } from "@/schematic/symbols/Create";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",
@@ -29,4 +30,12 @@ const IMPORT_COMMAND: Palette.Command = {
   visible: Schematic.selectHasPermission,
 };
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+const CREATE_SYMBOL_COMMAND: Palette.Command = {
+  key: "create-symbol",
+  name: "Create Symbol",
+  icon: <CreateIcon />,
+  onSelect: ({ placeLayout }) => placeLayout(createCreateLayout()),
+  visible: Schematic.selectHasPermission,
+};
+
+export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, CREATE_SYMBOL_COMMAND];

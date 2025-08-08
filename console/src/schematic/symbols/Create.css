@@ -1,0 +1,76 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-schematic__create-symbol {
+    .console-schematic__create-symbol-content {
+        padding: 2rem;
+    }
+
+    .console-schematic__svg-container {
+        user-select: none;
+
+        .console-schematic__svg-content {
+            svg {
+                max-width: 100%;
+                max-height: 100%;
+                overflow: visible;
+
+                /* Make all SVG elements interactive on their fill areas */
+                * {
+                    pointer-events: fill;
+                }
+                
+                /* Convert fill="none" to transparent but still interactive */
+                *[fill="none"] {
+                    fill: transparent !important;
+                }
+                
+                /* Ensure stroke-only elements are still interactive */
+                *[stroke]:not([fill]) {
+                    fill: transparent;
+                }
+
+                /* Pure line elements need stroke interaction */
+                line, polyline {
+                    pointer-events: stroke;
+                }
+
+                /* Increase stroke width for better click targets on thin lines */
+                line[stroke-width="1"], 
+                polyline[stroke-width="1"] {
+                    stroke-width: 3;
+                }
+
+                /* For lines without stroke-width, ensure minimum clickability */
+                line:not([stroke-width]),
+                polyline:not([stroke-width]) {
+                    stroke-width: 2;
+                }
+            }
+        }
+    }
+
+    /* SVG Region interaction states using BEM naming */
+    .console-schematic__svg-region--hoverable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .console-schematic__svg-region--hover {
+        cursor: pointer;
+        /* Hover effects are handled in JavaScript */
+    }
+
+    .console-schematic__svg-region--active {
+        /* Active selection - no visual change to preserve user colors */
+        /* Selection is shown only in the list UI */
+    }
+}
