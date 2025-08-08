@@ -81,6 +81,8 @@ import {
   type CrossBeamAgitatorProps,
   CrossJunction,
   type CrossJunctionProps,
+  CustomActuator,
+  type CustomActuatorProps,
   Cylinder,
   CylinderPreview,
   DiaphragmPump,
@@ -346,6 +348,7 @@ const VARIANTS = [
   "nozzle",
   "strainer",
   "strainerCone",
+  "actuator",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1786,6 +1789,20 @@ const strainerCone: Spec<StrainerConeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const customActuator: Spec<CustomActuatorProps> = {
+  name: "Custom Actuator",
+  key: "actuator",
+  Form: CommonToggleForm,
+  Symbol: CustomActuator,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11,
+    ...zeroLabel("Custom Actuator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.CustomActuator,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1881,6 +1898,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   nozzle,
   strainer,
   strainerCone,
+  actuator: customActuator,
 };
 
 export interface SymbolGroup extends group.Payload {
@@ -1916,12 +1934,27 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "pumps",
     name: "Pumps",
-    symbols: ["pump", "screwPump", "pistonPump", "cavityPump", "diaphragmPump", "ejectionPump", "vacuumPump"],
+    symbols: [
+      "pump",
+      "screwPump",
+      "pistonPump",
+      "cavityPump",
+      "diaphragmPump",
+      "ejectionPump",
+      "vacuumPump",
+    ],
   },
   {
     key: "compressors",
     name: "Compressors",
-    symbols: ["compressor", "turboCompressor", "rollerVaneCompressor", "liquidRingCompressor", "ejectorCompressor", "centrifugalCompressor"],
+    symbols: [
+      "compressor",
+      "turboCompressor",
+      "rollerVaneCompressor",
+      "liquidRingCompressor",
+      "ejectorCompressor",
+      "centrifugalCompressor",
+    ],
   },
   {
     key: "valves",
@@ -1952,7 +1985,12 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "regulators",
     name: "Regulators",
-    symbols: ["regulator", "regulatorManual", "electricRegulator", "electricRegulatorMotorized"],
+    symbols: [
+      "regulator",
+      "regulatorManual",
+      "electricRegulator",
+      "electricRegulatorMotorized",
+    ],
   },
   {
     key: "flowMeters",
@@ -2015,6 +2053,15 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "fittings",
     name: "Fittings & Accessories",
-    symbols: ["cap", "isoCap", "orifice", "orificePlate", "vent", "nozzle", "heaterElement", "thruster"],
+    symbols: [
+      "cap",
+      "isoCap",
+      "orifice",
+      "orificePlate",
+      "vent",
+      "nozzle",
+      "heaterElement",
+      "thruster",
+    ],
   },
 ];

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const keyZ = z.uuid();
@@ -16,7 +17,7 @@ export type Params = Key | Key[];
 export const regionZ = z.object({
   key: z.string(),
   name: z.string(),
-  selector: z.string(),
+  selectors: z.string().array().default([]),
   strokeColor: z.string().optional(),
   fillColor: z.string().optional(),
 });
@@ -32,9 +33,16 @@ export const stateZ = z.object({
 
 export interface State extends z.infer<typeof stateZ> {}
 
+export const handleZ = z.object({
+  key: z.string(),
+  position: xy.xy,
+});
+
 export const specZ = z.object({
   svg: z.string(),
   states: stateZ.array(),
+  variant: z.string(),
+  handles: handleZ.array(),
 });
 
 export interface Spec extends z.infer<typeof specZ> {}

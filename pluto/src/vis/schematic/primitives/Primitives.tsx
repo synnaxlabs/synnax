@@ -495,6 +495,10 @@ export const SolenoidValve = ({
   </Toggle>
 );
 
+export interface CustomActuatorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const CustomActuator = () => <h1>Actuator</h1>;
+
 export interface ReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ReliefValve = ({

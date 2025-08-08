@@ -161,6 +161,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   expand: __,
   expanded: ___,
   className: ____,
+  clearExpanded: _____,
   showRules = false,
   virtual = false,
   ...rest

@@ -9,11 +9,13 @@ const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
 export interface FileDropProps extends Flex.BoxProps {
   onContentsChange: (contents: string) => void;
+  enabled?: boolean;
 }
 
 export const FileDrop = ({
   onContentsChange,
   children,
+  enabled = true,
   ...rest
 }: FileDropProps): ReactElement => {
   const addStatus = Status.useAdder();
@@ -66,12 +68,12 @@ export const FileDrop = ({
       background={draggingOver ? 2 : 1}
       onDragLeave={() => setDraggingOver(false)}
       rounded={1}
-      onClick={handleFileSelect}
+      onClick={enabled ? handleFileSelect : undefined}
       {...dropProps}
       borderColor={6}
       {...rest}
     >
-      {children ?? (
+      {enabled && (
         <Flex.Box y align="center" style={{ gap: "1rem" }}>
           <Text.Text level="h1" color={7}>
             <Icon.Import />
@@ -81,6 +83,7 @@ export const FileDrop = ({
           </Text.Text>
         </Flex.Box>
       )}
+      {children}
     </Flex.Box>
   );
 };

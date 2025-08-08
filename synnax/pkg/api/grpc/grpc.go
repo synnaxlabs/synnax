@@ -78,6 +78,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.SchematicSymbolRetrieve = fnoop.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse]{}
 	a.SchematicSymbolDelete = fnoop.UnaryServer[api.SymbolDeleteRequest, types.Nil]{}
 	a.SchematicSymbolRename = fnoop.UnaryServer[api.SymbolRenameRequest, types.Nil]{}
+	a.SchematicSymbolRetrieveGroup = fnoop.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse]{}
 
 	// LINE PLOT
 	a.LinePlotCreate = fnoop.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse]{}

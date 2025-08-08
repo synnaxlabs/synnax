@@ -27,6 +27,8 @@ describe("Symbol Client", () => {
         data: {
           svg: "<svg></svg>",
           states: [],
+          handles: [],
+          variant: "sensor",
         },
         parent: group.ontologyID,
       });
@@ -39,11 +41,11 @@ describe("Symbol Client", () => {
         symbols: [
           {
             name: "Symbol 1",
-            data: { svg: "<svg></svg>", states: [] },
+            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
           },
           {
             name: "Symbol 2",
-            data: { svg: "<svg></svg>", states: [] },
+            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
           },
         ],
         parent: group.ontologyID,
@@ -58,7 +60,7 @@ describe("Symbol Client", () => {
     it("should retrieve a single symbol by key", async () => {
       const created = await client.workspaces.schematic.symbols.create({
         name: "Retrieve Test",
-        data: { svg: "<svg></svg>", states: [] },
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
@@ -72,12 +74,12 @@ describe("Symbol Client", () => {
     it("should retrieve multiple symbols by keys", async () => {
       const created1 = await client.workspaces.schematic.symbols.create({
         name: "Multi Test 1",
-        data: { svg: "<svg></svg>", states: [] },
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
       const created2 = await client.workspaces.schematic.symbols.create({
         name: "Multi Test 2",
-        data: { svg: "<svg></svg>", states: [] },
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
@@ -92,7 +94,7 @@ describe("Symbol Client", () => {
     it("should rename a symbol", async () => {
       const symbol = await client.workspaces.schematic.symbols.create({
         name: "Original Name",
-        data: { svg: "<svg></svg>", states: [] },
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 
@@ -109,7 +111,7 @@ describe("Symbol Client", () => {
     it("should delete a single symbol", async () => {
       const symbol = await client.workspaces.schematic.symbols.create({
         name: "Delete Test",
-        data: { svg: "<svg></svg>", states: [] },
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
         parent: group.ontologyID,
       });
 

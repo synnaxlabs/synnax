@@ -22,46 +22,18 @@
         width: 100%;
     }
 
-    /* .console-schematic__svg-container {
+    .pluto__preview {
         user-select: none;
 
-        .console-schematic__svg-content {
-            svg {
-                max-width: 100%;
-                max-height: 100%;
-                overflow: visible;
+        svg {
+            max-width: 100%;
+            max-height: 100%;
+            overflow: visible;
 
-                /* Make all SVG elements interactive on their fill areas */
-                * {
-                    pointer-events: fill;
-                }
-                
-                /* Convert fill="none" to transparent but still interactive */
-                *[fill="none"] {
-                    fill: transparent !important;
-                }
-                
-                /* Ensure stroke-only elements are still interactive */
-                *[stroke]:not([fill]) {
-                    fill: transparent;
-                }
-
-                /* Pure line elements need stroke interaction */
-                line, polyline {
-                    pointer-events: stroke;
-                }
-
-                /* Increase stroke width for better click targets on thin lines */
-                line[stroke-width="1"], 
-                polyline[stroke-width="1"] {
-                    stroke-width: 3;
-                }
-
-                /* For lines without stroke-width, ensure minimum clickability */
-                line:not([stroke-width]),
-                polyline:not([stroke-width]) {
-                    stroke-width: 2;
-                }
+            /* Make all SVG elements interactive */
+            * {
+                pointer-events: all;
+                cursor: pointer;
             }
         }
     }

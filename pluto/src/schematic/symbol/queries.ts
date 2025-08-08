@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, schematic } from "@synnaxlabs/client";
+import { type group, ontology, schematic } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -31,8 +31,9 @@ export const retrieve = Flux.createRetrieve<RetrieveParams, schematic.symbol.Sym
   ],
 });
 
-export interface ListParams extends schematic.symbol.Spec {
+export interface ListParams {
   keys?: string[];
+  parent?: ontology.ID;
   searchTerm?: string;
   offset?: number;
   limit?: number;
@@ -40,8 +41,14 @@ export interface ListParams extends schematic.symbol.Spec {
 
 export const useList = Flux.createList<ListParams, string, schematic.symbol.Symbol>({
   name: "SchematicSymbols",
-  retrieve: async ({ client, params }) =>
-    await client.workspaces.schematic.symbols.retrieve(params),
+  retrieve: async ({ client, params: { parent, ...rest } }) => {
+    if (parent != null) {
+      const children = await client.ontology.retrieveChildren(parent);
+      const keys = children.map((c) => c.id.key);
+      return await client.workspaces.schematic.symbols.retrieve({ ...rest, keys });
+    }
+    return await client.workspaces.schematic.symbols.retrieve(rest);
+  },
   retrieveByKey: async ({ client, key }) =>
     await client.workspaces.schematic.symbols.retrieve({ key }),
   listeners: [
@@ -74,7 +81,11 @@ export const formSchema = schematic.symbol.symbolZ
 
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
   name: "SchematicSymbols",
-  initialValues: { name: "", data: { svg: "", states: [] }, parent: ontology.ROOT_ID },
+  initialValues: {
+    name: "",
+    data: { svg: "", states: [], handles: [], variant: "static" },
+    parent: ontology.ROOT_ID,
+  },
   schema: formSchema,
   retrieve: async ({ client, params: { key, parent } }) => {
     if (key == null) return null;
@@ -126,3 +137,9 @@ export const useDelete = Flux.createUpdate<DeleteParams, void>({
   update: async ({ client, params: { key } }) =>
     await client.workspaces.schematic.symbols.delete(key),
 }).useDirect;
+
+export const useGroup = Flux.createRetrieve<{}, group.Payload>({
+  name: "SchematicSymbols",
+  retrieve: async ({ client }) =>
+    await client.workspaces.schematic.symbols.retrieveGroup(),
+});

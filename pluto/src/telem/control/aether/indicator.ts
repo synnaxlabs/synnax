@@ -13,9 +13,12 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
-export const indicatorStatusDetailsZ = z.object({
-  color: color.colorZ.optional(),
-});
+export const indicatorStatusDetailsZ = z
+  .object({
+    color: color.colorZ.optional(),
+  })
+  .optional()
+  .default({});
 
 export interface IndicatorStatusDetails
   extends z.infer<typeof indicatorStatusDetailsZ> {}

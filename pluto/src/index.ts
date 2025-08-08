@@ -22,6 +22,7 @@ export { Flex } from "@/flex";
 export { Flux } from "@/flux";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
+export { Group } from "@/group";
 export { Device } from "@/hardware/device";
 export { Rack } from "@/hardware/rack";
 export { Task } from "@/hardware/task";
@@ -46,6 +47,7 @@ export { Portal } from "@/portal";
 export { Progress } from "@/progress";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
+export { symbol as Symbol } from "@/schematic";
 export { Select } from "@/select";
 export { state } from "@/state";
 export { Status } from "@/status";
@@ -82,7 +84,6 @@ export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";
-export { symbol as Symbol } from "@/schematic";
 export {
   type CrudeDataType,
   type CrudeDensity,

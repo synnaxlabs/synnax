@@ -30,6 +30,7 @@ const createEmptyService = (type: ontology.ResourceType): Ontology.Service => ({
 
 export const SERVICES: Ontology.Services = {
   schematic: SchematicServices.ONTOLOGY_SERVICE,
+  schematic_symbol: Ontology.NOOP_SERVICE,
   cluster: ClusterServices.ONTOLOGY_SERVICE,
   user: UserServices.ONTOLOGY_SERVICE,
   builtin: createEmptyService(ontology.BUILTIN_TYPE),
