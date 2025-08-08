@@ -19,7 +19,7 @@ import (
 )
 
 // Encoder is an encoder that encodes data to the CSV format.
-var Encoder = &encoder{}
+var Encoder binary.Encoder = &encoder{}
 
 // Marshaler is a type that can marshal itself to a CSV representation.
 type Marshaler interface{ MarshalCSV() ([][]string, error) }

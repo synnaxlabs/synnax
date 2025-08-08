@@ -19,7 +19,7 @@ import (
 )
 
 // StringCodec is a codec that encodes and decodes data to and from strings.
-var StringCodec = &stringCodec{}
+var StringCodec Codec = &stringCodec{}
 
 // StringUnmarshaller is an interface that can be implemented by types to provide a
 // custom string representation for unmarshalling string data.

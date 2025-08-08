@@ -17,7 +17,7 @@ import (
 )
 
 // MsgPackCodec is a MessagePack implementation of Codec.
-var MsgPackCodec = &msgPackCodec{}
+var MsgPackCodec Codec = &msgPackCodec{}
 
 type msgPackCodec struct{}
 

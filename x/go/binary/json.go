@@ -19,7 +19,7 @@ import (
 )
 
 // JSONCodec is a JSON implementation of Codec.
-var JSONCodec = &jsonCodec{}
+var JSONCodec Codec = &jsonCodec{}
 
 type jsonCodec struct{}
 

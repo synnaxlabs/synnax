@@ -16,7 +16,7 @@ import (
 )
 
 // GobCodec is a gob implementation of the Codec interface.
-var GobCodec = &gobCodec{}
+var GobCodec Codec = &gobCodec{}
 
 type gobCodec struct{}
 
