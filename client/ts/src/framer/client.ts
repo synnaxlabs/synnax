@@ -22,7 +22,7 @@ import { UnexpectedError } from "@/errors";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
-import { Reader as FrameReader, type ReadRequest } from "@/framer/reader";
+import { Reader, type ReadRequest } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { type ontology } from "@/ontology";
@@ -49,13 +49,13 @@ export class Client {
   private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
-  private readonly frameReader: FrameReader;
+  private readonly reader: Reader;
 
   constructor(transport: Transport, retriever: channel.Retriever) {
     this.streamClient = transport.stream;
     this.retriever = retriever;
     this.deleter = new Deleter(transport.unary);
-    this.frameReader = new FrameReader(transport);
+    this.reader = new Reader(transport);
   }
 
   /**
@@ -194,7 +194,7 @@ export class Client {
       if (single) return fr.get(channels as channel.KeyOrName);
       return fr;
     }
-    return this.frameReader.read(tr);
+    return this.reader.read(tr);
   }
 
   private async readFrame(
