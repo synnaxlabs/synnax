@@ -81,8 +81,6 @@ import {
   type CrossBeamAgitatorProps,
   CrossJunction,
   type CrossJunctionProps,
-  CustomActuator,
-  type CustomActuatorProps,
   Cylinder,
   CylinderPreview,
   DiaphragmPump,
@@ -191,6 +189,8 @@ import {
   type RegulatorProps,
   ReliefValve,
   type ReliefValveProps,
+  RemoteActuator,
+  type RemoteActuatorProps,
   RollerVaneCompressor,
   type RollerVaneCompressorProps,
   RotaryMixer,
@@ -1789,17 +1789,18 @@ const strainerCone: Spec<StrainerConeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const customActuator: Spec<CustomActuatorProps> = {
-  name: "Custom Actuator",
+const actuator: Spec<RemoteActuatorProps> = {
+  name: "Actuator",
   key: "actuator",
   Form: CommonToggleForm,
-  Symbol: CustomActuator,
+  Symbol: RemoteActuator,
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
-    ...zeroLabel("Custom Actuator"),
+    ...zeroLabel("Actuator"),
     ...ZERO_TOGGLE_PROPS,
+    specKey: "",
   }),
-  Preview: Primitives.CustomActuator,
+  Preview: Primitives.RemoteActuator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1898,7 +1899,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   nozzle,
   strainer,
   strainerCone,
-  actuator: customActuator,
+  actuator,
 };
 
 export interface SymbolGroup extends group.Payload {

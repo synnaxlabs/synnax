@@ -23,6 +23,7 @@
 
     & svg {
         stroke-width: 2px;
+        overflow: visible;
 
         &.pluto--location-bottom > g {
             transform-origin: top left;

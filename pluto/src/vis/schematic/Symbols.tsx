@@ -296,10 +296,10 @@ export const createDummyToggle = <P extends object = record.Unknown>(
 };
 
 // ||||||||| TOGGLE ||||||||
-export const CustomActuator = createToggle<Primitives.CustomActuatorProps>(
-  Primitives.CustomActuator,
+export const RemoteActuator = createToggle<Primitives.RemoteActuatorProps>(
+  Primitives.RemoteActuator,
 );
-export type CustomActuatorProps = ToggleProps<Primitives.CustomActuatorProps>;
+export type RemoteActuatorProps = ToggleProps<Primitives.RemoteActuatorProps>;
 export const ThreeWayValve = createToggle(Primitives.ThreeWayValve);
 export type ThreeWayValveProps = ToggleProps<Primitives.ThreeWayValveProps>;
 export const Valve = createToggle(Primitives.Valve);

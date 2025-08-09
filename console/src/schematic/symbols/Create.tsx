@@ -205,6 +205,27 @@ interface PreviewProps {
   onContentsChange: (contents: string) => void;
 }
 
+const preprocessSVG = (svgString: string): string => {
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+  const svgElement = svgDoc.documentElement;
+
+  const addRegionIds = (el: Element) => {
+    if (!(el instanceof SVGElement) || el.tagName === "svg") return;
+
+    // Only add data-region-id if the element doesn't have an id
+    if (!el.id && !el.getAttribute("data-region-id"))
+      el.setAttribute("data-region-id", `region-${id.create()}`);
+
+    Array.from(el.children).forEach(addRegionIds);
+  };
+
+  Array.from(svgElement.children).forEach(addRegionIds);
+
+  const serializer = new XMLSerializer();
+  return serializer.serializeToString(svgElement);
+};
+
 const injectSVG = (
   svgContainer: HTMLDivElement,
   svgString: string,
@@ -260,12 +281,14 @@ const injectSVG = (
       let selector: string;
       if (el.id) selector = `#${el.id}`;
       else {
-        let existingDataId = el.getAttribute("data-region-id");
-        if (!existingDataId) {
-          existingDataId = `region-${id.create()}`;
-          el.setAttribute("data-region-id", existingDataId);
+        const existingDataId = el.getAttribute("data-region-id");
+        if (existingDataId) selector = `[data-region-id="${existingDataId}"]`;
+        else {
+          // This shouldn't happen if preprocessSVG was called, but keep as fallback
+          const newDataId = `region-${id.create()}`;
+          el.setAttribute("data-region-id", newDataId);
+          selector = `[data-region-id="${newDataId}"]`;
         }
-        selector = `[data-region-id="${existingDataId}"]`;
       }
       onElementClick(selector);
     });
@@ -340,10 +363,14 @@ const Preview = ({
   applyLivePreview();
 
   const handleContentsChange = (contents: string) => {
-    console.log(svgContainerRef.current);
+    // Preprocess the SVG to add data-region-id attributes
+    const processedSVG = preprocessSVG(contents);
+
     if (svgContainerRef.current != null)
-      injectSVG(svgContainerRef.current, contents, onElementClick);
-    onContentsChange(contents);
+      injectSVG(svgContainerRef.current, processedSVG, onElementClick);
+
+    // Save the preprocessed SVG to the form
+    onContentsChange(processedSVG);
   };
 
   return (
