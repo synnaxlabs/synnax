@@ -19,7 +19,8 @@ import {
   useSize,
 } from "@synnaxlabs/pluto";
 import { box, color, id, xy } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -611,8 +612,19 @@ const Preview = ({
 export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const baseRegionID = `base-region-${id.create()}`;
+  const dispatch = useDispatch();
+  const handleUnsavedChanges = useCallback(
+    (hasUnsavedChanges: boolean) => {
+      console.log("hasUnsavedChanges", hasUnsavedChanges);
+      dispatch(
+        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
   const { form, save } = Symbol.useForm({
     params,
+    onHasTouched: handleUnsavedChanges,
     initialValues: {
       name: "New Symbol",
       parent: ontology.ROOT_ID,
