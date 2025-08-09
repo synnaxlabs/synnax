@@ -38,6 +38,8 @@ export const handleZ = z.object({
   position: xy.xy,
 });
 
+export interface Handle extends z.infer<typeof handleZ> {}
+
 export const specZ = z.object({
   svg: z.string(),
   states: stateZ.array(),

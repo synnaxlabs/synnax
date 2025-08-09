@@ -30,7 +30,7 @@ interface ModalProps {
 const calculateOffset = (window?: WindowProps): number => {
   if (window?.size?.height == null) return 0;
   if (window?.size?.height < 500) return 15;
-  return Math.round(window.size.height / 75);
+  return Math.round(window.size.height / 250);
 };
 
 export const Modal = ({ state, remove }: ModalProps) => {

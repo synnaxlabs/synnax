@@ -64,8 +64,11 @@ export const FileDrop = ({
       align="center"
       justify="center"
       bordered
-      className={CSS.B("file-drop")}
-      background={draggingOver ? 2 : 1}
+      className={CSS(
+        CSS.B("file-drop"),
+        draggingOver && CSS.M("dragging-over"),
+        enabled && CSS.M("enabled"),
+      )}
       onDragLeave={() => setDraggingOver(false)}
       rounded={1}
       onClick={enabled ? handleFileSelect : undefined}
@@ -74,11 +77,11 @@ export const FileDrop = ({
       {...rest}
     >
       {enabled && (
-        <Flex.Box y align="center" style={{ gap: "1rem" }}>
+        <Flex.Box y align="center" center style={{ position: "absolute" }}>
           <Text.Text level="h1" color={7}>
             <Icon.Import />
           </Text.Text>
-          <Text.Text level="p">
+          <Text.Text level="p" color={9}>
             Click to select an SVG file or drag and drop it here
           </Text.Text>
         </Flex.Box>

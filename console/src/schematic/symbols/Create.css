@@ -15,11 +15,25 @@
     }
 
     .console-form {
-        padding: 2rem
+        padding: 2rem;
     }
 
     .console-file-drop {
         width: 100%;
+        position: relative;
+        transition:
+            border-color 0.2s ease-in,
+            background-color 0.2s ease-in;
+        &.console--dragging-over {
+            background-color: var(--pluto-gray-l2);
+            border-color: var(--pluto-primary-z);
+            border-width: 1px;
+        }
+        &.console--enabled:hover {
+            background-color: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l3);
+            cursor: pointer;
+        }
     }
 
     .pluto__preview {
@@ -34,8 +48,6 @@
             max-width: 100%;
             max-height: 100%;
             overflow: visible;
-
-            /* Make all SVG elements interactive */
             * {
                 pointer-events: all;
                 cursor: pointer;
@@ -43,7 +55,6 @@
         }
     }
 
-    /* SVG Region interaction states using BEM naming */
     .console-schematic__svg-region--hoverable {
         cursor: pointer;
         transition: all 0.2s ease;
@@ -51,27 +62,38 @@
 
     .console-schematic__svg-region--hover {
         cursor: pointer;
-        /* Hover effects are handled in JavaScript */
     }
 
-    .console-schematic__svg-region--active {
-        /* Active selection - no visual change to preserve user colors */
-        /* Selection is shown only in the list UI */
-    }
+    .console-schematic__handle-preview {
+        box-shadow: 0 2px 4px var(--pluto-gray-l8);
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--pluto-gray-l8);
+        border: 2px solid var(--pluto-text-color);
+        cursor: grab;
+        z-index: 1000;
+        transform: translate(-50%, -50%);
+        cursor: grab;
+        pointer-events: auto;
 
-    /* Handle overlay styles */
-    .pluto__handle-overlay {
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        
+        &.console--dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+        }
+
+        &.console--selected {
+            background-color: var(--pluto-primary-z);
+        }
+
         &:hover {
             transform: translate(-50%, -50%) scale(1.2);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 8px var(--pluto-gray-l8);
         }
-        
+
         &--selected {
             transform: translate(-50%, -50%) scale(1.1);
-            box-shadow: 0 4px 8px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 8px var(--pluto-primary-l8);
         }
     }
 }
