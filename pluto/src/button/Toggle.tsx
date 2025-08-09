@@ -25,7 +25,8 @@ export const Toggle = ({
   onClick,
   onChange,
   checkedVariant = "filled",
-  uncheckedVariant = "outlined",
+  uncheckedVariant,
+  variant,
   rightClickToggle = false,
   ...rest
 }: ToggleProps): ReactElement => (
@@ -41,7 +42,7 @@ export const Toggle = ({
       if (!rightClickToggle) return;
       onChange(!value);
     }}
-    variant={value ? checkedVariant : uncheckedVariant}
+    variant={value ? checkedVariant : (uncheckedVariant ?? variant)}
     {...rest}
   />
 );
