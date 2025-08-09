@@ -19,7 +19,7 @@ import {
   useSize,
 } from "@synnaxlabs/pluto";
 import { box, color, id, xy } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -299,6 +299,76 @@ const Preview = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  const fitToContainer = () => {
+    if (!svgElementRef.current || !containerRef.current) return;
+
+    const svgViewBox = svgElementRef.current.viewBox.baseVal;
+    let svgWidth = svgViewBox.width || svgElementRef.current.width.baseVal.value;
+    let svgHeight = svgViewBox.height || svgElementRef.current.height.baseVal.value;
+
+    if (!svgWidth || !svgHeight) {
+      const bbox = svgElementRef.current.getBBox();
+      svgWidth = bbox.width;
+      svgHeight = bbox.height;
+    }
+
+    const containerWidth = containerRef.current.clientWidth - 100;
+    const containerHeight = containerRef.current.clientHeight - 100;
+
+    const scaleX = containerWidth / svgWidth;
+    const scaleY = containerHeight / svgHeight;
+    const scale = Math.min(scaleX, scaleY, 1);
+
+    setZoom(scale);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleZoomIn = () => setZoom((z) => Math.min(z * 1.2, 5));
+  const handleZoomOut = () => setZoom((z) => Math.max(z / 1.2, 0.1));
+  const handleResetZoom = () => fitToContainer();
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      e.preventDefault();
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!spec.svg) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+        e.preventDefault();
+        handleResetZoom();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "=") {
+        e.preventDefault();
+        handleZoomIn();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+        e.preventDefault();
+        handleZoomOut();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [spec.svg]);
+
   const injectSVG = (svgContainer: HTMLDivElement, svgString: string) => {
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
@@ -367,6 +437,8 @@ const Preview = ({
     Array.from(svgElement.children).forEach(addInteractivity);
 
     svgContainer.appendChild(svgElement);
+
+    setTimeout(() => fitToContainer(), 100);
   };
 
   const applyLivePreview = () => {
@@ -439,26 +511,99 @@ const Preview = ({
       grow={1}
       enabled={spec.svg.length == 0}
     >
-      <div
-        ref={combinedContainerRef}
-        className={CSS.B("preview")}
+      <Flex.Box
         style={{
+          position: "relative",
           width: "100%",
           height: "100%",
-          minHeight: "400px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          overflow: "hidden",
         }}
-      />
-      <HandleOverlay
-        handles={spec.handles}
-        selectedHandle={selectedHandle}
-        svgBox={svgBox}
-        containerBox={containerSize}
-        onSelect={onHandleSelect}
-        onDrag={onHandlePlace}
-      />
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {spec.svg.length > 0 && (
+          <Flex.Box
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              zIndex: 1000,
+              gap: 8,
+            }}
+            x
+          >
+            <Button.Button
+              onClick={handleZoomIn}
+              size="small"
+              variant="outlined"
+              tooltip="Zoom In"
+            >
+              <Icon.Add />
+            </Button.Button>
+            <Button.Button
+              onClick={handleZoomOut}
+              size="small"
+              variant="outlined"
+              tooltip="Zoom Out"
+            >
+              <Icon.Subtract />
+            </Button.Button>
+            <Button.Button
+              onClick={handleResetZoom}
+              size="small"
+              variant="outlined"
+              tooltip="Fit to View"
+            >
+              <Icon.Expand />
+            </Button.Button>
+          </Flex.Box>
+        )}
+        <div
+          ref={svgWrapperRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "center",
+            transition: isDragging ? "none" : "transform 0.2s ease-out",
+            cursor: isDragging ? "grabbing" : "default",
+          }}
+        >
+          <div
+            ref={combinedContainerRef}
+            className={CSS.B("preview")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "center",
+          }}
+        >
+          <HandleOverlay
+            handles={spec.handles}
+            selectedHandle={selectedHandle}
+            svgBox={svgBox}
+            containerBox={containerSize}
+            onSelect={onHandleSelect}
+            onDrag={onHandlePlace}
+          />
+        </div>
+      </Flex.Box>
     </FileDrop>
   );
 };
