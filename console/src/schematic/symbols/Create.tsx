@@ -17,7 +17,7 @@ import {
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
 import { color, id } from "@synnaxlabs/x";
-import { type ReactElement, useRef } from "react";
+import { type ReactElement, useRef, useState, useEffect } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -198,12 +198,111 @@ const RegionList = ({
   );
 };
 
+interface HandleListProps extends Input.Control<string> {
+  onAddHandle: () => void;
+}
+
+interface HandleListItemProps extends List.ItemRenderProps<string> {}
+
+const HandleListItem = ({ itemKey }: HandleListItemProps) => {
+  const path = `data.handles.${itemKey}`;
+  const handle = Form.useFieldValue<{ key: string; position: { x: number; y: number } }>(path);
+  const { remove } = Form.useFieldListUtils<string, { key: string; position: { x: number; y: number } }>(
+    "data.handles",
+  );
+  const { onSelect } = Select.useItemState(itemKey);
+
+  if (handle == null) return null;
+
+  return (
+    <Select.ListItem itemKey={itemKey} index={0} key={itemKey} onSelect={onSelect}>
+      <Flex.Box x align="center" gap={2} justify="between" style={{ width: "100%" }}>
+        <Flex.Box x align="center" gap={1}>
+          <Text.Text level="small" weight={500}>
+            Handle {itemKey.slice(-4)}
+          </Text.Text>
+          <Text.Text level="small" color={7}>
+            ({Math.round(handle?.position?.x || 0)},{" "}
+            {Math.round(handle?.position?.y || 0)})
+          </Text.Text>
+        </Flex.Box>
+        <Button.Button onClick={() => remove(itemKey)} size="small" variant="text">
+          <Icon.Close />
+        </Button.Button>
+      </Flex.Box>
+    </Select.ListItem>
+  );
+};
+
+const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) => {
+  const { data } = Form.useFieldList<string, { key: string; position: { x: number; y: number } }>("data.handles");
+
+  return (
+    <Flex.Box y gap={1} style={{ width: 300 }}>
+      <Flex.Box x align="center" justify="between">
+        <Text.Text level="p" weight={500}>
+          Handles
+        </Text.Text>
+        <Button.Button onClick={onAddHandle} size="small" variant="outlined">
+          <Icon.Add />
+        </Button.Button>
+      </Flex.Box>
+      <Select.Frame
+        value={value}
+        onChange={onChange}
+        data={data}
+        closeDialogOnSelect={false}
+      >
+        <List.Items<string> y gap={1}>
+          {({ key, index }) => <HandleListItem key={key} itemKey={key} index={index} />}
+        </List.Items>
+      </Select.Frame>
+    </Flex.Box>
+  );
+};
+
 interface PreviewProps {
   selectedState: string;
   selectedRegion: string;
+  selectedHandle: string;
   onElementClick: (selector: string) => void;
   onContentsChange: (contents: string) => void;
+  onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
 }
+
+interface SVGDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const parseSVGDimensions = (svgString: string): SVGDimensions => {
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+  const svgElement = svgDoc.documentElement;
+
+  // Get viewBox or fallback to width/height attributes
+  const viewBox = svgElement.getAttribute("viewBox");
+  if (viewBox) {
+    const [x, y, width, height] = viewBox.split(" ").map(Number);
+    return { x, y, width, height };
+  }
+
+  // Fallback to width/height attributes
+  const width = parseFloat(svgElement.getAttribute("width") || "100");
+  const height = parseFloat(svgElement.getAttribute("height") || "100");
+  return { x: 0, y: 0, width, height };
+};
+
+const convertToPercentage = (
+  svgPos: { x: number; y: number },
+  svgDimensions: SVGDimensions,
+) => ({
+  left: ((svgPos.x - svgDimensions.x) / svgDimensions.width) * 100,
+  top: ((svgPos.y - svgDimensions.y) / svgDimensions.height) * 100,
+});
+
 
 const preprocessSVG = (svgString: string): string => {
   const parser = new DOMParser();
@@ -230,6 +329,7 @@ const injectSVG = (
   svgContainer: HTMLDivElement,
   svgString: string,
   onElementClick: (selector: string) => void,
+  onHandlePlace?: (position: { x: number; y: number }) => void,
 ) => {
   const parser = new DOMParser();
   const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
@@ -297,17 +397,49 @@ const injectSVG = (
   };
 
   Array.from(svgElement.children).forEach(addInteractivity);
+
+  // Add handle placement click handler to the SVG container
+  if (onHandlePlace)
+    svgContainer.addEventListener("click", (e) => {
+      // Only handle clicks on the SVG background (not on SVG elements)
+      if (e.target === svgElement || e.target === svgContainer) {
+        const svgRect = svgElement.getBoundingClientRect();
+        const svgDimensions = parseSVGDimensions(svgString);
+
+        const x =
+          svgDimensions.x +
+          ((e.clientX - svgRect.left) / svgRect.width) * svgDimensions.width;
+        const y =
+          svgDimensions.y +
+          ((e.clientY - svgRect.top) / svgRect.height) * svgDimensions.height;
+
+        onHandlePlace({ x, y });
+      }
+    });
+
   svgContainer.appendChild(svgElement);
 };
 
 const Preview = ({
   selectedState,
   selectedRegion,
+  selectedHandle,
   onElementClick,
   onContentsChange,
+  onHandlePlace,
 }: PreviewProps): ReactElement | null => {
   const svgContainerRef = useRef<HTMLDivElement>(null);
+  const handleOverlayRef = useRef<HTMLDivElement>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
+  const [dragState, setDragState] = useState<{
+    handleKey: string | null;
+    isDragging: boolean;
+    startPos: { x: number; y: number };
+  }>({
+    handleKey: null,
+    isDragging: false,
+    startPos: { x: 0, y: 0 }
+  });
   const applyLivePreview = () => {
     if (!svgContainerRef.current || !spec) return;
 
@@ -362,16 +494,127 @@ const Preview = ({
 
   applyLivePreview();
 
+  const renderHandleOverlays = () => {
+    if (!spec?.svg || !spec?.handles || spec.handles.length === 0) {
+      console.log("Not rendering overlays:", { 
+        hasSvg: !!spec?.svg, 
+        hasHandles: !!spec?.handles, 
+        handleCount: spec?.handles?.length || 0 
+      });
+      return null;
+    }
+    
+    const svgDimensions = parseSVGDimensions(spec.svg);
+    console.log("Rendering handle overlays:", { 
+      handleCount: spec.handles.length, 
+      svgDimensions, 
+      selectedHandle 
+    });
+    
+    return spec.handles.map((handle) => {
+      // Get the actual SVG element to calculate its real position
+      const svgElement = svgContainerRef.current?.querySelector('svg');
+      if (!svgElement) return null;
+
+      const svgRect = svgElement.getBoundingClientRect();
+      const containerRect = svgContainerRef.current!.getBoundingClientRect();
+      
+      // Calculate position within the SVG coordinate space
+      const svgRelativeX = ((handle.position.x - svgDimensions.x) / svgDimensions.width);
+      const svgRelativeY = ((handle.position.y - svgDimensions.y) / svgDimensions.height);
+      
+      // Position relative to the container, accounting for the centered SVG
+      const left = ((svgRect.left - containerRect.left) / containerRect.width * 100) + 
+                   (svgRelativeX * svgRect.width / containerRect.width * 100);
+      const top = ((svgRect.top - containerRect.top) / containerRect.height * 100) + 
+                  (svgRelativeY * svgRect.height / containerRect.height * 100);
+      
+      const isSelected = selectedHandle === handle.key;
+      
+      console.log(`Handle ${handle.key}:`, { 
+        position: handle.position,
+        svgDimensions,
+        svgRect: {w: svgRect.width, h: svgRect.height, l: svgRect.left, t: svgRect.top},
+        containerRect: {w: containerRect.width, h: containerRect.height, l: containerRect.left, t: containerRect.top},
+        svgRelativeX,
+        svgRelativeY,
+        left,
+        top,
+        isSelected 
+      });
+      
+      const isDragging = dragState.isDragging && dragState.handleKey === handle.key;
+
+      return (
+        <div
+          key={handle.key}
+          style={{
+            position: "absolute",
+            left: `${left}%`,
+            top: `${top}%`,
+            transform: "translate(-50%, -50%)",
+            width: "12px",
+            height: "12px",
+            borderRadius: "50%",
+            backgroundColor: isSelected ? "#6366f1" : "#6b7280",
+            border: "2px solid white",
+            cursor: isDragging ? "grabbing" : "grab",
+            zIndex: 1000,
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            pointerEvents: "auto",
+            opacity: isDragging ? 0.8 : 1,
+            transition: isDragging ? "none" : "opacity 0.2s ease",
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Starting drag for handle:", handle.key);
+            setDragState({
+              handleKey: handle.key,
+              isDragging: true,
+              startPos: { x: e.clientX, y: e.clientY }
+            });
+            setSelectedHandle(handle.key);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!dragState.isDragging) {
+              console.log("Handle clicked:", handle.key);
+              setSelectedHandle(handle.key);
+            }
+          }}
+        />
+      );
+    });
+  };
+
   const handleContentsChange = (contents: string) => {
     // Preprocess the SVG to add data-region-id attributes
     const processedSVG = preprocessSVG(contents);
 
-    if (svgContainerRef.current != null)
-      injectSVG(svgContainerRef.current, processedSVG, onElementClick);
+    if (svgContainerRef.current != null) {
+      const handlePlaceCallback = selectedHandle 
+        ? (position: { x: number; y: number }) => onHandlePlace(selectedHandle, position)
+        : undefined;
+      injectSVG(svgContainerRef.current, processedSVG, onElementClick, handlePlaceCallback);
+    }
 
     // Save the preprocessed SVG to the form
     onContentsChange(processedSVG);
   };
+
+  // Re-inject SVG when handle selection changes
+  useEffect(() => {
+    if (svgContainerRef.current != null && spec?.svg) {
+      const handlePlaceCallback = selectedHandle 
+        ? (position: { x: number; y: number }) => onHandlePlace(selectedHandle, position)
+        : undefined;
+      injectSVG(svgContainerRef.current, spec.svg, onElementClick, handlePlaceCallback);
+    }
+  }, [selectedHandle]);
+
+  // Switch to handle mode when a handle is selected
+  const effectivePlacementMode = selectedHandle ? 'handle' : 'region';
 
   return (
     <FileDrop
@@ -379,11 +622,79 @@ const Preview = ({
       grow={1}
       enabled={spec.svg.length == 0}
     >
-      <div
-        ref={svgContainerRef}
-        className={CSS.B("preview")}
-        style={{ display: "block" }}
-      />
+      <div 
+        style={{ position: "relative", width: "100%", height: "100%" }}
+        onMouseMove={(e) => {
+          if (!dragState.isDragging || !dragState.handleKey) return;
+          
+          const svgElement = svgContainerRef.current?.querySelector('svg');
+          if (!svgElement) return;
+          
+          const svgRect = svgElement.getBoundingClientRect();
+          const svgDimensions = parseSVGDimensions(spec.svg);
+          
+          // Convert mouse position to SVG coordinates
+          const x = svgDimensions.x + ((e.clientX - svgRect.left) / svgRect.width) * svgDimensions.width;
+          const y = svgDimensions.y + ((e.clientY - svgRect.top) / svgRect.height) * svgDimensions.height;
+          
+          console.log("Dragging handle to:", { x, y });
+          
+          // Update handle position immediately
+          onHandlePlace(dragState.handleKey, { x, y });
+        }}
+        onMouseUp={() => {
+          if (dragState.isDragging) {
+            console.log("Ending drag for handle:", dragState.handleKey);
+            setDragState({ handleKey: null, isDragging: false, startPos: { x: 0, y: 0 } });
+          }
+        }}
+        onMouseLeave={() => {
+          // End drag if mouse leaves the container
+          if (dragState.isDragging) {
+            console.log("Mouse left container, ending drag");
+            setDragState({ handleKey: null, isDragging: false, startPos: { x: 0, y: 0 } });
+          }
+        }}
+      >
+        <div
+          ref={svgContainerRef}
+          className={CSS.B("preview")}
+          style={{ 
+            width: "100%", 
+            height: "100%", 
+            minHeight: "400px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        />
+        <div 
+          ref={handleOverlayRef} 
+          style={{ 
+            position: "absolute", 
+            inset: 0, 
+            pointerEvents: "none",
+            zIndex: 999
+          }}
+        >
+          {renderHandleOverlays()}
+        </div>
+        {effectivePlacementMode === 'handle' && selectedHandle && (
+          <div style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            padding: "4px 8px",
+            backgroundColor: "var(--pluto-primary-500)",
+            color: "white",
+            borderRadius: 4,
+            fontSize: "12px",
+            zIndex: 20
+          }}>
+            Click to place handle
+          </div>
+        )}
+      </div>
     </FileDrop>
   );
 };
@@ -422,6 +733,7 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
     useCombinedStateAndRef<string>("base");
   const [selectedRegion, setSelectedRegion, selectedRegionRef] =
     useCombinedStateAndRef<string>("");
+  const [selectedHandle, setSelectedHandle] = useState<string>("");
 
   const addNewRegion = () => {
     const currentState = form.get<schematic.symbol.State>(
@@ -440,6 +752,30 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
       newRegion,
     ]);
     setSelectedRegion(newRegion.key);
+  };
+
+  const addNewHandle = () => {
+    const currentHandles = form.get<{ key: string; position: { x: number; y: number } }[]>("data.handles").value;
+    const newHandle: { key: string; position: { x: number; y: number } } = {
+      key: `handle-${id.create()}`,
+      position: { x: 50, y: 50 }, // Default center position
+    };
+
+    form.set("data.handles", [...currentHandles, newHandle]);
+    setSelectedHandle(newHandle.key);
+    // Clear region selection when switching to handle mode
+    setSelectedRegion("");
+  };
+
+  const handleHandlePlace = (handleKey: string, position: { x: number; y: number }) => {
+    const currentHandles = form.get<{ key: string; position: { x: number; y: number } }[]>("data.handles").value;
+    const handleIndex = currentHandles.findIndex(h => h.key === handleKey);
+    
+    if (handleIndex !== -1) {
+      const updatedHandles = [...currentHandles];
+      updatedHandles[handleIndex] = { ...updatedHandles[handleIndex], position };
+      form.set("data.handles", updatedHandles);
+    }
   };
 
   const handleElementClick = (selector: string) => {
@@ -495,9 +831,25 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
             )}
             <RegionList
               value={selectedRegion}
-              onChange={setSelectedRegion}
+              onChange={(value) => {
+                setSelectedRegion(value);
+                if (value) setSelectedHandle(""); // Clear handle selection when region is selected
+              }}
               selectedState={selectedState}
               onAddRegion={addNewRegion}
+            />
+            {selectedHandle && (
+              <Text.Text level="small" color={7}>
+                Click on the SVG to place the selected handle
+              </Text.Text>
+            )}
+            <HandleList
+              value={selectedHandle}
+              onChange={(value) => {
+                setSelectedHandle(value);
+                if (value) setSelectedRegion(""); // Clear region selection when handle is selected
+              }}
+              onAddHandle={addNewHandle}
             />
           </Flex.Box>
           <Form.Field<string> path="data.svg" showLabel={false} showHelpText={false}>
@@ -505,8 +857,10 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
               <Preview
                 selectedState={selectedState}
                 selectedRegion={selectedRegion}
+                selectedHandle={selectedHandle}
                 onElementClick={handleElementClick}
                 onContentsChange={onChange}
+                onHandlePlace={handleHandlePlace}
               />
             )}
           </Form.Field>
