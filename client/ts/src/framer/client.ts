@@ -30,18 +30,6 @@ export const ontologyID = (key: channel.Key): ontology.ID => ({
   key: key.toString(),
 });
 
-const normalizeConfig = <T extends { channels: channel.Params }>(
-  config: T | channel.Params,
-): T => {
-  if (
-    Array.isArray(config) ||
-    typeof config !== "object" ||
-    (typeof config === "object" && "key" in config)
-  )
-    return { channels: config } as T;
-  return config;
-};
-
 export class Client {
   private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
@@ -80,24 +68,9 @@ export class Client {
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
    */
-  async openWriter(config: WriterConfig | channel.Params): Promise<Writer> {
-    return await Writer._open(
-      this.retriever,
-      this.streamClient,
-      normalizeConfig<WriterConfig>(config),
-    );
+  async openWriter(config: WriterConfig): Promise<Writer> {
+    return await Writer._open(this.retriever, this.streamClient, config);
   }
-
-  /***
-   * Opens a new streamer on the given channels.
-   *
-   * @param channels - A key, name, list of keys, or list of names of the channels to
-   * stream values from.
-   * @throws a QueryError if any of the given channels do not exist.
-   * @returns a new {@link Streamer} that must be closed when done streaming, otherwise
-   * a network socket will remain open.
-   */
-  async openStreamer(channels: channel.Params): Promise<Streamer>;
 
   /**
    * Opens a new streamer with the provided configuration.
@@ -110,17 +83,8 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: StreamerConfig): Promise<Streamer>;
-
-  /** Overload to provide interface compatibility with @see StreamOpener */
-  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
-
-  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
-    return await openStreamer(
-      this.retriever,
-      this.streamClient,
-      normalizeConfig<StreamerConfig>(config),
-    );
+  async openStreamer(config: StreamerConfig): Promise<Streamer> {
+    return await openStreamer(this.retriever, this.streamClient, config);
   }
 
   async write(

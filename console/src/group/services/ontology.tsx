@@ -78,14 +78,19 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, selection, state: { nodes } }) => {
       if (selection.parentID == null) return;
+      const resourceIDStrings = new Set(
+        selection.resourceIDs.map((id) => ontology.idToString(id)),
+      );
       for (const id of selection.resourceIDs) {
         const children =
           Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
         const parentID = selection.parentID;
-        const childKeys = ontology.parseIDs(children.map(({ key }) => key));
+        const childKeys = ontology.parseIDs(
+          children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
+        );
         await client.ontology.moveChildren(id, parentID, ...childKeys);
-        await client.ontology.groups.delete(id.key);
       }
+      await client.ontology.groups.delete(...selection.resourceIDs.map((id) => id.key));
     },
     onError: async (
       e,
@@ -108,10 +113,12 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     if (selection.parentID == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resourceIDs.sort(
-      (a, b) => Tree.getDepth(a.key, shape) - Tree.getDepth(b.key, shape),
+      (a, b) =>
+        Tree.getDepth(ontology.idToString(a), shape) -
+        Tree.getDepth(ontology.idToString(b), shape),
     );
     const prevNodes = Tree.deepCopy(nodes);
-    setNodes([
+    const nextNodes = [
       ...selection.resourceIDs.reduce(
         (acc, id) => {
           const key = ontology.idToString(id);
@@ -128,7 +135,8 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         },
         [...nodes],
       ),
-    ]);
+    ];
+    setNodes(nextNodes);
     mut.mutate({ ...props, state: { ...props.state, nodes: prevNodes } });
   };
 };

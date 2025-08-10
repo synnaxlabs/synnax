@@ -87,7 +87,7 @@ describe("Streamer", () => {
   let mockHardenedStreamer: MockHardenedStreamer;
 
   beforeEach(() => {
-    streamer = new Streamer(mockHandleError);
+    streamer = new Streamer({ handleError: mockHandleError });
     mockHardenedStreamer = new MockHardenedStreamer([]);
     mockStreamOpener = vi.fn().mockResolvedValue(mockHardenedStreamer);
   });
@@ -113,6 +113,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: false,
       });
       await expect.poll(() => onOpen.mock.calls.length > 0).toBe(true);
     });
@@ -142,6 +143,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channel1, channel2],
         downsampleFactor: 1,
+        useExperimentalCodec: false,
       });
     });
 
@@ -155,6 +157,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: false,
       });
     });
   });
@@ -173,6 +176,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: false,
       });
     });
 
@@ -277,5 +281,37 @@ describe("Streamer", () => {
       expect(handler1).toHaveBeenCalledWith(mockFrame);
       expect(handler2).not.toHaveBeenCalled();
     });
+  });
+
+  describe("removal delay", () => {
+    it("should remove handler immediately when no delay is configured", async () => {
+      const handler: FrameHandler = vi.fn();
+      const channelName = `test_channel_${id.create()}`;
+      const cleanup = streamer.addListener(handler, channelName);
+      await streamer.updateStreamer(mockStreamOpener);
+      cleanup();
+      await expect
+        .poll(() => mockHardenedStreamer.closeVi.mock.calls.length > 0, {
+          timeout: 500,
+        })
+        .toBe(true);
+    });
+  });
+
+  it("should remove handler after delay when delay is configured", async () => {
+    const handler: FrameHandler = vi.fn();
+    const channelName = `test_channel_${id.create()}`;
+    streamer = new Streamer({ handleError: mockHandleError, removalDelay: 100 });
+    const cleanup = streamer.addListener(handler, channelName);
+    await streamer.updateStreamer(mockStreamOpener);
+    cleanup();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(mockHardenedStreamer.closeVi).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await expect
+      .poll(() => mockHardenedStreamer.closeVi.mock.calls.length > 0, {
+        timeout: 500,
+      })
+      .toBe(true);
   });
 });

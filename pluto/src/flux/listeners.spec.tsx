@@ -125,6 +125,7 @@ describe("flux listeners", () => {
             openStreamer();
             throw new Error("should not be called");
           }}
+          streamerRemovalDelay={0}
         />,
       );
       expect(openStreamer).not.toHaveBeenCalled();
@@ -143,6 +144,7 @@ describe("flux listeners", () => {
               openStreamer();
               return streamer;
             }}
+            streamerRemovalDelay={0}
           >
             {children}
           </Flux.Provider>
@@ -174,6 +176,7 @@ describe("flux listeners", () => {
               openStreamer();
               return streamer;
             }}
+            streamerRemovalDelay={0}
           >
             {children}
           </Flux.Provider>
@@ -205,7 +208,9 @@ describe("flux listeners", () => {
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
       const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Flux.Provider openStreamer={openStreamer}>{children}</Flux.Provider>
+          <Flux.Provider openStreamer={openStreamer} streamerRemovalDelay={0}>
+            {children}
+          </Flux.Provider>
         ),
       });
       const addListener = result.current;
@@ -243,7 +248,9 @@ describe("flux listeners", () => {
       const openStreamer = vi.fn().mockResolvedValue(mockStreamer);
       const { result } = renderHook(() => Flux.useAddListener(), {
         wrapper: ({ children }) => (
-          <Flux.Provider openStreamer={openStreamer}>{children}</Flux.Provider>
+          <Flux.Provider openStreamer={openStreamer} streamerRemovalDelay={0}>
+            {children}
+          </Flux.Provider>
         ),
       });
       const addListener = result.current;

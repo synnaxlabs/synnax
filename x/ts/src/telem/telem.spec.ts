@@ -109,6 +109,78 @@ describe("TimeStamp", () => {
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });
 
+  describe("schema", () => {
+    it("should parse bigint", () => {
+      const ts = TimeStamp.z.parse(1000000000n);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(1000000000n);
+    });
+
+    it("should parse Date object", () => {
+      const date = new Date("2024-01-15T10:30:00.000Z");
+      const ts = TimeStamp.z.parse(date);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(BigInt(date.getTime()) * 1000000n);
+    });
+
+    it("should parse TimeSpan", () => {
+      const span = new TimeSpan(5000000000n);
+      const ts = TimeStamp.z.parse(span);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(5000000000n);
+    });
+
+    it("should parse DateComponents array", () => {
+      const ts = TimeStamp.z.parse([2024, 3, 15]);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      const expected = new TimeStamp([2024, 3, 15]);
+      expect(ts.valueOf()).toBe(expected.valueOf());
+    });
+
+    it("should parse DateComponents with missing elements", () => {
+      const ts1 = TimeStamp.z.parse([2024]);
+      expect(ts1).toBeInstanceOf(TimeStamp);
+      expect(ts1.valueOf()).toBe(new TimeStamp([2024, 1, 1]).valueOf());
+
+      const ts2 = TimeStamp.z.parse([2024, 6]);
+      expect(ts2).toBeInstanceOf(TimeStamp);
+      expect(ts2.valueOf()).toBe(new TimeStamp([2024, 6, 1]).valueOf());
+    });
+
+    it("should parse string representation of bigint", () => {
+      const ts = TimeStamp.z.parse("123456789000");
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(123456789000n);
+    });
+
+    it("should parse number", () => {
+      const ts = TimeStamp.z.parse(987654321);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(987654321n);
+    });
+
+    it("should parse object with value property", () => {
+      const ts = TimeStamp.z.parse({ value: 555555555n });
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(555555555n);
+    });
+
+    it("should pass through existing TimeStamp instance", () => {
+      const original = new TimeStamp(777777777n);
+      const ts = TimeStamp.z.parse(original);
+      expect(ts).toBe(original);
+      expect(ts.valueOf()).toBe(777777777n);
+    });
+
+    it("should handle edge cases", () => {
+      const ts1 = TimeStamp.z.parse(0);
+      expect(ts1.valueOf()).toBe(0n);
+
+      const ts2 = TimeStamp.z.parse(Number.MAX_SAFE_INTEGER);
+      expect(ts2.valueOf()).toBe(BigInt(Number.MAX_SAFE_INTEGER));
+    });
+  });
+
   test("span", () => {
     const ts = new TimeStamp(0);
     expect(ts.span(new TimeStamp(1000)).equals(TimeSpan.microseconds())).toBe(true);

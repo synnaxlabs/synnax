@@ -202,12 +202,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (id: ontology.ID) => {
+    (id: ontology.ID) =>
       handleError(async () => {
         if (client == null) return;
         resourceStore.setItem(await client.ontology.retrieve(id));
-      });
-    },
+      }),
     [client, handleError, resourceStore.setItem],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
