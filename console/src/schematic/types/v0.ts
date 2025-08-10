@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, control, Diagram, Schematic, Viewport } from "@synnaxlabs/pluto";
+import {
+  type Control,
+  control,
+  Diagram,
+  Schematic,
+  Value,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { color, type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -44,8 +51,7 @@ export const stateZ = z.object({
     .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ).transform((p) => {
     for (const key in p)
-      if (p[key].key === "value")
-        p[key].redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };
+      if (p[key].key === "value") p[key].redline = Value.ZERO_READLINE;
     return p;
   }),
   control: control.statusZ,

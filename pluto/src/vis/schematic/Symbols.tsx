@@ -724,7 +724,7 @@ export interface ValueProps
   color?: color.Crude;
   textColor?: color.Crude;
   tooltip?: string[];
-  redline: CoreValue.Redline;
+  redline?: CoreValue.Redline;
 }
 
 export const Value = ({
@@ -741,12 +741,13 @@ export const Value = ({
   selected,
   draggable,
   notation,
-  redline: { bounds, gradient } = { bounds: { lower: 0, upper: 1 }, gradient: [] },
+  redline,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
   const backgroundTelem = useMemo(() => {
-    if (t == null) return undefined;
+    if (t == null || redline == null) return undefined;
+    const { bounds, gradient } = redline;
     return telem.sourcePipeline("color", {
       connections: [
         { from: "source", to: "scale" },
@@ -761,7 +762,7 @@ export const Value = ({
       },
       outlet: "gradient",
     });
-  }, [t, bounds, gradient]);
+  }, [t, redline]);
   const { width: oWidth } = CoreValue.use({
     aetherKey: symbolKey,
     color: textColor,

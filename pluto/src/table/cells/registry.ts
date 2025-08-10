@@ -21,6 +21,7 @@ import {
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
+import { Value as CoreValue } from "@/vis/value";
 
 const VARIANTS = ["text", "value"] as const;
 
@@ -54,7 +55,7 @@ const value: Spec<typeof valuePropsZ> = {
       },
       outlet: "stringifier",
     }),
-    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
+    redline: CoreValue.ZERO_READLINE,
     color: color.hex(t.colors.gray.l10),
     level: "h5",
     units: "",

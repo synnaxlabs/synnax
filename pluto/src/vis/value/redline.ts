@@ -12,3 +12,4 @@ import { z } from "zod";
 
 export const redlineZ = z.object({ bounds: bounds.bounds, gradient: color.gradientZ });
 export type Redline = z.infer<typeof redlineZ>;
+export const ZERO_READLINE: Redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };

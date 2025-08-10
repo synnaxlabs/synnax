@@ -236,6 +236,7 @@ import {
   Vent,
   type VentProps,
 } from "@/vis/schematic/Symbols";
+import { Value as CoreValue } from "@/vis/value";
 
 export interface Spec<P extends object = object> {
   key: Variant;
@@ -1013,7 +1014,7 @@ const value: Spec<ValueProps> = {
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
-    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
+    redline: CoreValue.ZERO_READLINE,
   }),
   zIndex: Z_INDEX_UPPER,
 };
