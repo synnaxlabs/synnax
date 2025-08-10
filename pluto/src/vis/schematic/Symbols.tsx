@@ -9,11 +9,20 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement } from "react";
+import {
+  box,
+  type color,
+  direction,
+  location,
+  type record,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
+import { type CSSProperties, type FC, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -725,17 +734,34 @@ export const Value = ({
   position,
   textColor,
   color,
-  telem,
+  telem: t,
   units,
   onChange,
   inlineSize = 70,
   selected,
   draggable,
   notation,
+  redline: { bounds, gradient } = { bounds: { lower: 0, upper: 1 }, gradient: [] },
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
-
+  const backgroundTelem = useMemo(() => {
+    if (t == null) return undefined;
+    return telem.sourcePipeline("color", {
+      connections: [
+        { from: "source", to: "scale" },
+        { from: "scale", to: "gradient" },
+      ],
+      segments: {
+        source: t,
+        scale: telem.scaleNumber({
+          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
+        }),
+        gradient: telem.colorGradient({ gradient }),
+      },
+      outlet: "gradient",
+    });
+  }, [t, bounds, gradient]);
   const { width: oWidth } = CoreValue.use({
     aetherKey: symbolKey,
     color: textColor,
@@ -744,7 +770,8 @@ export const Value = ({
       height: valueBoxHeight,
       width: inlineSize,
     }),
-    telem,
+    telem: t,
+    backgroundTelem,
     minWidth: inlineSize,
     notation,
   });
