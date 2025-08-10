@@ -114,7 +114,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
             const data = await httpRes.arrayBuffer();
             res = this.decoder.decode<RS>(data, resSchema);
           } else res = httpRes;
-
           return [outCtx, null];
         }
         const data = await httpRes.arrayBuffer();
