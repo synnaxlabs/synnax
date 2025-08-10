@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x";
+import { location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const keyZ = z.uuid();
@@ -36,6 +36,7 @@ export interface State extends z.infer<typeof stateZ> {}
 export const handleZ = z.object({
   key: z.string(),
   position: xy.xy,
+  orientation: location.outer,
 });
 
 export interface Handle extends z.infer<typeof handleZ> {}

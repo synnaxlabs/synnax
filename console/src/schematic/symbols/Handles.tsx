@@ -9,23 +9,13 @@ export interface HandleProps {
   handle: schematic.symbol.Handle;
   selectedHandle: string | undefined;
   svgBox: box.Box;
-  containerBox: box.Box;
   onSelect: (handleKey: string) => void;
   onDrag: (handleKey: string, position: xy.XY) => void;
 }
 
-const Handle = ({
-  handle,
-  selectedHandle,
-  svgBox,
-  containerBox,
-  onSelect,
-  onDrag,
-}: HandleProps) => {
+const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProps) => {
   const pos = scale.XY.scale(box.reRoot(box.DECIMAL, location.TOP_LEFT))
     .scale(box.construct(xy.ZERO, box.dims(svgBox)))
-    .translate(xy.translation(box.topLeft(containerBox), box.topLeft(svgBox)))
-    .reBound(box.construct(xy.ZERO, box.dims(containerBox)))
     .scale(box.reRoot(box.DECIMAL, location.TOP_LEFT))
     .magnify({ x: 100, y: 100 })
     .pos(handle.position);
@@ -36,11 +26,13 @@ const Handle = ({
     onMove: (b) => {
       const box1 = box.construct(xy.ZERO, box.dims(svgBox));
       const box2 = box.reRoot(box.DECIMAL, location.TOP_LEFT);
+      console.log(box.dims(b), box.dims(svgBox));
       const nextPos = scale.XY.scale(box1)
         .scale(box2)
         .translate(positionRef.current)
         .clamp(box2)
         .pos(xy.construct(box.signedDims(b)));
+      console.log(nextPos);
       onDrag(handle.key, nextPos);
     },
   });
@@ -81,7 +73,6 @@ export interface HandleOverlayProps {
   handles: schematic.symbol.Handle[];
   selectedHandle: string | undefined;
   svgBox: box.Box;
-  containerBox: box.Box;
   onSelect: (handleKey: string) => void;
   onDrag: (handleKey: string, position: xy.XY) => void;
 }
@@ -90,28 +81,19 @@ export const HandleOverlay = ({
   handles,
   selectedHandle,
   svgBox,
-  containerBox,
   onSelect,
   onDrag,
 }: HandleOverlayProps) => (
-  <div
-    style={{
-      position: "absolute",
-      inset: 0,
-      pointerEvents: "none",
-      zIndex: 999,
-    }}
-  >
+  <>
     {handles.map((handle) => (
       <Handle
         key={handle.key}
         handle={handle}
         selectedHandle={selectedHandle}
         svgBox={svgBox}
-        containerBox={containerBox}
         onSelect={onSelect}
         onDrag={onDrag}
       />
     ))}
-  </div>
+  </>
 );

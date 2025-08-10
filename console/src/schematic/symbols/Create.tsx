@@ -14,11 +14,10 @@ import {
   Select,
   Symbol,
   Text,
-  useCombinedRefs,
+  Theming,
   useCombinedStateAndRef,
-  useSize,
 } from "@synnaxlabs/pluto";
-import { box, color, id, xy } from "@synnaxlabs/x";
+import { box, color, id, location, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -217,6 +216,11 @@ const HandleListItem = (props: HandleListItemProps) => {
             ({Math.round(scaledPos.x)}%, {Math.round(scaledPos.y)}%)
           </Text.Text>
         </Flex.Box>
+        <Form.Field<location.Outer> path={`${path}.orientation`} showLabel={false}>
+          {({ onChange, value }) => (
+            <SelectHandleOrientation value={value} onChange={onChange} />
+          )}
+        </Form.Field>
         <Button.Button onClick={() => remove(itemKey)} size="small" variant="text">
           <Icon.Close />
         </Button.Button>
@@ -293,8 +297,6 @@ const Preview = ({
   const svgElementRef = useRef<SVGSVGElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
-  const [containerSizeRef, containerSize] = useSize();
-  const combinedContainerRef = useCombinedRefs(containerRef, containerSizeRef);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -439,7 +441,7 @@ const Preview = ({
 
     svgContainer.appendChild(svgElement);
 
-    setTimeout(() => fitToContainer(), 100);
+    // setTimeout(() => fitToContainer(), 100);
   };
 
   const applyLivePreview = () => {
@@ -576,57 +578,68 @@ const Preview = ({
             cursor: isDragging ? "grabbing" : "default",
           }}
         >
-          <div
-            ref={combinedContainerRef}
-            className={CSS.B("preview")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          />
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: "center",
-          }}
-        >
-          <HandleOverlay
-            handles={spec.handles}
-            selectedHandle={selectedHandle}
-            svgBox={svgBox}
-            containerBox={containerSize}
-            onSelect={onHandleSelect}
-            onDrag={onHandlePlace}
-          />
+          <div style={{ position: "relative" }}>
+            <HandleOverlay
+              handles={spec.handles}
+              selectedHandle={selectedHandle}
+              svgBox={svgBox}
+              onSelect={onHandleSelect}
+              onDrag={onHandlePlace}
+            />
+            <div
+              ref={containerRef}
+              className={CSS.B("preview")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            ></div>
+          </div>
         </div>
       </Flex.Box>
     </FileDrop>
   );
 };
 
-export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
+const SelectHandleOrientation = (
+  props: Omit<Select.ButtonsProps<location.Outer>, "keys">,
+) => (
+  <Select.Buttons keys={location.OUTER_LOCATIONS} size="small" {...props}>
+    <Select.Button itemKey="left" size="small">
+      <Icon.Arrow.Left />
+    </Select.Button>
+    <Select.Button itemKey="right" size="small">
+      <Icon.Arrow.Right />
+    </Select.Button>
+    <Select.Button itemKey="top" size="small">
+      <Icon.Arrow.Up />
+    </Select.Button>
+    <Select.Button itemKey="bottom" size="small">
+      <Icon.Arrow.Down />
+    </Select.Button>
+  </Select.Buttons>
+);
+
+export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const baseRegionID = `base-region-${id.create()}`;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
-      console.log("hasUnsavedChanges", hasUnsavedChanges);
       dispatch(
         Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
       );
     },
     [dispatch, layoutKey],
   );
+
+  const theme = Theming.use();
   const { form, save } = Symbol.useForm({
     params,
     onHasTouched: handleUnsavedChanges,
     initialValues: {
-      name: "New Symbol",
+      name: "",
       parent: ontology.ROOT_ID,
       data: {
         svg: "",
@@ -641,8 +654,8 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
                 key: baseRegionID,
                 name: "All Elements",
                 selectors: [],
-                strokeColor: color.hex("#000000"),
-                fillColor: color.hex("#000000"),
+                strokeColor: color.hex(theme.colors.gray.l10),
+                fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
               },
             ],
             color: "#000000",
@@ -650,6 +663,7 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
         ],
       },
     },
+    afterSave: () => onClose(),
   });
   const [selectedState, setSelectedState, selectedStateRef] =
     useCombinedStateAndRef<string>("base");
@@ -666,8 +680,8 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
       key: `reg-${id.create()}`,
       name: `Region ${currentState.regions.length + 1}`,
       selectors: [],
-      strokeColor: color.hex("#000000"),
-      fillColor: color.hex("#000000"),
+      strokeColor: color.hex(theme.colors.gray.l10),
+      fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
     };
 
     form.set(`data.states.${selectedStateRef.current}.regions`, [
@@ -678,23 +692,18 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
   };
 
   const addNewHandle = () => {
-    const currentHandles =
-      form.get<{ key: string; position: { x: number; y: number } }[]>(
-        "data.handles",
-      ).value;
-    const newHandle: { key: string; position: { x: number; y: number } } = {
+    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
+    const newHandle: schematic.symbol.Handle = {
       key: `handle-${id.create()}`,
       position: { x: 0.5, y: 0.5 },
+      orientation: "left",
     };
     form.set("data.handles", [...currentHandles, newHandle]);
     setSelectedHandle(newHandle.key);
   };
 
-  const handleHandlePlace = (handleKey: string, position: { x: number; y: number }) => {
-    const currentHandles =
-      form.get<{ key: string; position: { x: number; y: number } }[]>(
-        "data.handles",
-      ).value;
+  const handleHandlePlace = (handleKey: string, position: xy.XY) => {
+    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
     const handleIndex = currentHandles.findIndex((h) => h.key === handleKey);
 
     if (handleIndex !== -1) {
@@ -721,48 +730,58 @@ export const Create: Layout.Renderer = ({ layoutKey }): ReactElement => {
   return (
     <Form.Form<typeof Symbol.formSchema> {...form}>
       <Flex.Box className={CSS.BE("schematic", "symbol-create-layout")} empty full y>
-        <Flex.Box className="console-form" grow full x>
-          {hasSVG && (
-            <Flex.Box y gap={2}>
-              <Flex.Box y bordered rounded={1} background={1} grow>
-                <Flex.Box y style={{ padding: "2rem" }}>
-                  <SelectVariantField />
-                  <StateList value={selectedState} onChange={setSelectedState} />
+        <Flex.Box className="console-form" grow full y>
+          <Form.TextField
+            path="name"
+            inputProps={{
+              placeholder: "Symbol Name",
+              variant: "text",
+              level: "h4",
+            }}
+          />
+          <Flex.Box x grow>
+            {hasSVG && (
+              <Flex.Box y gap={2}>
+                <Flex.Box y bordered rounded={1} background={1} grow>
+                  <Flex.Box y style={{ padding: "2rem" }}>
+                    <SelectVariantField />
+                    <StateList value={selectedState} onChange={setSelectedState} />
+                  </Flex.Box>
+                  <RegionList
+                    value={selectedRegion}
+                    onChange={(value) => {
+                      setSelectedRegion(value);
+                      setSelectedHandle(undefined);
+                    }}
+                    selectedState={selectedState}
+                    onAddRegion={addNewRegion}
+                  />
                 </Flex.Box>
-                <RegionList
-                  value={selectedRegion}
-                  onChange={(value) => {
-                    setSelectedRegion(value);
-                    setSelectedHandle(undefined);
-                  }}
-                  selectedState={selectedState}
-                  onAddRegion={addNewRegion}
-                />
+                <Flex.Box y grow rounded={1} background={1} bordered>
+                  <HandleList
+                    value={selectedHandle}
+                    onChange={(value) => {
+                      setSelectedHandle(value);
+                    }}
+                    onAddHandle={addNewHandle}
+                  />
+                </Flex.Box>
               </Flex.Box>
-              <Flex.Box y grow rounded={1} background={1} bordered>
-                <HandleList
-                  value={selectedHandle}
-                  onChange={(value) => {
-                    setSelectedHandle(value);
-                  }}
-                  onAddHandle={addNewHandle}
-                />
-              </Flex.Box>
-            </Flex.Box>
-          )}
-          <Form.Field<string> path="data.svg" showLabel={false} showHelpText={false}>
-            {({ onChange }) => (
-              <Preview
-                selectedState={selectedState}
-                selectedRegion={selectedRegion}
-                selectedHandle={selectedHandle}
-                onElementClick={handleElementClick}
-                onContentsChange={onChange}
-                onHandlePlace={handleHandlePlace}
-                onHandleSelect={setSelectedHandle}
-              />
             )}
-          </Form.Field>
+            <Form.Field<string> path="data.svg" showLabel={false} showHelpText={false}>
+              {({ onChange }) => (
+                <Preview
+                  selectedState={selectedState}
+                  selectedRegion={selectedRegion}
+                  selectedHandle={selectedHandle}
+                  onElementClick={handleElementClick}
+                  onContentsChange={onChange}
+                  onHandlePlace={handleHandlePlace}
+                  onHandleSelect={setSelectedHandle}
+                />
+              )}
+            </Form.Field>
+          </Flex.Box>
         </Flex.Box>
         <Modals.BottomNavBar>
           <Triggers.SaveHelpText action="Save to Synnax" />

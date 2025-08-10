@@ -16,6 +16,12 @@
 
     .console-form {
         padding: 2rem;
+        max-height: calc(100% - 14rem);
+        overflow: hidden;
+
+        & > div:last-child {
+            overflow: hidden;
+        }
     }
 
     .console-file-drop {

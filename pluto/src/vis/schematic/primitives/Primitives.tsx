@@ -596,6 +596,8 @@ export const RemoteActuator = ({
     }
   }
 
+  const handles = spec.data?.data?.handles || [];
+
   return (
     <Toggle
       ref={svgContainerRef}
@@ -610,7 +612,20 @@ export const RemoteActuator = ({
       triggered={triggered}
       onClick={console.log}
       {...rest}
-    />
+    >
+      <HandleBoundary orientation={orientation}>
+        {handles.map((handle) => (
+          <Handle
+            key={handle.key}
+            id={handle.key}
+            location={handle.orientation}
+            orientation={orientation}
+            left={handle.position.x * 100}
+            top={handle.position.y * 100}
+          />
+        ))}
+      </HandleBoundary>
+    </Toggle>
   );
 };
 
