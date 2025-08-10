@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/OrientationControl.css";
+import "@/vis/schematic/SelectOrientation.css";
 
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
@@ -41,22 +41,14 @@ export const SelectOrientation = ({
   const handleChange = (next: Partial<OrientationValue>) => () =>
     onChange({ ...value, ...next });
 
+  const className = CSS.B("select", "orientation");
   if (hideOuter)
     return (
-      <InternalOrientation
-        className={CSS.B("orientation-control")}
-        value={value}
-        onChange={onChange}
-      />
+      <InternalOrientation className={className} value={value} onChange={onChange} />
     );
 
   return (
-    <Flex.Box
-      className={CSS.B("orientation-control")}
-      align="center"
-      justify="center"
-      gap="tiny"
-    >
+    <Flex.Box className={className} align="center" justify="center" gap="tiny">
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Flex.Box x align="center" justify="center" gap="tiny">
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
@@ -160,6 +152,7 @@ export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElem
   <CoreButton.Button
     variant="text"
     className={CSS(className, CSS.selected(selected))}
+    size="tiny"
     {...rest}
   >
     <div className="symbol" />

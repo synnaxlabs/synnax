@@ -18,7 +18,7 @@ export const chipStatusDetailsZ = z
     authority: control.authorityZ.optional(),
     valid: z.boolean().optional(),
   })
-  .default({});
+  .default({ authority: undefined, valid: false });
 
 export type ChipStatusDetails = z.infer<typeof chipStatusDetailsZ>;
 
