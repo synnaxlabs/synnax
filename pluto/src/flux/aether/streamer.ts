@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, framer } from "@synnaxlabs/client";
-import { sync } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, debounce, sync, TimeSpan } from "@synnaxlabs/x";
 
 import { type FrameHandler } from "@/flux/aether/types";
 import { type Status } from "@/status";
@@ -28,16 +28,28 @@ const channelNameSort = (a: string, b: string) => {
   return 0;
 };
 
+export interface StreamerArgs {
+  handleError: Status.ErrorHandler;
+  removalDelay?: CrudeTimeSpan;
+}
+
 export class Streamer {
   private readonly handlers: Map<FrameHandler, channel.Name> = new Map();
   private readonly streamerMutex: sync.Mutex<MutexValue> = sync.newMutex({
     streamer: null,
   });
   private readonly handleError: Status.ErrorHandler;
+  private readonly debouncedRemoveHandler: (channel: channel.Name) => void;
   private openStreamer: framer.StreamOpener | null = null;
 
-  constructor(handleError: Status.ErrorHandler) {
+  constructor({ handleError, removalDelay = 0 }: StreamerArgs) {
     this.handleError = handleError;
+    this.debouncedRemoveHandler = debounce((channel: channel.Name) => {
+      this.handleError(
+        this.updateStreamer.bind(this),
+        `Failed to remove ${channel} from the Sync.Provider streamer`,
+      );
+    }, new TimeSpan(removalDelay).milliseconds);
   }
 
   private handleChange(frame: framer.Frame) {
@@ -100,10 +112,7 @@ export class Streamer {
       }, `Failed to add ${channel} to the Sync.Provider streamer`);
     return () => {
       this.handlers.delete(handler);
-      this.handleError(
-        this.updateStreamer.bind(this),
-        `Failed to remove ${channel} from the Sync.Provider streamer`,
-      );
+      this.debouncedRemoveHandler(channel);
     };
   }
 }

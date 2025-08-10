@@ -87,7 +87,7 @@ describe("Streamer", () => {
   let mockHardenedStreamer: MockHardenedStreamer;
 
   beforeEach(() => {
-    streamer = new Streamer(mockHandleError);
+    streamer = new Streamer({ handleError: mockHandleError });
     mockHardenedStreamer = new MockHardenedStreamer([]);
     mockStreamOpener = vi.fn().mockResolvedValue(mockHardenedStreamer);
   });
@@ -113,6 +113,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: true,
       });
       await expect.poll(() => onOpen.mock.calls.length > 0).toBe(true);
     });
@@ -142,6 +143,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channel1, channel2],
         downsampleFactor: 1,
+        useExperimentalCodec: true,
       });
     });
 
@@ -155,6 +157,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: true,
       });
     });
   });
@@ -173,6 +176,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
+        useExperimentalCodec: true,
       });
     });
 
