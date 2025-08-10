@@ -78,15 +78,15 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, selection, state: { nodes } }) => {
       if (selection.parentID == null) return;
-      const resourceIDStrings = selection.resourceIDs.map((id) =>
-        ontology.idToString(id),
+      const resourceIDStrings = new Set(
+        selection.resourceIDs.map((id) => ontology.idToString(id)),
       );
       for (const id of selection.resourceIDs) {
         const children =
           Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
         const parentID = selection.parentID;
         const childKeys = ontology.parseIDs(
-          children.map(({ key }) => key).filter((k) => !resourceIDStrings.includes(k)),
+          children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
         );
         await client.ontology.moveChildren(id, parentID, ...childKeys);
       }

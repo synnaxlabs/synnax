@@ -49,8 +49,8 @@ export const streamerConfigZ = intermediateStreamerConfigZ.or(
   paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
 );
 
-export type CrudeStreamerConfig = z.input<typeof streamerConfigZ>;
-export type StreamerConfig = z.output<typeof streamerConfigZ>;
+export type StreamerConfig = z.input<typeof streamerConfigZ>;
+type ParsedStreamerConfig = z.output<typeof streamerConfigZ>;
 
 /**
  * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
@@ -89,7 +89,7 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
  * A function that opens a streamer.
  */
 export interface StreamOpener {
-  (config: CrudeStreamerConfig): Promise<Streamer>;
+  (config: StreamerConfig): Promise<Streamer>;
 }
 
 /**
@@ -123,7 +123,7 @@ export const createStreamOpener =
 export const openStreamer = async (
   retriever: channel.Retriever,
   client: WebSocketClient,
-  config: CrudeStreamerConfig,
+  config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retriever, client)(config);
 
 class CoreStreamer implements Streamer {
@@ -182,11 +182,11 @@ export class HardenedStreamer implements Streamer {
   private wrapped_: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
-  private readonly config: StreamerConfig;
+  private readonly config: ParsedStreamerConfig;
 
   private constructor(
     opener: StreamOpener,
-    config: CrudeStreamerConfig,
+    config: StreamerConfig,
     breakerConfig: breaker.Config = {},
   ) {
     this.opener = opener;
@@ -207,7 +207,7 @@ export class HardenedStreamer implements Streamer {
    */
   static async open(
     opener: StreamOpener,
-    config: CrudeStreamerConfig,
+    config: StreamerConfig,
     breakerConfig?: breaker.Config,
   ): Promise<HardenedStreamer> {
     const h = new HardenedStreamer(opener, config, breakerConfig);

@@ -52,7 +52,7 @@ const writerModeZ = z.enum(WriterMode).or(
   }),
 );
 
-export type CrudeWriterMode = z.infer<typeof writerModeZ>;
+export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
   // start sets the starting timestamp for the first sample in the writer.
@@ -98,8 +98,7 @@ export const writerConfigZ = intermediateWriterConfigZ.or(
   ),
 );
 
-export type CrudeWriterConfig = z.input<typeof writerConfigZ>;
-export type WriterConfig = z.output<typeof writerConfigZ>;
+export type WriterConfig = z.input<typeof writerConfigZ>;
 
 const reqZ = z.object({
   command: z.enum(WriterCommand),
@@ -195,7 +194,7 @@ export class Writer {
   static async _open(
     retriever: channel.Retriever,
     client: WebSocketClient,
-    config: CrudeWriterConfig,
+    config: WriterConfig,
   ): Promise<Writer> {
     const cfg = writerConfigZ.parse(config);
     const adapter = await WriteAdapter.open(retriever, cfg.channels);

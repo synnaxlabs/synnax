@@ -112,9 +112,10 @@ export class WriteAdapter {
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
-    const hasChanged =
-      previousKeySet.size !== newKeySet.size ||
-      !newKeys.every((key) => previousKeySet.has(key));
+    const hasAddedKeys = !newKeySet.isSubsetOf(previousKeySet);
+    const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
+    const hasChanged = hasAddedKeys || hasRemovedKeys;
+    if (!hasChanged) return false;
     this.adapter = new Map<channel.Name, channel.Key>(
       results.map((c) => [c.name, c.key]),
     );
@@ -123,7 +124,7 @@ export class WriteAdapter {
       this.keys,
       results.map((c) => c.dataType),
     );
-    return hasChanged;
+    return true;
   }
 
   private async fetchChannel(

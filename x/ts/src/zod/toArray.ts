@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/zod/nullToUndefined";
-export * from "@/zod/toArray";
-export * from "@/zod/util";
+import z from "zod";
+
+export const toArray = <T extends z.ZodType>(schema: T) =>
+  z.array(schema).or(schema.transform((v) => [v]));

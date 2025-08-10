@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDataType, DataType, status } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
@@ -56,11 +56,8 @@ export const calculationStatusZ = status.statusZ();
 export type CalculationStatus = z.infer<typeof calculationStatusZ>;
 
 export const paramsZ = z.union([
-  keyZ.transform((k) => [k]),
-  nameZ.transform((n) => [n]),
-  payloadZ.transform((p) => [p.key]),
-  z.array(keyZ),
-  z.array(nameZ),
-  z.array(payloadZ).transform((p) => p.map((c) => c.key)),
+  zod.toArray(keyZ),
+  zod.toArray(nameZ),
+  zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
 export type Params = Key | Name | Keys | Names | Payload | Payload[];

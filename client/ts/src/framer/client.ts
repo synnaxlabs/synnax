@@ -21,12 +21,8 @@ import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
-import {
-  type CrudeStreamerConfig,
-  openStreamer,
-  type Streamer,
-} from "@/framer/streamer";
-import { type CrudeWriterConfig, Writer, WriterMode } from "@/framer/writer";
+import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
+import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { type ontology } from "@/ontology";
 
 export const ontologyID = (key: channel.Key): ontology.ID => ({
@@ -72,7 +68,7 @@ export class Client {
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
    */
-  async openWriter(config: CrudeWriterConfig): Promise<Writer> {
+  async openWriter(config: WriterConfig): Promise<Writer> {
     return await Writer._open(this.retriever, this.streamClient, config);
   }
 
@@ -87,9 +83,7 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: CrudeStreamerConfig): Promise<Streamer>;
-
-  async openStreamer(config: CrudeStreamerConfig): Promise<Streamer> {
+  async openStreamer(config: StreamerConfig): Promise<Streamer> {
     return await openStreamer(this.retriever, this.streamClient, config);
   }
 

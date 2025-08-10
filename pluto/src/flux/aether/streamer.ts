@@ -49,7 +49,7 @@ export class Streamer {
         this.updateStreamer.bind(this),
         `Failed to remove ${channel} from the Sync.Provider streamer`,
       );
-    }, new TimeSpan(removalDelay).milliseconds);
+    }, TimeSpan.fromMilliseconds(removalDelay).milliseconds);
   }
 
   private handleChange(frame: framer.Frame) {

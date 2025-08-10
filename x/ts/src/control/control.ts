@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { type bounds } from "@/spatial";
 
-export const authorityZ = z.number().int().min(0).max(255);
+export const authorityZ = z.int().min(0).max(255);
 export type Authority = z.infer<typeof authorityZ>;
 
 export const ABSOLUTE_AUTHORITY: Authority = 255;

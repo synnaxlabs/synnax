@@ -28,10 +28,10 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
-const dateComponentsZ = z.tuple([
-  z.number().optional(),
-  z.number().min(1).max(12).optional(),
-  z.number().min(1).max(31).optional(),
+const dateComponentsZ = z.union([
+  z.tuple([z.int()]),
+  z.tuple([z.int(), z.int().min(1).max(12)]),
+  z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
 ]);
 
 /**
@@ -650,6 +650,7 @@ export class TimeStamp
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(TimeStamp),
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.number().transform((n) => new TimeStamp(n)),
@@ -657,7 +658,6 @@ export class TimeStamp
     z.date().transform((d) => new TimeStamp(d)),
     z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
     dateComponentsZ.transform((v) => new TimeStamp(v)),
-    z.instanceof(TimeStamp),
   ]);
 
   /**
