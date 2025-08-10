@@ -1013,6 +1013,7 @@ const value: Spec<ValueProps> = {
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
+    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
   }),
   zIndex: Z_INDEX_UPPER,
 };

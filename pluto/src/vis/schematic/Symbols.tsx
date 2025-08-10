@@ -715,6 +715,7 @@ export interface ValueProps
   color?: color.Crude;
   textColor?: color.Crude;
   tooltip?: string[];
+  redline: CoreValue.Redline;
 }
 
 export const Value = ({
@@ -760,17 +761,12 @@ export const Value = ({
       allowRotate={false}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({
-          label: { ...label, orientation: loc },
-        } as Partial<ValueProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Value
         color={color}
-        dimensions={{
-          height: valueBoxHeight,
-          width: oWidth,
-        }}
+        dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={Text.downLevel(level)}

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/value/redline";
-export * from "@/vis/value/RedlineForm";
-export * from "@/vis/value/TelemForm";
-export * from "@/vis/value/use";
+import { bounds, color } from "@synnaxlabs/x";
+import { z } from "zod";
+
+export const redlineZ = z.object({ bounds: bounds.bounds, gradient: color.gradientZ });
+export type Redline = z.infer<typeof redlineZ>;
