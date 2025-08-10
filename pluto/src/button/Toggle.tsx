@@ -14,7 +14,7 @@ import { type Input } from "@/input";
 
 export interface ToggleProps
   extends Input.Control<boolean, boolean>,
-    Omit<ButtonProps, "value" | "onChange"> {
+    Omit<ButtonProps, "value" | "onChange" | "variant"> {
   checkedVariant?: ButtonProps["variant"];
   uncheckedVariant?: ButtonProps["variant"];
   rightClickToggle?: boolean;
@@ -26,7 +26,6 @@ export const Toggle = ({
   onChange,
   checkedVariant = "filled",
   uncheckedVariant,
-  variant,
   rightClickToggle = false,
   ...rest
 }: ToggleProps): ReactElement => (
@@ -42,7 +41,7 @@ export const Toggle = ({
       if (!rightClickToggle) return;
       onChange(!value);
     }}
-    variant={value ? checkedVariant : (uncheckedVariant ?? variant)}
+    variant={value ? checkedVariant : uncheckedVariant}
     {...rest}
   />
 );
