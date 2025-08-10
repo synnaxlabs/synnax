@@ -12,11 +12,11 @@ import { breaker, observe, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
+import { paramsZ } from "@/channel/payload";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
-import { payloadZ } from "@/ranger/payload";
 
 const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
@@ -36,17 +36,25 @@ export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const ENDPOINT = "/frame/stream";
 
-/**
- * Configuration options for creating a new streamer.
- */
-export interface StreamerConfig {
-  /** The channels to stream data from. Can be channel keys, names, or payloads. */
-  channels: channel.Params;
-  /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
-  downsampleFactor?: number;
-  /** Whether to use the experimental codec for streaming. Defaults to false. */
-  useExperimentalCodec?: boolean;
-}
+export const crudeStreamerConfig = z
+  .object({
+    /** The channels to stream data from. Can be channel keys, names, or payloads. */
+    channels: paramsZ,
+    /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
+    downsampleFactor: z.number().optional().default(1),
+    /** Whether to use the experimental codec for streaming. Defaults to true. */
+    useExperimentalCodec: z.boolean().optional().default(true),
+  })
+  .or(
+    paramsZ.transform((channels) => ({
+      channels,
+      downsampleFactor: 1,
+      useExperimentalCodec: true,
+    })),
+  );
+
+export type CrudeStreamerConfig = z.input<typeof crudeStreamerConfig>;
+export type StreamerConfig = z.output<typeof crudeStreamerConfig>;
 
 /**
  * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
@@ -85,32 +93,8 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
  * A function that opens a streamer.
  */
 export interface StreamOpener {
-  (config: StreamerConfig | channel.Params): Promise<Streamer>;
+  (config: CrudeStreamerConfig): Promise<Streamer>;
 }
-
-export const parseStreamerConfig = (
-  config: StreamerConfig | channel.Params,
-): StreamerConfig => {
-  if (Array.isArray(config)) {
-    if (typeof config[0] === "object")
-      return {
-        channels: (config as channel.Payload[]).map((c) => c.key),
-        downsampleFactor: 1,
-        useExperimentalCodec: true,
-      };
-    return { channels: config, downsampleFactor: 1, useExperimentalCodec: true };
-  }
-  const parsed = payloadZ.safeParse(config);
-  if (parsed.success)
-    return {
-      channels: [parsed.data.key],
-      downsampleFactor: 1,
-      useExperimentalCodec: true,
-    };
-  const cfg = config as StreamerConfig;
-  cfg.useExperimentalCodec = true;
-  return cfg;
-};
 
 /**
  * Creates a function that opens streamers with the given retriever and client.
@@ -121,7 +105,7 @@ export const parseStreamerConfig = (
 export const createStreamOpener =
   (retriever: channel.Retriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = parseStreamerConfig(config);
+    const cfg = crudeStreamerConfig.parse(config);
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useExperimentalCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
@@ -143,7 +127,7 @@ export const createStreamOpener =
 export const openStreamer = async (
   retriever: channel.Retriever,
   client: WebSocketClient,
-  config: StreamerConfig,
+  config: CrudeStreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retriever, client)(config);
 
 class CoreStreamer implements Streamer {
@@ -206,11 +190,11 @@ export class HardenedStreamer implements Streamer {
 
   private constructor(
     opener: StreamOpener,
-    config: StreamerConfig | channel.Params,
+    config: CrudeStreamerConfig,
     breakerConfig: breaker.Config = {},
   ) {
     this.opener = opener;
-    this.config = parseStreamerConfig(config);
+    this.config = crudeStreamerConfig.parse(config);
     const {
       maxRetries = 5000,
       baseInterval = TimeSpan.seconds(1),
@@ -227,7 +211,7 @@ export class HardenedStreamer implements Streamer {
    */
   static async open(
     opener: StreamOpener,
-    config: StreamerConfig | channel.Params,
+    config: CrudeStreamerConfig,
     breakerConfig?: breaker.Config,
   ): Promise<HardenedStreamer> {
     const h = new HardenedStreamer(opener, config, breakerConfig);
@@ -257,7 +241,7 @@ export class HardenedStreamer implements Streamer {
   }
 
   async update(channels: channel.Params): Promise<void> {
-    this.config.channels = channels;
+    this.config.channels = paramsZ.parse(channels);
     try {
       await this.wrapped.update(channels);
     } catch {

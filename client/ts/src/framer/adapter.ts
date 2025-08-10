@@ -99,25 +99,22 @@ export class WriteAdapter {
     return adapter;
   }
 
-  async adaptObjectKeys<V>(
-    data: Record<channel.KeyOrName, V>,
-  ): Promise<Record<channel.Key, V>> {
-    const out: Record<channel.Key, V> = {};
-    for (const [k, v] of Object.entries(data)) out[await this.adaptToKey(k)] = v;
-    return out;
+  async adaptParams(data: channel.Params): Promise<channel.Keys> {
+    const arrParams = channel.paramsZ.parse(data);
+    const keys = await Promise.all(
+      arrParams.map(async (p) => await this.adaptToKey(p)),
+    );
+    return keys;
   }
 
   async update(channels: channel.Params): Promise<boolean> {
     const results = await channel.retrieveRequired(this.retriever, channels);
     const newKeys = results.map((c) => c.key);
-
-    // Efficient set-based comparison
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
     const hasChanged =
       previousKeySet.size !== newKeySet.size ||
       !newKeys.every((key) => previousKeySet.has(key));
-
     this.adapter = new Map<channel.Name, channel.Key>(
       results.map((c) => [c.name, c.key]),
     );

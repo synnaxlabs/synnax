@@ -160,14 +160,11 @@ describe("WriteFrameAdapter", () => {
     expect(res.get(bigIntCh.key).at(0)).toEqual(12n);
   });
 
-  describe("adaptObjectKeys", () => {
+  describe("adaptParams", () => {
     it("should correctly adapt generic object keys", async () => {
-      const res = await adapter.adaptObjectKeys({
-        [timeCh.name]: 532,
-        [dataCh.name]: 123,
-      });
-      expect(res).toHaveProperty(timeCh.key.toString());
-      expect(res).toHaveProperty(dataCh.key.toString());
+      const res = await adapter.adaptParams([timeCh.name, dataCh.name]);
+      expect(res).toContain(timeCh.key);
+      expect(res).toContain(dataCh.key);
     });
   });
 

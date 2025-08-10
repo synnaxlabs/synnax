@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { array, control, errors } from "@synnaxlabs/x";
-import {
-  type CrudeSeries,
-  type CrudeTimeStamp,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x/telem";
+import { control, errors } from "@synnaxlabs/x";
+import { type CrudeSeries, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -36,22 +31,6 @@ export enum WriterMode {
   Stream = 3,
 }
 
-export type CrudeWriterMode = "persist" | "stream" | "persistStream" | WriterMode;
-
-const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
-  switch (mode) {
-    case "persist":
-      return WriterMode.Persist;
-    case "stream":
-      return WriterMode.Stream;
-    case "persistStream":
-      return WriterMode.PersistStream;
-    default:
-      if (typeof mode === "number" && mode in WriterMode) return mode;
-      throw new Error(`invalid writer mode: ${mode}`);
-  }
-};
-
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 export class WriterClosedError extends SynnaxError.sub("writer_closed") {
@@ -60,27 +39,76 @@ export class WriterClosedError extends SynnaxError.sub("writer_closed") {
   }
 }
 
-const netConfigZ = z.object({
+const writerModeZ = z.enum(WriterMode).or(
+  z.enum(["persist", "stream", "persistStream"]).transform((mode) => {
+    switch (mode) {
+      case "persist":
+        return WriterMode.Persist;
+      case "stream":
+        return WriterMode.Stream;
+      case "persistStream":
+        return WriterMode.PersistStream;
+    }
+  }),
+);
+
+export type CrudeWriterMode = z.infer<typeof writerModeZ>;
+
+const baseWriterConfigZ = z.object({
+  // start sets the starting timestamp for the first sample in the writer.
   start: TimeStamp.z.optional(),
+  // controlSubject sets the control subject of the writer.
   controlSubject: control.subjectZ.optional(),
-  keys: channel.keyZ.array().optional(),
-  authorities: control.authorityZ.array().optional(),
-  mode: z.enum(WriterMode).optional(),
-  errOnUnauthorized: z.boolean().optional(),
-  enableAutoCommit: z.boolean().optional(),
-  autoIndexPersistInterval: TimeSpan.z.optional(),
+  // authorities set the control authority to set for each channel on the writer.
+  // Defaults to absolute authority. If not working with concurrent control,
+  // it's best to leave this as the default.
+  authorities: z
+    .union([control.authorityZ.transform((a) => [a]), control.authorityZ.array()])
+    .default([control.ABSOLUTE_AUTHORITY]),
+  // mode sets the persistence and streaming mode of the writer. The default
+  // mode is WriterModePersistStream.
+  mode: writerModeZ.default(WriterMode.PersistStream),
+  // errOnUnauthorized sets whether the writer raises an error when it attempts to write
+  // to a channel without permission.
+  errOnUnauthorized: z.boolean().default(false),
+  // enableAutoCommit determines whether the writer will automatically commit.
+  // If enableAutoCommit is true, then the writer will commit after each write, and
+  // will flush that commit to index after the specified autoIndexPersistInterval.
+  enableAutoCommit: z.boolean().default(false),
+  // autoIndexPersistInterval sets the interval at which commits to the index will be
+  autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
+  // useExperimentalCodec sets whether the writer will use the experimental codec.
+  useExperimentalCodec: z.boolean().default(true),
 });
 
-interface Config extends z.infer<typeof netConfigZ> {}
+const netWriterConfigZ = baseWriterConfigZ.extend({
+  keys: channel.keyZ.array().optional(),
+});
+
+export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
+
+// Intermediate utility type to allow for the use of paramsZ in the writer config.
+const intermediateWriterConfigZ = baseWriterConfigZ.extend({
+  channels: channel.paramsZ,
+});
+
+export const writerConfigZ = intermediateWriterConfigZ.or(
+  channel.paramsZ.transform((channels) =>
+    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
+  ),
+);
+
+export type CrudeWriterConfig = z.input<typeof writerConfigZ>;
+export type WriterConfig = z.output<typeof writerConfigZ>;
 
 const reqZ = z.object({
   command: z.enum(WriterCommand),
-  config: netConfigZ.optional(),
+  config: netWriterConfigZ.optional(),
   frame: frameZ.optional(),
   buffer: z.instanceof(Uint8Array).optional(),
 });
 
-export interface WriteRequest extends z.infer<typeof reqZ> {}
+export interface WriteRequest extends z.input<typeof reqZ> {}
 
 const resZ = z.object({
   command: z.enum(WriterCommand),
@@ -88,35 +116,32 @@ const resZ = z.object({
   err: errors.payloadZ.optional(),
 });
 
-interface Response extends z.infer<typeof resZ> {}
+const authorityArgsZ = z
+  .tuple([
+    z.union([
+      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
+      channel.keyZ.or(channel.nameZ),
+      control.authorityZ,
+    ]),
+    control.authorityZ.optional(),
+  ])
+  .transform(([value, authority]) => {
+    if (control.authorityZ.safeParse(value).success)
+      return { keys: [], authorities: [value as control.Authority] };
+    if (channel.keyZ.or(channel.nameZ).safeParse(value).success) {
+      if (authority == null)
+        throw new Error(
+          "authority is required when setting authority for a single channel",
+        );
+      return { keys: [value] as channel.KeysOrNames, authorities: [authority] };
+    }
+    const oValue = value as Record<channel.KeyOrName, control.Authority>;
+    return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
+  });
 
-export interface WriterConfig {
-  // channels denote the channels to write to.
-  channels: channel.Params;
-  // start sets the starting timestamp for the first sample in the writer.
-  start?: CrudeTimeStamp;
-  // controlSubject sets the control subject of the writer.
-  controlSubject?: control.Subject;
-  // authorities set the control authority to set for each channel on the writer.
-  // Defaults to absolute authority. If not working with concurrent control,
-  // it's best to leave this as the default.
-  authorities?: control.Authority | control.Authority[];
-  // mode sets the persistence and streaming mode of the writer. The default
-  // mode is WriterModePersistStream.
-  mode?: CrudeWriterMode;
-  // errOnUnauthorized sets whether the writer raises an error when it attempts to write
-  // to a channel without permission.
-  errOnUnauthorized?: boolean;
-  //  enableAutoCommit determines whether the writer will automatically commit.
-  //  If enableAutoCommit is true, then the writer will commit after each write, and
-  //  will flush that commit to index after the specified autoIndexPersistInterval.
-  enableAutoCommit?: boolean;
-  // autoIndexPersistInterval sets the interval at which commits to the index will be
-  // persisted. To persist every commit to guarantee minimal loss of data, set
-  // auto_index_persist_interval to AlwaysAutoIndexPersist.
-  autoIndexPersistInterval?: TimeSpan;
-  useExperimentalCodec?: boolean;
-}
+export type AuthorityArgs = z.input<typeof authorityArgsZ>;
+
+interface Response extends z.infer<typeof resZ> {}
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
@@ -170,35 +195,17 @@ export class Writer {
   static async _open(
     retriever: channel.Retriever,
     client: WebSocketClient,
-    {
-      channels,
-      start = TimeStamp.now(),
-      authorities = control.ABSOLUTE_AUTHORITY,
-      controlSubject: subject,
-      mode = WriterMode.PersistStream,
-      errOnUnauthorized = false,
-      enableAutoCommit = false,
-      autoIndexPersistInterval = TimeSpan.SECOND,
-      useExperimentalCodec = true,
-    }: WriterConfig,
+    config: CrudeWriterConfig,
   ): Promise<Writer> {
-    const adapter = await WriteAdapter.open(retriever, channels);
-    if (useExperimentalCodec)
+    const cfg = writerConfigZ.parse(config);
+    const adapter = await WriteAdapter.open(retriever, cfg.channels);
+    if (cfg.useExperimentalCodec)
       client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
       command: WriterCommand.Open,
-      config: {
-        start: new TimeStamp(start),
-        keys: adapter.keys,
-        controlSubject: subject,
-        authorities: array.toArray(authorities),
-        mode: constructWriterMode(mode),
-        errOnUnauthorized,
-        enableAutoCommit,
-        autoIndexPersistInterval,
-      },
+      config: { ...cfg, keys: adapter.keys },
     });
     return writer;
   }
@@ -243,36 +250,16 @@ export class Writer {
     this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
   }
 
-  async setAuthority(value: number): Promise<void>;
-
   async setAuthority(
-    key: channel.KeyOrName,
-    authority: control.Authority,
-  ): Promise<void>;
-
-  async setAuthority(
-    value: Record<channel.KeyOrName, control.Authority>,
-  ): Promise<void>;
-
-  async setAuthority(
-    value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
-    authority?: control.Authority,
+    value: AuthorityArgs[0],
+    authority?: AuthorityArgs[1],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
-    let config: Config;
-    if (typeof value === "number" && authority == null)
-      config = { keys: [], authorities: [value] };
-    else {
-      let oValue: Record<channel.KeyOrName, control.Authority>;
-      if (typeof value === "string" || typeof value === "number")
-        oValue = { [value]: authority } as Record<channel.KeyOrName, control.Authority>;
-      else oValue = value;
-      oValue = await this.adapter.adaptObjectKeys(oValue);
-      config = {
-        keys: Object.keys(oValue).map((k) => Number(k)),
-        authorities: Object.values(oValue),
-      };
-    }
+    const parsed = authorityArgsZ.parse([value, authority]);
+    const config = {
+      keys: await this.adapter.adaptParams(parsed.keys),
+      authorities: parsed.authorities,
+    };
     await this.execute({ command: WriterCommand.SetAuthority, config });
   }
 

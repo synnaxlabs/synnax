@@ -647,6 +647,10 @@ export class TimeStamp
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.number().transform((n) => new TimeStamp(n)),
+    z.bigint().transform((n) => new TimeStamp(n)),
+    z.date().transform((d) => new TimeStamp(d)),
+    z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
+    z.custom<DateComponents>((v) => v).transform((v) => new TimeStamp(v)),
     z.instanceof(TimeStamp),
   ]);
 
