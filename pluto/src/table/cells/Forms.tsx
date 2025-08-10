@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type bounds, color, deep, scale } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { Color } from "@/color";
 import { Flex } from "@/flex";
@@ -25,24 +25,30 @@ export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
 
+const valueFormStyle = { padding: "2rem" };
+
+const ValueFormWrapper = (props: PropsWithChildren) => (
+  <Flex.Box {...props} style={valueFormStyle} y />
+);
+
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Flex.Box y style={{ padding: "2rem" }}>
+          <ValueFormWrapper>
             <Value.TelemForm path="" />
-          </Flex.Box>
+          </ValueFormWrapper>
         );
       case "redline":
         return (
-          <Flex.Box y style={{ padding: "2rem" }}>
+          <ValueFormWrapper>
             <RedlineForm />
-          </Flex.Box>
+          </ValueFormWrapper>
         );
       default:
         return (
-          <Flex.Box y grow empty style={{ padding: "2rem" }}>
+          <ValueFormWrapper>
             <Flex.Box x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
@@ -74,7 +80,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 )}
               </Form.Field>
             </Flex.Box>
-          </Flex.Box>
+          </ValueFormWrapper>
         );
     }
   }, []);
@@ -183,7 +189,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
   </Flex.Box>
 );
 
-export const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
+const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
   { key: "text", name: "Text", icon: <Icon.Text /> },
   { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
@@ -192,5 +198,5 @@ export interface SelectVariantProps
   extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
 
 export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Static data={VARIANT_DATA} {...props} resourceName="Variant" />
+  <Select.Static {...props} data={VARIANT_DATA} resourceName="Variant" />
 );
