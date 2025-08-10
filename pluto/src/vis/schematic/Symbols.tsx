@@ -727,6 +727,9 @@ export interface ValueProps
   redline?: CoreValue.Redline;
 }
 
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -1);
+const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
+
 export const Value = ({
   symbolKey,
   label,
@@ -775,6 +778,9 @@ export const Value = ({
     backgroundTelem,
     minWidth: inlineSize,
     notation,
+    useWidthForBackground: true,
+    valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
+    valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
   const gridItems: GridItem[] = [];
