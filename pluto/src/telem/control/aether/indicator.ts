@@ -15,7 +15,7 @@ import { telem } from "@/telem/aether";
 
 export const indicatorStatusDetailsZ = z
   .object({ color: color.colorZ.optional() })
-  .or(z.undefined().transform(() => ({ color: undefined })));
+  .default({ color: undefined });
 
 export type IndicatorStatusDetails = z.infer<typeof indicatorStatusDetailsZ>;
 
@@ -59,7 +59,6 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   updateState(): void {
     const colorVal = this.internal.colorSource.value();
     const status = this.internal.statusSource.value();
-    console.log(status);
     if (
       color.equals(colorVal, this.state.color) &&
       status.message === this.state.status.message
