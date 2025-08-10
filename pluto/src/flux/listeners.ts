@@ -21,6 +21,6 @@ export const useListener = (
   const handleError = Status.useErrorHandler();
   useEffect(
     () => flux.mountListeners(addListener, handleError, listeners),
-    [addListener, handleError, listeners],
+    [addListener, handleError],
   );
 };

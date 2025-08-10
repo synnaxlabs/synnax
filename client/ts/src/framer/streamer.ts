@@ -96,12 +96,20 @@ export const parseStreamerConfig = (
       return {
         channels: (config as channel.Payload[]).map((c) => c.key),
         downsampleFactor: 1,
+        useExperimentalCodec: true,
       };
-    return { channels: config, downsampleFactor: 1 };
+    return { channels: config, downsampleFactor: 1, useExperimentalCodec: true };
   }
   const parsed = payloadZ.safeParse(config);
-  if (parsed.success) return { channels: [parsed.data.key], downsampleFactor: 1 };
-  return config as StreamerConfig;
+  if (parsed.success)
+    return {
+      channels: [parsed.data.key],
+      downsampleFactor: 1,
+      useExperimentalCodec: true,
+    };
+  const cfg = config as StreamerConfig;
+  cfg.useExperimentalCodec = true;
+  return cfg;
 };
 
 /**
@@ -168,7 +176,8 @@ class CoreStreamer implements Streamer {
   }
 
   async update(channels: channel.Params): Promise<void> {
-    await this.adapter.update(channels);
+    const hasChanged = await this.adapter.update(channels);
+    if (!hasChanged) return;
     this.stream.send({
       keys: this.adapter.keys,
       downsampleFactor: this.downsampleFactor,

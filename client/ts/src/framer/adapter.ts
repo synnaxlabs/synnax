@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
 import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
@@ -36,17 +37,20 @@ export class ReadAdapter {
     return adapter;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(channels: channel.Params): Promise<boolean> {
     const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await this.retriever.retrieve(normalized);
+    const newKeys = fetched.map((c) => c.key);
+    if (compare.uniqueUnorderedPrimitiveArrays(this.keys, newKeys) === compare.EQUAL)
+      return false;
     this.codec.update(
-      fetched.map((c) => c.key),
+      newKeys,
       fetched.map((c) => c.dataType),
     );
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized as channel.Key[];
-      return;
+      return true;
     }
     const a = new Map<channel.Key, channel.Name>();
     this.adapter = a;
@@ -56,6 +60,7 @@ export class ReadAdapter {
       a.set(channel.key, channel.name);
     });
     this.keys = Array.from(this.adapter.keys());
+    return true;
   }
 
   adapt(columnsOrData: Frame): Frame {
@@ -102,16 +107,26 @@ export class WriteAdapter {
     return out;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(channels: channel.Params): Promise<boolean> {
     const results = await channel.retrieveRequired(this.retriever, channels);
+    const newKeys = results.map((c) => c.key);
+
+    // Efficient set-based comparison
+    const previousKeySet = new Set(this.keys);
+    const newKeySet = new Set(newKeys);
+    const hasChanged =
+      previousKeySet.size !== newKeySet.size ||
+      !newKeys.every((key) => previousKeySet.has(key));
+
     this.adapter = new Map<channel.Name, channel.Key>(
       results.map((c) => [c.name, c.key]),
     );
-    this.keys = results.map((c) => c.key);
+    this.keys = newKeys;
     this.codec.update(
       this.keys,
       results.map((c) => c.dataType),
     );
+    return hasChanged;
   }
 
   private async fetchChannel(

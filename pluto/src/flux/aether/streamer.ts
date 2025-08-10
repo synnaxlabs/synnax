@@ -78,7 +78,6 @@ export class Streamer {
       const streamer = this.streamerMutex.streamer;
       if (streamer != null) {
         if (names.size === 0) return await this.unprotectedClose();
-
         return await streamer.update(Array.from(names));
       }
       if (names.size === 0) return;
