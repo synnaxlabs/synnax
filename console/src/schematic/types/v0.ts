@@ -42,7 +42,12 @@ export const stateZ = z.object({
     .array(z.any())
     .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
     .pipe(z.array(Diagram.edgeZ)),
-  props: z.record(z.string(), nodePropsZ),
+  props: z.record(z.string(), nodePropsZ).transform((p) => {
+    for (const key in p)
+      if (p[key].key === "value")
+        p[key].redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };
+    return p;
+  }),
   control: control.statusZ,
   controlAcquireTrigger: z.number(),
 });
