@@ -22,10 +22,12 @@ export interface RedlineFormProps {
   path: string;
 }
 
+const baseScale = scale.Scale.scale<number>(0, 1);
+
 export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const { set, get } = Form.useContext();
-  const b = Form.useFieldValue<bounds.Bounds>(`${path}.bounds`);
-  const s = scale.Scale.scale<number>(0, 1).scale(b);
+  const bounds = Form.useFieldValue<bounds.Bounds>(`${path}.bounds`);
+  const scale = baseScale.scale(bounds);
   return (
     <Flex.Box x grow>
       <Form.NumericField
@@ -43,13 +45,13 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
         {({ value, onChange }) => (
           <Color.GradientPicker
             value={deep.copy(value)}
-            scale={s}
+            scale={scale}
             onChange={(v) => {
               const prevB = get<bounds.Bounds>(`${path}.bounds`).value;
               const nextBounds = { ...prevB };
               const positions = v.map((c) => c.position);
-              const highestPos = s.pos(Math.max(...positions));
-              const lowestPos = s.pos(Math.min(...positions));
+              const highestPos = scale.pos(Math.max(...positions));
+              const lowestPos = scale.pos(Math.min(...positions));
               const highestGreater = highestPos > nextBounds.upper;
               const lowestLower = lowestPos < nextBounds.lower;
               if (highestGreater) {
