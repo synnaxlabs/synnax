@@ -13,10 +13,12 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
-export const chipStatusDetailsZ = z.object({
-  authority: control.authorityZ.optional(),
-  valid: z.boolean().optional(),
-});
+export const chipStatusDetailsZ = z
+  .object({
+    authority: control.authorityZ.optional(),
+    valid: z.boolean().optional(),
+  })
+  .default({ authority: undefined, valid: false });
 
 export type ChipStatusDetails = z.infer<typeof chipStatusDetailsZ>;
 

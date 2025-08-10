@@ -198,7 +198,7 @@ export const CommonStyleForm = ({
   hideInnerOrientation,
   hideOuterOrientation,
 }: CommonStyleFormProps): ReactElement => (
-  <FormWrapper x align="stretch">
+  <FormWrapper x align="stretch" empty>
     <Flex.Box y grow>
       <LabelControls omit={omit} path="label" />
       <Flex.Box x grow>
