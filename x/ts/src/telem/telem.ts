@@ -28,6 +28,12 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
+const dateComponentsZ = z.tuple([
+  z.number().optional(),
+  z.number().min(1).max(12).optional(),
+  z.number().min(1).max(31).optional(),
+]);
+
 /**
  * A triple of numbers representing a date.
  *
@@ -35,7 +41,7 @@ export type TimeStampStringFormat =
  * @param month - The month.
  * @param day - The day.
  */
-export type DateComponents = [number?, number?, number?];
+export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
@@ -650,7 +656,7 @@ export class TimeStamp
     z.bigint().transform((n) => new TimeStamp(n)),
     z.date().transform((d) => new TimeStamp(d)),
     z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
-    z.custom<DateComponents>((v) => v).transform((v) => new TimeStamp(v)),
+    dateComponentsZ.transform((v) => new TimeStamp(v)),
     z.instanceof(TimeStamp),
   ]);
 

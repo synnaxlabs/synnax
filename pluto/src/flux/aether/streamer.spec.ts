@@ -113,7 +113,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
-        useExperimentalCodec: true,
+        useExperimentalCodec: false,
       });
       await expect.poll(() => onOpen.mock.calls.length > 0).toBe(true);
     });
@@ -143,7 +143,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channel1, channel2],
         downsampleFactor: 1,
-        useExperimentalCodec: true,
+        useExperimentalCodec: false,
       });
     });
 
@@ -157,7 +157,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
-        useExperimentalCodec: true,
+        useExperimentalCodec: false,
       });
     });
   });
@@ -176,7 +176,7 @@ describe("Streamer", () => {
       expect(mockStreamOpener).toHaveBeenCalledWith({
         channels: [channelName],
         downsampleFactor: 1,
-        useExperimentalCodec: true,
+        useExperimentalCodec: false,
       });
     });
 

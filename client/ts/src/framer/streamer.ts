@@ -36,25 +36,21 @@ export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const ENDPOINT = "/frame/stream";
 
-export const crudeStreamerConfig = z
-  .object({
-    /** The channels to stream data from. Can be channel keys, names, or payloads. */
-    channels: paramsZ,
-    /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
-    downsampleFactor: z.number().optional().default(1),
-    /** Whether to use the experimental codec for streaming. Defaults to true. */
-    useExperimentalCodec: z.boolean().optional().default(true),
-  })
-  .or(
-    paramsZ.transform((channels) => ({
-      channels,
-      downsampleFactor: 1,
-      useExperimentalCodec: true,
-    })),
-  );
+const intermediateStreamerConfigZ = z.object({
+  /** The channels to stream data from. Can be channel keys, names, or payloads. */
+  channels: paramsZ,
+  /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
+  downsampleFactor: z.number().optional().default(1),
+  /** Whether to use the experimental codec for streaming. Defaults to true. */
+  useExperimentalCodec: z.boolean().optional().default(false),
+});
 
-export type CrudeStreamerConfig = z.input<typeof crudeStreamerConfig>;
-export type StreamerConfig = z.output<typeof crudeStreamerConfig>;
+export const streamerConfigZ = intermediateStreamerConfigZ.or(
+  paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
+);
+
+export type CrudeStreamerConfig = z.input<typeof streamerConfigZ>;
+export type StreamerConfig = z.output<typeof streamerConfigZ>;
 
 /**
  * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
@@ -105,7 +101,7 @@ export interface StreamOpener {
 export const createStreamOpener =
   (retriever: channel.Retriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = crudeStreamerConfig.parse(config);
+    const cfg = streamerConfigZ.parse(config);
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useExperimentalCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
@@ -194,7 +190,7 @@ export class HardenedStreamer implements Streamer {
     breakerConfig: breaker.Config = {},
   ) {
     this.opener = opener;
-    this.config = crudeStreamerConfig.parse(config);
+    this.config = streamerConfigZ.parse(config);
     const {
       maxRetries = 5000,
       baseInterval = TimeSpan.seconds(1),

@@ -14,10 +14,10 @@ import { describe, expect, it, test, vi } from "vitest";
 import { type channel } from "@/channel";
 import { Frame } from "@/framer/frame";
 import {
-  crudeStreamerConfig,
   HardenedStreamer,
   ObservableStreamer,
   type Streamer,
+  streamerConfigZ,
 } from "@/framer/streamer";
 import { newVirtualChannel } from "@/testutil/channels";
 import { newTestClient } from "@/testutil/client";
@@ -322,12 +322,12 @@ describe("Streamer", () => {
     it("should correctly call the underlying streamer methods", async () => {
       const streamer = new MockStreamer();
       const openMock = vi.fn();
-      const config = { channels: [1, 2, 3], useExperimentalCodec: true };
+      const config = { channels: [1, 2, 3], useExperimentalCodec: false };
       const fr = new Frame({ 1: new Series([1]) });
       const hardened = await HardenedStreamer.open(
         async (cfg) => {
           openMock(cfg);
-          const cfg_ = crudeStreamerConfig.parse(cfg);
+          const cfg_ = streamerConfigZ.parse(cfg);
           streamer.responses = [[fr, null]];
           streamer.keys = cfg_.channels as channel.Key[];
           return streamer;

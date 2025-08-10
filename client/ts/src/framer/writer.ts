@@ -78,7 +78,7 @@ const baseWriterConfigZ = z.object({
   // autoIndexPersistInterval sets the interval at which commits to the index will be
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
   // useExperimentalCodec sets whether the writer will use the experimental codec.
-  useExperimentalCodec: z.boolean().default(true),
+  useExperimentalCodec: z.boolean().default(false),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
