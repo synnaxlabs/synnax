@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, color, deep, scale } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { color } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
 import { Flex } from "@/flex";
@@ -43,7 +43,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
       case "redline":
         return (
           <ValueFormWrapper>
-            <RedlineForm />
+            <Value.RedlineForm path="redline" />
           </ValueFormWrapper>
         );
       default:
@@ -93,68 +93,6 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     content,
   });
   return <Tabs.Tabs {...tabsProps} size="small" />;
-};
-
-const RedlineForm = (): ReactElement => {
-  const { set, get } = Form.useContext();
-  const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
-  const s = scale.Scale.scale<number>(0, 1).scale(b);
-  return (
-    <Flex.Box x grow>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Lower"
-        path="redline.bounds.lower"
-      />
-      <Form.Field<color.Gradient>
-        path="redline.gradient"
-        label="Gradient"
-        align="start"
-        padHelpText={false}
-      >
-        {({ value, onChange }) => (
-          <Color.GradientPicker
-            value={deep.copy(value)}
-            scale={s}
-            onChange={(v) => {
-              const prevB = get<bounds.Bounds>("redline.bounds").value;
-              const nextBounds = { ...prevB };
-              const positions = v.map((c) => c.position);
-              const highestPos = s.pos(Math.max(...positions));
-              const lowestPos = s.pos(Math.min(...positions));
-              const highestGreater = highestPos > nextBounds.upper;
-              const lowestLower = lowestPos < nextBounds.lower;
-              if (highestGreater) {
-                v[v.length - 1].position = 1;
-                nextBounds.upper = highestPos;
-              }
-              if (lowestLower) {
-                v[0].position = 0;
-                nextBounds.lower = lowestPos;
-              }
-              const grad = v.map((c) => ({
-                ...c,
-                color: color.hex(c.color),
-              }));
-              if (highestGreater || lowestLower)
-                set("redline", {
-                  bounds: nextBounds,
-                  gradient: grad,
-                });
-              else onChange(v.map((c) => ({ ...c, color: color.hex(c.color) })));
-            }}
-          />
-        )}
-      </Form.Field>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Upper"
-        path="redline.bounds.upper"
-      />
-    </Flex.Box>
-  );
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
