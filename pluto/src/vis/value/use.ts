@@ -38,6 +38,9 @@ export const use = ({
   backgroundTelem,
   notation,
   location,
+  useWidthForBackground,
+  valueBackgroundOverScan,
+  valueBackgroundShift,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
@@ -49,6 +52,9 @@ export const use = ({
     notation,
     backgroundTelem,
     location,
+    useWidthForBackground,
+    valueBackgroundOverScan,
+    valueBackgroundShift,
   });
   const [, state, setState] = Aether.use({
     aetherKey,

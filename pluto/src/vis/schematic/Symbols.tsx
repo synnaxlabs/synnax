@@ -9,11 +9,20 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement } from "react";
+import {
+  box,
+  type color,
+  direction,
+  location,
+  type record,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
+import { type CSSProperties, type FC, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -715,7 +724,11 @@ export interface ValueProps
   color?: color.Crude;
   textColor?: color.Crude;
   tooltip?: string[];
+  redline?: CoreValue.Redline;
 }
+
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -1);
+const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Value = ({
   symbolKey,
@@ -724,17 +737,35 @@ export const Value = ({
   position,
   textColor,
   color,
-  telem,
+  telem: t,
   units,
   onChange,
   inlineSize = 70,
   selected,
   draggable,
   notation,
+  redline,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
-
+  const backgroundTelem = useMemo(() => {
+    if (t == null || redline == null) return undefined;
+    const { bounds, gradient } = redline;
+    return telem.sourcePipeline("color", {
+      connections: [
+        { from: "source", to: "scale" },
+        { from: "scale", to: "gradient" },
+      ],
+      segments: {
+        source: t,
+        scale: telem.scaleNumber({
+          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
+        }),
+        gradient: telem.colorGradient({ gradient }),
+      },
+      outlet: "gradient",
+    });
+  }, [t, redline]);
   const { width: oWidth } = CoreValue.use({
     aetherKey: symbolKey,
     color: textColor,
@@ -743,9 +774,13 @@ export const Value = ({
       height: valueBoxHeight,
       width: inlineSize,
     }),
-    telem,
+    telem: t,
+    backgroundTelem,
     minWidth: inlineSize,
     notation,
+    useWidthForBackground: true,
+    valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
+    valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
   const gridItems: GridItem[] = [];
@@ -760,17 +795,12 @@ export const Value = ({
       allowRotate={false}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({
-          label: { ...label, orientation: loc },
-        } as Partial<ValueProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Value
         color={color}
-        dimensions={{
-          height: valueBoxHeight,
-          width: oWidth,
-        }}
+        dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={Text.downLevel(level)}
