@@ -399,7 +399,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 value={schematic.control === "acquired"}
                 onChange={acquireControl}
                 tooltipLocation={location.BOTTOM_LEFT}
-                variant="outlined"
+                uncheckedVariant="outlined"
+                checkedVariant="filled"
                 size="small"
                 tooltip={
                   <Text.Text level="small">
