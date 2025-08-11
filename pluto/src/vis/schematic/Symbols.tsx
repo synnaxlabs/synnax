@@ -133,7 +133,12 @@ export type ToggleProps<T> = T &
     orientation?: location.Outer;
   };
 
-export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P>) => {
+export const createToggle = <P extends object = record.Unknown>(
+  BaseSymbol: FC<P>,
+  overrides?: {
+    grid?: Partial<Omit<GridProps, "editable">>;
+  },
+) => {
   const C = ({
     symbolKey,
     control,
@@ -177,6 +182,7 @@ export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P
               ToggleProps<P>
             >);
         }}
+        {...overrides?.grid}
       >
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol
@@ -400,7 +406,7 @@ export type CheckValveWithArrowProps =
   LabeledProps<Primitives.CheckValveWithArrowProps>;
 export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
-export const Switch = createToggle(Primitives.Switch);
+export const Switch = createToggle(Primitives.Switch, { grid: { allowRotate: false } });
 export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
 export const Vent = createLabeled(Primitives.Vent);
 export type VentProps = LabeledProps<Primitives.VentProps>;
@@ -849,6 +855,7 @@ export const Button = ({
           orientation: location.rotate90(orientation),
         } as Partial<ButtonProps>)
       }
+      allowRotate={false}
       editable={selected}
       symbolKey={symbolKey}
       items={gridItems}
