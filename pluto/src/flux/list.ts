@@ -428,7 +428,6 @@ export const createList =
                         if (res == null || !filterRef.current(res)) return;
 
                         dataRef.current.set(k, res);
-
                         setResult((p) => {
                           if (p.data == null) return p;
                           let newData: K[];

@@ -170,7 +170,12 @@ import {
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
-import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import {
+  VscSplitHorizontal,
+  VscSplitVertical,
+  VscSymbolConstant,
+  VscSymbolString,
+} from "react-icons/vsc";
 
 import { CSS } from "@/css";
 import {
@@ -451,6 +456,7 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -584,6 +590,7 @@ const icons = {
   Map,
   Linear,
   None,
+  Constant,
 };
 
 export const resolve = ((

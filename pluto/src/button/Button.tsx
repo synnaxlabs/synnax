@@ -104,6 +104,8 @@ const Core = <E extends ElementType = "button">({
   tabIndex,
   contrast,
   children,
+  defaultEl,
+  el,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -173,7 +175,8 @@ const Core = <E extends ElementType = "button">({
 
   if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
   else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
-  else size ??= "medium";
+  else if (defaultEl !== "div") size ??= "medium";
+  level ??= "p";
 
   const isLoading = status === "loading";
   const square = Text.isSquare(children);
@@ -182,6 +185,8 @@ const Core = <E extends ElementType = "button">({
 
   return (
     <Text.Text<E>
+      el={el}
+      defaultEl={defaultEl ?? "button"}
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),
@@ -200,7 +205,6 @@ const Core = <E extends ElementType = "button">({
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
       bordered={variant !== "text"}
-      defaultEl={"button"}
       level={level}
       variant={textVariant}
       square={square}
@@ -217,7 +221,7 @@ const Core = <E extends ElementType = "button">({
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"
-          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+          level={Text.downLevel(level)}
         />
       )}
     </Text.Text>

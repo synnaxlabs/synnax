@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dialog__frame {
+.pluto-dialog__dialog {
     .console-line-plot__nav-controls {
         position: absolute;
         top: 0rem;
@@ -27,6 +27,7 @@
         .console-line-plot__nav-controls {
             top: unset;
             bottom: 2rem;
+            opacity: 1;
         }
     }
 }

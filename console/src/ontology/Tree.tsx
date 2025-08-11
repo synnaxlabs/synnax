@@ -233,6 +233,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
+          throwOnMissing: false,
         }),
       ];
       return nextNodes;

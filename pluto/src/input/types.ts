@@ -9,8 +9,6 @@
 
 import { type ComponentPropsWithRef } from "react";
 
-import { type Component } from "@/component";
-
 export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
@@ -27,5 +25,4 @@ export type Variant = "outlined" | "text" | "preview";
 
 export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;
-  size?: Component.Size;
 }

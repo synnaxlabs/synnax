@@ -48,6 +48,7 @@ export const DateTime = ({
   ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
+  const { close } = Dialog.useContext();
 
   const handleChange = (next: string | number, override: boolean = false): void => {
     let nextStr = next.toString();
@@ -133,7 +134,7 @@ const DateTimeModal = ({
 }: DateTimeModalProps): ReactElement => (
   <Dialog.Dialog>
     <Flex.Box className={CSS.B("datetime-modal")} empty>
-      <Flex.Box className={CSS.B("content")}>
+      <Flex.Box className={CSS.B("datetime-modal-container")}>
         <Flex.Box x className={CSS.B("header")}>
           <Text.DateTime level="h3" format="preciseDate">
             {value}
@@ -241,16 +242,19 @@ const AISelector = ({
     setEntries([]);
   };
   return (
-    <Flex.Box pack y className={CSS.B("ai-selector")} background={1}>
+    <Flex.Box pack y className={CSS.B("ai-selector")} background={1} full="y">
       <InputText
         value={value}
         onChange={handleChange}
         autoFocus
         placeholder="AI Suggestion"
+        full="x"
       />
       <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
         <List.Items<string, AISuggestion>
           className={CSS.B("ai-list")}
+          bordered
+          borderColor={5}
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
@@ -322,16 +326,20 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   const handleDayChange = (next: number): void => onChange(value.setDay(next));
 
   return (
-    <Flex.Box pack x className={CSS.B("datetime-picker")}>
+    <Flex.Box pack x className={CSS.B("datetime-picker")} rounded>
       <Flex.Box pack y align="stretch" className={CSS.B("calendar")}>
-        <Flex.Box pack x grow>
+        <Flex.Box pack x grow className={CSS.B("calendar-header")}>
           <Button.Button
             onClick={() => handleMonthChange(month - 1)}
             variant="outlined"
           >
             <Icon.Caret.Left />
           </Button.Button>
-          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          <Text.Text
+            level="small"
+            style={{ flexGrow: 1, paddingLeft: "1rem" }}
+            className={CSS.BE("calendar-header", "month")}
+          >
             {MONTHS[month].name}
           </Text.Text>
           <Button.Button
@@ -342,7 +350,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Icon.Caret.Right />
           </Button.Button>
         </Flex.Box>
-        <Flex.Box pack x grow>
+        <Flex.Box pack x grow sharp>
           <Button.Button onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Button>
@@ -359,6 +367,7 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
               key={i}
               variant={i + 1 === day ? "outlined" : "text"}
               onClick={() => handleDayChange(i + 1)}
+              square
             >
               <Text.Text level="small">{i + 1}</Text.Text>
             </Button.Button>
@@ -370,14 +379,11 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
-const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => {
-  const entry = List.useItem<number, record.KeyedNamed<number>>(props.key);
-  return (
-    <List.Item {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
-      <Text.Text level="small">{entry?.name}</Text.Text>
-    </List.Item>
-  );
-};
+const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => (
+  <Select.ListItem {...props} style={{ padding: "0rem", paddingLeft: "2rem" }}>
+    {props.index + 1}
+  </Select.ListItem>
+);
 
 interface TimeListProps {
   value: number;
@@ -388,15 +394,12 @@ const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
-  const getItem = (key?: number): record.KeyedNamed<number> | undefined =>
-    key == null ? undefined : { key, name: key.toString() };
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
     <Select.Frame<number, record.KeyedNamed<number>>
       data={data}
       value={value}
       onChange={onChange}
-      getItem={getItem}
     >
       <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
         {timeListItem}
@@ -417,7 +420,7 @@ interface TimeSelectorProps {
 }
 
 export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
-  <Flex.Box pack y className={CSS.B("time-selector")} style={{ height: "37rem" }}>
+  <Flex.Box pack y className={CSS.B("time-selector")}>
     <Flex.Box pack x grow>
       <HoursList
         value={value.hour}
@@ -438,6 +441,7 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
       onChange={(next) => onChange(value.setMillisecond(next))}
       endContent="ms"
       showDragHandle={false}
+      borderColor={5}
     />
   </Flex.Box>
 );

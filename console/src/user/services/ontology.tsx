@@ -64,7 +64,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     delete: () => handleDelete(props),
   };
   const singleResource = resourceIDs.length === 1;

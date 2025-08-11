@@ -210,10 +210,12 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	delete(s.mu.entries, ch.Key())
 	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		// Even if the operation is not successful, we still want to store the
+		// latest requirements and expression in the entry.
+		e.ch.Requires = ch.Requires
+		e.ch.Expression = ch.Expression
+		s.mu.entries[ch.Key()] = e
 	}
-	e.ch.Requires = ch.Requires
-	e.ch.Expression = ch.Expression
-	s.mu.entries[ch.Key()] = e
 }
 
 func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {

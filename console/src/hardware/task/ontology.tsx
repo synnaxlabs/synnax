@@ -111,7 +111,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(resourceIDs[0].key),
     rangeSnapshot: () => snap(resources),
