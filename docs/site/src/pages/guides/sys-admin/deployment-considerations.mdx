@@ -122,10 +122,9 @@ sequences, analysis scripts, device drivers, etc.).
 When running in production, we recommend encrypting all traffic to and from your Synnax
 cluster with SSL/TLS. {/* See the [Security](#security) section for more details. */}
 
-
 ## Configuring NTP Clients
 
-The following section assumes that a local NTP server has already been deployed. 
+The following section assumes that a local NTP server has already been deployed.
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 
@@ -146,35 +145,46 @@ sudo apt install chrony
 sudo dnf install chrony
 ```
 
-Edit the chrony configuration to point to your ntp server. Replace `<your-ntp-server>` with the address of your local NTP server.
+Edit the chrony configuration to point to your ntp server. Replace `<your-ntp-server>`
+with the address of your local NTP server.
 
 ```bash
-sudo nano /etc/chrony/chrony.conf 
+sudo nano /etc/chrony/chrony.conf
 # Replace or add a line like:
 # server <your-ntp-server-ip> iburst
 ```
 
-Restart the chrony service to apply changes
+Restart the chrony service to apply changes.
 
 ```bash
 sudo systemctl restart chrony
 ```
 
-Enable chrony to start on boot
+Enable chrony to start on boot.
 
 ```bash
-sudo systemctl enable chrony
+sudo systemctl enable chronyd.service
 ```
 
-Check the synchronization status
+Start the chrony service.
 
 ```bash
-sudo systemctl restart chrony
+sudo systemctl start chronyd.service
 ```
+
+Check the synchronization status.
+
+```bash
+sudo systemctl status chronyd.service
+```
+
 <Divider.Divider x />
 
 ### Option 2: Timesyncd
-This is the default NTP client in Ubuntu. While it will generally keep your time synchronized, `chrony` will help with [more complex configuration needs](https://documentation.ubuntu.com/server/explanation/networking/about-time-synchronisation/#about-timedatectl). 
+
+This is the default NTP client in Ubuntu. While it will generally keep your time
+synchronized, `chrony` will help with
+[more complex configuration needs](https://documentation.ubuntu.com/server/explanation/networking/about-time-synchronisation/#about-timedatectl).
 
 Ensure systemd-timesyncd is installed and enabled.
 
@@ -183,7 +193,8 @@ sudo systemctl enable systemd-timesyncd
 sudo systemctl start systemd-timesyncd
 ```
 
-Edit the configuration file to specify for NTP server(s). Replace `<your-ntp-server>` with your NTP server address.
+Edit the configuration file to specify for NTP server(s). Replace `<your-ntp-server>`
+with your NTP server address.
 
 ```bash
 sudo nano /etc/systemd/timesyncd.conf
@@ -215,7 +226,8 @@ Check current NTP server(s).
 sudo systemsetup -getnetworktimeserver
 ```
 
-Set your preferred NTP server. Replace `<your-ntp-server-ip>` with your NTP server address.
+Set your preferred NTP server. Replace `<your-ntp-server-ip>` with your NTP server
+address.
 
 ```bash
 sudo systemsetup -setnetworktimeserver <your-ntp-server-ip>
@@ -246,6 +258,7 @@ w32tm /config /manualpeerlist:<your-ntp-server-ip>/syncfromflags:manual /reliabl
 ```
 
 Restart the Windows Time service.
+
 ```powershell
 net stop w32time
 net start w32time
