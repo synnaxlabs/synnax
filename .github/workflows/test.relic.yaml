@@ -2,52 +2,46 @@ name: Test - Relic
 
 on:
   push:
-    branches:
-      - main
-      - rc
+    branches: [main, rc]
   pull_request:
-    branches:
-      - main
-      - rc
+    branches: [main, rc]
   workflow_dispatch:
 
 jobs:
   test:
     name: Test
     strategy:
-      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, ubuntu-22.04, windows-latest]
+        include:
+          - os: macos-latest
+            url: https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
+            bin: relic
+            chmod: true
+          - os: ubuntu-latest
+            url: https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
+            bin: relic
+            chmod: true
+          - os: ubuntu-22.04
+            url: https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
+            bin: relic
+            chmod: true
+          - os: windows-latest
+            url: https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+            bin: relic.exe
+            chmod: false
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Download relic
-        if: matrix.os == 'windows-latest'
         run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+          curl -L -o ${{ matrix.bin }} ${{ matrix.url }}
+          if [ "${{ matrix.chmod }}" = "true" ]; then chmod +x ${{ matrix.bin }}; fi
           mkdir relic-bin
-          mv relic.exe relic-bin/
-          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
-
-      - name: Download relic
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
-        run: |
-          curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
-          chmod +x relic
-          mkdir relic-bin
-          mv relic relic-bin/
+          mv ${{ matrix.bin }} relic-bin/
           echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
+        shell: bash
 
-      - name: Download relic
-        if: matrix.os == 'macos-latest'
-        run: |
-          curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
-          chmod +x relic
-          mkdir relic-bin
-          mv relic relic-bin/
-          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
-
-      - name: Print relic version to Github Output
+      - name: Print relic version to GitHub Output
         run: relic --version
