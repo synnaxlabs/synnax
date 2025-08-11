@@ -37,7 +37,7 @@ jobs:
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
           mkdir relic-bin
           mv relic relic-bin/
-          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
+          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
 
       - name: Download relic
         if: matrix.os == 'macos-latest'
@@ -45,7 +45,7 @@ jobs:
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
           mkdir relic-bin
           mv relic relic-bin/
-          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
+          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
 
       - name: Print relic version to Github Output
         run: relic --version
