@@ -45,6 +45,7 @@ export const Dialog = ({
         CSS.loc(location.x),
         CSS.loc(location.y),
         CSS.visible(visible),
+        passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
         className,
       )}

@@ -20,9 +20,10 @@ import {
   Input,
   List,
   Ranger,
+  Text,
 } from "@synnaxlabs/pluto";
 import { type kv, link } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -80,6 +81,7 @@ const MetaDataListItem = ({
 }: MetaDataListItemProps) => {
   const { itemKey } = rest;
   const initialValues = List.useItem<string, ranger.KVPair>(itemKey);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV.useDirect({
     params: { rangeKey },
   });
@@ -105,6 +107,9 @@ const MetaDataListItem = ({
       [isCreate, onClose],
     ),
   });
+  useEffect(() => {
+    if (isCreate) inputRef.current?.focus();
+  }, [isCreate, visible]);
   return (
     <List.Item
       className={CSS(
@@ -116,24 +121,31 @@ const MetaDataListItem = ({
       {...rest}
     >
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
-        <Form.TextField
-          style={{ flexBasis: "30%", width: 250 }}
-          path={"key"}
-          inputProps={{
-            autoFocus: isCreate,
-            selectOnFocus: true,
-            resetOnBlurIfEmpty: true,
-            onlyChangeOnBlur: !isCreate,
-            placeholder: "Add Key",
-            variant: "text",
-            weight: 500,
-          }}
-          showLabel={false}
-          hideIfNull
-        />
+        {isCreate ? (
+          <Form.TextField
+            style={{ flexBasis: "30%", width: 250 }}
+            path={"key"}
+            inputProps={{
+              ref: inputRef,
+              autoFocus: isCreate,
+              selectOnFocus: true,
+              resetOnBlurIfEmpty: true,
+              onlyChangeOnBlur: !isCreate,
+              placeholder: "Add Key",
+              variant: "text",
+              weight: 500,
+            }}
+            showLabel={false}
+            hideIfNull
+          />
+        ) : (
+          <Text.Text style={{ flexBasis: "30%", width: 250 }}>
+            {initialValues?.key}
+          </Text.Text>
+        )}
         <Divider.Divider y />
         <Form.Field<string> path={"value"} showLabel={false} hideIfNull>
-          {({ variant: _, ...p }) => <ValueInput {...p} />}
+          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>
@@ -168,10 +180,13 @@ export interface MetaDataProps {
   rangeKey: ranger.Key;
 }
 
+const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
+
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
   const [newFormVisible, setNewFormVisible] = useState(false);
   const { data, getItem, subscribe, retrieve } = Ranger.useListKV({
     initialParams: { rangeKey },
+    sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);
   return (
@@ -194,7 +209,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
           index={0}
           itemKey=""
           rangeKey={rangeKey}
-          isCreate={true}
+          isCreate
           visible={newFormVisible}
           onClose={() => setNewFormVisible(false)}
         />
