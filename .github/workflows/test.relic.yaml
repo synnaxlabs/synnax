@@ -26,6 +26,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+          mkdir relic-bin
+          mv relic.exe relic-bin/
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
 
       - name: Download relic
@@ -45,5 +47,4 @@ jobs:
           echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
 
       - name: Print relic version to Github Output
-        run: |
-          echo "RELIC_VERSION=$(relic version)" >> $GITHUB_OUTPUT
+        run: relic --version
