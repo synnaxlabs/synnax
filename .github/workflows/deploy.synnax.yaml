@@ -178,19 +178,25 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-          echo "${{ github.workspace }}\\relic.exe" >> $env:GITHUB_PATHi
+          mkdir relic-bin
+          mv relic.exe relic-bin\
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
 
       - name: Download relic (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
-          echo "${{ github.workspace }}/relic" >> $env:GITHUB_PATH
+          mkdir relic-bin
+          mv relic relic-bin/
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
 
       - name: Download relic (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
-          echo "${{ github.workspace }}/relic" >> $env:GITHUB_PATH
+          mkdir relic-bin
+          mv relic relic-bin/
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
 
       - name: Sign release asset
         env:
