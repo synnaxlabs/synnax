@@ -180,42 +180,35 @@ jobs:
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
           mkdir relic-bin
           mv relic.exe relic-bin\
-          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
 
       - name: Download relic (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
-          chmod +x relic
           mkdir relic-bin
           mv relic relic-bin/
-          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
 
       - name: Download relic (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-15'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
-          chmod +x relic
           mkdir relic-bin
           mv relic relic-bin/
-          echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
 
-      - name: Sign release asset
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} --key azure --config relic.conf
-          relic sign --file install-driver-nilinuxrt.sh --key azure --config relic.conf
-
-      - name: Upload and Move Driver Binary
+      - name: Upload, Sign, and Move Driver Binary
         if: github.event_name == 'push'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          relic sign --file synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} --key azure --config relic.conf
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Move Driver to Assets
