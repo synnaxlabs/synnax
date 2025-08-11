@@ -18,6 +18,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - pluto/**
+      - relic.conf
       - turbo.json
       - vendor/lua-language-server/**
       - x/media/**
@@ -39,6 +40,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - pluto/**
+      - relic.conf
       - turbo.json
       - vendor/lua-language-server/**
       - x/media/**
