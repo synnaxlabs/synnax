@@ -1,0 +1,49 @@
+name: Test - Relic
+
+on:
+  push:
+    branches:
+      - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download relic
+        if: matrix.os == 'windows-latest'
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
+
+      - name: Download relic
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
+        run: |
+          curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
+          mkdir relic-bin
+          mv relic relic-bin/
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
+
+      - name: Download relic
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
+          mkdir relic-bin
+          mv relic relic-bin/
+          echo "${{ github.workspace }}/relic-bin" >> $env:GITHUB_PATH
+
+      - name: Print relic version to Github Output
+        run: |
+          echo "RELIC_VERSION=$(relic version)" >> $GITHUB_OUTPUT
