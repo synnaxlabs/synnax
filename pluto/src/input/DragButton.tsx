@@ -147,11 +147,17 @@ export const DragButton = ({
   return (
     <Button.Button
       ref={elRef}
-      variant="text"
-      className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
+      variant="outlined"
+      className={CSS(
+        CSS.BE("input", "drag-btn"),
+        direction != null && CSS.BEM("input", "drag-btn", "direction", direction),
+        className,
+      )}
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}
       onClick={preventDefault}
+      contrast={0}
+      textColor={9}
       {...rest}
     >
       <Icon.Drag />

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, Color, Flex, Input, List, Tabs } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { Channel, Color, Icon, Input, List, Tabs } from "@synnaxlabs/pluto";
+import { type bounds, color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { EmptyAction } from "@/components";
+import { CSS } from "@/css";
 import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
 import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
 
@@ -45,7 +46,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   return (
     <List.Frame data={lineKeys}>
       <List.Items<string, LineState>
-        style={{ height: "calc(100% - 28px)" }}
+        className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >
         {(p) => <Line layoutKey={layoutKey} onChange={handleChange} {...p} />}
@@ -58,6 +59,11 @@ interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChan
   layoutKey: string;
   onChange: (line: LineState) => void;
 }
+
+const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 11 };
+const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 51 };
+const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
+const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
 const Line = ({
   itemKey,
@@ -89,28 +95,33 @@ const Line = ({
   } = typedLineKeyFromString(line.key);
 
   return (
-    <Flex.Box style={{ padding: "0.5rem" }} x full="x">
+    <List.Item itemKey={itemKey} index={0} key={itemKey} bordered gap="large">
       <Channel.AliasInput
         channelKey={yChannel}
-        style={{ width: 305 }}
+        variant="shadow"
         value={line.label ?? ""}
         onChange={handleLabelChange}
+        full="x"
       />
       <Input.Numeric
         value={line.strokeWidth}
+        variant="shadow"
+        startContent={<Icon.StrokeWidth />}
         onChange={handleWidthChange}
-        dragScale={{ x: 0.1, y: 0.1 }}
-        bounds={{ lower: 1, upper: 11 }}
-        style={{ width: 140, marginRight: "2rem" }}
+        dragScale={STROKE_WIDTH_DRAG_SCALE}
+        bounds={STROKE_WIDTH_BOUNDS}
+        shrink={false}
       />
       <Input.Numeric
-        style={{ width: 100, marginRight: "2rem" }}
+        variant="shadow"
+        startContent={<Icon.Downsample />}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
-        dragScale={{ x: 0.1, y: 0.1 }}
-        bounds={{ lower: 1, upper: 51 }}
+        dragScale={DOWNSAMPLE_DRAG_SCALE}
+        bounds={DOWNSAMPLE_BOUNDS}
+        shrink={false}
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
-    </Flex.Box>
+    </List.Item>
   );
 };

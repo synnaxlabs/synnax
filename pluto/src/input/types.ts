@@ -9,6 +9,8 @@
 
 import { type ComponentPropsWithRef } from "react";
 
+import { type Button } from "@/button";
+
 export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
@@ -21,7 +23,7 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = "outlined" | "text" | "preview";
+export type Variant = Exclude<Button.Variant, "filled" | "suggestion">;
 
 export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;

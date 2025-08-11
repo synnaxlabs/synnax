@@ -110,10 +110,9 @@ const Core = <E extends ElementType = "button">({
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
-  // We implement the shadow variant to maintain compatibility with the input
-  // component API.
-  if (variant == "shadow") variant = "text";
-  else if (variant === "preview") preventClick = true;
+  // The shadow variant appears as text but shows outline on hover.
+  // We don't convert it here, let CSS handle the behavior.
+  if (variant === "preview") preventClick = true;
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 

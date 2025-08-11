@@ -212,7 +212,6 @@ export class HardenedStreamer implements Streamer {
   ): Promise<HardenedStreamer> {
     const h = new HardenedStreamer(opener, config, breakerConfig);
     await h.runStreamer();
-
     return h;
   }
 

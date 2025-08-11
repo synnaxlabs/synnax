@@ -34,6 +34,7 @@
         position: relative;
         &.pluto--hidden {
             background: none;
+            border: none;
         }
         &.pluto--visible {
             animation: var(--pluto-modal-animation);
