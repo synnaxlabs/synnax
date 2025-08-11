@@ -35,6 +35,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-linux-amd64
+          chmod +x relic
           mkdir relic-bin
           mv relic relic-bin/
           echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
@@ -43,6 +44,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           curl -L -o relic https://github.com/sassoftware/relic/releases/latest/download/relic-darwin-arm64
+          chmod +x relic
           mkdir relic-bin
           mv relic relic-bin/
           echo "${{ github.workspace }}/relic-bin" >> "$GITHUB_PATH"
