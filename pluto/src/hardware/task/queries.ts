@@ -66,7 +66,7 @@ export const createRetrieveQuery = <
         onChange: Flux.parsedHandler(
           task.keyZ,
           async ({ client, changed, onChange, params: { key } }) => {
-            if (key == null || changed.toString() !== key.toString()) return;
+            if (key == null || changed !== key) return;
             onChange(await client.hardware.tasks.retrieve({ key, schemas }));
           },
         ),

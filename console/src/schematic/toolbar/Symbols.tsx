@@ -106,6 +106,7 @@ const ListItem = ({
   translate: _,
   startDrag,
   itemKey,
+  onClick,
 }: SymbolsButtonProps): ReactElement | null => {
   const spec = Schematic.SYMBOLS[itemKey];
   const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
@@ -120,6 +121,7 @@ const ListItem = ({
       draggable
       onDragStart={() => startDrag(itemKey)}
       onDragEnd={onDragEnd}
+      onClick={onClick}
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box className="preview-wrapper" align="center" justify="center">

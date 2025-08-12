@@ -99,6 +99,27 @@ export const Create: Layout.Renderer = (props) => {
     },
   });
 
+  const saveLocal = useCallback(() => {
+    if (!form.validate()) return;
+    const value = form.value();
+    if (value.key == null) return;
+    dispatch(
+      add({
+        ranges: [
+          {
+            persisted: false,
+            ...value,
+            key: value.key ?? "",
+            variant: "static",
+            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
+              .numeric,
+          },
+        ],
+      }),
+    );
+    onClose();
+  }, [form, dispatch]);
+
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
     (data: ranger.Payload) => data.key !== args?.key,
@@ -161,7 +182,7 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
+          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
