@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y libsystemd-dev
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
@@ -178,7 +178,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
-          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf --sig bazel-bin/driver/driver.exe.sig
+          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf -o bazel-bin/driver/driver.exe.sig
 
       - name: Upload and Move Driver Binary
         if: github.event_name == 'push'
@@ -272,7 +272,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
-          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf --sig ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe.sig
+          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf -o ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe.sig
 
       - name: Upload Release Asset
         if: github.event_name == 'push'
@@ -311,7 +311,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
-          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf --sig .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe.sig
+          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf -o .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe.sig
 
       - name: Upload Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
