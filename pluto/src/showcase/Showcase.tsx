@@ -20,7 +20,6 @@ import { FlexShowcase } from "./FlexShowcase";
 import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
-import { NavShowcase } from "./NavShowcase";
 import { NoteShowcase } from "./NoteShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TagShowcase } from "./TagShowcase";

@@ -43,7 +43,6 @@ const handleConfigure = ({
   handleError,
 }: Ontology.TreeContextMenuProps) => {
   const resource = getResource(resourceIDs[0]);
-  console.log(resource);
   try {
     const make = makeZ.parse(resource.data?.make);
     placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });

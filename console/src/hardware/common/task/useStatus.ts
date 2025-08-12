@@ -9,7 +9,6 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Task, useSyncedRef } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
 import { type z } from "zod";
 
@@ -64,7 +63,6 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   }, []);
   Task.useCommandSynchronizer(handleCommandUpdate);
   const handleStatusUpdate = useCallback((status: task.Status) => {
-    console.log(keyRef.current);
     if (status.details.task !== keyRef.current) return;
     setStatus(status);
   }, []);

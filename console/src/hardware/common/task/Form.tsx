@@ -237,7 +237,6 @@ export const wrapForm = <
   const Wrapper = ({ layoutKey, ...rest }: TaskProps<Type, Config, StatusData>) => {
     const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
       useForm({ ...rest, layoutKey, schemas, type, onConfigure });
-    console.log(status);
     const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Flex.Box
