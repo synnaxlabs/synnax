@@ -13,11 +13,11 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace fs {
-const auto ERROR = xerrors::Error("fs", "");
-const xerrors::Error NOT_FOUND = ERROR.sub("not_found");
-const xerrors::Error INVALID_PATH = ERROR.sub("invalid_path");
-const xerrors::Error PERMISSION_DENIED = ERROR.sub("permission_denied");
-const xerrors::Error READ_ERROR = ERROR.sub("read_error");
+const auto FS_ERROR = xerrors::Error("fs", "");
+const xerrors::Error NOT_FOUND = FS_ERROR.sub("not_found");
+const xerrors::Error INVALID_PATH = FS_ERROR.sub("invalid_path");
+const xerrors::Error PERMISSION_DENIED = FS_ERROR.sub("permission_denied");
+const xerrors::Error READ_ERROR = FS_ERROR.sub("read_error");
 
 /// @brief an internal method for reading the entire contents of certificate files
 /// into a string.

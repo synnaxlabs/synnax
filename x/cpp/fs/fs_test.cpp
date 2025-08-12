@@ -175,7 +175,7 @@ TEST_F(FSTest, ReadFileRelativePath) {
 }
 
 TEST_F(FSTest, ErrorTypeVerification) {
-    ASSERT_EQ(fs::ERROR.type, "fs");
+    ASSERT_EQ(fs::FS_ERROR.type, "fs");
     ASSERT_EQ(fs::NOT_FOUND.type, "fs.not_found");
     ASSERT_EQ(fs::INVALID_PATH.type, "fs.invalid_path");
     ASSERT_EQ(fs::PERMISSION_DENIED.type, "fs.permission_denied");
