@@ -208,7 +208,6 @@ jobs:
         run: pnpm install
 
       - name: Build TypeScript
-        working-directory: console
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server (Before Build)
