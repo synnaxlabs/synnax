@@ -8,6 +8,11 @@
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
  */
+.pluto-input__item {
+    & .pluto-input__switch {
+        width: 100%;
+    }
+}
 
 .pluto-input__switch {
     display: flex;
@@ -16,7 +21,6 @@
     position: relative;
     cursor: pointer;
     padding: 0;
-    width: 100%;
 
     &:focus-within {
         .pluto-input__switch-indicator {
