@@ -57,8 +57,8 @@ public:
         grpc::SslCredentialsOptions opts;
         auto [pem_root_certs, err] = fs::read_file(ca_path);
         if (err)
-            LOG(ERROR) << "Failed to read CA certificate from " << ca_path
-                       << ": " << err.message();
+            LOG(ERROR) << "Failed to read CA certificate from " << ca_path << ": "
+                       << err.message();
         opts.pem_root_certs = pem_root_certs;
         credentials = SslCredentials(opts);
     }
@@ -75,16 +75,13 @@ public:
         bool secure = false;
         if (!ca_path.empty()) {
             auto [pem_root_certs, err] = fs::read_file(ca_path);
-            if (err) {
-                LOG(ERROR) << "Failed to read CA certificate: " << err;
-            }
+            if (err) { LOG(ERROR) << "Failed to read CA certificate: " << err; }
             opts.pem_root_certs = pem_root_certs;
             secure = true;
         }
         if (!cert_path.empty() && !key_path.empty()) {
             auto [pem_cert_chain, err] = fs::read_file(cert_path);
-            if (err)
-                LOG(ERROR) << "Failed to read client certificate: " << err;
+            if (err) LOG(ERROR) << "Failed to read client certificate: " << err;
             opts.pem_cert_chain = pem_cert_chain;
             auto [pem_private_key, pem_priv_key_err] = fs::read_file(key_path);
             if (pem_priv_key_err)

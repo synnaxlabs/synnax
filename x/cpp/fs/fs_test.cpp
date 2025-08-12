@@ -11,9 +11,9 @@
 #include "gtest/gtest.h"
 
 /// std
-#include <fstream>
-#include <filesystem>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 
 /// internal
 #include "x/cpp/fs/fs.h"
@@ -72,7 +72,9 @@ private:
         std::ofstream file(large_file);
         // Create a file larger than the buffer size (1024 bytes)
         for (int i = 0; i < 200; i++) {
-            file << "Line " << i << ": This is a line of text to make the file larger than the buffer size.\n";
+            file
+                << "Line " << i
+                << ": This is a line of text to make the file larger than the buffer size.\n";
         }
         file.close();
     }
@@ -80,7 +82,7 @@ private:
     void createBinaryFile() {
         std::ofstream file(binary_file, std::ios::binary);
         unsigned char data[] = {0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
-        file.write(reinterpret_cast<const char*>(data), sizeof(data));
+        file.write(reinterpret_cast<const char *>(data), sizeof(data));
         file.close();
     }
 
@@ -163,10 +165,10 @@ TEST_F(FSTest, ReadFileMultipleReads) {
     // Test that reading the same file multiple times works correctly
     auto [content1, err1] = fs::read_file(test_file);
     ASSERT_TRUE(err1.ok());
-    
+
     auto [content2, err2] = fs::read_file(test_file);
     ASSERT_TRUE(err2.ok());
-    
+
     ASSERT_EQ(content1, content2);
 }
 
