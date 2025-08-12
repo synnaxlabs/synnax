@@ -21,6 +21,8 @@ import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
+const STALENESS_COLOR: [number, number, number, number] = [50, 50, 255, 1];
+const STALENESS_TIMEOUT: number = 5000;
 
 const valueState = z.object({
   box: box.box,
@@ -54,6 +56,8 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
+  staleTimeout?: ReturnType<typeof setTimeout>;
+  isInitialized: boolean;
 }
 
 export class Value
@@ -68,11 +72,30 @@ export class Value
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
-    else i.textColor = this.state.color;
+
+    // If not initialzied, set to STALENESS_COLOR
+    if (i.isInitialized === undefined) {
+      i.textColor = STALENESS_COLOR;
+    }
+    
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
-    i.stopListening = i.telem.onChange(() => this.requestRender());
+    i.stopListening = i.telem.onChange(() => {
+      if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
+      else i.textColor = this.state.color;
+
+      if (i.staleTimeout) clearTimeout(i.staleTimeout);
+      // If not initialized, set timout to 10ms for immediate staleness.
+      const timeoutDuration = i.isInitialized ? STALENESS_TIMEOUT : 20;
+      i.staleTimeout = setTimeout(() => {
+        i.textColor = STALENESS_COLOR;
+        i.isInitialized = true;
+        this.requestRender();
+      }, timeoutDuration);
+      
+      // Always re-render on new value
+      this.requestRender();
+    });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
@@ -82,13 +105,13 @@ export class Value
     i.stopListeningBackground?.();
     i.stopListeningBackground = i.backgroundTelem.onChange(() => this.requestRender());
     i.requestRender = render.useOptionalRequestor(ctx);
-    this.requestRender();
   }
 
   afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
+    if (i.staleTimeout) clearTimeout(i.staleTimeout);
     i.telem.cleanup?.();
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
