@@ -9,19 +9,16 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, List, type RenderProp, Text } from "@synnaxlabs/pluto";
+import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
-export interface NameProps<C extends DigitalChannel>
-  extends Common.Task.ChannelListItemProps<C> {}
-
 interface ListItemProps<C extends DigitalChannel>
-  extends Common.Task.ChannelListItemProps<C> {
-  name: RenderProp<NameProps<C>>;
+  extends Omit<Common.Task.ChannelListItemProps, "name"> {
+  name: Component.RenderProp<C>;
 }
 
 const ListItem = <C extends DigitalChannel>({
@@ -29,57 +26,55 @@ const ListItem = <C extends DigitalChannel>({
   path,
   isSnapshot,
   ...rest
-}: ListItemProps<C>) => (
-  <List.ItemFrame
-    {...rest}
-    align="center"
-    x
-    justify="spaceBetween"
-    style={{ width: "100%" }}
-  >
-    <Align.Space align="center" x justify="spaceEvenly">
-      <Align.Pack
-        align="center"
-        className="port-line-input"
-        x
-        style={{ maxWidth: "50rem" }}
-      >
-        <Form.NumericField
-          inputProps={{ showDragHandle: false }}
-          hideIfNull
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.port`}
-        />
-        <Text.Text level="p" shade={9} weight={550}>
-          /
+}: ListItemProps<C>) => {
+  const channel = Form.useFieldValue<C>(path);
+  if (channel == null) return null;
+  return (
+    <Select.ListItem {...rest} align="center" justify="between" full="x">
+      <Flex.Box align="center" x justify="evenly">
+        <Flex.Box
+          pack
+          align="center"
+          className="port-line-input"
+          x
+          style={{ maxWidth: "50rem" }}
+        >
+          <Form.NumericField
+            inputProps={{ showDragHandle: false }}
+            hideIfNull
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.port`}
+          />
+          <Text.Text color={9} weight={550}>
+            /
+          </Text.Text>
+          <Form.NumericField
+            inputProps={{ showDragHandle: false }}
+            hideIfNull
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.line`}
+          />
+        </Flex.Box>
+        <Text.Text
+          level="small"
+          className={CSS.BE("port-line-input", "label")}
+          weight={450}
+        >
+          Port/Line
         </Text.Text>
-        <Form.NumericField
-          inputProps={{ showDragHandle: false }}
-          hideIfNull
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.line`}
+      </Flex.Box>
+      <Flex.Box x align="center" justify="evenly">
+        {name(channel)}
+        <Common.Task.EnableDisableButton
+          path={`${path}.enabled`}
+          isSnapshot={isSnapshot}
         />
-      </Align.Pack>
-      <Text.Text
-        level="small"
-        className={CSS.BE("port-line-input", "label")}
-        shade={11}
-        weight={450}
-      >
-        Port/Line
-      </Text.Text>
-    </Align.Space>
-    <Align.Space x align="center" justify="spaceEvenly">
-      {name({ path, isSnapshot, ...rest })}
-      <Common.Task.EnableDisableButton
-        path={`${path}.enabled`}
-        isSnapshot={isSnapshot}
-      />
-    </Align.Space>
-  </List.ItemFrame>
-);
+      </Flex.Box>
+    </Select.ListItem>
+  );
+};
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
   extends Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
@@ -90,8 +85,8 @@ export const DigitalChannelList = <C extends DigitalChannel>({
   ...rest
 }: DigitalChannelListProps<C>) => {
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
-      <ListItem key={key} {...p} name={name} />
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+      <ListItem<C> key={key} {...p} name={name} />
     ),
     [name],
   );

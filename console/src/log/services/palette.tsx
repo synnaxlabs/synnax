@@ -7,26 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-
-import { type Import } from "@/import";
 import { Log } from "@/log";
-import { ImportIcon } from "@/log/services/Icon";
+import { CreateIcon, ImportIcon } from "@/log/services/Icon";
 import { import_ } from "@/log/services/import";
 import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-log",
   name: "Create a Log",
-  icon: <Icon.Log />,
+  icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Log.create()),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
   key: "import-log",
   name: "Import Log(s)",
+  sortOrder: -1,
   icon: <ImportIcon />,
-  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
+  onSelect: import_,
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

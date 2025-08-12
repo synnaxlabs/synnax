@@ -10,14 +10,15 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import { isObject } from "@synnaxlabs/x/identity";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
-import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
-const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
+export const KV_SET_CHANNEL = "sy_range_kv_set";
+export const KV_DELETE_CHANNEL = "sy_range_kv_delete";
+
+export const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
 export interface KVPair extends z.infer<typeof kvPairZ> {}
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
@@ -37,12 +38,10 @@ export class KV {
   private static readonly DELETE_ENDPOINT = "/range/kv/delete";
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
 
-  constructor(rng: Key, client: UnaryClient, frameClient: framer.Client) {
+  constructor(rng: Key, client: UnaryClient) {
     this.rangeKey = rng;
     this.client = client;
-    this.frameClient = frameClient;
   }
 
   async get(key: string): Promise<string>;
@@ -90,26 +89,6 @@ export class KV {
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),
-    );
-  }
-
-  async openTracker(): Promise<signals.Observable<string, KVPair>> {
-    return await signals.openObservable<string, KVPair>(
-      this.frameClient,
-      "sy_range_kv_set",
-      "sy_range_kv_delete",
-      (variant, data) => {
-        if (variant === "delete")
-          return data.toStrings().map((combinedKey) => {
-            const [range, key] = combinedKey.split("<--->", 2);
-            return { variant, key: combinedKey, value: { range, key, value: "" } };
-          });
-        return data.parseJSON(kvPairZ).map((pair) => ({
-          variant,
-          key: `${pair.range}${pair.key}`,
-          value: pair,
-        }));
-      },
     );
   }
 }

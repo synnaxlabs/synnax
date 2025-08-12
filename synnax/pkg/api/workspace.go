@@ -31,7 +31,7 @@ func NewWorkspaceService(p Provider) *WorkspaceService {
 	return &WorkspaceService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Workspace,
+		internal:       p.Service.Workspace,
 	}
 }
 
@@ -107,11 +107,11 @@ func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayout
 
 type (
 	WorkspaceRetrieveRequest struct {
-		Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-		Search string      `json:"search" msgpack:"search"`
-		Author uuid.UUID   `json:"author" msgpack:"author"`
-		Limit  int         `json:"limit" msgpack:"limit"`
-		Offset int         `json:"offset" msgpack:"offset"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+		SearchTerm string      `json:"search_term" msgpack:"search_term"`
+		Author     uuid.UUID   `json:"author" msgpack:"author"`
+		Limit      int         `json:"limit" msgpack:"limit"`
+		Offset     int         `json:"offset" msgpack:"offset"`
 	}
 	WorkspaceRetrieveResponse struct {
 		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
@@ -122,7 +122,7 @@ func (s *WorkspaceService) Retrieve(
 	ctx context.Context,
 	req WorkspaceRetrieveRequest,
 ) (res WorkspaceRetrieveResponse, err error) {
-	q := s.internal.NewRetrieve().Search(req.Search)
+	q := s.internal.NewRetrieve().Search(req.SearchTerm)
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
 	}

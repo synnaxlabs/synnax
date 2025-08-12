@@ -51,11 +51,18 @@ export interface ProviderProps extends PropsWithChildren {
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
   connecting: "loading",
-  disconnected: "info",
+  disconnected: "disabled",
   failed: "error",
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+
+export interface StatusDetails {
+  type: string;
+  oldServer: boolean;
+  nodeVersion?: string;
+  clientVersion: string;
+}
 
 const createErrorDescription = (
   oldServer: boolean,
@@ -63,6 +70,23 @@ const createErrorDescription = (
   nodeVersion?: string,
 ): string =>
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+
+interface TestProviderProps extends PropsWithChildren {
+  client: Synnax | null;
+}
+
+export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+  const { path } = Aether.useUnidirectional({
+    type: synnax.Provider.TYPE,
+    schema: synnax.Provider.stateZ,
+    state: { props: null, state: null },
+  });
+  return (
+    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context>
+  );
+};
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
   const [state, setState, ref] =
@@ -88,65 +112,69 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     [addStatus],
   );
 
-  useAsyncEffect(async () => {
-    if (state.client != null) state.client.close();
-    if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
+  useAsyncEffect(
+    async (signal) => {
+      if (state.client != null) state.client.close();
+      if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
-    const c = new Synnax({
-      ...connParams,
-      connectivityPollFrequency: TimeSpan.seconds(2),
-    });
+      const client = new Synnax({
+        ...connParams,
+        connectivityPollFrequency: TimeSpan.seconds(2),
+      });
 
-    setState({
-      client: c,
-      state: {
-        clusterKey: "",
-        status: "connecting",
-        message: "Connecting...",
-        clientServerCompatible: false,
-        clientVersion: c.clientVersion,
-      },
-    });
-
-    const connectivity = await c.connectivity.check();
-
-    setState({ client: c, state: connectivity });
-    addStatus({
-      variant: CONNECTION_STATE_VARIANTS[connectivity.status],
-      message: connectivity.message ?? connectivity.status.toUpperCase(),
-    });
-
-    if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
-      const oldServer =
-        connectivity.nodeVersion == null ||
-        migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
-
-      const description = createErrorDescription(
-        oldServer,
-        connectivity.clientVersion,
-        connectivity.nodeVersion,
-      );
-
-      addStatus({
-        variant: "warning",
-        message: "Incompatible cluster version",
-        description,
-        data: {
-          type: SERVER_VERSION_MISMATCH,
-          oldServer,
-          nodeVersion: connectivity.nodeVersion,
-          clientVersion: connectivity.clientVersion,
+      setState({
+        client,
+        state: {
+          clusterKey: "",
+          status: "connecting",
+          message: "Connecting...",
+          clientServerCompatible: false,
+          clientVersion: client.clientVersion,
         },
       });
-    }
 
-    c.connectivity.onChange(handleChange);
+      const connectivity = await client.connectivity.check();
+      if (signal.aborted) return;
 
-    return () => {
-      c.close();
-      setState(ZERO_CONTEXT_VALUE);
-    };
-  }, [connParams, handleChange]);
+      setState({ client, state: connectivity });
+      addStatus({
+        variant: CONNECTION_STATE_VARIANTS[connectivity.status],
+        message: connectivity.message ?? connectivity.status.toUpperCase(),
+      });
+
+      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
+        const oldServer =
+          connectivity.nodeVersion == null ||
+          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+
+        const description = createErrorDescription(
+          oldServer,
+          connectivity.clientVersion,
+          connectivity.nodeVersion,
+        );
+
+        addStatus<StatusDetails>({
+          variant: "warning",
+          message: "Incompatible cluster version",
+          description,
+          details: {
+            type: SERVER_VERSION_MISMATCH,
+            oldServer,
+            nodeVersion: connectivity.nodeVersion,
+            clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
+
+      client.connectivity.onChange(handleChange);
+
+      return () => {
+        client.close();
+        setState(ZERO_CONTEXT_VALUE);
+      };
+    },
+    [connParams, handleChange],
+  );
 
   return (
     <Context value={state}>

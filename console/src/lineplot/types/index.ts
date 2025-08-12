@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import * as v0 from "@/lineplot/types/v0";
 import * as v1 from "@/lineplot/types/v1";

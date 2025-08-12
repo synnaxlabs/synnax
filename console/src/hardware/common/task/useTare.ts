@@ -7,20 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type task as clientTask } from "@synnaxlabs/client";
+import {
+  type channel,
+  DisconnectedError,
+  type task as clientTask,
+} from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
-
 export interface TareableChannel {
   key: string;
   channel: channel.Key;
-}
-
-interface TareArgs {
-  keys: channel.Key[];
 }
 
 export type UseTareProps<C extends TareableChannel> =
@@ -54,9 +52,9 @@ export const useTare = <C extends TareableChannel>({
   const tare = useMutation({
     onError: (e) => handleError(e, "Failed to tare channels"),
     mutationFn: async (keys: channel.Key[]) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!configured) throw new Error("Task has not been configured");
-      await task.executeCommand<TareArgs>("tare", { keys });
+      await task.executeCommand("tare", { keys });
     },
   }).mutate;
   const getTareableChannels = useCallback(

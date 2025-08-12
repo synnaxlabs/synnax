@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { Sequence } from "@/hardware/task/sequence";
 import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
+import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -28,6 +30,20 @@ export const COMMANDS: Palette.Command[] = [
   ...OPC.Task.COMMANDS,
   ...Sequence.COMMANDS,
 ];
+
+export const EXTRACTORS: Export.Extractors = {
+  ...LabJack.Task.EXTRACTORS,
+  ...NI.Task.EXTRACTORS,
+  ...OPC.Task.EXTRACTORS,
+  ...Sequence.EXTRACTORS,
+};
+
+export const FILE_INGESTORS: Import.FileIngestors = {
+  ...LabJack.Task.FILE_INGESTORS,
+  ...NI.Task.FILE_INGESTORS,
+  ...OPC.Task.FILE_INGESTORS,
+  ...Sequence.FILE_INGESTORS,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...LabJack.Task.LAYOUTS,

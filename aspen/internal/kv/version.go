@@ -15,14 +15,14 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
 )
 
 type versionFilter struct {
 	Config
-	memKV      kvx.DB
+	memKV      xkv.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
 	confluence.BatchSwitch[TxRequest, TxRequest]
@@ -66,7 +66,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, kvx.NotFound)
+			return errors.Is(err, xkv.NotFound)
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation
@@ -77,7 +77,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	return op.Version.NewerThan(dig.Version)
 }
 
-func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error) {
+func getDigestFromKV(ctx context.Context, kve xkv.DB, key []byte) (Digest, error) {
 	dig := Digest{}
 	key, err := digestKey(key)
 	if err != nil {
@@ -96,12 +96,12 @@ const versionCounterKey = "ver"
 
 type versionAssigner struct {
 	Config
-	counter *kvx.AtomicInt64Counter
+	counter *xkv.AtomicInt64Counter
 	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	c, err := xkv.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
 	return v, err

@@ -1,5 +1,5 @@
 {
-  "version": "0.43.0",
+  "version": "0.44.0",
   "private": true,
   "scripts": {
     "build": "npx turbo build",
@@ -61,12 +61,11 @@
   },
   "devDependencies": {
     "prettier": "catalog:",
-    "turbo": "^2.5.4",
-    "vitest": "catalog:"
+    "turbo": "^2.5.4"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
-  "packageManager": "pnpm@10.12.1",
+  "packageManager": "pnpm@10.13.1",
   "name": "synnax"
 }

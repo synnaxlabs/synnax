@@ -17,11 +17,10 @@ from synnax.exceptions import (
     ContiguityError,
     ControlError,
     ExpiredToken,
-    Field,
-    FieldError,
     InvalidToken,
     MultipleFoundError,
     NotFoundError,
+    PathError,
     QueryError,
     RouteError,
     UnauthorizedError,
@@ -39,7 +38,7 @@ from synnax.framer import (
 from synnax.hardware import Client as HardwareClient
 from synnax.hardware.device import Device
 from synnax.hardware.rack import Rack
-from synnax.hardware.task import Task
+from synnax.hardware.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -88,8 +87,7 @@ __all__ = [
     "Device",
     "elapsed_seconds",
     "ExpiredToken",
-    "Field",
-    "FieldError",
+    "PathError",
     "Frame",
     "HardwareClient",
     "Iterator",
@@ -111,6 +109,8 @@ __all__ = [
     "Synnax",
     "SynnaxOptions",
     "Task",
+    "TaskStatus",
+    "TaskStatusDetails",
     "Timer",
     "TimeRange",
     "TimeSpan",

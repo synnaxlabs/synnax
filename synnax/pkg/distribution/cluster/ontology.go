@@ -17,12 +17,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	ontologycore "github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +34,7 @@ const (
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func NodeOntologyID(key core.NodeKey) ontology.ID {
+func NodeOntologyID(key NodeKey) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
@@ -44,20 +45,12 @@ func OntologyID(key uuid.UUID) ontology.ID {
 }
 
 var (
-	_nodeSchema = &ontology.Schema{
-		Type: nodeOntologyType,
-		Fields: map[string]schema.Field{
-			"key":     {Type: schema.Uint32},
-			"address": {Type: schema.String},
-			"state":   {Type: schema.Uint32},
-		},
-	}
-	_clusterSchema = &ontology.Schema{
-		Type: clusterOntologyType,
-		Fields: map[string]schema.Field{
-			"key": {Type: schema.String},
-		},
-	}
+	nodeSchema = zyn.Object(map[string]zyn.Schema{
+		"key":     zyn.Uint16().Coerce(),
+		"address": zyn.String(),
+		"state":   zyn.Uint32().Coerce(),
+	})
+	schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID()})
 )
 
 // NodeOntologyService implements the ontology.Service interface to provide resource access
@@ -65,21 +58,21 @@ var (
 type NodeOntologyService struct {
 	alamos.Instrumentation
 	Ontology *ontology.Ontology
-	Cluster  core.Cluster
+	Cluster  Cluster
 }
 
-var _ ontology.Service = (*NodeOntologyService)(nil)
+func (s *NodeOntologyService) Type() ontology.Type { return nodeOntologyType }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(core.Free)); err != nil {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 }
 
-func translateNodeChange(ch core.NodeChange, _ int) schema.Change {
-	return schema.Change{
+func translateNodeChange(ch NodeChange, _ int) ontology.Change {
+	return ontology.Change{
 		Variant: ch.Variant,
 		Key:     NodeOntologyID(ch.Key),
 		Value:   newNodeResource(ch.Value),
@@ -87,9 +80,9 @@ func translateNodeChange(ch core.NodeChange, _ int) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
+func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[ontology.Change])) observe.Disconnect {
 	var (
-		onChange = func(ctx context.Context, ch core.ClusterChange) {
+		onChange = func(ctx context.Context, ch Change) {
 			f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
 		}
 	)
@@ -99,53 +92,52 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 // OpenNexter implements ontology.Service.
 func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(
-		iter.All(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ core.NodeKey, n core.Node) ontology.Resource {
+		iter.All(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
 			return newNodeResource(n)
 		})),
 	), nil
 }
 
-// Schema implements ontology.Service.
-func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
+// schema implements ontology.Service.
+func (s *NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
 
 // RetrieveResource implements ontology.Service.
 func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	_nKey, err := strconv.Atoi(key)
 	if err != nil {
-		return schema.Resource{}, err
+		return ontology.Resource{}, err
 	}
-	nKey := core.NodeKey(_nKey)
+	nKey := NodeKey(_nKey)
 	if nKey.IsFree() {
-		return newNodeResource(core.Node{Key: nKey}), nil
+		return newNodeResource(Node{Key: nKey}), nil
 	}
 	n, err := s.Cluster.Node(nKey)
 	return newNodeResource(n), err
 }
 
-func newNodeResource(n core.Node) schema.Resource {
-	r := schema.NewResource(
-		_nodeSchema,
+func newNodeResource(n Node) ontology.Resource {
+	return ontologycore.NewResource(
+		nodeSchema,
 		NodeOntologyID(n.Key),
 		fmt.Sprintf("Node %v", n.Key),
+		n,
 	)
-	schema.Set(r, "key", uint32(n.Key))
-	schema.Set(r, "address", n.Address.String())
-	schema.Set(r, "state", uint32(n.State))
-	return r
 }
 
 // OntologyService implements the ontology.Service to provide resource access
 // to metadata about a Cluster.
 type OntologyService struct {
-	Cluster core.Cluster
+	Cluster Cluster
 	// Nothing will ever change about the cluster.
-	observe.Noop[iter.Nexter[schema.Change]]
+	observe.Noop[iter.Nexter[ontology.Change]]
 }
 
 var _ ontology.Service = (*OntologyService)(nil)
 
-// Schema implements ontology.Service.
-func (s *OntologyService) Schema() *schema.Schema { return _clusterSchema }
+func (s *OntologyService) Type() ontology.Type { return clusterOntologyType }
+
+// schema implements ontology.Service.
+func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
@@ -153,12 +145,15 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 }
 
 // OpenNexter implements ontology.Service.Relationship
-func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	return iter.NexterNopCloser(iter.All([]schema.Resource{})), nil
+func (s *OntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	return iter.NexterNopCloser(iter.All([]ontology.Resource{})), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	r := schema.NewResource(_clusterSchema, OntologyID(key), "Cluster")
-	schema.Set(r, "key", key.String())
-	return r
+	return ontologycore.NewResource(
+		schema,
+		OntologyID(key),
+		"Cluster",
+		map[string]any{"key": key},
+	)
 }

@@ -12,10 +12,10 @@ import "@/lineplot/LinePlot.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   type axis,
   Channel,
+  Icon,
   type Legend,
   LinePlot as Core,
   Menu as PMenu,
@@ -74,7 +74,6 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
-  selectRule,
   setActiveToolbarTab,
   setAxis,
   setControlState,
@@ -83,6 +82,7 @@ import {
   setRanges,
   setRemoteCreated,
   setRule,
+  setSelectedRule,
   setSelection,
   setXChannel,
   setYChannels,
@@ -146,25 +146,16 @@ const RangeAnnotationContextMenu = ({
   };
   return (
     <PMenu.Menu level="small">
-      <PMenu.Item
-        itemKey="download"
-        startIcon={<Icon.Download />}
-        onClick={handleDownloadAsCSV}
-      >
+      <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.Download />
         Download as CSV
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="line-plot"
-        startIcon={<Icon.LinePlot />}
-        onClick={handleOpenInNewPlot}
-      >
+      <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
+        <Icon.LinePlot />
         Open in New Plot
       </PMenu.Item>
-      <PMenu.Item
-        itemKey="metadata"
-        startIcon={<Icon.Annotate />}
-        onClick={handleViewDetails}
-      >
+      <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
         View Details
       </PMenu.Item>
     </PMenu.Menu>
@@ -187,19 +178,23 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const toFetch = lines.filter((line) => line.label == null);
-    if (toFetch.length === 0) return;
-    const fetched = await client.channels.retrieve(
-      unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
-    );
-    const update = toFetch.map((l) => ({
-      key: l.key,
-      label: fetched.find((f) => f.key === l.channels.y)?.name,
-    }));
-    syncDispatch(setLine({ key: layoutKey, line: update }));
-  }, [layoutKey, client, lines]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const toFetch = lines.filter((line) => line.label == null);
+      if (toFetch.length === 0) return;
+      const fetched = await client.channels.retrieve(
+        unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+      );
+      if (signal.aborted) return;
+      const update = toFetch.map((l) => ({
+        key: l.key,
+        label: fetched.find((f) => f.key === l.channels.y)?.name,
+      }));
+      syncDispatch(setLine({ key: layoutKey, line: update }));
+    },
+    [layoutKey, client, lines],
+  );
 
   const handleTitleChange = (name: string): void => {
     syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -412,25 +407,25 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     };
 
     return (
-      <PMenu.Menu onChange={handleSelect} iconSpacing="small" level="small">
+      <PMenu.Menu onChange={handleSelect} gap="small" level="small">
         {!box.areaIsZero(selection) && (
           <>
-            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy ISO Time Range
+            <PMenu.Item itemKey="iso">
+              <Icon.Range /> Copy ISO Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy Python Time Range
+            <PMenu.Item itemKey="python">
+              <Icon.Python /> Copy Python Time Range
             </PMenu.Item>
-            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy TypeScript Time Range
-            </PMenu.Item>
-            <PMenu.Divider />
-            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create Range from Selection
+            <PMenu.Item itemKey="typescript">
+              <Icon.TypeScript /> Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download Region as CSV
+            <PMenu.Item itemKey="range">
+              <Icon.Add /> Create Range from Selection
+            </PMenu.Item>
+            <PMenu.Divider />
+            <PMenu.Item itemKey="download">
+              <Icon.Download /> Download Region as CSV
             </PMenu.Item>
           </>
         )}
@@ -479,7 +474,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
+          onSelectRule={(ruleKey) =>
+            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
+          }
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           rangeAnnotationProvider={rangeAnnotationProvider}
         >

@@ -23,21 +23,19 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		builder     = mock.NewBuilder()
-		dist        distribution.Distribution
+		builder     = mock.NewCluster()
+		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func() {
-		dist = builder.New(ctx)
+		dist = builder.Provision(ctx)
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
@@ -51,8 +49,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("Happy Path", func() {
@@ -74,6 +71,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
+			time.Sleep(5 * time.Millisecond)
 			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
@@ -245,10 +243,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				SendOpenAck:      true,
 				DownsampleFactor: -2,
 			})
-			Expect(err).To(HaveOccurredAs(validate.FieldError{
-				Field:   "downsample_factor",
-				Message: "must be greater than or equal to 0",
-			}))
+			Expect(err).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
 		})
 
 		It("Should correctly combine downsampling with calculations", func() {

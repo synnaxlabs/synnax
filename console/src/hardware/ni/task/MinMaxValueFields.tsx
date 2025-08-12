@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form } from "@synnaxlabs/pluto";
+import { Flex, Form } from "@synnaxlabs/pluto";
 
 const MinValueField = Form.buildNumericField({
   fieldKey: "minVal",
   fieldProps: { label: "Minimum Value" },
+  inputProps: {},
 });
 
 const MaxValueField = Form.buildNumericField({
   fieldKey: "maxVal",
   fieldProps: { label: "Maximum Value" },
+  inputProps: {},
 });
 
 export interface MinMaxValueFieldsProps {
@@ -24,8 +26,8 @@ export interface MinMaxValueFieldsProps {
 }
 
 export const MinMaxValueFields = ({ path }: MinMaxValueFieldsProps) => (
-  <Align.Space x>
+  <Flex.Box x>
     <MinValueField path={path} grow />
     <MaxValueField path={path} grow />
-  </Align.Space>
+  </Flex.Box>
 );

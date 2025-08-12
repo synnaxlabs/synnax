@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Icon, Menu } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -25,11 +24,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   const {
-    selection: { resources },
+    selection: { resourceIDs },
   } = props;
-  if (resources.length !== 1) return null;
+  if (resourceIDs.length !== 1) return null;
   const handleEditConnection = () =>
-    placeLayout({ ...Device.CONNECT_LAYOUT, key: resources[0].id.key });
+    placeLayout({ ...Device.CONNECT_LAYOUT, key: resourceIDs[0].key });
   return (
     <Common.DeviceServices.ContextMenuItems
       {...props}
@@ -37,11 +36,8 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     >
       <>
-        <Menu.Item
-          itemKey="opc.connect"
-          startIcon={<Icon.Connect />}
-          onClick={handleEditConnection}
-        >
+        <Menu.Item itemKey="opc.connect" onClick={handleEditConnection}>
+          <Icon.Connect />
           Edit Connection
         </Menu.Item>
         <Menu.Divider />

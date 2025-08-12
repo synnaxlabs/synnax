@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax } from "@synnaxlabs/pluto";
+import { Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import { CREATE_LAYOUT } from "@/channel/Create";
-import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -29,18 +27,17 @@ const Content = (): ReactElement => {
   });
   const placeLayout = Layout.usePlacer();
   return (
-    <Cluster.NoneConnectedBoundary>
-      <Align.Space empty style={{ height: "100%", overflow: "hidden" }}>
-        <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
-          <Toolbar.Actions>
-            {[{ children: <Icon.Add />, onClick: () => placeLayout(CREATE_LAYOUT) }]}
-          </Toolbar.Actions>
-        </Toolbar.Header>
-
-        <Ontology.Tree root={group.data?.ontologyID} />
-      </Align.Space>
-    </Cluster.NoneConnectedBoundary>
+    <Toolbar.Content>
+      <Toolbar.Header padded>
+        <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
+        <Toolbar.Actions>
+          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+            <Icon.Add />
+          </Toolbar.Action>
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Ontology.Tree root={group.data?.ontologyID} />
+    </Toolbar.Content>
   );
 };
 

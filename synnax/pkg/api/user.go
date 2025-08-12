@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -40,7 +40,7 @@ func NewUserService(p Provider) *UserService {
 		dbProvider:     p.db,
 		authProvider:   p.auth,
 		accessProvider: p.access,
-		internal:       p.Config.User,
+		internal:       p.Service.User,
 	}
 }
 

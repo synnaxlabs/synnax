@@ -166,7 +166,7 @@ type FrameIteratorResponse struct {
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
 	Frame         *Frame                 `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,43,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
@@ -673,7 +673,7 @@ var File_synnax_pkg_api_grpc_v1_framer_proto protoreflect.FileDescriptor
 
 const file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\n" +
-	"#synnax/pkg/api/grpc/v1/framer.proto\x12\x06api.v1\x1a\x16x/go/telem/telem.proto\x1a\x18x/go/errors/errors.proto\x1a\x1ax/go/control/control.proto\x1a\x1bgoogle/protobuf/empty.proto\"D\n" +
+	"#synnax/pkg/api/grpc/v1/framer.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"D\n" +
 	"\x05Frame\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12'\n" +
 	"\x06series\x18\x02 \x03(\v2\x0f.telem.PBSeriesR\x06series\"\xb7\x01\n" +
@@ -689,7 +689,7 @@ const file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12#\n" +
 	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\x12\x19\n" +
-	"\bnode_key\x18+ \x01(\x05R\anodeKey\x12\x10\n" +
+	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\xd2\x02\n" +

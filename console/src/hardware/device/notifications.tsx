@@ -7,23 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Text } from "@synnaxlabs/pluto";
+import { type device } from "@synnaxlabs/client";
+import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
 import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-const notificationAdapter: Notifications.Adapter = (status) => {
+const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
   const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
-  const make = getMake(status.data?.make);
+  const make = getMake(status.details?.make);
   const startIcon = getIcon(make);
   sugared.content = (
-    <Text.WithIcon level="p" startIcon={startIcon}>
+    <Text.Text>
+      {startIcon}
       {status.message}
-    </Text.WithIcon>
+    </Text.Text>
   );
   if (make)
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
@@ -37,10 +39,13 @@ interface ConfigureButtonProps {
 const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => placeLayout(layout)}>
+    <Button.Button variant="outlined" size="tiny" onClick={() => placeLayout(layout)}>
+      <Icon.Hardware />
       Configure
     </Button.Button>
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
+  notificationAdapter,
+];

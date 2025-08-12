@@ -15,8 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/config"
@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc = MustSucceed(workspace.NewService(ctx, workspace.Config{
+	svc = MustSucceed(workspace.OpenService(ctx, workspace.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

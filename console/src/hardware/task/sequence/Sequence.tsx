@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, rack, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Align,
   Channel,
+  Flex,
   Form,
+  Icon,
   type Input,
   Rack,
   Status,
@@ -30,11 +30,10 @@ import { Controls } from "@/hardware/common/task/Controls";
 import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
-  type Config,
   configZ,
-  type StateDetails,
+  statusDetailsZ,
   TYPE,
-  type Type,
+  typeZ,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Modals } from "@/modals";
@@ -113,20 +112,24 @@ const Internal = ({
   task: base,
   layoutKey,
   rackKey,
-}: Common.Task.TaskProps<Config, StateDetails, Type>) => {
-  const client = Synnax.use();
+}: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
-  const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
+  const client = Synnax.use();
+  const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
     useForm({
       task: {
         ...base,
         config: {
           ...base.config,
-          rack: rackKey ?? task.getRackKey(base.key ?? "0"),
+          rack: rackKey ?? task.rackKey(base.key ?? "0"),
         },
       },
       layoutKey,
-      configSchema: schema,
+      schemas: {
+        typeSchema: typeZ,
+        configSchema: schema,
+        statusDataSchema: statusDetailsZ,
+      },
       type: TYPE,
       onConfigure: async (_, config) => [config, config.rack],
     });
@@ -139,8 +142,8 @@ const Internal = ({
   });
 
   return (
-    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<FormSchema<Config>> {...methods}>
+    <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
+      <Form.Form<FormSchema<typeof configZ>> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -150,30 +153,33 @@ const Internal = ({
         >
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
-        <Align.Pack
+        <Flex.Box
+          pack
           y
           bordered={false}
+          full="x"
           style={{
-            width: "100%",
             background: "var(--pluto-gray-l0)",
             boxShadow: "var(--pluto-shadow-v1)",
             borderTop: "var(--pluto-border)",
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
-          <Align.Space
-            y
-            style={{ padding: "2rem", paddingBottom: "3rem" }}
-            size="medium"
-          >
-            <Align.Space x>
+          <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
+            <Flex.Box x>
               <Form.Field<rack.Key>
                 path="config.rack"
                 label="Location"
                 padHelpText={false}
                 grow
               >
-                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
+                {({ value, onChange }) => (
+                  <Rack.SelectSingle
+                    allowNone={false}
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               </Form.Field>
               <Form.NumericField
                 label="Loop Rate"
@@ -186,7 +192,7 @@ const Internal = ({
                   dragScale: { x: 1, y: 1 },
                 }}
               />
-            </Align.Space>
+            </Flex.Box>
             <Form.Field<channel.Key[]>
               path="config.read"
               label="Read From"
@@ -239,12 +245,12 @@ const Internal = ({
                 />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Controls
             layoutKey={layoutKey}
-            state={state}
+            status={status}
             isConfiguring={isConfiguring}
-            onStartStop={handleStartOrStop}
+            onCommand={handleStartOrStop}
             onConfigure={handleConfigure}
             isSnapshot={isSnapshot}
             hasBeenConfigured={configured}
@@ -254,13 +260,26 @@ const Internal = ({
               borderTop: "var(--pluto-border)",
             }}
           />
-        </Align.Pack>
+        </Flex.Box>
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
+const getInitialPayload: Common.Task.GetInitialPayload<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+> = ({ config }) => {
+  const cfg = config != null ? configZ.parse(config) : ZERO_PAYLOAD.config;
+  return { ...ZERO_PAYLOAD, config: cfg };
+};
+
 export const Sequence = Common.Task.wrap(Internal, {
-  getInitialPayload: () => ZERO_PAYLOAD,
-  configSchema: configZ,
+  getInitialPayload,
+  schemas: {
+    typeSchema: typeZ,
+    configSchema: configZ,
+    statusDataSchema: statusDetailsZ,
+  },
 });

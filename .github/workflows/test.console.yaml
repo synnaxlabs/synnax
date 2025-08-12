@@ -17,7 +17,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vitest.workspace.ts
       - x/media/**
       - x/ts/**
   workflow_dispatch:
@@ -25,6 +24,8 @@ on:
 jobs:
   test:
     name: Test (${{ matrix.os }})
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]

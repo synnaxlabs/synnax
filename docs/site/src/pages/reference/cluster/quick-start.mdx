@@ -8,8 +8,7 @@ nextURL: "/reference/cluster/installation"
 platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Note } from "@synnaxlabs/pluto";
+import { Flex, Button, Note, Icon } from "@synnaxlabs/pluto";
 
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
@@ -158,13 +157,13 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 <br />
 <br />
-<Align.Space direction="y" justify="center" align="center">
+<Flex.Box direction="y" justify="center" align="center">
   <WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
   </small>
-</Align.Space>
+</Flex.Box>
 <br />
 <br />
 

@@ -127,7 +127,7 @@ class ReadTest {
     const s = `
 -- TypeScript Read (${this.tc.identifier}) --
 Samples read: ${formatNumber(samples)}
-Time taken: ${time}
+Time taken: ${time.toString()}
 Calculated Samples per Second: ${formatNumber(samplesPerSecond)}
 Configuration:
 \tNumber of iterators: ${this.tc.numIterators}

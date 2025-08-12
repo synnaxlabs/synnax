@@ -10,14 +10,17 @@
 import "@/hardware/opc/device/Browser.css";
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Align,
   Button,
+  Component,
+  Flex,
+  Haul,
   Header,
-  Icon as PIcon,
+  Icon,
+  List,
   Status,
   Synnax,
+  Text,
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
@@ -29,8 +32,12 @@ import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
+  SCAN_SCHEMAS,
   SCAN_TYPE,
-  type ScanStateDetails,
+  type scanConfigZ,
+  type ScannedNode,
+  type scanStatusDataZ,
+  type scanTypeZ,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -49,20 +56,57 @@ export interface BrowserProps {
   device: Device;
 }
 
+const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
+  bottomRight: Icon.Array,
+});
+
+const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
+  const node = List.useItem<string, ScannedNode>(props.itemKey);
+  const { startDrag } = Haul.useDrag({
+    type: HAUL_TYPE,
+    key: node?.nodeId,
+    data: node,
+  });
+  const handleDragStart = useCallback(() => {
+    if (node == null) return;
+    startDrag([{ key: node.nodeId, type: HAUL_TYPE, data: node }]);
+  }, [startDrag, node]);
+  if (node == null) return null;
+  const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
+  return (
+    <Tree.Item {...props} hasChildren draggable onDragStart={handleDragStart}>
+      <Text.Text color={10} gap="small">
+        {icon}
+        {node.name}
+      </Text.Text>
+    </Tree.Item>
+  );
+});
+
 export const Browser = ({ device }: BrowserProps) => {
   const client = Synnax.use();
-  const [nodes, setNodes] = useState<Tree.Node[]>([]);
+  const handleError = Status.useErrorHandler();
+  const [treeNodes, setTreeNodes] = useState<Tree.Node[]>([]);
+  const opcNodesStore = List.useMapData<string, ScannedNode>();
   const { data: scanTask } = useQuery({
     queryKey: [client?.key],
     queryFn: async () => {
       if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(device.rack);
-      const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
-      if (scanTasks.length > 0) return scanTasks[0];
-      throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
+      const scanTasks = await client.hardware.tasks.retrieve<
+        typeof scanTypeZ,
+        typeof scanConfigZ,
+        typeof scanStatusDataZ
+      >({
+        types: [SCAN_TYPE],
+        rack: device.rack,
+        schemas: SCAN_SCHEMAS,
+      });
+      if (scanTasks.length === 0)
+        throw new UnexpectedError(`No scan task found for device ${device.name}`);
+      return scanTasks[0];
     },
   });
-  const [loading, setLoading] = useState<string>();
+  const [, setLoading] = useState<string>();
   const expand = useMutation({
     mutationFn: async ({
       action,
@@ -75,81 +119,90 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
+      const { details } = await scanTask.executeCommandSync(
         SCAN_COMMAND_TYPE,
-        { connection, node_id: nodeID },
         TimeSpan.seconds(10),
+        { connection, node_id: nodeID },
       );
-      if (details == null) return;
-      if (!("channels" in details)) return;
-      const { channels } = details;
+      if (details?.data == null) return;
+      if (!("channels" in details.data)) return;
+      const channels = details.data.channels;
       const newNodes = channels.map(
-        (node) =>
-          ({
-            key: nodeKey(node.nodeId, nodeID),
-            name: node.name,
-            icon: node.isArray ? (
-              <PIcon.Icon bottomRight={<Icon.Array />}>
-                <Icon.Variable />
-              </PIcon.Icon>
-            ) : (
-              ICONS[node.nodeClass]
-            ),
-            hasChildren: true,
-            haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
-          }) as unknown as Tree.Node,
+        (node): Tree.Node => ({
+          key: nodeKey(node.nodeId, nodeID),
+          children: [],
+        }),
+      );
+      opcNodesStore.setItem(
+        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, nodeID) })),
       );
       setLoading(undefined);
       setInitialLoading(false);
-      if (isRoot) setNodes(newNodes);
+      if (isRoot) setTreeNodes(newNodes);
       else
-        setNodes([
+        setTreeNodes([
           ...Tree.setNode({
-            tree: [...nodes],
+            tree: [...treeNodes],
             destination: clicked,
             additions: newNodes,
           }),
         ]);
     },
+    onError: (error) => handleError(error, "Error loading nodes"),
   });
-  const treeProps = Tree.use({ nodes, onExpand: expand.mutate });
+  const treeProps = Tree.use({
+    nodes: treeNodes,
+    onExpand: expand.mutate,
+  });
+  const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
     if (scanTask == null) return;
     setInitialLoading(true);
     expand.mutate({ action: "expand", current: [], delay: 200 });
-    treeProps.clearExpanded();
-  }, [scanTask, treeProps.clearExpanded]);
+    clearExpanded();
+  }, [scanTask, clearExpanded]);
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
-    <Align.Center>
+    <Flex.Box center>
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
-    </Align.Center>
+    </Flex.Box>
   ) : expand.isError ? (
-    <Status.Text.Centered level="p" shade={10} variant="error">
-      Error loading nodes. {expand.error.message}
-    </Status.Text.Centered>
+    <Status.Summary
+      center
+      variant="error"
+      message="Error loading nodes."
+      description={expand.error.message}
+    />
   ) : (
-    <Tree.Tree loading={loading} {...treeProps} />
+    <Tree.Tree
+      {...treeProps}
+      shape={shape}
+      getItem={opcNodesStore.getItem}
+      subscribe={opcNodesStore.subscribe}
+    >
+      {itemRenderProp}
+    </Tree.Tree>
   );
   return (
-    <Align.Space empty className={CSS.B("opc-browser")}>
-      <Header.Header level="p">
-        <Header.Title weight={500} shade={10}>
+    <Flex.Box empty className={CSS.B("opc-browser")}>
+      <Header.Header>
+        <Header.Title weight={500} color={10}>
           Browser
         </Header.Title>
         <Header.Actions>
-          <Button.Icon
+          <Button.Button
             onClick={refresh}
             disabled={scanTask == null || initialLoading}
             sharp
-            shade={2}
+            contrast={2}
+            variant="text"
           >
             <Icon.Refresh />
-          </Button.Icon>
+          </Button.Button>
         </Header.Actions>
       </Header.Header>
       {content}
-    </Align.Space>
+    </Flex.Box>
   );
 };

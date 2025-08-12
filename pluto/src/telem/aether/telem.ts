@@ -14,10 +14,9 @@ import {
   type Destructor,
   type MultiSeries,
   observe,
+  type status,
 } from "@synnaxlabs/x";
-import { z } from "zod/v4";
-
-import { type status } from "@/status/aether";
+import { z } from "zod";
 
 const transferrable = z.instanceof(ArrayBuffer);
 
@@ -122,7 +121,7 @@ export type ColorSource = Source<color.Color>;
 export const colorSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("color") });
 export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
 
-export type StatusSource = Source<status.Spec>;
+export type StatusSource<D = undefined> = Source<status.Status<D>>;
 export const statusSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("status") });
 export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
 

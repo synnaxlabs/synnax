@@ -13,10 +13,10 @@ import { box, position, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
-import { type RenderProp } from "@/util/renderProp";
 
 interface ContextMenuState {
   visible: boolean;
@@ -142,7 +142,7 @@ export interface ContextMenuMenuProps {
 
 export interface ContextMenuProps
   extends Omit<UseContextMenuReturn, "className">,
-    Omit<Align.SpaceProps, "ref"> {
+    Omit<Flex.BoxProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
@@ -161,16 +161,16 @@ const Internal = ({
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
   return createPortal(
-    <Align.Space
+    <Flex.Box
       className={CSS(CSS.B("menu-context"), CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={close}
-      size="tiny"
+      gap="tiny"
       {...rest}
     >
       {menu?.({ keys })}
-    </Align.Space>,
+    </Flex.Box>,
     document.body,
   );
 };

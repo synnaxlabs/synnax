@@ -13,6 +13,7 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Flux } from "@/flux";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
@@ -24,6 +25,7 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Worker } from "@/worker";
+
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
@@ -62,15 +64,17 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Channel.AliasProvider {...channelAlias}>
-                    <Color.Provider {...color}>
-                      <Theming.Provider {...theming}>
-                        <CanDisableTelem {...telem}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </CanDisableTelem>
-                      </Theming.Provider>
-                    </Color.Provider>
-                  </Channel.AliasProvider>
+                  <Flux.Provider>
+                    <Channel.AliasProvider {...channelAlias}>
+                      <Color.Provider {...color}>
+                        <Theming.Provider {...theming}>
+                          <CanDisableTelem {...telem}>
+                            <Control.StateProvider>{children}</Control.StateProvider>
+                          </CanDisableTelem>
+                        </Theming.Provider>
+                      </Color.Provider>
+                    </Channel.AliasProvider>
+                  </Flux.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

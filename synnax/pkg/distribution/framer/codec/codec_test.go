@@ -262,14 +262,14 @@ var _ = Describe("Codec", func() {
 
 	Describe("Dynamic Codec", Ordered, func() {
 		var (
-			builder    *mock.Builder
+			builder    *mock.Cluster
 			channelSvc channel.Service
 			idxCh      channel.Channel
 			dataCh     channel.Channel
 		)
 		BeforeAll(func() {
-			builder = mock.NewBuilder()
-			dist := builder.New(ctx)
+			builder = mock.NewCluster()
+			dist := builder.Provision(ctx)
 			channelSvc = dist.Channel
 			w := dist.Channel.NewWriter(nil)
 			idxCh = channel.Channel{
@@ -287,7 +287,6 @@ var _ = Describe("Codec", func() {
 		})
 		AfterAll(func() {
 			Expect(builder.Close()).To(Succeed())
-			Expect(builder.Cleanup()).To(Succeed())
 		})
 		ShouldNotLeakGoroutinesBeforeEach()
 

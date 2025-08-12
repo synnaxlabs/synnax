@@ -10,12 +10,16 @@
 package ranger_test
 
 import (
+	"io"
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -24,8 +28,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
-	"time"
 )
 
 var _ = Describe("Ranger", Ordered, func() {
@@ -44,7 +46,13 @@ var _ = Describe("Ranger", Ordered, func() {
 			EnableSearch: config.True(),
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{DB: db, Ontology: otg, Group: g}))
+		lab := MustSucceed(label.OpenService(ctx, label.Config{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Label:    lab,
+		}))
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
@@ -188,7 +196,7 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-					p := MustSucceed(r.Parent(ctx))
+					p := MustSucceed(r.RetrieveParent(ctx))
 					Expect(p.Key).To(Equal(parent.Key))
 				})
 				It("Should return an error if the range has no parent", func() {
@@ -197,7 +205,7 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
-					_, err := p.Parent(ctx)
+					_, err := p.RetrieveParent(ctx)
 					Expect(err).To(HaveOccurredAs(query.NotFound))
 				})
 			})
@@ -375,7 +383,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	Describe("Alias", func() {
 
 		Describe("Set", func() {
-			It("Should set an alias for a channel on a range", func() {
+			It("Should set an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -389,12 +397,12 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 			})
 		})
 
 		Describe("Get", func() {
-			It("Should get an alias for a channel on a range", func() {
+			It("Should get an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -408,13 +416,13 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-				alias, err := r.GetAlias(ctx, ch.Key())
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
+				alias, err := r.RetrieveAlias(ctx, ch.Key())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(alias).To(Equal("alias"))
+				Expect(alias).To(Equal("Alias"))
 			})
 
-			It("Should return an error if an alias can't be found", func() {
+			It("Should return an error if an Alias can't be found", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -428,11 +436,11 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				_, err := r.GetAlias(ctx, ch.Key())
+				_, err := r.RetrieveAlias(ctx, ch.Key())
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("Should fallback to the parent range if the alias is not found", func() {
+			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -446,7 +454,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				parent = parent.UseTx(tx)
-				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(parent.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -455,14 +463,14 @@ var _ = Describe("Ranger", Ordered, func() {
 					},
 				}
 				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-				alias, err := r.GetAlias(ctx, ch.Key())
+				alias, err := r.RetrieveAlias(ctx, ch.Key())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(alias).To(Equal("alias"))
+				Expect(alias).To(Equal("Alias"))
 			})
 		})
 
 		Describe("Delete", func() {
-			It("Should delete an alias for a channel on a range", func() {
+			It("Should delete an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -476,16 +484,16 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				Expect(r.DeleteAlias(ctx, ch.Key())).To(Succeed())
-				_, err := r.GetAlias(ctx, ch.Key())
+				_, err := r.RetrieveAlias(ctx, ch.Key())
 				Expect(err).To(HaveOccurred())
 			})
 		})
 
 		Describe("Resolve", func() {
 
-			It("Should resolve an alias for a channel on a range", func() {
+			It("Should resolve an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -499,13 +507,13 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-				alias, err := r.ResolveAlias(ctx, "alias")
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
+				alias, err := r.ResolveAlias(ctx, "Alias")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(alias).To(Equal(ch.Key()))
 			})
 
-			It("Should return an error if an alias can't be resolved", func() {
+			It("Should return an error if an Alias can't be resolved", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -519,12 +527,12 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				_, err := r.ResolveAlias(ctx, "not_an_alias")
 				Expect(err).To(HaveOccurredAs(query.NotFound))
 			})
 
-			It("Should fallback to the parent range if the alias is not found", func() {
+			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -538,7 +546,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				parent = parent.UseTx(tx)
-				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(parent.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -547,12 +555,12 @@ var _ = Describe("Ranger", Ordered, func() {
 					},
 				}
 				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-				alias, err := r.ResolveAlias(ctx, "alias")
+				alias, err := r.ResolveAlias(ctx, "Alias")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(alias).To(Equal(ch.Key()))
 			})
 
-			It("Should return an error if the alias can't be resolved on both the child range and its parent", func() {
+			It("Should return an error if the Alias can't be resolved on both the child range and its parent", func() {
 				parent := ranger.Range{
 					Name: "Parent",
 					TimeRange: telem.TimeRange{
@@ -566,7 +574,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				parent = parent.UseTx(tx)
-				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(parent.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -595,10 +603,10 @@ var _ = Describe("Ranger", Ordered, func() {
 				Entry(&ch).
 				Exec(ctx, tx)).To(Succeed())
 			r = r.UseTx(tx)
-			Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+			Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(r.SearchAliases(ctx, "alias")).To(ContainElement(ch.Key()))
+				g.Expect(r.SearchAliases(ctx, "Alias")).To(ContainElement(ch.Key()))
 			}).Should(Succeed())
 		})
 
@@ -618,15 +626,15 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
-				aliases, err := r.ListAliases(ctx)
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
+				aliases, err := r.RetrieveAliases(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 			})
 
 			It("Should list the aliases on a range and its parent", func() {
 				parent := ranger.Range{
-					Name: "Parent",
+					Name: "RetrieveParent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
@@ -638,7 +646,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				parent = parent.UseTx(tx)
-				Expect(parent.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(parent.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -647,15 +655,15 @@ var _ = Describe("Ranger", Ordered, func() {
 					},
 				}
 				Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
-				aliases, err := r.ListAliases(ctx)
+				aliases, err := r.RetrieveAliases(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "alias"))
+				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 			})
 
 		})
 
 		Context("Ontology", func() {
-			It("Should find a created alias in the ontology", func() {
+			It("Should find a created Alias in the ontology", func() {
 				r := ranger.Range{
 					Name: "Range",
 					TimeRange: telem.TimeRange{
@@ -669,13 +677,17 @@ var _ = Describe("Ranger", Ordered, func() {
 					Entry(&ch).
 					Exec(ctx, tx)).To(Succeed())
 				r = r.UseTx(tx)
-				Expect(r.SetAlias(ctx, ch.Key(), "alias")).To(Succeed())
+				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(ranger.AliasOntologyID(r.Key, ch.Key())).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(res.Data["alias"]).To(Equal("alias"))
+				var out ranger.Alias
+				Expect(res.Parse(&out)).To(Succeed())
+				Expect(out.Channel).To(Equal(ch.Key()))
+				Expect(out.Range).To(Equal(r.Key))
+				Expect(out.Alias).To(Equal("Alias"))
 			})
 		})
 	})

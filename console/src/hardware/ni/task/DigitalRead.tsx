@@ -8,26 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
-import {
-  DigitalChannelList,
-  type NameProps,
-} from "@/hardware/ni/task/DigitalChannelList";
+import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
+  DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
-  type DigitalReadConfig,
   digitalReadConfigZ,
-  type DigitalReadStateDetails,
-  type DigitalReadType,
+  type digitalReadStatusDataZ,
+  type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
@@ -49,23 +45,27 @@ export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
+const NameComponent = ({ channel, key }: DIChannel) => (
   <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
 );
 
-const name = componentRenderProp(NameComponent);
+const name = Component.renderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
+  Common.Task.FormProps<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
@@ -76,22 +76,27 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalReadConfig,
-  DigitalReadStateDetails,
-  DigitalReadType
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_READ_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_READ_PAYLOAD.config.device,
-  },
-});
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalReadConfigZ.parse(config)
+      : ZERO_DIGITAL_READ_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
-const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
@@ -152,7 +157,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
 export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalReadConfigZ,
+  schemas: DIGITAL_READ_SCHEMAS,
   getInitialPayload,
   onConfigure,
   type: DIGITAL_READ_TYPE,

@@ -40,15 +40,13 @@ const createConverter = (
       const nkey = f(key);
       if (opt.recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value, opt.keepTypesOnRecursion))
-            value = converter(value, opt);
+          if (!belongToTypes(value)) value = converter(value, opt);
         } else if (opt.recursiveInArray && isArrayObject(value))
           value = [...(value as unknown[])].map((v) => {
             let ret = v;
             if (isValidObject(v)) {
               // object in array
-              if (!belongToTypes(ret, opt.keepTypesOnRecursion))
-                ret = converter(v, opt);
+              if (!belongToTypes(ret)) ret = converter(v, opt);
             } else if (isArrayObject(v)) {
               // array in array
               // workaround by using an object holding array value
@@ -117,8 +115,9 @@ export const capitalize = (str: string): string => {
 export interface Options {
   recursive: boolean;
   recursiveInArray?: boolean;
-  keepTypesOnRecursion?: Function[];
 }
+
+const keepTypesOnRecursion = [Number, String, Uint8Array];
 
 /**
  * Default options for convert function. This option is not recursive.
@@ -126,7 +125,6 @@ export interface Options {
 const defaultOptions: Options = {
   recursive: true,
   recursiveInArray: true,
-  keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
 const validateOptions = (opt: Options = defaultOptions): Options => {
@@ -140,8 +138,8 @@ const isArrayObject = (obj: unknown): boolean => obj != null && Array.isArray(ob
 const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-const belongToTypes = (obj: unknown, types?: Function[]): boolean =>
-  (types || []).some((Type) => obj instanceof Type);
+const belongToTypes = (obj: unknown): boolean =>
+  keepTypesOnRecursion.some((type) => obj instanceof type);
 
 /**
  * Converts a string to kebab-case.

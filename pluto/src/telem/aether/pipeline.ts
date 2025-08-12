@@ -9,7 +9,7 @@
 
 import { ValidationError } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {

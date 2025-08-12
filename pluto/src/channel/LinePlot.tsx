@@ -251,6 +251,7 @@ const XAxis = ({
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {yAxes.map((a, i) => {
         const yLines = lines.filter((l) => l.axes.y === a.key);
@@ -336,6 +337,7 @@ const YAxis = ({
       axisKey={key}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
         <Line key={lineKey(l)} line={l} />

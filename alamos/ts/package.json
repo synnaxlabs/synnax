@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.43.1",
+  "version": "0.44.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -19,8 +19,8 @@
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "madge": "madge --circular src"
   },
   "dependencies": {

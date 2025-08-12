@@ -56,6 +56,8 @@ func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
 
 func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r }
 
+func (r Range) setLabel(label *label.Service) Range { r.label = label; return r }
+
 // Get gets the provided key-value pair from the range.
 func (r Range) Get(ctx context.Context, key string) (string, error) {
 	var (
@@ -115,54 +117,54 @@ func (r Range) DeleteKV(ctx context.Context, key string) error {
 		Exec(ctx, r.tx)
 }
 
-// SetAlias sets an alias for the provided channel on the range.
+// SetAlias sets an Alias for the provided channel on the range.
 func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().WhereKeys(ch).Exists(ctx, r.tx)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.NotFound, "[range] - cannot alias non-existent channel %s", ch)
+		return errors.Wrapf(query.NotFound, "[range] - cannot Alias non-existent channel %s", ch)
 	}
-	if err := gorp.NewCreate[string, alias]().
-		Entry(&alias{Range: r.Key, Channel: ch, Alias: al}).
+	if err := gorp.NewCreate[string, Alias]().
+		Entry(&Alias{Range: r.Key, Channel: ch, Alias: al}).
 		Exec(ctx, r.tx); err != nil {
 		return err
 	}
 	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
 }
 
-// GetAlias gets the alias for the provided channel on the range.
-func (r Range) GetAlias(ctx context.Context, ch channel.Key) (string, error) {
-	var res alias
-	err := gorp.NewRetrieve[string, alias]().
-		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+// RetrieveAlias gets the Alias for the provided channel on the range.
+func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error) {
+	var res Alias
+	err := gorp.NewRetrieve[string, Alias]().
+		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.NotFound) {
-		p, pErr := r.Parent(ctx)
+		p, pErr := r.RetrieveParent(ctx)
 		if errors.Is(pErr, query.NotFound) {
 			return res.Alias, err
 		}
-		return p.GetAlias(ctx, ch)
+		return p.RetrieveAlias(ctx, ch)
 	}
 	return res.Alias, err
 }
 
-// ResolveAlias attempts to resolve the provided alias to a channel key on the range.
+// ResolveAlias attempts to resolve the provided Alias to a channel key on the range.
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
-	var res alias
-	matcher := func(a *alias) bool { return a.Range == r.Key && a.Alias == al }
+	var res Alias
+	matcher := func(a *Alias) bool { return a.Range == r.Key && a.Alias == al }
 	rxp, err := regexp.Compile(al)
 	if err == nil {
-		matcher = func(a *alias) bool { return a.Range == r.Key && rxp.MatchString(a.Alias) }
+		matcher = func(a *Alias) bool { return a.Range == r.Key && rxp.MatchString(a.Alias) }
 	}
-	err = gorp.NewRetrieve[string, alias]().
+	err = gorp.NewRetrieve[string, Alias]().
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.NotFound) {
-		p, pErr := r.Parent(ctx)
+		p, pErr := r.RetrieveParent(ctx)
 		if errors.Is(pErr, query.NotFound) {
 			return res.Channel, err
 		}
@@ -171,14 +173,13 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 	return res.Channel, err
 }
 
-// Parent returns the parent of the given range.
-func (r Range) Parent(ctx context.Context) (Range, error) {
+// RetrieveParent returns the parent of the given range.
+func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 	var resources []ontology.Resource
 	if err := r.otg.NewRetrieve().WhereIDs(r.OntologyID()).
 		TraverseTo(ontology.Parents).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
-		IncludeSchema(false).
 		Entries(&resources).Exec(ctx, r.tx); err != nil {
 		return Range{}, err
 	}
@@ -220,16 +221,16 @@ func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, e
 	return res, nil
 }
 
-// DeleteAlias deletes the alias for the given channel on the range. DeleteAlias is
-// idempotent, and will not return an error if the alias does not exist.
+// DeleteAlias deletes the Alias for the given channel on the range. DeleteAlias is
+// idempotent, and will not return an error if the Alias does not exist.
 func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
-	return gorp.NewDelete[string, alias]().
-		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+	return gorp.NewDelete[string, Alias]().
+		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Exec(ctx, r.tx)
 }
 
-// ListAliases lists all aliases on the range.
-func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {
+// RetrieveAliases lists all aliases on the range.
+func (r Range) RetrieveAliases(ctx context.Context) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
 	return res, r.listAliases(ctx, res)
 }
@@ -238,9 +239,9 @@ func (r Range) listAliases(
 	ctx context.Context,
 	accumulated map[channel.Key]string,
 ) error {
-	res := make([]alias, 0)
-	if err := gorp.NewRetrieve[string, alias]().
-		Where(func(a *alias) bool { return a.Range == r.Key }).
+	res := make([]Alias, 0)
+	if err := gorp.NewRetrieve[string, Alias]().
+		Where(func(a *Alias) bool { return a.Range == r.Key }).
 		Entries(&res).
 		Exec(ctx, r.tx); err != nil {
 		return err
@@ -248,14 +249,14 @@ func (r Range) listAliases(
 	for _, a := range res {
 		accumulated[a.Channel] = a.Alias
 	}
-	p, pErr := r.Parent(ctx)
+	p, pErr := r.RetrieveParent(ctx)
 	if errors.Is(pErr, query.NotFound) {
 		return nil
 	}
 	return p.listAliases(ctx, accumulated)
 }
 
-func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
+func (r Range) RetrieveLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 

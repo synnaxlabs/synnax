@@ -68,4 +68,4 @@ async function main() {
   client.close();
 }
 
-main();
+void main();

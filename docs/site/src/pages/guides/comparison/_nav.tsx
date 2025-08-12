@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const comparisonNav: PageNavNode = {
+export const COMPARISON_NAV: PageNavNode = {
   key: "comparison",
   name: "Comparisons",
   children: [

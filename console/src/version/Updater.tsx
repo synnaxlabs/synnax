@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Button, Icon, Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
@@ -42,14 +41,18 @@ export const useCheckForUpdates = (): boolean => {
       });
   };
 
-  useAsyncEffect(async () => {
-    await checkForUpdates(!isSilenced);
-    const i = setInterval(
-      () => void checkForUpdates(!isSilenced),
-      TimeSpan.seconds(30).milliseconds,
-    );
-    return () => clearInterval(i);
-  }, [isSilenced]);
+  useAsyncEffect(
+    async (signal) => {
+      await checkForUpdates(!isSilenced);
+      if (signal.aborted) return;
+      const i = setInterval(
+        () => void checkForUpdates(!isSilenced),
+        TimeSpan.seconds(30).milliseconds,
+      );
+      return () => clearInterval(i);
+    },
+    [isSilenced],
+  );
 
   return available;
 };
@@ -90,8 +93,8 @@ const SilenceAction = ({ onClick }: SilenceActionProps) => {
     onClick();
   };
   return (
-    <Button.Icon variant="text" onClick={handleClick}>
+    <Button.Button variant="text" onClick={handleClick}>
       <Icon.Snooze />
-    </Button.Icon>
+    </Button.Button>
   );
 };

@@ -14,13 +14,17 @@ import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
+  const {
+    selection: { resourceIDs },
+    state: { shape },
+  } = props;
   const group = Group.useCreateFromSelection();
   const handleSelect = {
     group: () => group(props),
   };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <Group.MenuItem selection={props.selection} />
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

@@ -8,20 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
-
-import { NULL_CLIENT_ERROR } from "@/errors";
 
 export interface UseLoadRemoteProps<V extends migrate.Migratable> {
   name: string;
   targetVersion: string;
   layoutKey: string;
   useSelectVersion: (layoutKey: string) => string | undefined;
-  fetcher: (client: Synnax, layoutKey: string) => Promise<V>;
+  fetcher: (client: Client, layoutKey: string) => Promise<V>;
   actionCreator: (v: V) => PayloadAction<any>;
 }
 
@@ -36,23 +34,27 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   const dispatch = useDispatch();
   const version = useSelectVersion(layoutKey);
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const get = useMutation({
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       return fetcher(client, layoutKey);
     },
     onError: (e) => handleError(e, `Failed to load ${name}`),
   });
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);
-  useAsyncEffect(async () => {
-    // If the layout data already exists and is not outdated, don't fetch.
-    if (notOutdated) return;
-    const res = await get.mutateAsync();
-    if (res == null) return;
-    dispatch(actionCreator(res));
-  }, [get.mutate, notOutdated, layoutKey, targetVersion]);
+  useAsyncEffect(
+    async (signal) => {
+      // If the layout data already exists and is not outdated, don't fetch.
+      if (notOutdated) return;
+      const res = await get.mutateAsync();
+      if (signal.aborted) return;
+      if (res == null) return;
+      dispatch(actionCreator(res));
+    },
+    [get.mutate, notOutdated, layoutKey, targetVersion],
+  );
   // If the layout data is null or outdated, return null.
   if (version == null || migrate.semVerOlder(version, targetVersion)) return null;
   return version != null;

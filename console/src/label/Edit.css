@@ -10,12 +10,31 @@
  */
 
 .console-label__list-item {
-    .pluto-btn-icon {
+    height: 7.5rem;
+    max-height: 7.5rem;
+    min-height: 7.5rem;
+    padding: 0rem 4rem;
+
+    .console-label__delete {
         opacity: 0;
     }
     &:hover {
-        .pluto-btn-icon {
+        .console-label__delete {
             opacity: 1;
+        }
+    }
+    &.console--create {
+        background: var(--pluto-gray-l2);
+        transition:
+            height 0.2s ease,
+            min-height 0.2s ease;
+        &.pluto--hidden {
+            height: 0;
+            min-height: 0;
+            flex-grow: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: none;
         }
     }
 }

@@ -7,138 +7,117 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ontology
+package ontology_test
 
 import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 // mockIndexingService implements the Service interface for testing startup indexing
 type mockIndexingService struct {
-	observe.Observer[iter.Nexter[schema.Change]]
-	resources []Resource
-	schema_   *Schema
+	observe.Observer[iter.Nexter[ontology.Change]]
+	resources []ontology.Resource
+	schema    zyn.Schema
 }
 
-var _ Service = (*mockIndexingService)(nil)
+var _ ontology.Service = (*mockIndexingService)(nil)
 
-func newMockIndexingService(schema_ *Schema, resources []Resource) *mockIndexingService {
+func newMockIndexingService(schema zyn.Schema, resources []ontology.Resource) *mockIndexingService {
 	return &mockIndexingService{
-		Observer:  observe.New[iter.Nexter[schema.Change]](),
+		Observer:  observe.New[iter.Nexter[ontology.Change]](),
 		resources: resources,
-		schema_:   schema_,
+		schema:    schema,
 	}
 }
 
-func (s *mockIndexingService) Schema() *Schema {
-	return s.schema_
+const testType ontology.Type = "test-type"
+
+func (s *mockIndexingService) Type() ontology.Type { return testType }
+
+func (s *mockIndexingService) Schema() zyn.Schema {
+	return s.schema
 }
 
-func (s *mockIndexingService) OpenNexter() (iter.NexterCloser[Resource], error) {
-	return iter.NexterNopCloser[Resource](iter.All[Resource](s.resources)), nil
+func (s *mockIndexingService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](s.resources)), nil
 }
 
-func (s *mockIndexingService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error) {
+func (s *mockIndexingService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
 	for _, r := range s.resources {
 		if r.ID.Key == key {
 			return r, nil
 		}
 	}
-	return Resource{}, nil
+	return ontology.Resource{}, nil
 }
 
-var _ = Describe("Search Indexing", func() {
+var _ = Describe("SearchTerm Indexing", func() {
 	var (
-		ctx       = context.Background()
-		ontology_ *Ontology
-		db        *gorp.DB
-		mockSvc   *mockIndexingService
+		mockSvc *mockIndexingService
 	)
 
-	const testType Type = "test-type"
-
 	BeforeEach(func() {
-		var err error
-		db = gorp.Wrap(memkv.New())
-		ontology_, err = Open(ctx, Config{
-			Instrumentation: alamos.New("test"),
-			DB:              db,
-			EnableSearch:    config.True(),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		// Create a schema with searchable fields
-		schema_ := &Schema{
-			Type:   testType,
-			Fields: map[string]schema.Field{},
-		}
-
-		// Create test resources
-		resources := []Resource{
-			{
-				ID:     ID{Type: testType, Key: "1"},
-				Name:   "cat",
-				Schema: schema_,
-				Data:   map[string]any{},
-			},
-			{
-				ID:     ID{Type: testType, Key: "2"},
-				Name:   "Test Resource Two",
-				Schema: schema_,
-				Data:   map[string]any{},
-			},
-			{
-				ID:     ID{Type: testType, Key: "3"},
-				Name:   "Special_Resource_Three",
-				Schema: schema_,
-				Data:   map[string]any{},
-			},
-			{
-				ID:     ID{Type: testType, Key: "4"},
-				Name:   "UPPERCASE RESOURCE",
-				Schema: schema_,
-				Data:   map[string]any{},
-			},
+		z := zyn.Object(nil)
+		resources := []ontology.Resource{
+			ontology.NewResource(
+				z,
+				ontology.ID{Type: testType, Key: "1"},
+				"cat",
+				map[string]any{},
+			),
+			ontology.NewResource(
+				z,
+				ontology.ID{Type: testType, Key: "2"},
+				"Test Resource Two",
+				map[string]any{},
+			),
+			ontology.NewResource(
+				z,
+				ontology.ID{Type: testType, Key: "3"},
+				"Special_Resource_Three",
+				map[string]any{},
+			),
+			ontology.NewResource(
+				z,
+				ontology.ID{Type: testType, Key: "4"},
+				"UPPERCASE RESOURCE",
+				map[string]any{},
+			),
 		}
 
 		// Create and register the mock service
-		mockSvc = newMockIndexingService(schema_, resources)
+		mockSvc = newMockIndexingService(z, resources)
 		tx := db.OpenTx()
-		w := ontology_.NewWriter(tx)
+		w := otg.NewWriter(tx)
 		for _, r := range resources {
 			Expect(w.DefineResource(ctx, r.ID)).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
-		ontology_.RegisterService(ctx, mockSvc)
-	})
-
-	AfterEach(func() {
-		Expect(ontology_.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+		otg.RegisterService(ctx, mockSvc)
 	})
 
 	It("should index all resources during startup", func() {
-		// Run the startup indexing
-		err := ontology_.RunStartupSearchIndexing(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(otg.RunStartupSearchIndexing(ctx)).To(Succeed())
 
 		// Test exact name search
-		results, err := ontology_.Search(ctx, search.Request{
+		results := MustSucceed(otg.Search(ctx, search.Request{
 			Type: testType,
 			Term: "cat",
-		})
-		Expect(err).NotTo(HaveOccurred())
+		}))
 		Expect(results).To(HaveLen(1))
 		Expect(results[0].ID.Key).To(Equal("1"))
 	})

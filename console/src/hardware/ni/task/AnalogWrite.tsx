@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -19,11 +18,11 @@ import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { createAOChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
+  ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
-  type AnalogWriteConfig,
   analogWriteConfigZ,
-  type AnalogWriteStateDetails,
-  type AnalogWriteType,
+  type analogWriteStatusDataZ,
+  type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
@@ -49,20 +48,20 @@ export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {}
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const {
-    entry: { port, cmdChannel, stateChannel, type },
-  } = rest;
+  const item = PForm.useFieldValue<AOChannel>(path);
+  if (item == null) return null;
+  const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -90,11 +89,15 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
-const channelListItem = componentRenderProp(ChannelListItem);
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
+  Common.Task.FormProps<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  >
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
@@ -107,24 +110,27 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogWriteConfig,
-  AnalogWriteStateDetails,
-  AnalogWriteType
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_ANALOG_WRITE_PAYLOAD.config.device,
-  },
-});
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? analogWriteConfigZ.parse(config)
+      : ZERO_ANALOG_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_ANALOG_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
-const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
@@ -219,7 +225,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
 export const AnalogWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: analogWriteConfigZ,
+  schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,
   onConfigure,

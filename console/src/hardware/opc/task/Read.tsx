@@ -8,26 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  componentRenderProp,
-  Form as PForm,
-  type Haul,
-} from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
+import { type z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
+  READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
-  type ReadConfig,
   readConfigZ,
-  type ReadStateDetails,
-  type ReadType,
+  type readStatusDataZ,
+  type readTypeZ,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Selector } from "@/selector";
@@ -73,14 +68,14 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   />
 );
 
-const isIndexItem = componentRenderProp(IsIndexItem);
+const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
       <Device.Select />
-      <Align.Space x>
+      <Flex.Box x>
         <Common.Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"
@@ -103,7 +98,7 @@ const Properties = (): ReactElement => {
         )}
         <Common.Task.Fields.DataSaving />
         <Common.Task.Fields.AutoStart />
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };
@@ -131,9 +126,9 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Common.Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
-  isSnapshot,
-}) => (
+const TaskForm: FC<
+  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
+> = ({ isSnapshot }) => (
   <Form
     isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
@@ -145,20 +140,20 @@ const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  ReadConfig,
-  ReadStateDetails,
-  ReadType
-> = ({ deviceKey }) => ({
-  ...ZERO_READ_PAYLOAD,
-  config: {
-    ...ZERO_READ_PAYLOAD.config,
-    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-  },
-});
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? readConfigZ.parse(config) : ZERO_READ_PAYLOAD.config;
+  return {
+    ...ZERO_READ_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 interface DetermineIndexChannelArgs {
   client: Synnax;
-  config: ReadConfig;
+  config: z.infer<typeof readConfigZ>;
   device: Device.Device;
   taskName: string;
 }
@@ -223,7 +218,7 @@ const determineIndexChannel = async ({
   return idx.key;
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
   name,
@@ -231,7 +226,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
   const previous = await client.hardware.devices.retrieve<
     Device.Properties,
     Device.Make
-  >(config.device);
+  >({ key: config.device });
   const device = await client.hardware.devices.create<Device.Properties, Device.Make>({
     ...previous,
     properties: Device.migrateProperties(previous.properties),
@@ -282,7 +277,7 @@ export const Read = Common.Task.wrapForm({
   type: READ_TYPE,
   Properties,
   Form: TaskForm,
-  configSchema: readConfigZ,
+  schemas: READ_SCHEMAS,
   getInitialPayload,
   onConfigure,
 });

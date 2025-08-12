@@ -7,25 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { type task } from "@synnaxlabs/client";
+import { Button, Flex, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
-import {
-  LOADING_STATUS,
-  RUNNING_STATUS,
-  START_COMMAND,
-  type StartOrStopCommand,
-  STOP_COMMAND,
-} from "@/hardware/common/task/types";
-import { type State } from "@/hardware/common/task/useState";
+import { type Command } from "@/hardware/common/task/types";
 import { Layout } from "@/layout";
 
-export interface ControlsProps extends Align.SpaceProps {
+export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
+  extends Flex.BoxProps {
   layoutKey: string;
-  state: State;
-  onStartStop: (command: StartOrStopCommand) => void;
+  status: task.Status<StatusData>;
+  onCommand: (command: Command) => void;
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
@@ -34,85 +29,89 @@ export interface ControlsProps extends Align.SpaceProps {
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const Controls = ({
-  state: { message, status, variant },
-  onStartStop,
+export const Controls = <StatusData extends z.ZodType = z.ZodType>({
+  status,
+  onCommand,
   layoutKey,
   onConfigure,
   hasBeenConfigured,
   isConfiguring,
   isSnapshot,
   ...props
-}: ControlsProps) => {
+}: ControlsProps<StatusData>) => {
+  const {
+    message,
+    variant,
+    details: { running },
+  } = status ?? {};
   const content = isSnapshot ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Summary center hideIcon variant="disabled">
       This task is a snapshot and cannot be modified or started.
-    </Status.Text.Centered>
+    </Status.Summary>
   ) : message != null ? (
-    <Status.Text variant={variant}>{message}</Status.Text>
+    <Status.Summary variant={variant}>{message}</Status.Summary>
   ) : isConfiguring ? (
-    <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
+    <Status.Summary center variant="loading">
+      Configuring...
+    </Status.Summary>
   ) : !hasBeenConfigured ? (
-    <Status.Text.Centered hideIcon variant="disabled">
+    <Status.Summary center hideIcon variant="disabled">
       Task must be configured to start.
-    </Status.Text.Centered>
+    </Status.Summary>
   ) : null;
-  const isLoading = status === LOADING_STATUS;
+  const isLoading = variant === "loading";
   const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
   const canStartOrStop =
     !isLoading && !isConfiguring && !isSnapshot && hasBeenConfigured;
   const hasTriggers =
     Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
-  const isRunning = status === RUNNING_STATUS;
   const handleStartStop = useCallback(
-    () => onStartStop(isRunning ? STOP_COMMAND : START_COMMAND),
-    [isRunning, onStartStop],
+    () => onCommand(running ? "stop" : "start"),
+    [running, onCommand],
   );
+  if (isConfiguring) status.variant = "loading";
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS.B("task-controls")}
       x
-      justify="spaceBetween"
+      justify="between"
       empty
       bordered
       {...props}
     >
-      <Align.Space className={CSS.B("task-state")} x>
+      <Flex.Box className={CSS.B("task-state")} x>
         {content}
-      </Align.Space>
+      </Flex.Box>
       {!isSnapshot && (
-        <Align.Space align="center" x justify="end">
+        <Flex.Box align="center" x justify="end">
           <Button.Button
-            disabled={!canConfigure}
-            loading={isConfiguring}
+            disabled={!canConfigure || status.variant === "loading"}
             onClick={onConfigure}
             size="medium"
             tooltip={
               hasTriggers ? (
-                <Align.Space x align="center" size="small">
-                  <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small" shade={11}>
-                    To Configure
-                  </Text.Text>
-                </Align.Space>
+                <Flex.Box x align="center" gap="small">
+                  <Triggers.Text level="small" trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small">To Configure</Text.Text>
+                </Flex.Box>
               ) : undefined
             }
-            triggers={hasTriggers ? [CONFIGURE_TRIGGER] : undefined}
+            trigger={hasTriggers ? CONFIGURE_TRIGGER : undefined}
             variant="outlined"
           >
             Configure
           </Button.Button>
-          <Button.Icon
+          <Button.Button
             disabled={!canStartOrStop}
-            loading={isLoading}
+            status={status.variant}
             onClick={handleStartStop}
             size="medium"
             variant="filled"
           >
-            {isRunning ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
-        </Align.Space>
+            {running ? <Icon.Pause /> : <Icon.Play />}
+          </Button.Button>
+        </Flex.Box>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

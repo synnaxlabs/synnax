@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { location } from "@synnaxlabs/x";
 import {
   cloneElement,
@@ -23,11 +22,12 @@ import {
   useState,
 } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
+import { Icon } from "@/icon";
 import { triggerReflow } from "@/util/reflow";
 import { selectNode } from "@/vis/diagram/util";
 
@@ -111,7 +111,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     const isDragging = canDrop(Haul.useDraggingState());
 
     return (
-      <Align.Space
+      <Flex.Box
         direction={location.direction(loc)}
         className={CSS(
           CSS.BE("grid", "item"),
@@ -134,7 +134,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
             })}
           </Fragment>
         ))}
-      </Align.Space>
+      </Flex.Box>
     );
   };
 
@@ -145,7 +145,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     const items = fItems.filter((i) => i.location === loc);
     if (items.length === 0) return null;
     return (
-      <Align.Space
+      <Flex.Box
         direction={location.direction(loc)}
         className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
         empty
@@ -153,7 +153,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
         {items.map(({ element, key }) => (
           <Fragment key={key}>{element}</Fragment>
         ))}
-      </Align.Space>
+      </Flex.Box>
     );
   };
   return GridEl;
@@ -215,14 +215,14 @@ export const Grid = ({
         />
       )}
       {editable && allowRotate && (
-        <Button.Icon
+        <Button.Button
           className={CSS.BE("grid", "rotate")}
-          size="small"
+          size="tiny"
           variant="filled"
           onClick={onRotate}
         >
           <Icon.Rotate />
-        </Button.Icon>
+        </Button.Button>
       )}
       <div className={DRAG_HANDLE_CLASS}>{children}</div>
     </>

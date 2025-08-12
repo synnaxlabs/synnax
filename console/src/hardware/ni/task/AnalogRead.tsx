@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -23,11 +22,11 @@ import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
+  ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
-  type AnalogReadConfig,
   analogReadConfigZ,
-  type AnalogReadStateDetails,
-  type AnalogReadType,
+  type analogReadStatusDataZ,
+  type analogReadTypeZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -50,15 +49,15 @@ export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Align.Space x grow>
+    <Flex.Box x grow>
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -70,9 +69,7 @@ const ChannelListItem = ({
   isRunning,
   ...rest
 }: ChannelListItemProps) => {
-  const {
-    entry: { channel, enabled, port, type },
-  } = rest;
+  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
@@ -102,10 +99,14 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
+const channelDetails = Component.renderProp(ChannelDetails);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
+  Common.Task.FormProps<
+    typeof analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof analogReadStatusDataZ
+  >
 > = ({ task, isRunning, isSnapshot, configured }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
@@ -113,8 +114,14 @@ const Form: FC<
     configured,
   } as Common.Task.UseTareProps<AIChannel>);
   const listItem = useCallback(
-    ({ key, ...rest }: Common.Task.ChannelListItemProps<AIChannel>) => (
-      <ChannelListItem key={key} {...rest} onTare={tare} isRunning={isRunning} />
+    ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
+      <ChannelListItem
+        key={key}
+        itemKey={itemKey}
+        {...rest}
+        onTare={tare}
+        isRunning={isRunning}
+      />
     ),
     [tare, isRunning],
   );
@@ -133,27 +140,33 @@ const Form: FC<
 };
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogReadConfig,
-  AnalogReadStateDetails,
-  AnalogReadType
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_READ_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_READ_PAYLOAD.config,
-    channels:
-      deviceKey == null
-        ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
-  },
-});
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
+> = ({ deviceKey, config }) => {
+  if (config != null)
+    return { ...ZERO_ANALOG_READ_PAYLOAD, config: analogReadConfigZ.parse(config) };
+  return {
+    ...ZERO_ANALOG_READ_PAYLOAD,
+    config: {
+      ...ZERO_ANALOG_READ_PAYLOAD.config,
+      channels:
+        deviceKey == null
+          ? ZERO_ANALOG_READ_PAYLOAD.config.channels
+          : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.create() }],
+    },
+  };
+};
 
-const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.hardware.devices.retrieve<Device.Properties>(devices);
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>({
+    keys: devices,
+  });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
     const first = allDevices[0];
@@ -226,7 +239,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
 export const AnalogRead = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: analogReadConfigZ,
+  schemas: ANALOG_READ_SCHEMAS,
   type: ANALOG_READ_TYPE,
   getInitialPayload,
   onConfigure,

@@ -14,12 +14,12 @@ import {
 } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Control,
   Diagram,
   Haul,
+  Icon,
   type Legend,
   Menu as PMenu,
   Schematic as Core,
@@ -160,7 +160,7 @@ const SymbolRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
+  <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
   </PMenu.Menu>
 );
@@ -395,11 +395,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             )}
             <Diagram.FitViewControl />
             {!schematic.snapshot && (
-              <Button.ToggleIcon
+              <Button.Toggle
                 value={schematic.control === "acquired"}
                 onChange={acquireControl}
                 tooltipLocation={location.BOTTOM_LEFT}
-                variant="outlined"
+                uncheckedVariant="outlined"
+                checkedVariant="filled"
                 size="small"
                 tooltip={
                   <Text.Text level="small">
@@ -410,7 +411,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 }
               >
                 <Icon.Circle />
-              </Button.ToggleIcon>
+              </Button.Toggle>
             )}
           </Diagram.Controls>
         </Diagram.Diagram>

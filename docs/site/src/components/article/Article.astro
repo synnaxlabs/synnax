@@ -1,5 +1,5 @@
 ---
-import Breadcrumb from "@/components/article/Breadcrumb.astro";
+import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/NextPrev.astro";
 import { Text } from "@synnaxlabs/pluto";
 const {
@@ -33,6 +33,7 @@ const {
         margin-bottom: 25rem;
         min-width: 0;
         .article-title {
+            display: inline-block;
             width: fit-content;
         }
 
@@ -53,7 +54,7 @@ const {
             }
         }
 
-        & .synnax-icon-caret-right {
+        & .pluto-icon--caret-right {
             transform: translateY(0px) !important;
             width: 2rem;
             height: 2rem;
@@ -87,7 +88,7 @@ const {
             font-weight: 350;
         }
 
-        pluto-tabs-selector {
+        .pluto-tabs-selector {
             margin: 1.5rem 0;
         }
 
@@ -110,14 +111,18 @@ const {
 
         .pluto-tabs-selector {
             --pluto-height-medium: 6.5rem !important;
+
+            .pluto-btn.pluto--height-medium {
+                padding: 0 2rem;
+            }
         }
 
         /* Makes icons appear centered in the toolbar */
-        p .synnax-icon {
+        p .pluto-icon {
             transform: translateY(2px);
         }
 
-        h3 .synnax-icon {
+        h3 .pluto-icon {
             transform: translateY(3px);
         }
 

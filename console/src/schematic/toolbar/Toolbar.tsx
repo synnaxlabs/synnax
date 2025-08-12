@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { EmptyAction, Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -47,25 +46,18 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Align.Center x size="small">
-      <Status.Text variant="disabled" hideIcon>
-        {name} is not editable.
-        {isEditable ? " To make changes," : ""}
-      </Status.Text>
-      {isEditable && (
-        <Text.Link
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(setEditable({ key: layoutKey, editable: true }));
-          }}
-          level="p"
-        >
-          {controlState === "acquired"
-            ? "release control and enable editing."
-            : "enable editing."}
-        </Text.Link>
-      )}
-    </Align.Center>
+    <EmptyAction
+      x
+      message={`${name} is not editable. ${isEditable ? "To make changes," : ""}`}
+      action={
+        controlState === "acquired"
+          ? "release control and enable editing."
+          : "enable editing."
+      }
+      onClick={() => {
+        dispatch(setEditable({ key: layoutKey, editable: true }));
+      }}
+    />
   );
 };
 
@@ -101,22 +93,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
   const canEdit = useSelectHasPermission();
-  const breadCrumbSegments: Breadcrumb.Segments = [
-    {
-      label: name,
-      weight: 500,
-      shade: 10,
-      level: "h5",
-      icon: <Icon.Schematic />,
-    },
-  ];
-  if (selectedNames.length === 1 && selectedNames[0] !== null)
-    breadCrumbSegments.push({
-      label: selectedNames[0],
-      weight: 400,
-      shade: 8,
-      level: "p",
-    });
   return (
     <Tabs.Provider
       value={{
@@ -126,20 +102,32 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         content,
       }}
     >
-      <Core.Header>
-        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        <Align.Space x align="center" empty>
-          <Align.Space x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
-            <Cluster.CopyLinkToolbarButton
-              name={name}
-              ontologyID={schematic.ontologyID(layoutKey)}
-            />
-          </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
-        </Align.Space>
-      </Core.Header>
-      <Tabs.Content />
+      <Core.Content disableClusterBoundary>
+        <Core.Header>
+          <Breadcrumb.Breadcrumb level="h5">
+            <Breadcrumb.Segment weight={500} color={10} level="h5">
+              <Icon.Schematic />
+              {name}
+            </Breadcrumb.Segment>
+            {selectedNames.length === 1 && selectedNames[0] !== null && (
+              <Breadcrumb.Segment weight={400} color={8} level="p">
+                {selectedNames[0]}
+              </Breadcrumb.Segment>
+            )}
+          </Breadcrumb.Breadcrumb>
+          <Flex.Box x align="center" empty>
+            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
+              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+              <Cluster.CopyLinkToolbarButton
+                name={name}
+                ontologyID={schematic.ontologyID(layoutKey)}
+              />
+            </Flex.Box>
+            {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+          </Flex.Box>
+        </Core.Header>
+        <Tabs.Content />
+      </Core.Content>
     </Tabs.Provider>
   );
 };

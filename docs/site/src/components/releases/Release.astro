@@ -1,15 +1,14 @@
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Icon, Text, Flex } from "@synnaxlabs/pluto";
 const { date, version, title, breakingChanges } = Astro.props;
 const firstPart = version.split(".").slice(0, 2).join(".");
 ---
 
-<Align.Space direction="x" id={version.split(".").join("-")} className="release" empty>
-    <Align.Space direction="y" className="meta" align="start" size="large">
-        <Align.Space direction="y" empty>
+<Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
+    <Flex.Box direction="y" className="meta" align="start" gap="large">
+        <Flex.Box direction="y" empty>
             <Text.Text level="h3" weight={500}>Version {firstPart}</Text.Text>
-            <Text.Text level="p" shade={8}>{date}</Text.Text>
+            <Text.Text color={8}>{date}</Text.Text>
             {
                 breakingChanges ? (
                     <Text.Text className="breaking-changes" level="small">
@@ -21,32 +20,30 @@ const firstPart = version.split(".").slice(0, 2).join(".");
                     </Text.Text>
                 )
             }
-        </Align.Space>
-        <Align.Space direction="x" align="center" size="large">
-            <Text.Link
-                level="p"
+        </Flex.Box>
+        <Flex.Box direction="x" align="center" gap="large">
+            <Text.Text
                 href={`https://github.com/synnaxlabs/synnax/tree/synnax-v${version}`}
             >
                 <Icon.Logo.Github className="link" />
-            </Text.Link>
-            <Text.Link level="p" href={`https://pypi.org/project/synnax/${firstPart}/`}>
+            </Text.Text>
+            <Text.Text href={`https://pypi.org/project/synnax/${firstPart}/`}>
                 <Icon.Python className="link" />
-            </Text.Link>
-            <Text.Link
-                level="p"
+            </Text.Text>
+            <Text.Text
                 href={`https://npmjs.com/package/@synnaxlabs/client/v/${version}`}
             >
                 <Icon.TypeScript className="link" />
-            </Text.Link>
-        </Align.Space>
-    </Align.Space>
-    <Align.Space direction="y" className="details">
+            </Text.Text>
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box direction="y" className="details">
         <Text.Text level="h2" className="title">{title}</Text.Text>
         <article>
             <slot />
         </article>
-    </Align.Space>
-</Align.Space>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .release {
@@ -76,7 +73,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
         .link {
             height: 3.25rem;
             width: 3.25rem;
-            &.synnax-icon-logo-github {
+            &.pluto-icon--logo-github {
                 transform: scale(1.2);
             }
             color: var(--pluto-gray-l7);

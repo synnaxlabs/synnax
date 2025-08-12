@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import { Icon } from "@synnaxlabs/pluto";
 
 import { Ontology } from "@/ontology";
 

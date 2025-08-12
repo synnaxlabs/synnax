@@ -76,7 +76,7 @@ describe("createChannel", () => {
   describe("createAIChannel", () => {
     it("should create a new AI channel with port 0 when no channels exist", () => {
       const channels: Task.AIChannel[] = [];
-      const result = createAIChannel(channels, -1);
+      const result = createAIChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key).toBeDefined();
       expect(result.channel).toBe(0);
@@ -87,7 +87,7 @@ describe("createChannel", () => {
         { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
         { ...Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
       ];
-      const result = createAIChannel(channels, -1);
+      const result = createAIChannel(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
     });
@@ -97,7 +97,7 @@ describe("createChannel", () => {
         { ...Task.ZERO_AI_CHANNELS.ai_accel, key: "1", port: 0, channel: 3 },
         { ...Task.ZERO_AI_CHANNELS.ai_bridge, key: "2", port: 1 },
       ];
-      const result = createAIChannel(channels, 0);
+      const result = createAIChannel(channels, "1");
       expect(result.type).toBe("ai_accel");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -110,7 +110,7 @@ describe("createChannel", () => {
   describe("createAOChannel", () => {
     it("should create a new A) channel with port 0 when no channels exist", () => {
       const channels: Task.AOChannel[] = [];
-      const result = createAOChannel(channels, -1);
+      const result = createAOChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.cmdChannel).toBe(0);
@@ -122,7 +122,7 @@ describe("createChannel", () => {
         { ...Task.ZERO_AO_CHANNEL, key: "1", port: 0, cmdChannel: 3, stateChannel: 10 },
         { ...Task.ZERO_AO_CHANNEL, key: "2", port: 1, cmdChannel: 4, stateChannel: 11 },
       ];
-      const result = createAOChannel(channels, -1);
+      const result = createAOChannel(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
       expect(result.cmdChannel).toBe(0);
@@ -146,7 +146,7 @@ describe("createChannel", () => {
           stateChannel: 11,
         },
       ];
-      const result = createAOChannel(channels, 0);
+      const result = createAOChannel(channels, "1");
       expect(result.type).toBe("ao_func_gen");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");

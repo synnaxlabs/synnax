@@ -25,10 +25,10 @@
     }
 }
 
-.pluto--visible.pluto--top .pluto-select-button__indicator {
+.pluto--visible.pluto--location-top .pluto-select-button__indicator {
     transform: rotate(90deg);
 }
 
-.pluto--visible.pluto--bottom .pluto-select-button__indicator {
+.pluto--visible.pluto--location-bottom .pluto-select-button__indicator {
     transform: rotate(-90deg);
 }

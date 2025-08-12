@@ -39,7 +39,7 @@ export interface ContextValue {
    * @param e The drag event.
    * @param tab The tab being dragged.
    */
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDragStart?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
   /**
    * A callback executed when a tab's handle stops being dragged. Identical to a
    * onDragEnd handler in react, except the tab object is passed as the second argument.
@@ -47,11 +47,11 @@ export interface ContextValue {
    * @param e The drag event.
    * @param tab The tab being dragged.
    */
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Spec) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
   /**
    * A callback executed when a tab is dropped. Identical to a onDrop handler in react.
    */
-  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   /**
    * A callback executed when a tab is renamed.
    *

@@ -13,8 +13,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	workspaceSvc := MustSucceed(workspace.NewService(ctx, workspace.Config{
+	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

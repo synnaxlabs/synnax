@@ -11,14 +11,13 @@ package task
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
-	"go.uber.org/zap"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/config"
@@ -26,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for creating a Service.
@@ -37,7 +37,7 @@ type Config struct {
 	Group        *group.Service
 	Rack         *rack.Service
 	Signals      *signals.Provider
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	Channel      channel.Writeable
 }
 
@@ -92,7 +92,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if cfg.Signals == nil {
 		return
 	}
-	cdcS, err := signals.PublishFromGorp[Key](ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
+	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
 		return
 	}

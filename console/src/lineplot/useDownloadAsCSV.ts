@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
-import { type Channel, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import {
+  type channel,
+  DisconnectedError,
+  type framer,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { type Channel, Status, Synnax } from "@synnaxlabs/pluto";
 import { type TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
-
 interface DownloadProps {
   timeRange: TimeRange;
-  client: Synnax;
+  client: Client;
   lines: Channel.LineProps[];
   name: string;
 }
@@ -74,10 +77,10 @@ interface DownloadArgs extends Omit<DownloadProps, "client"> {}
 
 export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   return ({ timeRange, lines, name }: DownloadArgs) =>
     handleError(async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       await download({ timeRange, lines, client, name });
     }, "Failed to download CSV");
 };

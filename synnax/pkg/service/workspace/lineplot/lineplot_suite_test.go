@@ -15,8 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
@@ -28,7 +28,7 @@ import (
 
 func TestSchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LinePlot Suite")
+	RunSpecs(t, "Line Plot Suite")
 }
 
 var (
@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	workspaceSvc := MustSucceed(workspace.NewService(ctx, workspace.Config{
+	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

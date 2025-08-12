@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
@@ -21,5 +21,4 @@ export const labelZ = z.object({
 });
 export interface Label extends z.infer<typeof labelZ> {}
 
-export const ONTOLOGY_TYPE = "label";
-export type OntologyType = typeof ONTOLOGY_TYPE;
+export const LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE = "labeled_by";

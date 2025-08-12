@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Channel, Text } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
-import { useState } from "react";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 
 export interface ChannelNameProps
-  extends Optional<Omit<Text.MaybeEditableProps<Text.Level>, "value">, "level"> {
+  extends Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
   channel: channel.Key;
   defaultName?: string;
 }
@@ -27,34 +25,14 @@ export const ChannelName = ({
   className,
   ...rest
 }: ChannelNameProps) => {
-  const [name, setName] = useState(defaultName);
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    if (channel === 0) return;
-    const ch = await client?.channels.retrieve(channel);
-    if (ch != null) setName(ch.name);
-  }, [channel]);
-  const handleError = Status.useErrorHandler();
-  const handleChange = (newName: string) => {
-    const oldName = name;
-    handleError(async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      setName(newName);
-      try {
-        await client.channels.rename(channel, newName);
-      } catch (e) {
-        setName(oldName);
-        throw e;
-      }
-    }, `Failed to rename ${oldName} to ${newName}`);
-  };
+  const [name, rename] = Channel.useName(channel, defaultName);
   return (
     <Text.MaybeEditable
       className={CSS(className, CSS.BE("task", "channel-name"))}
       color={channel ? undefined : "var(--pluto-warning-m1)"}
       level="small"
       value={name}
-      onChange={handleChange}
+      onChange={rename}
       allowDoubleClick={false}
       {...rest}
     />
