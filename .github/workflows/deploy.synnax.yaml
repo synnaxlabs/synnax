@@ -261,7 +261,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
-          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf --sig bazel-bin/driver/driver.exe.sig
+          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf -o bazel-bin/driver/driver.exe.sig
 
       - name: Sign Windows Server Binary
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
