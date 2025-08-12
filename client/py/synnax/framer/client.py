@@ -27,7 +27,7 @@ from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame
-from synnax.framer.iterator import Iterator
+from synnax.framer.iterator import Iterator, AUTO_SPAN
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.ontology import ID
@@ -260,6 +260,49 @@ class Client:
                 f"""No data found for channel {normal.channels[0]} between {tr}"""
             )
         return series
+
+    def read_latest(
+        self,
+        channels: ChannelKey | ChannelName,
+        n: int = 1,
+    ) -> MultiSeries:
+        ...
+
+    def read_latest(
+        self,
+        channels: ChannelKeys | ChannelNames,
+        n: int = 1,
+    ) -> Frame:
+        ...
+
+    def read_latest(
+        self,
+        channels: ChannelParams,
+        n: int = 1,
+    ) -> Frame:
+        """
+        Reads the latest n samples from time_channel and data_channel.
+
+        Args:
+            n: The number of samples to read.
+
+        Returns:
+            A frame containing the latest n samples from time_channel and data_channel
+        """
+        normal = normalize_channel_params(channels)
+        aggregate = Frame()
+        if n > 0:
+            with self.open_iterator(
+                tr=TimeRange.MAX,
+                channels=channels,
+                chunk_size=n,
+            ) as i:
+                i.seek_last()
+                i.prev(AUTO_SPAN)
+                aggregate.append(i.value)
+        if len(normal.channels) > 1:
+            return aggregate
+        return aggregate.get(normal.channels[0], MultiSeries([]))
 
     def open_streamer(
         self,

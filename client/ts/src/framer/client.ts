@@ -13,14 +13,14 @@ import {
   type CrudeTimeRange,
   type CrudeTimeStamp,
   type MultiSeries,
-  type TimeRange,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
-import { Iterator, type IteratorConfig } from "@/framer/iterator";
+import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { type ontology } from "@/ontology";
@@ -168,6 +168,34 @@ export class Client {
     } finally {
       await i.close();
     }
+    return frame;
+  }
+
+  async readLatest(channel: channel.KeyOrName, n: number): Promise<MultiSeries>;
+
+  async readLatest(channels: channel.Params, n: number): Promise<Frame>;
+
+  async readLatest(
+    channels: channel.Params,
+    n: number = 1,
+  ): Promise<MultiSeries | Frame> {
+    const { single } = channel.analyzeParams(channels);
+    const fr = await this.readLatestNFrame(channels, n);
+    if (single) return fr.get(channels as channel.KeyOrName);
+    return fr;
+  }
+
+  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
+    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+    const frame = new Frame();
+    if (n > 0)
+      try {
+        await i.seekLast();
+        await i.prev(AUTO_SPAN);
+        frame.push(i.value);
+      } finally {
+        await i.close();
+      }
     return frame;
   }
 
