@@ -48,9 +48,7 @@ export const useStaticData = <
   const filteredData = useMemo(() => {
     let result = data;
     if (filter != null) result = result.filter((d) => filter(d, {}));
-
     if (sort != null) result = [...result].sort(sort);
-
     return result;
   }, [data, filter, sort]);
   const fuse = useMemo(() => {
