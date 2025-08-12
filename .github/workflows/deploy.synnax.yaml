@@ -15,6 +15,9 @@ permissions:
   contents: write
   packages: write
 
+env:
+  CACHE_SCOPE: deploy-synnax
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -111,7 +114,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
           repository-cache: true
 
       - name: Build Driver
@@ -151,6 +154,32 @@ jobs:
             echo "EXECUTABLE=" >> $GITHUB_OUTPUT
           fi
 
+      - name: Sign macOS Driver Binary
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp --sign "$CERT_ID" bazel-bin/driver/driver
+          codesign --verify --verbose bazel-bin/driver/driver
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path relic-bin
+          Move-Item -Force relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Sign Windows Driver Binary
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
+          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf --sig bazel-bin/driver/driver.exe.sig
+
       - name: Upload and Move Driver Binary
         if: github.event_name == 'push'
         shell: bash
@@ -159,6 +188,11 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          # Upload signature file for Windows driver
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv bazel-bin/driver/driver.exe.sig synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
+            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
+          fi
 
       - name: Move Driver to Assets
         shell: bash
@@ -228,13 +262,7 @@ jobs:
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
-      - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
 
       - name: Sign Windows Server Binary
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
