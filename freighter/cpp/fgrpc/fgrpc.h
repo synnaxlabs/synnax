@@ -18,6 +18,7 @@
 
 /// internal.
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/fs/fs.h"
 
 namespace priv {
 const std::string PROTOCOL = "grpc";
@@ -29,23 +30,6 @@ inline xerrors::Error err_from_status(const grpc::Status &status) {
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::UNREACHABLE.type, status.error_message()};
     return xerrors::Error(status.error_message());
-}
-
-/// @brief an internal method for reading the entire contents of certificate files
-/// into a string.
-inline std::string read_file(const std::string &path) {
-    std::string data;
-    FILE *f = fopen(path.c_str(), "r");
-    if (f == nullptr) throw std::runtime_error("failed to open " + path);
-    char buf[1024];
-    for (;;) {
-        const size_t n = fread(buf, 1, sizeof(buf), f);
-        if (n <= 0) break;
-        data.append(buf, n);
-    }
-    if (ferror(f)) { throw std::runtime_error("failed to read " + path); }
-    fclose(f);
-    return data;
 }
 }
 
@@ -71,7 +55,11 @@ public:
     /// certificate is located at the provided path.
     explicit Pool(const std::string &ca_path) {
         grpc::SslCredentialsOptions opts;
-        opts.pem_root_certs = priv::read_file(ca_path);
+        auto [pem_root_certs, err] = fs::read_file(ca_path);
+        if (err)
+            LOG(ERROR) << "Failed to read CA certificate from " << ca_path
+                       << ": " << err.message();
+        opts.pem_root_certs = pem_root_certs;
         credentials = SslCredentials(opts);
     }
 
@@ -86,12 +74,22 @@ public:
         grpc::SslCredentialsOptions opts;
         bool secure = false;
         if (!ca_path.empty()) {
-            opts.pem_root_certs = priv::read_file(ca_path);
+            auto [pem_root_certs, err] = fs::read_file(ca_path);
+            if (err) {
+                LOG(ERROR) << "Failed to read CA certificate: " << err;
+            }
+            opts.pem_root_certs = pem_root_certs;
             secure = true;
         }
         if (!cert_path.empty() && !key_path.empty()) {
-            opts.pem_cert_chain = priv::read_file(cert_path);
-            opts.pem_private_key = priv::read_file(key_path);
+            auto [pem_cert_chain, err] = fs::read_file(cert_path);
+            if (err)
+                LOG(ERROR) << "Failed to read client certificate: " << err;
+            opts.pem_cert_chain = pem_cert_chain;
+            auto [pem_private_key, pem_priv_key_err] = fs::read_file(key_path);
+            if (pem_priv_key_err)
+                LOG(ERROR) << "Failed to read client private key from " << err;
+            opts.pem_private_key = pem_private_key;
             secure = true;
         }
         if (secure) credentials = SslCredentials(opts);

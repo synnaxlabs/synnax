@@ -260,6 +260,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			embedded.Config{
 				Enabled:         config.Bool(!noDriver),
+				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
 				Instrumentation: ins,
 				Address:         listenAddress,
