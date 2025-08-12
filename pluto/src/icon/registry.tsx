@@ -27,7 +27,12 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import {
+  BsBorderWidth,
+  BsFillInfoSquareFill,
+  BsLightbulbFill,
+  BsShiftFill,
+} from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -70,6 +75,7 @@ import {
   MdAreaChart,
   MdArrowOutward,
   MdAutoAwesome,
+  MdBlurLinear,
   MdBook,
   MdCalendarToday,
   MdCommit,
@@ -170,7 +176,12 @@ import {
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
-import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import {
+  VscSplitHorizontal,
+  VscSplitVertical,
+  VscSymbolConstant,
+  VscSymbolString,
+} from "react-icons/vsc";
 
 import { CSS } from "@/css";
 import {
@@ -451,6 +462,9 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
+export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -584,6 +598,7 @@ const icons = {
   Map,
   Linear,
   None,
+  Constant,
 };
 
 export const resolve = ((

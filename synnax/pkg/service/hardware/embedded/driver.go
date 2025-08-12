@@ -37,6 +37,9 @@ type Config struct {
 	ClusterKey uuid.UUID `json:"cluster_key"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
+	// Insecure sets whether not to use TLS for communication. If insecure
+	// is set to true, CACertPath, ClientCertFile, and ClientKeyFile are ignored.
+	Insecure *bool `json:"insecure"`
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already
 	// installed on the users' system.
@@ -63,6 +66,11 @@ type Config struct {
 }
 
 func (c Config) format() map[string]any {
+	if *c.Insecure {
+		c.CACertPath = ""
+		c.ClientCertFile = ""
+		c.ClientKeyFile = ""
+	}
 	return map[string]any{
 		"connection": map[string]any{
 			"host":             c.Address.Host(),
@@ -106,6 +114,7 @@ func (c Config) Override(other Config) Config {
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
 	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
+	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.CACertPath = override.String(c.CACertPath, other.CACertPath)
 	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)
 	c.ClientKeyFile = override.String(c.ClientKeyFile, other.ClientKeyFile)
@@ -121,6 +130,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
 	validate.NotNil(v, "enabled", c.Enabled)
+	validate.NotNil(v, "insecure", c.Insecure)
 	if v.Error() != nil {
 		return v.Error()
 	}

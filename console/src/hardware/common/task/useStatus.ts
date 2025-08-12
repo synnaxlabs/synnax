@@ -46,7 +46,9 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   initialState: task.Status<StatusData>,
   commandLoadingMessages: Record<string, string>,
 ): UseStatusReturn<StatusData> => {
-  const [status, setStatus] = useReactState<task.Status<StatusData>>(initialState);
+  const [status, setStatus] = useReactState<task.Status<StatusData>>(() => ({
+    ...initialState,
+  }));
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
   const triggerLoading = useCallback(

@@ -82,6 +82,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       transform: `translateY(${translate}px)`,
       ...style,
     }}
+    square={false}
     {...rest}
   />
 );

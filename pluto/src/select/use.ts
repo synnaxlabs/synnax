@@ -70,7 +70,7 @@ export const useSingle = <K extends record.Key>({
   allowNone = false,
   onChange,
   value,
-  closeDialogOnSelect = true,
+  closeDialogOnSelect = false,
   initialHover,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);

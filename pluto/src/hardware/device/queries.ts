@@ -35,17 +35,21 @@ export const retrieve = <
       {
         channel: device.SET_CHANNEL_NAME,
         onChange: Flux.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
-          onChange(changed as device.Device<Properties, Make, Model>),
+          onChange((p) => {
+            if (changed.key !== p.key) return p;
+            return changed as device.Device<Properties, Make, Model>;
+          }),
         ),
       },
       {
         channel: device.STATUS_CHANNEL_NAME,
-        onChange: Flux.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
+        onChange: Flux.parsedHandler(device.statusZ, async ({ changed, onChange }) => {
           onChange((p) => {
+            if (changed.details.device !== p.key) return p;
             p.status = changed;
             return p;
-          }),
-        ),
+          });
+        }),
       },
     ],
   });

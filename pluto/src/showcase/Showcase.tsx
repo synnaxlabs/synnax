@@ -20,7 +20,6 @@ import { FlexShowcase } from "./FlexShowcase";
 import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
-import { NavShowcase } from "./NavShowcase";
 import { NoteShowcase } from "./NoteShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TagShowcase } from "./TagShowcase";
@@ -89,13 +88,6 @@ export const Showcase = () => {
       description:
         "Interactive menu components with selection states, icons, and context menu functionality.",
       component: <MenuShowcase />,
-    },
-    {
-      key: "nav",
-      title: "Navigation",
-      description:
-        "Navigation components including bars and drawers for application layout and user interface organization.",
-      component: <NavShowcase />,
     },
     {
       key: "note",

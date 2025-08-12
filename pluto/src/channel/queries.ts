@@ -83,7 +83,8 @@ export const ZERO_FORM_VALUES: z.infer<
 
 const retrieve = async ({ client, params: { key } }: Flux.RetrieveArgs<FluxParams>) => {
   if (key == null) return null;
-  return channelToFormValues(await client.channels.retrieve(key));
+  const ch = await client.channels.retrieve(key);
+  return channelToFormValues(ch);
 };
 
 const update = async ({

@@ -12,3 +12,15 @@ export const toString = (value: unknown): string =>
     if (typeof value === "bigint") return value.toString();
     return value;
   });
+
+export const expectAlways = async (
+  fn: () => void | Promise<void>,
+  duration: number = 200,
+  interval: number = 20,
+) => {
+  const start = Date.now();
+  while (Date.now() - start < duration) {
+    await fn();
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+};

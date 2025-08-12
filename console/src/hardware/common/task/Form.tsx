@@ -150,7 +150,7 @@ export const useForm = <
   const configured = task_.key.length > 0;
   const { status, triggerError, triggerLoading } = useStatus<StatusData>(
     task_.key,
-    initialTask.status ?? (DEFAULT_STATUS as task.Status<StatusData>),
+    initialTask.status ?? DEFAULT_STATUS,
     COMMAND_MESSAGES,
   );
   const handleError = (e: Error, action: string) => {

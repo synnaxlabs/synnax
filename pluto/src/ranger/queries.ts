@@ -432,6 +432,11 @@ export interface ListKVParams {
   rangeKey: ranger.Key;
 }
 
+const deleteKVPairChannelValueZ = z
+  .string()
+  .transform((val) => val.split("<--->"))
+  .transform(([range, key]) => ({ key, range }));
+
 export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
   name: "Range Meta Data",
   retrieve: async ({ client, params: { rangeKey } }) => {
@@ -452,17 +457,50 @@ export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
   listeners: [
     {
       channel: ranger.KV_SET_CHANNEL,
-      onChange: Flux.parsedHandler(ranger.kvPairZ, async ({ changed, onChange }) =>
-        onChange(changed.key, changed),
+      onChange: Flux.parsedHandler(
+        ranger.kvPairZ,
+        async ({ changed, onChange, params: { rangeKey } }) => {
+          if (changed.range !== rangeKey) return;
+          onChange(changed.key, changed);
+        },
       ),
     },
     {
       channel: ranger.KV_DELETE_CHANNEL,
-      onChange: Flux.parsedHandler(ranger.kvPairZ, async ({ changed, onDelete }) =>
-        onDelete(changed.key),
+      onChange: Flux.parsedHandler(
+        deleteKVPairChannelValueZ,
+        async ({ changed, onDelete, params: { rangeKey } }) => {
+          if (changed.range !== rangeKey) return;
+          onDelete(changed.key);
+        },
       ),
     },
   ],
+});
+
+export const kvPairFormSchema = ranger.kvPairZ;
+
+export const useKVPairForm = Flux.createForm<ListKVParams, typeof kvPairFormSchema>({
+  name: "Range Meta Data",
+  schema: kvPairFormSchema,
+  retrieve: async () => null,
+  update: async ({ client, value }) => {
+    const kv = client.ranges.getKV(value.range);
+    await kv.set(value.key, value.value);
+  },
+  initialValues: {
+    key: "",
+    value: "",
+    range: "",
+  },
+});
+
+export const useDeleteKV = Flux.createUpdate<ListKVParams, string>({
+  name: "Range Meta Data",
+  update: async ({ client, value, params: { rangeKey } }) => {
+    const kv = client.ranges.getKV(rangeKey);
+    await kv.delete(value);
+  },
 });
 
 export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({

@@ -63,7 +63,7 @@ export interface UseObservableUpdateReturn<Data extends state.State> {
   /** Function to trigger an update (fire-and-forget) */
   update: (value: Data, opts?: FetchOptions) => void;
   /** Function to trigger an update and await the result */
-  updateAsync: (value: Data, opts?: FetchOptions) => Promise<void>;
+  updateAsync: (value: Data, opts?: FetchOptions) => Promise<boolean>;
 }
 
 /**
@@ -131,11 +131,13 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   CreateUpdateArgs<UpdateParams, Data>): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
   const handleUpdate = useCallback(
-    async (value: Data, opts: FetchOptions = {}) => {
+    async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
       try {
-        if (client == null)
-          return onChange((p) => nullClientResult(name, "update", p.listenersMounted));
+        if (client == null) {
+          onChange((p) => nullClientResult(name, "update", p.listenersMounted));
+          return false;
+        }
         onChange((p) => pendingResult(name, "updating", p.data, p.listenersMounted));
         let updated = false;
         await update({
@@ -147,11 +149,14 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
           value,
           params,
         });
-        if (signal?.aborted || updated) return;
-        onChange((p) => successResult(name, "updated", value, p.listenersMounted));
+        if (signal?.aborted === true) return false;
+        if (!updated)
+          onChange((p) => successResult(name, "updated", value, p.listenersMounted));
+        return true;
       } catch (error) {
-        if (signal?.aborted) return;
-        onChange((p) => errorResult(name, "update", error, p.listenersMounted));
+        if (signal?.aborted !== true)
+          onChange((p) => errorResult(name, "update", error, p.listenersMounted));
+        return false;
       }
     },
     [name, params],

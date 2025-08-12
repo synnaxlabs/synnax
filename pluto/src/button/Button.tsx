@@ -104,14 +104,15 @@ const Core = <E extends ElementType = "button">({
   tabIndex,
   contrast,
   children,
+  defaultEl = "button",
+  el,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
-  // We implement the shadow variant to maintain compatibility with the input
-  // component API.
-  if (variant == "shadow") variant = "text";
-  else if (variant === "preview") preventClick = true;
+  // The shadow variant appears as text but shows outline on hover.
+  // We don't convert it here, let CSS handle the behavior.
+  if (variant === "preview") preventClick = true;
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
@@ -173,7 +174,8 @@ const Core = <E extends ElementType = "button">({
 
   if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
   else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
-  else size ??= "medium";
+  else if (defaultEl !== "div") size ??= "medium";
+  level ??= "p";
 
   const isLoading = status === "loading";
   const square = Text.isSquare(children);
@@ -182,6 +184,8 @@ const Core = <E extends ElementType = "button">({
 
   return (
     <Text.Text<E>
+      el={el}
+      defaultEl={defaultEl}
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),
@@ -200,7 +204,6 @@ const Core = <E extends ElementType = "button">({
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
       bordered={variant !== "text"}
-      defaultEl={"button"}
       level={level}
       variant={textVariant}
       square={square}
@@ -217,7 +220,7 @@ const Core = <E extends ElementType = "button">({
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"
-          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+          level={Text.downLevel(level)}
         />
       )}
     </Text.Text>

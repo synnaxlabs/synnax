@@ -217,7 +217,7 @@ export const Grid = ({
       {editable && allowRotate && (
         <Button.Button
           className={CSS.BE("grid", "rotate")}
-          size="small"
+          size="tiny"
           variant="filled"
           onClick={onRotate}
         >

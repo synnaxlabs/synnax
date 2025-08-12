@@ -113,38 +113,40 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      <PNav.Bar
-        location="top"
-        size="5rem"
-        style={{ display: focused ? "flex" : "none" }}
-        bordered
-      >
-        {/*
-         * We do this to reduce the number of mounted DOM nodes. For some reason removing
-         * the entire bar causes react to crash, so we just hide its children.
-         */}
-        {focused && (
-          <>
-            <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb>
-                <Breadcrumb.Segment>
-                  {Icon.resolve(layout.icon)}
-                  {layout.name}
-                </Breadcrumb.Segment>
-              </Breadcrumb.Breadcrumb>
-            </PNav.Bar.Start>
-            <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-              <Button.Button onClick={handleOpenInNewWindow} size="small">
-                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Button>
-              <Button.Button onClick={handleClose} size="small">
-                <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Button>
-            </PNav.Bar.End>
-          </>
-        )}
-      </PNav.Bar>
-      <Portal.Out node={node} />
+      <Dialog.Dialog passthrough full>
+        <PNav.Bar
+          location="top"
+          size="5rem"
+          style={{ display: focused ? "flex" : "none" }}
+          bordered
+        >
+          {/*
+           * We do this to reduce the number of mounted DOM nodes. For some reason removing
+           * the entire bar causes react to crash, so we just hide its children.
+           */}
+          {focused && (
+            <>
+              <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
+                <Breadcrumb.Breadcrumb>
+                  <Breadcrumb.Segment>
+                    {Icon.resolve(layout.icon)}
+                    {layout.name}
+                  </Breadcrumb.Segment>
+                </Breadcrumb.Breadcrumb>
+              </PNav.Bar.Start>
+              <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
+                <Button.Button onClick={handleOpenInNewWindow} size="small">
+                  <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
+                </Button.Button>
+                <Button.Button onClick={handleClose} size="small">
+                  <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
+                </Button.Button>
+              </PNav.Bar.End>
+            </>
+          )}
+        </PNav.Bar>
+        <Portal.Out node={node} />
+      </Dialog.Dialog>
     </Dialog.Frame>
   );
 };

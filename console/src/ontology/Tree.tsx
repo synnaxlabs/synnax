@@ -205,7 +205,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     (id: ontology.ID) =>
       handleError(async () => {
         if (client == null) return;
-        resourceStore.setItem(await client.ontology.retrieve(id));
+        const updated = await client.ontology.retrieve(id);
+        const prev = resourceStore.getItem(ontology.idToString(id));
+        resourceStore.setItem(updated);
+        if (updated.name !== prev?.name) setNodes((prevNodes) => [...prevNodes]);
       }),
     [client, handleError, resourceStore.setItem],
   );
@@ -233,6 +236,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
+          throwOnMissing: false,
         }),
       ];
       return nextNodes;

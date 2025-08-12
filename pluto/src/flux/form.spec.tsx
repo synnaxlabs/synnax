@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, newTestClient } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { testutil, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -206,7 +206,7 @@ describe("useForm", () => {
       act(() => {
         result.current.save({ signal: controller.signal });
       });
-      await waitFor(() => {
+      await testutil.expectAlways(() => {
         expect(afterSave).not.toHaveBeenCalled();
       });
     });

@@ -38,6 +38,11 @@ interface QueryParams {
   key: task.Key | undefined;
 }
 
+// Temporary hack that filters the set of commands that should change the
+// status of a task to loading.
+// Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
+const LOADING_COMMANDS = ["start", "stop"];
+
 export const createRetrieveQuery = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -61,7 +66,7 @@ export const createRetrieveQuery = <
         onChange: Flux.parsedHandler(
           task.keyZ,
           async ({ client, changed, onChange, params: { key } }) => {
-            if (key == null || changed.toString() !== key.toString()) return;
+            if (key == null || changed !== key) return;
             onChange(await client.hardware.tasks.retrieve({ key, schemas }));
           },
         ),
@@ -117,7 +122,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task>({
         task.commandZ,
         async ({ changed, onChange, client }) => {
           onChange(changed.task, (prev) => {
-            if (prev == null) return prev;
+            if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
             return client.hardware.tasks.sugar({
               ...prev,
               status: status.create<task.StatusDetails<z.ZodUnknown>>({

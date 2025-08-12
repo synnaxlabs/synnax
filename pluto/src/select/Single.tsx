@@ -58,6 +58,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   dialogProps,
   triggerProps,
   virtual = true,
+  closeDialogOnSelect = true,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
   <Dialog.Frame {...rest} variant={transformDialogVariant(variant)}>
@@ -71,6 +72,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       onFetchMore={onFetchMore}
       itemHeight={itemHeight}
       virtual={virtual}
+      closeDialogOnSelect={closeDialogOnSelect}
     >
       <Select.SingleTrigger
         haulType={haulType}

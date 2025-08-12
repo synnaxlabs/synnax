@@ -150,6 +150,7 @@ const DialogContent = ({
       itemHeight={36}
       virtual={false}
       initialHover={0}
+      closeDialogOnSelect
     >
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}

@@ -255,7 +255,7 @@ export const Dropdown = (): ReactElement => {
               Connect
             </Button.Button>
           </Flex.Box>
-          <Flex.Box empty style={{ height: 190 }}>
+          <Flex.Box empty style={{ height: 190 }} onContextMenu={menuProps.open}>
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}
