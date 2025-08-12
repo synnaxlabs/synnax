@@ -11,9 +11,9 @@
 #include "gtest/gtest.h"
 
 /// std
-#include <fstream>
-#include <filesystem>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 
 /// internal
 #include "x/cpp/fs/fs.h"
@@ -44,9 +44,8 @@ protected:
         create_special_chars_file();
     }
 
-    void TearDown() override {
-        std::filesystem::remove_all(test_dir);
-    }
+    void TearDown() override { std::filesystem::remove_all(test_dir); }
+
 private:
     void create_test_file() {
         std::ofstream file(test_file);
@@ -65,7 +64,9 @@ private:
         std::ofstream file(large_file);
         // Create a file larger than the buffer size (1024 bytes)
         for (int i = 0; i < 200; i++) {
-            file << "Line " << i << ": This is a line of text to make the file larger than the buffer size.\n";
+            file
+                << "Line " << i
+                << ": This is a line of text to make the file larger than the buffer size.\n";
         }
         file.close();
     }
@@ -73,7 +74,7 @@ private:
     void create_binary_file() {
         std::ofstream file(binary_file, std::ios::binary);
         unsigned char data[] = {0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
-        file.write(reinterpret_cast<const char*>(data), sizeof(data));
+        file.write(reinterpret_cast<const char *>(data), sizeof(data));
         file.close();
     }
 
