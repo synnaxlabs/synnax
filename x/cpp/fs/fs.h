@@ -25,15 +25,14 @@ inline std::pair<std::string, xerrors::Error> read_file(const std::string &path)
     std::string data;
     FILE *f = fopen(path.c_str(), "r");
     if (f == nullptr)
-        return {data, xerrors::Error(NOT_FOUND,"failed to open " + path)};
+        return {data, xerrors::Error(NOT_FOUND, "failed to open " + path)};
     char buf[1024];
     for (;;) {
         const size_t n = fread(buf, 1, sizeof(buf), f);
         if (n <= 0) break;
         data.append(buf, n);
     }
-    if (ferror(f))
-        return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
+    if (ferror(f)) return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
     fclose(f);
     return {data, xerrors::NIL};
 }
