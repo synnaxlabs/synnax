@@ -200,11 +200,62 @@ jobs:
         run: |
           go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
+      - name: Import Apple Developer Certificate
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Sign macOS Server Binary
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        working-directory: synnax
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+          codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
+      - name: Download relic for Windows signing
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path relic-bin
+          Move-Item -Force relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Sign Windows Server Binary
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
+          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf --sig ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe.sig
+
       - name: Upload Release Asset
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          # Upload signature file for Windows
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe.sig
+          fi
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
@@ -224,11 +275,23 @@ jobs:
               exit 1
           }
 
+      - name: Sign Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf --sig .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe.sig
+
       - name: Upload Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe.sig
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
