@@ -9,6 +9,7 @@
 
 /// std
 #include <memory>
+#include <atomic>
 
 /// module
 #include "x/cpp/xargs/xargs.h"
@@ -35,17 +36,17 @@ int cmd::sub::start(xargs::Parser &args) {
 
     // Register an early shutdown handler to stop the driver when the process encounters
     // an error.
-    auto early_shutdown = std::make_shared<volatile bool>(false);
+    auto early_shutdown = std::make_shared<std::atomic<bool>>(false);
     const std::function on_shutdown = [early_shutdown] {
         xshutdown::signal_shutdown();
-        *early_shutdown = true;
+        early_shutdown->store(true);
     };
 
     r.start(args, on_shutdown);
 
     // Register a signal handler to stop the driver when the process receives a signal.
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    if (!*early_shutdown)
+    if (!early_shutdown->load())
         LOG(INFO) << xlog::BLUE()
                   << "received shutdown signal. Gracefully stopping driver. "
                      "This can take up to 5 seconds. Please be patient"
