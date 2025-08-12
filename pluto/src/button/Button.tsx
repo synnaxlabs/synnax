@@ -104,7 +104,7 @@ const Core = <E extends ElementType = "button">({
   tabIndex,
   contrast,
   children,
-  defaultEl,
+  defaultEl = "button",
   el,
   ...rest
 }: ButtonProps<E>): ReactElement => {
@@ -185,7 +185,7 @@ const Core = <E extends ElementType = "button">({
   return (
     <Text.Text<E>
       el={el}
-      defaultEl={defaultEl ?? "button"}
+      defaultEl={defaultEl}
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),

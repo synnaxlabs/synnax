@@ -24,10 +24,7 @@ export const MenuShowcase = () => {
 
   const contextMenu = Menu.useContextMenu();
 
-  const handleContextSelect = (key: string) => {
-    console.log("Context menu action:", key);
-    contextMenu.close();
-  };
+  const handleContextSelect = () => contextMenu.close();
 
   return (
     <Flex.Box y pack empty>

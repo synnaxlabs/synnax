@@ -471,7 +471,6 @@ export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
         deleteKVPairChannelValueZ,
         async ({ changed, onDelete, params: { rangeKey } }) => {
           if (changed.range !== rangeKey) return;
-          console.log("DELETE", changed);
           onDelete(changed.key);
         },
       ),
@@ -487,7 +486,6 @@ export const useKVPairForm = Flux.createForm<ListKVParams, typeof kvPairFormSche
   retrieve: async () => null,
   update: async ({ client, value }) => {
     const kv = client.ranges.getKV(value.range);
-    await kv.delete(value.key);
     await kv.set(value.key, value.value);
   },
   initialValues: {
@@ -509,7 +507,6 @@ export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
   name: "Range Meta Data",
   update: async ({ client, value, onChange }) => {
     const kv = client.ranges.getKV(value.range);
-    await kv.delete(value.key);
     await kv.set(value.key, value.value);
     onChange(value);
   },

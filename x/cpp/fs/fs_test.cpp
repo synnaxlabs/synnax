@@ -29,33 +29,26 @@ protected:
     std::string special_chars_file;
 
     void SetUp() override {
-        // Create a temporary test directory
         test_dir = std::filesystem::temp_directory_path() / "fs_test";
         std::filesystem::create_directories(test_dir);
-
-        // Set up test file paths
         test_file = test_dir + "/test.txt";
         empty_file = test_dir + "/empty.txt";
         large_file = test_dir + "/large.txt";
         binary_file = test_dir + "/binary.bin";
         non_existent_file = test_dir + "/non_existent.txt";
         special_chars_file = test_dir + "/special_chars.txt";
-
-        // Create test files
-        createTestFile();
-        createEmptyFile();
-        createLargeFile();
-        createBinaryFile();
-        createSpecialCharsFile();
+        create_test_file();
+        create_empty_file();
+        create_large_file();
+        create_binary_file();
+        create_special_chars_file();
     }
 
     void TearDown() override {
-        // Clean up test directory
         std::filesystem::remove_all(test_dir);
     }
-
 private:
-    void createTestFile() {
+    void create_test_file() {
         std::ofstream file(test_file);
         file << "Hello, World!\n";
         file << "This is a test file.\n";
@@ -63,12 +56,12 @@ private:
         file.close();
     }
 
-    void createEmptyFile() {
+    void create_empty_file() {
         std::ofstream file(empty_file);
         file.close();
     }
 
-    void createLargeFile() {
+    void create_large_file() {
         std::ofstream file(large_file);
         // Create a file larger than the buffer size (1024 bytes)
         for (int i = 0; i < 200; i++) {
@@ -77,14 +70,14 @@ private:
         file.close();
     }
 
-    void createBinaryFile() {
+    void create_binary_file() {
         std::ofstream file(binary_file, std::ios::binary);
         unsigned char data[] = {0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
         file.write(reinterpret_cast<const char*>(data), sizeof(data));
         file.close();
     }
 
-    void createSpecialCharsFile() {
+    void create_special_chars_file() {
         std::ofstream file(special_chars_file);
         file << "Special chars: \t\n\r";
         file << "Unicode: €£¥";
@@ -109,10 +102,8 @@ TEST_F(FSTest, ReadLargeFile) {
     auto [content, err] = fs::read_file(large_file);
     ASSERT_TRUE(err.ok());
     ASSERT_FALSE(content.empty());
-    // Verify the file contains expected content
     ASSERT_NE(content.find("Line 0:"), std::string::npos);
     ASSERT_NE(content.find("Line 199:"), std::string::npos);
-    // Verify it's larger than buffer size
     ASSERT_GT(content.size(), 1024);
 }
 
@@ -129,7 +120,6 @@ TEST_F(FSTest, ReadBinaryFile) {
     auto [content, err] = fs::read_file(binary_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content.size(), 6);
-    // Verify binary data is read correctly
     ASSERT_EQ(static_cast<unsigned char>(content[0]), 0x00);
     ASSERT_EQ(static_cast<unsigned char>(content[1]), 0x01);
     ASSERT_EQ(static_cast<unsigned char>(content[2]), 0x02);
@@ -151,22 +141,17 @@ TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::ofstream file(path_with_spaces);
     file << "Content in file with spaces";
     file.close();
-
     auto [content, err] = fs::read_file(path_with_spaces);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content, "Content in file with spaces");
-
     std::filesystem::remove(path_with_spaces);
 }
 
 TEST_F(FSTest, ReadFileMultipleReads) {
-    // Test that reading the same file multiple times works correctly
     auto [content1, err1] = fs::read_file(test_file);
     ASSERT_TRUE(err1.ok());
-    
     auto [content2, err2] = fs::read_file(test_file);
     ASSERT_TRUE(err2.ok());
-    
     ASSERT_EQ(content1, content2);
 }
 
@@ -178,21 +163,17 @@ TEST_F(FSTest, ReadFileEmptyPath) {
 }
 
 TEST_F(FSTest, ReadFileRelativePath) {
-    // Create a file in current directory for testing relative paths
     std::string relative_file = "test_relative.txt";
     std::ofstream file(relative_file);
     file << "Relative path content";
     file.close();
-
     auto [content, err] = fs::read_file(relative_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content, "Relative path content");
-
     std::filesystem::remove(relative_file);
 }
 
 TEST_F(FSTest, ErrorTypeVerification) {
-    // Verify that error types are correctly set
     ASSERT_EQ(fs::ERROR.type, "fs");
     ASSERT_EQ(fs::NOT_FOUND.type, "fs.not_found");
     ASSERT_EQ(fs::INVALID_PATH.type, "fs.invalid_path");
@@ -208,20 +189,17 @@ TEST_F(FSTest, ReadFileWithNewlines) {
     file << "Line3\r";
     file << "Line4";
     file.close();
-
     auto [content, err] = fs::read_file(newline_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content, "Line1\nLine2\r\nLine3\rLine4");
 }
 
 TEST_F(FSTest, ReadFileExactBufferSize) {
-    // Create a file exactly 1024 bytes (buffer size)
     std::string exact_buffer_file = test_dir + "/exact_buffer.txt";
     std::ofstream file(exact_buffer_file);
     std::string data(1024, 'A');
     file << data;
     file.close();
-
     auto [content, err] = fs::read_file(exact_buffer_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content.size(), 1024);
@@ -229,13 +207,11 @@ TEST_F(FSTest, ReadFileExactBufferSize) {
 }
 
 TEST_F(FSTest, ReadFileOneByteOverBuffer) {
-    // Create a file with 1025 bytes (one over buffer size)
     std::string over_buffer_file = test_dir + "/over_buffer.txt";
     std::ofstream file(over_buffer_file);
     std::string data(1025, 'B');
     file << data;
     file.close();
-
     auto [content, err] = fs::read_file(over_buffer_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content.size(), 1025);

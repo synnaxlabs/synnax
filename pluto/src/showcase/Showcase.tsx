@@ -89,13 +89,6 @@ export const Showcase = () => {
         "Interactive menu components with selection states, icons, and context menu functionality.",
       component: <MenuShowcase />,
     },
-    // {
-    //   key: "nav",
-    //   title: "Navigation",
-    //   description:
-    //     "Navigation components including bars and drawers for application layout and user interface organization.",
-    //   component: <NavShowcase />,
-    // },
     {
       key: "note",
       title: "Note",
