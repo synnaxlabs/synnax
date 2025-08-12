@@ -41,10 +41,10 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
         flexGrow: 2,
       }}
       selectOnFocus={true}
-      variant="text"
+      variant="shadow"
       resetOnBlurIfEmpty={true}
       placeholder="Value"
-      color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
+      textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
       {...rest}
     >
       <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
@@ -52,11 +52,11 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
       </Button.Button>
       {isLink && (
         <Button.Button
-          variant="outlined"
           href={value}
           target="_blank"
           autoFormatHref
           style={{ padding: "1rem" }}
+          variant="outlined"
         >
           <Icon.LinkExternal />
         </Button.Button>
@@ -132,7 +132,7 @@ const MetaDataListItem = ({
               resetOnBlurIfEmpty: true,
               onlyChangeOnBlur: !isCreate,
               placeholder: "Add Key",
-              variant: "text",
+              variant: "shadow",
               weight: 500,
             }}
             showLabel={false}
@@ -165,7 +165,7 @@ const MetaDataListItem = ({
           <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="text"
+            variant="shadow"
             onClick={() => handleDelete(itemKey)}
           >
             <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
@@ -191,14 +191,10 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);
   return (
     <Flex.Box y>
-      <Header.Header level="h4">
+      <Header.Header level="h4" borderColor={5}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>
-          <Button.Button
-            variant="outlined"
-            size="small"
-            onClick={() => setNewFormVisible(true)}
-          >
+          <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>
             <Icon.Add />
           </Button.Button>
         </Header.Actions>

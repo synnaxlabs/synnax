@@ -39,16 +39,16 @@
 }
 
 .console-metadata__list-item {
-    height: 7.5rem;
-    max-height: 7.5rem;
-    min-height: 7.5rem;
+    height: 6rem;
+    max-height: 6rem;
+    min-height: 6rem;
     padding: 0rem 1rem;
 
-    .console-label__delete {
+    .console-metadata__delete {
         opacity: 0;
     }
     &:hover {
-        .console-label__delete {
+        .console-metadata__delete {
             opacity: 1;
         }
     }

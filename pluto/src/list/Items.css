@@ -14,9 +14,6 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-    &.pluto-list__items--empty {
-        min-height: 20rem;
-    }
 }
 
 .pluto-list__items > .pluto-list__virtualizer {

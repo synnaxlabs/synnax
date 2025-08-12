@@ -10,6 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
+import { type List } from "@/list";
 
 export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void =>
   Flux.useListener({
@@ -47,18 +48,20 @@ export const useRelationshipDeleteSynchronizer = (
     }),
   });
 
-interface UseDependentQueryParams {
-  id: ontology.ID;
+interface UseDependentQueryParams extends List.PagerParams {
+  id?: ontology.ID;
 }
 
 export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>
   Flux.createList<UseDependentQueryParams, string, ontology.Resource>({
     name: "useDependents",
-    retrieve: async ({ client, params: { id } }) =>
-      await client.ontology.retrieve([id], {
+    retrieve: async ({ client, params: { id } }) => {
+      if (id == null) return [];
+      return await client.ontology.retrieve([id], {
         children: direction === "to",
         parents: direction === "from",
-      }),
+      });
+    },
     retrieveByKey: async ({ client, key }) =>
       await client.ontology.retrieve(ontology.idZ.parse(key)),
     listeners: [
@@ -104,8 +107,8 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
         onChange: Flux.parsedHandler(
           ontology.idZ,
           async ({ client, changed, params, onChange }) => {
-            if (!("id" in params)) return;
             const { id } = params;
+            if (id == null) return;
             if (!ontology.idsEqual(id, changed)) return;
             const nextDependent = await client.ontology.retrieve(changed);
             onChange(nextDependent.key, nextDependent);
