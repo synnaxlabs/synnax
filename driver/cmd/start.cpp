@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// std
-#include <memory>
 #include <atomic>
+#include <memory>
 
 /// module
 #include "x/cpp/xargs/xargs.h"
