@@ -17,14 +17,14 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 const client = newTestClient();
 
 describe("update", () => {
-  describe("basic update", () => {
-    let controller: AbortController;
-    beforeEach(() => {
-      controller = new AbortController();
-    });
-    afterEach(() => {
-      controller.abort();
-    });
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
+  describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
       const { result } = renderHook(() =>
         Flux.createUpdate<{}, number>({
@@ -113,6 +113,70 @@ describe("update", () => {
         expect(result.current.data).toEqual(null);
         expect(result.current.status.message).toEqual("Updating Resource");
       });
+    });
+  });
+
+  describe("updateAsync", () => {
+    it("should return true if the update function is successful", async () => {
+      const update = vi.fn();
+      const { result } = renderHook(
+        () =>
+          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
+            params: {},
+          }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      const updated = await result.current.updateAsync(12, {
+        signal: controller.signal,
+      });
+      expect(updated).toEqual(true);
+    });
+
+    it("should return false if an error is thrown", async () => {
+      const update = vi.fn().mockRejectedValue(new Error("test"));
+      const { result } = renderHook(
+        () =>
+          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
+            params: {},
+          }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      const updated = await result.current.updateAsync(12, {
+        signal: controller.signal,
+      });
+      expect(updated).toEqual(false);
+    });
+
+    it("should return false if the client is null", async () => {
+      const update = vi.fn();
+      const { result } = renderHook(
+        () =>
+          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
+            params: {},
+          }),
+        { wrapper: newSynnaxWrapper(null) },
+      );
+      const updated = await result.current.updateAsync(12, {
+        signal: controller.signal,
+      });
+      expect(updated).toEqual(false);
+    });
+
+    it("should return false if the update function is aborted", async () => {
+      const update = vi.fn();
+      const controller = new AbortController();
+      const { result } = renderHook(
+        () =>
+          Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
+            params: {},
+          }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      controller.abort();
+      const updated = await result.current.updateAsync(12, {
+        signal: controller.signal,
+      });
+      expect(updated).toEqual(false);
     });
   });
 });

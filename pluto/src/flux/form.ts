@@ -208,7 +208,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
         void (async () => {
           try {
             if (!(await form.validateAsync())) return;
-            await updateAsync(form.value(), opts);
+            if (!(await updateAsync(form.value(), opts))) return;
             afterSave?.({ form, params });
             form.setCurrentStateAsInitialValues();
           } catch (error) {
