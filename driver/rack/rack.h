@@ -214,6 +214,9 @@ class Rack {
     void run(xargs::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief destructor ensures thread is properly joined
+    ~Rack();
+
     /// @brief starts the rack.
     /// @param args Parser containing command line arguments
     /// @param on_shutdown Optional callback that will be called if the rack shuts

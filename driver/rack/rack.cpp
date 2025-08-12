@@ -20,6 +20,10 @@ bool rack::Rack::should_exit(
     return !breaker_ok;
 }
 
+rack::Rack::~Rack() {
+    stop();
+}
+
 void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdown) {
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
@@ -43,7 +47,7 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
 
 void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
     this->breaker.start();
-    this->run_thread = std::thread([this, &args, callback = std::move(on_shutdown)] {
+    this->run_thread = std::thread([this, args, callback = std::move(on_shutdown)]() mutable {
         this->run(args, callback);
     });
 }
