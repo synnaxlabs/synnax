@@ -74,9 +74,8 @@ export class Value
     i.theme = theming.use(ctx);
 
     // If not initialzied, set to STALENESS_COLOR
-    if (i.isInitialized === undefined) {
+    if (i.isInitialized === undefined) 
       i.textColor = STALENESS_COLOR;
-    }
     
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
