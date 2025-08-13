@@ -157,7 +157,8 @@ inline xerrors::Error parse_error(const UA_StatusCode &status) {
         status == UA_STATUSCODE_BADSECURECHANNELCLOSED)
         return CONN_REJECTED;
     const std::string status_name = UA_StatusCode_name(status);
-    return {CRITICAL_ERROR, status_name};
+    const std::string message = UA_StatusCode_msg(status);
+    return {CRITICAL_ERROR, status_name + ": " + message};
 };
 
 telem::DataType ua_to_data_type(const UA_DataType *dt);
