@@ -34,6 +34,7 @@ export const Dialog = ({
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
   if (!visible && !passthrough) return null;
+  const actuallyVisible = visible && Object.keys(ctxStyle).length > 0;
   let dialog = (
     <Flex.Box
       pack
@@ -44,7 +45,7 @@ export const Dialog = ({
         CSS.BE("dialog", "dialog"),
         CSS.loc(location.x),
         CSS.loc(location.y),
-        CSS.visible(visible),
+        CSS.visible(actuallyVisible),
         passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
         className,

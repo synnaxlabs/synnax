@@ -4,6 +4,7 @@ cc_library(
         "conn.cpp",
         "node.cpp",
         "read.cpp",
+        "status_codes.cpp",
         "telem.cpp",
     ],
     hdrs = ["util.h"],
@@ -16,7 +17,7 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",
-        "@glog//:glog",
+        "@glog",
         "@nlohmann_json//:json",
     ],
 )
