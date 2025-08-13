@@ -191,16 +191,36 @@ jobs:
 
       - name: Sign Windows Driver Binary
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
-          # Wait for any file handles to be released
+          # Path to Bazel output
+          $bin = "bazel-bin\driver\driver.exe"
+
+          # Give any AV/indexers a moment to release handles
           Start-Sleep -Seconds 2
-          # Set file permissions to allow modification
-          icacls bazel-bin/driver/driver.exe /grant Everyone:F
-          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
+
+          # Clear Windows file attributes first; Bazel marks outputs read-only
+          attrib -R -S -H -A $bin
+
+          # (Optional) ensure ownership + broad write perms; attrib is the key piece
+          takeown /F $bin | Out-Null
+          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null  # Everyone:F via well-known SID
+
+          # Retry a few times in case something still has a transient lock
+          $max = 5
+          for ($i = 1; $i -le $max; $i++) {
+            try {
+              relic sign --file $bin --key azure --config relic.conf
+              break
+            } catch {
+              if ($i -eq $max) { throw }
+              Start-Sleep -Seconds 3
+            }
+          }
 
       - name: Upload and Move Driver Binary
         if: github.event_name == 'push'
