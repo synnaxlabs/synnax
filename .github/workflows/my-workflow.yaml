@@ -8,7 +8,6 @@ on:
 
 env:
   CACHE_SCOPE: build-synnax
-  BINARY_OUT_DIR: $HOME/Desktop
 
 jobs:
   build:
@@ -24,7 +23,13 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y \
+            build-essential \
+            gcc \
+            g++ \
+            cmake \
+            libsystemd-dev \
+            pkg-config
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -33,22 +38,9 @@ jobs:
           disk-cache: ${{ env.CACHE_SCOPE }}-self-hosted-linux
           repository-cache: true
 
-      - name: Ensure Bazelisk Installed
-        run: |
-          set -euo pipefail
-          if ! command -v bazelisk >/dev/null 2>&1; then
-            BZ_VERSION=1.20.0
-            curl -sSL -o bazelisk "https://github.com/bazelbuild/bazelisk/releases/download/v${BZ_VERSION}/bazelisk-linux-amd64"
-            sudo install -m 0755 bazelisk /usr/local/bin/bazelisk
-            sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
-          fi
-          bazelisk version
-
       - name: Build Driver
         run: |
-          bazelisk build --enable_platform_specific_config -c opt --define=platform=linux --announce_rc //driver
-
-      # Self-hosted linux runner; OS is linux
+          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
       - name: Get Version
         id: version
@@ -56,19 +48,9 @@ jobs:
         run: |
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
-      - name: Create Desktop Directory
+      - name: Move Driver to Assets
         run: |
-          mkdir -p ${{ env.BINARY_OUT_DIR }}
-
-      - name: Copy Driver Binary to Desktop
-        run: |
-          cp bazel-bin/driver/driver ${{ env.BINARY_OUT_DIR }}/synnax-driver-v${{ steps.version.outputs.VERSION }}-linux
-
-      - name: Prepare Driver for Go Build
-        run: |
-          # Create the assets directory structure
           mkdir -p synnax/pkg/service/hardware/embedded/assets
-          # Copy the driver binary to the location expected by the Go embed directive
           cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
 
       - name: Set up Go
@@ -77,7 +59,7 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Download Dependencies
+      - name: Download Go Dependencies
         working-directory: synnax
         run: go mod download
 
@@ -86,12 +68,11 @@ jobs:
         run: |
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
 
-      - name: Copy Server Binary to Desktop
+      - name: Copy Binaries to Desktop
         run: |
-          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux ${{ env.BINARY_OUT_DIR }}/
-
-
-      - name: List Desktop Contents
-        run: |
-          echo "Binaries copied to ${{ env.BINARY_OUT_DIR }}:"
-          ls -la ${{ env.BINARY_OUT_DIR }}
+          mkdir -p $HOME/Desktop
+          rm -rf $HOME/Desktop/*
+          cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver-v${{ steps.version.outputs.VERSION }}-linux
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/
+          echo "Binaries created in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax-*
