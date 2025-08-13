@@ -196,6 +196,10 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
+          # Wait for any file handles to be released
+          Start-Sleep -Seconds 2
+          # Set file permissions to allow modification
+          icacls bazel-bin/driver/driver.exe /grant Everyone:F
           relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
 
       - name: Upload and Move Driver Binary
