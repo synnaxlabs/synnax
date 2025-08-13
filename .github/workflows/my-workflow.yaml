@@ -1,27 +1,97 @@
-name: Nico Workflow
+name: Experimental - Build Synnax Binaries
 
 on:
   push:
     branches:
       - experimental/nico-workflow
-  pull_request:
-    branches:
-      - experimental/nico-workflow
+  workflow_dispatch:
+
+env:
+  CACHE_SCOPE: build-synnax
+  BINARY_OUT_DIR: $HOME/Desktop
 
 jobs:
-  run-script:
-    name: Run_Hello_World_Script
-    runs-on: self-hosted
-    
+  build:
+    name: Build Synnax (self-hosted linux)
+    runs-on: [self-hosted, linux]
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      
-      - name: Run hello world script
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Install Dependencies
         run: |
-          echo "echoing hello world"
-        
-      - name: Run shell script file
+          sudo apt-get update
+          sudo apt-get install -y libsystemd-dev
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ env.CACHE_SCOPE }}-self-hosted-linux
+          repository-cache: true
+
+      - name: Ensure Bazelisk Installed
         run: |
-          chmod +x ./scripts/hello-world.sh
-          ./scripts/hello-world.sh
+          set -euo pipefail
+          if ! command -v bazelisk >/dev/null 2>&1; then
+            BZ_VERSION=1.20.0
+            curl -sSL -o bazelisk "https://github.com/bazelbuild/bazelisk/releases/download/v${BZ_VERSION}/bazelisk-linux-amd64"
+            sudo install -m 0755 bazelisk /usr/local/bin/bazelisk
+            sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
+          fi
+          bazelisk version
+
+      - name: Build Driver
+        run: |
+          bazelisk build --enable_platform_specific_config -c opt --define=platform=linux --announce_rc //driver
+
+      # Self-hosted linux runner; OS is linux
+
+      - name: Get Version
+        id: version
+        working-directory: synnax
+        run: |
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Create Desktop Directory
+        run: |
+          mkdir -p ${{ env.BINARY_OUT_DIR }}
+
+      - name: Copy Driver Binary to Desktop
+        run: |
+          cp bazel-bin/driver/driver ${{ env.BINARY_OUT_DIR }}/synnax-driver-v${{ steps.version.outputs.VERSION }}-linux
+
+      - name: Prepare Driver for Go Build
+        run: |
+          # Create the assets directory structure
+          mkdir -p synnax/pkg/service/hardware/embedded/assets
+          # Copy the driver binary to the location expected by the Go embed directive
+          cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Download Dependencies
+        working-directory: synnax
+        run: go mod download
+
+      - name: Build Synnax Server
+        working-directory: synnax
+        run: |
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
+
+      - name: Copy Server Binary to Desktop
+        run: |
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux ${{ env.BINARY_OUT_DIR }}/
+
+
+      - name: List Desktop Contents
+        run: |
+          echo "Binaries copied to ${{ env.BINARY_OUT_DIR }}:"
+          ls -la ${{ env.BINARY_OUT_DIR }}
