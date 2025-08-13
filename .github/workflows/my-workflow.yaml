@@ -1,0 +1,27 @@
+name: Nico Workflow
+
+on:
+  push:
+    branches:
+      - experimental/nico-workflow
+  pull_request:
+    branches:
+      - experimental/nico-workflow
+
+jobs:
+  run-script:
+    name: Run_Hello_World_Script
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run hello world script
+        run: |
+          echo "echoing hello world"
+        
+      - name: Run shell script file
+        run: |
+          chmod +x ./scripts/hello-world.sh
+          ./scripts/hello-world.sh
