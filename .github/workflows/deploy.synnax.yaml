@@ -230,11 +230,6 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
-          # Upload signature file for Windows driver
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv bazel-bin/driver/driver.exe.sig synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
-            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
-          fi
 
       - name: Move Driver to Assets
         shell: bash
