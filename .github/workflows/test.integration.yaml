@@ -1,93 +1,127 @@
-name: "Test - Integration"
+name: Test - Integration (End-to-End)
 
 on:
   push:
     branches:
-      - "leo/sy-685-integration-testing"
+      - "sy-2769-integration-test-development"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
+env:
+  CACHE_SCOPE: build-synnax
 
 jobs:
-  test-integration-ubuntu:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
+  build:
+    name: Build Synnax (self-hosted linux)
+    runs-on: [self-hosted, linux]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Force Quit Existing Synnax Processes
+        run: |
+          mkdir -p $HOME/Desktop
+          rm -rf $HOME/Desktop/*
+          echo "Checking for existing synnax processes..."
+          if pgrep -f "synnax" > /dev/null; then
+            echo "Found synnax processes. Terminating..."
+            pkill -f "synnax" || true
+            sleep 2
+            # Force kill if still running
+            if pgrep -f "synnax" > /dev/null; then
+              echo "Force killing remaining synnax processes..."
+              pkill -9 -f "synnax" || true
+            fi
+            echo "All synnax processes terminated."
+          else
+            echo "No synnax processes found."
+          fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i --no-frozen-lockfile
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gcc \
+            g++ \
+            cmake \
+            libsystemd-dev \
+            pkg-config
 
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
-
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
-
-      - name: Mini Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r-mini.json
-        working-directory: ./integration
-
-      - name: Delete Test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/delete-test.json
-        working-directory: ./integration
-
-      - name: Load test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r.json
-        working-directory: ./integration
-
-      - name: Benchmark test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/benchmark-test.json
-        working-directory: ./integration
-
-  test-benchmark-cesium:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          filters: |
-            changed:
-              - "cesium/**"
-              - ".github/workflows/test.integration.yaml"
+          bazelisk-cache: true
+          disk-cache: ${{ env.CACHE_SCOPE }}-self-hosted-linux
+          repository-cache: true
 
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./cesium/internal/benchmark
+      - name: Build Driver
+        run: |
+          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
-      - name: Benchmark
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry run python benchmarker.py
-        working-directory: ./cesium/internal/benchmark
+      - name: Get Version
+        id: version
+        working-directory: synnax
+        run: |
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Move Driver to Assets
+        run: |
+          mkdir -p synnax/pkg/service/hardware/embedded/assets
+          cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Download Go Dependencies
+        working-directory: synnax
+        run: go mod download
+
+      - name: Build Synnax Server
+        working-directory: synnax
+        run: |
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
+
+      - name: Copy Binaries to Desktop
+        run: |      
+          cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/synnax
+          echo "Binaries created in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax*
+
+      - name: Install and Start Synnax as git g
+        run: |
+          echo "Creating systemd service for Synnax..."
+          sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
+          [Unit]
+          Description=Synnax Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=$HOME/Desktop
+          ExecStart=$HOME/Desktop/synnax start -mi
+          Restart=always
+          RestartSec=5
+          StandardOutput=journal
+          StandardError=journal
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          sudo systemctl daemon-reload
+          sudo systemctl stop synnax || true
+          sudo systemctl enable synnax
+          sudo systemctl start synnax
+          sleep 10
+          sudo systemctl status synnax
+          echo "Synnax service installed and started"
+          echo "Check logs with: sudo journalctl -u synnax -f"
+          echo "Manage service with: sudo systemctl [start|stop|restart|status] synnax"
