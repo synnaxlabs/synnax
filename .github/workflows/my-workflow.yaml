@@ -14,6 +14,25 @@ jobs:
     name: Build Synnax (self-hosted linux)
     runs-on: [self-hosted, linux]
     steps:
+      - name: Force Quit Synnax Processes
+        run: |
+          mkdir -p $HOME/Desktop
+          rm -rf $HOME/Desktop/*
+          echo "Checking for existing synnax processes..."
+          if pgrep -f "synnax" > /dev/null; then
+            echo "Found synnax processes. Terminating..."
+            pkill -f "synnax" || true
+            sleep 2
+            # Force kill if still running
+            if pgrep -f "synnax" > /dev/null; then
+              echo "Force killing remaining synnax processes..."
+              pkill -9 -f "synnax" || true
+            fi
+            echo "All synnax processes terminated."
+          else
+            echo "No synnax processes found."
+          fi
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -69,10 +88,40 @@ jobs:
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
 
       - name: Copy Binaries to Desktop
-        run: |
-          mkdir -p $HOME/Desktop
-          rm -rf $HOME/Desktop/*
-          cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver-v${{ steps.version.outputs.VERSION }}-linux
-          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/
+        run: |      
+          cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/synnax
           echo "Binaries created in $HOME/Desktop:"
-          ls -la $HOME/Desktop/synnax-*
+          ls -la $HOME/Desktop/synnax*
+
+      - name: Install and Start Synnax as Service
+        run: |
+          echo "Creating systemd service for Synnax..."
+          sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
+          [Unit]
+          Description=Synnax Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=$HOME/Desktop
+          ExecStart=$HOME/Desktop/synnax start -mi
+          Restart=always
+          RestartSec=5
+          StandardOutput=journal
+          StandardError=journal
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          sudo systemctl daemon-reload
+          sudo systemctl stop synnax || true
+          sudo systemctl enable synnax
+          sudo systemctl start synnax
+          sleep 10
+          sudo systemctl status synnax
+          echo "Synnax service installed and started"
+          echo "Check logs with: sudo journalctl -u synnax -f"
+          echo "Manage service with: sudo systemctl [start|stop|restart|status] synnax"
