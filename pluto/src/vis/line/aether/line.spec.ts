@@ -230,6 +230,7 @@ describe("line", () => {
           ySeries,
           1,
           0,
+          "decimate",
           TimeSpan.ZERO,
         );
         expect(drawOperations.length).toBe(expected.length);
