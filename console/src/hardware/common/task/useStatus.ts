@@ -63,6 +63,10 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   }, []);
   Task.useCommandSynchronizer(handleCommandUpdate);
   const handleStatusUpdate = useCallback((status: task.Status) => {
+    if (keyRef.current.length == 0) {
+      setTimeout(() => handleStatusUpdate(status), 100);
+      return;
+    }
     if (status.details.task !== keyRef.current) return;
     setStatus(status);
   }, []);
