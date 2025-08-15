@@ -7,6 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+# TODO:
+# - Use system logging
+# - Return test results to test_conductore
+# - Return test_conductor results to workflow env
+# - Enable async test_case execution if configured
+# - Build test case infrastructure
+# - Run loaded test cases
+# - Integrate with github actions
+
 
 import json
 import uuid
@@ -28,10 +37,10 @@ import traceback
 import synnax as sy
 
 try:
-    from .TestCase import TestCase
+    from .TestCase import TestCase, SynnaxConnection, TestStatus
 except ImportError:
     # Handle case when running script directly
-    from TestCase import TestCase
+    from TestCase import TestCase, SynnaxConnection, TestStatus
 
 class STATE(Enum):
     """Enum representing the status of the test conductor."""
@@ -44,15 +53,6 @@ class STATE(Enum):
     COMPLETED = auto()
     
 
-class TestStatus(Enum):
-    """Enum representing the status of a test."""
-    INITIALIZING = "initializing"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    PENDING = "pending"
-    FAILED = "failed"
-    KILLED = "killed"
-    TIMEOUT = "timeout"
 
 
 @dataclass
@@ -75,7 +75,6 @@ class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
     test_case: str
     parameters: Dict[str, Any] = field(default_factory=dict)
-
 
 class Test_Conductor:
     """
@@ -121,13 +120,13 @@ class Test_Conductor:
         
         # Store connection parameters to
         # pass down to test cases
-        self.core_connection_params = {
-            "server_address": server_address,
-            "port": port,
-            "username": username,
-            "password": password,
-            "secure": secure,
-        }
+        self.SynnaxConnection = SynnaxConnection(
+            server_address=server_address,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+        )
         
         # Test Conductor Client
         self.client = sy.Synnax(
@@ -149,6 +148,8 @@ class Test_Conductor:
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self._timeout_result: Optional[TestResult] = None
         self.client_manager_thread: Optional[threading.Thread] = None
+
+        # Replace these bools with
         self.is_running = False
         self.should_stop = False
         
@@ -161,9 +162,8 @@ class Test_Conductor:
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         self._start_client_manager_async()
-        time.sleep(3) # Wait for client manager to start
+        time.sleep(2) # Wait for client manager to start
     
-
     def _validate_and_sanitize_name(self, name: str) -> str:
         """
         Validate and sanitize the name to only contain alphanumeric characters, 
@@ -353,8 +353,8 @@ class Test_Conductor:
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
         
-        print(f"{self.name} > Loading test sequence from: {sequence_path}")
-        time.sleep(3)
+        print(f"{self.name} > Loading test campaign from: {sequence_path}")
+        time.sleep(2)
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
@@ -375,6 +375,69 @@ class Test_Conductor:
 
         print(f"{self.name} > Loaded {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
     
+    def run_sequence(self) -> List[TestResult]:
+        """
+        Run the entire test case set.
+        
+        Returns:
+            List of TestResult objects for all executed tests
+        """
+        if not self.test_definitions:
+            raise ValueError("No test sequence loaded. Call load_test_sequence() first or ensure test sequence JSON is not empty.")
+        
+        self.state = STATE.RUNNING
+
+        self.is_running = True
+        self.should_stop = False
+        self.test_results = []
+        
+        # Start timeout monitoring thread
+        self.timeout_monitor_thread = threading.Thread(
+            target=self._timeout_monitor_thread,
+            args=(1.0,),  # Check every 1 second
+            daemon=True
+        )
+        self.timeout_monitor_thread.start()
+        
+        print(f"Starting execution of {len(self.test_definitions)} tests...")
+        
+        for i, test_def in enumerate(self.test_definitions):
+            if self.should_stop:
+                print("Test execution stopped by user request")
+                break
+            
+            print(f"[{i+1}/{len(self.test_definitions)}] Running test: {test_def.test_case}")
+            
+            # Run test in a separate thread
+            result_container = []
+            test_thread = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, result_container)
+            )
+            
+            self.current_test_thread = test_thread
+            test_thread.start()
+            
+            # Wait for test completion (timeout monitoring is handled by separate thread)
+            test_thread.join()
+            
+            # Get the result from the test execution
+            if result_container:
+                result = result_container[0]
+            else:
+                result = TestResult(
+                    test_name=test_def.test_case,
+                    status=TestStatus.FAILED,
+                    error_message="Unknown error - no result returned"
+                )
+            
+            self.test_results.append(result)
+            self.current_test_thread = None
+        
+        self.is_running = False
+        self._print_summary()
+        return self.test_results
+
     def wait_for_completion(self) -> None:
         """
         Wait for all async processes to complete before allowing main to exit.
@@ -405,14 +468,15 @@ class Test_Conductor:
         """
         Gracefully shutdown the test conductor and all its processes.
         """
-        print(f"{self.name} > Initiating shutdown...")
+        print("\n")
+        print(f"{self.name} > Shut down initiated...")
         self.state = STATE.SHUTDOWN
         self.should_stop = True
         
         # Wait for all processes to complete
         self.wait_for_completion()
         
-        print(f"{self.name} > Shutdown complete")
+        print(f"{self.name} > Shutdown complete\n")
     
     def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -450,7 +514,7 @@ class Test_Conductor:
     def _execute_single_test(self, test_def: TestDefinition) -> TestResult:
         """Execute a single test case."""
         result = TestResult(
-            test_name=test_def.name,
+            test_name=test_def.test_case,
             status=TestStatus.PENDING,
             start_time=datetime.now()
         )
@@ -459,11 +523,7 @@ class Test_Conductor:
             # Load and instantiate the test class
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
-                server_address="localhost",  # Use the default values for now
-                port=9090,
-                username="synnax",
-                password="seldon",
-                secure=False,
+                SynnaxConnection=self.SynnaxConnection,
                 **test_def.parameters
             )
             
@@ -491,7 +551,7 @@ class Test_Conductor:
             else:
                 result.status = TestStatus.FAILED
                 result.error_message = str(e)
-                print(f"Test {test_def.name} failed: {e}")
+                print(f"Test {test_def.test_case} failed: {e}")
                 traceback.print_exc()
         
         finally:
@@ -529,67 +589,6 @@ class Test_Conductor:
                     break
             
             time.sleep(monitor_interval)
-    
-    def run_sequence(self) -> List[TestResult]:
-        """
-        Run the entire test sequence sequentially.
-        
-        Returns:
-            List of TestResult objects for all executed tests
-        """
-        if not self.test_definitions:
-            raise ValueError("No test sequence loaded. Call load_test_sequence() first.")
-        
-        self.is_running = True
-        self.should_stop = False
-        self.test_results = []
-        
-        # Start timeout monitoring thread
-        self.timeout_monitor_thread = threading.Thread(
-            target=self._timeout_monitor_thread,
-            args=(1.0,),  # Check every 1 second
-            daemon=True
-        )
-        self.timeout_monitor_thread.start()
-        
-        print(f"Starting execution of {len(self.test_definitions)} tests...")
-        
-        for i, test_def in enumerate(self.test_definitions):
-            if self.should_stop:
-                print("Test execution stopped by user request")
-                break
-            
-            print(f"[{i+1}/{len(self.test_definitions)}] Running test: {test_def.name}")
-            
-            # Run test in a separate thread
-            result_container = []
-            test_thread = threading.Thread(
-                target=self._test_runner_thread,
-                args=(test_def, result_container)
-            )
-            
-            self.current_test_thread = test_thread
-            test_thread.start()
-            
-            # Wait for test completion (timeout monitoring is handled by separate thread)
-            test_thread.join()
-            
-            # Get the result from the test execution
-            if result_container:
-                result = result_container[0]
-            else:
-                result = TestResult(
-                    test_name=test_def.name,
-                    status=TestStatus.FAILED,
-                    error_message="Unknown error - no result returned"
-                )
-            
-            self.test_results.append(result)
-            self.current_test_thread = None
-        
-        self.is_running = False
-        self._print_summary()
-        return self.test_results
     
     def kill_current_test(self) -> bool:
         """
@@ -786,7 +785,7 @@ if __name__ == "__main__":
     try:
         conductor.load_test_sequence(args.sequence)
         # Run tests
-        #results = conductor.run_sequence()
+        results = conductor.run_sequence()
         
         # Wait for all async processes to complete before exiting
         conductor.wait_for_completion()

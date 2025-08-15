@@ -8,8 +8,31 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from dataclasses import dataclass, field
+from enum import Enum, auto
+import random
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
+
+
+@dataclass
+class SynnaxConnection:
+    """Data class representing the Synnax connection parameters."""
+    server_address: str
+    port: int
+    username: str
+    password: str
+    secure: bool
+
+class TestStatus(Enum):
+    """Enum representing the status of a test."""
+    INITIALIZING = auto()
+    RUNNING = auto()
+    COMPLETED = auto()
+    PENDING = auto()
+    FAILED = auto()
+    KILLED = auto()
+    TIMEOUT = auto()
 
 
 class TestCase:
@@ -23,42 +46,77 @@ class TestCase:
     - teardown(): Called after the test runs
     """
     
-    def __init__(self, server_address: str, port: int = 9090, 
-                 username: str = "synnax", password: str = "seldon", 
-                 secure: bool = False):
+    def __init__(self, SynnaxConnection: SynnaxConnection):
         """
         Initialize the test case with connection to Synnax server.
         
         Args:
-            server_address: The address of the Synnax server (e.g., "localhost")
-            port: The port number (default: 9090)
-            username: Username for authentication (default: "synnax")
-            password: Password for authentication (default: "seldon")
-            secure: Whether to use secure connection (default: False)
+            SynnaxConnection: The connection parameters for the Synnax server
         """
-        self.server_address = server_address
-        self.port = port
-        self.username = username
-        self.password = password
-        self.secure = secure
-        
-        # Connect to Synnax server
-        self.client = sy.Synnax(
-            host=server_address,
-            port=port,
-            username=username,
-            password=password,
-            secure=secure,
-        )
-        
+        # Generate a 6-character random alphanumeric string
+        self.STATUS = TestStatus.INITIALIZING
+
         # Expected timeout in seconds (-1 means no timeout specified)
         self.Expected_Timeout: int = -1
-    
+
+        # Generate name
+        self.name = self.__class__.__name__.lower()
+
+        # Connect to Synnax server
+        self.client = sy.Synnax(
+            host=SynnaxConnection.server_address,
+            port=SynnaxConnection.port,
+            username=SynnaxConnection.username,
+            password=SynnaxConnection.password,
+            secure=SynnaxConnection.secure,
+        )
+        
+        # Default rate
+        self.loop = sy.Loop(1)
+        
+        """
+        Define Test case channels
+        """
+        self.time_index = self.client.channels.create(
+            name=f"{self.name}_time",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )  
+        
+        self.tlm = {
+            f"{self.name}_time": sy.TimeStamp.now(),
+        }
+        
+        self.add_channel(name="_uptime", data_type=sy.DataType.UINT32, initial_value=0)
+        self.add_channel(name="_state", data_type=sy.DataType.UINT8, initial_value=self.STATUS.value)
+
+
+
+    def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
+
+        """
+        This function Exists for your convenience.
+        It will create a channel with the name {self.name}_{name}
+        and the data type {data_type}
+        """
+
+        self.client.channels.create(
+            name=f"{self.name}_{name}",
+            data_type=data_type,
+            index=self.time_index.key,
+            retrieve_if_name_exists=True,
+        )
+        self.tlm[f"{self.name}_{name}"] = initial_value
+
+
     def setup(self) -> None:
         """
         Setup logic. Take inputs, create channels, etc.
         Override this method in subclasses to implement test-specific setup logic.
         """
+
+
         pass
     
     @abstractmethod

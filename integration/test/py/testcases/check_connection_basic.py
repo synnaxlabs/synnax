@@ -12,5 +12,35 @@ from typing import NamedTuple
 
 import synnax as sy
 from integration import FILE_NAME
+from framework.TestCase import TestCase, SynnaxConnection
 
-# Check is connected to synnax server
+class CheckConnectionBasic(TestCase):
+    """
+    Check if the test case is connected to the synnax server.
+    """
+    def __init__(self, SynnaxConnection: SynnaxConnection):
+        
+        # Always call the parent class constructor first
+        # This will initialize the index channel and baseline tlm
+        super().__init__(SynnaxConnection=SynnaxConnection)
+
+        # You can then add your own tlm channels here
+        self.add_channel(name="is_connected", data_type=sy.DataType.BOOL, initial_value=False)
+
+        print(f"\n\nCheckConnectionBasic > {self.tlm}\n\n")
+        
+
+    def run(self) -> None:
+        """
+        Run the test case.
+        """
+        self.client.connect()
+        self.client.disconnect()
+        self.client.connect()
+        self.client.disconnect()
+
+    def teardown(self) -> None:
+        """
+        Teardown the test case.
+        """
+        self.client.disconnect()

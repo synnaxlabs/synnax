@@ -3,13 +3,6 @@
     "tests": [
         {
             "case": "testcases.check_connection_basic1"
-        },
-        {
-            "case": "testcases.check_connection_basic2",
-            "parameters": {}
-        },
-        {
-            "case": "testcases.check_connection_basic3"
         }
     ]
 }
