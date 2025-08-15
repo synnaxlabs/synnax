@@ -47,7 +47,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
     autoSave: true,
   });
   const { name, labels, status } = effect;
-  
+
   const menuProps = Menu.useContextMenu();
 
   return (
@@ -60,7 +60,6 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
       onContextMenu={menuProps.open}
       justify="between"
       align="center"
-      allowSelect
     >
       <Form.Form<typeof Effect.formSchema> {...form}>
         <Menu.ContextMenu
@@ -86,7 +85,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
               ))}
           </Tag.Tags>
           {showStatus && status != null && (
-            <Status.Text
+            <Status.Summary
               variant={status.variant}
               key={status.key}
               message={status.message}

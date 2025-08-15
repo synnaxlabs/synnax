@@ -34,11 +34,18 @@ const DEFAULT_LIST_PARAMS: Partial<effect.RetrieveRequest> = {
 
 export const useList = Flux.createList<ListParams, effect.Key, effect.Effect>({
   name: "Effects",
-  retrieve: async ({ client, params }) =>
-    await client.effects.retrieve({
-      ...DEFAULT_LIST_PARAMS,
-      ...params,
-    }),
+  retrieve: async ({ client, params }) => {
+    try {
+      const res = await client.effects.retrieve({
+        ...DEFAULT_LIST_PARAMS,
+        ...params,
+      });
+      console.log("useList", res);
+    } catch (e) {
+      console.error("useList", e);
+    }
+    return res;
+  },
   retrieveByKey: async ({ client, key }) =>
     await client.effects.retrieve({ key, includeLabels: true }),
   listeners: [

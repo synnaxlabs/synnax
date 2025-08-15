@@ -42,10 +42,10 @@ const NotEditableContent = ({
   const isEditable = hasEditingPermissions;
   return (
     <Flex.Box x gap="small" center>
-      <Status.Text variant="disabled" hideIcon>
+      <Text.Text status="disabled">
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
-      </Status.Text>
+      </Text.Text>
       {isEditable && (
         <Text.Text
           onClick={(e) => {

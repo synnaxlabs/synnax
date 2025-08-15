@@ -128,19 +128,19 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       return;
 
     this.fetchedInitial = timeRange;
-    runAsync(async () => {
-      const children = await client.ontology.retrieveChildren(this.state.parents, {
-        types: [annotation.ONTOLOGY_TYPE],
-      });
-      const annotations = await client.annotations.retrieve({
-        keys: children.map((c) => c.id.key),
-        includeCreator: true,
-      });
-      annotations.forEach((a) => {
-        i.annotations.set(a.key, a);
-      });
-      this.setState((s) => ({ ...s, count: i.annotations.size }));
-    }, "failed to fetch initial annotations");
+    // runAsync(async () => {
+    //   const children = await client.ontology.retrieveChildren(this.state.parents, {
+    //     types: [annotation.ONTOLOGY_TYPE],
+    //   });
+    //   const annotations = await client.annotations.retrieve({
+    //     keys: children.map((c) => c.id.key),
+    //     includeCreator: true,
+    //   });
+    //   annotations.forEach((a) => {
+    //     i.annotations.set(a.key, a);
+    //   });
+    //   this.setState((s) => ({ ...s, count: i.annotations.size }));
+    // }, "failed to fetch initial annotations");
   }
 
   render(props: ProviderProps): void {

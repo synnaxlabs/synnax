@@ -116,9 +116,9 @@ export const Edit: Layout.Renderer = ({ layoutKey }) => {
   if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
-      <Status.Text center variant="error">
+      <Text.Text center status="error">
         {res.error.message}
-      </Status.Text>
+      </Text.Text>
     );
   return <Loaded effect={res.data as effect.Effect} layoutKey={layoutKey} />;
 };

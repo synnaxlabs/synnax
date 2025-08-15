@@ -16,6 +16,7 @@ export * from "@/effect/edit/Edit";
 export * from "@/effect/edit/layout";
 export * from "@/effect/Explorer";
 export * from "@/effect/slice";
+export * from "@/effect/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,

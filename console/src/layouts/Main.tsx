@@ -16,6 +16,7 @@ import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
+import { Effect } from "@/effect";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
@@ -67,6 +68,7 @@ const SideEffect = (): null => {
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Permissions.useSync();
   Layout.useDropOutside();
+  Effect.useListenForChanges();
   return null;
 };
 

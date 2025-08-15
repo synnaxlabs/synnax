@@ -146,8 +146,8 @@ export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P
     /* @ts-expect-error - typescript with HOCs */
     const labelItem = labelGridItem(label, onChange);
     if (labelItem != null) gridItems.push(labelItem);
-    const controlItem = controlStateGridItem(control);
-    if (controlItem != null) gridItems.push(controlItem);
+    // const controlItem = controlStateGridItem(control);
+    // if (controlItem != null) gridItems.push(controlItem);
     return (
       <Grid
         editable={selected}
