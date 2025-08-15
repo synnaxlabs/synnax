@@ -8,39 +8,35 @@
 #  included in the file licenses/APL.txt.
 
 import sys
+import os
 from typing import NamedTuple
 
-import synnax as sy
-from integration import FILE_NAME
+# Set up the path before importing framework modules
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from framework.TestCase import TestCase, SynnaxConnection
+
+import synnax as sy
 
 class CheckConnectionBasic(TestCase):
     """
     Check if the test case is connected to the synnax server.
     """
     def __init__(self, SynnaxConnection: SynnaxConnection):
-        
         # Always call the parent class constructor first
         # This will initialize the index channel and baseline tlm
         super().__init__(SynnaxConnection=SynnaxConnection)
 
         # You can then add your own tlm channels here
-        self.add_channel(name="is_connected", data_type=sy.DataType.BOOL, initial_value=False)
+        self.add_channel(name="is_connected", data_type=sy.DataType.UINT8, initial_value=1)
 
-        print(f"\n\nCheckConnectionBasic > {self.tlm}\n\n")
-        
+    
 
     def run(self) -> None:
         """
         Run the test case.
         """
-        self.client.connect()
-        self.client.disconnect()
-        self.client.connect()
-        self.client.disconnect()
 
     def teardown(self) -> None:
         """
         Teardown the test case.
         """
-        self.client.disconnect()

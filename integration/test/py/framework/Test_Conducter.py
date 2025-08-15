@@ -37,10 +37,14 @@ import traceback
 import synnax as sy
 
 try:
-    from .TestCase import TestCase, SynnaxConnection, TestStatus
+    # Import from the framework module to ensure we get the same class objects
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from framework.TestCase import TestCase, SynnaxConnection, STATUS
 except ImportError:
     # Handle case when running script directly
-    from TestCase import TestCase, SynnaxConnection, TestStatus
+    from TestCase import TestCase, SynnaxConnection, STATUS
 
 class STATE(Enum):
     """Enum representing the status of the test conductor."""
@@ -59,7 +63,7 @@ class STATE(Enum):
 class TestResult:
     """Data class to store test execution results."""
     test_name: str
-    status: TestStatus
+    status: STATUS
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     error_message: Optional[str] = None
@@ -73,8 +77,8 @@ class TestResult:
 @dataclass
 class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
-    test_case: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    case: str
+    params: Dict[str, Any] = field(default_factory=dict)
 
 class Test_Conductor:
     """
@@ -361,8 +365,8 @@ class Test_Conductor:
         self.test_definitions = []
         for test in sequence_data.get("tests", []):
             test_def = TestDefinition(
-                test_case=test["case"],
-                parameters=test.get("parameters", {}),
+                case=test["case"],
+                params=test.get("parameters", {}),
             )
             self.test_definitions.append(test_def)
         
@@ -373,7 +377,7 @@ class Test_Conductor:
                 ordering = "Random"
                 random.shuffle(self.test_definitions)
 
-        print(f"{self.name} > Loaded {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
+        print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
     
     def run_sequence(self) -> List[TestResult]:
         """
@@ -399,14 +403,14 @@ class Test_Conductor:
         )
         self.timeout_monitor_thread.start()
         
-        print(f"Starting execution of {len(self.test_definitions)} tests...")
+        print(f"{self.name} > Starting execution of {len(self.test_definitions)} tests...")
         
         for i, test_def in enumerate(self.test_definitions):
             if self.should_stop:
-                print("Test execution stopped by user request")
+                print(f"{self.name} > Test execution stopped by user request")
                 break
             
-            print(f"[{i+1}/{len(self.test_definitions)}] Running test: {test_def.test_case}")
+            print(f"{self.name} > [{i+1}/{len(self.test_definitions)}] Loading test: {test_def.case}")
             
             # Run test in a separate thread
             result_container = []
@@ -426,8 +430,8 @@ class Test_Conductor:
                 result = result_container[0]
             else:
                 result = TestResult(
-                    test_name=test_def.test_case,
-                    status=TestStatus.FAILED,
+                    test_name=test_def.case,
+                    status=STATUS.FAILED,
                     error_message="Unknown error - no result returned"
                 )
             
@@ -462,7 +466,6 @@ class Test_Conductor:
             self.current_test_thread.join()
         
         self.state = STATE.COMPLETED
-        print(f"{self.name} > All async processes have completed")
     
     def shutdown(self) -> None:
         """
@@ -491,31 +494,78 @@ class Test_Conductor:
                 print(f"Error in status callback: {e}")
     
     def _load_test_class(self, test_def: TestDefinition) -> type:
-        """Dynamically load a test class from its module path."""
+        """Dynamically load a test class from its case identifier."""
         try:
-            spec = importlib.util.spec_from_file_location(
-                test_def.module_path, 
-                f"{test_def.module_path.replace('.', '/')}.py"
-            )
+            # Parse the case string to extract directory, module, and class name
+            # Flexible format handling:
+            # - "testcases.module_name.ClassName" (3 parts)
+            # - "testcases.module_name" (2 parts - infer class name)
+            case_parts = test_def.case.split('.')
+            if len(case_parts) < 2:
+                raise ValueError(f"{self.name} > Invalid test case format: {test_def.case}. Expected 'testcases.module_name[.ClassName]'")
+            
+            directory = case_parts[0]  # "testcases"
+            module_name = case_parts[1]  # "check_connection_basic1" or "check_connection_basic"
+            
+            # If 3 parts, use the third as class name, otherwise infer from module name
+            if len(case_parts) >= 3:
+                class_name = case_parts[2]
+            else:
+                # Convert module_name to PascalCase class name
+                # "check_connection_basic" -> "CheckConnectionBasic"
+                class_name = ''.join(word.capitalize() for word in module_name.split('_'))
+            
+            # Try different possible file paths (exact match only)
+            import os
+            possible_paths = [
+                f"../{directory}/{module_name}.py",           # ../testcases/check_connection_basic1.py
+                f"{directory}/{module_name}.py",              # testcases/check_connection_basic1.py
+            ]
+            
+            # Find the first path that exists
+            file_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    file_path = path
+                    break
+            
+            if file_path is None:
+                raise FileNotFoundError(f"Could not find test module for {test_def.case}. Tried: {possible_paths}")
+            
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec is None:
-                raise ImportError(f"Cannot find module: {test_def.module_path}")
+                raise ImportError(f"Cannot create spec for module: {module_name} at {file_path}")
             
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             
-            test_class = getattr(module, test_def.class_name)
-            if not issubclass(test_class, TestCase):
-                raise TypeError(f"{test_def.class_name} is not a subclass of TestCase")
+            # Try to get the class by name
+            try:
+                test_class = getattr(module, class_name)
+            except AttributeError:
+                # If exact class name not found, try to find any TestCase subclass
+                test_classes = [getattr(module, name) for name in dir(module) 
+                              if (not name.startswith('_') and 
+                                  hasattr(getattr(module, name), '__bases__') and
+                                  TestCase in getattr(module, name).__bases__)]
+                if test_classes:
+                    test_class = test_classes[0]  # Use the first TestCase subclass found
+                    print(f"{self.name} > Found TestCase subclass: {test_class.__name__}")
+                else:
+                    raise AttributeError(f"No TestCase subclass found in {file_path}")
             
+            if not issubclass(test_class, TestCase):
+                raise TypeError(f"{class_name} is not a subclass of TestCase")
+            print(f"{self.name} > Loaded test class: {test_class}")
             return test_class
         except Exception as e:
-            raise ImportError(f"Failed to load test class {test_def.class_name} from {test_def.module_path}: {e}")
+            raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
     
     def _execute_single_test(self, test_def: TestDefinition) -> TestResult:
         """Execute a single test case."""
         result = TestResult(
-            test_name=test_def.test_case,
-            status=TestStatus.PENDING,
+            test_name=test_def.case,
+            status=STATUS.PENDING,
             start_time=datetime.now()
         )
         
@@ -524,12 +574,12 @@ class Test_Conductor:
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
                 SynnaxConnection=self.SynnaxConnection,
-                **test_def.parameters
+                **test_def.params
             )
             
             self.current_test = test_instance
             self.current_test_start_time = datetime.now()
-            result.status = TestStatus.RUNNING
+            result.status = STATUS.RUNNING
             result.start_time = self.current_test_start_time
             self._notify_status_change(result)
             
@@ -541,7 +591,7 @@ class Test_Conductor:
                 result = self._timeout_result
                 self._timeout_result = None
             else:
-                result.status = TestStatus.COMPLETED
+                result.status = STATUS.COMPLETED
             
         except Exception as e:
             # Check if test was killed/timed out during exception
@@ -549,9 +599,9 @@ class Test_Conductor:
                 result = self._timeout_result
                 self._timeout_result = None
             else:
-                result.status = TestStatus.FAILED
+                result.status = STATUS.FAILED
                 result.error_message = str(e)
-                print(f"Test {test_def.test_case} failed: {e}")
+                print(f"{self.name} > {test_def.case} FAILED: {e}")
                 traceback.print_exc()
         
         finally:
@@ -609,16 +659,16 @@ class Test_Conductor:
             
             # Determine if this is a timeout or manual kill
             if expected_timeout > 0 and elapsed_time > expected_timeout:
-                status = TestStatus.TIMEOUT
+                status = STATUS.TIMEOUT
                 error_msg = f"Test exceeded Expected_Timeout ({expected_timeout}s). Elapsed: {elapsed_time:.1f}s"
             else:
-                status = TestStatus.KILLED
+                status = STATUS.KILLED
                 error_msg = "Test was manually killed"
             
             # Create timeout/kill result
             current_test_name = "unknown_test"
             # Try to get test name from current test results or test instance
-            if self.test_results and self.test_results[-1].status == TestStatus.RUNNING:
+            if self.test_results and self.test_results[-1].status == STATUS.RUNNING:
                 current_test_name = self.test_results[-1].test_name
             
             timeout_result = TestResult(
@@ -685,10 +735,10 @@ class Test_Conductor:
         if not self.test_results:
             return
         
-        passed = sum(1 for r in self.test_results if r.status == TestStatus.COMPLETED)
-        failed = sum(1 for r in self.test_results if r.status == TestStatus.FAILED)
-        killed = sum(1 for r in self.test_results if r.status == TestStatus.KILLED)
-        timeout = sum(1 for r in self.test_results if r.status == TestStatus.TIMEOUT)
+        passed = sum(1 for r in self.test_results if r.status == STATUS.COMPLETED)
+        failed = sum(1 for r in self.test_results if r.status == STATUS.FAILED)
+        killed = sum(1 for r in self.test_results if r.status == STATUS.KILLED)
+        timeout = sum(1 for r in self.test_results if r.status == STATUS.TIMEOUT)
         
         print("\n" + "="*50)
         print("TEST EXECUTION SUMMARY")
@@ -702,10 +752,10 @@ class Test_Conductor:
         
         for result in self.test_results:
             status_symbol = {
-                TestStatus.COMPLETED: "✓",
-                TestStatus.FAILED: "✗",
-                TestStatus.KILLED: "⚠",
-                TestStatus.TIMEOUT: "⏱"
+                STATUS.COMPLETED: "✓",
+                STATUS.FAILED: "✗",
+                STATUS.KILLED: "⚠",
+                STATUS.TIMEOUT: "⏱"
             }.get(result.status, "?")
             
             duration_str = f"({result.duration:.2f}s)" if result.duration else ""
@@ -799,5 +849,5 @@ if __name__ == "__main__":
         raise
     finally:
         # Ensure cleanup even if something goes wrong
-        print("Main process ending...")
+        print(f"{conductor.name} > Shutting down...")
 
