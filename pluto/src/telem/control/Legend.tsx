@@ -23,10 +23,7 @@ export const Legend = (props: LegendProps): ReactElement => {
   const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,
     schema: control.legendStateZ,
-    initialState: {
-      states: [],
-      needsControlOf,
-    },
+    initialState: { states: [], needsControlOf },
   });
 
   useEffect(() => {

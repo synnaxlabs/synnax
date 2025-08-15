@@ -178,8 +178,8 @@ var legacyChannelNames = map[string]string{
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
 // must be closed after use.
-func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*Tracker, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if err = gorp.NewRetrieve[task.Key, task.Status]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
-				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 				return nil, err
 			}
 			rck.TaskStatuses[tsk.Key] = taskState
@@ -240,7 +240,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		if err = gorp.NewRetrieve[string, device.Status]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
-			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 			return nil, err
 		}
 		t.mu.Devices[dev.Key] = deviceState
@@ -466,7 +466,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			}
 			t.stateWriter.Inlet() <- framer.WriterRequest{
 				Command: writer.Write,
-				Frame:   frame.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
+				Frame:   frame.NewUnary(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
 			}
 		}
 	}
@@ -553,13 +553,12 @@ func (t *Tracker) checkRackState(_ context.Context) {
 }
 
 // handleRackState handles heartbeat changes.
-func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]byte, struct{}]) {
+func (t *Tracker) handleRackState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var rackState rack.Status
-		if err := decoder.Decode(context.Background(), ch.Key, &rackState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &rackState); err != nil {
 			t.cfg.L.Warn("failed to decode rack state", zap.Error(err))
 			continue
 		}
@@ -580,10 +579,9 @@ func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]b
 func (t *Tracker) handleTaskState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var taskState task.Status
-		if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &taskState); err != nil {
 			t.cfg.L.Warn("failed to decode task state", zap.Error(err))
 			continue
 		}
@@ -616,10 +614,9 @@ func (t *Tracker) saveTaskState(ctx context.Context, taskKey task.Key) error {
 func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	decoder := &binary.JSONCodec{}
 	for _, ch := range changes {
 		var incomingState device.Status
-		if err := decoder.Decode(ctx, ch.Key, &incomingState); err != nil {
+		if err := binary.JSONCodec.Decode(ctx, ch.Key, &incomingState); err != nil {
 			t.cfg.L.Warn("failed to decode device state", zap.Error(err))
 			continue
 		}

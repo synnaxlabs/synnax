@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
@@ -28,6 +28,12 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
+const dateComponentsZ = z.union([
+  z.tuple([z.int()]),
+  z.tuple([z.int(), z.int().min(1).max(12)]),
+  z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
+]);
+
 /**
  * A triple of numbers representing a date.
  *
@@ -35,7 +41,7 @@ export type TimeStampStringFormat =
  * @param month - The month.
  * @param day - The day.
  */
-export type DateComponents = [number?, number?, number?];
+export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
@@ -93,7 +99,7 @@ export class TimeStamp
       super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
-      let offset: bigint = BigInt(0);
+      let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
@@ -265,7 +271,7 @@ export class TimeStamp
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -644,11 +650,14 @@ export class TimeStamp
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(TimeStamp),
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
-    z.instanceof(TimeStamp),
+    z.bigint().transform((n) => new TimeStamp(n)),
+    z.date().transform((d) => new TimeStamp(d)),
+    z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
+    dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
   /**
@@ -855,7 +864,7 @@ export class TimeSpan
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -989,7 +998,6 @@ export class TimeSpan
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
@@ -1088,7 +1096,6 @@ export class Rate
   /** A zod schema for validating and transforming rates */
   static readonly z = z.union([
     z.number().transform((n) => new Rate(n)),
-    z.instanceof(Number).transform((n) => new Rate(n)),
     z.instanceof(Rate),
   ]);
 }
@@ -1145,7 +1152,6 @@ export class Density
   /** A zod schema for validating and transforming densities */
   static readonly z = z.union([
     z.number().transform((n) => new Density(n)),
-    z.instanceof(Number).transform((n) => new Density(n)),
     z.instanceof(Density),
   ]);
 }
@@ -1683,7 +1689,9 @@ export class DataType
   ]);
 }
 
-/** The size of an element in bytes. */
+/**
+ * The Size of an element in bytes.
+ */
 export class Size
   extends primitive.ValueExtension<number>
   implements primitive.Stringer
@@ -1845,31 +1853,22 @@ export class Size
 
 export type CrudeTimeStamp =
   | bigint
-  | BigInt
   | TimeStamp
   | TimeSpan
   | number
   | Date
   | string
-  | DateComponents
-  | Number;
+  | DateComponents;
 export type TimeStampT = number;
-export type CrudeTimeSpan =
-  | bigint
-  | BigInt
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Number
-  | Rate;
+export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
 export type TimeSpanT = number;
-export type CrudeRate = Rate | number | Number;
+export type CrudeRate = Rate | number;
 export type RateT = number;
-export type CrudeDensity = Density | number | Number;
+export type CrudeDensity = Density | number;
 export type DensityT = number;
 export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
-export type CrudeSize = Size | number | Number;
+export type CrudeSize = Size | number;
 export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
@@ -1938,11 +1937,11 @@ export const convertDataType = (
   target: DataType,
   value: math.Numeric,
   offset: math.Numeric = 0,
-): math.PrimitiveNumeric => {
+): math.Numeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset).valueOf();
+  return addSamples(value, -offset);
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {

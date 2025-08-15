@@ -9,13 +9,13 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type Synnax } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
-import { Context, setContext } from "@/telem/aether/context";
+import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
 import { createFactory } from "@/telem/aether/factory";
 import { client } from "@/telem/client";
 
@@ -41,7 +41,7 @@ export class BaseProvider extends aether.Composite<
     const core = synnax.use(ctx);
     const runAsync = status.useErrorHandler(ctx);
     i.instrumentation = alamos.useInstrumentation(ctx, "telem").child("provider");
-    const shouldSwap = core !== this.prevCore;
+    const shouldSwap = core !== this.prevCore || !ctx.wasSetPreviously(CONTEXT_KEY);
     if (!shouldSwap) return;
     this.prevCore = core;
     if (this.client != null)

@@ -77,7 +77,9 @@ func newLeaseProxy(
 		leasedCounter: c,
 		group:         group,
 	}
-	p.mu.externalNonVirtualSet = set.NewInteger[Key](KeysFromChannels(externalNonVirtualChannels))
+	p.mu.externalNonVirtualSet = set.NewInteger(
+		KeysFromChannels(externalNonVirtualChannels),
+	)
 	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
@@ -365,7 +367,7 @@ func (lp *leaseProxy) createGateway(
 	}
 	lp.mu.Lock()
 	count := lp.mu.externalNonVirtualSet.Size()
-	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(int(count)+len(externalCreatedKeys))); err != nil {
+	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		lp.mu.Unlock()
 		return err
 	}

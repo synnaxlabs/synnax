@@ -98,7 +98,7 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("ontology")
 	validate.NotNil(v, "cesium", c.DB)
-	validate.NotNil(v, "EnableSearch", c.EnableSearch)
+	validate.NotNil(v, "enable_search", c.EnableSearch)
 	return v.Error()
 }
 
@@ -112,8 +112,8 @@ func (c Config) Override(other Config) Config {
 
 // Open opens the ontology using the given configuration. If the RootID resource does not
 // exist, it will be created.
-func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*Ontology, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

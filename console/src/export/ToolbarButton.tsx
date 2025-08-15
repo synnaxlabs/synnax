@@ -10,19 +10,20 @@
 import { Button, Icon } from "@synnaxlabs/pluto";
 
 export interface ToolbarButtonProps
-  extends Omit<Button.IconProps, "onClick" | "children"> {
-  onExport: NonNullable<Button.IconProps["onClick"]>;
+  extends Omit<Button.ButtonProps, "onClick" | "children"> {
+  onExport: NonNullable<Button.ButtonProps["onClick"]>;
 }
 
 export const ToolbarButton = ({ onExport, ...rest }: ToolbarButtonProps) => (
-  <Button.Icon
+  <Button.Button
     tooltip="Export"
     sharp
     size="medium"
+    variant="text"
     style={{ height: "100%" }}
     onClick={onExport}
     {...rest}
   >
     <Icon.Export />
-  </Button.Icon>
+  </Button.Button>
 );

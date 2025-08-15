@@ -24,7 +24,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type state } from "@/state";
 
@@ -306,6 +306,16 @@ export const canDropOfType =
 
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
+
+export const useFilterByTypeCallback = (
+  type: string,
+  fn: OnDrop,
+  deps: unknown[],
+): OnDrop =>
+  useCallback(
+    (props) => fn({ ...props, items: filterByType(type, props.items) }),
+    deps,
+  );
 
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
   onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];

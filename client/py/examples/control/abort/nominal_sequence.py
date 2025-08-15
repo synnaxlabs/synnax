@@ -23,7 +23,7 @@ PRESSURE = "pressure"
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits
 with client.control.acquire(
-    name="Press Sequence",
+    name="Nominal Press Sequence",
     # Defines the authorities at which the sequence controls the valve channels.
     #
     # Notice that we take a higher control authority here than we do at the start of the

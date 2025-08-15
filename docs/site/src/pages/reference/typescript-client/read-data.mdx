@@ -66,6 +66,32 @@ const humidity = frame.get("humidity");
 
 <Divider.Divider x />
 
+## Reading the Latest Data
+
+Sometimes you need to read the most recent data from a channel without knowing the exact
+timestamp. The `readLatest` method allows you to read the latest N samples from one or
+more channels:
+
+```typescript
+// Read the latest single sample from a channel
+const latestValue = await client.readLatest("temperature", 1);
+
+// Read the latest 10 samples from a channel
+const latestSamples = await client.readLatest("temperature", 10);
+
+// Read the latest 5 samples from multiple channels
+const frame = await client.readLatest(["temperature", "humidity", "pressure"], 5);
+
+// Access the data from the frame
+const temperatureData = frame.get("temperature");
+const humidityData = frame.get("humidity");
+```
+
+The returned data follows the same conventions as regular reads - a `MultiSeries` for
+single channels or a `Frame` for multiple channels.
+
+<Divider.Divider x />
+
 ## Using Iterators
 
 While the above methods will cover most use cases, there are situations where it's

@@ -11,7 +11,8 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export const CopyMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="link" size="small" startIcon={<Icon.Link />}>
+  <Menu.Item itemKey="link" size="small">
+    <Icon.Link />
     Copy link
   </Menu.Item>
 );

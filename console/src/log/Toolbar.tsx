@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Align, Channel, Icon, Input } from "@synnaxlabs/pluto";
+import { Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
@@ -33,26 +33,26 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <>
+    <Core.Content disableClusterBoundary>
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
-        <Align.Space x style={{ width: 66 }} empty>
+        <Flex.Box x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={log.ontologyID(state.key)}
           />
-        </Align.Space>
+        </Flex.Box>
       </Core.Header>
-      <Align.Space style={{ padding: "2rem", width: "100%" }} x>
+      <Flex.Box full style={{ padding: "2rem" }}>
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            searchOptions={{ internal: IS_DEV && undefined }}
+            initialParams={{ internal: IS_DEV }}
           />
         </Input.Item>
-      </Align.Space>
-    </>
+      </Flex.Box>
+    </Core.Content>
   );
 };

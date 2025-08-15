@@ -14,7 +14,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -51,7 +52,7 @@ type Config struct {
 	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
-	Engine xkv.DB
+	Engine kv.DB
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration
@@ -60,6 +61,11 @@ type Config struct {
 	// [Not Required]
 	RecoveryThreshold int
 }
+
+var (
+	_ config.Config[Config] = Config{}
+	_ alamos.ReportProvider = Config{}
+)
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
@@ -82,16 +88,16 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("cesium")
-	validate.NotNil(v, "Cluster", c.Cluster)
-	validate.NotNil(v, "TxTransportClient", c.BatchTransportClient)
-	validate.NotNil(v, "TxTransportServer", c.BatchTransportServer)
-	validate.NotNil(v, "FeedbackTransportClient", c.FeedbackTransportClient)
-	validate.NotNil(v, "FeedbackTransportServer", c.FeedbackTransportServer)
-	validate.NotNil(v, "LeaseTransportClient", c.LeaseTransportServer)
-	validate.NotNil(v, "LeaseTransportServer", c.LeaseTransportClient)
-	validate.NotNil(v, "RecoveryTransportClient", c.RecoveryTransportClient)
-	validate.NotNil(v, "RecoveryTransportServer", c.RecoveryTransportServer)
-	validate.NotNil(v, "Engine", c.Engine)
+	validate.NotNil(v, "cluster", c.Cluster)
+	validate.NotNil(v, "tx_transport_client", c.BatchTransportClient)
+	validate.NotNil(v, "tx_transport_server", c.BatchTransportServer)
+	validate.NotNil(v, "feedback_transport_client", c.FeedbackTransportClient)
+	validate.NotNil(v, "feedback_transport_server", c.FeedbackTransportServer)
+	validate.NotNil(v, "lease_transport_client", c.LeaseTransportServer)
+	validate.NotNil(v, "lease_transport_server", c.LeaseTransportClient)
+	validate.NotNil(v, "recovery_transport_client", c.RecoveryTransportClient)
+	validate.NotNil(v, "recovery_transport_server", c.RecoveryTransportServer)
+	validate.NotNil(v, "engine", c.Engine)
 	return v.Error()
 }
 

@@ -14,6 +14,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
+	"io/fs"
+	"os"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -21,9 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"io/fs"
-	"os"
 )
 
 // LoaderConfig is the configuration for creating a new Loader.
@@ -87,12 +88,12 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 // Validate implements Properties.
 func (l LoaderConfig) Validate() error {
 	v := validate.New("cert.Loader")
-	validate.NotEmptyString(v, "CertsDir", l.CertsDir)
-	validate.NotEmptyString(v, "CAKeyPath", l.CAKeyPath)
-	validate.NotEmptyString(v, "CACertPath", l.CACertPath)
-	validate.NotEmptyString(v, "NodeKeyPath", l.NodeKeyPath)
-	validate.NotEmptyString(v, "NodeCertPath", l.NodeCertPath)
-	validate.NotNil(v, "FS", l.FS)
+	validate.NotEmptyString(v, "certs_dir", l.CertsDir)
+	validate.NotEmptyString(v, "ca_key_path", l.CAKeyPath)
+	validate.NotEmptyString(v, "ca_cert_path", l.CACertPath)
+	validate.NotEmptyString(v, "node_key_path", l.NodeKeyPath)
+	validate.NotEmptyString(v, "node_cert_path", l.NodeCertPath)
+	validate.NotNil(v, "fs", l.FS)
 	return v.Error()
 }
 
@@ -102,8 +103,8 @@ type Loader struct{ LoaderConfig }
 // NewLoader creates a new Loader using the given configuration. Returns an error if the
 // configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
 // it is created.
-func NewLoader(configs ...LoaderConfig) (*Loader, error) {
-	cfg, err := config.New(DefaultLoaderConfig, configs...)
+func NewLoader(cfgs ...LoaderConfig) (*Loader, error) {
+	cfg, err := config.New(DefaultLoaderConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

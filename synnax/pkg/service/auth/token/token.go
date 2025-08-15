@@ -189,13 +189,13 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 
 func (s *Service) publicKey() any {
 	key := s.cfg.KeyProvider.NodePrivate()
-	switch key.(type) {
+	switch k := key.(type) {
 	case *rsa.PrivateKey:
-		return key.(*rsa.PrivateKey).Public()
+		return k.Public()
 	case *ecdsa.PrivateKey:
-		return key.(*ecdsa.PrivateKey).Public()
+		return k.Public()
 	case *ed25519.PrivateKey:
-		return key.(*ed25519.PrivateKey).Public()
+		return k.Public()
 	}
 	panic("unsupported key type")
 }

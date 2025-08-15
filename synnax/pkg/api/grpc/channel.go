@@ -109,7 +109,7 @@ func (t channelRetrieveRequestTranslator) Forward(
 	return &gapi.ChannelRetrieveRequest{
 		NodeKey: uint32(msg.NodeKey),
 		Names:   msg.Names,
-		Search:  msg.Search,
+		Search:  msg.SearchTerm,
 		Keys:    unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
 	}, nil
 }
@@ -119,10 +119,10 @@ func (t channelRetrieveRequestTranslator) Backward(
 	msg *gapi.ChannelRetrieveRequest,
 ) (api.ChannelRetrieveRequest, error) {
 	return api.ChannelRetrieveRequest{
-		NodeKey: cluster.NodeKey(msg.NodeKey),
-		Names:   msg.Names,
-		Search:  msg.Search,
-		Keys:    unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
+		NodeKey:    cluster.NodeKey(msg.NodeKey),
+		Names:      msg.Names,
+		SearchTerm: msg.Search,
+		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
 	}, nil
 }
 

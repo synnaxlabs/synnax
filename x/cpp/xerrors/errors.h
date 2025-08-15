@@ -115,15 +115,22 @@ public:
 
     /// @brief if the error matches the provided error, 'skips' the error by
     /// returning nil, otherwise returns the error.
-    [[nodiscard]] Error skip(const Error &other) const {
-        if (matches(other)) return {TYPE_NIL, ""};
+    [[nodiscard]] Error skip(const Error &ignore) const {
+        if (this->matches(ignore)) return {TYPE_NIL, ""};
+        return *this;
+    }
+
+    /// @brief if the error matches any the provided errors, 'skips' the error by
+    /// returning nil, otherwise returns the error.
+    [[nodiscard]] Error skip(const std::vector<Error> &ignore) const {
+        if (this->matches(ignore)) return {TYPE_NIL, ""};
         return *this;
     }
 
     /// @brief if the error matches the provided type, 'skips' the error by
     /// returning nil, otherwise returns the error.
     [[nodiscard]] Error skip(const std::string &other) const {
-        if (matches(other)) return {TYPE_NIL, ""};
+        if (this->matches(other)) return {TYPE_NIL, ""};
         return *this;
     }
 

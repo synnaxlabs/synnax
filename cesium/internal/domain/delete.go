@@ -108,7 +108,7 @@ func (db *DB) Delete(
 		tr.Start = start.Start
 	}
 
-	// Search for the end position: the first domain less or containing tr.End.
+	// SearchTerm for the end position: the first domain less or containing tr.End.
 	db.idx.mu.RLock()
 	endDomain, exact = db.idx.unprotectedSearch(tr.End.SpanRange(0))
 	if exact {

@@ -10,45 +10,49 @@
 package binary
 
 import (
-	"bytes"
 	"context"
 	"io"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ Codec = (*MsgPackCodec)(nil)
+// MsgPackCodec is a MessagePack implementation of Codec.
+var MsgPackCodec Codec = &msgPackCodec{}
 
-// MsgPackCodec is a msgpack implementation of Codec.
-type MsgPackCodec struct{}
+type msgPackCodec struct{}
+
+var _ Codec = (*msgPackCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (m *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (mpc *msgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
-	return b, sugarEncodingErr(value, err)
+	return b, SugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
-	return sugarDecodingErr(data, value, err)
+func (mpc *msgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
+	return WrapStreamDecoder(mpc.DecodeStream, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (mpc *msgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
 // EncodeStream implements the Encoder interface.
-func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := m.Encode(ctx, value)
+func (mpc *msgPackCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
+	b, err := mpc.Encode(ctx, value)
 	if err != nil {
-		return sugarEncodingErr(value, err)
+		return SugarEncodingErr(value, err)
 	}
 	_, err = w.Write(b)
-	return sugarEncodingErr(value, err)
+	return SugarEncodingErr(value, err)
 }

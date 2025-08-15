@@ -51,4 +51,4 @@ func (p DeleteParams) ToTSCommand(identifier string) string {
 	return cmd
 }
 
-var _ NodeParams = &DeleteParams{}
+var _ NodeParams = (*DeleteParams)(nil)

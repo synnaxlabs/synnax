@@ -18,62 +18,46 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ Codec = (*JSONCodec)(nil)
-
 // JSONCodec is a JSON implementation of Codec.
-type JSONCodec struct {
-	// Pretty indicates whether the JSON should be pretty printed.
-	Pretty bool
-}
+var JSONCodec Codec = &jsonCodec{}
+
+type jsonCodec struct{}
+
+var _ Codec = (*jsonCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (j *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		b   []byte
-		err error
-	)
-	if j.Pretty {
-		b, err = json.MarshalIndent(value, "", "  ")
-	} else {
-		b, err = json.Marshal(value)
-	}
-	return b, sugarEncodingErr(value, err)
+func (jc *jsonCodec) Encode(_ context.Context, value any) ([]byte, error) {
+	b, err := json.Marshal(value)
+	return b, SugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
-	if err := json.Unmarshal(data, value); err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
+func (jc *jsonCodec) Decode(_ context.Context, data []byte, value any) error {
+	err := json.Unmarshal(data, value)
+	return SugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
-func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (jc *jsonCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
 // EncodeStream implements the Encoder interface.
-func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	var err error
-	if j.Pretty {
-		err = json.NewEncoder(w).Encode(value)
-	} else {
-		b, err := j.Encode(ctx, value)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(b)
+func (jc *jsonCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := jc.Encode(ctx, value)
+	if err != nil {
+		return err
 	}
-	return sugarEncodingErr(value, err)
+	_, err = w.Write(b)
+	return SugarEncodingErr(value, err)
 }
 
-// UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails,
-// it attempts to convert a string to an int64.
+// UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails, it
+// attempts to convert a string to an int64.
 func UnmarshalJSONStringInt64(b []byte) (int64, error) {
 	var n int64
 	if err := json.Unmarshal(b, &n); err == nil {
@@ -81,7 +65,7 @@ func UnmarshalJSONStringInt64(b []byte) (int64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
 	return strconv.ParseInt(str, 10, 64)
 }
@@ -95,7 +79,7 @@ func UnmarshalJSONStringUint64(b []byte) (uint64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
 	return strconv.ParseUint(str, 10, 64)
 }
@@ -103,5 +87,5 @@ func UnmarshalJSONStringUint64(b []byte) (uint64, error) {
 // MustEncodeJSONToString encodes the value to a JSON string, and panics if an error
 // occurs.
 func MustEncodeJSONToString(v any) string {
-	return string(lo.Must((&JSONCodec{}).Encode(context.Background(), v)))
+	return string(lo.Must(JSONCodec.Encode(context.Background(), v)))
 }

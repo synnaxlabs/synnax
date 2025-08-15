@@ -55,7 +55,7 @@ type MemFS struct {
 	perm             int
 }
 
-var _ FS = &MemFS{}
+var _ FS = (*MemFS)(nil)
 
 // Open implements FS.Open.
 func (y *MemFS) Open(fullName string, flag int) (File, error) {

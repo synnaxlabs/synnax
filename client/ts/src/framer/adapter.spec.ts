@@ -11,7 +11,7 @@ import { DataType, Series, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { WriteAdapter } from "@/framer/adapter";
+import { ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { newTestClient } from "@/testutil/client";
 
@@ -160,14 +160,123 @@ describe("WriteFrameAdapter", () => {
     expect(res.get(bigIntCh.key).at(0)).toEqual(12n);
   });
 
-  describe("adaptObjectKeys", () => {
+  describe("adaptParams", () => {
     it("should correctly adapt generic object keys", async () => {
-      const res = await adapter.adaptObjectKeys({
-        [timeCh.name]: 532,
-        [dataCh.name]: 123,
+      const res = await adapter.adaptParams([timeCh.name, dataCh.name]);
+      expect(res).toContain(timeCh.key);
+      expect(res).toContain(dataCh.key);
+    });
+  });
+
+  describe("update", () => {
+    it("should return false when updating with the same channels", async () => {
+      const hasChanged = await adapter.update([timeCh.key, dataCh.key]);
+      expect(hasChanged).toBe(false);
+    });
+
+    it("should return true when adding a new channel", async () => {
+      const newCh = await client.channels.create({
+        name: `new-${Math.random()}-${TimeStamp.now().toString()}`,
+        dataType: DataType.FLOAT32,
+        index: timeCh.key,
       });
-      expect(res).toHaveProperty(timeCh.key.toString());
-      expect(res).toHaveProperty(dataCh.key.toString());
+      const hasChanged = await adapter.update([timeCh.key, dataCh.key, newCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return true when removing a channel", async () => {
+      const hasChanged = await adapter.update([timeCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return true when replacing channels", async () => {
+      const newCh = await client.channels.create({
+        name: `replacement-${Math.random()}-${TimeStamp.now().toString()}`,
+        dataType: DataType.FLOAT32,
+        index: timeCh.key,
+      });
+      const hasChanged = await adapter.update([timeCh.key, newCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return false when updating with same channels in different order", async () => {
+      await adapter.update([timeCh.key, dataCh.key]);
+      const hasChanged = await adapter.update([dataCh.key, timeCh.key]);
+      expect(hasChanged).toBe(false);
+    });
+
+    it("should return false when updating with channel names that resolve to same keys", async () => {
+      await adapter.update([timeCh.key, dataCh.key]);
+      const hasChanged = await adapter.update([timeCh.name, dataCh.name]);
+      expect(hasChanged).toBe(false);
+    });
+  });
+});
+
+describe("ReadAdapter", () => {
+  let timeCh: channel.Channel;
+  let dataCh: channel.Channel;
+  let adapter: ReadAdapter;
+
+  beforeAll(async () => {
+    timeCh = await client.channels.create({
+      name: `read-time-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    dataCh = await client.channels.create({
+      name: `read-data-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.FLOAT32,
+      index: timeCh.key,
+    });
+
+    adapter = await ReadAdapter.open(client.channels.retriever, [
+      timeCh.key,
+      dataCh.key,
+    ]);
+  });
+
+  describe("update", () => {
+    it("should return false when updating with the same channels", async () => {
+      const hasChanged = await adapter.update([timeCh.key, dataCh.key]);
+      expect(hasChanged).toBe(false);
+    });
+
+    it("should return true when adding a new channel", async () => {
+      const newCh = await client.channels.create({
+        name: `read-new-${Math.random()}-${TimeStamp.now().toString()}`,
+        dataType: DataType.FLOAT32,
+        index: timeCh.key,
+      });
+      const hasChanged = await adapter.update([timeCh.key, dataCh.key, newCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return true when removing a channel", async () => {
+      const hasChanged = await adapter.update([timeCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return true when replacing channels", async () => {
+      const newCh = await client.channels.create({
+        name: `read-replacement-${Math.random()}-${TimeStamp.now().toString()}`,
+        dataType: DataType.FLOAT32,
+        index: timeCh.key,
+      });
+      const hasChanged = await adapter.update([timeCh.key, newCh.key]);
+      expect(hasChanged).toBe(true);
+    });
+
+    it("should return false when updating with same channels in different order", async () => {
+      await adapter.update([timeCh.key, dataCh.key]);
+      const hasChanged = await adapter.update([dataCh.key, timeCh.key]);
+      expect(hasChanged).toBe(false);
+    });
+
+    it("should return false when updating with channel names that resolve to same keys", async () => {
+      await adapter.update([timeCh.key, dataCh.key]);
+      const hasChanged = await adapter.update([timeCh.name, dataCh.name]);
+      expect(hasChanged).toBe(false);
     });
   });
 });

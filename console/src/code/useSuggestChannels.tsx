@@ -9,7 +9,6 @@
 
 import { type channel, type Synnax as Client } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import type * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 
@@ -22,7 +21,7 @@ const ID = "onCommandSuggestionAccepted";
 const suggestChannelNames = (
   mon: Pick<typeof monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod" | "languages">,
   onAccept: (channel: channel.Payload) => void,
-  searcher?: AsyncTermSearcher<string, channel.Key, channel.Payload>,
+  searcher?: channel.Client,
 ) => {
   const disposables: monaco.IDisposable[] = [];
   disposables.push(
@@ -51,7 +50,7 @@ const suggestChannelNames = (
         const beforeWord = lineContent.substring(0, word.startColumn - 1);
         const isInSetCall = /set\s*\($/.test(beforeWord.trim());
 
-        const channels = await searcher.search(word.word);
+        const channels = await searcher.retrieve({ searchTerm: word.word });
         const filteredChannels = IS_DEV
           ? channels
           : channels.filter(({ internal }) => !internal);

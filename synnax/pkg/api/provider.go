@@ -43,34 +43,20 @@ func NewProvider(cfg Config) Provider {
 	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}
 	p.cluster = clusterProvider{cluster: cfg.Distribution.Cluster}
 	p.framer = framerProvider{framer: cfg.Service.Framer}
-	p.channel = channelProvider{channel: &cfg.Distribution.Channel}
+	p.channel = channelProvider{channel: cfg.Distribution.Channel}
 	p.ontology = ontologyProvider{Ontology: cfg.Distribution.Ontology}
 	return p
 }
 
-// dbProvider provides exposes the cluster-wide key-value store to API services.
-type dbProvider struct {
-	*gorp.DB
-}
+type dbProvider struct{ *gorp.DB }
 
-// userProvider provides user information to services.
-type userProvider struct {
-	user *user.Service
-}
+type userProvider struct{ user *user.Service }
 
-// accessProvider provides access control information and utilities to services.
-type accessProvider struct {
-	access *rbac.Service
-}
+type accessProvider struct{ access *rbac.Service }
 
-// framerProvider provides framer information to services.
-type framerProvider struct {
-	framer *framer.Service
-}
+type framerProvider struct{ framer *framer.Service }
 
-type channelProvider struct {
-	channel *channel.Service
-}
+type channelProvider struct{ channel channel.Service }
 
 // authProvider provides authentication and token utilities to services. In most cases
 // authentication should be left up to the protocol-specific middleware.
@@ -79,12 +65,6 @@ type authProvider struct {
 	token         *token.Service
 }
 
-// ontologyProvider provides the cluster wide ontology to services.
-type ontologyProvider struct {
-	Ontology *ontology.Ontology
-}
+type ontologyProvider struct{ Ontology *ontology.Ontology }
 
-// clusterProvider provides cluster topology information to services.
-type clusterProvider struct {
-	cluster cluster.Cluster
-}
+type clusterProvider struct{ cluster cluster.Cluster }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 /** A regex to match hex colors. */
 const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;

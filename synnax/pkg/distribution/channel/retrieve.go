@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
@@ -32,7 +31,7 @@ type Retrieve struct {
 	otg                       *ontology.Ontology
 	keys                      Keys
 	searchTerm                string
-	validateRetrievedChannels func(ctx context.Context, channels []Channel) ([]Channel, error)
+	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -66,7 +65,10 @@ func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
 // WhereVirtual filters the query for channels that are virtual if virtual is true, or are
 // not virtual if virtual is false.
 func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return ch.Virtual == virtual }, gorp.Required())
+	r.gorp.Where(func(ch *Channel) bool {
+		isVirtual := ch.Virtual && !ch.IsCalculated()
+		return isVirtual == virtual
+	}, gorp.Required())
 	return r
 }
 
@@ -144,7 +146,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
 
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
-	channels, vErr := r.validateRetrievedChannels(ctx, entries)
+	channels, vErr := r.validateRetrievedChannels(entries)
 	gorp.SetEntries(r.gorp.Params, &channels)
 	return errors.Combine(err, vErr)
 }

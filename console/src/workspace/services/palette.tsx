@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { type Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
-import { import_, type IngestContext } from "@/workspace/services/import";
+import { import_ } from "@/workspace/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "workspace-create",
@@ -24,15 +24,17 @@ const CREATE_COMMAND: Palette.Command = {
 const IMPORT_COMMAND: Palette.Command = {
   key: "workspace-import",
   name: "Import a Workspace",
+  sortOrder: -1,
   icon: <ImportIcon />,
-  onSelect: (ctx: IngestContext) => void import_(ctx),
+  onSelect: import_,
 };
 
 const EXPORT_COMMAND: Palette.Command = {
   key: "workspace-export",
   name: "Export Current Workspace",
+  sortOrder: -1,
   icon: <Icon.Workspace />,
-  onSelect: (ctx) => void Workspace.export_(null, ctx),
+  onSelect: (ctx) => Workspace.export_(null, ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, EXPORT_COMMAND];

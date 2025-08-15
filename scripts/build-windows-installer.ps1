@@ -9,7 +9,7 @@ $version = $version.Trim()
 Write-Host "Building version: $version"
 
 Write-Host "Building synnax binary..."
-& go build -o synnax-server.exe
+& go build -tags driver -o synnax-server.exe
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to build synnax binary"
     exit 1

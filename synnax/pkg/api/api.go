@@ -71,8 +71,7 @@ type Transport struct {
 
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 
-	ExportCSV freighter.UnaryServer[ExportCSVRequest, ExportCSVResponse]
-
+	FrameRead     freighter.UnaryServer[FrameReadRequest, FrameReadResponse]
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
@@ -158,7 +157,6 @@ type Layer struct {
 	config       Config
 	Auth         *AuthService
 	User         *UserService
-	Export       *ExportService
 	Framer       *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -187,50 +185,40 @@ func (l *Layer) BindTo(t Transport) {
 		insecureMiddleware,
 		t.AuthLogin,
 		t.ConnectivityCheck,
-		t.ExportCSV,
 	)
 
 	freighter.UseOnAll(
 		secureMiddleware,
 
-		// AUTH
 		t.AuthChangePassword,
 
-		// USER
 		t.UserRename,
 		t.UserChangeUsername,
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
 
-		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
 		t.ChannelRetrieveGroup,
 
-		// // EXPORT
-		// t.ExportCSV,
-
-		// FRAME
+		t.FrameRead,
 		t.FrameWriter,
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
 
-		// ONTOLOGY
 		t.OntologyRetrieve,
 		t.OntologyAddChildren,
 		t.OntologyRemoveChildren,
 		t.OntologyMoveChildren,
 
-		// GROUP
 		t.OntologyGroupCreate,
 		t.OntologyGroupDelete,
 		t.OntologyGroupRename,
 
-		// RANGE
 		t.RangeCreate,
 		t.RangeRetrieve,
 		t.RangeDelete,
@@ -243,14 +231,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.RangeRename,
 		t.RangeAliasDelete,
 
-		// WORKSPACE
 		t.WorkspaceDelete,
 		t.WorkspaceCreate,
 		t.WorkspaceRetrieve,
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -258,35 +244,30 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicSetData,
 		t.SchematicCopy,
 
-		// LINE PLOT
 		t.LinePlotCreate,
 		t.LinePlotRename,
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
-		// LOG
 		t.LogCreate,
 		t.LogRetrieve,
 		t.LogDelete,
 		t.LogRename,
 		t.LogSetData,
 
-		// TABLE
 		t.TableCreate,
 		t.TableRetrieve,
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
 
-		// LABEL
 		t.LabelCreate,
 		t.LabelRetrieve,
 		t.LabelDelete,
 		t.LabelAdd,
 		t.LabelRemove,
 
-		// HARDWARE
 		t.HardwareCreateRack,
 		t.HardwareDeleteRack,
 		t.HardwareRetrieveRack,
@@ -299,24 +280,20 @@ func (l *Layer) BindTo(t Transport) {
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
 
-		// ACCESS
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
 	)
 
-	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
 	t.AuthChangePassword.BindHandler(l.Auth.ChangePassword)
 
-	// USER
 	t.UserRename.BindHandler(l.User.Rename)
 	t.UserChangeUsername.BindHandler(l.User.ChangeUsername)
 	t.UserCreate.BindHandler(l.User.Create)
 	t.UserDelete.BindHandler(l.User.Delete)
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
 
-	// CHANNEL
 	t.ChannelCreate.BindHandler(l.Channel.Create)
 	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
@@ -324,27 +301,21 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRename.BindHandler(l.Channel.Rename)
 	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
-	// EXPORT
-	t.ExportCSV.BindHandler(l.Export.CSV)
-
-	// FRAME
+	t.FrameRead.BindHandler(l.Framer.Read)
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
-	t.FrameDelete.BindHandler(l.Framer.FrameDelete)
+	t.FrameDelete.BindHandler(l.Framer.Delete)
 
-	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
 	t.OntologyAddChildren.BindHandler(l.Ontology.AddChildren)
 	t.OntologyRemoveChildren.BindHandler(l.Ontology.RemoveChildren)
 	t.OntologyMoveChildren.BindHandler(l.Ontology.MoveChildren)
 
-	// GROUP
 	t.OntologyGroupCreate.BindHandler(l.Ontology.CreateGroup)
 	t.OntologyGroupDelete.BindHandler(l.Ontology.DeleteGroup)
 	t.OntologyGroupRename.BindHandler(l.Ontology.RenameGroup)
 
-	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
 	t.RangeCreate.BindHandler(l.Range.Create)
 	t.RangeDelete.BindHandler(l.Range.Delete)
@@ -357,14 +328,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeAliasList.BindHandler(l.Range.AliasList)
 	t.RangeAliasDelete.BindHandler(l.Range.AliasDelete)
 
-	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(l.Workspace.Create)
 	t.WorkspaceDelete.BindHandler(l.Workspace.Delete)
 	t.WorkspaceRetrieve.BindHandler(l.Workspace.Retrieve)
 	t.WorkspaceRename.BindHandler(l.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(l.Workspace.SetLayout)
 
-	// SCHEMATIC
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
@@ -372,35 +341,30 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicSetData.BindHandler(l.Schematic.SetData)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
-	// LINE PLOT
 	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
 	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
 	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
 
-	// LOG
 	t.LogCreate.BindHandler(l.Log.Create)
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(l.Log.Delete)
 	t.LogRename.BindHandler(l.Log.Rename)
 	t.LogSetData.BindHandler(l.Log.SetData)
 
-	// TABLE
 	t.TableCreate.BindHandler(l.Table.Create)
 	t.TableRetrieve.BindHandler(l.Table.Retrieve)
 	t.TableDelete.BindHandler(l.Table.Delete)
 	t.TableRename.BindHandler(l.Table.Rename)
 	t.TableSetData.BindHandler(l.Table.SetData)
 
-	// LABEL
 	t.LabelCreate.BindHandler(l.Label.Create)
 	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
 	t.LabelDelete.BindHandler(l.Label.Delete)
 	t.LabelAdd.BindHandler(l.Label.Add)
 	t.LabelRemove.BindHandler(l.Label.Remove)
 
-	// HARDWARE
 	t.HardwareCreateRack.BindHandler(l.Hardware.CreateRack)
 	t.HardwareRetrieveRack.BindHandler(l.Hardware.RetrieveRack)
 	t.HardwareDeleteRack.BindHandler(l.Hardware.DeleteRack)
@@ -412,7 +376,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.HardwareDeleteDevice.BindHandler(l.Hardware.DeleteDevice)
 	t.HardwareCopyTask.BindHandler(l.Hardware.CopyTask)
 
-	// ACCESS
 	t.AccessCreatePolicy.BindHandler(l.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(l.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
@@ -425,14 +388,10 @@ func New(cfgs ...Config) (*Layer, error) {
 	if err != nil {
 		return nil, err
 	}
-	layer := &Layer{
-		config:   cfg,
-		provider: NewProvider(cfg),
-	}
+	layer := &Layer{config: cfg, provider: NewProvider(cfg)}
 	layer.Auth = NewAuthService(layer.provider)
 	layer.User = NewUserService(layer.provider)
 	layer.Access = NewAccessService(layer.provider)
-	layer.Export = NewExportService(layer.provider)
 	layer.Framer = NewFrameService(layer.provider)
 	layer.Channel = NewChannelService(layer.provider)
 	layer.Connectivity = NewConnectivityService(layer.provider)

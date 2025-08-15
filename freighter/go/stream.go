@@ -36,11 +36,11 @@ type StreamServer[RQ, RS Payload] interface {
 	//
 	// Transient errors (errors that may be fatal to a request, but not to the stream)
 	// should be returned as part of the response itself. This is typically in the form
-	// of an 'Details' struct field in the response type RS.
+	// of a 'Details' struct field in the response type RS.
 	//
 	// Fatal errors (errors that prevent the server from processing any future requests)
 	// should be returned from the handler itself. If the handler returns nil, the
-	// server will close the stream, returning a final freighter.EOF error to the
+	// server will close the stream, returning a final freighter.ErrEOF error to the
 	// client. If the handler returns an error, the server will close the stream and
 	// return the error to the client.
 	//
@@ -58,13 +58,12 @@ type ClientStream[RQ, RS Payload] interface {
 	// Failure Behavior:
 	//
 	// 1. If the server closed the stream -> If the server closed the stream with a nil
-	// error, returns freighter.EOF. Otherwise, returns the error the server closed
-	// with.
+	//    error, returns EOF. Otherwise, returns the error the server closed with.
 	//
 	// 2. If the client called CloseSend -> Has no effect on the behavior of Receive.
 	//
 	// 3. If the context is cancelled by either the client or server -> Returns the
-	// context error.
+	//    context error.
 	//
 	// 4. If the transport fails -> Returns the error that caused the transport to fail.
 	//
@@ -74,15 +73,15 @@ type ClientStream[RQ, RS Payload] interface {
 	// StreamSenderCloser -
 	//
 	// Send sends a message to the server. Send is non-blocking, meaning that the
-	// message is not guaranteed to be received by the server even if send returns.
+	// message is not guaranteed to be received by the server even if Send returns.
 	//
 	// Failure Behavior:
 	//
-	// 1. If the server closed the stream -> Returns a freighter.EOF error regardless of
-	// the error the server exited with (even a nil error). The caller can discover the
-	// error by calling Receive.
+	// 1. If the server closed the stream -> Returns EOF regardless of the error the
+	//    server exited with (even a nil error). The caller can discover the error by
+	//    calling Receive.
 	//
-	// 2. If the client called CloseSend -> Returns a freighter.StreamClosed error.
+	// 2. If the client called CloseSend -> Returns ErrStreamClosed.
 	//
 	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//
@@ -99,19 +98,18 @@ type ClientStream[RQ, RS Payload] interface {
 // provided to the caller within a Stream handle. As a result, ServerStream provides no
 // `Close` method to the caller.
 type ServerStream[RQ, RS Payload] interface {
-	// StreamReceiver - Receive blocks until a message is received from the
-	// client or the stream closes.
+	// StreamReceiver - Receive blocks until a message is received from the client or
+	// the stream closes.
 	//
 	// Failure Behavior:
 	//
-	// 1. If the client called CloseSend -> Returns a freighter.EOF error.
+	// 1. If the client called CloseSend -> Returns EOF.
 	//
-	// 2. If the server handler has returned -> This is most likely a programming
-	// error where a separate goroutine is writing to the stream after the handler
-	// returns. In this case, the server will return a context.Canceled error.
+	// 2. If the server handler has returned -> This is most likely a programming error
+	//    where a separate goroutine is writing to the stream after the handler returns.
+	//    In this case, the server will return a context.Canceled error.
 	//
-	// 2. If the transport fails -> Returns the error that caused the transport
-	//to fail.
+	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//
 	// Repeated calls to Receive will immediately return the same error.
 	StreamReceiver[RQ]
@@ -123,9 +121,9 @@ type ServerStream[RQ, RS Payload] interface {
 	// 1. If the client called CloseSend -> Has no effect on the behavior of Send.
 	//
 	// 2. If the server handler has returned -> This is most likely a programming error
-	// where a separate goroutine is writing to the stream after the handler returns. In
-	// this case, the server will return either a context.Canceled or
-	// freighter.StreamClosed error.
+	//    where a separate goroutine is writing to the stream after the handler returns.
+	//    In this case, the server will return either a context.Canceled error or
+	//    ErrStreamClosed.
 	//
 	// 3. If the transport fails -> Returns the error that caused the transport to fail.
 	//
@@ -134,14 +132,10 @@ type ServerStream[RQ, RS Payload] interface {
 }
 
 // StreamReceiver is an entity that can receive payloads.
-type StreamReceiver[P Payload] interface {
-	Receive() (P, error)
-}
+type StreamReceiver[P Payload] interface{ Receive() (P, error) }
 
 // StreamSender is an entity that can send payloads.
-type StreamSender[P Payload] interface {
-	Send(P) error
-}
+type StreamSender[P Payload] interface{ Send(P) error }
 
 // StreamSenderCloser is a type that can send messages as well as close the sending end
 // of a stream.
@@ -152,13 +146,11 @@ type StreamSenderCloser[P Payload] interface {
 
 // SenderNoopCloser wraps a StreamSender so that it can satisfy the StreamSenderCloser
 // interface. This is useful for types that deal with both ServerStream and ClientStream
-// side applications. This allows a ServerStream. StreamSender to be used with
+// side applications. This allows a ServerStream StreamSender to be used with
 // client-side code.
 type SenderNoopCloser[P Payload] struct{ StreamSender[P] }
 
 var _ StreamSenderCloser[any] = SenderNoopCloser[any]{}
 
 // CloseSend implements the StreamCloser interface.
-func (c SenderNoopCloser[P]) CloseSend() error {
-	return nil
-}
+func (c SenderNoopCloser[P]) CloseSend() error { return nil }

@@ -713,6 +713,9 @@ const xerrors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub(
 const xerrors::Error SYNCHRONIZATION_TIMEOUT = CRITICAL_ERROR.sub(
     "LJME_SYNCHRONIZATION_TIMEOUT"
 );
+const xerrors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
+    "LJME_AUTO_IPS_FILE_NOT_FOUND"
+);
 const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
     TEMPORARY_ERROR.sub("unreachable"),
     "The device is temporarily unreachable. Will keep trying"

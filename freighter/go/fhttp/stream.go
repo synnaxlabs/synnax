@@ -12,32 +12,21 @@ package fhttp
 import (
 	"context"
 	"go/types"
-	"net/http"
-	"sync"
 	"time"
 
 	ws "github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
-	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
-
-var streamReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
-}
 
 var (
 	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
 	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)
-	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
+	_ config.Config[UnaryClientConfig]       = UnaryClientConfig{}
 )
 
 // WSMessageType is used to differentiate between the different types of messages use to
@@ -140,18 +129,19 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	msg, err := c.receiveRaw()
 	if err != nil {
 		if ws.IsCloseError(err, normalCloseCode) {
-			c.peerCloseErr = freighter.ErrEOF
+			c.peerCloseErr = freighter.EOF
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
+		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
 		return pld, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
 		c.peerCloseErr = errors.Decode(context.TODO(), msg.Err)
 		if c.peerCloseErr == nil {
-			c.peerCloseErr = freighter.ErrEOF
+			c.peerCloseErr = freighter.EOF
 		}
 	}
 	return msg.Payload, c.peerCloseErr
@@ -173,12 +163,15 @@ type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.peerCloseErr != nil {
-		return freighter.ErrEOF
+		return freighter.EOF
 	}
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
 	}
-	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
+	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{
+		Type:    WSMessageTypeData,
+		Payload: req,
+	})
 	return s.peerCloseErr
 }
 
@@ -206,7 +199,7 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 
 func (s *serverStream[RQ, RS]) close(err error) error {
 	if err == nil {
-		err = freighter.ErrEOF
+		err = freighter.EOF
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
@@ -221,8 +214,8 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 
 	s.peerCloseErr = freighter.ErrStreamClosed
 
-	// Tell the client we're closing the connection. Make sure to include
-	// a write deadline here in-case the client is stuck.
+	// Tell the client we're closing the connection. Make sure to include a write
+	// deadline here in-case the client is stuck.
 	if err := s.conn.WriteControl(
 		ws.CloseMessage,
 		ws.FormatCloseMessage(closeCode, ""),
@@ -232,7 +225,9 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	}
 
 	// Again, make sure a stuck client doesn't cause problems with shutdown.
-	if err := s.conn.SetReadDeadline(time.Now().Add(closeReadWriteDeadline)); err != nil {
+	if err := s.conn.SetReadDeadline(
+		time.Now().Add(closeReadWriteDeadline),
+	); err != nil {
 		return err
 	}
 
@@ -240,7 +235,10 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	for {
 		if _, err := s.receiveRaw(); err != nil {
 			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-				s.L.Error("expected normal closure, received error instead", zap.Error(err))
+				s.L.Error(
+					"expected normal closure, received error instead",
+					zap.Error(err),
+				)
 			}
 			break
 		}
@@ -264,149 +262,5 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 		); err != nil && !errors.Is(err, ws.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
-	}
-}
-
-type streamClient[RQ, RS freighter.Payload] struct {
-	alamos.Instrumentation
-	codec  httputil.Codec
-	dialer ws.Dialer
-	freighter.Reporter
-	freighter.MiddlewareCollector
-}
-
-func (s *streamClient[RQ, RS]) Report() alamos.Report {
-	r := streamReporter
-	r.Encodings = []string{s.codec.ContentType()}
-	return r.Report()
-}
-
-func (s *streamClient[RQ, RS]) Stream(
-	ctx context.Context,
-	target address.Address,
-) (freighter.ClientStream[RQ, RS], error) {
-	var stream freighter.ClientStream[RQ, RS]
-	_, err := s.MiddlewareCollector.Exec(
-		freighter.Context{
-			Context:  ctx,
-			Target:   target,
-			Protocol: s.Reporter.Protocol,
-			Params:   make(freighter.Params),
-		},
-		freighter.FinalizerFunc(func(fCtx freighter.Context) (freighter.Context, error) {
-			fCtx.Params[fiber.HeaderContentType] = s.codec.ContentType()
-			conn, res, err := s.dialer.DialContext(fCtx, "ws://"+target.String(), ctxToHeaders(fCtx))
-			oCtx := parseResponseCtx(res, target)
-			if err != nil {
-				return oCtx, err
-			}
-			if res.StatusCode != fiber.StatusSwitchingProtocols {
-				return oCtx, errors.New("[ws] - unable to upgrade connection")
-			}
-			core := newStreamCore[RS, RQ](
-				coreConfig{
-					conn:            conn,
-					codec:           s.codec,
-					Instrumentation: s.Instrumentation,
-				},
-				fCtx.Done(),
-			)
-			msg, err := core.receiveRaw()
-			if err != nil {
-				return oCtx, err
-			}
-			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(fCtx, msg.Err)
-			}
-			stream = &clientStream[RQ, RS]{streamCore: core}
-			return oCtx, nil
-		}),
-	)
-	return stream, err
-}
-
-func ctxToHeaders(ctx freighter.Context) http.Header {
-	headers := make(http.Header, len(ctx.Params))
-	for k, v := range ctx.Params {
-		if vStr, ok := v.(string); ok {
-			headers[k] = []string{vStr}
-		}
-	}
-	return headers
-}
-
-type streamServer[RQ, RS freighter.Payload] struct {
-	serverOptions
-	freighter.Reporter
-	freighter.MiddlewareCollector
-	alamos.Instrumentation
-	serverCtx     context.Context
-	path          string
-	handler       func(context.Context, freighter.ServerStream[RQ, RS]) error
-	writeDeadline time.Duration
-	wg            *sync.WaitGroup
-}
-
-func (s *streamServer[RQ, RS]) BindHandler(
-	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
-) {
-	s.handler = handler
-}
-
-const closeReadWriteDeadline = 500 * time.Millisecond
-
-// fiberHandler handles the incoming websocket connection and upgrades the connection to
-// a websocket connection.
-//
-// NOTE: shortLivedFiberCtx is a temporary fiber context
-func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
-	// If the caller is hitting this endpoint with a standard HTTP request, tell them
-	// they can only use websockets.
-	if !fiberws.IsWebSocketUpgrade(upgradeCtx) {
-		return fiber.ErrUpgradeRequired
-	}
-	// Parse the incoming request context. Used to pull various headers and parameters
-	// from the request (e.g., content-type or authorization). upgradeCtx is only valid
-	// for the lifetime of this function. As this function will exit long before the
-	// stream stops processing values, we need to use the underlying server ctx as the
-	// valid context instead of the fiber context itself.
-	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
-	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, err := s.codecResolver(headerContentType)
-	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we send a
-		// best effort string.
-		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(upgradeCtx)
-}
-
-func (s *streamServer[RQ, RS]) handleSocket(
-	ctx freighter.Context,
-	codec binary.Codec,
-	c *fiberws.Conn,
-) {
-	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
-		coreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
-		ctx.Done(),
-	)}
-	// Register the stream with the server so it gets gracefully shut down.
-	s.wg.Add(1)
-	defer s.wg.Done()
-	_, handlerErr := s.MiddlewareCollector.Exec(
-		ctx,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			oCtx := ctx
-			oCtx.Params = make(freighter.Params)
-			// Send a confirmation message to the client that the stream is open.
-			if err := stream.send(WSMessage[RS]{Type: WSMessageTypeOpen}); err != nil {
-				return oCtx, err
-			}
-			return oCtx, s.handler(ctx, stream)
-		}),
-	)
-	if err := stream.close(handlerErr); err != nil {
-		s.L.Error("error closing connection", zap.Error(err))
 	}
 }

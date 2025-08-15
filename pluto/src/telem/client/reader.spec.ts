@@ -16,21 +16,18 @@ import {
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/client";
+import { errors } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 import { Reader, type ReadRemoteFunc } from "@/telem/client/reader";
 
 export class MockRetriever implements channel.Retriever {
-  async search(): Promise<channel.Payload[]> {
-    throw new Error("Method not implemented.");
-  }
-
-  async page(): Promise<channel.Payload[]> {
-    throw new Error("Method not implemented.");
-  }
-
-  async retrieve(channels: channel.Params): Promise<channel.Payload[]> {
+  async retrieve(
+    channels: channel.Params | channel.RetrieveRequest,
+  ): Promise<channel.Payload[]> {
+    if (typeof channels === "object" && !Array.isArray(channels))
+      throw new errors.NotImplemented();
     const { normalized } = channel.analyzeParams(channels);
     return normalized.map(
       (key) =>

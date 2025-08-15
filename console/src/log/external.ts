@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+import { extract } from "@/log/export";
 import { LAYOUT_TYPE, Log, SELECTABLE } from "@/log/Log";
 import { type Selector } from "@/selector";
 
@@ -17,8 +19,8 @@ export * from "@/log/selectors";
 export * from "@/log/slice";
 export * from "@/log/Toolbar";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [LAYOUT_TYPE]: Log,
-};
+export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
+
+export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Log };
 
 export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];

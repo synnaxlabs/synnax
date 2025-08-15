@@ -11,6 +11,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vitest } from "vitest";
 
+import { Button } from "@/button";
 import { Header } from "@/header";
 import { Icon } from "@/icon";
 
@@ -32,7 +33,9 @@ describe("Header", () => {
         <Header.Header>
           <Header.Title>Header</Header.Title>
           <Header.Actions>
-            {[{ onClick, children: <Icon.Add aria-label="add" /> }]}
+            <Button.Button onClick={onClick} variant="text">
+              <Icon.Add aria-label="add" />
+            </Button.Button>
           </Header.Actions>
         </Header.Header>,
       );

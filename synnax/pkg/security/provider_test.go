@@ -11,6 +11,8 @@ package security_test
 
 import (
 	"crypto/tls"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 )
 
 var _ = Describe("OtelProvider", func() {
@@ -31,7 +32,7 @@ var _ = Describe("OtelProvider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.Bool(false),
+					Insecure:     config.False(),
 				}))
 				config := prov.TLS()
 				Expect(config).ToNot(BeNil())
@@ -51,7 +52,7 @@ var _ = Describe("OtelProvider", func() {
 				_, err := security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.Bool(false),
+					Insecure:     config.False(),
 				})
 				Expect(err).To(HaveOccurredAs(os.ErrNotExist))
 			})
@@ -63,7 +64,7 @@ var _ = Describe("OtelProvider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.Bool(false),
+					Insecure:     config.False(),
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
@@ -74,7 +75,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("TLS Properties", func() {
 			It("Should return an empty TLS configuration", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.Bool(true),
+					Insecure: config.True(),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.TLS()).To(BeNil())
@@ -83,7 +84,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("Node Private", func() {
 			It("Should return the randomly generated private key", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.Bool(true),
+					Insecure: config.True(),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())

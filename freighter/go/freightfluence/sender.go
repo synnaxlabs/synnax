@@ -21,19 +21,19 @@ import (
 
 // Sender wraps freighter.StreamSenderCloser to provide a confluence compatible
 // interface for sending messages over a network freighter.
-type Sender[M freighter.Payload] struct {
-	Sender freighter.StreamSenderCloser[M]
-	UnarySink[M]
+type Sender[P freighter.Payload] struct {
+	Sender freighter.StreamSenderCloser[P]
+	UnarySink[P]
 }
 
 var _ Flow = (*Sender[any])(nil)
 
 // Flow implements Flow.
-func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
+func (s *Sender[P]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(s.send, NewOptions(opts).Signal...)
 }
 
-func (s *Sender[M]) send(ctx context.Context) error {
+func (s *Sender[P]) send(ctx context.Context) error {
 	var err error
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)
@@ -67,14 +67,14 @@ type TransformSender[I Value, M freighter.Payload] struct {
 var _ Flow = (*TransformSender[any, any])(nil)
 
 // Flow implements the Flow interface.
-func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(s.send, NewOptions(opts).Signal...)
+func (ts *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
+	ctx.Go(ts.send, NewOptions(opts).Signal...)
 }
 
-func (s *TransformSender[I, M]) send(ctx context.Context) error {
+func (ts *TransformSender[I, M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.Combine(s.Sender.CloseSend(), err)
+		err = errors.Combine(ts.Sender.CloseSend(), err)
 	}()
 o:
 	for {
@@ -82,16 +82,16 @@ o:
 		case <-ctx.Done():
 			err = ctx.Err()
 			break o
-		case res, ok := <-s.UnarySink.In.Outlet():
+		case res, ok := <-ts.UnarySink.In.Outlet():
 			if !ok {
 				break o
 			}
-			tRes, ok, tErr := s.Transform(ctx, res)
+			tRes, ok, tErr := ts.Transform(ctx, res)
 			if tErr != nil {
 				err = tErr
 				break o
 			}
-			if sErr := s.Sender.Send(tRes); sErr != nil {
+			if sErr := ts.Sender.Send(tRes); sErr != nil {
 				err = sErr
 				break o
 			}

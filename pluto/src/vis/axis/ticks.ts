@@ -9,7 +9,7 @@
 
 import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type PreciseTimeScale, preciseTimeScale } from "@/vis/axis/preciseTimeScale";
 

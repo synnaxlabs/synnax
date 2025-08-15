@@ -92,7 +92,7 @@ func (fc *fileController) realFileSizeCap() telem.Size {
 }
 
 func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
-	unopened := make(set.Set[uint16])
+	unopened := set.New[uint16]()
 	for i := 1; i <= int(fc.counter.Value()); i++ {
 		e, err := fc.Config.FS.Exists(fileKeyToName(uint16(i)))
 		if err != nil {
@@ -204,7 +204,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 			controllerEntry:    newPoolEntry(key, fc.release, fc.Instrumentation),
 		}
 		fc.writers.open[key] = w
-		delete(fc.writers.unopened, key)
+		fc.writers.unopened.Remove(key)
 
 		s, err := file.Stat()
 		if err != nil {
@@ -227,7 +227,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 			controllerEntry:    newPoolEntry(lastFileKey, fc.release, fc.Instrumentation),
 		}
 		fc.writers.open[lastFileKey] = w
-		delete(fc.writers.unopened, lastFileKey)
+		fc.writers.unopened.Remove(lastFileKey)
 
 		s, err := file.Stat()
 		if err != nil {
@@ -336,7 +336,7 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 		func() {
 			f.Lock()
 			defer f.Unlock()
-			f.open = lo.Filter[controlledReader](f.open, func(r controlledReader, i int) bool {
+			f.open = lo.Filter(f.open, func(r controlledReader, i int) bool {
 				if !r.tryAcquire() {
 					// If file is held by someone else, we can't gc.
 					return true
@@ -409,7 +409,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 		return err
 	}
 	if telem.Size(s.Size()) < fc.FileSize {
-		fc.writers.unopened[fileKey] = struct{}{}
+		fc.writers.unopened.Add(fileKey)
 	}
 	return nil
 }

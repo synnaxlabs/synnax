@@ -55,7 +55,7 @@ export class Context {
   }
 }
 
-const CONTEXT_KEY = "pluto-telem-context";
+export const CONTEXT_KEY = "pluto-telem-context";
 
 export const useContext = (ctx: aether.Context): Context =>
   ctx.get<Context>(CONTEXT_KEY);

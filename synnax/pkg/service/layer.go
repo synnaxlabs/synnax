@@ -153,25 +153,35 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	if l.Label, err = label.OpenService(ctx, label.Config{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
+	}); !ok(err, l.Label) {
+		return nil, err
+	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
+		Label:    l.Label,
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.NewService(ctx, workspace.Config{
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
@@ -192,14 +202,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Label, err = label.OpenService(ctx, label.Config{
-		DB:       cfg.Distribution.DB,
-		Ontology: cfg.Distribution.Ontology,
-		Group:    cfg.Distribution.Group,
-		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, l.Label) {
-		return nil, err
-	}
+
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
 		Instrumentation: cfg.Instrumentation.Child("hardware"),
 		DB:              cfg.Distribution.DB,

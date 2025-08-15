@@ -113,8 +113,8 @@ type Service struct {
 
 // NewService opens a new iterator service using the provided configuration. If the
 // configuration is invalid, NewService returns a nil service and an error.
-func NewService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

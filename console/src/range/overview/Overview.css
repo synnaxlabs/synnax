@@ -37,3 +37,36 @@
         }
     }
 }
+
+.console-metadata__list-item {
+    height: 6rem;
+    max-height: 6rem;
+    min-height: 6rem;
+    padding: 0rem 1rem;
+
+    .console-metadata__delete {
+        opacity: 0;
+    }
+    &:hover {
+        .console-metadata__delete {
+            opacity: 1;
+        }
+    }
+    &.console--create {
+        background: var(--pluto-gray-l1);
+        border: var(--pluto-border-l5);
+        border-radius: var(--pluto-border-radius);
+        transition:
+            height 0.2s ease,
+            min-height 0.2s ease;
+        &.pluto--hidden {
+            height: 0;
+            min-height: 0;
+            flex-grow: 0;
+            border: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: none;
+        }
+    }
+}

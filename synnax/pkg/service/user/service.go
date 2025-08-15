@@ -49,9 +49,9 @@ func (c Config) Override(other Config) Config {
 // Validate implements [config.Config].
 func (c Config) Validate() error {
 	v := validate.New("user")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 
@@ -65,8 +65,8 @@ type Service struct {
 const groupName = "Users"
 
 // NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

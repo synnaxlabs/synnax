@@ -9,18 +9,15 @@
 
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
-export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>;
+export type TitleProps = Text.MaybeEditableProps;
 
-export const Title = <L extends Text.Level = "h2">({
-  level = "h2" as TitleProps<L>["level"],
-  ...rest
-}: TitleProps<L>): ReactElement => {
+export const Title = ({ level = "h2", ...rest }: TitleProps): ReactElement => {
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
   const gridStyle = useGridEntry(
@@ -28,9 +25,8 @@ export const Title = <L extends Text.Level = "h2">({
     "Title",
   );
   return (
-    <Align.Space justify="center" align="center" style={gridStyle}>
-      {/* @ts-expect-error  - generic props issues */}
-      <Text.MaybeEditable<L> {...rest} level={level} />
-    </Align.Space>
+    <Flex.Box justify="center" align="center" style={gridStyle}>
+      <Text.MaybeEditable {...rest} level={level} />
+    </Flex.Box>
   );
 };

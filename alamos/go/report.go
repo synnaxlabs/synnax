@@ -39,7 +39,7 @@ var (
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
 	v := validate.New("alamos.ReporterConfig")
-	validate.NotNil(v, "Filter", r.Filter)
+	validate.NotNil(v, "filter", r.Filter)
 	return v.Error()
 }
 
@@ -60,8 +60,8 @@ type Reporter struct {
 // NewReporter instantiates a new Reporter using the given configurations. If no configurations
 // are provided, the function will return an error. To use a no-op reporter, simply
 // pass a nil-pointer.
-func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	cfg, err := config.New(DefaultReporterConfig, configs...)
+func NewReporter(cfgs ...ReporterConfig) (*Reporter, error) {
+	cfg, err := config.New(DefaultReporterConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -12,25 +12,25 @@ import "@/input/Item.css";
 import { direction, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
 
-export interface ItemProps extends Align.SpaceProps {
+export interface ItemProps extends Flex.BoxProps {
   label?: string;
   required?: boolean;
   showLabel?: boolean;
   helpText?: string;
   padHelpText?: boolean;
-  helpTextVariant?: status.Variant;
+  status?: status.Variant;
   showHelpText?: boolean;
 }
 
 const maybeDefaultAlignment = (
-  align?: Align.Alignment,
-  dir: direction.Crude = "x",
-): Align.Alignment => {
+  align?: Flex.Alignment,
+  dir: direction.Crude = "y",
+): Flex.Alignment => {
   if (align != null) return align;
   return direction.construct(dir) === "y" ? "stretch" : "center";
 };
@@ -46,46 +46,46 @@ export const Item = ({
   children,
   required,
   align,
-  size = "small",
+  gap: size = "small",
   padHelpText = false,
-  helpTextVariant,
+  status,
   showHelpText = true,
   ...rest
 }: ItemProps): ReactElement => {
-  const dir = Align.parseDirection(direction, x, y, "y");
+  const dir = Flex.parseDirection(direction, x, y, false);
   let inputAndHelp: ReactElement;
-  const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
-  const showLabel_ = showLabel && label != null && label.length > 0;
-  if (!showHelpText_ && !showLabel_) return <>{children}</>;
+  const actuallyShowHelpText = showHelpText && helpText != null && helpText.length > 0;
+  const actuallyShowLabel = showLabel && label != null && label.length > 0;
+  if (!actuallyShowHelpText && !actuallyShowLabel) return <>{children}</>;
   if (dir === "x")
     inputAndHelp = (
-      <Align.Space y size="small">
+      <Flex.Box y gap="small">
         {children}
         {showHelpText && (padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
+          <HelpText variant={status}>{helpText}</HelpText>
         )}
-      </Align.Space>
+      </Flex.Box>
     );
   else
     inputAndHelp = (
-      <Align.Space y size={1 / 3}>
+      <Flex.Box y gap={1 / 3} align="stretch">
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
+          <HelpText variant={status}>{helpText}</HelpText>
         )}
-      </Align.Space>
+      </Flex.Box>
     );
 
   return (
-    <Align.Space
-      className={CSS(CSS.B("input-item"), className)}
+    <Flex.Box
+      className={CSS(CSS.BE("input", "item"), className)}
       direction={dir}
-      size={size}
+      gap={size}
       align={maybeDefaultAlignment(align, dir)}
       {...rest}
     >
-      {showLabel_ && <Label required={required}>{label}</Label>}
+      {actuallyShowLabel && <Label required={required}>{label}</Label>}
       {inputAndHelp}
-    </Align.Space>
+    </Flex.Box>
   );
 };

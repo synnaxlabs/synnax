@@ -9,7 +9,7 @@
 
 import { type Destructor } from "@synnaxlabs/x";
 import { createContext, use } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type FieldState, type State } from "@/form/state";
 
@@ -17,12 +17,8 @@ export interface RemoveFunc {
   (path: string): void;
 }
 
-export interface SetOptions {
-  validateChildren?: boolean;
-}
-
 export interface SetFunc {
-  (path: string, value: unknown, opts?: SetOptions): void;
+  (path: string, value: unknown): void;
 }
 
 export interface Listener {

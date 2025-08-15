@@ -152,3 +152,188 @@ class TestIterator:
         )
         data = calc.read(sy.TimeRange.MAX)
         assert np.array_equal(data, np.array([0, 2, 4, 6, 8, 10]))
+
+    def test_read_latest(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 10)
+        data = np.arange(1, 11)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+        data = client.read_latest(data_ch.key, 3)
+        assert np.array_equal(data, np.array([8, 9, 10]))
+
+    def test_read_latest_frame(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 10)
+        data = np.arange(1, 11)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+        data = client.read_latest([idx_ch.key, data_ch.key], 3)
+        assert np.array_equal(data.get(data_ch.key), np.array([8, 9, 10]))
+        assert np.array_equal(
+            data.get(idx_ch.key),
+            np.array(
+                [
+                    8 * sy.TimeSpan.SECOND,
+                    9 * sy.TimeSpan.SECOND,
+                    10 * sy.TimeSpan.SECOND,
+                ]
+            ),
+        )
+
+    def test_read_latest_empty_channel(
+        self, indexed_pair: sy.Channel, client: sy.Synnax
+    ):
+        """Test reading latest from an empty channel."""
+        idx_ch, data_ch = indexed_pair
+        # Don't write any data
+        result = client.read_latest(data_ch.key, 5)
+        assert len(result) == 0
+
+    def test_read_latest_empty_channel_frame(
+        self, indexed_pair: sy.Channel, client: sy.Synnax
+    ):
+        """Test reading latest frame from empty channels."""
+        idx_ch, data_ch = indexed_pair
+        # Don't write any data
+        frame = client.read_latest([idx_ch.key, data_ch.key], 5)
+        assert len(frame.get(data_ch.key)) == 0
+        assert len(frame.get(idx_ch.key)) == 0
+
+    def test_read_latest_single_sample(
+        self, indexed_pair: sy.Channel, client: sy.Synnax
+    ):
+        """Test reading latest when channel has only one sample."""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, [sy.TimeSpan.SECOND * 1])
+        data_ch.write(sy.TimeSpan.SECOND * 1, [42.0])
+
+        # Request more samples than available
+        result = client.read_latest(data_ch.key, 5)
+        assert np.array_equal(result, np.array([42.0]))
+
+        # Request exactly one sample
+        result = client.read_latest(data_ch.key, 1)
+        assert np.array_equal(result, np.array([42.0]))
+
+    def test_read_latest_n_zero(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test reading latest with n=0."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 10)
+        data = np.arange(1, 11)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        # n=0 should return empty result
+        result = client.read_latest(data_ch.key, 0)
+        assert len(result) == 0
+
+    def test_read_latest_n_negative(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test reading latest with negative n (should handle gracefully)."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 10)
+        data = np.arange(1, 11)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        # Negative n might be treated as 0 or raise an error
+        try:
+            result = client.read_latest(data_ch.key, -5)
+            # If it doesn't raise, it should return empty or behave like n=0
+            assert len(result) == 0
+        except ValueError:
+            # This is also acceptable behavior
+            pass
+
+    def test_read_latest_very_large_n(
+        self, indexed_pair: sy.Channel, client: sy.Synnax
+    ):
+        """Test reading latest with n much larger than available data."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 5)
+        data = np.arange(1, 6)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        # Request 1 million samples when only 5 exist
+        result = client.read_latest(data_ch.key, 1_000_000)
+        assert np.array_equal(result, np.array([1, 2, 3, 4, 5]))
+
+    def test_read_latest_multiple_channels_different_lengths(self, client: sy.Synnax):
+        """Test reading latest from multiple channels with different data lengths."""
+        # Create channels with shared index
+        idx_ch = client.channels.create(
+            name=f"test_idx_{sy.TimeStamp.now()}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+
+        data_ch1 = client.channels.create(
+            name=f"test_data1_{sy.TimeStamp.now()}",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        data_ch2 = client.channels.create(
+            name=f"test_data2_{sy.TimeStamp.now()}",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        # Write different amounts of data to each channel
+        time_data_long = seconds_linspace(1, 20)
+        time_data_short = seconds_linspace(1, 5)
+
+        # Write 20 samples to channel 1
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data_long)
+        data_ch1.write(sy.TimeSpan.SECOND * 1, np.arange(1, 21))
+
+        # Write only 5 samples to channel 2 (at the beginning of the time range)
+        data_ch2.write(sy.TimeSpan.SECOND * 1, np.arange(100, 105))
+
+        # Request latest 10 samples
+        frame = client.read_latest([data_ch1.key, data_ch2.key], 10)
+
+        # Channel 1 should have the last 10 samples
+        assert np.array_equal(frame.get(data_ch1.key), np.arange(11, 21))
+
+        # Channel 2 should have only 5 samples (all it has)
+        assert len(frame.get(data_ch2.key)) == 5
+        assert np.array_equal(frame.get(data_ch2.key), np.arange(100, 105))
+
+    def test_read_latest_sparse_data(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test reading latest with gaps in the data."""
+        idx_ch, data_ch = indexed_pair
+
+        # Write data with gaps
+        # First chunk: samples at t=1,2,3
+        idx_ch.write(
+            sy.TimeSpan.SECOND * 1,
+            [sy.TimeSpan.SECOND * 1, sy.TimeSpan.SECOND * 2, sy.TimeSpan.SECOND * 3],
+        )
+        data_ch.write(sy.TimeSpan.SECOND * 1, [1.0, 2.0, 3.0])
+
+        # Second chunk: samples at t=10,11,12 (gap from 3 to 10)
+        idx_ch.write(
+            sy.TimeSpan.SECOND * 10,
+            [sy.TimeSpan.SECOND * 10, sy.TimeSpan.SECOND * 11, sy.TimeSpan.SECOND * 12],
+        )
+        data_ch.write(sy.TimeSpan.SECOND * 10, [10.0, 11.0, 12.0])
+
+        # Read latest 4 samples - should get the last 4 available
+        result = client.read_latest(data_ch.key, 4)
+        # Should get [3.0, 10.0, 11.0, 12.0] or just [10.0, 11.0, 12.0] depending on implementation
+        assert len(result) >= 3  # At minimum should get the last chunk
+        assert 12.0 in result  # Should definitely include the latest value
+
+    def test_read_latest_default_n(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test reading latest with default n=1."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 10)
+        data = np.arange(1, 11)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        # Call without specifying n (should default to 1)
+        result = client.read_latest(data_ch.key)
+        assert np.array_equal(result, np.array([10]))

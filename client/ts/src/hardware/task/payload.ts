@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, type observe, record, status } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -23,6 +23,10 @@ export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
   z.object({ task: keyZ, running: z.boolean(), data });
+
+export type StatusDetails<D extends z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<D>>
+>;
 
 export const statusZ = <D extends z.ZodType>(data: D) =>
   status.statusZ(statusDetailsZ(data));
@@ -120,7 +124,4 @@ export interface StateObservable<StatusData extends z.ZodType>
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
-export const ONTOLOGY_TYPE = "task";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const getRackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
+export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);

@@ -46,7 +46,7 @@ var _ = Describe("Deleter", Ordered, func() {
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 					}))
-					Expect(writer.Write(frame.MultiFrame(
+					Expect(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),

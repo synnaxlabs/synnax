@@ -7,26 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
-
-import { type Import } from "@/import";
 import { LinePlot } from "@/lineplot";
-import { ImportIcon } from "@/lineplot/services/Icon";
+import { CreateIcon, ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
 import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-line-plot",
   name: "Create a Line Plot",
-  icon: <Icon.LinePlot />,
+  icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(LinePlot.create()),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
   key: "import-line-plot",
   name: "Import Line Plot(s)",
+  sortOrder: -1,
   icon: <ImportIcon />,
-  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
+  onSelect: import_,
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

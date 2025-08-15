@@ -11,7 +11,7 @@
 
 .console-schematic-symbols {
     padding: 1rem 2rem;
-    height: calc(100% - 10rem);
+    height: calc(100% - 5rem);
     overflow: auto;
 }
 

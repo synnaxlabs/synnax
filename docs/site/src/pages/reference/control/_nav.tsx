@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
-import { embeddedSequencesNav } from "@/pages/reference/control/embedded/_nav";
-import { pythonSequencesNav } from "@/pages/reference/control/python/_nav";
+import { EMBEDDED_SEQUENCES_NAV } from "@/pages/reference/control/embedded/_nav";
+import { PYTHON_SEQUENCES_NAV } from "@/pages/reference/control/python/_nav";
 
-export const controlNav: PageNavNode = {
+export const CONTROL_NAV: PageNavNode = {
   key: "control",
   name: "Control",
   children: [
@@ -25,7 +25,7 @@ export const controlNav: PageNavNode = {
       href: "/reference/control/control-authority",
       name: "Control Authority",
     },
-    pythonSequencesNav,
-    embeddedSequencesNav,
+    PYTHON_SEQUENCES_NAV,
+    EMBEDDED_SEQUENCES_NAV,
   ],
 };

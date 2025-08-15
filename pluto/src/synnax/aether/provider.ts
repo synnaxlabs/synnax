@@ -9,7 +9,7 @@
 
 import { Synnax, synnaxPropsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 
@@ -60,7 +60,7 @@ const set = (ctx: aether.Context, value: ContextValue): void =>
   ctx.set(CONTEXT_KEY, value);
 
 export const use = (ctx: aether.Context): Synnax | null =>
-  ctx.get<ContextValue>(CONTEXT_KEY).client;
+  ctx.get<ContextValue>(CONTEXT_KEY)?.client ?? null;
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Provider.TYPE]: Provider,

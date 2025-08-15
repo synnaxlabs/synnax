@@ -9,30 +9,29 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
-  Form as PForm,
-  Input,
-  Status,
-  Synnax as PSynnax,
-} from "@synnaxlabs/pluto";
+  DisconnectedError,
+  type rack,
+  type Synnax as Client,
+  task,
+  UnexpectedError,
+} from "@synnaxlabs/client";
+import { Flex, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Controls } from "@/hardware/common/task/Controls";
-import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
 import { type Command } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { useStatus } from "@/hardware/common/task/useStatus";
+import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
@@ -65,7 +64,7 @@ const COMMAND_MESSAGES: Record<Command, string> = {
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
-    client: Synnax,
+    client: Client,
     config: z.infer<Config>,
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
@@ -123,7 +122,7 @@ export const useForm = <
   schemas,
 }: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
   const schema = z.object({ name: nameZ, config: schemas.configSchema });
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError_ = Status.useErrorHandler();
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
@@ -151,7 +150,7 @@ export const useForm = <
   const configured = task_.key.length > 0;
   const { status, triggerError, triggerLoading } = useStatus<StatusData>(
     task_.key,
-    initialTask.status ?? (DEFAULT_STATUS as task.Status<StatusData>),
+    initialTask.status ?? DEFAULT_STATUS,
     COMMAND_MESSAGES,
   );
   const handleError = (e: Error, action: string) => {
@@ -163,17 +162,16 @@ export const useForm = <
 
   const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (initialTask.snapshot) return;
       if (!(await methods.validateAsync())) return;
-      const { name, config } = methods.value();
+      const { name, config } = methods.value() as {
+        name: string;
+        config: z.infer<Config>;
+      };
       if (config == null) throw new Error("Config is required");
-      const [newConfig, rackKey] = await onConfigure(
-        client,
-        config as z.infer<Config>,
-        name,
-      );
-      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
+      const [newConfig, rackKey] = await onConfigure(client, config, name);
+      if (task_.key != "" && rackKey != task.rackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:
@@ -182,7 +180,7 @@ export const useForm = <
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;
-        await client.hardware.tasks.delete(BigInt(task_.key));
+        await client.hardware.tasks.delete(task_.key);
       }
 
       methods.setCurrentStateAsInitialValues();
@@ -241,35 +239,35 @@ export const wrapForm = <
       useForm({ ...rest, layoutKey, schemas, type, onConfigure });
     const { isSnapshot, methods, configured, task } = formProps;
     return (
-      <Align.Space
+      <Flex.Box
         y
         className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
-        <Align.Space grow>
+        <Flex.Box grow>
           <PForm.Form<FormSchema<Config>>
             {...methods}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            <Align.Space x justify="spaceBetween">
+            <Flex.Box x justify="between">
               <PForm.Field<string> path="name">
-                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
+                {(p) => <Input.Text variant="text" level="h2" {...p} />}
               </PForm.Field>
-              <Align.Space align="end" size="small">
-                <CopyButtons
+              <Flex.Box align="end" gap="small">
+                <UtilityButtons
                   getConfig={() => methods.get("config").value}
                   getName={() => methods.get<string>("name").value}
                   taskKey={task.key}
                 />
                 <Rack taskKey={task.key} />
-              </Align.Space>
-            </Align.Space>
+              </Flex.Box>
+            </Flex.Box>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} x wrap>
+            <Flex.Box className={CSS.B("task-properties")} x wrap>
               <Properties />
-            </Align.Space>
-            <Align.Space
+            </Flex.Box>
+            <Flex.Box
               x
               className={CSS.B("task-channel-form-container")}
               bordered
@@ -278,7 +276,7 @@ export const wrapForm = <
               empty
             >
               <Form {...formProps} />
-            </Align.Space>
+            </Flex.Box>
           </PForm.Form>
           <Controls
             layoutKey={layoutKey}
@@ -289,8 +287,8 @@ export const wrapForm = <
             isSnapshot={isSnapshot}
             hasBeenConfigured={configured}
           />
-        </Align.Space>
-      </Align.Space>
+        </Flex.Box>
+      </Flex.Box>
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;

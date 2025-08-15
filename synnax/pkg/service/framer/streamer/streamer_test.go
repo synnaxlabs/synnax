@@ -71,7 +71,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			time.Sleep(5 * time.Millisecond)
-			writtenFr := frame.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -134,7 +134,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := frame.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -177,7 +177,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
 			time.Sleep(5 * time.Millisecond)
-			writtenFr := frame.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -218,7 +218,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := frame.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -294,7 +294,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := frame.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),

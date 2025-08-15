@@ -50,3 +50,7 @@
     --pluto-base-scale: 1.05;
     transform: scale(var(--pluto-base-scale));
 }
+
+.pluto-icon--logo-opc {
+    transform: translateY(1px) scale(1.25);
+}

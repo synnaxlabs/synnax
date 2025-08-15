@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const consoleNav: PageNavNode = {
+export const CONSOLE_NAV: PageNavNode = {
   key: "console",
   name: "Console",
   children: [
@@ -17,6 +17,11 @@ export const consoleNav: PageNavNode = {
       key: "/reference/console/get-started",
       href: "/reference/console/get-started",
       name: "Get Started",
+    },
+    {
+      key: "/reference/console/requirements",
+      href: "/reference/console/requirements",
+      name: "Requirements",
     },
     {
       key: "/reference/console/clusters",

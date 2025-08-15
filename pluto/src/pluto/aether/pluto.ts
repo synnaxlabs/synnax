@@ -12,6 +12,7 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
@@ -62,6 +63,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
+    ...flux.REGISTRY,
   };
 
   void aether.render({

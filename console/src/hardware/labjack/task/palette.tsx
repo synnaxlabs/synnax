@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { importRead, importWrite } from "@/hardware/labjack/task/import";
 import { READ_LAYOUT } from "@/hardware/labjack/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
 import { type Palette } from "@/palette";
@@ -27,4 +28,25 @@ const CREATE_WRITE_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };
 
-export const COMMANDS = [CREATE_READ_COMMAND, CREATE_WRITE_COMMAND];
+const IMPORT_READ_COMMAND: Palette.Command = {
+  key: "labjack-import-read-task",
+  name: "Import LabJack Read Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.LabJack />,
+  onSelect: importRead,
+};
+
+const IMPORT_WRITE_COMMAND: Palette.Command = {
+  key: "labjack-import-write-task",
+  name: "Import LabJack Write Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.LabJack />,
+  onSelect: importWrite,
+};
+
+export const COMMANDS = [
+  CREATE_READ_COMMAND,
+  CREATE_WRITE_COMMAND,
+  IMPORT_READ_COMMAND,
+  IMPORT_WRITE_COMMAND,
+];

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
-export const modeZ = z.enum(["fire", "momentary", "pulse"]);
+export const MODES = ["fire", "momentary", "pulse"] as const;
+export const modeZ = z.enum(MODES);
 
 export type Mode = z.infer<typeof modeZ>;
 

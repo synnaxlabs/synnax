@@ -9,7 +9,7 @@
 
 import { TableCells, Theming } from "@synnaxlabs/pluto";
 import { id, type record, xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 const VERSION = "0.0.0";
 

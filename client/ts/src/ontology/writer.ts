@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { type CrudeID, ID, idZ } from "@/ontology/payload";
+import { type ID, idZ } from "@/ontology/payload";
 
 const ADD_CHILDREN_ENDPOINT = "/ontology/add-children";
 const REMOVE_CHILDREN_ENDPOINT = "/ontology/remove-children";
@@ -29,40 +29,31 @@ export class Writer {
     this.client = client;
   }
 
-  async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
+  async addChildren(id: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
       ADD_CHILDREN_ENDPOINT,
-      { id: new ID(id).payload, children: children.map((c) => new ID(c).payload) },
+      { id, children },
       addRemoveChildrenReqZ,
       emptyResZ,
     );
   }
 
-  async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
+  async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
       REMOVE_CHILDREN_ENDPOINT,
-      { id: new ID(id).payload, children: children.map((c) => new ID(c).payload) },
+      { id, children },
       addRemoveChildrenReqZ,
       emptyResZ,
     );
   }
 
-  async moveChildren(
-    from: CrudeID,
-    to: CrudeID,
-    ...children: CrudeID[]
-  ): Promise<void> {
-    const req = {
-      from: new ID(from).payload,
-      to: new ID(to).payload,
-      children: children.map((c) => new ID(c).payload),
-    };
+  async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof moveChildrenReqZ, typeof emptyResZ>(
       this.client,
       MOVE_CHILDREN_ENDPOINT,
-      req,
+      { from, to, children },
       moveChildrenReqZ,
       emptyResZ,
     );

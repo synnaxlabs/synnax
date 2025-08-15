@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
@@ -56,8 +56,8 @@ func nodeNotFoundErr(key node.Key) error {
 // Cluster state from storage (see Config.Storage and Config.StorageKey).
 // If provisioning a new Cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
-	cfg, err := newConfig(ctx, configs)
+func Open(ctx context.Context, cfgs ...Config) (*Cluster, error) {
+	cfg, err := newConfig(ctx, cfgs)
 	if err != nil {
 		return nil, err
 	}
@@ -93,14 +93,14 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(ctx, host)
 		c.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(c.Pledge); err != nil {
+		if err := pledge.Arbitrate(c.Pledge); err != nil {
 			return nil, err
 		}
 	} else if len(c.Pledge.Peers) > 0 {
 		// If our store is empty or invalid and peers were provided, attempt to join
 		// the Cluster.
 		c.L.Info("no cluster found in storage. pledging to Cluster instead")
-		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
+		pledgeRes, err := pledge.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		c.SetClusterKey(ctx, clusterKey)
 		c.L.Info("no peers provided, bootstrapping new cluster", zap.Stringer("cluster_key", clusterKey))
 		c.Pledge.ClusterKey = c.Key()
-		if err = pledge_.Arbitrate(c.Pledge); err != nil {
+		if err = pledge.Arbitrate(c.Pledge); err != nil {
 			return c, err
 		}
 	}
@@ -248,8 +248,8 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	return state, err
 }
 
-func newConfig(ctx context.Context, configs []Config) (Config, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func newConfig(ctx context.Context, cfgs []Config) (Config, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return Config{}, err
 	}

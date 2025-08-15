@@ -21,11 +21,7 @@
       "icons/icon.ico"
     ],
     "createUpdaterArtifacts": true,
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
+    "windows": {},
     "longDescription": "",
     "macOS": {
       "entitlements": null,
@@ -33,7 +29,6 @@
       "providerShortName": null
     },
     "resources": ["../../vendor/lua-language-server/**/*"],
-    "shortDescription": "",
     "linux": { "deb": { "depends": [] } }
   },
   "identifier": "com.synnaxlabs.dev",

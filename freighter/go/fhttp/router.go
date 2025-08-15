@@ -38,28 +38,19 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (r RouterConfig) Validate() error { return nil }
+func (rc RouterConfig) Validate() error { return nil }
 
 // Override implements config.Config.
-func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
-	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
-	return r
+func (rc RouterConfig) Override(other RouterConfig) RouterConfig {
+	rc.Instrumentation = override.Zero(rc.Instrumentation, other.Instrumentation)
+	rc.StreamWriteDeadline = override.Numeric(
+		rc.StreamWriteDeadline,
+		other.StreamWriteDeadline,
+	)
+	return rc
 }
 
-func NewRouter(cfgs ...RouterConfig) *Router {
-	cfg, err := config.New(RouterConfig{}, cfgs...)
-	if err != nil {
-		panic(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Router{
-		RouterConfig:  cfg,
-		streamCtx:     ctx,
-		cancelStreams: cancel,
-		streamWg:      &sync.WaitGroup{},
-	}
-}
+var DefaultConfig = RouterConfig{}
 
 type Router struct {
 	RouterConfig
@@ -78,6 +69,20 @@ type Router struct {
 
 var _ BindableTransport = (*Router)(nil)
 
+func NewRouter(cfgs ...RouterConfig) (*Router, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Router{
+		RouterConfig:  cfg,
+		streamCtx:     ctx,
+		cancelStreams: cancel,
+		streamWg:      &sync.WaitGroup{},
+	}, nil
+}
+
 // BindTo binds the router and all of its routes to the given fiber app.
 func (r *Router) BindTo(app *fiber.App) {
 	app.Hooks().OnShutdown(func() error {
@@ -87,21 +92,15 @@ func (r *Router) BindTo(app *fiber.App) {
 		return nil
 	})
 	for _, route := range r.routes {
-		if route.httpMethod == "GET" {
-			app.Get(route.path, route.handler)
-		} else {
-			app.Post(route.path, route.handler)
-		}
+		app.Add(route.httpMethod, route.path, route.handler)
 	}
 }
 
-func (r *Router) Report() alamos.Report {
-	return alamos.Report{}
-}
+func (r *Router) Report() alamos.Report { return alamos.Report{} }
 
-func (r *Router) Use(middlewares ...freighter.Middleware) {
+func (r *Router) Use(middleware ...freighter.Middleware) {
 	for _, route := range r.routes {
-		route.transport.Use(middlewares...)
+		route.transport.Use(middleware...)
 	}
 }
 
@@ -117,42 +116,4 @@ func (r *Router) register(
 		handler:    h,
 		transport:  t,
 	})
-}
-
-func StreamServer[RQ, RS freighter.Payload](
-	r *Router,
-	path string,
-	opts ...ServerOption,
-) freighter.StreamServer[RQ, RS] {
-	s := &streamServer[RQ, RS]{
-		serverOptions:   newServerOptions(opts),
-		Reporter:        streamReporter,
-		path:            path,
-		Instrumentation: r.Instrumentation,
-		serverCtx:       r.streamCtx,
-		writeDeadline:   r.StreamWriteDeadline,
-		wg:              r.streamWg,
-	}
-	r.register(path, "GET", s, s.fiberHandler)
-	return s
-}
-
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.UnaryServer[RQ, RS] {
-	us := &unaryServer[RQ, RS]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      unaryReporter,
-		path:          path,
-	}
-	r.register(path, "POST", us, us.fiberHandler)
-	return us
-}
-
-func PipelineServer[RQ freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.PipelineServer[RQ] {
-	ps := &pipelineServer[RQ]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      pipelineReporter,
-		path:          path,
-	}
-	r.register(path, "POST", ps, ps.fiberHandler)
-	return ps
 }

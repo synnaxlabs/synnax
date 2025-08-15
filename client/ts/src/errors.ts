@@ -9,7 +9,7 @@
 
 import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
 import { array, errors } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export class SynnaxError extends errors.createTyped("sy") {}
 
@@ -91,6 +91,12 @@ export class ControlError extends SynnaxError.sub("control") {}
 
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
+export class DisconnectedError extends SynnaxError.sub("disconnected") {
+  constructor(message: string = "Operation failed because no cluster is connected.") {
+    super(message);
+  }
+}
+
 /**
  * Raised when time-series data is not contiguous.
  */
@@ -135,7 +141,7 @@ const decode = (payload: errors.Payload): Error | null => {
 };
 
 const encode = (): errors.Payload => {
-  throw new Error("Not implemented");
+  throw new errors.NotImplemented();
 };
 
 errors.register({ encode, decode });

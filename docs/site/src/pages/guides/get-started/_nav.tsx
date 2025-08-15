@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const getStartedNav: PageNavNode = {
+export const GET_STARTED_NAV: PageNavNode = {
   key: "get-started",
   name: "Get Started",
   children: [

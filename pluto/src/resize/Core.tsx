@@ -12,11 +12,14 @@ import "@/resize/Core.css";
 import { direction, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { preventDefault } from "@/util/event";
 
-export type CoreProps<E extends Align.ElementType = "div"> = Align.SpaceProps<E> & {
+export type CoreProps = Omit<
+  Flex.BoxProps<"div">,
+  "gap" | "size" | "direction" | "x" | "y"
+> & {
   location: location.Crude;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -24,7 +27,7 @@ export type CoreProps<E extends Align.ElementType = "div"> = Align.SpaceProps<E>
   showHandle?: boolean;
 };
 
-export const Core = <E extends Align.ElementType = "div">({
+export const Core = ({
   ref,
   location: cloc,
   style,
@@ -36,27 +39,32 @@ export const Core = <E extends Align.ElementType = "div">({
   showHandle = true,
   ...rest
 }: CoreProps): ReactElement => {
-  const loc_ = location.construct(cloc);
-  const dir = location.direction(loc_);
+  const parsedLocation = location.construct(cloc);
+  const dir = location.direction(parsedLocation);
   const dim = direction.dimension(dir);
   return (
     /// @ts-expect-error - generic element issues
-    <Align.Core<E>
-      className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
+    <Flex.Box<E>
+      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}
+      direction={dir}
+      empty
       {...rest}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc_)))}
+          className={CSS(
+            CSS.BE("resize", "handle"),
+            CSS.bordered(location.swap(parsedLocation)),
+          )}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}
         />
       )}
-    </Align.Core>
+    </Flex.Box>
   );
 };

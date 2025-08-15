@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { componentRenderProp, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
@@ -31,20 +31,14 @@ export const WriteChannelContextMenuItems: React.FC<
   return (
     <>
       {canRenameCmdChannel && (
-        <Menu.Item
-          itemKey="renameCmd"
-          startIcon={<Icon.Rename />}
-          onClick={() => handleRename("cmd")}
-        >
+        <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>
+          <Icon.Rename />
           Rename Command Channel
         </Menu.Item>
       )}
       {canRenameStateChannel && (
-        <Menu.Item
-          itemKey="renameState"
-          startIcon={<Icon.Rename />}
-          onClick={() => handleRename("state")}
-        >
+        <Menu.Item itemKey="renameState" onClick={() => handleRename("state")}>
+          <Icon.Rename />
           Rename State Channel
         </Menu.Item>
       )}
@@ -53,6 +47,6 @@ export const WriteChannelContextMenuItems: React.FC<
   );
 };
 
-export const writeChannelContextMenuItems = componentRenderProp(
+export const writeChannelContextMenuItems = Component.renderProp(
   WriteChannelContextMenuItems,
 );

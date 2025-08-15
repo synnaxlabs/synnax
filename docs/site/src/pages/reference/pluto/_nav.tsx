@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const plutoNav: PageNavNode = {
+export const PLUTO_NAV: PageNavNode = {
   key: "pluto",
   name: "Pluto Components",
   children: [

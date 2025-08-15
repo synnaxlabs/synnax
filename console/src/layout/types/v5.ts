@@ -9,7 +9,7 @@
 
 import { Theming } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";

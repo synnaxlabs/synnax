@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
@@ -60,7 +62,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	attachedInitialMetaData := false
 	oCtx, err := s.MiddlewareCollector.Exec(
 		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.Stream),
-		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+		func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
 				return md, err
@@ -70,7 +72,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 				Protocol: md.Protocol,
 				Params:   make(freighter.Params),
 			}, s.handler(md, s.adaptStream(stream))
-		}),
+		},
 	)
 	if !attachedInitialMetaData {
 		md := metadata.Pairs()
@@ -106,7 +108,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+		func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			ctx = attachContext(ctx)
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
@@ -122,7 +124,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				Params:   make(freighter.Params),
 				Variant:  ctx.Variant,
 			}, err
-		}),
+		},
 	)
 	return stream, err
 }
@@ -227,8 +229,15 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 }
 
 func translateGRPCError(err error) error {
+	if err == nil {
+		return err
+	}
 	if errors.Is(err, io.EOF) {
-		return freighter.ErrEOF
+		return freighter.EOF
+	}
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled {
+		err = context.Canceled
 	}
 	return errors.WithStackDepth(err, 1)
 }

@@ -17,12 +17,12 @@ import {
   useState,
 } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Core } from "@/resize/Core";
 
 /** Props for the {@link Resize.Multiple} component. */
-export interface MultipleProps extends Align.SpaceProps {
+export interface MultipleProps extends Flex.BoxProps {
   sizeDistribution: number[];
   onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
@@ -163,7 +163,7 @@ export const Multiple = ({
   sizeDistribution = slightlyOffsetEvenDistribution(sizeDistribution);
 
   return (
-    <Align.Space
+    <Flex.Box
       {...rest}
       ref={ref}
       direction={dir}
@@ -183,7 +183,7 @@ export const Multiple = ({
           {child}
         </Core>
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const labjackNav: PageNavNode = {
+export const LABJACK_NAV: PageNavNode = {
   key: "labjack",
   name: "LabJack",
   children: [

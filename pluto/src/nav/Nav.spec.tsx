@@ -43,7 +43,7 @@ describe("Nav", () => {
 
       const c = render(<TestNavDrawer />);
       expect(c.getByText("Item 1 Content")).toBeTruthy();
-      expect(c.queryByText("Item 2 Content")).toBeFalsy();
+      expect(c.queryByText("Item 2 Content")).toBeNull();
     });
   });
 });

@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { channel, DataType, UnexpectedError } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, errors } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
@@ -23,18 +23,12 @@ class MockRetriever implements channel.Retriever {
     this.func = func;
   }
 
-  async search(): Promise<channel.Payload[]> {
-    throw new Error("Method not implemented.");
-  }
-
-  async page(): Promise<channel.Payload[]> {
-    throw new Error("Method not implemented.");
-  }
-
   async retrieve(
-    channels: channel.Params,
+    channels: channel.Params | channel.RetrieveRequest,
     opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
+    if (typeof channels === "object" && !Array.isArray(channels))
+      throw new errors.NotImplemented();
     return await this.func(channels, opts?.rangeKey);
   }
 }

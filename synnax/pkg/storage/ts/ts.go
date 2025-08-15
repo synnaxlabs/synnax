@@ -77,7 +77,7 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ts")
-	validate.NotNil(v, "FS", c.FS)
+	validate.NotNil(v, "fs", c.FS)
 	return v.Error()
 }
 
@@ -89,8 +89,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -118,7 +118,7 @@ describe("useAsyncEffect", () => {
     rerender();
     await flushTaskQueue();
     expect(server.isConnected("id-0")).toBe(false);
-    expect(server.isConnected("id-1")).toBe(true);
+    expect(server.isConnected("id-1")).toBeTruthy();
     expect(server.connectionsCount).toBe(1);
     expect(cleanupsCalled).toBe(1);
 

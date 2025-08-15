@@ -56,6 +56,8 @@ func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
 
 func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r }
 
+func (r Range) setLabel(label *label.Service) Range { r.label = label; return r }
+
 // Get gets the provided key-value pair from the range.
 func (r Range) Get(ctx context.Context, key string) (string, error) {
 	var (
@@ -132,19 +134,19 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
 }
 
-// GetAlias gets the Alias for the provided channel on the range.
-func (r Range) GetAlias(ctx context.Context, ch channel.Key) (string, error) {
+// RetrieveAlias gets the Alias for the provided channel on the range.
+func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error) {
 	var res Alias
 	err := gorp.NewRetrieve[string, Alias]().
 		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.NotFound) {
-		p, pErr := r.Parent(ctx)
+		p, pErr := r.RetrieveParent(ctx)
 		if errors.Is(pErr, query.NotFound) {
 			return res.Alias, err
 		}
-		return p.GetAlias(ctx, ch)
+		return p.RetrieveAlias(ctx, ch)
 	}
 	return res.Alias, err
 }
@@ -162,7 +164,7 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.NotFound) {
-		p, pErr := r.Parent(ctx)
+		p, pErr := r.RetrieveParent(ctx)
 		if errors.Is(pErr, query.NotFound) {
 			return res.Channel, err
 		}
@@ -171,8 +173,8 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 	return res.Channel, err
 }
 
-// Parent returns the parent of the given range.
-func (r Range) Parent(ctx context.Context) (Range, error) {
+// RetrieveParent returns the parent of the given range.
+func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 	var resources []ontology.Resource
 	if err := r.otg.NewRetrieve().WhereIDs(r.OntologyID()).
 		TraverseTo(ontology.Parents).
@@ -227,8 +229,8 @@ func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
 		Exec(ctx, r.tx)
 }
 
-// ListAliases lists all aliases on the range.
-func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {
+// RetrieveAliases lists all aliases on the range.
+func (r Range) RetrieveAliases(ctx context.Context) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
 	return res, r.listAliases(ctx, res)
 }
@@ -247,14 +249,14 @@ func (r Range) listAliases(
 	for _, a := range res {
 		accumulated[a.Channel] = a.Alias
 	}
-	p, pErr := r.Parent(ctx)
+	p, pErr := r.RetrieveParent(ctx)
 	if errors.Is(pErr, query.NotFound) {
 		return nil
 	}
 	return p.listAliases(ctx, accumulated)
 }
 
-func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
+func (r Range) RetrieveLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 

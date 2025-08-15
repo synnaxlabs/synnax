@@ -30,7 +30,7 @@ type calculationUpdaterTransform struct {
 	confluence.LinearTransform[Request, framer.StreamerRequest]
 }
 
-var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}
+var _ confluence.Segment[Request, framer.StreamerRequest] = (*calculationUpdaterTransform)(nil)
 
 func (t *calculationUpdaterTransform) update(ctx context.Context, keys []channel.Key) error {
 	if err := t.closer.Close(); err != nil {

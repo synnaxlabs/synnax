@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { direction, location, type spatial } from "@synnaxlabs/x/spatial";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type Shade } from "@/text/external";
-import { type ComponentSize } from "@/util/component";
+import { type text } from "@/text/core";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
   expanded: (expanded: boolean) => string;
+  level: (level: text.Level) => string;
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  size: (size: ComponentSize | number) => string | false;
+  clickable: (shade?: text.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
@@ -30,7 +31,6 @@ export interface CSSType extends BEM {
   selected: (selected: boolean) => string | false;
   altColor: (secondary: boolean) => string | false;
   editable: (editable: boolean) => string | false;
-  noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   removeVars: typeof removeCSSVars;
   newGridBuilder: (prefix?: string) => CSSGridBuilder;
@@ -38,8 +38,8 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: ((value: Shade) => string) & ((value?: Shade) => string | false);
-  shadeVar: (value?: number) => string | undefined;
+  shade: ((value: text.Shade) => string) & ((value?: text.Shade) => string | false);
+  colorVar: (value?: false | text.Shade | color.Crude) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
 
@@ -47,11 +47,10 @@ const newCSS = (prefix: string): CSSType => {
   const CSS = newBEM(prefix) as CSSType;
   CSS.visible = (visible) => CSS.M(visible ? "visible" : "hidden");
   CSS.expanded = (expanded) => CSS.M(expanded ? "expanded" : "collapsed");
-  CSS.loc = (l) => CSS.M(location.construct(l));
+  CSS.loc = (l) => CSS.M("location", location.construct(l));
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.align = (position) => CSS.M(position);
-  CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));
-  CSS.size = (size) => typeof size === "string" && CSS.M(size);
+  CSS.dir = (dir) => dir != null && CSS.M("direction", direction.construct(dir));
   CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (loc) => {
@@ -62,7 +61,6 @@ const newCSS = (prefix: string): CSSType => {
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
-  CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
   CSS.removeVars = removeCSSVars;
   CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);
@@ -70,11 +68,13 @@ const newCSS = (prefix: string): CSSType => {
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
   CSS.shade = ((value) => value != null && CSS.M(`shade-${value}`)) as CSSType["shade"];
-  CSS.shadeVar = (value) => {
-    if (value == null) return undefined;
-    return `var(--${prefix}-gray-l${value})`;
+  CSS.colorVar = (value) => {
+    if (value == null || value === false) return undefined;
+    if (typeof value === "number") return `var(--${prefix}-gray-l${value})`;
+    return color.cssString(value);
   };
   CSS.levelSizeVar = (value) => `var(--${prefix}-${value}-size)`;
+  CSS.level = (level) => CSS.M(`level-${level}`);
   return CSS;
 };
 

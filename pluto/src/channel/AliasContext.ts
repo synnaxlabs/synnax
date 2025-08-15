@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type ontology, type ranger } from "@synnaxlabs/client";
-import { useMutation } from "@tanstack/react-query";
+import { channel, DisconnectedError, ontology, type ranger } from "@synnaxlabs/client";
 import { createContext, use, useCallback, useState } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { useAsyncEffect } from "@/hooks";
 import { Ontology } from "@/ontology";
 import { Status } from "@/status";
@@ -54,7 +52,7 @@ export const useName = (
   const handleError = Status.useErrorHandler();
   const handleResourceSet = useCallback(
     (id: ontology.ID) => {
-      if (!id.equals(channel.ontologyID(key))) return;
+      if (!ontology.idsEqual(id, channel.ontologyID(key))) return;
       if (currentAlias != null) return;
       handleError(async () => {
         const resource = await client?.ontology.retrieve(id);
@@ -75,26 +73,27 @@ export const useName = (
     },
     [key, getName],
   );
-  const renameMutation = useMutation({
-    onMutate: (newName) => {
-      setName(newName);
-      return name;
+  const handleRename = useCallback(
+    (newName: string) => {
+      handleError(async () => {
+        const oldName = name;
+        try {
+          if (currentAlias != null) {
+            if (setAlias == null) throw new Error("AliasSetter not found");
+            await setAlias(key, newName);
+            return;
+          }
+          if (client == null) throw new DisconnectedError();
+          await client.channels.rename(key, newName);
+        } catch (e) {
+          setName(oldName);
+          throw e;
+        }
+      }, "Failed to rename channel");
     },
-    mutationFn: async (newName: string) => {
-      if (currentAlias != null) {
-        if (setAlias == null) throw new Error("AliasSetter not found");
-        await setAlias(key, newName);
-        return;
-      }
-      if (client == null) throw NULL_CLIENT_ERROR;
-      await client.channels.rename(key, newName);
-    },
-    onError: (e, newName, oldName) => {
-      setName(oldName);
-      handleError(e, `Failed to rename ${oldName ?? "channel"} to ${newName}`);
-    },
-  });
-  return [name ?? defaultName, renameMutation.mutate];
+    [currentAlias, setAlias, key, handleError, name],
+  );
+  return [name ?? defaultName, handleRename];
 };
 
 export const useAliasSetter = (): AliasSetter | null => useContext().setAlias;

@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	roacherrors "github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -98,7 +97,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			Params:   make(freighter.Params),
 			Variant:  freighter.Unary,
 		},
-		freighter.FinalizerFunc(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
+		func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
 			iCtx = attachContext(iCtx)
 			conn, err := u.Pool.Acquire(target)
 			if err != nil {
@@ -123,7 +122,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			}
 			res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 			return oCtx, err
-		}),
+		},
 	)
 	return res, err
 }
@@ -132,7 +131,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
 	oCtx, err := u.MiddlewareCollector.Exec(
 		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.Unary),
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+		func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
 				Protocol: Reporter.Protocol,
@@ -142,7 +141,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 				Variant:  freighter.Unary,
 			}
 			if u.handler == nil {
-				return oCtx, roacherrors.New("[freighter] - no handler registered")
+				return oCtx, errors.New("[freighter] - no handler registered")
 			}
 			req, err := u.RequestTranslator.Backward(ctx, tReq)
 			if err != nil {
@@ -155,7 +154,6 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			return oCtx, err
 		},
-		),
 	)
 	oCtx = attachContext(oCtx)
 	if err == nil {

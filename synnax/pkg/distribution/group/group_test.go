@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -156,6 +157,47 @@ var _ = Describe("Group", Ordered, func() {
 			var g group.Group
 			err = svc.NewRetrieve().WhereKeys(parent.Key, child.Key).Entry(&g).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should allow batch deletion when parent is being deleted along with all of its children", func() {
+			parent, err := w.Create(ctx, "parent-batch-delete", ontology.RootID)
+			Expect(err).ToNot(HaveOccurred())
+
+			child1, err := w.Create(ctx, "child1-batch-delete", group.OntologyID(parent.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			child2, err := w.Create(ctx, "child2-batch-delete", group.OntologyID(parent.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
+
+			var groups []group.Group
+			Expect(svc.NewRetrieve().WhereKeys(child1.Key, child2.Key, parent.Key).
+				Entries(&groups).Exec(ctx, nil)).
+				To(HaveOccurredAs(query.NotFound))
+			Expect(groups).To(BeEmpty())
+		})
+
+		It("Should allow deleting nested hierarchy when ordered leaf to root", func() {
+			root, err := w.Create(ctx, "root-nested", ontology.RootID)
+			Expect(err).ToNot(HaveOccurred())
+
+			level1, err := w.Create(ctx, "level1-nested", group.OntologyID(root.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			level2, err := w.Create(ctx, "level2-nested", group.OntologyID(level1.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			level3, err := w.Create(ctx, "level3-nested", group.OntologyID(level2.Key))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())
+
+			for _, key := range []uuid.UUID{root.Key, level1.Key, level2.Key, level3.Key} {
+				var g group.Group
+				err = svc.NewRetrieve().WhereKeys(key).Entry(&g).Exec(ctx, nil)
+				Expect(err).To(HaveOccurred())
+			}
 		})
 	})
 })

@@ -17,7 +17,7 @@ import {
   TimeStamp,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";

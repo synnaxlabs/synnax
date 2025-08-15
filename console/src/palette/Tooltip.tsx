@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Text, Triggers } from "@synnaxlabs/pluto";
+import { Flex, Text, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { type TriggerConfig } from "@/palette/types";
@@ -19,18 +19,18 @@ export interface TooltipContentProps {
 export const TooltipContent = ({
   triggerConfig: { command, search },
 }: TooltipContentProps): ReactElement => (
-  <Align.Space size="small">
-    <Align.Space x justify="spaceBetween" align="center">
+  <Flex.Box gap="small">
+    <Flex.Box x justify="between" align="center">
       <Text.Text level="small">Search</Text.Text>
-      <Align.Space x empty size="tiny">
+      <Flex.Box x empty gap="tiny">
         <Triggers.Text trigger={search[0]} level="small" />
-      </Align.Space>
-    </Align.Space>
-    <Align.Space x justify="spaceBetween" align="center">
+      </Flex.Box>
+    </Flex.Box>
+    <Flex.Box x justify="between" align="center">
       <Text.Text level="small">Command Palette</Text.Text>
-      <Align.Space x size="tiny">
+      <Flex.Box x gap="tiny">
         <Triggers.Text trigger={command[0]} level="small" />
-      </Align.Space>
-    </Align.Space>
-  </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
+  </Flex.Box>
 );

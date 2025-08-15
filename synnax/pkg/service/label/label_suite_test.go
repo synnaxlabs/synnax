@@ -17,9 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 func TestLabel(t *testing.T) {
 	RegisterFailHandler(Fail)

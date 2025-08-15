@@ -13,10 +13,10 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Flux } from "@/flux";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
-import { Sync } from "@/sync";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
@@ -64,7 +64,7 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Sync.Provider>
+                  <Flux.Provider>
                     <Channel.AliasProvider {...channelAlias}>
                       <Color.Provider {...color}>
                         <Theming.Provider {...theming}>
@@ -74,7 +74,7 @@ export const Provider = ({
                         </Theming.Provider>
                       </Color.Provider>
                     </Channel.AliasProvider>
-                  </Sync.Provider>
+                  </Flux.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 
 	"github.com/samber/lo"
@@ -39,7 +40,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	xservice "github.com/synnaxlabs/x/service"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -124,7 +125,7 @@ func start(cmd *cobra.Command) {
 	sCtx.Go(func(ctx context.Context) error {
 		var (
 			err               error
-			closer            xio.MultiCloser
+			closer            io.MultiCloser
 			peers             = parsePeerAddressFlag()
 			securityProvider  security.Provider
 			storageLayer      *storage.Layer
@@ -147,6 +148,12 @@ func start(cmd *cobra.Command) {
 		}); !ok(err, nil) {
 			return err
 		}
+
+		workDir, err := resolveWorkDir()
+		if err != nil {
+			return errors.Wrapf(err, "failed to resolve working directory")
+		}
+		ins.L.Info("using working directory", zap.String("dir", workDir))
 
 		if storageLayer, err = storage.Open(ctx, storage.Config{
 			Instrumentation: ins.Child("storage"),
@@ -217,11 +224,14 @@ func start(cmd *cobra.Command) {
 		)
 
 		// Configure the HTTP Layer AspenTransport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{
+		r, err := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+		if err != nil {
+			return err
+		}
+		apiLayer.BindTo(httpapi.New(r, distributionLayer.Channel))
 
 		// Configure the GRPC Layer AspenTransport.
 		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
@@ -253,6 +263,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			embedded.Config{
 				Enabled:         config.Bool(!noDriver),
+				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
 				Instrumentation: ins,
 				Address:         listenAddress,
@@ -264,6 +275,7 @@ func start(cmd *cobra.Command) {
 				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
 				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
 				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:   workDir,
 			},
 		); !ok(err, embeddedDriver) {
 			return err
@@ -296,4 +308,12 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 	configureStartFlags()
 	bindFlags(startCmd)
+}
+
+func resolveWorkDir() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
 }

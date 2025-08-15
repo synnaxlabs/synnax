@@ -7,5 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const unitProperty = (value: string | number, unit: string): string =>
-  `${value}${unit}`;
+export const unitProperty = (
+  value: string | number,
+  unit: string,
+  round: boolean = false,
+): string => {
+  const base = `${value}${unit}`;
+  if (round) return `round(${base}, 1px)`;
+  return base;
+};

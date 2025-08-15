@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
@@ -27,6 +27,3 @@ export const newZ = linePlotZ
   .partial({ key: true })
   .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
 export interface New extends z.input<typeof newZ> {}
-
-export const ONTOLOGY_TYPE = "lineplot";
-export type OntologyType = typeof ONTOLOGY_TYPE;

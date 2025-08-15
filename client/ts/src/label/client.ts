@@ -7,131 +7,130 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { observe } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x/array";
+import z from "zod";
 
-import { type framer } from "@/framer";
-import {
-  type Key,
-  type Label,
-  LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-  labelZ,
-  ONTOLOGY_TYPE,
-} from "@/label/payload";
-import { Retriever } from "@/label/retriever";
-import { type New, type SetOptions, Writer } from "@/label/writer";
+import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
-import { signals } from "@/signals";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-export class Client implements AsyncTermSearcher<string, Key, Label> {
+export const newZ = labelZ.extend({ key: keyZ.optional() });
+export interface New extends z.infer<typeof newZ> {}
+
+const createReqZ = z.object({ labels: newZ.array() });
+const createResZ = z.object({ labels: labelZ.array() });
+const deleteReqZ = z.object({ keys: keyZ.array() });
+const setReqZ = z.object({
+  id: ontology.idZ,
+  labels: keyZ.array(),
+  replace: z.boolean().optional(),
+});
+
+interface SetReq extends z.infer<typeof setReqZ> {}
+export interface SetOptions extends Pick<SetReq, "replace"> {}
+
+const removeReqZ = setReqZ.omit({ replace: true });
+const emptyResZ = z.object({});
+
+const CREATE_ENDPOINT = "/label/create";
+const DELETE_ENDPOINT = "/label/delete";
+const SET_ENDPOINT = "/label/set";
+const REMOVE_ENDPOINT = "/label/remove";
+const RETRIEVE_ENDPOINT = "/label/retrieve";
+
+const retrieveRequestZ = z.object({
+  keys: keyZ.array().optional(),
+  for: ontology.idZ.optional(),
+  searchTerm: z.string().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
+});
+
+const singleRetrieveArgsZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+
+const retrieveResponseZ = z.object({ labels: nullableArrayZ(labelZ) });
+
+export class Client {
   readonly type: string = "label";
-  private readonly retriever: Retriever;
-  private readonly writer: Writer;
-  private readonly frameClient: framer.Client;
-  private readonly ontology: ontology.Client;
+  private readonly client: UnaryClient;
 
-  constructor(
-    client: UnaryClient,
-    frameClient: framer.Client,
-    ontology: ontology.Client,
-  ) {
-    this.writer = new Writer(client);
-    this.retriever = new Retriever(client);
-    this.frameClient = frameClient;
-    this.ontology = ontology;
+  constructor(client: UnaryClient) {
+    this.client = client;
   }
 
-  async search(term: string): Promise<Label[]> {
-    return await this.retriever.search(term);
+  async retrieve(args: SingleRetrieveArgs): Promise<Label>;
+  async retrieve(args: MultiRetrieveArgs): Promise<Label[]>;
+  async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
+    const isSingle = "key" in args;
+    const res = await sendRequired(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      args,
+      retrieveArgsZ,
+      retrieveResponseZ,
+    );
+    checkForMultipleOrNoResults("Label", args, res.labels, isSingle);
+    return isSingle ? res.labels[0] : res.labels;
   }
 
-  async retrieve(key: Key): Promise<Label>;
-  async retrieve(keys: Key[]): Promise<Label[]>;
-  async retrieve(keys: Key | Key[]): Promise<Label | Label[]> {
-    const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve(keys);
-    return isMany ? res : res[0];
+  async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
+    await sendRequired<typeof setReqZ, typeof emptyResZ>(
+      this.client,
+      SET_ENDPOINT,
+      { id, labels, replace: opts.replace },
+      setReqZ,
+      emptyResZ,
+    );
   }
 
-  async retrieveFor(id: ontology.CrudeID): Promise<Label[]> {
-    return await this.retriever.retrieveFor(new ontology.ID(id));
-  }
-
-  async label(
-    id: ontology.CrudeID,
-    labels: Key[],
-    opts: SetOptions = {},
-  ): Promise<void> {
-    await this.writer.set(new ontology.ID(id), labels, opts);
-  }
-
-  async removeLabels(id: ontology.CrudeID, labels: Key[]): Promise<void> {
-    await this.writer.remove(new ontology.ID(id), labels);
-  }
-
-  async page(offset: number, limit: number): Promise<Label[]> {
-    return await this.retriever.page(offset, limit);
+  async remove(id: ontology.ID, labels: Key[]): Promise<void> {
+    await sendRequired<typeof removeReqZ, typeof emptyResZ>(
+      this.client,
+      REMOVE_ENDPOINT,
+      { id, labels },
+      removeReqZ,
+      emptyResZ,
+    );
   }
 
   async create(label: New): Promise<Label>;
   async create(labels: New[]): Promise<Label[]>;
   async create(labels: New | New[]): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
-    const res = await this.writer.create(labels);
-    return isMany ? res : res[0];
+    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+      this.client,
+      CREATE_ENDPOINT,
+      { labels: array.toArray(labels) },
+      createReqZ,
+      createResZ,
+    );
+    return isMany ? res.labels : res.labels[0];
   }
 
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.writer.delete(keys);
-  }
-
-  async openChangeTracker(): Promise<signals.Observable<string, Label>> {
-    return await signals.openObservable<string, Label>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      decodeChanges,
+    await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
+      this.client,
+      DELETE_ENDPOINT,
+      { keys: array.toArray(keys) },
+      deleteReqZ,
+      emptyResZ,
     );
-  }
-
-  async trackLabelsOf(
-    id: ontology.CrudeID,
-  ): Promise<observe.ObservableAsyncCloseable<Label[]>> {
-    const wrapper = new observe.Observer<Label[]>();
-    const initial = (await this.retrieveFor(id)).map((l) => ({
-      id: ontologyID(l.key),
-      key: l.key,
-      name: l.name,
-      data: l,
-    }));
-    const base = await this.ontology.openDependentTracker({
-      target: new ontology.ID(id),
-      dependents: initial,
-      relationshipType: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-    });
-    base.onChange((resources: ontology.Resource[]) =>
-      wrapper.notify(
-        resources.map((r) => ({
-          key: r.id.key,
-          color: r.data?.color as string,
-          name: r.data?.name as string,
-        })),
-      ),
-    );
-    return wrapper;
   }
 }
 
-const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
-  if (variant === "delete") return data.toUUIDs().map((v) => ({ variant, key: v }));
-  return data.parseJSON(labelZ).map((l) => ({ variant, key: l.key, value: l }));
-};
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "label", key });

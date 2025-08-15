@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Input } from "@synnaxlabs/pluto";
+import { Flex, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -37,7 +37,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   };
 
   return (
-    <Align.Space x style={{ padding: "2rem" }}>
+    <Flex.Box x style={{ padding: "2rem" }}>
       <Input.Item label="Title" grow>
         <Input.Text
           value={name}
@@ -58,6 +58,6 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
           onChange={handleLegendVisibilityChange}
         />
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };

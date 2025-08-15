@@ -9,12 +9,12 @@
 
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
+import { removeProps } from "@/component/removeProps";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
-import { removeProps } from "@/util/removeProps";
 import {
   BoxForm,
   ButtonForm,
@@ -38,8 +38,6 @@ import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   DEFAULT_POLYGON_SIDE_LENGTH,
-  TextBox,
-  type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
@@ -215,7 +213,9 @@ import {
   Tank,
   TankPreview,
   type TankProps,
+  TextBox,
   TextBoxPreview,
+  type TextBoxProps,
   ThreeWayBallValve,
   type ThreeWayBallValveProps,
   ThreeWayValve,
@@ -236,6 +236,7 @@ import {
   Vent,
   type VentProps,
 } from "@/vis/schematic/Symbols";
+import { Value as CoreValue } from "@/vis/value";
 
 export interface Spec<P extends object = object> {
   key: Variant;
@@ -1013,6 +1014,7 @@ const value: Spec<ValueProps> = {
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
+    redline: CoreValue.ZERO_READLINE,
   }),
   zIndex: Z_INDEX_UPPER,
 };

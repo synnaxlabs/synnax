@@ -22,8 +22,8 @@ import (
 type LoggerConfig struct {
 	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
 	ZapConfig zap.Config
-	// ZapLogger provides a custom zap logger to override the default logger defined
-	// in ZapConfig.
+	// ZapLogger provides a custom zap logger to override the default logger defined in
+	// ZapConfig.
 	ZapLogger *zap.Logger
 }
 
@@ -51,8 +51,8 @@ type Logger struct {
 }
 
 // NewLogger creates a new Logger with the given configuration.
-func NewLogger(configs ...LoggerConfig) (*Logger, error) {
-	cfg, err := config.New(DefaultLoggerConfig, configs...)
+func NewLogger(cfgs ...LoggerConfig) (*Logger, error) {
+	cfg, err := config.New(DefaultLoggerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +111,14 @@ func (l *Logger) Info(msg string, fields ...zap.Field) {
 	}
 }
 
+// Infof logs a message at the Info level using the given format. This is a slower
+// method that should not be used in hot paths.
+func (l *Logger) Infof(format string, args ...any) {
+	if l != nil {
+		l.zap.Sugar().Infof(format, args...)
+	}
+}
+
 // Warn logs a message at the Warn level with the given fields.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
 	if l != nil {
@@ -133,7 +141,7 @@ func (l *Logger) Fatal(msg string, fields ...zap.Field) {
 	}
 }
 
-// DPanic logs a message with the given fields that  panics in development mode and logs
+// DPanic logs a message with the given fields that panics in development mode and logs
 // to the Error level in production mode.
 func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 	if l != nil {
@@ -148,11 +156,11 @@ func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 	return nil
 }
 
-func (l *Logger) WithConfig(configs ...LoggerConfig) (*Logger, error) {
+func (l *Logger) WithConfig(cfgs ...LoggerConfig) (*Logger, error) {
 	if l == nil {
 		return nil, nil
 	}
-	l2, err := NewLogger(configs...)
+	l2, err := NewLogger(cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -202,8 +210,8 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		}
 	}
 	if toRemove >= 0 {
-		// Clone the slice first to avoid accidentally modifying it if/when zap
-		// uses it to write to an alternate core.
+		// Clone the slice first to avoid accidentally modifying it if/when zap uses it
+		// to write to an alternate core.
 		fields = slices.Delete(slices.Clone(fields), toRemove, toRemove+1)
 	}
 	return c.c.Write(entry, fields)

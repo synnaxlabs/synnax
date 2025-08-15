@@ -27,7 +27,7 @@ var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs      xfs.FS
-			codec   = &binary.JSONCodec{}
+			codec   = binary.JSONCodec
 			cleanUp func() error
 			dbKey   core.ChannelKey
 			db      *virtual.DB
@@ -115,7 +115,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		BeforeEach(func() {
 			db = MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &binary.JSONCodec{},
+				MetaCodec: binary.JSONCodec,
 				Channel: core.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
@@ -134,7 +134,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		It("Should return an error when a DB is closed while writers are still accessing it", func() {
 			db := MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        xfs.NewMem(),
-				MetaCodec: &binary.JSONCodec{},
+				MetaCodec: binary.JSONCodec,
 				Channel: core.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",

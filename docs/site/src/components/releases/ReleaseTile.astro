@@ -1,9 +1,9 @@
 ---
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Text, Flex } from "@synnaxlabs/pluto";
 import PolkaDot from "./PolkaDot.astro";
 ---
 
-<Align.Space
+<Flex.Box
     direction="y"
     className="release-tile"
     align="center"
@@ -12,18 +12,18 @@ import PolkaDot from "./PolkaDot.astro";
     href="/releases"
     grow
 >
-    <Align.Space direction="y" grow justify="center" align="center" empty>
+    <Flex.Box direction="y" grow justify="center" align="center" empty>
         <Text.Text className="latest" level="small" weight={500} shade={7}
             >Latest Release</Text.Text
         >
         <Text.Text level="h1">v0.37.0</Text.Text>
-    </Align.Space>
-    <Text.Text level="small" shade={10} weight={450}>
+    </Flex.Box>
+    <Text.Text level="small" color={10} weight={450}>
         Synnax version 0.37.0 is our final release of 2024! It brings a number of
         improvements to schematics, workspaces, and our LabJack device driver.
     </Text.Text>
     <PolkaDot />
-</Align.Space>
+</Flex.Box>
 
 <style is:global>
     .release-tile {

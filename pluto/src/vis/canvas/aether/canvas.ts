@@ -9,7 +9,7 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { box, runtime } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { line } from "@/vis/line/aether";

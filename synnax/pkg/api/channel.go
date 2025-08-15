@@ -113,7 +113,7 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `json:"search" msgpack:"search"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 	// Limit limits the number of results returned.
@@ -150,7 +150,7 @@ func (s *ChannelService) Retrieve(
 		q               = s.internal.NewRetrieve().Entries(&resChannels)
 		hasNames        = len(req.Names) > 0
 		hasKeys         = len(req.Keys) > 0
-		hasSearch       = len(req.Search) > 0
+		hasSearch       = len(req.SearchTerm) > 0
 		hasDataTypes    = len(req.DataTypes) > 0
 		hasNotDataTypes = len(req.NotDataTypes) > 0
 	)
@@ -164,7 +164,7 @@ func (s *ChannelService) Retrieve(
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
-			keys, err := resRng.SearchAliases(ctx, req.Search)
+			keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
 			if err != nil {
 				return ChannelRetrieveResponse{}, err
 			}
@@ -182,7 +182,7 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereNames(req.Names...)
 	}
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.SearchTerm)
 	}
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
@@ -220,7 +220,7 @@ func (s *ChannelService) Retrieve(
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
 		for i, ch := range resChannels {
-			al, err := resRng.GetAlias(ctx, ch.Key())
+			al, err := resRng.RetrieveAlias(ctx, ch.Key())
 			if err == nil {
 				oChannels[i].Alias = al
 			}

@@ -29,13 +29,13 @@ var _ = Describe("TimeSpan", func() {
 	})
 
 	Describe("Stringer", func() {
-		DescribeTable("Should format a timespan properly", func(span telem.TimeSpan, expected string) {
+		DescribeTable("Should format a time span properly", func(span telem.TimeSpan, expected string) {
 			Expect(fmt.Sprintf("%v", span)).To(Equal(expected))
 		},
 			Entry("zero", 0*telem.Nanosecond, "0s"),
-			Entry("nano", 1*telem.Nanosecond, "1ns"),
-			Entry("micro", 1*telem.Microsecond, "1µs"),
-			Entry("milli", 1*telem.Millisecond, "1ms"),
+			Entry("nanosecond", 1*telem.Nanosecond, "1ns"),
+			Entry("microsecond", 1*telem.Microsecond, "1µs"),
+			Entry("millisecond", 1*telem.Millisecond, "1ms"),
 			Entry("second", 1*telem.Second, "1s"),
 			Entry("minute", 1*telem.Minute, "1m"),
 			Entry("hour", 1*telem.Hour, "1h"),
@@ -153,7 +153,7 @@ var _ = Describe("TimeSpan", func() {
 
 	Describe("MarshalJSON", func() {
 		It("Should marshal the time span into a string", func() {
-			b := MustSucceed(json.Marshal(telem.Second))
+			b := MustSucceed(telem.Second.MarshalJSON())
 			Expect(string(b)).To(Equal(`"1000000000"`))
 		})
 	})

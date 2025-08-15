@@ -10,7 +10,6 @@
 package errors_test
 
 import (
-	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -52,7 +51,7 @@ var _ = Describe("Catcher", func() {
 				for i := range 4 {
 					catcher.Exec(func() error {
 						if i == 2 {
-							return fmt.Errorf("encountered unknown error")
+							return errors.Newf("encountered unknown error")
 						}
 						counter++
 						return nil
@@ -80,7 +79,7 @@ var _ = Describe("Catcher", func() {
 				for range 4 {
 					catcher.Exec(func() error {
 						counter++
-						return fmt.Errorf("error encountered")
+						return errors.Newf("error encountered")
 					})
 				}
 				Expect(counter).To(Equal(5))

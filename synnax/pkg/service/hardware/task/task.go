@@ -23,6 +23,8 @@ import (
 
 type Key uint64
 
+var _ json.Unmarshaler = (*Key)(nil)
+
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
 }
@@ -40,8 +42,6 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 	*k = Key(n)
 	return err
 }
-
-var _ json.Unmarshaler = (*Key)(nil)
 
 type Task struct {
 	Key      Key     `json:"key" msgpack:"key"`

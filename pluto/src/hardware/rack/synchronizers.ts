@@ -9,9 +9,14 @@
 
 import { rack } from "@synnaxlabs/client";
 
-import { Sync } from "@/sync";
+import { Flux } from "@/flux";
 
 export const useStatusSynchronizer = (
   onStatusChange: (status: rack.Status) => void,
 ): void =>
-  Sync.useParsedListener(rack.STATUS_CHANNEL_NAME, rack.statusZ, onStatusChange);
+  Flux.useListener({
+    channel: rack.STATUS_CHANNEL_NAME,
+    onChange: Flux.parsedHandler(rack.statusZ, async (args) => {
+      onStatusChange(args.changed);
+    }),
+  });

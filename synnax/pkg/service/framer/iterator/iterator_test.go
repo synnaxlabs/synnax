@@ -54,7 +54,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             []channel.Key{ch.Key()},
 				EnableAutoCommit: config.True(),
 			}))
-			fr := frame.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
@@ -100,7 +100,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
-				fr := frame.MultiFrame(
+				fr := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),

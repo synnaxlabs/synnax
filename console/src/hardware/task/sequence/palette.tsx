@@ -9,20 +9,28 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { import_ } from "@/hardware/task/sequence/import";
 import { createLayout } from "@/hardware/task/sequence/Sequence";
 import { type Palette } from "@/palette";
 
-const CREATE_SEQUENCE_COMMAND: Palette.Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "create-control-sequence",
   name: "Create a Control Sequence",
   icon: <Icon.Control />,
   onSelect: ({ placeLayout, rename, handleError }) => {
-    createLayout({ rename })
-      .then((layout) => {
-        if (layout != null) placeLayout(layout);
-      })
-      .catch((e) => handleError(e, "Failed to create a control sequence"));
+    handleError(async () => {
+      const layout = await createLayout({ rename });
+      if (layout != null) placeLayout(layout);
+    }, "Failed to create a control sequence");
   },
 };
 
-export const COMMANDS = [CREATE_SEQUENCE_COMMAND];
+const IMPORT_COMMAND: Palette.Command = {
+  key: "import-control-sequence",
+  name: "Import a Control Sequence",
+  icon: <Icon.Control />,
+  sortOrder: -1,
+  onSelect: import_,
+};
+
+export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

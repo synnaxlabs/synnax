@@ -31,13 +31,13 @@ var _ = Describe("HttpRedirect", func() {
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
 			KeySize:      mock.SmallKeySize,
-			Insecure:     config.Bool(false),
+			Insecure:     config.False(),
 		}))
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.Bool(false),
+				Insecure: config.False(),
 				TLS:      prov.TLS(),
 			},
 			Branches: []server.Branch{
@@ -53,8 +53,7 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://localhost:26260")
-		Expect(err).To(Succeed())
+		resp := MustSucceed(client.Get("http://localhost:26260"))
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())

@@ -5,14 +5,13 @@ description: "See how Synnax compares in performance to other time series databa
 published: "Oct 15, 2024"
 ---
 
-import { Divider, Note, Text, Align, Icon } from "@synnaxlabs/pluto";
+import { Divider, Note, Text, Flex, Icon } from "@synnaxlabs/pluto";
 import Table from "@/components/Table.astro";
 import Diagram from "@/components/Diagram.astro";
 import { Image } from "@/components/Media";
 import { Tabs } from "@/components/Tabs";
 import StepText from "@/components/StepText.astro";
 import Details from "@/components/details/Details.astro";
-import Summary from "@/components/details/Summary.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -352,7 +351,7 @@ We'll also measure the average memory and CPU usage of each database during the 
 
 <Details>
   {/* prettier-ignore */}
-  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}><Icon.Table slot="startIcon" /> Tabulated Data - Throughput in Samples/s  </Text.WithIcon>
+  <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table  /> Tabulated Data - Throughput in Samples/s  </Text.Text>
   <Table>
     <tbody>
       <tr>
@@ -436,7 +435,7 @@ the other two databases.
 </figure>
 <Details>
 <div slot="summary">
-<Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory usage in GB</Text.WithIcon>
+<Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory usage in GB</Text.Text>
 </div>
 <Table>
   <tbody>
@@ -542,7 +541,7 @@ the other two databases.
 
 <Details>
   {/* prettier-ignore */}
-  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}>  <Icon.Table slot="startIcon" />    Tabulated Data - CPU Usage  </Text.WithIcon>
+  <Text.Text slot="summary" level="small" size="medium" weight={500}>  <Icon.Table  />    Tabulated Data - CPU Usage  </Text.Text>
   <Table>
     <tbody>
       <tr>
@@ -747,7 +746,7 @@ channels we insert data for.
 
 <Details>
   <div slot="summary">
-    <Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon>
+    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Throughput in Samples/s</Text.Text>
   </div>
 <Table>
   <tbody>
@@ -861,7 +860,7 @@ and Influx remain relatively stable.
 
 <Details>
   <div slot="summary">
-    <Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory Usage in GB</Text.WithIcon>
+    <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory Usage in GB</Text.Text>
   </div>
 <Table>
   <tbody>
@@ -972,7 +971,7 @@ and Influx remain relatively stable.
 
 <Details>
   {/* prettier-ignore */}
-  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}>    <Icon.Table slot="startIcon" />    Tabulated Data - CPU Usage  </Text.WithIcon>
+  <Text.Text slot="summary" level="small" size="medium" weight={500}>    <Icon.Table  />    Tabulated Data - CPU Usage  </Text.Text>
   <Table>
     <tbody>
       <tr>

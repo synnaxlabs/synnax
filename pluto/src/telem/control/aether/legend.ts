@@ -9,7 +9,7 @@
 
 import { channel } from "@synnaxlabs/client";
 import { control, type Destructor } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";

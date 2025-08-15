@@ -7,48 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import {
   AO_CHANNEL_SCHEMAS,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
+  AO_CHANNEL_TYPES,
   type AOChannel,
   type AOChannelType,
   ZERO_AO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends record.Keyed<AOChannelType> {
-  name: ReactElement;
-}
+export interface Entry extends record.KeyedNamed<AOChannelType> {}
 
-interface ChannelTypeProps {
-  type: AOChannelType;
-}
+export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType, Entry>;
 
-const ChannelType = ({ type }: ChannelTypeProps) => {
-  const Icon = AO_CHANNEL_TYPE_ICONS[type];
-  return (
-    <Text.WithIcon
-      level="p"
-      startIcon={<Icon style={{ color: "var(--pluto-gray-l7)" }} />}
-    >
-      {AO_CHANNEL_TYPE_NAMES[type]}
-    </Text.WithIcon>
-  );
-};
-
-export type SelectAOChannelTypeFieldProps = Form.DropdownButtonFieldProps<
-  AOChannelType,
-  Entry
->;
-
-export const SelectAOChannelTypeField = Form.buildDropdownButtonSelectField<
-  AOChannelType,
-  Entry
->({
+export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
@@ -67,17 +43,14 @@ export const SelectAOChannelTypeField = Form.buildDropdownButtonSelectField<
   },
   inputProps: {
     allowNone: false,
-    entryRenderKey: "name",
-    columns: [
-      {
-        key: "name",
-        name: "Name",
-        render: ({ entry: { key } }) => <ChannelType type={key} />,
-      },
-    ],
-    data: Object.keys(AO_CHANNEL_TYPE_NAMES).map((key) => ({
-      key: key as AOChannelType,
-      name: <ChannelType type={key as AOChannelType} />,
-    })),
+    resourceName: "Channel Type",
+    data: AO_CHANNEL_TYPES.map((key) => {
+      const Icon = AO_CHANNEL_TYPE_ICONS[key];
+      return {
+        key,
+        name: AO_CHANNEL_TYPE_NAMES[key],
+        icon: <Icon color={8} />,
+      };
+    }) as Entry[],
   },
 });

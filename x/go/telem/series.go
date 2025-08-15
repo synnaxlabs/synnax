@@ -266,6 +266,11 @@ func (s Series) DataString() string {
 	}
 }
 
+// AsCSVStrings returns a slice of strings representing the series as a CSV column. If
+// the series is a variable density series, the strings will be the values of the
+// series. If the series is a fixed density series, the strings will be the values of
+// the series as strings. If the series is a time stamp series, the strings will be the
+// value of the underlying int64 values.
 func (s Series) AsCSVStrings() []string {
 	if s.DataType.IsVariable() {
 		return UnmarshalStrings(s.Data)
@@ -320,7 +325,7 @@ func (s Series) AsCSVStrings() []string {
 			return v.String()
 		})
 	default:
-		return UnmarshalStrings(s.Data)
+		panic(fmt.Sprintf("unsupported data type: %v", s.DataType))
 	}
 }
 

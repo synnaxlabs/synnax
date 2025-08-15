@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { setpoint } from "@/vis/setpoint/aether";
 
 export interface UseProps
@@ -25,7 +25,7 @@ export interface UseReturn
 }
 
 export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqualProps({ source, sink });
+  const memoProps = useMemoDeepEqual({ source, sink });
   const [, { value }, setState] = Aether.use({
     aetherKey,
     type: setpoint.Setpoint.TYPE,

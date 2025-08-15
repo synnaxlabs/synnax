@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 
 	"github.com/google/uuid"
@@ -26,6 +27,7 @@ type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Range]
 	otg        *ontology.Ontology
+	label      *label.Service
 	searchTerm string
 }
 
@@ -63,7 +65,7 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
 	r.gorp.Where(func(rng *Range) bool {
 		oRng := rng.UseTx(r.baseTX)
-		labels, _ := oRng.ListLabels(context.Background())
+		labels, _ := oRng.RetrieveLabels(context.Background())
 		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
 		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
 			return lo.Contains(matchLabels, l)
@@ -96,7 +98,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	}
 	entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
 	for i, e := range entries.All() {
-		entries.Set(i, e.UseTx(tx).setOntology(r.otg))
+		entries.Set(i, e.UseTx(tx).setOntology(r.otg).setLabel(r.label))
 	}
 	return nil
 }

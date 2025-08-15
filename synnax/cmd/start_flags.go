@@ -65,7 +65,7 @@ func configureStartFlags() {
 		dataFlag,
 		"d",
 		"synnax-data",
-		"Dirname where the synnax node will store its data.",
+		"ParentDirname where the synnax node will store its data.",
 	)
 
 	startCmd.Flags().BoolP(

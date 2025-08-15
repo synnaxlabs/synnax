@@ -52,7 +52,7 @@ type Config struct {
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// GCThreshold is the minimum tombstone proportion of the FileSize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -69,8 +69,8 @@ var (
 // Validate implements config.GateConfig.
 func (c Config) Validate() error {
 	v := validate.New("cesium.unary")
-	validate.NotNil(v, "FS", c.FS)
-	validate.NotNil(v, "MetaCodec", c.MetaCodec)
+	validate.NotNil(v, "fs", c.FS)
+	validate.NotNil(v, "meta_codec", c.MetaCodec)
 	return v.Error()
 }
 
@@ -87,8 +87,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

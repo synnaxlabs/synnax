@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const pythonClientNav: PageNavNode = {
+export const PYTHON_CLIENT_NAV: PageNavNode = {
   key: "python-client",
   name: "Python Client",
   children: [

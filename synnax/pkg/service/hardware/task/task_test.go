@@ -37,13 +37,13 @@ var _ = Describe("Task", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{DB: db, Ontology: otg, Group: g, HostProvider: mock.StaticHostKeyProvider(1)}))
+		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{DB: db, Ontology: otg, Group: g, HostProvider: mock.NewStaticHostProvider(1)}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			Rack:         rackSvc,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 		}))
 		rack_ = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, rack_)).To(Succeed())

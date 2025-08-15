@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 /**
  * Represents valid key types for record objects.
@@ -25,7 +25,7 @@ export type Unknown = Record<Key, unknown>;
  * Interface for objects that have a key property.
  * @template K - The type of the key (must extend Key)
  */
-export interface Keyed<K extends Key> {
+export interface Keyed<K extends Key = Key> {
   /** The key identifier for this object */
   key: K;
 }

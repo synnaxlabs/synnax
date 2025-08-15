@@ -35,9 +35,9 @@ import {
   useState,
 } from "react";
 
-import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -1825,7 +1825,12 @@ export const Value = ({
     >
       <div
         className={CSS.BE("value", "content")}
-        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize }}
+        style={{
+          flexGrow: 1,
+          minWidth: dimensions?.width,
+          inlineSize,
+          maxWidth: dimensions?.width,
+        }}
       >
         {children}
       </div>
@@ -1888,6 +1893,7 @@ export const Button = ({
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
     <CoreButton.Button
+      variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}
@@ -1909,13 +1915,10 @@ export const Button = ({
 
 export interface TextBoxProps
   extends Omit<DivProps, "onChange">,
-    Optional<
-      Pick<Text.EditableProps<Text.Level>, "level" | "value" | "onChange">,
-      "onChange"
-    > {
+    Optional<Pick<Text.EditableProps, "level" | "value" | "onChange">, "onChange"> {
   color?: color.Crude;
   width?: number;
-  align?: Align.Alignment;
+  align?: Flex.Alignment;
   autoFit?: boolean;
 }
 
@@ -1946,6 +1949,7 @@ export const TextBox = ({
       {...rest}
     >
       <Text.MaybeEditable
+        className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}
         level={level}
         value={value}
@@ -2013,7 +2017,7 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        outlineColor={color}
+        color={color}
         borderWidth={1}
         disabled={disabled}
       >

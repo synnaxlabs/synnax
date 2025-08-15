@@ -73,9 +73,9 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
-		Debug: config.Bool(false),
+		Debug: config.False(),
 		Security: SecurityConfig{
-			Insecure: config.Bool(false),
+			Insecure: config.False(),
 		},
 	}
 )
@@ -94,7 +94,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
-	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
+	validate.NotEmptyString(v, "listen_address", c.ListenAddress)
 	return v.Error()
 }
 

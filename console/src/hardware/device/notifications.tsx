@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Text } from "@synnaxlabs/pluto";
+import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
 import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
@@ -22,9 +22,10 @@ const notificationAdapter: Notifications.Adapter<device.Device> = (status) => {
   const make = getMake(status.details?.make);
   const startIcon = getIcon(make);
   sugared.content = (
-    <Text.WithIcon level="p" startIcon={startIcon}>
+    <Text.Text>
+      {startIcon}
       {status.message}
-    </Text.WithIcon>
+    </Text.Text>
   );
   if (make)
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
@@ -38,7 +39,8 @@ interface ConfigureButtonProps {
 const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => placeLayout(layout)}>
+    <Button.Button variant="outlined" size="tiny" onClick={() => placeLayout(layout)}>
+      <Icon.Hardware />
       Configure
     </Button.Button>
   );

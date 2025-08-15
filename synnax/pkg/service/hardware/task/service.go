@@ -65,7 +65,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "hostProvider", c.HostProvider)
+	validate.NotNil(v, "host_provider", c.HostProvider)
 	return v.Error()
 }
 
@@ -77,8 +77,8 @@ type Service struct {
 
 const groupName = "Tasks"
 
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return
 	}

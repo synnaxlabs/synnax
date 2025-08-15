@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
 
 export interface SelectMultipleAxesInputItemProps
-  extends Omit<Input.ItemProps, "onChange"> {
+  extends Omit<Input.ItemProps, "onChange" | "children"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
@@ -24,6 +24,7 @@ export interface SelectMultipleAxesInputItemProps
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
   notDataTypes: ["string", "json", "uuid"],
   internal: false,
+  virtual: false,
 };
 
 export const SelectMultipleAxesInputItem = ({
@@ -36,8 +37,9 @@ export const SelectMultipleAxesInputItem = ({
   <Input.Item x label={axisLabel(axis)} {...rest}>
     <Channel.SelectMultiple
       value={value}
-      searchOptions={SEARCH_OPTIONS}
+      initialParams={SEARCH_OPTIONS}
       onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
+      full="x"
       {...selectProps}
     />
   </Input.Item>
@@ -57,11 +59,12 @@ export const SelectAxisInputItem = ({
   selectProps,
   ...rest
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item x label={axisLabel(axis)} {...rest}>
+  <Input.Item x label={axisLabel(axis)} {...rest} grow>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
-      searchOptions={SEARCH_OPTIONS}
+      allowNone
+      initialParams={SEARCH_OPTIONS}
       {...selectProps}
     />
   </Input.Item>

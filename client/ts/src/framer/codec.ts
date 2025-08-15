@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
@@ -62,7 +62,7 @@ interface CodecState {
 }
 
 export class Codec {
-  contentType: string = "application/sy-framer";
+  contentType = CONTENT_TYPE;
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;

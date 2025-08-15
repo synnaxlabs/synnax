@@ -15,11 +15,11 @@ import {
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type text } from "@/text/core";
+import { type Generic } from "@/generic";
 import { Text, type TextProps } from "@/text/Text";
 
-export type DateTimeProps<L extends text.Level = "h1"> = Omit<
-  TextProps<L>,
+export type DateTimeProps<E extends Generic.ElementType = "p"> = Omit<
+  TextProps<E>,
   "children"
 > & {
   children: CrudeTimeStamp;
@@ -28,16 +28,16 @@ export type DateTimeProps<L extends text.Level = "h1"> = Omit<
   displayTZ?: TZInfo;
 };
 
-export const DateTime = <L extends text.Level = "h1">({
+export const DateTime = <E extends Generic.ElementType = "p">({
   ref,
   format = "dateTime",
   suppliedTZ = "UTC",
   displayTZ = "local",
   children,
   ...rest
-}: DateTimeProps<L>): ReactElement => (
+}: DateTimeProps<E>): ReactElement => (
   // @ts-expect-error - generic component errors
-  <Text<L> ref={ref} {...rest}>
+  <Text<E> ref={ref} {...rest}>
     {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
   </Text>
 );

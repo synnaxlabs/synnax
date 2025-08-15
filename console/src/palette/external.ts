@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { type Command, type CommandSelectionContext } from "@/palette/command";
+export * from "@/palette/command";
 export * from "@/palette/Palette";
 export * from "@/palette/types";

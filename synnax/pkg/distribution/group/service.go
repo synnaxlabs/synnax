@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -43,8 +44,8 @@ func (c Config) Override(other Config) Config {
 // Validate implements Config.
 func (c Config) Validate() error {
 	v := validate.New("group")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -53,8 +54,8 @@ type Service struct {
 	signals io.Closer
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +140,9 @@ func (w Writer) CreateWithKey(
 
 // Delete deletes the Groups with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
+	keyStrings := lo.Map(keys, func(item uuid.UUID, _ int) string {
+		return item.String()
+	})
 	for _, key := range keys {
 		var children []ontology.Resource
 		if err := w.otg.NewRetrieve().
@@ -149,6 +153,9 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			Exec(ctx, w.tx); err != nil {
 			return err
 		}
+		children = lo.Filter(children, func(item ontology.Resource, index int) bool {
+			return !lo.Contains(keyStrings, item.ID.Key)
+		})
 		if len(children) > 0 {
 			return errors.Wrap(validate.Error, "cannot delete a group with children")
 		}
@@ -156,9 +163,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return err
 		}
 	}
-	return gorp.NewDelete[uuid.UUID, Group]().
-		WhereKeys(keys...).
-		Exec(ctx, w.tx)
+	return gorp.NewDelete[uuid.UUID, Group]().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.
@@ -170,17 +175,4 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 			return g
 		}).
 		Exec(ctx, w.tx)
-}
-
-func (w Writer) validateNoChildrenWithName(ctx context.Context, name string, parent ontology.ID) error {
-	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().WhereIDs(parent).TraverseTo(ontology.Children).Entries(&children).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, child := range children {
-		if child.Name == name {
-			return errors.New("[group] - a child of the parent exists with the same name")
-		}
-	}
-	return nil
 }

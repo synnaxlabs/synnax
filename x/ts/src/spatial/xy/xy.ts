@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   type ClientXY,
@@ -292,4 +292,9 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
 export const swap = (a: Crude): XY => {
   const xy = construct(a);
   return { x: xy.y, y: xy.x };
+};
+
+export const round = (a: Crude): XY => {
+  const xy = construct(a);
+  return { x: Math.round(xy.x), y: Math.round(xy.y) };
 };

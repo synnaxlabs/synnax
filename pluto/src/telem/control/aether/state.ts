@@ -15,7 +15,7 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { color, type Destructor, observe, unique } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";

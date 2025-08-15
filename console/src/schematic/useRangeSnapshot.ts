@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, schematic } from "@synnaxlabs/client";
+import { DisconnectedError, ranger, schematic } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Range } from "@/range";
 
 interface SchematicNameAndKey extends Pick<schematic.Schematic, "key" | "name"> {}
@@ -40,7 +39,7 @@ export const useRangeSnapshot = () => {
         message: `Successfully snapshotted ${context}`,
       }),
     mutationFn: async (schematics) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (rng == null) throw new Error("No active range selected");
       const ids = await Promise.all(
         array.toArray(schematics).map(async (s) => {

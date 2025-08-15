@@ -8,27 +8,29 @@
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
  */
+.pluto-input__item {
+    & .pluto-input__switch {
+        width: 100%;
+    }
+}
 
-.pluto-input-switch__container {
+.pluto-input__switch {
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
+    cursor: pointer;
+    padding: 0;
 
-    .pluto-input-switch__track {
-        position: relative;
-        display: inline-block;
-        width: 5rem;
-        height: 2.5rem;
-        border-radius: 1rem;
-        &:focus-within {
+    &:focus-within {
+        .pluto-input__switch-indicator {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l1),
                 0 0 0 3px var(--pluto-primary-z);
         }
     }
 
-    .pluto-input-switch__input {
+    input {
         position: absolute;
         cursor: pointer;
         width: 100%;
@@ -37,19 +39,18 @@
         z-index: 100;
     }
 
-    .pluto-input-switch__slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+    .pluto-input__switch-indicator {
+        position: relative;
+        display: inline-block;
+        width: 5rem;
+        height: 2.5rem;
+        border-radius: 1.5rem;
         background: var(--pluto-gray-l4);
+        cursor: pointer;
         transition: 0.15s;
-        border-radius: 4rem;
     }
 
-    .pluto-input-switch__slider::before {
+    .pluto-input__switch-indicator::before {
         position: absolute;
         content: "";
         height: 2rem;
@@ -61,11 +62,11 @@
         border-radius: 50%;
     }
 
-    .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+    input:checked ~ .pluto-input__switch-indicator {
         background: var(--pluto-primary-m1);
     }
 
-    .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+    input:checked ~ .pluto-input__switch-indicator::before {
         transform: translateX(2.5rem);
         background: var(--pluto-primary-p1);
     }
@@ -74,14 +75,14 @@
         * {
             cursor: not-allowed !important;
         }
-        .pluto-input-switch__slider {
+        .pluto-input__switch-indicator {
             background: var(--pluto-gray-l3-50);
         }
-        .pluto-input-switch__slider::before {
+        .pluto-input__switch-indicator::before {
             background: var(--pluto-gray-l6-70);
         }
 
-        .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+        input:checked ~ .pluto-input__switch-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -89,7 +90,7 @@
             );
         }
 
-        .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+        input:checked ~ .pluto-input__switch-indicator::before {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),

@@ -9,7 +9,6 @@ import { Image, Video } from "@/components/Media";
 import StepText from "@/components/StepText.astro";
 import Code from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
-import Summary from "@/components/details/Summary.astro";
 export const components = { pre: Code };
 
 While our [pre-built drivers](/reference/device-drivers) are great for the devices we
@@ -335,7 +334,7 @@ Once we've finished these modifications, we can run the script and see the value
 pouring in from the Arduino. Here's the entire script for reference:
 
 <Details>
-<Summary>`driver.py`</Summary>
+<span slot="summary">`driver.py`</span>
 
 ```python
 import synnax as sy
@@ -520,7 +519,7 @@ script before we move into setting up the console. Here's the entire `driver_wri
 script for reference:
 
 <Details>
-<Summary>`driver_write.py`</Summary>
+<span slot="summary">`driver_write.py`</span>
 
 ```python
 import synnax as sy
@@ -730,7 +729,7 @@ script before we move into setting up the console. Here's the entire
 `driver_readwrite.py` script for reference:
 
 <Details>
-<Summary>`driver_readwrite.py`</Summary>
+<span slot="summary">`driver_readwrite.py`</span>
 
 ```python
 import synnax as sy

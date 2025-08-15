@@ -34,14 +34,13 @@ input::-webkit-calendar-picker-indicator {
 }
 
 .pluto-datetime-modal {
-    border-radius: 1rem;
-    border: var(--pluto-border-l5);
     width: calc(98vw - 6rem);
     max-width: 800px;
-    background: var(--pluto-gray-l0);
+    min-width: 78rem;
 
     .pluto-content {
         padding: 2rem;
+        overflow: hidden;
     }
 
     .pluto-navbar__content {
@@ -61,9 +60,20 @@ input::-webkit-calendar-picker-indicator {
         width: 100%;
     }
 
+    .pluto-datetime-picker {
+        min-width: 70rem;
+        height: 38rem;
+    }
+
     .pluto-calendar {
+        .pluto-calendar-header {
+            border-top-left-radius: var(--pluto-border-radius) !important;
+        }
+        .pluto-calendar-header__month {
+            border-top: var(--pluto-border-l5);
+            border-bottom: var(--pluto-border-l5);
+        }
         width: 37rem;
-        height: 37rem;
         & > * > .pluto-text-icon {
             border-top: var(--pluto-border-l5);
         }
@@ -72,11 +82,17 @@ input::-webkit-calendar-picker-indicator {
         }
     }
 
+    .pluto-datetime-modal-container {
+        padding: 2rem;
+    }
+
     .pluto-time-list {
-        width: 11rem;
-        height: 33rem !important;
+        height: 100%;
+        width: 100%;
+        max-height: 100%;
         border-top-left-radius: 0 !important;
         border-right: var(--pluto-border-l5);
+        border-right-color: var(--pluto-gray-l6);
         border-top: var(--pluto-border-l5);
 
         .pluto-list__item {
@@ -112,15 +128,17 @@ input::-webkit-calendar-picker-indicator {
             border-radius: var(--pluto-border-radius);
         }
 
-        .pluto-input__internal {
-            width: min-content;
+        .pluto-input {
+            width: 100%;
             border-bottom-left-radius: 0 !important;
             background: none !important;
         }
 
-        .pluto-time-selector .pluto-btn {
-            border-color: var(--pluto-gray-l3) !important;
-            border-top: none !important;
+        .pluto-time-selector {
+            & > div {
+                overflow: hidden;
+            }
+            overflow: hidden;
         }
     }
 }

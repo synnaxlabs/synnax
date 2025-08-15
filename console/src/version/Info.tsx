@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -67,40 +67,40 @@ export const Info: Layout.Renderer = () => {
   });
 
   let updateContent = (
-    <Status.Text level="h4" weight={350} variant="loading" size="medium">
+    <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
-    </Status.Text>
+    </Status.Summary>
   );
   if (updateMutation.isPending)
     if (progressPercent === 100)
       updateContent = (
-        <Status.Text level="h4" variant="loading" size="medium">
+        <Status.Summary level="h4" variant="loading" gap="medium">
           Update downloaded. Restarting
-        </Status.Text>
+        </Status.Summary>
       );
     else
       updateContent = (
-        <Align.Space y size="medium">
-          <Status.Text variant="loading" level="h4" size="medium">
+        <Flex.Box y gap="medium">
+          <Status.Summary variant="loading" level="h4" gap="medium">
             Downloading update
-          </Status.Text>
-          <Align.Space x size="medium" align="center" justify="center">
+          </Status.Summary>
+          <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
-            <Text.Text level="p" shade={10} noWrap>
+            <Text.Text color={10} overflow="ellipsis">
               {Math.ceil(amountDownloaded.megabytes)} /{" "}
               {Math.ceil(updateSize.megabytes)} MB
             </Text.Text>
-          </Align.Space>
-        </Align.Space>
+          </Flex.Box>
+        </Flex.Box>
       );
   else if (updateQuery.isSuccess)
     if (updateQuery.data != null) {
       const version = updateQuery.data.version;
       updateContent = (
         <>
-          <Status.Text level="h4" variant="success">
+          <Status.Summary level="h4" variant="success">
             Version {version} available
-          </Status.Text>
+          </Status.Summary>
           <Button.Button
             variant="filled"
             disabled={updateMutation.isPending}
@@ -112,42 +112,42 @@ export const Info: Layout.Renderer = () => {
       );
     } else
       updateContent = (
-        <Status.Text level="h4" variant="success">
+        <Status.Summary level="h4" variant="success">
           Up to date
-        </Status.Text>
+        </Status.Summary>
       );
   else if (updateQuery.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Summary level="h4" variant="error">
         Error checking for update: {updateQuery.error.message}
-      </Status.Text>
+      </Status.Summary>
     );
   else if (updateMutation.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Summary level="h4" variant="error">
         Error updating: {updateMutation.error.message}
-      </Status.Text>
+      </Status.Summary>
     );
 
   return (
-    <Align.Space align="center" y size="large" style={{ paddingTop: "6rem" }}>
-      <Align.Space y size="small" justify="center" align="center">
+    <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
+      <Flex.Box y gap="small" justify="center" align="center">
         <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
           <Logo variant="title" style={{ height: "10rem" }} />
         </a>
         <Text.Text level="h3" weight={350}>
           Console v{version}
         </Text.Text>
-      </Align.Space>
+      </Flex.Box>
       {updateContent}
       <Text.Text
         level="small"
-        shade={10}
+        color={10}
         weight={350}
         style={{ position: "absolute", bottom: "3rem" }}
       >
         © 2022-2025 Synnax Labs, Inc. All rights reserved
       </Text.Text>
-    </Align.Space>
+    </Flex.Box>
   );
 };

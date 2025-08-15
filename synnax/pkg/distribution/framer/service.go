@@ -103,8 +103,8 @@ func (c Config) Override(other Config) Config {
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func Open(configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

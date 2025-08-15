@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, direction, location, xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;

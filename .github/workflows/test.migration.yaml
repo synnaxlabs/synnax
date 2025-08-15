@@ -82,6 +82,8 @@ jobs:
 
       - name: Download Earthly
         uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Current Server Image
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false

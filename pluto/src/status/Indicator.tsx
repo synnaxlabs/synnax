@@ -17,12 +17,12 @@ export interface IndicatorProps extends Icon.IconProps {
   variant?: status.Variant;
 }
 
-export const Indicator = ({
-  variant = "info",
-  ...rest
-}: IndicatorProps): ReactElement =>
+export const Indicator = ({ variant, ...rest }: IndicatorProps): ReactElement =>
   variant === "loading" ? (
     <Icon.Loading {...rest} />
   ) : (
-    <Icon.Circle color={VARIANT_COLORS[variant]} {...rest} />
+    <Icon.Circle
+      color={variant != null ? VARIANT_COLORS[variant] : undefined}
+      {...rest}
+    />
   );

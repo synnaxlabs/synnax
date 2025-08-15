@@ -66,16 +66,16 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
+	DefaultConfig = ServiceConfig{StateCodec: binary.JSONCodec}
 )
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel_observable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
 	return v.Error()
 }
 
@@ -167,7 +167,7 @@ func (s *Service) setStatus(
 	_ context.Context,
 	status Status,
 ) {
-	if _, err := s.w.Write(frame.UnaryFrame(
+	if _, err := s.w.Write(frame.NewUnary(
 		s.stateKey,
 		telem.NewSeriesStaticJSONV(status),
 	)); err != nil {
@@ -213,10 +213,12 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	delete(s.mu.entries, ch.Key())
 	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		// Even if the operation is not successful, we still want to store the
+		// latest requirements and expression in the entry.
+		e.ch.Requires = ch.Requires
+		e.ch.Expression = ch.Expression
+		s.mu.entries[ch.Key()] = e
 	}
-	e.ch.Requires = ch.Requires
-	e.ch.Expression = ch.Expression
-	s.mu.entries[ch.Key()] = e
 }
 
 func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {

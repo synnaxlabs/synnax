@@ -90,7 +90,7 @@ func translateFrameBackward(f *gapi.Frame) api.Frame {
 	if f == nil {
 		return api.Frame{}
 	}
-	return frame.MultiFrame(
+	return frame.NewMulti(
 		translateChannelKeysBackward(f.Keys),
 		telem.TranslateManySeriesBackward(f.Series),
 	)

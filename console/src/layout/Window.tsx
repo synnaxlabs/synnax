@@ -11,7 +11,7 @@ import "@/layout/Window.css";
 
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Align, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
+import { Flex, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -59,7 +59,7 @@ const WindowInternal = (): ReactElement | null => {
   if (layout == null) return null;
 
   return (
-    <Align.Space
+    <Flex.Box
       empty
       className={CSS(
         CSS.B("main"),
@@ -72,7 +72,7 @@ const WindowInternal = (): ReactElement | null => {
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <Content layoutKey={layout.key} />
       </PMenu.ContextMenu>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

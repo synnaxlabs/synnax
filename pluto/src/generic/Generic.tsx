@@ -10,12 +10,20 @@
 import {
   type ComponentPropsWithRef,
   createElement,
-  type ElementType,
+  type JSX,
   type ReactElement,
 } from "react";
 
-export type ElementProps<E extends ElementType> = {
+export type ElementType = keyof JSX.IntrinsicElements;
+
+export type ElementPropsWithoutEl = ComponentPropsWithRef<ElementType>;
+
+export type ElementProps<E extends keyof JSX.IntrinsicElements> = {
   el: E;
+} & ComponentPropsWithRef<E>;
+
+export type OptionalElementProps<E extends keyof JSX.IntrinsicElements> = {
+  el?: E;
 } & ComponentPropsWithRef<E>;
 
 /**
@@ -25,7 +33,7 @@ export type ElementProps<E extends ElementType> = {
  * the underlying element.
  * @param props.el - The element type to render.
  */
-export const Element = <E extends ElementType>({
+export const Element = <E extends keyof JSX.IntrinsicElements>({
   el,
   children,
   ...rest

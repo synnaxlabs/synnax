@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const typescriptClientNav: PageNavNode = {
+export const TYPESCRIPT_CLIENT_NAV: PageNavNode = {
   key: "typescript-client",
   name: "TypeScript Client",
   children: [

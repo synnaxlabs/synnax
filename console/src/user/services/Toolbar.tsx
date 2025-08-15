@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
+import { Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -31,23 +30,17 @@ const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
   return (
-    <Cluster.NoneConnectedBoundary>
-      <Align.Space empty style={{ height: "100%" }}>
-        <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
-          <Toolbar.Actions>
-            {[
-              {
-                key: "create",
-                children: <Icon.Add />,
-                onClick: () => placeLayout(REGISTER_LAYOUT),
-              },
-            ]}
-          </Toolbar.Actions>
-        </Toolbar.Header>
-        <Ontology.Tree root={group.data} />
-      </Align.Space>
-    </Cluster.NoneConnectedBoundary>
+    <Toolbar.Content>
+      <Toolbar.Header padded>
+        <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
+        <Toolbar.Actions>
+          <Toolbar.Action onClick={() => placeLayout(REGISTER_LAYOUT)}>
+            <Icon.Add />
+          </Toolbar.Action>
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Ontology.Tree root={group.data} />
+    </Toolbar.Content>
   );
 };
 

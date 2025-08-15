@@ -12,6 +12,7 @@ package freighter
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 
 	"github.com/synnaxlabs/x/address"
 )
@@ -19,6 +20,8 @@ import (
 // Role indicates whether the middleware is located on the client- or server-side of the
 // request.
 type Role uint8
+
+var _ fmt.Stringer = Role(0)
 
 //go:generate stringer -type=Role
 const (
@@ -34,14 +37,14 @@ const (
 // is being executed for.
 type Variant uint8
 
+var _ fmt.Stringer = Variant(0)
+
 //go:generate stringer -type=Variant
 const (
 	// Unary is set on middleware that is executed for a unary request.
 	Unary Variant = iota + 1
 	// Stream is set on middleware that is executed for a streaming request.
 	Stream
-	// Pipeline is set on middleware that is executed for a pipeline request.
-	Pipeline
 )
 
 // Context represents the metadata for a request that is passed to Middleware.
@@ -64,32 +67,10 @@ type SecurityInfo struct {
 	TLS struct {
 		// Used is set to true if TLS is being used.
 		Used bool
-		// ConnectionState is the TLS connection state.
 		tls.ConnectionState
 	}
 }
 
 // Params is a set of arbitrary parameters that can be set by client-side middleware,
 // and read by server-side middleware.
-type Params map[string]any
-
-// GetDefault returns the value of the given key, or the given default value if the key
-// is not set.
-func (p Params) GetDefault(k string, def any) any {
-	v, ok := p[k]
-	if !ok {
-		return def
-	}
-	return v
-}
-
-// Get returns the value of the given key, or nil if the key is not set.
-func (p Params) Get(k string) (any, bool) {
-	v, ok := p[k]
-	return v, ok
-}
-
-// Set sets the value of the given key.
-func (p Params) Set(k string, v any) {
-	p[k] = v
-}
+type Params = map[string]any

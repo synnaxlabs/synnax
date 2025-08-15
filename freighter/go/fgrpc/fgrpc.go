@@ -19,22 +19,20 @@ import (
 type BindableTransport interface {
 	freighter.Transport
 	// BindTo binds the transport to the given gRPC service registrar.
-	BindTo(reg grpc.ServiceRegistrar)
+	BindTo(grpc.ServiceRegistrar)
 }
 
 type CompoundBindableTransport []BindableTransport
 
 var _ BindableTransport = CompoundBindableTransport{}
 
-func (cbt CompoundBindableTransport) Use(middlewares ...freighter.Middleware) {
+func (cbt CompoundBindableTransport) Use(middleware ...freighter.Middleware) {
 	for _, t := range cbt {
-		t.Use(middlewares...)
+		t.Use(middleware...)
 	}
 }
 
-func (cbt CompoundBindableTransport) Report() alamos.Report {
-	return cbt[0].Report()
-}
+func (cbt CompoundBindableTransport) Report() alamos.Report { return cbt[0].Report() }
 
 func (cbt CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
 	for _, t := range cbt {

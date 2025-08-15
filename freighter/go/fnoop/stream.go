@@ -16,25 +16,26 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-type StreamServer[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
-
-var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
-
-func (ss StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
-
-func (ss StreamServer[RQ, RS]) BindHandler(func(context.Context, freighter.ServerStream[RQ, RS]) error) {
-}
-
-type StreamClient[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
+type StreamClient[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 
 var _ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
 
 func (sc StreamClient[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (sc StreamClient[RQ, RS]) Stream(context.Context, address.Address) (freighter.ClientStream[RQ, RS], error) {
+func (sc StreamClient[RQ, RS]) Stream(
+	context.Context,
+	address.Address,
+) (freighter.ClientStream[RQ, RS], error) {
 	return nil, nil
+}
+
+type StreamServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
+
+var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
+
+func (ss StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
+
+func (ss StreamServer[RQ, RS]) BindHandler(
+	func(context.Context, freighter.ServerStream[RQ, RS]) error,
+) {
 }

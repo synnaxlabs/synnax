@@ -9,20 +9,23 @@
 
 import "@/input/Time.css";
 
-import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
+import { type direction, TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
-import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
-import { Text } from "@/input/Text";
-import { type BaseProps } from "@/input/types";
+import { DragButton } from "@/input/DragButton";
+import { Text, type TextProps } from "@/input/Text";
+import { type Control } from "@/input/types";
 
 export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
 
-export interface TimeProps extends BaseProps<number>, DragButtonExtraProps {
+export interface TimeProps
+  extends Omit<TextProps, "type" | "value" | "onChange">,
+    Control<number> {
   tzInfo?: TZInfo;
   showDragHandle?: boolean;
+  dragDirection?: direction.Direction;
 }
 
 const DRAG_SCALE = {
@@ -35,7 +38,7 @@ interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> 
 export interface UseTimeReturn {
   inputValue: string;
   ts: TimeStamp;
-  handleChange: BaseProps<string | number>["onChange"];
+  handleChange: Control<string | number>["onChange"];
 }
 
 export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {

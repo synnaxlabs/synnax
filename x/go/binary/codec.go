@@ -10,6 +10,7 @@
 package binary
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"reflect"
@@ -19,27 +20,39 @@ import (
 )
 
 var (
-	DecodeError = errors.New("failed to decode")
-	EncodeError = errors.New("failed to encode")
+	ErrDecode = errors.New("failed to decode")
+	ErrEncode = errors.New("failed to encode")
 )
 
-// sugarEncodingErr adds additional context to encoding errors.
-func sugarEncodingErr(value any, base error) error {
+// SugarEncodingErr adds additional context to encoding errors.
+func SugarEncodingErr(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(EncodeError, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	main := errors.Wrapf(
+		ErrEncode,
+		"failed to encode value: kind=%s, type=%s, value=%+v",
+		val.Kind(),
+		val.Type(),
+		value,
+	)
 	return errors.Combine(main, base)
 }
 
-// sugarDecodingErr adds additional context to decoding errors.
-func sugarDecodingErr(data []byte, value any, base error) error {
+// SugarDecodingErr adds additional context to decoding errors.
+func SugarDecodingErr(data []byte, value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(
+		ErrDecode,
+		"kind=%s, type=%s, data=%x",
+		val.Kind(),
+		val.Type(),
+		data,
+	)
 	return errors.Combine(main, base)
 }
 
@@ -53,18 +66,18 @@ type Codec interface {
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
 	// errors encountered.
-	Encode(ctx context.Context, value any) ([]byte, error)
+	Encode(context.Context, any) ([]byte, error)
 	// EncodeStream encodes the value into binary and writes it to the given writer. It
 	// returns any errors encountered.
-	EncodeStream(ctx context.Context, w io.Writer, value any) error
+	EncodeStream(context.Context, io.Writer, any) error
 }
 
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(ctx context.Context, data []byte, value any) error
+	Decode(context.Context, []byte, any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(ctx context.Context, r io.Reader, value any) error
+	DecodeStream(context.Context, io.Reader, any) error
 }
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
@@ -75,4 +88,29 @@ func MarshalStringInt64(n int64) ([]byte, error) {
 // MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
 func MarshalStringUint64(n uint64) ([]byte, error) {
 	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
+}
+
+// WrapStreamEncoder is a helper function for implementing Encoder.Encode. It calls
+// Encoder.EncodeStream and returns the data written to the buffer.
+func WrapStreamEncoder(
+	encodeStream func(context.Context, io.Writer, any) error,
+	ctx context.Context,
+	value any,
+) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := encodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// WrapStreamDecoder is a helper function for implementing Decoder.DecodeStream. It
+// calls Decoder.DecodeStream and returns the error.
+func WrapStreamDecoder(
+	decodeStream func(context.Context, io.Reader, any) error,
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
+	return decodeStream(ctx, bytes.NewReader(data), value)
 }

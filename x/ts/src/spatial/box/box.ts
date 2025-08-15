@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import type * as bounds from "@/spatial/bounds/bounds";
 import type * as dimensions from "@/spatial/dimensions/dimensions";
@@ -483,4 +483,9 @@ export const constructWithAlternateRoot = (
       second.y -= height;
     }
   return construct(first, second, undefined, undefined, newRoot);
+};
+
+export const round = (b: Crude): Box => {
+  const b_ = construct(b);
+  return construct(xy.round(b_.one), xy.round(b_.two), undefined, undefined, b_.root);
 };

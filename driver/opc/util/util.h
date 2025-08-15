@@ -145,19 +145,14 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
 
 const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
 const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
-const auto CONN_REJECTED = xerrors::Error(
-    TEMPORARY_ERROR.sub("unreachable"),
-    "unable to reach OPC UA server"
-);
 
+std::string status_code_description(UA_StatusCode code);
 
 inline xerrors::Error parse_error(const UA_StatusCode &status) {
     if (status == UA_STATUSCODE_GOOD) return xerrors::NIL;
-    if (status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
-        status == UA_STATUSCODE_BADSECURECHANNELCLOSED)
-        return CONN_REJECTED;
     const std::string status_name = UA_StatusCode_name(status);
-    return {CRITICAL_ERROR, status_name};
+    const std::string message = util::status_code_description(status);
+    return {CRITICAL_ERROR.sub(status_name), message};
 };
 
 telem::DataType ua_to_data_type(const UA_DataType *dt);
@@ -165,6 +160,7 @@ telem::DataType ua_to_data_type(const UA_DataType *dt);
 UA_DataType *data_type_to_ua(const telem::DataType &data_type);
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v);
+
 
 std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s);
 

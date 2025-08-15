@@ -10,53 +10,39 @@
 package binary
 
 import (
-	"bytes"
 	"context"
 	"encoding/gob"
 	"io"
 )
 
-var _ Codec = (*GobCodec)(nil)
-
 // GobCodec is a gob implementation of the Codec interface.
-type GobCodec struct{}
+var GobCodec Codec = &gobCodec{}
+
+type gobCodec struct{}
+
+var _ Codec = (*gobCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (g *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		buff bytes.Buffer
-		err  = gob.NewEncoder(&buff).Encode(value)
-		b    = buff.Bytes()
-	)
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return b, nil
+func (gc *gobCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	return WrapStreamEncoder(gc.EncodeStream, ctx, value)
 }
 
 // EncodeStream implements the Encoder interface.
-func (g *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (gc *gobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
-	if err != nil {
-		return sugarEncodingErr(value, err)
-	}
-	return nil
+	return SugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (g *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := g.DecodeStream(ctx, bytes.NewReader(data), value)
-	if err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
+func (gc *gobCodec) Decode(ctx context.Context, data []byte, value any) error {
+	return WrapStreamDecoder(gc.DecodeStream, ctx, data, value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (g *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (gc *gobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
+		return SugarDecodingErr(data, value, err)
 	}
 	return nil
 }

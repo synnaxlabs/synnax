@@ -9,9 +9,9 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { nullableArrayZ } from "@/util/zod";
 import {
   type Key,
@@ -20,7 +20,6 @@ import {
   linePlotZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Params,
 } from "@/workspace/lineplot/payload";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
@@ -111,5 +110,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "lineplot", key });

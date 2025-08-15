@@ -18,10 +18,10 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
@@ -111,7 +111,7 @@ export const calcStickyPos = (
 };
 
 export interface ContainerProps
-  extends Omit<Align.SpaceProps, "onChange">,
+  extends Omit<Flex.BoxProps, "onChange">,
     Partial<OptionalControl<StickyXY>> {
   dragEnabled?: boolean;
   initial?: StickyXY;
@@ -190,18 +190,18 @@ export const Container = memo(
     });
 
     return (
-      <Align.Space
+      <Flex.Box
         className={CSS(className, CSS.B("legend"))}
         bordered
-        rounded
         style={style}
         onDragStart={handleCursorDragStart}
         draggable={draggable}
-        borderShade={5}
+        borderColor={5}
         ref={ref}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
         background={1}
+        rounded={1}
         {...rest}
       />
     );
