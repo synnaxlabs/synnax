@@ -174,25 +174,33 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       mode,
     });
 
-    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> =
-      useCallback(
-        (setter) => {
-          const nextStatus = state.executeSetter(setter, resultRef.current);
-          resultRef.current = nextStatus;
-          if (nextStatus.data != null) {
-            form.set("", nextStatus.data);
-            form.setCurrentStateAsInitialValues();
-          }
-          setResult(nextStatus);
-        },
-        [form],
-      );
+    const handleResultChange = useCallback(
+      (
+        setter: state.SetArg<Result<z.infer<Schema> | null>>,
+        resetForm: boolean = true,
+      ) => {
+        const nextStatus = state.executeSetter(setter, resultRef.current);
+        resultRef.current = nextStatus;
+        if (nextStatus.data != null) {
+          form.set("", nextStatus.data);
+          if (resetForm) form.setCurrentStateAsInitialValues();
+        }
+        setResult(nextStatus);
+      },
+      [form],
+    ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
 
     retrieveHook.useEffect({ params, onChange: handleResultChange });
 
+    const handleUpdateResultChange = useCallback(
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>) =>
+        handleResultChange(setter, false),
+      [handleResultChange],
+    );
+
     const { updateAsync } = updateHook.useObservable({
       params,
-      onChange: handleResultChange,
+      onChange: handleUpdateResultChange,
     });
 
     const handleSave = useCallback(
@@ -200,8 +208,9 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
         void (async () => {
           try {
             if (!(await form.validateAsync())) return;
-            await updateAsync(form.value(), opts);
+            if (!(await updateAsync(form.value(), opts))) return;
             afterSave?.({ form, params });
+            form.setCurrentStateAsInitialValues();
           } catch (error) {
             setResult((p) => errorResult(name, "update", error, p.listenersMounted));
           }

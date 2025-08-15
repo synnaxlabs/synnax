@@ -17,7 +17,9 @@ import { useContext, useInternalContext } from "@/dialog/Frame";
 import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
-export interface DialogProps extends Flex.BoxProps<"div"> {}
+export interface DialogProps extends Flex.BoxProps<"div"> {
+  passthrough?: boolean;
+}
 
 export const Dialog = ({
   style,
@@ -25,11 +27,14 @@ export const Dialog = ({
   className,
   bordered = true,
   rounded = 1,
+  passthrough = false,
+  children,
   ...rest
 }: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
-  if (!visible) return null;
+  if (!visible && !passthrough) return null;
+  const actuallyVisible = visible && Object.keys(ctxStyle).length > 0;
   let dialog = (
     <Flex.Box
       pack
@@ -40,7 +45,8 @@ export const Dialog = ({
         CSS.BE("dialog", "dialog"),
         CSS.loc(location.x),
         CSS.loc(location.y),
-        CSS.visible(visible),
+        CSS.visible(actuallyVisible),
+        passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
         className,
       )}
@@ -51,7 +57,9 @@ export const Dialog = ({
       align="stretch"
       style={{ ...ctxStyle, ...style }}
       {...rest}
-    />
+    >
+      {children}
+    </Flex.Box>
   );
   if (variant === "modal")
     dialog = (
@@ -59,5 +67,6 @@ export const Dialog = ({
         {dialog}
       </Background>
     );
+  if (passthrough) return dialog;
   return createPortal(dialog, getRootElement());
 };

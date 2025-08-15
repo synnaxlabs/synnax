@@ -13,12 +13,11 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
-export const indicatorStatusDetailsZ = z.object({
-  color: color.colorZ.optional(),
-});
+export const indicatorStatusDetailsZ = z
+  .object({ color: color.colorZ.optional() })
+  .default({ color: undefined });
 
-export interface IndicatorStatusDetails
-  extends z.infer<typeof indicatorStatusDetailsZ> {}
+export type IndicatorStatusDetails = z.infer<typeof indicatorStatusDetailsZ>;
 
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
@@ -46,12 +45,8 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     this.updateState();
     this.stopListeningStatus?.();
     this.stopListeningColor?.();
-    this.stopListeningStatus = i.statusSource.onChange(() => {
-      this.updateState();
-    });
-    this.stopListeningColor = i.colorSource.onChange(() => {
-      this.updateState();
-    });
+    this.stopListeningStatus = i.statusSource.onChange(this.updateState.bind(this));
+    this.stopListeningColor = i.colorSource.onChange(this.updateState.bind(this));
   }
 
   afterDelete(): void {

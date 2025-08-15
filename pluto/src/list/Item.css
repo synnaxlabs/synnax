@@ -19,6 +19,11 @@
     min-height: 6rem;
     border-radius: 0;
 
+    &.pluto--bordered {
+        border: none;
+        border-bottom: var(--pluto-border);
+    }
+
     &:is(:hover, .pluto--hovered) {
         &.pluto--highlight-hover {
             box-shadow: inset 0.5rem 0 0 var(--pluto-primary-z);

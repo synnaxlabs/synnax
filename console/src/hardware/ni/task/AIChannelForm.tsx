@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -806,9 +806,9 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       inputProps: {
         resourceName: "CJC Source",
         data: [
-          { key: "BuiltIn", name: "Built In" },
-          { key: "ConstVal", name: "Constant Value" },
-          { key: "Chan", name: "Channel" },
+          { key: "BuiltIn", name: "Built In", icon: <Icon.Device /> },
+          { key: "ConstVal", name: "Constant Value", icon: <Icon.Constant /> },
+          { key: "Chan", name: "Channel", icon: <Icon.Channel /> },
         ],
       },
     });

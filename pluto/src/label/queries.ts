@@ -33,7 +33,11 @@ export const retrieveLabelsOf = Flux.createRetrieve<
     {
       channel: label.SET_CHANNEL_NAME,
       onChange: Flux.parsedHandler(label.labelZ, async ({ changed, onChange }) =>
-        onChange((prev) => [...prev.filter((l) => l.key !== changed.key), changed]),
+        onChange((prev) => {
+          const filtered = prev.filter((l) => l.key !== changed.key);
+          if (filtered.length === prev.length) return prev;
+          return [...filtered, changed];
+        }),
       ),
     },
     {

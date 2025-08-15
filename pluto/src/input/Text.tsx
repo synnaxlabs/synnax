@@ -14,13 +14,16 @@ import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as CoreText } from "@/text";
+import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
   extends InputProps<string>,
-    Omit<Button.ExtensionProps, "variant"> {
+    Omit<Button.ExtensionProps, "variant">,
+    Tooltip.WrapProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
@@ -29,6 +32,7 @@ export interface TextProps
   placeholder?: ReactNode;
   children?: ReactNode;
   endContent?: ReactNode;
+  startContent?: ReactNode;
   onlyChangeOnBlur?: boolean;
 }
 
@@ -74,11 +78,23 @@ export const Text = ({
   full,
   children,
   grow,
+  shrink,
   borderColor,
   borderWidth,
   bordered,
   rounded,
   tabIndex,
+  trigger,
+  triggerIndicator,
+  textColor,
+  textVariant,
+  preventClick,
+  onClickDelay,
+  startContent,
+  tooltip,
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -133,19 +149,27 @@ export const Text = ({
 
   tabIndex ??= variant === "preview" ? -1 : undefined;
 
-  return (
+  const outerProps: Flex.BoxProps = {
+    style,
+    full,
+    grow,
+    shrink,
+  };
+  const hasChildren = children != null;
+  const restButtonProps = hasChildren ? {} : outerProps;
+
+  const baseInput = (
     <Button.Button
       el="div"
       x
       empty
-      style={style}
+      align="center"
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
         status != null && CSS.M(status),
         className,
       )}
-      align="center"
       size={size}
       level={level}
       color={pColor}
@@ -155,12 +179,21 @@ export const Text = ({
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
-      grow={grow}
       pack
-      full={full}
       variant={variant}
       rounded={rounded}
       tabIndex={tabIndex}
+      trigger={trigger}
+      triggerIndicator={triggerIndicator}
+      textColor={textColor}
+      textVariant={textVariant}
+      preventClick={preventClick}
+      onClickDelay={onClickDelay}
+      tooltip={tooltip}
+      tooltipDelay={tooltipDelay}
+      tooltipLocation={tooltipLocation}
+      hideTooltip={hideTooltip}
+      {...restButtonProps}
     >
       {showPlaceholder && (
         <CoreText.Text
@@ -172,6 +205,14 @@ export const Text = ({
           level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
         >
           {placeholder}
+        </CoreText.Text>
+      )}
+      {startContent != null && (
+        <CoreText.Text
+          className={CSS.BE("input", "start-content")}
+          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+        >
+          {startContent}
         </CoreText.Text>
       )}
       <input
@@ -200,7 +241,13 @@ export const Text = ({
           {endContent}
         </CoreText.Text>
       )}
-      {children}
     </Button.Button>
+  );
+  if (children == null) return baseInput;
+  return (
+    <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
+      {baseInput}
+      {children}
+    </Flex.Box>
   );
 };

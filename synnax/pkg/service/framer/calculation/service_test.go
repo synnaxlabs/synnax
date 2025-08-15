@@ -313,4 +313,61 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(s.Message).To(ContainSubstring("Failed to start calculation for"))
 		Expect(s.Description).To(ContainSubstring("cannot perform add operation between nil and nil"))
 	})
+
+	It("Should allow the caller to update a calculation", func() {
+		baseCH := channel.Channel{
+			Name:     "base",
+			DataType: telem.Int64T,
+			Virtual:  true,
+		}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		calculatedCH := channel.Channel{
+			Name:        "calculated",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: cluster.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "return base * 2",
+		}
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		w := MustSucceed(dist.Framer.OpenWriter(
+			ctx,
+			framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{baseCH.Key()},
+			},
+		))
+		streamer := MustSucceed(
+			dist.Framer.NewStreamer(
+				ctx,
+				framer.StreamerConfig{
+					Keys: []channel.Key{calculatedCH.Key()},
+				},
+			),
+		)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
+		streamer.Flow(sCtx)
+		time.Sleep(sleepInterval)
+		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
+		series := res.Frame.SeriesAt(0)
+		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(2)))
+		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(4)))
+
+		calculatedCH.Expression = "return base * 3"
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		time.Sleep(sleepInterval)
+		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
+		series = res.Frame.SeriesAt(0)
+		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
+		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(6)))
+		Expect(w.Close()).To(Succeed())
+	})
 })

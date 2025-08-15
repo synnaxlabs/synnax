@@ -161,7 +161,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     result.error.issues.forEach((issue) => {
       const { message } = issue;
       const issuePath = issue.path.join(".");
-      if (path != null && !deep.pathsMatch(issuePath, path) && !deep.pathsMatch(path, issuePath)) return;
+      if (
+        path != null &&
+        !deep.pathsMatch(issuePath, path) &&
+        !deep.pathsMatch(path, issuePath)
+      )
+        return;
       if (!validateUntouched && !this.touched.has(issuePath)) return;
       const variant = getVariant(issue);
       if (variant !== "warning") success = false;

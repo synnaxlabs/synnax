@@ -144,7 +144,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 const EmptyContent = () => (
-  <Text.Text status="disabled">
+  <Text.Text status="disabled" center>
     No cell selected. Select a cell to view its properties.
   </Text.Text>
 );

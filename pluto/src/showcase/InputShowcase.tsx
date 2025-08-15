@@ -69,7 +69,7 @@ export const InputShowcase = () => (
     <Flex.Box x pack grow sharp>
       <SubcategorySection
         title="Text Input Sizes & Variants"
-        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard, text, and preview variants"
+        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard, shadow, text, and preview variants"
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
@@ -81,6 +81,16 @@ export const InputShowcase = () => (
             <InputShowcaseText placeholder="Catalyst" size="medium" />
             <InputShowcaseText placeholder="Catalyst" size="small" />
             <InputShowcaseText placeholder="Catalyst" size="tiny" />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Shadow Variant
+            </Text.Text>
+            <InputShowcaseText placeholder="Catalyst" size="huge" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="large" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="medium" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="small" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="tiny" variant="shadow" />
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>

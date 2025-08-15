@@ -13,9 +13,8 @@ import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
@@ -23,7 +22,6 @@ export interface TimeRangeChipProps
     Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
-  labeled?: boolean;
 }
 
 export const TimeRangeChip = ({
@@ -31,7 +29,6 @@ export const TimeRangeChip = ({
   level = "p",
   color = 9,
   showSpan = false,
-  labeled = false,
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
@@ -41,14 +38,15 @@ export const TimeRangeChip = ({
   const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
   const span = startTS.span(endTS);
 
-  let startTime = (
-    <Flex.Box x align="center" gap="small">
+  const startTime = (
+    <Text.Text x align="center" gap="small">
       {startTS.isToday && (
         <Text.Text level={level} color={color} weight={450}>
           Today
         </Text.Text>
       )}
       <Text.DateTime
+        el="span"
         level={level}
         displayTZ="local"
         format={startFormat}
@@ -57,16 +55,19 @@ export const TimeRangeChip = ({
       >
         {startTS}
       </Text.DateTime>
-    </Flex.Box>
+    </Text.Text>
   );
 
-  let endTime = (
+  const endTime = (
     <>
       {isOpen ? (
-        <Text.Text level={level}>Now</Text.Text>
+        <Text.Text level={level} el="span">
+          Now
+        </Text.Text>
       ) : (
         <Text.DateTime
           level={level}
+          el="span"
           displayTZ="local"
           format={endFormat}
           color={color}
@@ -76,37 +77,26 @@ export const TimeRangeChip = ({
         </Text.DateTime>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} color={color} weight={450}>
+        <Text.Text level={level} color={color} weight={450} el="span">
           ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
     </>
   );
 
-  if (labeled) {
-    startTime = (
-      <Input.Item label="Start" showHelpText={false}>
-        {startTime}
-      </Input.Item>
-    );
-    endTime = (
-      <Input.Item label="End" showHelpText={false}>
-        {endTime}
-      </Input.Item>
-    );
-  }
-
   return (
-    <Flex.Box
+    <Text.Text
       x
       gap="small"
       className={CSS(CSS.B("time-range-chip"))}
       align="center"
+      level={level}
+      color={color}
       {...rest}
     >
       {startTime}
-      <Icon.Arrow.Right color={9} style={{ width: "1rem", height: "1rem" }} />
+      <Icon.Arrow.Right color={9} />
       {endTime}
-    </Flex.Box>
+    </Text.Text>
   );
 };

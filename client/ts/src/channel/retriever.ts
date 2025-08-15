@@ -45,6 +45,7 @@ const reqZ = z.object({
   virtual: z.boolean().optional(),
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional(),
+  calculated: z.boolean().optional(),
 });
 export interface RetrieveRequest extends z.input<typeof reqZ> {}
 

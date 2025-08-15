@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
@@ -227,8 +229,15 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 }
 
 func translateGRPCError(err error) error {
+	if err == nil {
+		return err
+	}
 	if errors.Is(err, io.EOF) {
 		return freighter.EOF
+	}
+	s := status.Convert(err)
+	if s.Code() == codes.Canceled {
+		err = context.Canceled
 	}
 	return errors.WithStackDepth(err, 1)
 }

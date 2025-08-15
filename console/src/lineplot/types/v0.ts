@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text, Viewport } from "@synnaxlabs/pluto";
+import { telem, Text, Viewport } from "@synnaxlabs/pluto";
 import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -97,6 +97,7 @@ export const lineStateZ = z.object({
   color: z.string(),
   strokeWidth: z.number(),
   downsample: z.number(),
+  downsampleMode: telem.downsampleModeZ.default("decimate"),
 });
 
 export type LineState = z.infer<typeof lineStateZ>;
@@ -109,6 +110,7 @@ export const ZERO_LINE_STATE: Omit<LineState, "key"> = {
   color: "",
   strokeWidth: 2,
   downsample: 1,
+  downsampleMode: "decimate",
 };
 
 export const ZERO_LINES_STATE: LinesState = [];

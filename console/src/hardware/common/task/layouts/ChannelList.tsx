@@ -33,6 +33,7 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
           variant="text"
           contrast={2}
           tooltip="Add Channel"
+          sharp
         >
           <Icon.Add />
         </Button.Button>

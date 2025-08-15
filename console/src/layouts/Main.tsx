@@ -43,7 +43,7 @@ const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  linePlot: LinePlotServices.handleLink,
+  lineplot: LinePlotServices.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,
   schematic: SchematicServices.handleLink,

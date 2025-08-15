@@ -47,7 +47,7 @@ export class Provider extends aether.Composite<typeof providerStateZ, InternalSt
     if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     const client = synnax.use(ctx);
     const handleError = status.useErrorHandler(ctx);
-    i.streamer ??= new Streamer(handleError);
+    i.streamer ??= new Streamer({ handleError });
     if (client == null) return;
     handleError(
       async () => await i.streamer.updateStreamer(client.openStreamer.bind(client)),

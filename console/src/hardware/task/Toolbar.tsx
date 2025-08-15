@@ -250,7 +250,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Flex.Box x className={CSS.BE("task", "title")}>
+          <Flex.Box x className={CSS.BE("task", "title")} align="center">
             {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
@@ -310,14 +310,12 @@ const ContextMenu = ({
   const handleEdit = useCallback(
     (key: task.Key) => {
       const task = selectedTasks.find((t) => t.key === key);
-      if (task == null) {
-        addStatus({
+      if (task == null)
+        return addStatus({
           variant: "error",
           message: "Failed to open task details",
           description: `Task with key ${key} not found`,
         });
-        return;
-      }
       const layout = createLayout(task);
       placeLayout(layout);
     },
@@ -327,14 +325,12 @@ const ContextMenu = ({
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
-      if (name == null) {
-        addStatus({
+      if (name == null)
+        return addStatus({
           variant: "error",
           message: "Failed to copy link",
           description: `Task with key ${key} not found`,
         });
-        return;
-      }
       copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
     },
     [selectedTasks, addStatus, copyLinkToClipboard],

@@ -223,9 +223,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Text.Text status={connectionState.variant}>
+            <Status.Summary status={connectionState.variant}>
               {connectionState.message}
-            </Text.Text>
+            </Status.Summary>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>

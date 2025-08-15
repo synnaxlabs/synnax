@@ -65,6 +65,8 @@ export const Numeric = ({
   onBlur,
   units,
   size,
+  color,
+  contrast,
   ...rest
 }: NumericProps): ReactElement => {
   // We need to keep the actual value as a valid number, but we need to let the user
@@ -151,6 +153,8 @@ export const Numeric = ({
       }}
       onBlur={handleBlur}
       size={size}
+      color={color}
+      contrast={contrast}
       {...rest}
     >
       {showDragHandle && (
@@ -162,6 +166,8 @@ export const Numeric = ({
           resetValue={resetValue}
           onBlur={handleBlur}
           size={size}
+          color={color}
+          contrast={contrast}
         />
       )}
       {children}

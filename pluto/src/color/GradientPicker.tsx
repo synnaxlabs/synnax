@@ -173,7 +173,13 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         onDragStart={onDragStart}
         empty
       >
-        <div className={CSS.BE("gradient-picker", "stop-line")} />
+        <div 
+          className={CSS.BE("gradient-picker", "stop-line")} 
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onDelete(stop.key);
+          }}
+        />
         <Text.Editable
           level="small"
           value={scale.pos(stop.position).toFixed(2)}

@@ -28,6 +28,12 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
+const dateComponentsZ = z.union([
+  z.tuple([z.int()]),
+  z.tuple([z.int(), z.int().min(1).max(12)]),
+  z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
+]);
+
 /**
  * A triple of numbers representing a date.
  *
@@ -35,7 +41,7 @@ export type TimeStampStringFormat =
  * @param month - The month.
  * @param day - The day.
  */
-export type DateComponents = [number?, number?, number?];
+export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
@@ -644,10 +650,14 @@ export class TimeStamp
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(TimeStamp),
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.number().transform((n) => new TimeStamp(n)),
-    z.instanceof(TimeStamp),
+    z.bigint().transform((n) => new TimeStamp(n)),
+    z.date().transform((d) => new TimeStamp(d)),
+    z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
+    dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
   /**

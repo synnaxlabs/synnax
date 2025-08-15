@@ -78,7 +78,7 @@ export const AliasInput = ({
     );
 
   return (
-    <Input.Text {...rest}>
+    <Input.Text selectOnFocus {...rest}>
       {canSetAlias && (
         <Button.Button
           onClick={handleSetValueToAlias}

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type framer } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -26,15 +27,24 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {
   openStreamer?: framer.StreamOpener;
+  streamerRemovalDelay?: CrudeTimeSpan;
 }
+
+const STREAMER_REMOVAL_DELAY = TimeSpan.seconds(5);
 
 export const Provider = ({
   children,
   openStreamer: propsOpenStreamer,
+  streamerRemovalDelay = STREAMER_REMOVAL_DELAY,
 }: ProviderProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const streamerRef = useRef<flux.Streamer>(new flux.Streamer(handleError));
+  const streamerRef = useRef<flux.Streamer>(
+    new flux.Streamer({
+      handleError,
+      removalDelay: streamerRemovalDelay,
+    }),
+  );
 
   const { path } = Aether.useLifecycle({
     type: flux.Provider.TYPE,

@@ -65,7 +65,10 @@ func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
 // WhereVirtual filters the query for channels that are virtual if virtual is true, or are
 // not virtual if virtual is false.
 func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return ch.Virtual == virtual }, gorp.Required())
+	r.gorp.Where(func(ch *Channel) bool {
+		isVirtual := ch.Virtual && !ch.IsCalculated()
+		return isVirtual == virtual
+	}, gorp.Required())
 	return r
 }
 

@@ -207,8 +207,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Build TypeScript
+        run: pnpm build:console-vite
+
       - name: Pre-sign Embedded lua-language-server (Before Build)
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' 
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
@@ -222,6 +225,27 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
+
+      - name: Build
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        working-directory: console
+        run: pnpm build
+
+      - name: Upload macOS Release Asset
+        if:
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          matrix.os == 'macos-latest'
+        run: |
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
+          
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest'
         run: |
@@ -233,25 +257,6 @@ jobs:
           mkdir relic-bin
           mv relic.exe relic-bin\
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
-
-      - name: Build
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm build:console
-
-      - name: Upload macOS Release Asset
-        if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          matrix.os == 'macos-latest'
-        run: |
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Sign Windows Release Asset
         if:

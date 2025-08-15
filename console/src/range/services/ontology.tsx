@@ -190,7 +190,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       const resources = resourceIDs.map((r) => getResource(r));
       const stringIDs = resourceIDs.map((id) => ontology.idToString(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
-      setNodes(Tree.removeNode({ tree: nodes, keys: stringIDs }));
+      setNodes([...Tree.removeNode({ tree: nodes, keys: stringIDs })]);
       const rangesToRemove = resourceIDs
         .filter((id) => id.type === "range")
         .map((id) => id.key);

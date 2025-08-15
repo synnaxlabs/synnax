@@ -94,6 +94,26 @@ export const ButtonShowcase = () => (
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
+              Shadow
+            </Text.Text>
+            <Button.Button size="huge" variant="shadow">
+              Hello
+            </Button.Button>
+            <Button.Button size="large" variant="shadow">
+              Hello
+            </Button.Button>
+            <Button.Button size="medium" variant="shadow">
+              Hello
+            </Button.Button>
+            <Button.Button size="small" variant="shadow">
+              Hello
+            </Button.Button>
+            <Button.Button size="tiny" variant="shadow">
+              Hello
+            </Button.Button>
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
               Preview
             </Text.Text>
             <Button.Button size="huge" variant="preview">
@@ -140,6 +160,10 @@ export const ButtonShowcase = () => (
               <Icon.Add />
               Hello
             </Button.Button>
+            <Button.Button size="large" variant="shadow">
+              <Icon.Add />
+              Hello
+            </Button.Button>
             <Button.Button size="large" variant="preview">
               <Icon.Add />
               Hello
@@ -159,6 +183,9 @@ export const ButtonShowcase = () => (
               <Icon.Auto />
             </Button.Button>
             <Button.Button size="large" variant="outlined">
+              <Icon.Auto />
+            </Button.Button>
+            <Button.Button size="large" variant="shadow">
               <Icon.Auto />
             </Button.Button>
             <Button.Button size="large" variant="preview">
@@ -184,6 +211,9 @@ export const ButtonShowcase = () => (
               Hello
             </Button.Button>
             <Button.Button disabled variant="text">
+              Hello
+            </Button.Button>
+            <Button.Button disabled variant="shadow">
               Hello
             </Button.Button>
             <Button.Button disabled variant="preview">
@@ -263,6 +293,9 @@ export const ButtonShowcase = () => (
             <Button.Button status="warning" variant="text">
               Hello
             </Button.Button>
+            <Button.Button status="warning" variant="shadow">
+              Hello
+            </Button.Button>
             <Button.Button status="warning" variant="preview">
               Hello
             </Button.Button>
@@ -276,6 +309,9 @@ export const ButtonShowcase = () => (
               Hello
             </Button.Button>
             <Button.Button status="error" variant="text">
+              Hello
+            </Button.Button>
+            <Button.Button status="error" variant="shadow">
               Hello
             </Button.Button>
             <Button.Button status="error" variant="preview">

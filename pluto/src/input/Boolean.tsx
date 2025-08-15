@@ -12,7 +12,6 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
-import { stopPropagation } from "@/util/event";
 
 export interface BooleanProps
   extends InputProps<boolean>,
@@ -75,15 +74,11 @@ export const Boolean = ({
           ref={ref}
           checked={value}
           onChange={(e) => onChange?.(e.target.checked)}
-          onClick={stopPropagation}
           value=""
           disabled={disabled}
           {...rest}
         />
-        <span
-          className={CSS.BE("input", inputType, "indicator")}
-          onClick={stopPropagation}
-        />
+        <span className={CSS.BE("input", inputType, "indicator")} />
       </>
     ) : value ? (
       "True"
