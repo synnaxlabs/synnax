@@ -49,6 +49,24 @@ const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
   return "error";
 };
 
+export const zodErrorsToStatuses = (
+  issues: z.core.$ZodIssue[],
+  path: PropertyKey[],
+  accumulated: status.Crude[],
+): status.Crude[] => {
+  issues.forEach((issue) => {
+    const issuePath = [...path, ...issue.path];
+    accumulated.push({
+      key: issuePath.join("."),
+      variant: getVariant(issue),
+      message: issue.message,
+    });
+    if (issue.code === "invalid_union" && issue.errors != null)
+      zodErrorsToStatuses(issue.errors.flat(), issuePath, accumulated);
+  });
+  return accumulated;
+};
+
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
   values: z.infer<Z>;
@@ -158,19 +176,20 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     // Parse was a complete success. No errors encountered.
     if (result.success) return true;
     let success = true;
-    result.error.issues.forEach((issue) => {
-      const { message } = issue;
-      const issuePath = issue.path.join(".");
+    const statuses = zodErrorsToStatuses(result.error.issues, [], []);
+    statuses.forEach((status) => {
+      const { key: issuePath, message, variant } = status;
+      if (issuePath == null) return;
+      const transformedPath = deep.resolvePath(issuePath, this.values);
       if (
         path != null &&
-        !deep.pathsMatch(issuePath, path) &&
-        !deep.pathsMatch(path, issuePath)
+        !deep.pathsMatch(transformedPath, path) &&
+        !deep.pathsMatch(path, transformedPath)
       )
         return;
       if (!validateUntouched && !this.touched.has(issuePath)) return;
-      const variant = getVariant(issue);
       if (variant !== "warning") success = false;
-      this.setStatus(issuePath, { key: issuePath, variant, message });
+      this.setStatus(transformedPath, { key: issuePath, variant, message });
     });
     return success;
   }
