@@ -18,10 +18,12 @@ import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as CoreText } from "@/text";
+import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
   extends InputProps<string>,
-    Omit<Button.ExtensionProps, "variant"> {
+    Omit<Button.ExtensionProps, "variant">,
+    Tooltip.WrapProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
@@ -76,6 +78,7 @@ export const Text = ({
   full,
   children,
   grow,
+  shrink,
   borderColor,
   borderWidth,
   bordered,
@@ -88,6 +91,10 @@ export const Text = ({
   preventClick,
   onClickDelay,
   startContent,
+  tooltip,
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -146,6 +153,7 @@ export const Text = ({
     style,
     full,
     grow,
+    shrink,
   };
   const hasChildren = children != null;
   const restButtonProps = hasChildren ? {} : outerProps;
@@ -181,6 +189,10 @@ export const Text = ({
       textVariant={textVariant}
       preventClick={preventClick}
       onClickDelay={onClickDelay}
+      tooltip={tooltip}
+      tooltipDelay={tooltipDelay}
+      tooltipLocation={tooltipLocation}
+      hideTooltip={hideTooltip}
       {...restButtonProps}
     >
       {showPlaceholder && (
