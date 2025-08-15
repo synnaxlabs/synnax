@@ -89,9 +89,14 @@ class Test_Conductor:
     - Provides real-time status updates (async)
     """
     
-    def __init__(self, name, server_address: str = "localhost", port: int = 9090,
-                 username: str = "synnax", password: str = "seldon", 
-                 secure: bool = False):
+    def __init__(self, 
+                 name: str, 
+                 server_address: str = "localhost", 
+                 port: int = 9090,
+                 username: str = "synnax", 
+                 password: str = "seldon", 
+                 secure: bool = False,
+                 ):
         """
         Initialize the Test Conductor.
         
@@ -133,7 +138,8 @@ class Test_Conductor:
             secure=secure,
         )
         
-        self.state = STATE.INITIALIZING
+        # Initialize Test Conductor
+        self.state : STATE = STATE.INITIALIZING
 
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
@@ -155,9 +161,7 @@ class Test_Conductor:
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         self._start_client_manager_async()
-
-        time.sleep(20)
-        self.state[f"{self.name}_state"] = STATE.SHUTDOWN.value
+        time.sleep(3) # Wait for client manager to start
     
 
     def _validate_and_sanitize_name(self, name: str) -> str:
@@ -197,7 +201,7 @@ class Test_Conductor:
             name=f"{self.name}_client_manager"
         )
         self.client_manager_thread.start()
-        print(f"Client manager started asynchronously for {self.name}")
+        print(f"{self.name} > Client manager started (async)")
     
     def _client_manager(self) -> None:
         
@@ -242,11 +246,11 @@ class Test_Conductor:
         )   
 
         """
-        Initialize Test Conductor State
+        Initialize Test Conductor Telemetry
         """
         start_time = sy.TimeStamp.now()
 
-        self.state = {
+        self.tlm = {
             f"{self.name}_time": start_time,
             f"{self.name}_uptime": 0,
             f"{self.name}_state": STATE.INITIALIZING.value,
@@ -270,7 +274,7 @@ class Test_Conductor:
             enable_auto_commit=True,
         ) as writer:
             # Write initial state
-            writer.write(self.state)
+            writer.write(self.tlm)
 
             while loop.wait() and not self.should_stop:
                 """
@@ -279,17 +283,23 @@ class Test_Conductor:
                 now = sy.TimeStamp.now()
                 uptime_value = (now - start_time)/1E9
                 
-                self.state[f"{self.name}_time"] = now
-                self.state[f"{self.name}_uptime"] = uptime_value
+                self.tlm[f"{self.name}_time"] = now
+                self.tlm[f"{self.name}_uptime"] = uptime_value
+                self.tlm[f"{self.name}_state"] = self.state.value
 
-                # Write state 
-                writer.write(self.state)
-            
-                if self.state[f"{self.name}_state"] >= STATE.SHUTDOWN.value:
-                    self.state[f"{self.name}_state"] = STATE.COMPLETED.value
+                # Write Tlm 
+                writer.write(self.tlm)
+
+                # Check for shutdown or completion
+                if self.state in [STATE.SHUTDOWN, STATE.COMPLETED]:
+                    self.state = STATE.COMPLETED
+                    self.tlm[f"{self.name}_state"] = self.state.value
+                    writer.write(self.tlm)
                     break
+
+            print(f"{self.name} > Client manager shutting down")
     
-    def _load_test_sequence(self, sequence: str=None) -> None:
+    def load_test_sequence(self, sequence: str=None) -> None:
         """
         Load test sequence from a JSON configuration file.
         Args:
@@ -305,18 +315,14 @@ class Test_Conductor:
             ]
         }
         """
-
-        self.state[f"{self.name}_state"] = STATE.LOADING.value
-        time.sleep(5) # Wait for client manager to start
-
-        if sequence is not None:
-            self._load_test_sequence(sequence)
-        else:
+        self.state = STATE.LOADING
+        
+        if sequence is None:
             raise ValueError("Path to JSON Sequence file is required (--sequence)")
 
         # Convert to Path object and resolve relative paths
         sequence_path = Path(sequence)
-        
+        print(f"Sequence path: {sequence_path}")
         # If it's a relative path, resolve it relative to the current working directory
         if not sequence_path.is_absolute():
             sequence_path = sequence_path.resolve()
@@ -347,8 +353,8 @@ class Test_Conductor:
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
         
-        print(f"Loading test sequence from: {sequence_path}")
-        
+        print(f"{self.name} > Loading test sequence from: {sequence_path}")
+        time.sleep(3)
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
@@ -367,7 +373,46 @@ class Test_Conductor:
                 ordering = "Random"
                 random.shuffle(self.test_definitions)
 
-        print(f"Loaded {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
+        print(f"{self.name} > Loaded {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
+    
+    def wait_for_completion(self) -> None:
+        """
+        Wait for all async processes to complete before allowing main to exit.
+        This ensures proper cleanup and prevents premature termination.
+        """
+        self.state = STATE.SHUTDOWN
+        print(f"{self.name} > Shutting down async processes...")
+        
+        # Wait for client manager thread to finish
+        if self.client_manager_thread and self.client_manager_thread.is_alive():
+            print(f"{self.name} > Waiting for client manager to shutdown...")
+            self.client_manager_thread.join()
+            print(f"{self.name} > Client manager has stopped")
+        
+        # Wait for any other threads
+        if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
+            print(f"{self.name} > Waiting for timeout monitor to shutdown...")
+            self.timeout_monitor_thread.join()
+        
+        if self.current_test_thread and self.current_test_thread.is_alive():
+            print(f"{self.name} > Waiting for current test to complete...")
+            self.current_test_thread.join()
+        
+        self.state = STATE.COMPLETED
+        print(f"{self.name} > All async processes have completed")
+    
+    def shutdown(self) -> None:
+        """
+        Gracefully shutdown the test conductor and all its processes.
+        """
+        print(f"{self.name} > Initiating shutdown...")
+        self.state = STATE.SHUTDOWN
+        self.should_stop = True
+        
+        # Wait for all processes to complete
+        self.wait_for_completion()
+        
+        print(f"{self.name} > Shutdown complete")
     
     def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -672,7 +717,7 @@ class Test_Conductor:
     def _signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown."""
         print(f"\nReceived signal {signum}. Stopping test execution...")
-        self.stop_sequence()
+        self.shutdown()
         sys.exit(0)
 
 
@@ -730,13 +775,30 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Create and run test conductor
-    conductor = Test_Conductor(name=args.name, 
+    conductor = Test_Conductor( name=args.name, 
                                 server_address=args.server, 
                                 port=args.port,
-                                sequence = args.sequence,
+                                username=args.username,
+                                password=args.password,
+                                secure=args.secure,
                                 )
 
-    conductor._load_test_sequence(args.sequence_file)
-    
-    # Run tests
-    #results = conductor.run_sequence()
+    try:
+        conductor.load_test_sequence(args.sequence)
+        # Run tests
+        #results = conductor.run_sequence()
+        
+        # Wait for all async processes to complete before exiting
+        conductor.wait_for_completion()
+        
+    except KeyboardInterrupt:
+        print("\nKeyboard interrupt received. Shutting down gracefully...")
+        conductor.shutdown()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        conductor.shutdown()
+        raise
+    finally:
+        # Ensure cleanup even if something goes wrong
+        print("Main process ending...")
+
