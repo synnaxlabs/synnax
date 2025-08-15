@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, notation, scale, status } from "@synnaxlabs/x";
+import { UnexpectedError } from "@synnaxlabs/client";
+import {
+  bounds,
+  color,
+  MultiSeries,
+  notation,
+  scale,
+  Series,
+  status,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -19,6 +28,7 @@ import {
   type ColorSourceSpec,
   MultiSourceTransformer,
   type NumberSourceSpec,
+  type SeriesSourceSpec,
   type Spec,
   type StringSourceSpec,
   type Telem,
@@ -46,6 +56,8 @@ export class TransformerFactory implements Factory {
         return new ColorGradient(spec.props);
       case ScaleNumber.TYPE:
         return new ScaleNumber(spec.props);
+      case SeriesDownsampler.TYPE:
+        return new SeriesDownsampler(spec.props);
     }
     return null;
   }
@@ -278,4 +290,166 @@ export const scaleNumber = (
   type: ScaleNumber.TYPE,
   variant: "source",
   valueType: "number",
+});
+
+export const downsampleModeZ = z.enum(["average", "minmax", "decimate"]);
+
+export type DownsampleMode = z.infer<typeof downsampleModeZ>;
+
+export const downsampleModeProps = z.object({
+  mode: downsampleModeZ,
+  windowSize: z.number().optional().default(5),
+});
+
+export type DownsampleModeProps = z.infer<typeof downsampleModeProps>;
+
+export const downsampleMode = (props: DownsampleModeProps): NumberSourceSpec => ({
+  props,
+  type: SeriesDownsampler.TYPE,
+  variant: "source",
+  valueType: "number",
+});
+
+interface DownsampleFunction {
+  (source: Series, downsampled: Series, windowSize: number): void;
+}
+
+const decimate: DownsampleFunction = (source, downsampled, windowSize) => {
+  const startIdx = downsampled.length * windowSize;
+
+  for (let i = startIdx; i < source.length; i += windowSize) {
+    const sample = source.sub(i, i + 1);
+    if (sample !== undefined) downsampled.write(sample);
+  }
+};
+
+const average: DownsampleFunction = (source, downsampled, windowSize) => {
+  const startIdx = downsampled.length * windowSize;
+
+  for (let i = startIdx; i < source.length; i += windowSize) {
+    const endIdx = Math.min(i + windowSize, source.length);
+    let sum = 0;
+    let count = 0;
+
+    for (let j = i; j < endIdx; j++) {
+      const val = source.at(j);
+      if (val !== undefined && typeof val === "number") {
+        sum += val;
+        count++;
+      }
+    }
+
+    if (count > 0)
+      downsampled.write(
+        new Series({
+          data: [sum / count],
+          dataType: source.dataType,
+        }),
+      );
+  }
+};
+
+const minmax: DownsampleFunction = (source, downsampled, windowSize) => {
+  const startIdx = (downsampled.length / 2) * windowSize;
+
+  for (let i = startIdx; i < source.length; i += windowSize) {
+    const endIdx = Math.min(i + windowSize, source.length);
+    let min = Infinity;
+    let max = -Infinity;
+    let hasValues = false;
+
+    for (let j = i; j < endIdx; j++) {
+      const val = source.at(j);
+      if (val !== undefined && typeof val === "number") {
+        min = Math.min(min, val);
+        max = Math.max(max, val);
+        hasValues = true;
+      }
+    }
+
+    if (hasValues)
+      downsampled.write(
+        new Series({
+          data: [min, max],
+          dataType: source.dataType,
+        }),
+      );
+  }
+};
+
+const DOWNSAMPLE_FUNCTIONS: Record<DownsampleMode, DownsampleFunction> = {
+  decimate,
+  average,
+  minmax,
+};
+
+export class SeriesDownsampler extends UnarySourceTransformer<
+  [bounds.Bounds, MultiSeries],
+  [bounds.Bounds, MultiSeries],
+  typeof downsampleModeProps
+> {
+  static readonly TYPE = "series-downsampler";
+  static readonly propsZ = downsampleModeProps;
+  private _downsample: DownsampleFunction | null = null;
+  private readonly cache: MultiSeries = new MultiSeries();
+  schema = SeriesDownsampler.propsZ;
+
+  private downsample(source: MultiSeries): DownsampleFunction {
+    if (this._downsample == null)
+      if (source.series[0].sampleOffset !== 0) this._downsample = decimate;
+      else this._downsample = DOWNSAMPLE_FUNCTIONS[this.props.mode];
+    return this._downsample;
+  }
+
+  protected transform(
+    value: [bounds.Bounds, MultiSeries],
+  ): [bounds.Bounds, MultiSeries] {
+    const [bounds, source] = value;
+    if (source.series.length === 0) return [bounds, this.cache];
+
+    // Step 1: Evict Removed Series from Cache. We know we have an old entry if
+    // the key of the first series in the source is not equal to the key of the
+    // first series in the cache.
+    while (
+      this.cache.series.length > 0 &&
+      source.series[0].key !== this.cache.series[0].key
+    )
+      this.cache.series.shift();
+
+    // Step 2: Update the downsampled series in the cache.
+    source.series.forEach((ser, i) => {
+      let downsampledSeries = this.cache.series.at(i);
+      // Step 2A: If the series is not in the cache, allocate a new series.
+      if (downsampledSeries == null) {
+        const capacity =
+          this.props.mode === "minmax"
+            ? Math.ceil(ser.capacity / this.props.windowSize) * 2
+            : Math.ceil(ser.capacity / this.props.windowSize);
+        downsampledSeries = Series.alloc({
+          key: ser.key,
+          dataType: ser.dataType,
+          capacity,
+          alignment: ser.alignment,
+          sampleOffset: ser.sampleOffset,
+          timeRange: ser.timeRange,
+        });
+        this.cache.push(downsampledSeries);
+      } else if (downsampledSeries.key !== ser.key)
+        throw new UnexpectedError(
+          `[SeriesDownsampler] - expected series with key ${ser.key} to be in cache, but found ${downsampledSeries.key}`,
+        );
+
+      this.downsample(source)(ser, downsampledSeries, this.props.windowSize);
+    });
+    return [this.cache.bounds, this.cache];
+  }
+}
+
+export const seriesDownsampler = (
+  props: z.input<typeof downsampleModeProps>,
+): SeriesSourceSpec => ({
+  props,
+  type: SeriesDownsampler.TYPE,
+  variant: "source",
+  valueType: "series",
 });
