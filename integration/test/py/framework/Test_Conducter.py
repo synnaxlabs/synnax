@@ -73,11 +73,8 @@ class TestResult:
 @dataclass
 class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
-    name: str
-    module_path: str
-    class_name: str
+    test_case: str
     parameters: Dict[str, Any] = field(default_factory=dict)
-    timeout: Optional[float] = None
 
 
 class Test_Conductor:
@@ -105,9 +102,9 @@ class Test_Conductor:
             password: Authentication password
             secure: Whether to use secure connection
         """
+
         # Should we use the transport or authentication client address
         # instead of a uuid?
-
         if name is None:
             # Generate a 6-character random alphanumeric string
             random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
@@ -116,13 +113,18 @@ class Test_Conductor:
             # Validate and sanitize the provided name
             self.name = self._validate_and_sanitize_name(str(name).lower())
         
-        # Store connection parameters for test instantiation
-        self.server_address = server_address
-        self.port = port
-        self.username = username
-        self.password = password
-        self.secure = secure
         
+        # Store connection parameters to
+        # pass down to test cases
+        self.core_connection_params = {
+            "server_address": server_address,
+            "port": port,
+            "username": username,
+            "password": password,
+            "secure": secure,
+        }
+        
+        # Test Conductor Client
         self.client = sy.Synnax(
             host=server_address,
             port=port,
@@ -130,8 +132,6 @@ class Test_Conductor:
             password=password,
             secure=secure,
         )
-        for k, v in self.client.__dict__.items():
-            print(k, v)
         
         self.state = STATE.INITIALIZING
 
@@ -156,10 +156,10 @@ class Test_Conductor:
 
         self._start_client_manager_async()
 
-        time.sleep(15)
+        time.sleep(20)
         self.state[f"{self.name}_state"] = STATE.SHUTDOWN.value
-        time.sleep(10)
     
+
     def _validate_and_sanitize_name(self, name: str) -> str:
         """
         Validate and sanitize the name to only contain alphanumeric characters, 
@@ -263,6 +263,8 @@ class Test_Conductor:
                 time,
                 uptime,
                 state,
+                test_case_count,
+                test_case_index,
             ],
             name=self.name,
             enable_auto_commit=True,
@@ -286,43 +288,86 @@ class Test_Conductor:
                 if self.state[f"{self.name}_state"] >= STATE.SHUTDOWN.value:
                     self.state[f"{self.name}_state"] = STATE.COMPLETED.value
                     break
-  
-    def load_test_sequence(self, sequence_file_path: str) -> None:
+    
+    def _load_test_sequence(self, sequence: str=None) -> None:
         """
         Load test sequence from a JSON configuration file.
+        Args:
+            sequence: Path to the test sequence JSON file (can be relative or absolute)
         
         Expected format:
         {
             "tests": [
                 {
                     "test_case": "testcases.check_connection_basic",
-                    "parameters": {"param1": "value1"},
+                    "parameters": {"param1": "value1"}, # Optional
                 }
             ]
         }
-        
-        Args:
-            sequence_file_path: Path to the test sequence JSON file
         """
-        sequence_path = Path(sequence_file_path)
+
+        self.state[f"{self.name}_state"] = STATE.LOADING.value
+        time.sleep(5) # Wait for client manager to start
+
+        if sequence is not None:
+            self._load_test_sequence(sequence)
+        else:
+            raise ValueError("Path to JSON Sequence file is required (--sequence)")
+
+        # Convert to Path object and resolve relative paths
+        sequence_path = Path(sequence)
+        
+        # If it's a relative path, resolve it relative to the current working directory
+        if not sequence_path.is_absolute():
+            sequence_path = sequence_path.resolve()
+        
+        # Check if the resolved path exists
         if not sequence_path.exists():
-            raise FileNotFoundError(f"Test sequence file not found: {sequence_file_path}")
+            # Try some common relative locations if the direct path doesn't work
+            possible_paths = [
+                Path.cwd() / sequence,  # Current working directory
+                Path(__file__).parent / sequence,  # Same directory as this script
+                Path(__file__).parent.parent / sequence,  # Parent directory of this script
+            ]
+            
+            # Find the first path that exists
+            found_path = None
+            for path in possible_paths:
+                if path.exists():
+                    found_path = path.resolve()
+                    break
+            
+            if found_path:
+                sequence_path = found_path
+                print(f"Found sequence file at: {sequence_path}")
+            else:
+                raise FileNotFoundError(
+                    f"Test sequence file not found: {sequence}\n"
+                    f"Tried paths:\n" + 
+                    "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
+                )
+        
+        print(f"Loading test sequence from: {sequence_path}")
         
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
         self.test_definitions = []
-        for test_config in sequence_data.get("tests", []):
+        for test in sequence_data.get("tests", []):
             test_def = TestDefinition(
-                name=test_config["name"],
-                module_path=test_config["module_path"],
-                class_name=test_config["class_name"],
-                parameters=test_config.get("parameters", {}),
-                timeout=test_config.get("timeout")
+                test_case=test["case"],
+                parameters=test.get("parameters", {}),
             )
             self.test_definitions.append(test_def)
         
-        print(f"Loaded {len(self.test_definitions)} tests from {sequence_file_path}")
+        # Randomize the test order if specified
+        ordering = "Sequential"
+        if "sequence_order" in sequence_data:
+            if sequence_data["sequence_order"].lower() == "random":
+                ordering = "Random"
+                random.shuffle(self.test_definitions)
+
+        print(f"Loaded {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
     
     def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -677,16 +722,21 @@ if __name__ == "__main__":
     parser.add_argument("--name", default=None, help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
-    #parser.add_argument("sequence_file", help="Path to test sequence JSON file")
+    parser.add_argument("--username", default="synnax", help="Synnax username")
+    parser.add_argument("--password", default="seldon", help="Synnax password")
+    parser.add_argument("--secure", default=False, help="Use secure connection")
+    parser.add_argument("--sequence", help="Path to test sequence JSON file (required)")
     
     args = parser.parse_args()
-
     
     # Create and run test conductor
     conductor = Test_Conductor(name=args.name, 
                                 server_address=args.server, 
-                                port=args.port)
-    #conductor.load_test_sequence(args.sequence_file)
+                                port=args.port,
+                                sequence = args.sequence,
+                                )
+
+    conductor._load_test_sequence(args.sequence_file)
     
     # Run tests
     #results = conductor.run_sequence()

@@ -3,7 +3,7 @@ name: Test - Integration (End-to-End)
 on:
   push:
     branches:
-      - "sy-2769-integration-test-development"
+      - "EMPTY"
   workflow_dispatch:
 
 env:

@@ -1,9 +1,15 @@
 {
-    "sequence_order": "Random",
+    "sequence_order": "Sequential",
     "tests": [
         {
-            "test_case": "testcases.check_connection_basic",
+            "case": "testcases.check_connection_basic1"
+        },
+        {
+            "case": "testcases.check_connection_basic2",
             "parameters": {}
+        },
+        {
+            "case": "testcases.check_connection_basic3"
         }
     ]
 }
