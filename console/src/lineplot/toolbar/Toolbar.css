@@ -13,10 +13,10 @@
     height: 100%;
     .console-line-plot__toolbar-lines {
         .pluto-list__item {
-            padding: 0.5rem 1rem;
-            & > div:not(:first-child, :last-child) {
-                min-width: 80px;
-                max-width: 80px;
+            padding: 0.5rem 5rem 0.5rem 1rem;
+            & > div:is(:nth-child(2), :nth-child(3)) {
+                min-width: 90px;
+                max-width: 125px;
             }
         }
     }

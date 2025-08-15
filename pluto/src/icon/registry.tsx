@@ -63,6 +63,7 @@ import {
   IoCopy,
   IoNotificationsOff,
   IoShapes,
+  IoTerminal,
   IoTime,
 } from "react-icons/io5";
 import {
@@ -465,6 +466,7 @@ export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -599,6 +601,7 @@ const icons = {
   Linear,
   None,
   Constant,
+  Terminal,
 };
 
 export const resolve = ((
