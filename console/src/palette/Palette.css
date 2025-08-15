@@ -31,6 +31,9 @@
     width: 95vw;
     max-width: 1200px;
     overflow: visible !important;
+    & .pluto-list__items--empty {
+        min-height: 20rem;
+    }
 }
 
 .console-palette__list {
