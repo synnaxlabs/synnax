@@ -111,6 +111,7 @@ const Line = ({
         dragScale={STROKE_WIDTH_DRAG_SCALE}
         bounds={STROKE_WIDTH_BOUNDS}
         shrink={false}
+        tooltip="Stroke Width"
       />
       <Input.Numeric
         variant="shadow"
@@ -120,6 +121,7 @@ const Line = ({
         dragScale={DOWNSAMPLE_DRAG_SCALE}
         bounds={DOWNSAMPLE_BOUNDS}
         shrink={false}
+        tooltip="Downsample"
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>
