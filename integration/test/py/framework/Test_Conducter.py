@@ -9,31 +9,40 @@
 
 
 import json
+import uuid
 import asyncio
 import threading
 import time
 import signal
 import sys
+import random
+import string
+import re
 from typing import List, Dict, Any, Optional, Callable
 from pathlib import Path
-from enum import Enum
+from enum import Enum, auto
 from dataclasses import dataclass, field
 from datetime import datetime
 import importlib.util
 import traceback
 import synnax as sy
 
-from .TestCase import TestCase
+try:
+    from .TestCase import TestCase
+except ImportError:
+    # Handle case when running script directly
+    from TestCase import TestCase
 
-class Test_Conductor_Status(Enum):
+class STATE(Enum):
     """Enum representing the status of the test conductor."""
-    INITIALIZING = "initializing"
-    LOADING = "loading_tests"
-    RUNNING = "running_tests"
-    CLEANUP = "cleanup"
-    SHUTDOWN = "shutdown"
-    COMPLETED = "completed"
-    ERROR = "error"
+    INITIALIZING = auto()
+    LOADING = auto()
+    RUNNING = auto()
+    CLEANUP = auto()
+    ERROR = auto()
+    SHUTDOWN = auto()
+    COMPLETED = auto()
+    
 
 class TestStatus(Enum):
     """Enum representing the status of a test."""
@@ -83,7 +92,7 @@ class Test_Conductor:
     - Provides real-time status updates (async)
     """
     
-    def __init__(self, server_address: str = "localhost", port: int = 9090,
+    def __init__(self, name, server_address: str = "localhost", port: int = 9090,
                  username: str = "synnax", password: str = "seldon", 
                  secure: bool = False):
         """
@@ -96,6 +105,24 @@ class Test_Conductor:
             password: Authentication password
             secure: Whether to use secure connection
         """
+        # Should we use the transport or authentication client address
+        # instead of a uuid?
+
+        if name is None:
+            # Generate a 6-character random alphanumeric string
+            random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            self.name = self.__class__.__name__.lower() + "_" + random_id
+        else:
+            # Validate and sanitize the provided name
+            self.name = self._validate_and_sanitize_name(str(name).lower())
+        
+        # Store connection parameters for test instantiation
+        self.server_address = server_address
+        self.port = port
+        self.username = username
+        self.password = password
+        self.secure = secure
+        
         self.client = sy.Synnax(
             host=server_address,
             port=port,
@@ -103,8 +130,10 @@ class Test_Conductor:
             password=password,
             secure=secure,
         )
+        for k, v in self.client.__dict__.items():
+            print(k, v)
         
-        self.status = Test_Conductor_Status.INITIALIZING
+        self.state = STATE.INITIALIZING
 
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
@@ -113,6 +142,7 @@ class Test_Conductor:
         self.current_test_start_time: Optional[datetime] = None
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self._timeout_result: Optional[TestResult] = None
+        self.client_manager_thread: Optional[threading.Thread] = None
         self.is_running = False
         self.should_stop = False
         
@@ -123,7 +153,140 @@ class Test_Conductor:
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+
+        self._start_client_manager_async()
+
+        time.sleep(15)
+        self.state[f"{self.name}_state"] = STATE.SHUTDOWN.value
+        time.sleep(10)
     
+    def _validate_and_sanitize_name(self, name: str) -> str:
+        """
+        Validate and sanitize the name to only contain alphanumeric characters, 
+        hyphens, and underscores.
+        
+        Args:
+            name: The name to validate and sanitize
+            
+        Returns:
+            Sanitized name containing only allowed characters
+            
+        Raises:
+            ValueError: If the name is empty after sanitization
+        """
+        # Remove any characters that aren't alphanumeric, hyphen, or underscore
+        sanitized = re.sub(r'[^a-zA-Z0-9_-]', '', name)
+        
+        # Check if the sanitized name is empty
+        if not sanitized:
+            raise ValueError("Name must contain at least one alphanumeric character, hyphen, or underscore")
+        
+        # Ensure name doesn't start or end with hyphen/underscore (optional good practice)
+        sanitized = sanitized.strip('_-')
+        
+        if not sanitized:
+            raise ValueError("Name cannot consist only of hyphens and underscores")
+            
+        return sanitized
+
+    def _start_client_manager_async(self) -> None:
+        """Start the client manager in a separate daemon thread."""
+        self.client_manager_thread = threading.Thread(
+            target=self._client_manager,
+            daemon=True,
+            name=f"{self.name}_client_manager"
+        )
+        self.client_manager_thread.start()
+        print(f"Client manager started asynchronously for {self.name}")
+    
+    def _client_manager(self) -> None:
+        
+        loop = sy.Loop(1) # 1Hz
+
+        """
+        Define Test Conductor Channels
+        """
+        time = self.client.channels.create(
+            name=f"{self.name}_time",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+
+        uptime = self.client.channels.create(
+            name=f"{self.name}_uptime",
+            data_type=sy.DataType.UINT32,
+            index=time.key,
+            retrieve_if_name_exists=True,
+        )
+        
+        state = self.client.channels.create(
+            name=f"{self.name}_state",
+            data_type=sy.DataType.UINT8,
+            index=time.key,
+            retrieve_if_name_exists=True,
+        )
+        
+        test_case_count = self.client.channels.create(
+            name=f"{self.name}_test_case_count",
+            data_type=sy.DataType.UINT32,
+            index=time.key,
+            retrieve_if_name_exists=True,
+        )
+
+        test_case_index = self.client.channels.create(
+            name=f"{self.name}_test_case_index",
+            data_type=sy.DataType.UINT32,
+            index=time.key,
+            retrieve_if_name_exists=True,
+        )   
+
+        """
+        Initialize Test Conductor State
+        """
+        start_time = sy.TimeStamp.now()
+
+        self.state = {
+            f"{self.name}_time": start_time,
+            f"{self.name}_uptime": 0,
+            f"{self.name}_state": STATE.INITIALIZING.value,
+            f"{self.name}_test_case_count": 0,
+            f"{self.name}_test_case_index": 0,
+        }
+        
+        """
+        Open Test Conductor Writer
+        """
+        with self.client.open_writer(
+            start=start_time,
+            channels=[
+                time,
+                uptime,
+                state,
+            ],
+            name=self.name,
+            enable_auto_commit=True,
+        ) as writer:
+            # Write initial state
+            writer.write(self.state)
+
+            while loop.wait() and not self.should_stop:
+                """
+                Main writer loop
+                """
+                now = sy.TimeStamp.now()
+                uptime_value = (now - start_time)/1E9
+                
+                self.state[f"{self.name}_time"] = now
+                self.state[f"{self.name}_uptime"] = uptime_value
+
+                # Write state 
+                writer.write(self.state)
+            
+                if self.state[f"{self.name}_state"] >= STATE.SHUTDOWN.value:
+                    self.state[f"{self.name}_state"] = STATE.COMPLETED.value
+                    break
+  
     def load_test_sequence(self, sequence_file_path: str) -> None:
         """
         Load test sequence from a JSON configuration file.
@@ -206,11 +369,11 @@ class Test_Conductor:
             # Load and instantiate the test class
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
-                server_address=self.server_address,
-                port=self.port,
-                username=self.username,
-                password=self.password,
-                secure=self.secure,
+                server_address="localhost",  # Use the default values for now
+                port=9090,
+                username="synnax",
+                password="seldon",
+                secure=False,
                 **test_def.parameters
             )
             
@@ -396,6 +559,19 @@ class Test_Conductor:
         print("Stopping test sequence...")
         self.should_stop = True
         self.kill_current_test()
+        self._stop_client_manager()
+    
+    def _stop_client_manager(self) -> None:
+        """Stop the client manager thread gracefully."""
+        if self.client_manager_thread and self.client_manager_thread.is_alive():
+            print("Stopping client manager...")
+            # The thread will stop when self.should_stop becomes True
+            # or when status reaches SHUTDOWN
+            self.client_manager_thread.join(timeout=5.0)
+            if self.client_manager_thread.is_alive():
+                print("Warning: Client manager thread did not stop gracefully")
+            else:
+                print("Client manager stopped successfully")
     
     def get_current_status(self) -> Dict[str, Any]:
         """Get the current status of test execution."""
@@ -497,21 +673,20 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Run test sequences")
-    parser.add_argument("sequence_file", help="Path to test sequence JSON file")
+    
+    parser.add_argument("--name", default=None, help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
-    parser.add_argument("--create-sample", action="store_true", 
-                       help="Create a sample test sequence file")
+    #parser.add_argument("sequence_file", help="Path to test sequence JSON file")
     
     args = parser.parse_args()
-    
-    if args.create_sample:
-        create_sample_test_sequence(args.sequence_file)
-        sys.exit(0)
+
     
     # Create and run test conductor
-    conductor = Test_Conductor(server_address=args.server, port=args.port)
-    conductor.load_test_sequence(args.sequence_file)
+    conductor = Test_Conductor(name=args.name, 
+                                server_address=args.server, 
+                                port=args.port)
+    #conductor.load_test_sequence(args.sequence_file)
     
     # Run tests
-    results = conductor.run_sequence()
+    #results = conductor.run_sequence()

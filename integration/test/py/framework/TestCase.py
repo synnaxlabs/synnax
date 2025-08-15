@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
-class TestCasea:
+class TestCase:
     """
     Parent class for all test cases in the integration test framework.
     

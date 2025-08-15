@@ -23,7 +23,13 @@ import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
-client = sy.Synnax()
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+    secure=False,
+)
 
 daq_time_ch = client.channels.create(
     name="daq_time", is_index=True, retrieve_if_name_exists=True
