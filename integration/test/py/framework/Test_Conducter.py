@@ -21,9 +21,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import importlib.util
 import traceback
+import synnax as sy
 
 from .TestCase import TestCase
 
+class Test_Conductor_Status(Enum):
+    """Enum representing the status of the test conductor."""
+    INITIALIZING = "initializing"
+    LOADING = "loading_tests"
+    RUNNING = "running_tests"
+    CLEANUP = "cleanup"
+    SHUTDOWN = "shutdown"
+    COMPLETED = "completed"
+    ERROR = "error"
 
 class TestStatus(Enum):
     """Enum representing the status of a test."""
@@ -67,10 +77,10 @@ class Test_Conductor:
     
     Features:
     - Loads test sequences from configuration files
-    - Executes tests sequentially
-    - Monitors test execution asynchronously
+    - Executes test cases (sequentially or randomly)
+    - Monitors execution of test cases (async)
     - Can kill tests if needed (timeout or manual intervention)
-    - Provides real-time status updates
+    - Provides real-time status updates (async)
     """
     
     def __init__(self, server_address: str = "localhost", port: int = 9090,
@@ -86,12 +96,16 @@ class Test_Conductor:
             password: Authentication password
             secure: Whether to use secure connection
         """
-        self.server_address = server_address
-        self.port = port
-        self.username = username
-        self.password = password
-        self.secure = secure
+        self.client = sy.Synnax(
+            host=server_address,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+        )
         
+        self.status = Test_Conductor_Status.INITIALIZING
+
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
         self.current_test: Optional[TestCase] = None
@@ -118,11 +132,8 @@ class Test_Conductor:
         {
             "tests": [
                 {
-                    "name": "test_connection",
-                    "module_path": "testcases.check_connection_basic",
-                    "class_name": "CheckConnectionTest",
+                    "test_case": "testcases.check_connection_basic",
                     "parameters": {"param1": "value1"},
-                    "timeout": 30.0
                 }
             ]
         }
@@ -469,18 +480,8 @@ def create_sample_test_sequence(output_path: str) -> None:
     sample_sequence = {
         "tests": [
             {
-                "name": "connection_test",
                 "module_path": "testcases.check_connection_basic",
-                "class_name": "CheckConnectionTest",
                 "parameters": {},
-                "timeout": 30.0
-            },
-            {
-                "name": "basic_write_read",
-                "module_path": "testcases.write_read_basic", 
-                "class_name": "WriteReadBasicTest",
-                "parameters": {"num_samples": 1000},
-                "timeout": 60.0
             }
         ]
     }
