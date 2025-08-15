@@ -386,7 +386,7 @@ export class SeriesDownsampler {
   static readonly TYPE = "series-downsampler";
   private _downsample: DownsampleFunction | null = null;
   private readonly cache: MultiSeries = new MultiSeries();
-  private readonly props: DownsampleModeProps;
+  readonly props: DownsampleModeProps;
 
   constructor(props: DownsampleModeProps) {
     this.props = props;

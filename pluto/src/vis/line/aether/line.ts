@@ -295,14 +295,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
     i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
     i.requestRender("layout");
-    i.xDownsampler = new telem.SeriesDownsampler({
-      mode: this.state.downsampleMode,
-      windowSize: this.state.downsample,
-    });
-    i.yDownsampler = new telem.SeriesDownsampler({
-      mode: this.state.downsampleMode,
-      windowSize: this.state.downsample,
-    });
+    if (
+      i.xDownsampler?.props.mode !== this.state.downsampleMode ||
+      i.xDownsampler?.props.windowSize !== this.state.downsample
+    ) {
+      i.xDownsampler = new telem.SeriesDownsampler({
+        mode: this.state.downsampleMode,
+        windowSize: this.state.downsample,
+      });
+      i.yDownsampler = new telem.SeriesDownsampler({
+        mode: this.state.downsampleMode,
+        windowSize: this.state.downsample,
+      });
+    }
   }
 
   afterDelete(): void {
