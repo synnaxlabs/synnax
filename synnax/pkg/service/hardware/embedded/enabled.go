@@ -50,8 +50,6 @@ const (
 	extractedDriverDir = "driver"
 )
 
-var configCodec = &binary.JSONCodec{}
-
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -82,7 +80,7 @@ func (d *Driver) start(ctx context.Context) error {
 	var mf func(ctx context.Context) error
 	mf = func(ctx context.Context) error {
 		d.mu.Lock()
-		b, err := configCodec.Encode(ctx, d.cfg.format())
+		b, err := binary.JSONCodec.Encode(ctx, d.cfg.format())
 		if err != nil {
 			return err
 		}

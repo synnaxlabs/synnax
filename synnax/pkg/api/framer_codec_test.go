@@ -15,10 +15,8 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,13 +26,10 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode the request correctly", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
-			v := api.WSFramerCodec{
-				Codec:          codec.NewStatic(keys, dataTypes),
-				LowerPerfCodec: &binary.JSONCodec{},
-			}
+			v := api.NewStaticWSFramerCodec(keys, dataTypes)
 			req := api.FrameWriterRequest{
 				Command: writer.Write,
-				Frame: core.MultiFrame(
+				Frame: frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),
@@ -57,12 +52,9 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode the response correctly", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
-			v := api.WSFramerCodec{
-				Codec:          codec.NewStatic(keys, dataTypes),
-				LowerPerfCodec: &binary.JSONCodec{},
-			}
+			v := api.NewStaticWSFramerCodec(keys, dataTypes)
 			res := api.FrameStreamerResponse{
-				Frame: core.MultiFrame(
+				Frame: frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),

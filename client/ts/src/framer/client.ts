@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, type WebSocketClient } from "@synnaxlabs/freighter";
+import { type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -18,12 +18,15 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
+import { Reader, type ReadRequest } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { type ontology } from "@/ontology";
+import { type Transport } from "@/transport";
 
 export const ontologyID = (key: channel.Key): ontology.ID => ({
   type: "framer",
@@ -34,15 +37,13 @@ export class Client {
   private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
+  private readonly reader: Reader;
 
-  constructor(
-    stream: WebSocketClient,
-    unary: UnaryClient,
-    retriever: channel.Retriever,
-  ) {
-    this.streamClient = stream;
+  constructor(transport: Transport, retriever: channel.Retriever) {
+    this.streamClient = transport.stream;
     this.retriever = retriever;
-    this.deleter = new Deleter(unary);
+    this.deleter = new Deleter(transport.unary);
+    this.reader = new Reader(transport);
   }
 
   /**
@@ -144,17 +145,20 @@ export class Client {
   }
 
   async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;
-
   async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
-
+  async read(tr: ReadRequest): Promise<Response>;
   async read(
-    tr: CrudeTimeRange,
-    channels: channel.Params,
-  ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
-    const fr = await this.readFrame(tr, channels);
-    if (single) return fr.get(channels as channel.KeyOrName);
-    return fr;
+    tr: CrudeTimeRange | ReadRequest,
+    channels?: channel.Params,
+  ): Promise<MultiSeries | Frame | Response> {
+    if ("start" in tr) {
+      if (channels == null) throw new UnexpectedError("channels are required");
+      const { single } = channel.analyzeParams(channels);
+      const fr = await this.readFrame(tr, channels);
+      if (single) return fr.get(channels as channel.KeyOrName);
+      return fr;
+    }
+    return this.reader.read(tr);
   }
 
   private async readFrame(

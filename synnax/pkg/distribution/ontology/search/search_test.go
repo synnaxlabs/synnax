@@ -18,14 +18,14 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-var _ = Describe("SearchTerm", func() {
-	Describe("SearchTerm", func() {
+var _ = Describe("Search", func() {
+	Describe("Search", func() {
 		var idx *search.Index
 		BeforeEach(func() {
 			idx = MustSucceed(search.New())
 			idx.Register(ctx, "test", zyn.Object(nil))
 		})
-		DescribeTable("SearchTerm Searching",
+		DescribeTable("Term Searching",
 			func(resource ontology.Resource, term string) {
 				Expect(idx.Index([]ontology.Resource{resource})).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
@@ -38,7 +38,7 @@ var _ = Describe("SearchTerm", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "test",
 			}, "test"),
-			Entry("Word in Multi-Word SearchTerm", ontology.Resource{
+			Entry("Word in Multi-Word Term", ontology.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "October 28 Gooster",
 			}, "Gooster"),
@@ -58,7 +58,7 @@ var _ = Describe("SearchTerm", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC",
 			}, "bttpc"),
-			Entry("Close Match in Multi-Word SearchTerm", ontology.Resource{
+			Entry("Close Match in Multi-Word Term", ontology.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC Sim",
 			}, "BTTPC"),
@@ -75,7 +75,7 @@ var _ = Describe("SearchTerm", func() {
 				Name: "DAQ_PT_1",
 			}, "DAQ_PT"),
 		)
-		DescribeTable("SearchTerm Prioritization",
+		DescribeTable("Term Prioritization",
 			func(resources []ontology.Resource, term string, first ontology.ID) {
 				Expect(idx.Index(resources)).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{

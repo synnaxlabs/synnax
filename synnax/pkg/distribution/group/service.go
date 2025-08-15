@@ -44,8 +44,8 @@ func (c Config) Override(other Config) Config {
 // Validate implements Config.
 func (c Config) Validate() error {
 	v := validate.New("group")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -54,8 +54,8 @@ type Service struct {
 	signals io.Closer
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,17 +175,4 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 			return g
 		}).
 		Exec(ctx, w.tx)
-}
-
-func (w Writer) validateNoChildrenWithName(ctx context.Context, name string, parent ontology.ID) error {
-	var children []ontology.Resource
-	if err := w.otg.NewRetrieve().WhereIDs(parent).TraverseTo(ontology.Children).Entries(&children).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, child := range children {
-		if child.Name == name {
-			return errors.New("[group] - a child of the parent exists with the same name")
-		}
-	}
-	return nil
 }

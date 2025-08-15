@@ -79,4 +79,4 @@ func (p WriteParams) ToTSCommand(identifier string) string {
 	return cmd
 }
 
-var _ NodeParams = &WriteParams{}
+var _ NodeParams = (*WriteParams)(nil)

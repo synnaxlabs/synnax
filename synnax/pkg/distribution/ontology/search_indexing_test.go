@@ -49,7 +49,7 @@ func (s *mockIndexingService) Schema() zyn.Schema {
 }
 
 func (s *mockIndexingService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](s.resources)), nil
+	return iter.NexterNopCloser(iter.All(s.resources)), nil
 }
 
 func (s *mockIndexingService) RetrieveResource(
@@ -65,10 +65,8 @@ func (s *mockIndexingService) RetrieveResource(
 	return ontology.Resource{}, nil
 }
 
-var _ = Describe("SearchTerm Indexing", func() {
-	var (
-		mockSvc *mockIndexingService
-	)
+var _ = Describe("Search Indexing", func() {
+	var mockSvc *mockIndexingService
 
 	BeforeEach(func() {
 		z := zyn.Object(nil)

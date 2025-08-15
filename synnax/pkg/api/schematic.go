@@ -69,15 +69,15 @@ type SchematicRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
@@ -87,15 +87,15 @@ type SchematicSetDataRequest struct {
 	Data string    `json:"data" msgpack:"data"`
 }
 
-func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 	})
 }
@@ -129,15 +129,15 @@ type SchematicDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }

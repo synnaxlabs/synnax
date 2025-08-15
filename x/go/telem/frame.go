@@ -13,15 +13,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"iter"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -140,7 +144,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
-// RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
+// RawKeys returns the raw slice of keys in the frame. This includes any keys that have
 // been filtered out by FilterKeys. To check whether an index in this slice has been
 // filtered out, use ShouldExcludeRaw.
 //
@@ -294,9 +298,9 @@ func (f *Frame[K]) Sort() {
 
 var (
 	_ json.Marshaler        = Frame[int]{}
-	_ json.Unmarshaler      = &Frame[int]{}
+	_ json.Unmarshaler      = (*Frame[int])(nil)
 	_ msgpack.CustomEncoder = Frame[int]{}
-	_ msgpack.CustomDecoder = &Frame[int]{}
+	_ msgpack.CustomDecoder = (*Frame[int])(nil)
 )
 
 // serializableFrame is a helper type for serializing the Frame to encoded
@@ -409,7 +413,7 @@ func (f Frame[K]) Get(key K) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// Append adds a new key-series pair to the end of teh frame, returning the updated
+// Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)
@@ -496,4 +500,113 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 		}
 	}
 	return Frame[K]{keys: fKeys, series: fSeries}
+}
+
+func (f Frame[K]) getLargestSeriesLength() int64 {
+	var length int64
+	for s := range f.Series() {
+		if s.Len() > length {
+			length = s.Len()
+		}
+	}
+	return length
+}
+
+// these byte arrays are pre-allocated to avoid allocations when writing to CSV.
+var (
+	commaBytes   = []byte(",")
+	newlineBytes = []byte("\r\n")
+)
+
+// WriteCSV writes the frame as a CSV to the given writer.
+func (f Frame[K]) WriteCSV(w io.Writer) error {
+	rowCount := f.getLargestSeriesLength()
+	colCount := f.Count()
+	writers := make([]cellWriter, colCount)
+	// buf is 36 bytes long to hold a UUID string, which is the longest data type we
+	// support writing to CSV.
+	var buf [36]byte
+
+	// Helper function to allocate a cellWriter for a given DataType.
+	for i, s := range f.SeriesI() {
+		writer, err := allocateCellWriter(s.DataType, buf)
+		if err != nil {
+			return err
+		}
+		writers[i] = writer
+	}
+
+	for row := range rowCount {
+		for col := range colCount {
+			s := f.SeriesAt(col)
+			if row < s.Len() {
+				if err := writers[col](s, int(row), w); err != nil {
+					return err
+				}
+			}
+			if col != colCount-1 {
+				if _, err := w.Write(commaBytes); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err := w.Write(newlineBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type cellWriter func(s Series, row int, w io.Writer) error
+
+func allocateCellWriter(dt DataType, buf [36]byte) (cellWriter, error) {
+	switch dt {
+	case Int8T, Int16T, Int32T, Int64T, TimeStampT:
+		unmarshal := UnmarshalF[int64](dt)
+		return func(s Series, row int, w io.Writer) error {
+			v := unmarshal(s.At(row))
+			b := strconv.AppendInt(buf[:0], v, 10)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case Uint8T, Uint16T, Uint32T, Uint64T:
+		unmarshal := UnmarshalF[uint64](dt)
+		return func(s Series, row int, w io.Writer) error {
+			v := unmarshal(s.At(row))
+			b := strconv.AppendUint(buf[:0], v, 10)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case UUIDT:
+		return func(s Series, row int, w io.Writer) error {
+			data := s.At(row)
+			v := UnmarshalUUID(data)
+			uuid.EncodeStringBytes(buf[:], v)
+			_, err := w.Write(buf[:])
+			return err
+		}, nil
+	case Float32T:
+		return func(s Series, row int, w io.Writer) error {
+			v := UnmarshalFloat32[float64](s.At(row))
+			b := strconv.AppendFloat(buf[:0], v, 'f', -1, 32)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	case Float64T:
+		return func(s Series, row int, w io.Writer) error {
+			v := UnmarshalFloat64[float64](s.At(row))
+			b := strconv.AppendFloat(buf[:0], v, 'f', -1, 64)
+			_, err := w.Write(b)
+			return err
+		}, nil
+	default:
+		// We don't currently support writing variable density series to CSV for a
+		// frame. This is because 1) writing variable density series involves
+		// searching the data for newlines or quotes that need to be escaped in the
+		// CSV entry, 2) the performance is poor due to the O(n) time complexity of
+		// the current implementation of the At() method on a variable density
+		// series, and 3) variable density series are not currently stored in
+		// Cesium, so they could only exist in a frame from calculated channels.
+		return nil, errors.Newf("unsupported data type: %s", dt)
+	}
 }

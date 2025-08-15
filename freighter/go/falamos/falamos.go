@@ -12,69 +12,72 @@ package falamos
 import (
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for the instrumentation Middleware.
 type Config struct {
 	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnableTracing *bool
-	// EnablePropagation sets whether the middleware propagates any traces attached
-	// to the request context. Defaults to true.
+	// EnablePropagation sets whether the middleware propagates any traces attached to
+	// the request context. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnablePropagation *bool
 	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnableLogging *bool
 	// Level is the level of the trace. Defaults to alamos.Prod.
+	//
 	// [OPTIONAL]
 	Level alamos.Environment
 }
 
 // Validate implements config.Config
-func (cfg Config) Validate() error {
-	v := validate.New("falamos.Properties")
-	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
+func (c Config) Validate() error {
+	v := validate.New("falamos.Config")
+	validate.NotNil(v, "instrumentation", c.Instrumentation)
 	return v.Error()
 }
 
 // Override implements config.Config
-func (cfg Config) Override(other Config) Config {
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
-	cfg.EnableLogging = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
-	cfg.EnableTracing = override.Nil(cfg.EnableTracing, other.EnableTracing)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.EnablePropagation = override.Nil(c.EnableLogging, other.EnableLogging)
+	c.EnableLogging = override.Nil(c.EnablePropagation, other.EnablePropagation)
+	c.EnableTracing = override.Nil(c.EnableTracing, other.EnableTracing)
+	return c
 }
 
 var _ config.Config[Config] = Config{}
 
-// Default is the default configuration for the tracing middleware.
-var Default = Config{
+// DefaultConfig is the default configuration for the tracing middleware.
+var DefaultConfig = Config{
 	Level:             alamos.Prod,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
 	EnableLogging:     config.True(),
 }
 
-// Middleware adds traces and logs to incoming and outgoing requests and ensures
-// that they are propagated across the network.
-func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(Default, configs...)
+// Middleware adds traces and logs to incoming and outgoing requests and ensures that
+// they are propagated across the network.
+func Middleware(cfgs ...Config) (freighter.Middleware, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
-		next freighter.Next,
+		next freighter.MiddlewareHandler,
 	) (freighter.Context, error) {
 		var (
 			span     alamos.Span
@@ -102,7 +105,6 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		if *cfg.EnableTracing {
 			_ = span.EndWith(err)
 		}
-
 		return oCtx, err
 	}), nil
 }
@@ -111,13 +113,13 @@ type carrier struct{ freighter.Context }
 
 var _ alamos.TraceCarrier = carrier{}
 
-const keyPrefix = "alamos"
+const keyPrefix = "alamos-"
 
-func keyF(k string) string { return keyPrefix + "-" + k }
+func keyF(k string) string { return keyPrefix + k }
 
-// Get implements TextMapCarrier.
+// Get implements alamos.TraceCarrier.
 func (c carrier) Get(key string) string {
-	v, ok := c.Context.Get(keyF(key))
+	v, ok := c.Context.Params[keyF(key)]
 	if !ok {
 		return ""
 	}
@@ -128,15 +130,15 @@ func (c carrier) Get(key string) string {
 	return vStr
 }
 
-// Set implements TextMapCarrier.
-func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
+// Set implements alamos.TraceCarrier.
+func (c carrier) Set(key, value string) { c.Context.Params[keyF(key)] = value }
 
-// Keys implements TextMapCarrier.
+// Keys implements alamos.TraceCarrier.
 func (c carrier) Keys() []string {
 	keys := make([]string, 0, len(c.Context.Params))
 	for k := range c.Context.Params {
-		if strings.HasPrefix(k, keyPrefix) {
-			keys = append(keys, strings.TrimPrefix(k, keyPrefix+"-"))
+		if cut, found := strings.CutPrefix(k, keyPrefix); found {
+			keys = append(keys, cut)
 		}
 	}
 	return keys
@@ -149,8 +151,11 @@ func log(ctx freighter.Context, err error, cfg Config) {
 		zap.Stringer("role", ctx.Role),
 	}
 	if err != nil {
-		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
-	} else {
-		cfg.L.Debug(ctx.Target.String(), args...)
+		cfg.L.Warn(
+			ctx.Target.String(),
+			append(args, zap.String("error", err.Error()))...,
+		)
+		return
 	}
+	cfg.L.Debug(ctx.Target.String(), args...)
 }

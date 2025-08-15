@@ -20,13 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("HttpRedirect", func() {
 	It("Should redirect http requests to https", func() {
-		fs := xfs.NewMem()
+		fs := fs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
@@ -53,8 +53,7 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://localhost:26260")
-		Expect(err).To(Succeed())
+		resp := MustSucceed(client.Get("http://localhost:26260"))
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())

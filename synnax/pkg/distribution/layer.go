@@ -95,7 +95,7 @@ type Config struct {
 	// GorpCodec sets the codec used to encode/decode data structures within the
 	// cluster meta-data DB (gorp).
 	//
-	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
+	// [OPTIONAL] - Defaults to binary.MsgPackCodec
 	GorpCodec binary.Codec
 	// EnableChannelSignals sets whether to enable CDC signal propagation for changes
 	// to channel data structures.
@@ -111,7 +111,7 @@ var (
 	// required fields specific in Config.
 	DefaultConfig = Config{
 		EnableSearch:         config.True(),
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            binary.MsgPackCodec,
 		EnableChannelSignals: config.True(),
 	}
 )

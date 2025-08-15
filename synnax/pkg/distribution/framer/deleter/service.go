@@ -12,7 +12,6 @@ package deleter
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -53,8 +52,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-func New(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func New(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

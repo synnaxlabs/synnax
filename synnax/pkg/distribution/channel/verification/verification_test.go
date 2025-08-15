@@ -31,7 +31,7 @@ type db struct {
 	timesGetCalled int
 }
 
-var _ kv.DB = &db{}
+var _ kv.DB = (*db)(nil)
 
 func newDB() *db { return &db{DB: memkv.New()} }
 

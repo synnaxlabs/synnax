@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestCalculated(t *testing.T) {
+func TestCalculation(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Calculation Suite")
 }
