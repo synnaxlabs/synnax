@@ -3,7 +3,7 @@ name: "Test - Benchmark"
 on:
   push:
     branches:
-      - "sy-2769-integration-test-development"
+      - "none"
   workflow_dispatch:
 
 permissions:

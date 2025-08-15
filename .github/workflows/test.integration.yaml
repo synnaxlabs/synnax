@@ -11,10 +11,12 @@ env:
 
 jobs:
   build:
-    name: Build Synnax (self-hosted linux)
+    name: Build Synnax
     runs-on: [self-hosted, linux]
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - name: Force Quit Existing Synnax Processes
+      - name: Force Quit Synnax Processes
         run: |
           mkdir -p $HOME/Desktop
           rm -rf $HOME/Desktop/*
@@ -94,7 +96,12 @@ jobs:
           echo "Binaries created in $HOME/Desktop:"
           ls -la $HOME/Desktop/synnax*
 
-      - name: Install and Start Synnax as git g
+  deploy:
+    name: Deploy Synnax Service
+    runs-on: [self-hosted, linux]
+    needs: build
+    steps:
+      - name: Install and Start Synnax as Service
         run: |
           echo "Creating systemd service for Synnax..."
           sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
