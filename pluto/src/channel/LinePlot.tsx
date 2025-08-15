@@ -366,8 +366,6 @@ const DynamicLine = ({
     key,
     timeSpan,
     channels: { x, y },
-    downsampleMode = "average",
-    downsample,
     axes: _,
     ...rest
   },
@@ -389,18 +387,8 @@ const DynamicLine = ({
       keepFor,
     });
     return { xTelem, yTelem };
-  }, [timeSpan.valueOf(), x, y, downsampleMode, downsample]);
-  return (
-    <Core.Line
-      key={key}
-      aetherKey={key}
-      y={yTelem}
-      x={xTelem}
-      downsample={downsample}
-      downsampleMode={downsampleMode}
-      {...rest}
-    />
-  );
+  }, [timeSpan.valueOf(), x, y]);
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };
 
 const StaticLine = ({
@@ -408,8 +396,6 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
-    downsampleMode = "decimate",
-    downsample,
     ...rest
   },
 }: {
@@ -424,23 +410,6 @@ const StaticLine = ({
       useIndexOfChannel: !hasX,
     });
     return { xTelem, yTelem };
-  }, [
-    timeRange.start.valueOf(),
-    timeRange.end.valueOf(),
-    x,
-    y,
-    downsampleMode,
-    downsample,
-  ]);
-  return (
-    <Core.Line
-      key={key}
-      aetherKey={key}
-      y={yTelem}
-      x={xTelem}
-      downsample={downsample}
-      downsampleMode={downsampleMode}
-      {...rest}
-    />
-  );
+  }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };

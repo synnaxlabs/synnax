@@ -327,7 +327,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const [, xData] = xTelem.value();
+    let [, xData] = xTelem.value();
+    xData = this.internal.xDownsampler.transform(xData);
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -353,7 +354,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
-    const [, yData] = yTelem.value();
+    let [, yData] = yTelem.value();
+    yData = this.internal.yDownsampler.transform(yData);
     const ySeries = yData.series.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );

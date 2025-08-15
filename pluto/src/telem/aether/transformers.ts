@@ -326,6 +326,7 @@ const average: DownsampleFunction = (source, downsampled, windowSize) => {
   const startIdx = downsampled.length * windowSize;
 
   for (let i = startIdx; i < source.length; i += windowSize) {
+    if (i + windowSize > source.length) break;
     const endIdx = Math.min(i + windowSize, source.length);
     let sum = 0;
     let count = 0;
