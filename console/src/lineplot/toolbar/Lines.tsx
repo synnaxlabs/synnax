@@ -158,6 +158,7 @@ const Line = ({
       <SelectDownsampleMode
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
+        resourceName="Downsample Mode"
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>
