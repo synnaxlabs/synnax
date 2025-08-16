@@ -13,34 +13,36 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
-export interface TextProps
-  extends Omit<BaseText.TextProps, "level" | "wrap" | "variant">,
+export interface SummaryProps
+  extends Omit<BaseText.TextProps, "wrap" | "variant">,
     Partial<Omit<status.Status, "key">> {
-  level?: BaseText.Level;
   hideIcon?: boolean;
 }
 
-export const Text = ({
-  variant = "info",
+export const Summary = ({
   level = "p",
+  variant,
+  status: textStatusVariant,
   description,
   hideIcon = false,
   className,
   children,
+  message,
   color,
   ...rest
-}: TextProps): ReactElement => {
+}: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
+  variant ??= textStatusVariant;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const hasDescription = description != null;
+  children ??= message;
   const baseText = (
     <BaseText.Text
-      color={color ?? VARIANT_COLORS[variant]}
       className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
+      status={variant}
       {...(description == null ? rest : {})}
     >
       {icon}

@@ -18,7 +18,7 @@
     padding: 0;
 
     &:focus-within {
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l0),
                 0 0 0 3px var(--pluto-primary-z);
@@ -33,7 +33,7 @@
         width: var(--pluto-height-medium);
     }
 
-    .pluto-input__checkbox-checkmark {
+    .pluto-input__checkbox-indicator {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -44,11 +44,14 @@
         background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
         border-radius: 0.5rem;
-        transition: all 0.15s ease;
+        transition:
+            background-color 0.15s ease,
+            border-color 0.15s ease,
+            outline-color 0.15s ease;
         cursor: pointer;
     }
 
-    .pluto-input__checkbox-checkmark::after {
+    .pluto-input__checkbox-indicator::after {
         content: "";
         position: absolute;
         display: none;
@@ -61,12 +64,12 @@
         transform: rotate(45deg);
     }
 
-    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
         background: var(--pluto-primary-m1);
         border-color: var(--pluto-primary-m1);
     }
 
-    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark::after {
+    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
         display: block;
     }
 
@@ -75,12 +78,12 @@
             height: var(--pluto-height-small);
             width: var(--pluto-height-small);
         }
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             width: 1.5rem;
             height: 1.5rem;
             border-radius: 0.25rem;
         }
-        .pluto-input__checkbox-checkmark::after {
+        .pluto-input__checkbox-indicator::after {
             left: 0.4rem;
             top: 0.2rem;
             width: 0.25rem;
@@ -94,12 +97,12 @@
             height: var(--pluto-height-medium);
             width: var(--pluto-height-medium);
         }
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             width: 2rem;
             height: 2rem;
             border-radius: 0.25rem;
         }
-        .pluto-input__checkbox-checkmark::after {
+        .pluto-input__checkbox-indicator::after {
             left: 0.5rem;
             top: 0.25rem;
             width: 0.5rem;
@@ -113,12 +116,12 @@
             height: var(--pluto-height-large);
             width: var(--pluto-height-large);
         }
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             width: 3.25rem;
             height: 3.25rem;
             border-radius: 0.5rem;
         }
-        .pluto-input__checkbox-checkmark::after {
+        .pluto-input__checkbox-indicator::after {
             left: 1.1rem;
             top: 0.4rem;
             width: 0.75rem;
@@ -132,12 +135,12 @@
             height: var(--pluto-height-huge);
             width: var(--pluto-height-huge);
         }
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             width: 3.75rem;
             height: 3.75rem;
             border-radius: 0.5rem;
         }
-        .pluto-input__checkbox-checkmark::after {
+        .pluto-input__checkbox-indicator::after {
             left: 1.1rem;
             top: 0.4rem;
             width: 1rem;
@@ -151,12 +154,12 @@
             cursor: not-allowed !important;
         }
 
-        .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-indicator {
             background: var(--pluto-gray-l2-50);
             border-color: var(--pluto-gray-l3-50);
         }
 
-        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-checkmark {
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -169,7 +172,7 @@
             );
         }
 
-        .pluto-input__checkbox-checkmark::after {
+        .pluto-input__checkbox-indicator::after {
             border-color: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),

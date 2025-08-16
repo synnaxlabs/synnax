@@ -13,7 +13,6 @@ import { type ComponentPropsWithRef, type ReactElement, type ReactNode } from "r
 
 import { CSS } from "@/css";
 import { type Control, type Variant } from "@/input/types";
-import { type Text } from "@/text";
 
 type HTMlTextAreaProps = Omit<
   ComponentPropsWithRef<"textarea">,
@@ -29,7 +28,6 @@ export interface TextAreaProps
   sharp?: boolean;
   children?: ReactNode;
   wrap?: boolean;
-  level?: Text.Level;
 }
 
 /**
@@ -53,7 +51,6 @@ export const TextArea = ({
   selectOnFocus = false,
   variant = "outlined",
   sharp = false,
-  level = "h3",
   children,
   wrap,
   ...rest
@@ -63,16 +60,12 @@ export const TextArea = ({
     className={CSS(
       CSS.B("textarea"),
       CSS.BM("textarea", variant),
-      CSS.BM("text", level),
       CSS.sharp(sharp),
       className,
     )}
     ref={ref}
     value={value}
-    onChange={(e) => {
-      console.log("onChange", e.target.value);
-      onChange(e.target.value.replace(/\n/g, ""));
-    }}
+    onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
     onFocus={(e) => {
       if (selectOnFocus) e.target.select();
       onFocus?.(e);

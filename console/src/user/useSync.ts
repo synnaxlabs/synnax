@@ -12,29 +12,27 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { Permissions } from "@/permissions";
-import { set } from "@/user/slice";
+import { giveAll, set } from "@/permissions/slice";
 
-export const useSync = (): void => {
+export const useFetchPermissions = (): void => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       if (client == null) {
-        dispatch(Permissions.giveAll());
+        dispatch(giveAll());
         return;
       }
       const username = client.props.username;
       try {
         const user = await client.user.retrieve({ username });
-        dispatch(set({ user }));
         if (signal.aborted) return;
         const policies = await client.access.policy.retrieve({
           for: clientUser.ontologyID(user.key),
         });
         if (signal.aborted) return;
-        dispatch(Permissions.set({ policies }));
+        dispatch(set({ policies }));
       } catch (e) {
         if (Unreachable.matches(e)) return;
         handleError(e, `Failed to fetch permissions for ${username}`);

@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  channel,
-  linePlot,
-  log,
-  ranger,
-  schematic,
-  table,
-  workspace,
-} from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
@@ -50,14 +41,14 @@ const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
 ];
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [channel.ONTOLOGY_TYPE]: ChannelServices.handleLink,
+  channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.handleLink,
-  [log.ONTOLOGY_TYPE]: LogServices.handleLink,
-  [ranger.ONTOLOGY_TYPE]: RangeServices.handleLink,
-  [schematic.ONTOLOGY_TYPE]: SchematicServices.handleLink,
-  [table.ONTOLOGY_TYPE]: TableServices.handleLink,
-  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.handleLink,
+  lineplot: LinePlotServices.handleLink,
+  log: LogServices.handleLink,
+  range: RangeServices.handleLink,
+  schematic: SchematicServices.handleLink,
+  table: TableServices.handleLink,
+  workspace: WorkspaceServices.handleLink,
 };
 
 const SideEffect = (): null => {
@@ -74,7 +65,7 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useSync();
+  // Permissions.useSync();
   Layout.useDropOutside();
   return null;
 };

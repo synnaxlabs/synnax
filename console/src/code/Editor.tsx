@@ -86,7 +86,6 @@ const use = ({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const theme = useTheme();
   const monaco = useMonaco();
-
   useEffect(() => {
     if (monaco == null || editorContainerRef.current == null) return;
     editorRef.current = monaco.editor.create(editorContainerRef.current, {

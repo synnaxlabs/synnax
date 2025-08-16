@@ -42,9 +42,9 @@ export const Log = ({
   className,
   visible = true,
   emptyContent = (
-    <Status.Text center level="h3" variant="disabled" hideIcon>
+    <Status.Summary center level="h3" variant="disabled" hideIcon>
       Empty Log
-    </Status.Text>
+    </Status.Summary>
   ),
   color,
   telem,

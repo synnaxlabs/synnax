@@ -119,12 +119,14 @@ export interface SetNodeProps<K extends record.Key = string> {
   tree: Node<K>[];
   destination: K | null;
   additions: Node<K> | Node<K>[];
+  throwOnMissing?: boolean;
 }
 
 export const setNode = <K extends record.Key = string>({
   tree,
   destination,
   additions,
+  throwOnMissing = true,
 }: SetNodeProps<K>): Node<K>[] => {
   additions = array.toArray(additions);
   const uniqueAdditions = unique.by(additions, (node) => node.key, false);
@@ -136,7 +138,10 @@ export const setNode = <K extends record.Key = string>({
     ];
 
   const node = findNode({ tree, key: destination });
-  if (node == null) throw new Error(`Could not find node with key ${destination}`);
+  if (node == null) {
+    if (throwOnMissing) throw new Error(`Could not find node with key ${destination}`);
+    return tree;
+  }
   node.children ??= [];
 
   node.children = [

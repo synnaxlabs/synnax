@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -7,6 +16,7 @@ import { Ranger } from "@/ranger";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
@@ -28,12 +38,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(range1.key);
       expect(result.current.data).toContain(range2.key);
@@ -47,7 +59,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -76,10 +88,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
-        result.current.retrieve({ term: "special" }, { signal: controller.signal });
+        result.current.retrieve(
+          { searchTerm: "special" },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -87,7 +102,7 @@ describe("queries", () => {
         result.current.data
           .map((key: ranger.Key) => result.current.getItem(key)?.name)
           .includes("special_range"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle includeLabels parameter", async () => {
@@ -97,7 +112,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
@@ -122,7 +137,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeParent: true }, { signal: controller.signal });
@@ -146,7 +161,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
@@ -157,14 +172,13 @@ describe("queries", () => {
 
     it("should update the list when a range is created", async () => {
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data.length;
 
@@ -186,14 +200,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(testRange.key)?.name).toEqual("original");
 
@@ -211,14 +224,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(testRange.key);
 
@@ -237,7 +249,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -259,7 +271,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -299,7 +311,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -328,7 +340,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -351,7 +363,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -370,7 +382,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -380,7 +392,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data.length;
       expect(initialLength).toEqual(0);
@@ -413,7 +424,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -423,7 +434,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(childRange.key)?.name).toEqual("originalChild");
 
@@ -448,7 +458,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -458,7 +468,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(childRange.key);
 
@@ -491,7 +500,7 @@ describe("queries", () => {
 
       // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         grandparentResult.current.retrieve(
@@ -505,7 +514,7 @@ describe("queries", () => {
 
       // Test parent's children
       const { result: parentResult } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         parentResult.current.retrieve(
@@ -538,7 +547,7 @@ describe("queries", () => {
       }
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ key: rootRange.key }, { signal: controller.signal });
@@ -557,7 +566,7 @@ describe("queries", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -588,7 +597,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -613,7 +622,7 @@ describe("queries", () => {
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -726,7 +735,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
@@ -750,7 +758,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       const initialLabels = result.current.form.value().labels;
@@ -793,7 +800,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().labels).toContain(label1.key);
       expect(result.current.form.value().labels).toContain(label2.key);
@@ -829,7 +835,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().parent).toEqual(originalParent.key);
 
@@ -846,7 +851,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -868,7 +873,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
@@ -895,7 +900,7 @@ describe("queries", () => {
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -932,7 +937,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));

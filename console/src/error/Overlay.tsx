@@ -17,7 +17,6 @@ import {
   Flex,
   Nav,
   OS,
-  Status,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -141,9 +140,9 @@ const FallBackRenderContent = ({
           <Logo variant="icon" />
           <Flex.Box y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
-            <Status.Text variant="error" hideIcon level="h3">
+            <Text.Text status="error" level="h3">
               {error.name} - {messageTranslation[error.message] ?? error.message}
-            </Status.Text>
+            </Text.Text>
             <Text.Text className={CSS.B("stack")}>{error.stack}</Text.Text>
             <Flex.Box x>
               {onTryAgain && (

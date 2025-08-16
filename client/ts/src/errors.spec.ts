@@ -48,7 +48,7 @@ describe("error", () => {
     ];
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {
-        expect(type.matches(error)).toBeTruthy();
+        expect(type.matches(error)).toBe(true);
       }),
     );
   });

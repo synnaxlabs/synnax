@@ -263,8 +263,8 @@ const DATA: record.KeyedNamed<PathType>[] = [
 ];
 
 export interface SelectPathTypeProps
-  extends Omit<Select.SimpleProps<PathType>, "data" | "resourceName"> {}
+  extends Omit<Select.StaticProps<PathType>, "data" | "resourceName"> {}
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
-  <Select.Simple data={DATA} {...props} resourceName="Path Type" />
+  <Select.Static data={DATA} {...props} resourceName="Path Type" />
 );

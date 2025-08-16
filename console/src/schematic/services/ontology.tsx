@@ -224,7 +224,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: schematic.ONTOLOGY_TYPE,
+  type: "schematic",
   icon: <Icon.Schematic />,
   hasChildren: false,
   onSelect: handleSelect,

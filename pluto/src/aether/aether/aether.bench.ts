@@ -77,9 +77,10 @@ function createBenchmarkTree() {
   });
 
   // Initialize the root
-  root._updateState(
-    ["root"],
-    {
+  root._updateState({
+    path: ["root"],
+    type: "bench",
+    state: {
       id: "root-1",
       value: 100,
       metadata: {
@@ -89,15 +90,16 @@ function createBenchmarkTree() {
       },
       status: "active",
     },
-    shouldNotCallCreate,
-  );
+    create: shouldNotCallCreate,
+  });
 
   // Create 15 L1 nodes, each with 15 L2 nodes, each with 15 L3 nodes
   for (let i = 0; i < 15; i++) {
     const l1Key = `l1-${i}`;
-    root._updateState(
-      ["root", l1Key],
-      {
+    root._updateState({
+      path: ["root", l1Key],
+      type: "bench",
+      state: {
         id: l1Key,
         value: i * 10,
         metadata: {
@@ -107,7 +109,7 @@ function createBenchmarkTree() {
         },
         status: "active",
       },
-      (parentCtxValues) =>
+      create: (parentCtxValues) =>
         new BenchL1({
           key: l1Key,
           type: "bench",
@@ -115,13 +117,14 @@ function createBenchmarkTree() {
           instrumentation: alamos.NOOP,
           parentCtxValues,
         }),
-    );
+    });
 
     for (let j = 0; j < 15; j++) {
       const l2Key = `l2-${i}-${j}`;
-      root._updateState(
-        ["root", l1Key, l2Key],
-        {
+      root._updateState({
+        path: ["root", l1Key, l2Key],
+        type: "bench",
+        state: {
           id: l2Key,
           value: j * 5,
           metadata: {
@@ -131,7 +134,7 @@ function createBenchmarkTree() {
           },
           status: "active",
         },
-        (parentCtxValues) =>
+        create: (parentCtxValues) =>
           new BenchL2({
             key: l2Key,
             type: "bench",
@@ -139,13 +142,14 @@ function createBenchmarkTree() {
             instrumentation: alamos.NOOP,
             parentCtxValues,
           }),
-      );
+      });
 
       for (let k = 0; k < 15; k++) {
         const l3Key = `l3-${i}-${j}-${k}`;
-        root._updateState(
-          ["root", l1Key, l2Key, l3Key],
-          {
+        root._updateState({
+          path: ["root", l1Key, l2Key, l3Key],
+          type: "bench",
+          state: {
             id: l3Key,
             value: k,
             metadata: {
@@ -155,7 +159,7 @@ function createBenchmarkTree() {
             },
             status: "pending",
           },
-          (parentCtxValues) =>
+          create: (parentCtxValues) =>
             new BenchL3({
               key: l3Key,
               type: "bench",
@@ -163,7 +167,7 @@ function createBenchmarkTree() {
               instrumentation: alamos.NOOP,
               parentCtxValues,
             }),
-        );
+        });
       }
     }
   }
@@ -175,9 +179,10 @@ describe("deep tree updates", () => {
   bench(
     "should update the entire tree",
     () => {
-      root._updateState(
-        ["root"],
-        {
+      root._updateState({
+        path: ["root"],
+        type: "bench",
+        state: {
           id: "root-1",
           value: 200,
           metadata: {
@@ -187,8 +192,8 @@ describe("deep tree updates", () => {
           },
           status: "active",
         },
-        shouldNotCallCreate,
-      );
+        create: shouldNotCallCreate,
+      });
     },
     {
       time: 1000,

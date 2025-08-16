@@ -10,8 +10,8 @@
  */
 
 .console-palette {
-    width: 50vw;
-    max-width: 800px;
+    width: 100% !important;
+    max-width: 600px;
 }
 
 @media (max-width: 700px) {
@@ -24,18 +24,16 @@
     }
 }
 
-@media (max-width: 1000px) {
-    .console-palette {
-        max-width: 300px;
-    }
-}
-
 .console-palette__content {
     width: 100%;
+    max-width: 1200px;
     max-height: 500px;
-    width: 85vw;
-    max-width: 1000px;
+    width: 95vw;
+    max-width: 1200px;
     overflow: visible !important;
+    & .pluto-list__items--empty {
+        min-height: 20rem;
+    }
 }
 
 .console-palette__list {

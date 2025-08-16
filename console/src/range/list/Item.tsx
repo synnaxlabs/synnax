@@ -66,7 +66,6 @@ export const Item = ({
   return (
     <List.Item
       className={CSS(CSS.BE("range", "list-item"))}
-      allowSelect
       onSelect={handleSelect}
       justify="between"
       onContextMenu={menuProps.open}

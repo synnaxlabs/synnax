@@ -17,7 +17,7 @@ import { type state } from "@/state";
  */
 export interface PagerParams {
   /** Search term for filtering results */
-  term?: string;
+  searchTerm?: string;
   /** Number of items to skip (for pagination) */
   offset?: number;
   /** Maximum number of items to return per page */
@@ -82,11 +82,11 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    */
   const fetchMore = useCallback(() => {
     retrieve(
-      ({ offset = -pageSize, term = "", ...prev }) => ({
+      ({ offset = -pageSize, searchTerm = "", ...prev }) => ({
         ...prev,
         offset: offset + pageSize,
         limit: pageSize,
-        term,
+        searchTerm,
       }),
       { mode: "append" },
     );
@@ -96,8 +96,8 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    * Performs a search with the given term, resetting to the first page.
    */
   const search = useCallback(
-    (term: string) =>
-      retrieve((prev) => ({ ...prev, term, offset: 0, limit: pageSize })),
+    (searchTerm: string) =>
+      retrieve((prev) => ({ ...prev, searchTerm, offset: 0, limit: pageSize })),
     [retrieve, pageSize],
   );
 

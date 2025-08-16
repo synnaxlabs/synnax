@@ -56,6 +56,7 @@ const INITIAL_STATE: ContextMenuState = {
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
 export const CONTEXT_TARGET = CSS.BE("context", "target");
+export const CONTEXT_MENU_CLASS = CSS.B("menu-context");
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const findTarget = (target: HTMLElement): HTMLElement | null => {
@@ -163,7 +164,7 @@ const Internal = ({
   if (!visible) return null;
   return createPortal(
     <Flex.Box
-      className={CSS(CSS.B("menu-context"), CSS.bordered())}
+      className={CSS(CONTEXT_MENU_CLASS, CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={(e) => {

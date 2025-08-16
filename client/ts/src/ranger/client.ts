@@ -20,14 +20,12 @@ import { type ontology } from "@/ontology";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
-  ALIAS_ONTOLOGY_TYPE,
   type Key,
   type Keys,
   keyZ,
   type Name,
   type Names,
   type New,
-  ONTOLOGY_TYPE,
   type Params,
   type Payload,
   payloadZ,
@@ -176,7 +174,7 @@ export class Range {
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.array(z.string()).optional(),
-  term: z.string().optional(),
+  searchTerm: z.string().optional(),
   overlapsWith: TimeRange.z.optional(),
   limit: z.number().int().optional(),
   offset: z.number().int().optional(),
@@ -282,6 +280,16 @@ export class Client {
     return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 
+  async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.retrieve(channel);
+  }
+
+  async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    await aliaser.set({ [channel]: alias });
+  }
+
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
       frameClient: this.frameClient,
@@ -311,10 +319,10 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "range", key });
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
-  type: ALIAS_ONTOLOGY_TYPE,
+  type: "range-alias",
   key,
 });
 

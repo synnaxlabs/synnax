@@ -11,6 +11,7 @@ import { useCallback } from "react";
 import { type z } from "zod";
 
 import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type Store } from "@/flux/aether/store";
 import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
@@ -27,8 +28,9 @@ import { state } from "@/state";
 export interface CreateFormArgs<
   FormParams extends Params,
   DataSchema extends z.ZodObject,
-> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | null>,
-    CreateUpdateArgs<FormParams, z.infer<DataSchema>> {
+  SubStore extends Store,
+> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | null, SubStore>,
+    CreateUpdateArgs<FormParams, z.infer<DataSchema>, SubStore> {
   /** Zod schema for form validation */
   schema: DataSchema;
   /** Default values to use when creating new forms */
@@ -69,7 +71,8 @@ export interface AfterSaveArgs<FormParams extends Params, Z extends z.ZodObject>
  * @template FormParams The type of parameters for the form query
  * @template Z The Zod schema type for form validation
  */
-export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
+export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject>
+  extends Pick<Form.UseArgs<Z>, "sync" | "onHasTouched" | "mode"> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
   /** Whether to automatically save form changes */
@@ -78,8 +81,6 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
   params: FormParams;
   /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
-  /** Whether to synchronize the form with the server */
-  sync?: boolean;
 }
 
 /**
@@ -136,25 +137,40 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodObject> {
  * });
  * ```
  */
-export const createForm = <FormParams extends Params, Schema extends z.ZodObject>({
+export const createForm = <
+  FormParams extends Params,
+  Schema extends z.ZodObject,
+  SubStore extends Store = {},
+>({
   name,
   schema,
   retrieve,
-  listeners,
+  mountListeners,
   update,
   initialValues: baseInitialValues,
-}: CreateFormArgs<FormParams, Schema>): UseForm<FormParams, Schema> => {
-  const retrieveHook = createRetrieve<FormParams, z.infer<Schema> | null>({
+}: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> => {
+  const retrieveHook = createRetrieve<FormParams, z.infer<Schema> | null, SubStore>({
     name,
     retrieve,
-    listeners,
+    mountListeners,
   });
-  const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
+  const updateHook = createUpdate<FormParams, z.infer<Schema>, SubStore>({
+    name,
+    update,
+  });
 
-  return ({ params, initialValues, autoSave = false, afterSave, sync = false }) => {
+  return ({
+    params,
+    initialValues,
+    autoSave = false,
+    afterSave,
+    sync,
+    onHasTouched,
+    mode,
+  }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(pendingResult(name, "retrieving", null, false));
+    >(pendingResult(name, "retrieving", null));
 
     const form = Form.use<Schema>({
       schema,
@@ -163,27 +179,37 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
         if (autoSave && path !== "") handleSave();
       },
       sync,
+      onHasTouched,
+      mode,
     });
 
-    const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> =
-      useCallback(
-        (setter) => {
-          const nextStatus = state.executeSetter(setter, resultRef.current);
-          resultRef.current = nextStatus;
-          if (nextStatus.data != null) {
-            form.set("", nextStatus.data);
-            form.setCurrentStateAsInitialValues();
-          }
-          setResult(nextStatus);
-        },
-        [form],
-      );
+    const handleResultChange = useCallback(
+      (
+        setter: state.SetArg<Result<z.infer<Schema> | null>>,
+        resetForm: boolean = true,
+      ) => {
+        const nextStatus = state.executeSetter(setter, resultRef.current);
+        resultRef.current = nextStatus;
+        if (nextStatus.data != null) {
+          form.set("", nextStatus.data);
+          if (resetForm) form.setCurrentStateAsInitialValues();
+        }
+        setResult(nextStatus);
+      },
+      [form],
+    ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
 
     retrieveHook.useEffect({ params, onChange: handleResultChange });
 
+    const handleUpdateResultChange = useCallback(
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>) =>
+        handleResultChange(setter, false),
+      [handleResultChange],
+    );
+
     const { updateAsync } = updateHook.useObservable({
       params,
-      onChange: handleResultChange,
+      onChange: handleUpdateResultChange,
     });
 
     const handleSave = useCallback(
@@ -191,10 +217,11 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
         void (async () => {
           try {
             if (!(await form.validateAsync())) return;
-            await updateAsync(form.value(), opts);
+            if (!(await updateAsync(form.value(), opts))) return;
             afterSave?.({ form, params });
+            form.setCurrentStateAsInitialValues();
           } catch (error) {
-            setResult((p) => errorResult(name, "update", error, p.listenersMounted));
+            setResult(errorResult(name, "update", error));
           }
         })(),
       [form, updateAsync, afterSave, params],

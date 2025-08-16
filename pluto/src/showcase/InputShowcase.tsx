@@ -21,7 +21,7 @@ export interface InputShowcaseTextProps
   extends Optional<Input.TextProps, "value" | "onChange"> {}
 
 export const InputShowcaseText = (props: InputShowcaseTextProps) => {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState<string>(props.value ?? "");
   return <Input.Text {...props} value={value} onChange={setValue} />;
 };
 
@@ -69,7 +69,7 @@ export const InputShowcase = () => (
     <Flex.Box x pack grow sharp>
       <SubcategorySection
         title="Text Input Sizes & Variants"
-        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard and text variants"
+        description="Text inputs in different sizes (huge, large, medium, small, tiny) with standard, shadow, text, and preview variants"
       >
         <Flex.Box x gap="large">
           <Flex.Box y gap="small">
@@ -84,6 +84,16 @@ export const InputShowcase = () => (
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
+              Shadow Variant
+            </Text.Text>
+            <InputShowcaseText placeholder="Catalyst" size="huge" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="large" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="medium" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="small" variant="shadow" />
+            <InputShowcaseText placeholder="Catalyst" size="tiny" variant="shadow" />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
               Text Variant
             </Text.Text>
             <InputShowcaseText placeholder="Catalyst" size="huge" variant="text" />
@@ -91,6 +101,16 @@ export const InputShowcase = () => (
             <InputShowcaseText placeholder="Catalyst" size="medium" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="small" variant="text" />
             <InputShowcaseText placeholder="Catalyst" size="tiny" variant="text" />
+          </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Preview Variant
+            </Text.Text>
+            <InputShowcaseText size="huge" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="large" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="medium" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="small" variant="preview" value="Catalyst" />
+            <InputShowcaseText size="tiny" variant="preview" value="Catalyst" />
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -183,6 +203,19 @@ export const InputShowcase = () => (
               <InputShowcaseSwitch value={true} />
             </Flex.Box>
           </Flex.Box>
+          <Text.Text level="small" weight={500}>
+            Preview Variant
+          </Text.Text>
+          <Flex.Box x gap="medium">
+            <Flex.Box y gap="small" align="center">
+              <Text.Text level="small">False</Text.Text>
+              <InputShowcaseSwitch value={false} variant="preview" />
+            </Flex.Box>
+            <Flex.Box y gap="small" align="center">
+              <Text.Text level="small">True</Text.Text>
+              <InputShowcaseSwitch value={true} variant="preview" />
+            </Flex.Box>
+          </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
 
@@ -237,6 +270,21 @@ export const InputShowcase = () => (
               </Flex.Box>
             </Flex.Box>
           </Flex.Box>
+          <Flex.Box y gap="small">
+            <Text.Text level="small" weight={500}>
+              Preview Variant
+            </Text.Text>
+            <Flex.Box x gap="medium" align="center">
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">False</Text.Text>
+                <InputShowcaseCheckbox value={false} variant="preview" />
+              </Flex.Box>
+              <Flex.Box y gap="small" align="center">
+                <Text.Text level="small">True</Text.Text>
+                <InputShowcaseCheckbox value={true} variant="preview" />
+              </Flex.Box>
+            </Flex.Box>
+          </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
     </Flex.Box>
@@ -284,18 +332,28 @@ export const InputShowcase = () => (
     </SubcategorySection>
 
     <SubcategorySection
+      title="Custom Colors"
+      description="Inputs with custom colors and different background contrast levels"
+    >
+      <Flex.Box x gap="large">
+        <InputShowcaseText placeholder="Catalyst" color={"#00FF00"} />
+        <InputShowcaseNumeric placeholder="Catalyst" color={"#00FF00"} />
+      </Flex.Box>
+    </SubcategorySection>
+
+    <SubcategorySection
       title="Form Items with Labels & Help Text"
       description="Input components wrapped in Item containers with labels and help text in different states"
     >
       <Flex.Box x gap="large">
-        <Input.Item label="Catalyst" helpText="Catalyst">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="error">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="error" />
         </Input.Item>
-        <Input.Item label="Catalyst" helpText="Catalyst" helpTextVariant="warning">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="warning">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="warning" />
         </Input.Item>
-        <Input.Item label="Catalyst" helpText="Catalyst" helpTextVariant="success">
-          <InputShowcaseText placeholder="Catalyst" endContent="m/s" />
+        <Input.Item label="Catalyst" helpText="Catalyst" status="success">
+          <InputShowcaseText placeholder="Catalyst" endContent="m/s" status="success" />
         </Input.Item>
       </Flex.Box>
     </SubcategorySection>

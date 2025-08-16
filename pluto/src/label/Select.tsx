@@ -18,18 +18,28 @@ import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
+import { Text } from "@/text";
 
 const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
+  const { selected, onSelect, hovered } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
-      <Icon.Circle color={item?.color} size="2.5em" />
-      {item?.name}
-    </Select.ListItem>
+    <List.Item
+      itemKey={itemKey}
+      onSelect={onSelect}
+      selected={selected}
+      hovered={hovered}
+      {...rest}
+    >
+      <Text.Text align="center">
+        <Icon.Circle color={item?.color} size="2.5em" />
+        {item?.name}
+      </Text.Text>
+    </List.Item>
   );
 };
 
@@ -55,6 +65,10 @@ const labelRenderTag = Component.renderProp(
     );
   },
 );
+
+const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
+  variant: "text",
+};
 
 export const SelectMultiple = ({
   onChange,
@@ -84,7 +98,7 @@ export const SelectMultiple = ({
       status={status}
       renderTag={labelRenderTag}
       icon={<Icon.Label />}
-      triggerProps={{ variant: "text" }}
+      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
       variant="floating"
       {...rest}
     >

@@ -237,12 +237,10 @@ describe("Input", () => {
 
     describe("custom color", () => {
       it("should apply custom outline color", () => {
-        const c = render(
-          <Input.Text value="" onChange={vi.fn()} outlineColor="#ff0000" />,
-        );
+        const c = render(<Input.Text value="" onChange={vi.fn()} color="#ff0000" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto-input--custom-color");
-        expect(container?.style.getPropertyValue("--pluto-input-color")).toBe(
+        expect(container?.className).toContain("pluto-btn--custom-color");
+        expect(container?.style.getPropertyValue("--pluto-btn-color")).toBe(
           "255, 0, 0",
         );
       });
@@ -476,7 +474,7 @@ describe("Input", () => {
 
       it("should render checkmark element", () => {
         const c = render(<Input.Checkbox value={false} onChange={vi.fn()} />);
-        const checkmark = c.container.querySelector(".pluto-input__checkbox-checkmark");
+        const checkmark = c.container.querySelector(".pluto-input__checkbox-indicator");
         expect(checkmark).toBeTruthy();
       });
     });
@@ -493,7 +491,7 @@ describe("Input", () => {
 
       it("should render switch track element", () => {
         const c = render(<Input.Switch value={false} onChange={vi.fn()} />);
-        const track = c.container.querySelector(".pluto-input__switch-track");
+        const track = c.container.querySelector(".pluto-input__switch-indicator");
         expect(track).toBeTruthy();
       });
     });

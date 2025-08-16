@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, user } from "@synnaxlabs/client";
+import { ontology, type user } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -64,7 +64,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete();
   const handleSelect = {
     permissions: () => editPermissions(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     delete: () => handleDelete(props),
   };
   const singleResource = resourceIDs.length === 1;
@@ -115,7 +115,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: user.ONTOLOGY_TYPE,
+  type: "user",
   icon: <Icon.User />,
   allowRename: () => true,
   onRename: handleRename,

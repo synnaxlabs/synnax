@@ -17,7 +17,7 @@ import {
   Input,
   List,
   Select,
-  Status,
+  Text,
   Tooltip,
   Triggers,
   useCombinedStateAndRef,
@@ -71,17 +71,14 @@ export const Palette = ({
         bordered={false}
       >
         <Button.Button
-          onClick={() => {
-            setVisible(true);
-            setValue("");
-          }}
+          onClick={() => setVisible(true)}
           className={CSS(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
           size="medium"
           justify="center"
           contrast={2}
-          color={9}
+          textColor={9}
           gap="small"
           full="x"
         >
@@ -110,16 +107,17 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const commandEmptyContent = (
-  <Status.Text variant="disabled" hideIcon center>
+  <Text.Text status="disabled" center level="h4">
+    <Icon.Terminal />
     No commands found
-  </Status.Text>
+  </Text.Text>
 );
 
 const resourceEmptyContent = (
-  <Status.Text variant="disabled" hideIcon center>
+  <Text.Text status="disabled" center level="h4">
     <Icon.Resources />
     No resources found
-  </Status.Text>
+  </Text.Text>
 );
 
 const DialogContent = ({
@@ -150,8 +148,10 @@ const DialogContent = ({
       value={value}
       onChange={handleSelect}
       onFetchMore={fetchMore}
+      itemHeight={36}
       virtual={false}
       initialHover={0}
+      closeDialogOnSelect
     >
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}

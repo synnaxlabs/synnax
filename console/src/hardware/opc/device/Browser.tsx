@@ -154,7 +154,7 @@ export const Browser = ({ device }: BrowserProps) => {
     nodes: treeNodes,
     onExpand: expand.mutate,
   });
-  const { clearExpanded } = treeProps;
+  const { shape, clearExpanded } = treeProps;
   const [initialLoading, setInitialLoading] = useState(false);
   const refresh = useCallback(() => {
     if (scanTask == null) return;
@@ -168,12 +168,16 @@ export const Browser = ({ device }: BrowserProps) => {
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Flex.Box>
   ) : expand.isError ? (
-    <Status.Text center color={10} variant="error">
-      Error loading nodes. {expand.error.message}
-    </Status.Text>
+    <Status.Summary
+      center
+      variant="error"
+      message="Error loading nodes."
+      description={expand.error.message}
+    />
   ) : (
-    <Tree.Tree<string, ScannedNode>
+    <Tree.Tree
       {...treeProps}
+      shape={shape}
       getItem={opcNodesStore.getItem}
       subscribe={opcNodesStore.subscribe}
     >

@@ -7,7 +7,7 @@ import { Rack } from "@/hardware/rack";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
+const wrapper = newSynnaxWrapper(client);
 describe("queries", () => {
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
@@ -19,7 +19,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -36,7 +36,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -57,7 +57,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ term: "special" });
@@ -68,7 +68,7 @@ describe("queries", () => {
         result.current.data
           .map((key: rack.Key) => result.current.getItem(key)?.name)
           .includes("special"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -78,7 +78,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -93,12 +93,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeStatus: true });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
 
       const retrievedRack = result.current.getItem(testRack.key);
       expect(retrievedRack?.key).toEqual(testRack.key);
@@ -106,12 +108,14 @@ describe("queries", () => {
 
     it("should update the list when a rack is created", async () => {
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       const initialLength = result.current.data.length;
 
       const newRack = await client.hardware.racks.create({
@@ -130,12 +134,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
 
       await client.hardware.racks.create({
@@ -154,12 +160,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data).toContain(testRack.key);
 
       await client.hardware.racks.delete(testRack.key);
@@ -175,12 +183,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
 
       const rackStatus: rack.Status = status.create({
         key: id.create(),

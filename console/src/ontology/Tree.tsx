@@ -25,7 +25,7 @@ import {
   useRequiredContext,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, deep, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import {
   createContext,
@@ -202,11 +202,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (id: ontology.ID) => {
-      handleError(async () => {
-        if (client == null) return;
-        resourceStore.setItem(await client.ontology.retrieve(id));
-      });
+    (resource: ontology.Resource) => {
+      const prev = resourceStore.getItem(ontology.idToString(resource.id));
+      resourceStore.setItem(resource);
+      // Trigger re-sort when name changes.
+      if (prev?.name !== resource.name) setNodes((prevNodes) => [...prevNodes]);
     },
     [client, handleError, resourceStore.setItem],
   );
@@ -221,15 +221,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const handleSyncRelationshipSet = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     const { from, to } = rel;
-    const visibleNode = Core.findNode({
-      tree: nodesRef.current,
-      key: ontology.idToString(from),
-    });
-    if (visibleNode == null) return;
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
-      return [
+      const nextNodes = [
         ...Core.setNode({
           tree: prevNodes,
           destination,
@@ -239,8 +234,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
+          throwOnMissing: false,
         }),
       ];
+      return nextNodes;
     });
   }, []);
   Ontology.useRelationshipSetSynchronizer(handleSyncRelationshipSet);
@@ -597,8 +594,9 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     <Context.Provider value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
-        showRules
         {...treeProps}
+        showRules
+        shape={deep.copy(shape)}
         subscribe={resourceStore.subscribe}
         getItem={resourceStore.getItem}
         onContextMenu={menuProps.open}

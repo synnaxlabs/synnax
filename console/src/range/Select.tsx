@@ -60,7 +60,6 @@ interface RenderTagProps {
 const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   const range = useSelect(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
-  if (range == null) return null;
   return (
     <Tag.Tag
       icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
@@ -68,7 +67,7 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
       level="small"
       size="small"
     >
-      {range.name}
+      {range?.name ?? itemKey}
     </Tag.Tag>
   );
 };
@@ -117,7 +116,7 @@ const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement 
 
 interface SelectMultipleInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
-    SelectMultipleRangesProps {
+    Omit<SelectMultipleRangesProps, "status"> {
   value: string[];
   onChange: (value: string[]) => void;
   selectProps?: Partial<SelectMultipleRangesProps>;
@@ -136,7 +135,7 @@ export const SelectMultipleInputItem = ({
 
 interface SelectInputItemProps
   extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
-    SelectSingleRangeProps {
+    Omit<SelectSingleRangeProps, "status"> {
   selectProps?: Partial<SelectSingleRangeProps>;
 }
 

@@ -124,9 +124,9 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   dev.properties = Device.migrateProperties(dev.properties);
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {

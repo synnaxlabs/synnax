@@ -56,6 +56,7 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
       itemKey="openInNewWindow"
       onClick={() => openInNewWindow(layoutKey)}
       trigger={["Control", "O"]}
+      triggerIndicator
     >
       <Icon.OpenInNewWindow />
       Open in New Window
@@ -87,6 +88,7 @@ const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
       itemKey="close"
       onClick={() => remove(layoutKey)}
       trigger={["Control", "W"]}
+      triggerIndicator
     >
       <Icon.Close />
       Close
@@ -99,6 +101,7 @@ const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
     itemKey="rename"
     onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
     trigger={["Control", "E"]}
+    triggerIndicator
   >
     <Icon.Rename />
     Rename

@@ -33,13 +33,13 @@ const BaseItems = <
   emptyContent,
   displayItems = 10,
   style,
-  gap = 0,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
   const visibleData = getItems();
   let content = emptyContent;
-  if (data.length > 0)
+  const hasItems = data.length > 0;
+  if (hasItems)
     content = (
       <div
         className={CSS.BE("list", "virtualizer")}
@@ -52,14 +52,18 @@ const BaseItems = <
     );
 
   let minHeight: number | undefined;
-  if (itemHeight != null && isFinite(displayItems) && visibleData.length > 0)
+  if (itemHeight != null && isFinite(displayItems) && hasItems)
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
     <Flex.Box
+      empty
       ref={ref}
-      className={CSS(className, CSS.BE("list", "items"))}
+      className={CSS(
+        className,
+        CSS.BE("list", "items"),
+        !hasItems && CSS.BEM("list", "items", "empty"),
+      )}
       style={{ height: minHeight, ...style }}
-      gap={gap}
       full="y"
       {...rest}
     >

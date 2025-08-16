@@ -17,6 +17,7 @@ import {
   Input,
   Schematic,
   Status,
+  Text,
 } from "@synnaxlabs/pluto";
 import { box, color, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
@@ -44,9 +45,9 @@ export const PropertiesControls = memo(
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
-        <Status.Text center variant="disabled" hideIcon>
+        <Text.Text status="disabled" center>
           Select a Schematic element to configure its properties.
-        </Status.Text>
+        </Text.Text>
       );
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;

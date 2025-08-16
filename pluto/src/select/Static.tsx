@@ -15,13 +15,13 @@ import { List } from "@/list";
 import { Select } from "@/select";
 import { Single, type SingleProps } from "@/select/Single";
 
-export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> {
+export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
 }
 
-export interface SimpleProps<
+export interface StaticProps<
   K extends record.Key,
-  E extends SimplyEntry<K> = SimplyEntry<K>,
+  E extends StaticEntry<K> = StaticEntry<K>,
 > extends Optional<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
@@ -30,7 +30,7 @@ export interface SimpleProps<
 
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
-  const item = List.useItem<record.Key, SimplyEntry<record.Key>>(itemKey);
+  const item = List.useItem<record.Key, StaticEntry<record.Key>>(itemKey);
   if (item == null) return null;
   const { name, icon } = item;
   return (
@@ -41,16 +41,17 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   );
 });
 
-export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
+export const Static = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data,
   filter,
   children = listItem,
+  virtual = false,
   ...rest
-}: SimpleProps<K, E>) => {
+}: StaticProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { search } = List.usePager({ retrieve });
   return (
-    <Single<K, E> {...rest} {...listProps} onFetchMore={fetchMore} onSearch={search}>
+    <Single<K, E> {...rest} {...listProps} onSearch={search} virtual={virtual}>
       {children}
     </Single>
   );

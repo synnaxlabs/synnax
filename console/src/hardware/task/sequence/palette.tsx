@@ -29,6 +29,7 @@ const IMPORT_COMMAND: Palette.Command = {
   key: "import-control-sequence",
   name: "Import a Control Sequence",
   icon: <Icon.Control />,
+  sortOrder: -1,
   onSelect: import_,
 };
 

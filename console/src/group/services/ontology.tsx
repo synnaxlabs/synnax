@@ -31,6 +31,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = resourceIDs[0];
   const firstResource = getResource(firstID);
+  const isSingle = resourceIDs.length === 1;
+  const isZeroDepth = Tree.getDepth(ontology.idToString(firstID), shape) === 0;
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Text.edit(ontology.idToString(firstID)),
@@ -43,13 +45,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     return node?.children == null || node?.children.length === 0;
   });
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
-  const singleResource = resourceIDs.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {singleResource && (
+      {isSingle && (
         <>
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          {!isZeroDepth && (
+            <>
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
           <PMenu.Item itemKey="newGroup">
             <Icon.Group />
             New Group
@@ -57,13 +62,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <MenuItem resourceIDs={resourceIDs} shape={shape} />
-      <PMenu.Item itemKey="ungroup">
-        {ungroupIcon}
-        {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
-        {isDelete ? "Delete" : "Ungroup"}
-      </PMenu.Item>
-      <PMenu.Divider />
-      {singleResource && (
+      {!isZeroDepth && (
+        <>
+          <PMenu.Item itemKey="ungroup">
+            {ungroupIcon}
+            {isDelete ? "Delete" : "Ungroup"}
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
+      {isSingle && (
         <>
           <Link.CopyMenuItem />
           <PMenu.Divider />
@@ -78,14 +86,19 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
   const mut = useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({ client, selection, state: { nodes } }) => {
       if (selection.parentID == null) return;
+      const resourceIDStrings = new Set(
+        selection.resourceIDs.map((id) => ontology.idToString(id)),
+      );
       for (const id of selection.resourceIDs) {
         const children =
           Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
         const parentID = selection.parentID;
-        const childKeys = ontology.parseIDs(children.map(({ key }) => key));
+        const childKeys = ontology.parseIDs(
+          children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
+        );
         await client.ontology.moveChildren(id, parentID, ...childKeys);
-        await client.ontology.groups.delete(id.key);
       }
+      await client.ontology.groups.delete(...selection.resourceIDs.map((id) => id.key));
     },
     onError: async (
       e,
@@ -108,10 +121,12 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     if (selection.parentID == null) return;
     // Sort the groups by depth that way deeper nested groups are ungrouped first.
     selection.resourceIDs.sort(
-      (a, b) => Tree.getDepth(a.key, shape) - Tree.getDepth(b.key, shape),
+      (a, b) =>
+        Tree.getDepth(ontology.idToString(a), shape) -
+        Tree.getDepth(ontology.idToString(b), shape),
     );
     const prevNodes = Tree.deepCopy(nodes);
-    setNodes([
+    const nextNodes = [
       ...selection.resourceIDs.reduce(
         (acc, id) => {
           const key = ontology.idToString(id);
@@ -128,7 +143,8 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         },
         [...nodes],
       ),
-    ]);
+    ];
+    setNodes(nextNodes);
     mut.mutate({ ...props, state: { ...props.state, nodes: prevNodes } });
   };
 };
@@ -202,7 +218,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: group.ONTOLOGY_TYPE,
+  type: "group",
   icon: <Icon.Group />,
   canDrop: () => true,
   // This haul item allows the group to be dragged between nodes in the tree.

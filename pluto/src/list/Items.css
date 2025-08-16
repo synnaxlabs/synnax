@@ -14,10 +14,6 @@
     overflow: auto;
     -webkit-user-select: none;
     transition: height 0.1s ease;
-    .pluto-status__text {
-        height: 20rem;
-        padding: 0 1rem;
-    }
 }
 
 .pluto-list__items > .pluto-list__virtualizer {
@@ -25,7 +21,4 @@
     position: relative;
     user-select: none;
     -webkit-user-select: none;
-    display: flex;
-    flex-direction: column;
-    gap: inherit;
 }

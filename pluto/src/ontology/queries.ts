@@ -7,202 +7,177 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
+import { useEffect } from "react";
 
 import { Flux } from "@/flux";
+import { type List } from "@/list";
+import { type ontology as aetherOntology } from "@/ontology/aether";
 
-export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void =>
-  Flux.useListener({
-    channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(ontology.idZ, async ({ changed }) => onSet(changed)),
-  });
+export const useResourceSetSynchronizer = (
+  onSet: (resource: ontology.Resource) => void,
+): void => {
+  const store = Flux.useStore<aetherOntology.SubStore>();
+  useEffect(() => {
+    const destructor = store.resources.onSet(async (changed) => onSet(changed));
+    return () => destructor();
+  }, [store.resources]);
+};
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
-): void =>
-  Flux.useListener({
-    channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(ontology.idZ, async ({ changed }) => {
-      onDelete(changed);
-    }),
-  });
+): void => {
+  const store = Flux.useStore<aetherOntology.SubStore>();
+  useEffect(() => {
+    const destructor = store.resources.onDelete(async (changed) =>
+      onDelete(ontology.idZ.parse(changed)),
+    );
+    return () => destructor();
+  }, [store.resources]);
+};
 
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
-): void =>
-  Flux.useListener({
-    channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
-      onSet(changed);
-    }),
-  });
+): void => {
+  const store = Flux.useStore<aetherOntology.SubStore>();
+  useEffect(() => {
+    const destructor = store.relationships.onSet(async (changed) => onSet(changed));
+    return () => destructor();
+  }, [store.relationships]);
+};
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
-): void =>
-  Flux.useListener({
-    channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(ontology.relationshipZ, async ({ changed }) => {
-      onDelete(changed);
-    }),
-  });
+): void => {
+  const store = Flux.useStore<aetherOntology.SubStore>();
+  useEffect(() => {
+    const destructor = store.relationships.onDelete(async (changed) =>
+      onDelete(ontology.relationshipZ.parse(changed)),
+    );
+    return () => destructor();
+  }, [store.relationships]);
+};
 
-export const matchRelationshipAndID = (
-  relationship: ontology.Relationship,
-  direction: ontology.RelationshipDirection,
-  id: ontology.ID,
-) =>
-  relationship.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-  ontology.idsEqual(
-    relationship[ontology.oppositeRelationshipDirection(direction)],
-    id,
-  );
-
-interface UseDependentQueryParams {
-  id: ontology.ID;
+interface UseDependentQueryParams extends List.PagerParams {
+  id?: ontology.ID;
 }
 
 export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>
-  Flux.createList<UseDependentQueryParams, string, ontology.Resource>({
+  Flux.createList<
+    UseDependentQueryParams,
+    string,
+    ontology.Resource,
+    aetherOntology.SubStore
+  >({
     name: "useDependents",
-    retrieve: async ({ client, params: { id } }) =>
-      await client.ontology.retrieve([id], {
+    retrieve: async ({ client, params: { id } }) => {
+      if (id == null) return [];
+      return await client.ontology.retrieve([id], {
         children: direction === "to",
         parents: direction === "from",
+      });
+    },
+    retrieveByKey: async ({ client, key }) => await client.ontology.retrieve(key),
+    mountListeners: ({ store, onChange, onDelete, client, params: { id } }) => [
+      store.relationships.onSet(async (relationship) => {
+        if (
+          ontology.matchRelationship(relationship, {
+            type: "parent",
+            [ontology.oppositeRelationshipDirection(direction)]: id,
+          })
+        ) {
+          const dependent = await client.ontology.retrieve(relationship[direction]);
+          onChange(dependent.key, dependent);
+        }
       }),
-    retrieveByKey: async ({ client, key }) =>
-      await client.ontology.retrieve(ontology.idZ.parse(key)),
-    listeners: [
-      {
-        channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Flux.parsedHandler(
-          ontology.relationshipZ,
-          async ({ client, changed, params, onChange }) => {
-            if (!("id" in params)) return;
-            const { id } = params;
-            if (!matchRelationshipAndID(changed, direction, id)) return;
-            const dependent = await client.ontology.retrieve(changed[direction]);
-            onChange(dependent.key, dependent);
-          },
-        ),
-      },
-      {
-        channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Flux.parsedHandler(
-          ontology.relationshipZ,
-          async ({ changed, params, onDelete }) => {
-            if (!("id" in params)) return;
-            const { id } = params;
-            if (!matchRelationshipAndID(changed, direction, id)) return;
-            onDelete(ontology.idToString(changed[direction]));
-          },
-        ),
-      },
-      {
-        channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-        onChange: Flux.parsedHandler(
-          ontology.idZ,
-          async ({ client, changed, params, onChange }) => {
-            if (!("id" in params)) return;
-            const { id } = params;
-            if (!ontology.idsEqual(id, changed)) return;
-            const nextDependent = await client.ontology.retrieve(changed);
-            onChange(nextDependent.key, nextDependent);
-          },
-        ),
-      },
+      store.relationships.onDelete(async (relationship) => {
+        const rel = ontology.relationshipZ.parse(relationship);
+        if (
+          ontology.matchRelationship(rel, {
+            type: "parent",
+            [ontology.oppositeRelationshipDirection(direction)]: id,
+          })
+        )
+          onDelete(ontology.idToString(rel[direction]));
+      }),
+      store.resources.onSet(async (resource) =>
+        onChange(resource.key, (prev) => {
+          // Default to null if the resource is not in the list,
+          // as we don't want to add any non-children.
+          if (prev == null) return null;
+          return { ...prev, ...resource };
+        }),
+      ),
+      store.resources.onDelete(async (resource) => onDelete(resource)),
     ],
   });
 
 export const useChildren = createDependentsListHook("to");
-export const useParents = createDependentsListHook("from");
 
-export interface UseResourceQueryParams {
-  id: ontology.ID;
-}
+export interface ListParams extends ontology.RetrieveRequest {}
 
-export const useResource = Flux.createRetrieve<
-  UseResourceQueryParams,
-  ontology.Resource
+export const useResourceList = Flux.createList<
+  ListParams,
+  string,
+  ontology.Resource,
+  aetherOntology.SubStore
 >({
-  name: "useResource",
-  retrieve: async ({ client, params: { id } }) => client.ontology.retrieve(id),
-  listeners: [
-    {
-      channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        ontology.idZ,
-        async ({ client, changed, params: { id }, onChange }) => {
-          if (!ontology.idsEqual(id, changed)) return;
-          const nextDependent = await client.ontology.retrieve(changed);
-          onChange(nextDependent);
-        },
-      ),
-    },
-    {
-      channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(ontology.idZ, async ({ params: { id } }) => {
-        throw new NotFoundError(
-          `Resource with ID ${ontology.idToString(id)} not found`,
-        );
-      }),
-    },
+  name: "useResourceList",
+  retrieve: async ({ client, params, store }) => {
+    const res = await client.ontology.retrieve(params);
+    res.forEach((r) => store.resources.set(r.key, r, { notify: false }));
+    return res;
+  },
+  retrieveByKey: async ({ client, key, store }) => {
+    const res = await client.ontology.retrieve(ontology.idZ.parse(key));
+    store.resources.set(key, res, { notify: false });
+    return res;
+  },
+  mountListeners: ({ store, onChange, onDelete }) => [
+    store.resources.onSet(async (r) => onChange(r.key, r)),
+    store.resources.onDelete(async (key) => onDelete(key)),
   ],
 });
 
-export interface ListParams {
-  offset?: number;
-  limit?: number;
-  term?: string;
+export interface RetrieveParentIDParams {
+  id: ontology.ID;
+  type?: ontology.ResourceType;
 }
 
-export const useResourceList = Flux.createList<ListParams, string, ontology.Resource>({
-  name: "useResourceList",
-  retrieve: async ({ client, params }) => await client.ontology.retrieve(params),
-  retrieveByKey: async ({ client, key }) =>
-    await client.ontology.retrieve(ontology.idZ.parse(key)),
-});
-
 export const retrieveParentID = Flux.createRetrieve<
-  { id: ontology.ID; type?: ontology.ResourceType },
-  ontology.ID | null
+  RetrieveParentIDParams,
+  ontology.ID | null,
+  aetherOntology.SubStore
 >({
   name: "useParentID",
-  retrieve: async ({ client, params: { id, type } }) => {
-    const res = await client.ontology.retrieveParents(id);
-    if (type == null) return res[0].id;
-    const parent = res.find(({ id }) => id.type === type);
+  retrieve: async ({ client, params }) => {
+    const res = await client.ontology.retrieveParents(params.id);
+    if (params.type == null) return res[0].id;
+    const parent = res.find(({ id }) => id.type === params.type);
     if (parent == null) return null;
     return parent.id;
   },
-  listeners: [
-    {
-      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, params: { id, type }, onChange }) => {
-          if (
-            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-            (type == null || changed.from.type === type) &&
-            ontology.idsEqual(changed.to, id)
-          )
-            onChange(changed.to);
-        },
-      ),
-    },
-    {
-      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, params: { id, type }, onChange }) => {
-          if (
-            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-            (type == null || changed.from.type === type) &&
-            ontology.idsEqual(changed.to, id)
-          )
-            onChange(null);
-        },
-      ),
-    },
+  mountListeners: ({ store, onChange, client, params: { id } }) => [
+    store.relationships.onSet(async (relationship) => {
+      if (
+        ontology.matchRelationship(relationship, {
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: id,
+        })
+      ) {
+        const parent = await client.ontology.retrieve(relationship.from);
+        onChange(parent.id);
+      } else onChange(null);
+    }),
+    store.relationships.onDelete(async (relationship) => {
+      const rel = ontology.relationshipZ.parse(relationship);
+      if (
+        ontology.matchRelationship(rel, {
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: id,
+        })
+      )
+        onChange(null);
+    }),
   ],
 });

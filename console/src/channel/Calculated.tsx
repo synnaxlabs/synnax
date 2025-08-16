@@ -56,13 +56,17 @@ const GLOBALS: Variable[] = [
   },
 ];
 
-export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
+export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const client = Synnax.use();
   const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = args?.channelKey !== 0;
 
-  const { form, variant, save } = Channel.useCalculatedForm({
+  const { form, variant, save, status } = Channel.useCalculatedForm({
     params: { key: args?.channelKey },
+    afterSave: ({ form }) => {
+      if (createMore) form.reset();
+      else onClose();
+    },
   });
 
   const handleError = Status.useErrorHandler();
@@ -93,6 +97,15 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
     },
     [form, globals, client],
   );
+
+  if (variant !== "success")
+    return (
+      <Status.Summary
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
+      />
+    );
 
   return (
     <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
@@ -168,7 +181,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
           {isEdit && (
             <Flex.Box x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text>Create More</Text.Text>
+              <Text.Text color={9}>Create More</Text.Text>
             </Flex.Box>
           )}
           <Flex.Box x align="center">

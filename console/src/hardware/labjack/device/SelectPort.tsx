@@ -53,6 +53,9 @@ export const SelectPort = ({
   allowNone,
   emptyContent,
   filter,
+  triggerProps,
+  variant,
+  dialogProps,
   ...rest
 }: SelectPortProps) => {
   const { data, getItem, retrieve } = List.useStaticData<string, Port>({
@@ -60,17 +63,22 @@ export const SelectPort = ({
     filter,
   });
   const selected = getItem(value ?? "");
+  const dialogVariant = variant === "preview" ? "connected" : variant;
+  const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
-    <Dialog.Frame location="bottom" {...rest}>
+    <Dialog.Frame location="bottom" variant={dialogVariant} {...rest}>
       <Select.Frame data={data} getItem={getItem} onChange={onChange}>
         <Flex.Box pack x>
-          <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
+          <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
+            {selected?.alias ?? selected?.key}
+          </Dialog.Trigger>
           {children}
         </Flex.Box>
         <Select.Dialog<string>
-          onSearch={(term) => retrieve({ term })}
+          onSearch={(term) => retrieve({ searchTerm: term })}
           emptyContent={emptyContent}
           resourceName="Port"
+          {...dialogProps}
         >
           {listItem}
         </Select.Dialog>

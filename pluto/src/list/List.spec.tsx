@@ -54,17 +54,11 @@ describe("List", () => {
       });
 
       it("should allow the caller to provide a custom item getter", () => {
-        const data: record.KeyedNamed<string>[] = [
-          { key: "1", name: "one" },
-          { key: "2", name: "two" },
-          { key: "3", name: "three" },
-        ];
-        const getItem = ((
-          key: string | string[],
-        ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
-          if (key == null) return undefined;
-          if (Array.isArray(key)) return data.filter((d) => key.includes(d.key));
-          return data.find((d) => d.key === key);
+        const getItem = ((key?: string): record.KeyedNamed<string> | undefined => {
+          if (key === "1") return { key: "1", name: "one" };
+          if (key === "2") return { key: "2", name: "two" };
+          if (key === "3") return { key: "3", name: "three" };
+          return undefined;
         }) as List.GetItem<string, record.KeyedNamed<string>>;
         const result = render(
           <List.Frame<string, record.KeyedNamed<string>>
@@ -88,12 +82,11 @@ describe("List", () => {
           { key: "2", name: "two" },
           { key: "3", name: "three" },
         ];
-        const getItem = ((
-          key: string | string[],
-        ): record.KeyedNamed<string> | record.KeyedNamed<string>[] | undefined => {
-          if (key == null) return undefined;
-          if (Array.isArray(key)) return data.filter((d) => key.includes(d.key));
-          return data.find((d) => d.key === key);
+        const getItem = ((key?: string): record.KeyedNamed<string> | undefined => {
+          if (key === "1") return data[0];
+          if (key === "2") return data[1];
+          if (key === "3") return data[2];
+          return undefined;
         }) as List.GetItem<string, record.KeyedNamed<string>>;
         const obs = new observe.Observer<void>();
         const itemProp = renderProp(({ itemKey }: List.ItemProps<string>) => {

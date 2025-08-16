@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
 export const useStatusSynchronizer = (
   onStatusChange: (status: rack.Status) => void,
-): void =>
-  Flux.useListener({
-    channel: rack.STATUS_CHANNEL_NAME,
-    onChange: Flux.parsedHandler(rack.statusZ, async (args) => {
-      onStatusChange(args.changed);
-    }),
-  });
+): void => {};
+// Flux.useListener({
+//   channel: rack.STATUS_CHANNEL_NAME,
+//   onChange: Flux.parsedHandler(rack.statusZ, async (args) => {
+//     onStatusChange(args.changed);
+//   }),
+// });

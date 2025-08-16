@@ -7,25 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  annotation,
-  channel,
-  device,
-  framer,
-  group,
-  label,
-  linePlot,
-  log,
-  ontology,
-  policy,
-  rack,
-  ranger,
-  schematic,
-  table,
-  task,
-  user,
-  workspace,
-} from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
@@ -47,25 +29,24 @@ const createEmptyService = (type: ontology.ResourceType): Ontology.Service => ({
 });
 
 export const SERVICES: Ontology.Services = {
-  [schematic.ONTOLOGY_TYPE]: SchematicServices.ONTOLOGY_SERVICE,
-  [ontology.CLUSTER_TYPE]: ClusterServices.ONTOLOGY_SERVICE,
-  [user.ONTOLOGY_TYPE]: UserServices.ONTOLOGY_SERVICE,
-  [ontology.BUILTIN_TYPE]: createEmptyService(ontology.BUILTIN_TYPE),
-  [ontology.NODE_TYPE]: Node.ONTOLOGY_SERVICE,
-  [group.ONTOLOGY_TYPE]: GroupServices.ONTOLOGY_SERVICE,
-  [ranger.ONTOLOGY_TYPE]: RangeServices.ONTOLOGY_SERVICE,
-  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.ONTOLOGY_SERVICE,
-  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.ONTOLOGY_SERVICE,
-  [ranger.ALIAS_ONTOLOGY_TYPE]: createEmptyService(ranger.ALIAS_ONTOLOGY_TYPE),
-  [label.ONTOLOGY_TYPE]: createEmptyService(label.ONTOLOGY_TYPE),
-  [rack.ONTOLOGY_TYPE]: Hardware.Rack.ONTOLOGY_SERVICE,
-  [task.ONTOLOGY_TYPE]: Hardware.Task.ONTOLOGY_SERVICE,
-  [device.ONTOLOGY_TYPE]: Hardware.Device.ONTOLOGY_SERVICE,
-  [channel.ONTOLOGY_TYPE]: ChannelServices.ONTOLOGY_SERVICE,
-  [framer.ONTOLOGY_TYPE]: createEmptyService(framer.ONTOLOGY_TYPE),
-  [policy.ONTOLOGY_TYPE]: createEmptyService(policy.ONTOLOGY_TYPE),
-  [policy.ALLOW_ALL_ONTOLOGY_TYPE]: createEmptyService(policy.ALLOW_ALL_ONTOLOGY_TYPE),
-  [log.ONTOLOGY_TYPE]: LogServices.ONTOLOGY_SERVICE,
-  [table.ONTOLOGY_TYPE]: TableServices.ONTOLOGY_SERVICE,
-  [annotation.ONTOLOGY_TYPE]: createEmptyService(annotation.ONTOLOGY_TYPE),
+  schematic: SchematicServices.ONTOLOGY_SERVICE,
+  cluster: ClusterServices.ONTOLOGY_SERVICE,
+  user: UserServices.ONTOLOGY_SERVICE,
+  builtin: createEmptyService(ontology.BUILTIN_TYPE),
+  node: Node.ONTOLOGY_SERVICE,
+  group: GroupServices.ONTOLOGY_SERVICE,
+  range: RangeServices.ONTOLOGY_SERVICE,
+  workspace: WorkspaceServices.ONTOLOGY_SERVICE,
+  lineplot: LinePlotServices.ONTOLOGY_SERVICE,
+  "range-alias": createEmptyService("range-alias"),
+  label: createEmptyService("label"),
+  rack: Hardware.Rack.ONTOLOGY_SERVICE,
+  task: Hardware.Task.ONTOLOGY_SERVICE,
+  device: Hardware.Device.ONTOLOGY_SERVICE,
+  channel: ChannelServices.ONTOLOGY_SERVICE,
+  framer: createEmptyService("framer"),
+  policy: createEmptyService("policy"),
+  allow_all: createEmptyService("allow_all"),
+  log: LogServices.ONTOLOGY_SERVICE,
+  table: TableServices.ONTOLOGY_SERVICE,
 };

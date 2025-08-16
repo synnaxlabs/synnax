@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
+import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import {
   type errors,
   type record,
@@ -19,7 +19,11 @@ import {
 import { deep } from "@synnaxlabs/x/deep";
 import { z } from "zod";
 
-import { type AetherMessage, type MainMessage } from "@/aether/message";
+import {
+  type AetherMessage,
+  type MainMessage,
+  type MainUpdateMessage,
+} from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
@@ -45,6 +49,11 @@ interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
 
+export interface UpdateStateArgs
+  extends Pick<MainUpdateMessage, "path" | "type" | "state"> {
+  create: CreateComponent;
+}
+
 /**
  * A component in the Aether tree. Each component instance has a unique key identifying
  * it within the tree, and also has a type identifying it's class. Components
@@ -56,6 +65,7 @@ export interface Component {
   type: string;
   /** A unique key identifying the component within the tree. */
   key: string;
+  toString(): string;
   /**
    * Propagates a state update to the component at the given path. This is an internal
    * method, should not be called by subclasses outside of this file.
@@ -63,11 +73,12 @@ export interface Component {
    * @param path - The path of the component to update. The length of the path indicates
    * the depth of the component in the aether tree. This method should propagate the
    * state if the path has a length greater than 1.
+   * @param type - the type of component being updated (or created).
    * @param state - The state to update the component with.
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (path: string[], state: state.State, create: CreateComponent) => void;
+  _updateState: (args: UpdateStateArgs) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -187,7 +198,7 @@ export abstract class Leaf<
     this.key = key;
     this.sender = sender;
     this._internalState = {} as InternalState;
-    this.instrumentation = instrumentation.child(`${this.type}(${this.key})`);
+    this.instrumentation = instrumentation.child(this.toString());
     this.parentCtxValues = new Map();
     parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
     this.childCtxValues = new Map();
@@ -213,7 +224,7 @@ export abstract class Leaf<
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState = state.executeSetter(next, this.state);
     this._prevState = shallowCopy(this._state);
-    this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
+    this._state = prettyParse(this._schema, nextState, `${this.toString()}`);
     this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
 
@@ -221,7 +232,7 @@ export abstract class Leaf<
   get state(): z.infer<StateSchema> {
     if (this._state == null)
       throw new UnexpectedError(
-        `[AetherLeaf] - state not defined in ${this.type}:${this.key}`,
+        `[AetherLeaf] - state not defined in ${this.toString()}`,
       );
     return this._state;
   }
@@ -242,7 +253,14 @@ export abstract class Leaf<
 
   private get ctx(): Context {
     return {
-      get: (key: string) => this.parentCtxValues.get(key),
+      get: (key: string) => {
+        const res = this.parentCtxValues.get(key);
+        if (res === undefined)
+          throw new NotFoundError(
+            `Context value for ${key} not found on ${this.toString()}`,
+          );
+        return res;
+      },
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
       wasSetPreviously: (key: string) => this.childCtxValues.has(key),
@@ -253,37 +271,37 @@ export abstract class Leaf<
     };
   }
 
+  toString(): string {
+    return `${this.type}(${this.key})`;
+  }
+
   /**
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState(path: string[], state: state.State, _: CreateComponent): void {
+  _updateState({ path, state }: UpdateStateArgs): void {
     if (this.deleted) return;
     try {
-      const endSpan = this.instrumentation.T.debug(
-        `${this.type}:${this.key}:updateState`,
-      );
+      const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateState`);
       this.validatePath(path);
-      const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
+      const state_ = prettyParse(this._schema, state, `${this.toString()}`);
       if (this._state != null)
         this.instrumentation.L.debug("updating state", () => ({
           diff: deep.difference(this.state as record.Unknown, state_ as record.Unknown),
         }));
-      else this.instrumentation.L.debug("setting initial state", { state });
+      else this.instrumentation.L.debug("setting initial state", { state, path });
       this._prevState = this._state ?? state_;
       this._state = state_;
       this.afterUpdate(this.ctx);
       endSpan();
     } catch (e) {
-      throw newTreeError(e, `${this.type}.${this.key}.updateState`);
+      throw newTreeError(e, `${this.toString()}.updateState`);
     }
   }
 
   _updateContext(values: ContextMap): void {
     try {
-      const endSpan = this.instrumentation.T.debug(
-        `${this.type}:${this.key}:updateContext`,
-      );
+      const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateContext`);
       values.forEach((value, key) => this.parentCtxValues.set(key, value));
       this.afterUpdate(this.ctx);
       endSpan();
@@ -298,13 +316,13 @@ export abstract class Leaf<
    */
   _delete(path: string[]): void {
     try {
-      const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
+      const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
       this.validatePath(path);
       this._deleted = true;
       this.afterDelete(this.ctx);
       endSpan();
     } catch (e) {
-      throw newTreeError(e, `[${this.type}:${this.key}:delete]`);
+      throw newTreeError(e, `[${this.toString()}:delete]`);
     }
   }
 
@@ -327,18 +345,18 @@ export abstract class Leaf<
   private validatePath(path: string[]): void {
     if (path.length === 0)
       throw new UnexpectedError(
-        `[Leaf.setState] - ${this.type}:${this.key} received an empty path`,
+        `[Leaf.setState] - ${this.toString()} received an empty path`,
       );
     const key = path[path.length - 1];
     if (path.length > 1)
       throw new UnexpectedError(
-        `[Leaf.setState] - ${this.type}:${this.key} received a subPath ${path.join(
+        `[Leaf.setState] - ${this.toString()} received a subPath ${path.join(
           ".",
         )} but is a leaf`,
       );
     if (key !== this.key)
       throw new UnexpectedError(
-        `[Leaf.setState] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
+        `[Leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
   }
 }
@@ -387,14 +405,15 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(path: string[], state: state.State, create: CreateComponent): void {
+  _updateState(args: UpdateStateArgs): void {
+    const { path, type, create } = args;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
       this.childCtxChangedKeys.clear();
-      super._updateState(path, state, create);
+      super._updateState(args);
       if (this.childCtxChangedKeys.size == 0) return;
       this.updateChildContexts();
       return;
@@ -402,15 +421,23 @@ export abstract class Composite<
 
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return child._updateState(subPath, state, create);
-    if (subPath.length > 1)
+    if (child != null) return child._updateState({ ...args, path: subPath });
+    if (subPath.length > 1) {
+      const childPath = path.slice(0, path.indexOf(childKey) + 1).join(".");
+      const fullPath = path.join(".");
       throw new UnexpectedError(
-        `[Composite.update] - ${this.type}:${this.key} received a subPath ${subPath.join(
-          ".",
-        )} but found now child with key ${childKey}`,
+        `Child of ${this.toString()} at path ${childPath} does not exist, 
+        but an extended path ${fullPath} was provided. This means that the aether 
+        tree is attempting to create a new child  of type ${type} (or nested children) 
+        on a child that does not exist.
+
+        Children present: ${this.children.map((c) => `${c.type}:${c.key}`).join(".")}
+        
+        `,
       );
+    }
     const newChild = create(this.childCtx());
-    newChild._updateState(subPath, state, create);
+    newChild._updateState({ ...args, path: subPath });
     this._children.set(childKey, newChild as ChildComponents);
   }
 
@@ -457,13 +484,13 @@ export abstract class Composite<
     const [key, ...subPath] = path;
     if (key == null)
       throw new Error(
-        `Composite ${this.type}:${this.key} received an empty path${
+        `Composite ${this.toString()} received an empty path${
           type != null ? ` for ${type}` : ""
         }`,
       );
     if (key !== this.key)
       throw new UnexpectedError(
-        `[Composite.getRequiredKey] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
+        `[Composite.getRequiredKey] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
     return subPath;
   }
@@ -524,7 +551,12 @@ export class Root extends Composite<typeof aetherRootState> {
    */
   static render(props: RootProps): Root {
     const root = new Root(props);
-    root._updateState([Root.KEY], {}, shouldNotCallCreate);
+    root._updateState({
+      path: [Root.KEY],
+      type: "",
+      state: {},
+      create: shouldNotCallCreate,
+    });
     /**
      * Unfortunately we get a bunch of nasty race conditions whenever component updates
      * are not serialized, so we need to lock the entire component tree when making
@@ -555,19 +587,21 @@ export class Root extends Composite<typeof aetherRootState> {
    * aether tree.
    */
   private handle(msg: MainMessage): void {
-    try {
-      const { path, variant, type } = msg;
-      if (variant === "delete") {
-        this._delete(path);
-        return;
-      }
-      this._updateState(path, msg.state, (parentCtxValues) => {
+    const { path, variant, type } = msg;
+    if (variant === "delete") {
+      this._delete(path);
+      return;
+    }
+    const { state } = msg;
+    this._updateState({
+      path,
+      type,
+      state,
+      create: (parentCtxValues) => {
         const key = path[path.length - 1];
         return this.create({ key, type, parentCtxValues });
-      });
-    } catch (e) {
-      console.error("failed to handle message", { error: e, msg });
-    }
+      },
+    });
   }
 
   /** Creates a new component from the registry */

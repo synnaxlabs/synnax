@@ -13,8 +13,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
-import { Ranger } from "@/ranger";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
+import { SelectStage } from "@/ranger/Select";
 import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
@@ -49,7 +49,7 @@ export const ListItem = ({
       {...rest}
     >
       <Flex.Box x align="center" empty>
-        <Ranger.SelectStage
+        <SelectStage
           value={stage}
           allowNone={false}
           onChange={(v: ranger.Stage | null) => v != null && onStageChange?.(v)}

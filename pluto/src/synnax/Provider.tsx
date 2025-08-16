@@ -51,7 +51,7 @@ export interface ProviderProps extends PropsWithChildren {
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
   connecting: "loading",
-  disconnected: "info",
+  disconnected: "disabled",
   failed: "error",
 };
 
@@ -75,9 +75,18 @@ interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
 }
 
-export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => (
-  <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>{children}</Context>
-);
+export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+  const { path } = Aether.useUnidirectional({
+    type: synnax.Provider.TYPE,
+    schema: synnax.Provider.stateZ,
+    state: { props: null, state: null },
+  });
+  return (
+    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context>
+  );
+};
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
   const [state, setState, ref] =

@@ -32,6 +32,7 @@ import {
   useResize,
   useSyncedRef,
 } from "@/hooks";
+import { Menu } from "@/menu";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
@@ -87,15 +88,21 @@ export const useInternalContext = () => useRequiredContext(InternalContext);
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
+const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean =>
+  prev != null &&
+  box.left(next) === box.left(prev) &&
+  box.top(next) === box.top(prev) &&
+  box.width(next) === box.width(prev);
+
 /**
- * A controlled dropdown dialog component that wraps its children. For the simplest case, use
- * the {@link use} hook (more behavioral details explained there).
+ * A controlled dropdown dialog component that wraps its children. For the simplest
+ * case, use the {@link use} hook (more behavioral details explained there).
  *
  * @param props - The props for the dropdown component. Unlisted props are passed to the
  * parent element.
  * @param props.visible - Whether the dropdown is visible or not. This is a controlled
- * @param props.children - Two children are expected: the dropdown trigger (often a button
- * or input) and the dropdown content.
+ * @param props.children - Two children are expected: the dropdown trigger (often a
+ * button or input) and the dropdown content.
  */
 export const Frame = ({
   children,
@@ -118,13 +125,12 @@ export const Frame = ({
   });
   const close = useCallback(() => setVisible(false), [setVisible]);
   const open = useCallback(() => setVisible(true), [setVisible]);
-  const toggle = useCallback(() => {
-    setVisible((prev) => !prev);
-  }, [setVisible]);
+  const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
 
   const visibleRef = useSyncedRef(visible);
   const parentRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<xlocation.XY | undefined>(undefined);
+  const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [{ location, style }, setState] = useState<State>({
@@ -142,19 +148,21 @@ export const Frame = ({
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
     });
     prevLocation.current = location;
+    const roundedDialog = box.round(adjustedDialog);
+    if (positionsEqual(roundedDialog, prevBox.current)) return;
+    prevBox.current = roundedDialog;
     const style: CSSProperties = {};
     if (variant !== "modal" && parentRef.current != null) {
-      style.left = box.left(adjustedDialog);
-      if (location.y === "bottom") style.top = box.top(adjustedDialog);
+      style.left = box.left(roundedDialog);
+      if (location.y === "bottom") style.top = box.top(roundedDialog);
       else {
         const windowBox = box.construct(window.document.documentElement);
-        style.bottom = box.height(windowBox) - box.bottom(adjustedDialog);
+        style.bottom = box.height(windowBox) - box.bottom(roundedDialog);
       }
-      if (variant === "connected") style.width = box.width(adjustedDialog);
+      if (variant === "connected") style.width = box.width(roundedDialog);
     } else if (variant === "modal") style.top = `${modalOffset}%`;
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-
     setState({ location, style });
   }, [propsLocation, variant]);
 
@@ -176,6 +184,8 @@ export const Frame = ({
           const isTrigger = parentRef.current.contains(e.target as Node);
           exclude = isTrigger;
         }
+        const contextMenus = document.getElementsByClassName(Menu.CONTEXT_MENU_CLASS);
+        if (contextMenus.length > 0) exclude = true;
         if (!exclude) e.stopImmediatePropagation();
         return exclude;
       }
@@ -236,4 +246,4 @@ export const Frame = ({
     </Context.Provider>
   );
 };
-Frame.displayName = "Frame";
+Frame.displayName = "Dialog.Frame";

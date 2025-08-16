@@ -124,7 +124,4 @@ export interface StateObservable<StatusData extends z.ZodType>
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
-export const ONTOLOGY_TYPE = "task";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);

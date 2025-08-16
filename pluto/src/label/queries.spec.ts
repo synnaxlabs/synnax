@@ -6,6 +6,7 @@ import { Label } from "@/label";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   describe("useList", () => {
@@ -20,7 +21,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -38,7 +39,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -62,10 +63,10 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
-        result.current.retrieve({ term: "special" });
+        result.current.retrieve({ searchTerm: "special" });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(1);
@@ -73,7 +74,7 @@ describe("queries", () => {
         result.current.data
           .map((key: label.Key) => result.current.getItem(key)?.name)
           .includes("special_label"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -84,7 +85,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -95,7 +96,7 @@ describe("queries", () => {
 
     it("should update the list when a label is created", async () => {
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -121,14 +122,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
 
@@ -149,14 +149,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(testLabel.key);
 
@@ -193,7 +192,7 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -213,11 +212,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data?.length ?? 0;
 
@@ -250,11 +248,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
 
@@ -284,11 +281,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(
         result.current.data?.find((l) => l.key === originalLabel.key)?.name,
@@ -323,11 +319,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
 
@@ -364,7 +359,7 @@ describe("queries", () => {
           Label.useLabelsOfForm({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -388,7 +383,7 @@ describe("queries", () => {
           Label.useLabelsOfForm({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -406,7 +401,7 @@ describe("queries", () => {
   describe("useForm", () => {
     it("should create a new label", async () => {
       const { result } = renderHook(() => Label.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -430,7 +425,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useForm({ params: { key: existingLabel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -455,11 +450,10 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useForm({ params: { key: testLabel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
@@ -475,7 +469,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Label.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -492,7 +486,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useDelete({ params: { key: labelToDelete.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
 
       act(() => {
@@ -518,11 +512,11 @@ describe("queries", () => {
 
       const { result: result1 } = renderHook(
         () => Label.useDelete({ params: { key: label1.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       const { result: result2 } = renderHook(
         () => Label.useDelete({ params: { key: label2.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
 
       act(() => {

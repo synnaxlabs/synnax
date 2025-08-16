@@ -16,9 +16,9 @@
 }
 
 .pluto-y-axis.pluto--location-right {
-    align-items: end;
+    justify-content: end;
 }
 
 .pluto-y-axis.pluto--location-left {
-    align-items: start;
+    justify-content: start;
 }

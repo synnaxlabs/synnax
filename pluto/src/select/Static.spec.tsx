@@ -21,7 +21,7 @@ interface TestEntry {
   icon?: Icon.ReactElement;
 }
 
-describe("Select.Simple", () => {
+describe("Select.Static", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
@@ -40,7 +40,7 @@ describe("Select.Simple", () => {
       onChange(key);
     };
     return (
-      <Select.Simple<string, TestEntry>
+      <Select.Static<string, TestEntry>
         value={value}
         data={testData}
         onChange={handleChange}
@@ -81,7 +81,7 @@ describe("Select.Simple", () => {
       target: { value: "Second" },
     });
     expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("First Item")).toBeFalsy();
-    expect(c.queryByText("Third Item")).toBeFalsy();
+    expect(c.queryByText("First Item")).toBeNull();
+    expect(c.queryByText("Third Item")).toBeNull();
   });
 });

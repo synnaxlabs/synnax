@@ -28,10 +28,7 @@ export interface Annotation extends z.infer<typeof annotationZ> {}
 export const newZ = annotationZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
-export const ONTOLOGY_TYPE = "annotation";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "annotation", key });
 
 export const ontologyIDsFromAnnotations = (annotations: Annotation[]): ontology.ID[] =>
   annotations.map((a) => ontologyID(a.key));

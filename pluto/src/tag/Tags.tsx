@@ -9,9 +9,7 @@
 
 import { Button } from "@/button";
 
-export interface TagsProps extends Button.ButtonProps<"div"> {
-  variant?: "text" | "outlined";
-}
+export interface TagsProps extends Button.ButtonProps<"div"> {}
 
 export const Tags = ({
   children,

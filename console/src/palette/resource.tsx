@@ -39,7 +39,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   return onSelect == null ? null : PaletteListItem != null ? (
     <PaletteListItem {...props} />
   ) : (
-    <Select.ListItem style={{ padding: "1.5rem" }} highlightHovered {...props}>
+    <Select.ListItem highlightHovered {...props}>
       <Text.Text weight={450} gap="medium">
         {isValidElement(icon) ? icon : icon(item)}
         {name}

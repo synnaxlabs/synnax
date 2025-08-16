@@ -10,12 +10,9 @@
  */
 
 .console-label__list-item {
-    &.pluto--height-medium {
-        height: 7.5rem;
-        max-height: 7.5rem;
-        min-height: 7.5rem;
-    }
-
+    height: 7.5rem;
+    max-height: 7.5rem;
+    min-height: 7.5rem;
     padding: 0rem 4rem;
 
     .console-label__delete {

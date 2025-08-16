@@ -34,7 +34,7 @@ describe("Writer", () => {
       } finally {
         await writer.close();
       }
-      expect(true).toBeTruthy();
+      expect(true).toBe(true);
     });
 
     test("write to unknown channel key", async () => {
@@ -87,7 +87,7 @@ describe("Writer", () => {
       } finally {
         await writer.close();
       }
-      expect(true).toBeTruthy();
+      expect(true).toBe(true);
 
       const f = await client.read(
         new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(11)),
@@ -113,7 +113,7 @@ describe("Writer", () => {
       } finally {
         await writer.close();
       }
-      expect(true).toBeTruthy();
+      expect(true).toBe(true);
     });
 
     test("write with auto commit and a set interval", async () => {
@@ -133,7 +133,7 @@ describe("Writer", () => {
       } finally {
         await writer.close();
       }
-      expect(true).toBeTruthy();
+      expect(true).toBe(true);
     });
 
     test("write with auto-commit off and incorrect data length validation error", async () => {

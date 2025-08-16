@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, task } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -111,7 +111,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(resourceIDs[0].key),
     rangeSnapshot: () => snap(resources),
@@ -179,7 +179,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: task.ONTOLOGY_TYPE,
+  type: "task",
   icon: <Icon.Task />,
   hasChildren: false,
   onSelect: handleSelect,

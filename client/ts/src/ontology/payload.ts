@@ -43,8 +43,6 @@ export const resourceTypeZ = z.enum([
   "policy",
   "table",
   "annotation",
-  "slate",
-  "effect",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
@@ -98,6 +96,9 @@ export const relationshipZ = z.object({ from: idZ, type: z.string(), to: idZ }).
   }),
 );
 export type Relationship = z.infer<typeof relationshipZ>;
+
+export const relationshipToString = (relationship: Relationship) =>
+  `${idToString(relationship.from)}->${relationship.type}->${idToString(relationship.to)}`;
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 

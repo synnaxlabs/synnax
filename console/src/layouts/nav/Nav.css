@@ -182,7 +182,7 @@
     .console-nav__bar.pluto--location-top {
         --left-edge-bar-width: var(--top-left-edge-bar-width-small);
         --right-edge-bar-width: var(--top-right-edge-bar-width-small);
-        & > .pluto--center {
+        & > .pluto--location-center {
             justify-content: start !important;
         }
     }

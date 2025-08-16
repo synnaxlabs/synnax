@@ -10,6 +10,7 @@
 import { annotation, ontology, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import z from "zod";
 
+import { type annotation as aetherAnnotation } from "@/annotation/aether";
 import { Flux } from "@/flux";
 
 export interface UseListParams extends annotation.RetrieveRequest {
@@ -19,50 +20,40 @@ export interface UseListParams extends annotation.RetrieveRequest {
 export const useList = Flux.createList<
   UseListParams,
   annotation.Key,
-  annotation.Annotation
+  annotation.Annotation,
+  aetherAnnotation.SubStore
 >({
   name: "Annotations",
   retrieve: async ({ params, client }) => {
     const children = await client.ontology.retrieveChildren(params.parent, {
-      types: [annotation.ONTOLOGY_TYPE],
+      types: ["annotation"],
     });
     return await client.annotations.retrieve({ keys: children.map((c) => c.id.key) });
   },
   retrieveByKey: async ({ key, client }) => await client.annotations.retrieve({ key }),
-  listeners: [
-    {
-      channel: annotation.SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(annotation.annotationZ, ({ changed, onChange }) =>
-        onChange(changed.key, (prev) => {
-          if (prev == null) return null;
-          return changed;
-        }),
-      ),
-    },
-    {
-      channel: annotation.DELETE_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(annotation.keyZ, ({ changed, onDelete }) =>
-        onDelete(changed),
-      ),
-    },
-    {
-      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        ontology.relationshipZ,
-        async ({ changed, onChange, params: { parent }, client }) => {
-          if (
-            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-            ontology.idsEqual(changed.from, parent) &&
-            changed.to.type === annotation.ONTOLOGY_TYPE
-          ) {
-            const annotation = await client.annotations.retrieve({
-              key: changed.to.key,
-            });
-            onChange(annotation.key, annotation, { mode: "append" });
-          }
-        },
-      ),
-    },
+  mountListeners: ({ store, onChange, onDelete, params: { parent } }) => [
+    store.annotations.onSet(async (changed) => {
+      onChange(changed.key, (prev) => {
+        if (prev == null) return null;
+        return changed;
+      });
+    }),
+    store.annotations.onDelete(async (key) => onDelete(key)),
+    store.relationships.onSet(async (changed) => {
+      if (
+        changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+        ontology.idsEqual(changed.from, parent) &&
+        changed.to.type === "annotation"
+      )
+        onChange(
+          changed.to.key,
+          (prev) => {
+            if (prev != null) return prev;
+            return store.annotations.get(changed.to.key) ?? null;
+          },
+          { mode: "append" },
+        );
+    }),
   ],
 });
 
@@ -96,7 +87,11 @@ const annotationToFormValues = (annotation: annotation.Annotation) => ({
   parent: undefined,
 });
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
+export const useForm = Flux.createForm<
+  UseFormParams,
+  typeof formSchema,
+  aetherAnnotation.SubStore
+>({
   name: "Annotation",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
@@ -124,7 +119,11 @@ export interface UseDeleteParams {
   key: annotation.Key;
 }
 
-export const useDelete = Flux.createUpdate<UseDeleteParams, void>({
+export const useDelete = Flux.createUpdate<
+  UseDeleteParams,
+  void,
+  aetherAnnotation.SubStore
+>({
   name: "Annotation",
   update: async ({ params, client }) => await client.annotations.delete(params.key),
 }).useDirect;

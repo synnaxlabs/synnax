@@ -70,3 +70,7 @@
 .pluto-icon--false {
     color: var(--pluto-error-z);
 }
+
+.pluto-icon--logo-opc {
+    transform: translateY(1px) scale(1.25);
+}

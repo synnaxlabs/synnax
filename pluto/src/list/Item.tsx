@@ -33,11 +33,9 @@ export type ItemProps<
     draggingOver?: boolean;
     rightAligned?: boolean;
     highlightHovered?: boolean;
-    allowSelect?: boolean;
     onSelect?: (key: K) => void;
     selected?: boolean;
     hovered?: boolean;
-    variant?: Button.ButtonProps["variant"];
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -60,7 +58,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
 }: ItemProps<K, E>): ReactElement => (
   // @ts-expect-error - generic element issues
   <Button.Button<E>
-    el={el ?? "div"}
+    el={el}
+    defaultEl="div"
     id={itemKey.toString()}
     variant="text"
     onClick={(e: any) => {
@@ -83,6 +82,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       transform: `translateY(${translate}px)`,
       ...style,
     }}
+    square={false}
     {...rest}
   />
 );

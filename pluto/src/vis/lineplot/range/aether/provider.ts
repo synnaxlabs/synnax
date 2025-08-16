@@ -23,6 +23,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
+import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -48,7 +49,7 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  removeListeners: Destructor | null;
+  removeListener: Destructor | null;
 }
 
 interface ProviderProps {
@@ -56,6 +57,10 @@ interface ProviderProps {
   viewport: box.Box;
   region: box.Box;
   timeRange: TimeRange;
+}
+
+interface Store extends flux.Store {
+  ranges: aetherRanger.FluxStore;
 }
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
@@ -74,31 +79,24 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
     if (client == null) return;
     i.client = client;
-
-    i.removeListeners = flux.useListener(
-      ctx,
-      [
-        {
-          channel: ranger.SET_CHANNEL_NAME,
-          onChange: flux.parsedHandler(ranger.payloadZ, async ({ changed }) => {
-            if (i.client == null) return;
-            if (color.isCrude(changed.color))
-              i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
-            this.setState((s) => ({ ...s, count: i.ranges.size }));
-            i.requestRender("tool");
-          }),
-        },
-        {
-          channel: ranger.DELETE_CHANNEL_NAME,
-          onChange: flux.parsedHandler(ranger.keyZ, async ({ changed }) => {
-            i.ranges.delete(changed);
-            this.setState((s) => ({ ...s, count: i.ranges.size }));
-            i.requestRender("tool");
-          }),
-        },
-      ],
-      i.removeListeners,
-    );
+    const store = flux.useStore<Store>(ctx);
+    i.removeListener?.();
+    const removeOnSet = store.ranges.onSet(async (changed) => {
+      if (i.client == null) return;
+      if (color.isCrude(changed.color))
+        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+      i.requestRender("tool");
+    });
+    const removeOnDelete = store.ranges.onDelete(async (changed) => {
+      i.ranges.delete(changed);
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+      i.requestRender("tool");
+    });
+    i.removeListener = () => {
+      removeOnSet();
+      removeOnDelete();
+    };
   }
 
   private fetchInitial(timeRange: TimeRange): void {
@@ -144,11 +142,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (hovered)
         hoveredState = {
           key: r.key,
-          name: r.name,
-          color: r.color,
-          timeRange: r.timeRange,
-          stage: r.stage,
           parent: r.parent,
+          name: r.name,
+          stage: r.stage,
+          color: r.color,
+          labels: r.labels,
+          timeRange: r.timeRange,
           viewport: {
             lower: dataToDecimalScale
               .scale(box.xBounds(viewport))
@@ -163,7 +162,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: color.setAlpha(c, 0.05),
+        backgroundColor: color.setAlpha(c, 0.2),
         bordered: false,
       });
       const titleRegion = box.construct(

@@ -9,7 +9,7 @@
 
 import "@/button/Button.css";
 
-import { color, record, type status } from "@synnaxlabs/x";
+import { color, record } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -38,8 +38,7 @@ export interface ExtensionProps
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
-  status?: status.Variant;
-  textColor?: Text.Shade;
+  textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
   contrast?: Text.Shade | false;
   disabled?: boolean;
@@ -105,13 +104,17 @@ const Core = <E extends ElementType = "button">({
   tabIndex,
   contrast,
   children,
+  defaultEl = "button",
+  el,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
-  // We implement the shadow variant to maintain compatibility with the input
-  // component API.
-  if (variant == "shadow") variant = "text";
+  // The shadow variant appears as text but shows outline on hover.
+  // We don't convert it here, let CSS handle the behavior.
+  if (variant === "preview") preventClick = true;
+
+  if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (isDisabled || variant === "preview" || preventClick === true) return;
@@ -171,7 +174,8 @@ const Core = <E extends ElementType = "button">({
 
   if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
   else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
-  else size ??= "medium";
+  else if (defaultEl !== "div") size ??= "medium";
+  level ??= "p";
 
   const isLoading = status === "loading";
   const square = Text.isSquare(children);
@@ -180,13 +184,14 @@ const Core = <E extends ElementType = "button">({
 
   return (
     <Text.Text<E>
+      el={el}
+      defaultEl={defaultEl}
       direction="x"
       className={CSS(
         CSS.B(MODULE_CLASS),
         contrast != null && CSS.BM(MODULE_CLASS, `contrast-${contrast}`),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         variant !== "preview" && CSS.disabled(isDisabled),
-        status != null && CSS.M(status),
         CSS.BM(MODULE_CLASS, variant),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         className,
@@ -199,11 +204,11 @@ const Core = <E extends ElementType = "button">({
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
       bordered={variant !== "text"}
-      defaultEl={"button"}
       level={level}
       variant={textVariant}
       square={square}
       overflow="nowrap"
+      status={status}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}
@@ -215,7 +220,7 @@ const Core = <E extends ElementType = "button">({
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"
-          level={Text.downLevel(Text.COMPONENT_SIZE_LEVELS[size])}
+          level={Text.downLevel(level)}
         />
       )}
     </Text.Text>

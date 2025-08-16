@@ -12,8 +12,6 @@ import { Task, useSyncedRef } from "@synnaxlabs/pluto";
 import { useCallback, useState as useReactState } from "react";
 import { type z } from "zod";
 
-import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
-
 /**
  * Explicit return type for the useState hook.
  * The object consists of:
@@ -44,26 +42,27 @@ export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
 export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   key: task.Key,
   initialState: task.Status<StatusData>,
-  commandLoadingMessages: Record<string, string>,
 ): UseStatusReturn<StatusData> => {
-  const [status, setStatus] = useReactState<task.Status<StatusData>>(initialState);
+  const [status, setStatus] = useReactState<task.Status<StatusData>>(() => ({
+    ...initialState,
+  }));
   const keyRef = useSyncedRef(key);
-  const statusRef = useSyncedRef(status);
   const triggerLoading = useCallback(
     (message: string) =>
       setStatus((prev) => ({ ...prev, variant: "loading", message })),
     [],
   );
-  const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
-    if (task !== keyRef.current || statusRef.current == null) return;
-    if (shouldExecuteCommand<StatusData>(statusRef.current, type))
-      triggerLoading(commandLoadingMessages[type]);
-  }, []);
-  Task.useCommandSynchronizer(handleCommandUpdate);
-  const handleStatusUpdate = useCallback((status: task.Status) => {
-    if (status.details.task !== keyRef.current) return;
-    setStatus(status);
-  }, []);
+  const handleStatusUpdate = useCallback(
+    (status: task.Status, retry: boolean = true) => {
+      if (keyRef.current.length == 0) {
+        if (retry) setTimeout(() => handleStatusUpdate(status, false), 100);
+        return;
+      }
+      if (status.details.task !== keyRef.current) return;
+      setStatus(status);
+    },
+    [],
+  );
   Task.useStatusSynchronizer(handleStatusUpdate);
 
   const triggerError = useCallback(

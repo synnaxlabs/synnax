@@ -10,7 +10,7 @@
 import "@/ranger/Select.css";
 
 import { type ranger } from "@synnaxlabs/client";
-import { memo, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
@@ -123,15 +123,15 @@ export const STAGE_ICONS: Record<ranger.Stage, Icon.FC> = {
   completed: Icon.Completed,
 };
 
-const DATA: Select.SimplyEntry<ranger.Stage>[] = [
+const DATA: Select.StaticEntry<ranger.Stage>[] = [
   { key: "to_do", name: "To Do", icon: <STAGE_ICONS.to_do /> },
   { key: "in_progress", name: "In Progress", icon: <STAGE_ICONS.in_progress /> },
   { key: "completed", name: "Completed", icon: <STAGE_ICONS.completed /> },
 ];
 
 export interface SelectStageProps
-  extends Omit<Select.SimpleProps<ranger.Stage>, "data" | "resourceName"> {}
+  extends Omit<Select.StaticProps<ranger.Stage>, "data" | "resourceName"> {}
 
 export const SelectStage = (props: SelectStageProps): ReactElement => (
-  <Select.Simple {...props} data={DATA} resourceName="Stage" icon={<Icon.ToDo />} />
+  <Select.Static {...props} data={DATA} resourceName="Stage" icon={<Icon.ToDo />} />
 );

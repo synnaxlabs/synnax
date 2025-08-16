@@ -9,27 +9,30 @@
 
 import "@/input/Input.css";
 
-import { color, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as CoreText } from "@/text";
+import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
   extends InputProps<string>,
-    Omit<Button.ExtensionProps, "variant"> {
+    Omit<Button.ExtensionProps, "variant">,
+    Tooltip.WrapProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: status.Variant;
-  outlineColor?: color.Crude;
   variant?: Variant;
   placeholder?: ReactNode;
   children?: ReactNode;
   endContent?: ReactNode;
+  startContent?: ReactNode;
   onlyChangeOnBlur?: boolean;
 }
 
@@ -67,7 +70,6 @@ export const Text = ({
   status,
   weight,
   style,
-  outlineColor,
   contrast,
   color: pColor,
   sharp,
@@ -76,10 +78,23 @@ export const Text = ({
   full,
   children,
   grow,
+  shrink,
   borderColor,
   borderWidth,
   bordered,
   rounded,
+  tabIndex,
+  trigger,
+  triggerIndicator,
+  textColor,
+  textVariant,
+  preventClick,
+  onClickDelay,
+  startContent,
+  tooltip,
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -88,7 +103,6 @@ export const Text = ({
   const focusedRef = useRef(false);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
-    console.log("handleBlur", e.target.value, cachedFocusRef.current);
     focusedRef.current = false;
     if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
     else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
@@ -103,8 +117,7 @@ export const Text = ({
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
-    if (onlyChangeOnBlur && value.length > 0) setTempValue(value);
-    if (selectOnFocus) e.target.select();
+    if (onlyChangeOnBlur) setTempValue(value);
     onFocus?.(e);
     cachedFocusRef.current = e.target.value;
   };
@@ -128,35 +141,35 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
-  const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
-
-  if (hasCustomColor)
-    style = {
-      ...style,
-      [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
-    };
-
   const showPlaceholder =
     (value == null || value.length === 0) &&
     tempValue == null &&
     placeholder != null &&
     typeof placeholder !== "string";
 
-  return (
+  tabIndex ??= variant === "preview" ? -1 : undefined;
+
+  const outerProps: Flex.BoxProps = {
+    style,
+    full,
+    grow,
+    shrink,
+  };
+  const hasChildren = children != null;
+  const restButtonProps = hasChildren ? {} : outerProps;
+
+  const baseInput = (
     <Button.Button
       el="div"
       x
       empty
-      style={style}
+      align="center"
       className={CSS(
         CSS.B("input"),
         CSS.disabled(disabled),
-        hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
         className,
       )}
-      align="center"
       size={size}
       level={level}
       color={pColor}
@@ -166,11 +179,21 @@ export const Text = ({
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
-      grow={grow}
       pack
-      full={full}
       variant={variant}
       rounded={rounded}
+      tabIndex={tabIndex}
+      trigger={trigger}
+      triggerIndicator={triggerIndicator}
+      textColor={textColor}
+      textVariant={textVariant}
+      preventClick={preventClick}
+      onClickDelay={onClickDelay}
+      tooltip={tooltip}
+      tooltipDelay={tooltipDelay}
+      tooltipLocation={tooltipLocation}
+      hideTooltip={hideTooltip}
+      {...restButtonProps}
     >
       {showPlaceholder && (
         <CoreText.Text
@@ -184,6 +207,14 @@ export const Text = ({
           {placeholder}
         </CoreText.Text>
       )}
+      {startContent != null && (
+        <CoreText.Text
+          className={CSS.BE("input", "start-content")}
+          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+        >
+          {startContent}
+        </CoreText.Text>
+      )}
       <input
         ref={combinedRef}
         value={tempValue ?? value}
@@ -194,6 +225,7 @@ export const Text = ({
         autoCorrect="off"
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
+        tabIndex={tabIndex}
         onMouseUp={handleMouseUp}
         onBlur={handleBlur}
         disabled={disabled}
@@ -209,7 +241,13 @@ export const Text = ({
           {endContent}
         </CoreText.Text>
       )}
-      {children}
     </Button.Button>
+  );
+  if (children == null) return baseInput;
+  return (
+    <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
+      {baseInput}
+      {children}
+    </Flex.Box>
   );
 };

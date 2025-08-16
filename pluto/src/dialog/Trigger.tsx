@@ -26,10 +26,12 @@ export const Trigger = ({
   className,
   hideCaret = false,
   children,
+  variant: triggerVariant,
   ...rest
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
   let endIcon: Icon.ReactElement | undefined;
+  if (triggerVariant === "preview") hideCaret = true;
   if (variant !== "modal" && !hideCaret)
     endIcon = (
       <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
@@ -42,6 +44,7 @@ export const Trigger = ({
         toggle();
       }}
       full="x"
+      variant={triggerVariant}
       {...rest}
     >
       {children}

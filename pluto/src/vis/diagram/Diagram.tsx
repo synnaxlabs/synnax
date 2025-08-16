@@ -56,9 +56,10 @@ import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
+import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
+import { Select } from "@/select";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -98,6 +99,7 @@ export const use = ({
   initialViewport = { position: xy.ZERO, zoom: 1 },
 }: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
+  const [viewportMode, onViewportModeChange] = useState<CoreViewport.Mode>("select");
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
   const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
   const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
@@ -114,6 +116,8 @@ export const use = ({
     onEditableChange,
     fitViewOnResize,
     setFitViewOnResize,
+    viewportMode,
+    onViewportModeChange,
   };
 };
 
@@ -130,6 +134,8 @@ export interface UseReturn {
   viewport: Viewport;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
 }
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -185,6 +191,8 @@ interface ContextValue {
   editable: boolean;
   visible: boolean;
   onEditableChange: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   registerEdgeRenderer: (renderer: RenderProp<EdgeProps<record.Unknown>>) => void;
   registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
@@ -196,6 +204,8 @@ interface ContextValue {
 const Context = createContext<ContextValue>({
   editable: true,
   visible: true,
+  viewportMode: "select",
+  onViewportModeChange: () => {},
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
   registerEdgeRenderer: () => {},
@@ -255,6 +265,12 @@ export type FitViewOptions = RFFitViewOptions;
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
+const viewPortModeToRFProps = (mode: CoreViewport.Mode): Partial<ReactFlowProps> => {
+  if (mode === "pan") return { panOnDrag: true };
+  if (mode === "select") return { selectionOnDrag: true };
+  return {};
+};
+
 const Core = ({
   aetherKey,
   onNodesChange,
@@ -272,6 +288,8 @@ const Core = ({
   fitViewOptions = FIT_VIEW_OPTIONS,
   className,
   dragHandleSelector,
+  viewportMode,
+  onViewportModeChange,
   snapGrid,
   snapToGrid = false,
   ...rest
@@ -488,6 +506,8 @@ const Core = ({
       registerConnectionLineComponent,
       fitViewOnResize,
       setFitViewOnResize,
+      viewportMode,
+      onViewportModeChange,
       fitViewOptions,
     }),
     [
@@ -499,6 +519,8 @@ const Core = ({
       registerEdgeRenderer,
       fitViewOnResize,
       fitViewOptions,
+      viewportMode,
+      onViewportModeChange
     ],
   );
 
@@ -543,6 +565,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
+            {...viewPortModeToRFProps(viewportMode)}
             nodesDraggable={editable}
           />
         )}
@@ -559,7 +582,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Flex.BoxProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Flex.Box pack borderColor={5} className={CSS.BE("diagram", "controls")} {...props} />
+  <Flex.Box x className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
@@ -587,7 +610,7 @@ export const ToggleEditControl = ({
 };
 
 export interface FitViewControlProps
-  extends Omit<Button.ButtonProps, "children" | "onChange"> {}
+  extends Omit<Button.ToggleProps, "children" | "onChange" | "value"> {}
 
 export const FitViewControl = ({
   onClick,
@@ -601,18 +624,36 @@ export const FitViewControl = ({
         void fitView(fitViewOptions);
         onClick?.(e);
       }}
-      // @ts-expect-error - toggle icon issues
       value={fitViewOnResize}
-      onChange={(v: boolean) => setFitViewOnResize(v)}
+      onChange={setFitViewOnResize}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.BOTTOM_LEFT}
-      variant="outlined"
       size="small"
       {...rest}
     >
       <Icon.Expand />
     </Button.Toggle>
+  );
+};
+
+export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
+
+export const SelectViewportModeControl = (): ReactElement => {
+  const { viewportMode, onViewportModeChange } = useContext();
+  return (
+    <Select.Buttons
+      keys={VIEWPORT_MODES}
+      value={viewportMode}
+      onChange={onViewportModeChange}
+    >
+      <Select.Button itemKey="pan" size="small">
+        <Icon.Pan />
+      </Select.Button>
+      <Select.Button itemKey="select" size="small">
+        <Icon.Selection />
+      </Select.Button>
+    </Select.Buttons>
   );
 };
 

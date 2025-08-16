@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
   Channel as PChannel,
   Flex,
@@ -254,11 +254,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
-  const aliases = PChannel.useAliases();
+  const alias = PChannel.retrieveAlias.useDirect({
+    params: { channelKey: Number(resourceIDs[0].key), rangeKey: activeRange?.key },
+  });
   const resources = getResource(resourceIDs);
-  const showDeleteAlias = resources.some(
-    ({ id: { key } }) => aliases[Number(key)] != null,
-  );
+  const showDeleteAlias = resources.some(({ key }) => alias.data != null);
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();
@@ -334,7 +334,11 @@ export const Item = ({
   onRename,
   ...rest
 }: Ontology.TreeItemProps) => {
-  const alias = PChannel.useAlias(Number(id.key));
+  const activeRange = Range.useSelect();
+  const res = PChannel.retrieveAlias.useDirect({
+    params: { channelKey: Number(id.key), rangeKey: activeRange?.key },
+  });
+  const alias = res.data?.alias;
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (
@@ -360,7 +364,7 @@ export const Item = ({
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: channel.ONTOLOGY_TYPE,
+  type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
   onSelect: handleSelect,

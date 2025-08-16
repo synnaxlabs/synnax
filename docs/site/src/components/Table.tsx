@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, convertRenderV, type direction, type record } from "@synnaxlabs/x";
+import {
+  bounds,
+  convertRenderV,
+  type direction,
+  type record,
+  type RenderableValue,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 export interface TableColumn<K extends record.Key, E extends record.Keyed<K>> {
@@ -190,7 +196,7 @@ const TableCell = <K extends record.Key, E extends record.Keyed<K>>({
   }
 
   let content: ReactElement | string | number | undefined = convertRenderV(
-    data[column.key],
+    data[column.key] as RenderableValue,
   );
   if (column.type === "code") content = <code>{content}</code>;
   if (column.type === "html")

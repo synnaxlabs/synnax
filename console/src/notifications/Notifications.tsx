@@ -40,7 +40,12 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
   return createPortal(
     <Flex.Box y className={CSS.B("notifications")}>
       {sugared.map((status) => (
-        <Status.Notification key={status.key} status={status} silence={silence}>
+        <Status.Notification
+          key={status.key}
+          status={status}
+          silence={silence}
+          actions={status.actions}
+        >
           {status.content}
         </Status.Notification>
       ))}

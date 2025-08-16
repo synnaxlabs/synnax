@@ -11,9 +11,7 @@ import {
   DisconnectedError,
   type ontology,
   ranger,
-  schematic,
   type Synnax as Client,
-  task,
 } from "@synnaxlabs/client";
 import {
   Component,
@@ -42,8 +40,8 @@ interface SnapshotService {
   onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
 }
 
-const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotService> = {
-  [schematic.ONTOLOGY_TYPE]: {
+const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
+  schematic: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
@@ -53,7 +51,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
       );
     },
   },
-  [task.ONTOLOGY_TYPE]: {
+  task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
@@ -82,7 +80,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
       {...props}
       onSelect={handleSelect}
     >
-      <Text.Text weight={450} color={11}>
+      <Text.Text weight={450}>
         {svc.icon}
         {name}
       </Text.Text>
@@ -93,7 +91,7 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
 const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
-  <Text.Text level="p" weight={400} color={10}>
+  <Text.Text weight={400} color={10}>
     No Snapshots.
   </Text.Text>
 );
@@ -103,18 +101,22 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe } = Ontology.useChildren({
+  const { data, getItem, subscribe, retrieve } = Ontology.useChildren({
     initialParams: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
+  const { fetchMore } = List.usePager({ retrieve });
   return (
     <Flex.Box y>
-      <Header.Header level="h4" bordered={false} borderColor={5}>
-        <Header.Title color={11} weight={450}>
-          Snapshots
-        </Header.Title>
+      <Header.Header level="h4" borderColor={5}>
+        <Header.Title>Snapshots</Header.Title>
       </Header.Header>
-      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+      <List.Frame
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={fetchMore}
+      >
         <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
       </List.Frame>
     </Flex.Box>

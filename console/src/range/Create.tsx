@@ -21,7 +21,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -30,6 +30,7 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -100,6 +101,27 @@ export const Create: Layout.Renderer = (props) => {
       );
     },
   });
+
+  const saveLocal = useCallback(() => {
+    if (!form.validate()) return;
+    const value = form.value();
+    if (value.key == null) return;
+    dispatch(
+      add({
+        ranges: [
+          {
+            persisted: false,
+            ...value,
+            key: value.key ?? "",
+            variant: "static",
+            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
+              .numeric,
+          },
+        ],
+      }),
+    );
+    onClose();
+  }, [form, dispatch]);
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
@@ -173,7 +195,7 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button onClick={() => save()} disabled={variant === "loading"}>
+          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button

@@ -25,7 +25,11 @@ interface ActionProps {
 }
 
 const Action = ({ action }: ActionProps): ReactElement =>
-  isValidElement(action) ? action : <Button.Button {...action} key={action.key} />;
+  isValidElement(action) ? (
+    action
+  ) : (
+    <Button.Button {...action} key={action.key} size="tiny" />
+  );
 
 export interface NotificationProps extends Flex.BoxProps {
   status: NotificationSpec;

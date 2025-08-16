@@ -24,7 +24,7 @@ const resolveIcon = (d: DataType) => {
   return undefined;
 };
 
-const DATA: Select.SimplyEntry<string>[] = DataType.ALL.filter(
+const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
   (d) => d !== DataType.UNKNOWN,
 ).map((d) => ({
   key: d.toString(),
@@ -37,7 +37,7 @@ const DATA: Select.SimplyEntry<string>[] = DataType.ALL.filter(
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);
 
 export interface SelectDataTypeProps
-  extends Omit<Select.SimpleProps<string>, "data" | "resourceName"> {
+  extends Omit<Select.StaticProps<string>, "data" | "resourceName"> {
   hideVariableDensity?: boolean;
 }
 
@@ -46,5 +46,5 @@ export const SelectDataType = ({
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  return <Select.Simple {...rest} data={data} resourceName="Data Type" />;
+  return <Select.Static {...rest} data={data} resourceName="Data Type" />;
 };

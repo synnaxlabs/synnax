@@ -17,6 +17,7 @@ import { Dialog as CoreDialog } from "@/dialog";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
 import { Status } from "@/status";
+import { Text } from "@/text";
 
 export interface DialogProps<K extends record.Key>
   extends Omit<CoreDialog.DialogProps, "children">,
@@ -26,14 +27,14 @@ export interface DialogProps<K extends record.Key>
   resourceName?: string;
 }
 
-export interface DefaultEmptyContentProps extends Status.TextProps {
+export interface DefaultEmptyContentProps extends Status.SummaryProps {
   resourceName?: string;
 }
 
 const DefaultEmptyContent = ({ resourceName = "result" }: DefaultEmptyContentProps) => (
-  <Status.Text center variant="disabled" hideIcon>
-    No {resourceName}s found
-  </Status.Text>
+  <Text.Text center status="disabled">
+    No {resourceName.toLowerCase()}s found
+  </Text.Text>
 );
 
 export const Core = memo(
@@ -49,19 +50,19 @@ export const Core = memo(
     emptyContent = useMemo(() => {
       if (status != null && status.variant !== "success")
         return (
-          <Status.Text
+          <Status.Summary
             center
             variant={status?.variant}
             description={status?.description}
           >
             {status?.message}
-          </Status.Text>
+          </Status.Summary>
         );
       if (typeof emptyContent === "string")
         return (
-          <Status.Text center variant="disabled">
+          <Status.Summary center variant="disabled">
             {emptyContent}
-          </Status.Text>
+          </Status.Summary>
         );
       if (emptyContent == null)
         return <DefaultEmptyContent resourceName={resourceName} />;

@@ -20,7 +20,6 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Payload,
   type Schemas,
   type Status,
@@ -163,19 +162,21 @@ const retrieveReqZ = z.object({
   limit: z.number().optional(),
 });
 
-const nameRetrieveReqZ = z
-  .object({ name: z.string(), includeStatus: z.boolean().optional() })
-  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+const singleRetrieveArgsZ = z.union([
+  z
+    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+  z
+    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+]);
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 
-type NameRetrieveRequest = z.input<typeof nameRetrieveReqZ>;
+const multiRetrieveArgsZ = retrieveReqZ;
+export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
 
-const keyRetrieveReqZ = z
-  .object({ key: keyZ, includeStatus: z.boolean().optional() })
-  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
-
-type KeyRetrieveRequest = z.input<typeof keyRetrieveReqZ>;
-
-const retrieveArgsZ = z.union([nameRetrieveReqZ, keyRetrieveReqZ, retrieveReqZ]);
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 type RetrieveSchemas<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -184,8 +185,6 @@ type RetrieveSchemas<
 > = {
   schemas?: Schemas<Type, Config, StatusData>;
 };
-
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const retrieveResZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -199,12 +198,6 @@ const retrieveResZ = <
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-export interface RetrieveOptions
-  extends Pick<
-    RetrieveRequest,
-    "rack" | "offset" | "limit" | "includeStatus" | "types"
-  > {}
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
@@ -237,7 +230,7 @@ const copyResZ = <
 ) => z.object({ task: taskZ(schemas) });
 
 export class Client {
-  readonly type: string = ONTOLOGY_TYPE;
+  readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
@@ -315,30 +308,18 @@ export class Client {
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
     StatusData extends z.ZodType,
-  >({
-    key,
-  }: KeyRetrieveRequest &
-    RetrieveOptions &
-    RetrieveSchemas<Type, Config, StatusData>): Promise<Task<Type, Config, StatusData>>;
-  async retrieve({ key }: KeyRetrieveRequest & RetrieveOptions): Promise<Task>;
-  async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
-  >({
-    name,
-  }: NameRetrieveRequest &
-    RetrieveOptions &
-    RetrieveSchemas<Type, Config, StatusData>): Promise<Task<Type, Config, StatusData>>;
-  async retrieve({ name }: NameRetrieveRequest & RetrieveOptions): Promise<Task>;
-  async retrieve(request: RetrieveRequest): Promise<Task[]>;
+  >(
+    args: SingleRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
+  ): Promise<Task<Type, Config, StatusData>>;
+  async retrieve(args: SingleRetrieveArgs): Promise<Task>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
     StatusData extends z.ZodType,
   >(
-    request: RetrieveRequest & RetrieveSchemas<Type, Config, StatusData>,
+    args: MultiRetrieveArgs & RetrieveSchemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>[]>;
+  async retrieve(args: MultiRetrieveArgs): Promise<Task[]>;
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
@@ -346,9 +327,7 @@ export class Client {
   >({
     schemas,
     ...args
-  }: RetrieveArgs &
-    RetrieveOptions &
-    RetrieveSchemas<Type, Config, StatusData>): Promise<
+  }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
     const isSingle = "key" in args || "name" in args;
@@ -458,7 +437,7 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
 
 const executeCommand = async (
   frameClient: framer.Client | null,

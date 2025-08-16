@@ -226,7 +226,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   const previous = await client.hardware.devices.retrieve<
     Device.Properties,
     Device.Make
-  >(config.device);
+  >({ key: config.device });
   const device = await client.hardware.devices.create<Device.Properties, Device.Make>({
     ...previous,
     properties: Device.migrateProperties(previous.properties),

@@ -20,12 +20,14 @@ import {
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useEffect } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
+import { rename } from "@/layout/slice";
 import { FavoriteButton } from "@/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
@@ -70,6 +72,7 @@ export interface DetailsProps {
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
+  const dispatch = useDispatch();
   const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
   const { form } = Ranger.useForm({
     params: { key: rangeKey },
@@ -86,14 +89,17 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     ctx: form,
   });
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleCopyLink = () => {
+  const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
-  };
 
   useEffect(() => {
     if (prevLayoutName == layoutName || prevLayoutName == null) return;
     form.set("name", layoutName);
   }, [layoutName]);
+  useEffect(() => {
+    if (name == null) return;
+    dispatch(rename({ key: rangeKey, name }));
+  }, [name]);
 
   const copy = useCopyToClipboard();
   const handleCopyPythonCode = () => {

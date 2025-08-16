@@ -7,6 +7,7 @@ import { Task } from "@/hardware/task";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   describe("useList", () => {
@@ -26,12 +27,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(task1.key);
       expect(result.current.data).toContain(task2.key);
@@ -48,7 +51,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -76,7 +79,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ term: "special" });
@@ -87,7 +90,7 @@ describe("queries", () => {
         result.current.data
           .map((key: task.Key) => result.current.getItem(key)?.name)
           .includes("special"),
-      ).toBeTruthy();
+      ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -102,7 +105,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -117,7 +120,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -148,7 +151,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -177,7 +180,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -203,7 +206,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -245,7 +248,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -268,7 +271,7 @@ describe("queries", () => {
       await waitFor(() => {
         const taskInList = result.current.getItem(testTask.key);
         expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Executing command...");
+        expect(taskInList?.status?.message).toEqual("Running start command...");
         expect(taskInList?.status?.details.running).toBe(true);
       });
     });

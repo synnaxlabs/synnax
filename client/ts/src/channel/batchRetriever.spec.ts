@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x";
 import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,7 +33,7 @@ class MockRetriever implements channel.Retriever {
     options?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
     if (typeof channels === "object" && !Array.isArray(channels))
-      throw new Error("not implemented");
+      throw new errors.NotImplemented();
     return await this.func(channels, options);
   }
 }

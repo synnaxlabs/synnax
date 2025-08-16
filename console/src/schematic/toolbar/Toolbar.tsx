@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { EmptyAction, Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -46,24 +46,18 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Flex.Box x gap="small">
-      <Status.Text variant="disabled" hideIcon>
-        {name} is not editable.
-        {isEditable ? " To make changes," : ""}
-      </Status.Text>
-      {isEditable && (
-        <Text.Text
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(setEditable({ key: layoutKey, editable: true }));
-          }}
-        >
-          {controlState === "acquired"
-            ? "release control and enable editing."
-            : "enable editing."}
-        </Text.Text>
-      )}
-    </Flex.Box>
+    <EmptyAction
+      x
+      message={`${name} is not editable. ${isEditable ? "To make changes," : ""}`}
+      action={
+        controlState === "acquired"
+          ? "release control and enable editing."
+          : "enable editing."
+      }
+      onClick={() => {
+        dispatch(setEditable({ key: layoutKey, editable: true }));
+      }}
+    />
   );
 };
 

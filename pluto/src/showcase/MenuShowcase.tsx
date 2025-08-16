@@ -24,10 +24,7 @@ export const MenuShowcase = () => {
 
   const contextMenu = Menu.useContextMenu();
 
-  const handleContextSelect = (key: string) => {
-    console.log("Context menu action:", key);
-    contextMenu.close();
-  };
+  const handleContextSelect = () => contextMenu.close();
 
   return (
     <Flex.Box y pack empty>
@@ -116,7 +113,7 @@ export const MenuShowcase = () => {
                 <Icon.Resources />
                 Open
               </Menu.Item>
-              <Menu.Item itemKey="save">
+              <Menu.Item itemKey="save" trigger={["Control", "S"]} triggerIndicator>
                 <Icon.Save />
                 Save
               </Menu.Item>

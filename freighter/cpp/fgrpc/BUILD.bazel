@@ -5,6 +5,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
+        "//x/cpp/fs",
         "@glog",
         "@grpc//:grpc++",
     ],

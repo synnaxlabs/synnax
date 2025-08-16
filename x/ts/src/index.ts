@@ -47,6 +47,7 @@ export * from "@/status";
 export * from "@/strings";
 export * from "@/sync";
 export * from "@/telem";
+export * from "@/testutil";
 export * from "@/transform";
 export * from "@/unique";
 export * from "@/url";

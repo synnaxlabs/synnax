@@ -8,6 +8,11 @@
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
  */
+.pluto-input__item {
+    & .pluto-input__switch {
+        width: 100%;
+    }
+}
 
 .pluto-input__switch {
     display: flex;
@@ -15,9 +20,10 @@
     align-items: center;
     position: relative;
     cursor: pointer;
+    padding: 0;
 
     &:focus-within {
-        .pluto-input__switch-track {
+        .pluto-input__switch-indicator {
             box-shadow:
                 0 0 0 2px var(--pluto-gray-l1),
                 0 0 0 3px var(--pluto-primary-z);
@@ -33,7 +39,7 @@
         z-index: 100;
     }
 
-    .pluto-input__switch-track {
+    .pluto-input__switch-indicator {
         position: relative;
         display: inline-block;
         width: 5rem;
@@ -44,7 +50,7 @@
         transition: 0.15s;
     }
 
-    .pluto-input__switch-track::before {
+    .pluto-input__switch-indicator::before {
         position: absolute;
         content: "";
         height: 2rem;
@@ -56,11 +62,11 @@
         border-radius: 50%;
     }
 
-    input:checked ~ .pluto-input__switch-track {
+    input:checked ~ .pluto-input__switch-indicator {
         background: var(--pluto-primary-m1);
     }
 
-    input:checked ~ .pluto-input__switch-track::before {
+    input:checked ~ .pluto-input__switch-indicator::before {
         transform: translateX(2.5rem);
         background: var(--pluto-primary-p1);
     }
@@ -69,14 +75,14 @@
         * {
             cursor: not-allowed !important;
         }
-        .pluto-input__switch-track {
+        .pluto-input__switch-indicator {
             background: var(--pluto-gray-l3-50);
         }
-        .pluto-input__switch-track::before {
+        .pluto-input__switch-indicator::before {
             background: var(--pluto-gray-l6-70);
         }
 
-        input:checked ~ .pluto-input__switch-track {
+        input:checked ~ .pluto-input__switch-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -84,7 +90,7 @@
             );
         }
 
-        input:checked ~ .pluto-input__switch-track::before {
+        input:checked ~ .pluto-input__switch-indicator::before {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),

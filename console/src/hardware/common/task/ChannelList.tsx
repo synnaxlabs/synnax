@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type Component,
   Flex,
   Form,
   Icon,
   List,
   Menu as PMenu,
-  type RenderProp,
   Select,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
@@ -37,7 +37,7 @@ interface ContextMenuProps<C extends Channel>
   onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
-  contextMenuItems?: RenderProp<ContextMenuItemProps<C>>;
+  contextMenuItems?: Component.RenderProp<ContextMenuItemProps<C>>;
 }
 
 const ContextMenu = <C extends Channel>({
@@ -137,7 +137,7 @@ export interface ChannelListProps<C extends Channel>
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
-  listItem: RenderProp<ChannelListItemProps>;
+  listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
 }
 

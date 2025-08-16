@@ -22,6 +22,7 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { type annotation as aetherAnnotation } from "@/annotation/aether";
 import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -91,34 +92,32 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (client == null) return;
     i.client = client;
 
-    i.removeListeners = flux.useListener(
-      ctx,
-      [
-        {
-          channel: annotation.SET_CHANNEL_NAME,
-          onChange: flux.parsedHandler(annotation.annotationZ, async ({ changed }) => {
-            i.annotations.set(
-              changed.key,
-              await client.annotations.retrieve({
-                key: changed.key,
-                includeCreator: true,
-              }),
-            );
-            this.setState((s) => ({ ...s, count: i.annotations.size }));
-            i.requestRender("tool");
-          }),
-        },
-        {
-          channel: annotation.DELETE_CHANNEL_NAME,
-          onChange: flux.parsedHandler(annotation.keyZ, async ({ changed }) => {
-            i.annotations.delete(changed);
-            this.setState((s) => ({ ...s, count: i.annotations.size }));
-            i.requestRender("tool");
-          }),
-        },
-      ],
-      i.removeListeners,
-    );
+    const store = flux.useStore<aetherAnnotation.SubStore>(ctx);
+    i.removeListeners?.();
+
+    const removeOnSet = store.annotations.onSet(async (changed) => {
+      if (i.client == null) return;
+      i.annotations.set(
+        changed.key,
+        await i.client.annotations.retrieve({
+          key: changed.key,
+          includeCreator: true,
+        }),
+      );
+      this.setState((s) => ({ ...s, count: i.annotations.size }));
+      i.requestRender("tool");
+    });
+
+    const removeOnDelete = store.annotations.onDelete(async (key) => {
+      i.annotations.delete(key);
+      this.setState((s) => ({ ...s, count: i.annotations.size }));
+      i.requestRender("tool");
+    });
+
+    i.removeListeners = () => {
+      removeOnSet();
+      removeOnDelete();
+    };
   }
 
   private fetchInitial(timeRange: TimeRange): void {
@@ -130,7 +129,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     this.fetchedInitial = timeRange;
     runAsync(async () => {
       const children = await client.ontology.retrieveChildren(this.state.parents, {
-        types: [annotation.ONTOLOGY_TYPE],
+        types: ["annotation"],
       });
       const annotations = await client.annotations.retrieve({
         keys: children.map((c) => c.id.key),

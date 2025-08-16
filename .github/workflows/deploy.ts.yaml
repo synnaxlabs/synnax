@@ -10,6 +10,8 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    env:
+      SYNNAX_TS_ENV: prod
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,12 +28,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Configure npm
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - name: Build
         run: pnpm build:console-vite
-        env:
-          SYNNAX_TS_ENV: prod
 
       - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish -r --access public
+        run: |
+          pnpm publish -r --access public

@@ -223,9 +223,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text variant={connectionState.variant}>
+            <Status.Summary status={connectionState.variant}>
               {connectionState.message}
-            </Status.Text>
+            </Status.Summary>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
@@ -259,7 +259,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
-      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      const dev = await client.hardware.devices.retrieve<Properties>({
+        key: layoutKey,
+      });
       dev.properties = migrateProperties(dev.properties);
       return [
         { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
@@ -269,21 +271,20 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text center level="h4" variant="loading">
+      <Text.Text center level="h4" status="loading">
         Loading Configuration from Synnax Server
-      </Status.Text>
+      </Text.Text>
     );
-  if (isError) {
-    const color = Status.VARIANT_COLORS.error;
+  if (isError)
     return (
       <Flex.Box style={{ padding: "3rem" }}>
-        <Text.Text level="h2" color={color}>
+        <Text.Text level="h2" status="error">
           Failed to load configuration for server with key {layoutKey}
         </Text.Text>
-        <Text.Text color={color}>{error.message}</Text.Text>
+        <Text.Text status="error">{error.message}</Text.Text>
       </Flex.Box>
     );
-  }
+
   const [initialValues, properties] = data;
   return (
     <Internal

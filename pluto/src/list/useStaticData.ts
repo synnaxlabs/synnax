@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type compare, type record } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 
@@ -23,7 +23,7 @@ export interface UseStaticDataReturn<
 }
 
 export interface RetrieveParams {
-  term?: string;
+  searchTerm?: string;
   offset?: number;
   limit?: number;
 }
@@ -34,6 +34,7 @@ export interface UseStaticDataArgs<
 > {
   data: E[];
   filter?: (item: E, params: RetrieveParams) => boolean;
+  sort?: compare.Comparator<E>;
 }
 
 export const useStaticData = <
@@ -42,11 +43,14 @@ export const useStaticData = <
 >({
   data,
   filter,
+  sort,
 }: UseStaticDataArgs<K, E>): UseStaticDataReturn<K, E> => {
   const filteredData = useMemo(() => {
-    if (filter == null) return data;
-    return data.filter((d) => filter(d, {}));
-  }, [data, filter]);
+    let result = data;
+    if (filter != null) result = result.filter((d) => filter(d, {}));
+    if (sort != null) result = [...result].sort(sort);
+    return result;
+  }, [data, filter, sort]);
   const fuse = useMemo(() => {
     if (filteredData.length === 0) return null;
     return new Fuse(filteredData, {
@@ -63,10 +67,14 @@ export const useStaticData = <
     [filteredData],
   );
   const res = useMemo(() => {
-    let keys = filteredData.map((d) => d.key);
-    if (params.term != null && params.term.length > 0 && fuse != null)
-      keys = fuse.search(params.term).map((d) => d.item.key);
+    let processedData = filteredData;
+    if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null) {
+      const searchResults = fuse.search(params.searchTerm);
+      processedData = searchResults.map((result) => result.item);
+      if (sort != null) processedData = [...processedData].sort(sort);
+    }
+    const keys = processedData.map((d) => d.key);
     return { getItem, data: keys };
-  }, [filteredData, params, getItem, fuse]);
+  }, [filteredData, params, getItem, fuse, sort]);
   return { ...res, retrieve: setParams };
 };

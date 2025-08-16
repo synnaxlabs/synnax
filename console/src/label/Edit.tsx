@@ -29,7 +29,6 @@ import {
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
@@ -81,6 +80,7 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
+      highlightHovered={false}
       className={CSS(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),
@@ -124,9 +124,9 @@ const LabelListItem = ({
         <Flex.Box pack>
           <Button.Button
             variant="filled"
+            size="small"
             onClick={() => save()}
             trigger={visible ? ["Enter"] : undefined}
-            size="small"
           >
             <Icon.Check />
           </Button.Button>
@@ -136,10 +136,10 @@ const LabelListItem = ({
         </Flex.Box>
       ) : (
         <Button.Button
-          className={CSS.BE("label", "delete")}
           variant="outlined"
           size="small"
           onClick={() => handleDelete()}
+          className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />
         </Button.Button>
@@ -219,11 +219,11 @@ export const Edit: Layout.Renderer = () => {
             grow
             emptyContent={
               !newFormVisible && (
-                <EmptyAction
-                  message="No labels created"
-                  action="Create a label."
-                  onClick={() => setNewFormVisible(true)}
-                />
+                <Flex.Box center>
+                  <Text.Text level="h4" color={8}>
+                    No labels created
+                  </Text.Text>
+                </Flex.Box>
               )
             }
           >

@@ -13,12 +13,12 @@ import {
   Flex,
   Form,
   Icon,
-  Status,
   Table,
   TableCells,
+  Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -40,12 +40,13 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
+const TOOLBAR_BUTTONS_STYLE = { width: 66 };
+
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const selectedCells = useSelectSelectedCells(layoutKey);
   const selectedCellMeta = useSelectSelectedCellPos(layoutKey);
 
-  const isSingleCellSelected = selectedCells.length === 1;
   const firstCell = selectedCells[0];
   const dispatch = useDispatch();
   const store = useStore<RootState>();
@@ -69,28 +70,19 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       <Core.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
-            <Breadcrumb.Segment weight={500} color={8} level="h5">
+            <Breadcrumb.Segment weight={500} color={9} level="h5">
               <Icon.Table />
               {name}
             </Breadcrumb.Segment>
             {selectedCellMeta != null && (
-              <Breadcrumb.Segment>
+              <Breadcrumb.Segment color={8}>
                 {Table.getCellColumn(selectedCellMeta.x)}
                 {selectedCellMeta.y + 1}
               </Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
-          {isSingleCellSelected && (
-            <TableCells.SelectVariant
-              allowNone={false}
-              value={firstCell.variant}
-              onChange={(variant: TableCells.Variant) =>
-                handleVariantChange(variant, firstCell.key)
-              }
-            />
-          )}
         </Flex.Box>
-        <Flex.Box x style={{ width: 66 }} empty>
+        <Flex.Box x style={TOOLBAR_BUTTONS_STYLE} empty>
           <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
@@ -125,28 +117,34 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   const tableRef = useSyncedRef(tableKey);
   const cellRef = useSyncedRef(cell?.key);
   const dispatchSync = useSyncComponent(tableKey);
-  const handleChange = useCallback(({ values }: Form.OnChangeProps<any>) => {
-    dispatchSync(
-      setCellProps({ key: tableRef.current, cellKey: cellRef.current, props: values }),
-    );
-  }, []);
+  const handleChange = useCallback(
+    ({ values }: Form.OnChangeArgs<typeof record.unknownZ>) => {
+      dispatchSync(
+        setCellProps({
+          key: tableRef.current,
+          cellKey: cellRef.current,
+          props: values,
+        }),
+      );
+    },
+    [],
+  );
   const methods = Form.use({
     values: deep.copy(cell.props),
+    schema: record.unknownZ,
     onChange: handleChange,
     sync: true,
   });
   const F = TableCells.CELLS[cell.variant].Form;
   return (
-    <Form.Form {...methods}>
+    <Form.Form<typeof record.unknownZ> {...methods}>
       <F onVariantChange={onVariantChange} />
     </Form.Form>
   );
 };
 
 const EmptyContent = () => (
-  <Flex.Box x gap="small" full>
-    <Status.Text variant="disabled" hideIcon>
-      No cell selected. Select a cell to view its properties.
-    </Status.Text>
-  </Flex.Box>
+  <Text.Text status="disabled" center>
+    No cell selected. Select a cell to view its properties.
+  </Text.Text>
 );

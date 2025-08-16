@@ -17,13 +17,19 @@ import {
 } from "react";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
+import { Pluto } from "@/pluto";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { createAetherProvider } from "@/testutil/Aether";
 
-const AetherProvider = createAetherProvider({ ...synnax.REGISTRY, ...status.REGISTRY });
+const AetherProvider = createAetherProvider({
+  ...synnax.REGISTRY,
+  ...status.REGISTRY,
+  ...flux.createRegistry({}),
+});
 
 interface ClientConnector {
   (connected: boolean): void;
@@ -33,14 +39,24 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const newSynnaxWrapper = (
+export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
   client: Client | null = null,
+  storeConfig?: Flux.StoreConfig<ScopedStore>,
+  requireStreamerMounted = true,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider>{children}</Flux.Provider>
+          <Flux.Provider
+            storeConfig={
+              storeConfig ??
+              (Pluto.FLUX_STORE_CONFIG as unknown as Flux.StoreConfig<ScopedStore>)
+            }
+            requireStreamerMounted={requireStreamerMounted}
+          >
+            {children}
+          </Flux.Provider>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>

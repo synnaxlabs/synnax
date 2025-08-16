@@ -41,30 +41,28 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 }: MultipleTagProps<K>): ReactElement | null => {
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
-  if (item == null) return null;
-  const { name, icon: itemIcon } = item;
   return (
     <Tag.Tag
       onClose={onSelect}
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
-      icon={itemIcon ?? icon}
+      status={item == null ? "error" : undefined}
+      icon={item?.icon ?? icon}
     >
-      {name}
+      {item?.name ?? itemKey}
     </Tag.Tag>
   );
 };
 
 const multipleTag = Component.renderProp(MultipleTag);
 
-export interface MultipleTriggerProps<K extends record.Key> {
+export interface MultipleTriggerProps<K extends record.Key>
+  extends Pick<Button.ButtonProps, "variant" | "disabled"> {
   haulType?: string;
-  disabled?: boolean;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   children?: RenderProp<MultipleTagProps<K>>;
-  variant?: "text" | "outlined";
 }
 
 export const staticCanDrop = <K extends record.Key>(

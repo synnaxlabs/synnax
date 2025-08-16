@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { Select as Core } from "@/select";
 import { Status } from "@/status";
 
-const DATA: Core.SimplyEntry<status.Variant>[] = [
+const DATA: Core.StaticEntry<status.Variant>[] = [
   {
     key: "success",
     name: "Success",
@@ -37,8 +37,8 @@ const DATA: Core.SimplyEntry<status.Variant>[] = [
 ];
 
 export interface SelectProps
-  extends Omit<Core.SimpleProps<status.Variant>, "data" | "resourceName"> {}
+  extends Omit<Core.StaticProps<status.Variant>, "data" | "resourceName"> {}
 
 export const Select = (props: SelectProps): ReactElement => (
-  <Core.Simple {...props} data={DATA} resourceName="Status" />
+  <Core.Static {...props} data={DATA} resourceName="Status" />
 );

@@ -28,6 +28,7 @@ import {
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
 import {
+  BsBorderWidth,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
@@ -64,6 +65,7 @@ import {
   IoNotifications,
   IoNotificationsOff,
   IoShapes,
+  IoTerminal,
   IoTime,
 } from "react-icons/io5";
 import {
@@ -76,6 +78,7 @@ import {
   MdAreaChart,
   MdArrowOutward,
   MdAutoAwesome,
+  MdBlurLinear,
   MdBook,
   MdCalendarToday,
   MdComment,
@@ -243,7 +246,7 @@ const NI: SVGFC = (props) => (
   </svg>
 );
 
-const OPC: SVGFC = ({ className, style, ...rest }) => (
+const OPC: SVGFC = ({ className, ...rest }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     version="1.1"
@@ -252,11 +255,6 @@ const OPC: SVGFC = ({ className, style, ...rest }) => (
     stroke="currentColor"
     fill="currentColor"
     viewBox="0 0 512 325.74567"
-    style={{
-      // Runs a little small
-      transform: "scale(1.25)",
-      ...style,
-    }}
   >
     <g transform="translate(-151.28831,-121.30134)" id="layer1">
       <g transform="matrix(2.7387317,0,0,2.7387317,-938.60269,-766.86241)" id="g3606">
@@ -475,6 +473,9 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
+export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
+export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
@@ -624,6 +625,8 @@ const icons = {
   Map,
   Linear,
   None,
+  Constant,
+  Terminal,
   Effect,
   Slate,
   Select,
@@ -631,7 +634,6 @@ const icons = {
   InProgress,
   Completed,
   ToDo,
-  Constant,
   Boolean,
   Annotation,
 };

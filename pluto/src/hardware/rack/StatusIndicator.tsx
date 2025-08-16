@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import "@/hardware/rack/StatusIndicator.css";
 
 import { type rack } from "@synnaxlabs/client";
@@ -30,9 +39,9 @@ export const StatusIndicator = ({
   }, [status]);
   return (
     <Tooltip.Dialog location={tooltipLocation}>
-      <Status.Text variant={variant} hideIcon level="small" weight={450}>
+      <Status.Summary variant={variant} hideIcon level="small" weight={450}>
         {status?.message}
-      </Status.Text>
+      </Status.Summary>
       <Icon.Heart
         ref={heartRef}
         className={CSS.BE("rack", "heartbeat")}

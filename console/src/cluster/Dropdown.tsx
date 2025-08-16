@@ -16,7 +16,7 @@ import {
   Flex,
   Header,
   Icon,
-  type List as CoreList,
+  List as CoreList,
   Menu as PMenu,
   Select,
   Status,
@@ -51,6 +51,7 @@ interface ListItemProps extends CoreList.ItemProps<string> {
 const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = useDispatch();
   const item = useSelect(rest.itemKey);
+  const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
     dispatch(rename({ key: item.key, name: value }));
@@ -58,26 +59,24 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
 
   if (item == null) return null;
   return (
-    <Select.ListItem
+    <CoreList.Item
       className={CSS(CSS.B("cluster-list-item"))}
-      x
-      align="center"
+      y
+      selected={selected}
+      onSelect={onSelect}
       {...rest}
     >
-      <Flex.Box y justify="between" gap="tiny" grow>
-        <Text.MaybeEditable
-          level="p"
-          id={`cluster-dropdown-${item.key}`}
-          weight={450}
-          value={item.name}
-          onChange={handleChange}
-          allowDoubleClick={false}
-        />
-        <Text.Text level="p" color={10}>
-          {item.host}:{item.port}
-        </Text.Text>
-      </Flex.Box>
-    </Select.ListItem>
+      <Text.MaybeEditable
+        id={`cluster-dropdown-${item.key}`}
+        weight={450}
+        value={item.name}
+        onChange={handleChange}
+        allowDoubleClick={false}
+      />
+      <Text.Text color={10}>
+        {item.host}:{item.port}
+      </Text.Text>
+    </CoreList.Item>
   );
 };
 
@@ -97,7 +96,7 @@ export const NoneConnectedBoundary = ({
 
 export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 
-export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
+export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
@@ -187,18 +186,19 @@ export const Dropdown = (): ReactElement => {
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
           {key === active?.key ? (
-            <PMenu.Item gap="small" itemKey="disconnect">
-              <Icon.Disconnect /> Disconnect
+            <PMenu.Item size="small" itemKey="disconnect">
+              <Icon.Disconnect />
+              Disconnect
             </PMenu.Item>
           ) : (
-            <PMenu.Item gap="small" itemKey="connect">
+            <PMenu.Item size="small" itemKey="connect">
               <Icon.Connect />
               Connect
             </PMenu.Item>
           )}
           <Menu.RenameItem />
           <PMenu.Divider />
-          <PMenu.Item gap="small" itemKey="remove">
+          <PMenu.Item size="small" itemKey="remove">
             <Icon.Delete />
             Remove
           </PMenu.Item>
@@ -220,7 +220,7 @@ export const Dropdown = (): ReactElement => {
         itemHeight={54}
         allowNone
       >
-        <Flex.Box x pack>
+        <Flex.Box pack>
           <Dialog.Trigger
             justify="center"
             contrast={2}
@@ -232,10 +232,10 @@ export const Dropdown = (): ReactElement => {
           </Dialog.Trigger>
           <ConnectionBadge />
         </Flex.Box>
-        <Dialog.Dialog style={{ minWidth: 300, width: 400 }} bordered={false}>
+        <Dialog.Dialog style={{ minWidth: 300, width: 400 }} bordered borderColor={6}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-          <Flex.Box x bordered borderColor={6} pack rounded>
-            <Header.Header grow gap="small" x>
+          <Flex.Box pack x>
+            <Header.Header grow borderColor={6} gap="small" x>
               <Header.Title level="h5">
                 <Icon.Cluster />
                 Clusters
@@ -255,7 +255,7 @@ export const Dropdown = (): ReactElement => {
               Connect
             </Button.Button>
           </Flex.Box>
-          <Flex.Box empty bordered borderColor={6} style={{ height: 190 }}>
+          <Flex.Box empty style={{ height: 190 }} onContextMenu={menuProps.open}>
             {keys.map((key, i) => (
               <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
             ))}
