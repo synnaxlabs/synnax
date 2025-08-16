@@ -9,6 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import {
+  array,
   compare,
   type CrudeTimeSpan,
   type Destructor,
@@ -341,6 +342,7 @@ export const createList =
     );
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
+    const unMountListenersRef = useRef<Destructor | null>(null);
 
     const store = useStore<ScopedStore>();
 
@@ -391,17 +393,8 @@ export const createList =
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
 
-          // If we've already retrieved the initial data, and it's the same as the
-          // data we just retrieved, then don't notify listeners.
-          if (
-            resultRef.current.data != null &&
-            compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
-          )
-            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
-
-          value.forEach((v) => dataRef.current.set(v.key, v));
-
-          mountListeners?.({
+          unMountListenersRef.current?.();
+          const destructors = mountListeners?.({
             client,
             store,
             params,
@@ -439,6 +432,20 @@ export const createList =
               notifyListeners(k);
             },
           });
+          if (destructors != null)
+            unMountListenersRef.current = () =>
+              array.toArray(destructors).forEach((d) => d());
+
+          // If we've already retrieved the initial data, and it's the same as the
+          // data we just retrieved, then don't notify listeners.
+          if (
+            resultRef.current.data != null &&
+            compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
+          )
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+
+          value.forEach((v) => dataRef.current.set(v.key, v));
+
           return setResult((prev) => {
             if (mode === "replace" || prev.data == null)
               return successResult(name, "retrieved", keys);

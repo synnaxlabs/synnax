@@ -16,6 +16,7 @@ import { Device } from "@/hardware/device";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   describe("retrieve", () => {
@@ -34,7 +35,7 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
@@ -55,7 +56,7 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
@@ -83,7 +84,7 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => Device.retrieve().useDirect({ params: { key: dev.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
@@ -134,7 +135,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       result.current.retrieve({});
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -158,7 +159,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       result.current.retrieve({});
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -192,7 +193,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ searchTerm: "special" });
@@ -231,7 +232,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ makes: [targetMake] });
@@ -257,7 +258,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -272,7 +273,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -311,7 +312,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -344,7 +345,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -374,7 +375,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Device.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});

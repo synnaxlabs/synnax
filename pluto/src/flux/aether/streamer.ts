@@ -85,7 +85,6 @@ export const openStreamer = async <ScopedStore extends Store>({
           if (!series.dataType.equals(DataType.JSON))
             parsed = Array.from(series).map((s) => schema.parse(s));
           else parsed = series.parseJSON(schema);
-          if (series == null) return;
           for (const changed of parsed) await onChange({ changed, client, store });
         }, "Failed to handle streamer change");
       });

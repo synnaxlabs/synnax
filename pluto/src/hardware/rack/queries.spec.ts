@@ -7,7 +7,7 @@ import { Rack } from "@/hardware/rack";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
+const wrapper = newSynnaxWrapper(client);
 describe("queries", () => {
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
@@ -19,7 +19,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -36,7 +36,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -57,7 +57,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ term: "special" });
@@ -78,7 +78,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -93,7 +93,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeStatus: true });
@@ -108,7 +108,7 @@ describe("queries", () => {
 
     it("should update the list when a rack is created", async () => {
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -134,7 +134,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -160,7 +160,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -183,7 +183,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});

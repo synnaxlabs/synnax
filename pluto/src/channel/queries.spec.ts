@@ -12,36 +12,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
-import { type Flux } from "@/flux";
-import { Label } from "@/label";
-import { Ontology } from "@/ontology";
-import { Ranger } from "@/ranger";
-import { ranger } from "@/ranger/aether";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
-  channels: Channel.FluxStore;
-  rangeAliases: Ranger.AliasFluxStore;
-  ranges: ranger.FluxStore;
-  relationships: Ontology.RelationshipFluxStore;
-  resources: Ontology.ResourceFluxStore;
-  labels: Label.FluxStore;
-  rangeKV: Ranger.KVFluxStore;
-  aliases: Ranger.AliasFluxStore;
-}> = {
-  channels: Channel.STORE_CONFIG,
-  rangeAliases: Ranger.ALIAS_STORE_CONFIG,
-  ranges: ranger.STORE_CONFIG,
-  relationships: Ontology.RELATIONSHIP_STORE_CONFIG,
-  resources: Ontology.RESOURCE_STORE_CONFIG,
-  labels: Label.STORE_CONFIG,
-  rangeKV: Ranger.KV_STORE_CONFIG,
-  aliases: Ranger.ALIAS_STORE_CONFIG,
-};
-
-const wrapper = newSynnaxWrapper(client, FLUX_STORE_CONFIG);
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
@@ -530,7 +504,7 @@ describe("queries", () => {
 
     it("should validate that expression is not empty", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
 
       act(() => {
@@ -546,7 +520,7 @@ describe("queries", () => {
 
     it("should validate that expression contains return statement", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
 
       act(() => {
@@ -562,7 +536,7 @@ describe("queries", () => {
 
     it("should validate that expression uses at least one channel", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
 
       act(() => {
@@ -579,7 +553,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -606,7 +580,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useCalculatedForm({ params: { key: testCalculated.key } }),
-        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");

@@ -121,6 +121,7 @@ export const useChildren = Flux.createList<
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });
+    if (resources.length === 0) return [];
     return await multiCachedRetrieve(client, store, {
       keys: resources.map(({ id: { key } }) => key),
     });
@@ -132,7 +133,7 @@ export const useChildren = Flux.createList<
       onChange(range.key, (prev) => {
         if (prev == null) return prev;
         return client.ranges.sugarOne({
-          ...prev,
+          ...range,
           parent: range.parent ?? prev.parent,
           labels: range.labels ?? prev.labels,
         });
@@ -415,10 +416,9 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, Sub
   mountListeners: ({ store, onChange, onDelete, client }) => [
     store.ranges.onSet(async (range) => {
       onChange(range.key, (prev) => {
-        if (prev == null) return prev;
+        if (prev == null) return range;
         return client.ranges.sugarOne({
-          ...prev,
-          parent: range.parent ?? prev.parent,
+          ...range.payload,
           labels: range.labels ?? prev.labels,
         });
       });

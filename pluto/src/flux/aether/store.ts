@@ -15,7 +15,7 @@ interface SetOptions {
 /**
  * A key-value store that manages state with reactive update notifications.
  * Supports setting, getting, and deleting entries while notifying registered listeners.
- * 
+ *
  * @template K - The type of keys used in the store
  * @template V - The type of values stored, must extend state.State
  */
@@ -29,7 +29,7 @@ export class UnaryStore<
 
   /**
    * Sets a value for the given key in the store.
-   * 
+   *
    * @param key - The key to set
    * @param value - The value to set, or a function to compute the value from the previous state
    * @param opts - Options for the set operation
@@ -81,7 +81,7 @@ export class UnaryStore<
 
   /**
    * Registers a listener for set operations.
-   * 
+   *
    * @param callback - Function to call when a value is set
    * @param key - Optional key to filter notifications (if provided, only changes to this key trigger the callback)
    * @returns A destructor function to remove the listener
@@ -93,7 +93,7 @@ export class UnaryStore<
 
   /**
    * Registers a listener for delete operations.
-   * 
+   *
    * @param callback - Function to call when a value is deleted
    * @param key - Optional key to filter notifications (if provided, only deletion of this key triggers the callback)
    * @returns A destructor function to remove the listener
@@ -120,7 +120,7 @@ export class UnaryStore<
 
 /**
  * Configuration for listening to changes on a specific Synnax channel.
- * 
+ *
  * @template ScopedStore - The type of the store available to the listener
  * @template Z - Zod schema type for validating channel data
  */
@@ -138,7 +138,7 @@ export interface ChannelListener<
 
 /**
  * Arguments passed to a channel listener's onChange callback.
- * 
+ *
  * @template ScopedStore - The type of the store available to the listener
  * @template Z - Zod schema type for validating channel data
  */
@@ -156,7 +156,7 @@ export type ChannelListenerArgs<
 
 /**
  * Configuration for a single UnaryStore including its channel listeners.
- * 
+ *
  * @template ScopedStore - The type of the scoped store
  */
 export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
@@ -167,7 +167,7 @@ export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
 /**
  * Configuration object for creating a store with multiple UnaryStore instances.
  * Keys are store names and values are their configurations.
- * 
+ *
  * @template ScopedStore - The type of the scoped store
  */
 export interface StoreConfig<ScopedStore extends Store = {}> {
@@ -185,7 +185,7 @@ export interface Store {
 /**
  * Creates a new store instance from the provided configuration.
  * Each key in the config becomes a UnaryStore in the resulting store.
- * 
+ *
  * @template ScopedStore - The type of the store to create
  * @param config - Configuration object defining the store structure
  * @returns A new store instance with UnaryStore instances for each config key

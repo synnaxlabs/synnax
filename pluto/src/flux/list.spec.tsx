@@ -18,7 +18,7 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
 
-describe.only("list", () => {
+describe("list", () => {
   let controller: AbortController;
   beforeEach(() => {
     controller = new AbortController();
@@ -443,7 +443,9 @@ describe.only("list", () => {
   const DELETE_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.keyZ> = {
     channel: ranger.DELETE_CHANNEL_NAME,
     schema: ranger.keyZ,
-    onChange: async ({ store, changed }) => store.ranges.delete(changed),
+    onChange: async ({ store, changed }) => {
+      store.ranges.delete(changed);
+    },
   };
 
   const storeConfig: Flux.StoreConfig<Store> = {
@@ -513,7 +515,7 @@ describe.only("list", () => {
       });
       const { result } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<
+          const { getItem, retrieveAsync } = Flux.createList<
             {},
             ranger.Key,
             ranger.Payload,
@@ -525,15 +527,12 @@ describe.only("list", () => {
             mountListeners: ({ store, onDelete }) =>
               store.ranges.onDelete(async (changed) => onDelete(changed)),
           })();
-          return { retrieve, value: getItem(rng.key) };
+          return { retrieveAsync, value: getItem(rng.key) };
         },
         { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
 
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
-
+      await result.current.retrieveAsync({}, { signal: controller.signal });
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });

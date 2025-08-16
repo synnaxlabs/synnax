@@ -97,8 +97,14 @@ export interface ListParams extends device.MultiRetrieveArgs {}
 export const useList = Flux.createList<ListParams, device.Key, device.Device, SubStore>(
   {
     name: "Devices",
-    retrieve: async ({ client, params }) =>
-      await client.hardware.devices.retrieve({ includeStatus: true, ...params }),
+    retrieve: async ({ client, params, store }) => {
+      const devices = await client.hardware.devices.retrieve({
+        includeStatus: true,
+        ...params,
+      });
+      devices.forEach((d) => store.devices.set(d.key, d, { notify: false }));
+      return devices;
+    },
     retrieveByKey: async ({ client, key, store }) =>
       await retrieveByKey(client, store, { key }),
     mountListeners: ({ store, onChange, onDelete }) => [

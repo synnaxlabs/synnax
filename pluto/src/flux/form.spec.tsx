@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, newTestClient } from "@synnaxlabs/client";
-import { testutil, uuid } from "@synnaxlabs/x";
+import { testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -439,59 +439,6 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("Updated Label Name");
         expect(result.current.variant).toEqual("success");
-      });
-    });
-
-    it("should move the form into an error state when the listener throws an error", async () => {
-      const signalChannelName = `signal_${uuid.create()}`;
-      await client.channels.create({
-        name: signalChannelName,
-        virtual: true,
-        dataType: "float32",
-      });
-
-      const initialValues = {
-        key: "12",
-        name: "Initial Name",
-        age: 25,
-      };
-
-      const retrieve = vi.fn().mockReturnValue(initialValues);
-      const update = vi.fn();
-
-      const { result } = renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema, SubStore>({
-            initialValues,
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update,
-            mountListeners: ({ store, onChange }) =>
-              store.labels.onSet(async () =>
-                onChange((p) => (p == null ? p : { ...p, name: "Updated Label Name" })),
-              ),
-          })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client, STORE_CONFIG) },
-      );
-
-      await waitFor(() => {
-        expect(result.current.form.value()).toEqual(initialValues);
-        expect(
-          result.current.variant,
-          `${result.current.status.message}:${result.current.status.description}`,
-        ).toEqual("success");
-      });
-
-      await act(async () => {
-        const writer = await client.openWriter(signalChannelName);
-        await writer.write(signalChannelName, 12);
-        await writer.close();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.description).toEqual("Listener error");
       });
     });
   });

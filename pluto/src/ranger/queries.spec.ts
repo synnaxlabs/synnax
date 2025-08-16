@@ -16,6 +16,7 @@ import { Ranger } from "@/ranger";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
@@ -37,7 +38,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -58,7 +59,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -87,7 +88,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -111,7 +112,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
@@ -136,7 +137,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeParent: true }, { signal: controller.signal });
@@ -160,7 +161,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
@@ -171,7 +172,7 @@ describe("queries", () => {
 
     it("should update the list when a range is created", async () => {
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -199,7 +200,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -223,7 +224,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -248,7 +249,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -270,7 +271,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -310,7 +311,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -339,7 +340,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -362,7 +363,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -381,7 +382,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -423,7 +424,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -457,7 +458,7 @@ describe("queries", () => {
       );
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -499,7 +500,7 @@ describe("queries", () => {
 
       // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         grandparentResult.current.retrieve(
@@ -513,7 +514,7 @@ describe("queries", () => {
 
       // Test parent's children
       const { result: parentResult } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         parentResult.current.retrieve(
@@ -546,7 +547,7 @@ describe("queries", () => {
       }
 
       const { result } = renderHook(() => Ranger.useChildren(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ key: rootRange.key }, { signal: controller.signal });
@@ -565,7 +566,7 @@ describe("queries", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -596,7 +597,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -621,7 +622,7 @@ describe("queries", () => {
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -850,7 +851,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -872,7 +873,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
@@ -899,7 +900,7 @@ describe("queries", () => {
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -936,7 +937,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Ranger.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));

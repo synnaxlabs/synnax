@@ -176,9 +176,16 @@ export const useResourceList = Flux.createList<
   SubStore
 >({
   name: "useResourceList",
-  retrieve: async ({ client, params }) => await client.ontology.retrieve(params),
-  retrieveByKey: async ({ client, key }) =>
-    await client.ontology.retrieve(ontology.idZ.parse(key)),
+  retrieve: async ({ client, params, store }) => {
+    const res = await client.ontology.retrieve(params);
+    res.forEach((r) => store.resources.set(r.key, r, { notify: false }));
+    return res;
+  },
+  retrieveByKey: async ({ client, key, store }) => {
+    const res = await client.ontology.retrieve(ontology.idZ.parse(key));
+    store.resources.set(key, res, { notify: false });
+    return res;
+  },
   mountListeners: ({ store, onChange, onDelete }) => [
     store.resources.onSet(async (r) => onChange(r.key, r)),
     store.resources.onDelete(async (key) => onDelete(key)),

@@ -49,7 +49,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   color?: Color.ProviderProps;
 }
 
-const STORE_CONFIG: Flux.StoreConfig<{
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   ranges: ranger.FluxStore;
   labels: Label.FluxStore;
   racks: Rack.FluxStore;
@@ -96,7 +96,7 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Flux.Provider storeConfig={STORE_CONFIG}>
+                  <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                     <Color.Provider {...color}>
                       <Theming.Provider {...theming}>
                         <CanDisableTelem {...telem}>

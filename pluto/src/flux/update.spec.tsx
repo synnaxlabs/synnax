@@ -15,6 +15,7 @@ import { Flux } from "@/flux";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("update", () => {
   let controller: AbortController;
@@ -26,11 +27,13 @@ describe("update", () => {
   });
   describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
-      const { result } = renderHook(() =>
-        Flux.createUpdate<{}, number>({
-          name: "Resource",
-          update: async () => {},
-        }).useDirect({ params: {} }),
+      const { result } = renderHook(
+        () =>
+          Flux.createUpdate<{}, number>({
+            name: "Resource",
+            update: async () => {},
+          }).useDirect({ params: {} }),
+        { wrapper },
       );
       expect(result.current.variant).toEqual("success");
       expect(result.current.data).toEqual(null);
@@ -45,7 +48,7 @@ describe("update", () => {
             name: "Resource",
             update,
           }).useDirect({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -63,7 +66,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -103,7 +106,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -124,7 +127,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       const updated = await result.current.updateAsync(12, {
         signal: controller.signal,
@@ -139,7 +142,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       const updated = await result.current.updateAsync(12, {
         signal: controller.signal,
@@ -170,7 +173,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       controller.abort();
       const updated = await result.current.updateAsync(12, {

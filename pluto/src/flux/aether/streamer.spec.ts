@@ -9,14 +9,11 @@
 
 import { type channel, Frame, type framer, newTestClient } from "@synnaxlabs/client";
 import { EOF } from "@synnaxlabs/freighter";
-import { Series } from "@synnaxlabs/x";
+import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
 import { flux } from "@/flux/aether";
-import { type Status } from "@/status";
-
-// ==================== Test Utilities ====================
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -79,6 +76,7 @@ class MockHardenedStreamer implements framer.Streamer {
 /**
  * Creates a mock error handler that executes async functions
  * and swallows errors to prevent test failures.
+ * Returns a vi.fn() mock so you can inspect calls.
  */
 const createMockErrorHandler = (): Mock =>
   vi.fn((excOrFunc: unknown) => {
@@ -93,19 +91,17 @@ const createMockErrorHandler = (): Mock =>
   });
 
 /**
- * Default mock error handler that re-throws for basic tests.
+ * Creates a basic error handler that executes functions without swallowing errors.
+ * Use this when you want onChange callbacks to execute normally.
  */
-const mockHandleError: Status.ErrorHandler = (excOrFunc: unknown, message?: string) => {
-  if (typeof excOrFunc === "function")
-    void (async () => {
-      await excOrFunc();
-    })();
-  else mockHandleError(excOrFunc, message);
-};
+const createBasicErrorHandler = (): Mock =>
+  vi.fn((excOrFunc: unknown) => {
+    if (typeof excOrFunc === "function")
+      void (async () => {
+        await excOrFunc();
+      })();
+  });
 
-/**
- * Creates a streamer that yields specified frames in sequence.
- */
 const createFrameStreamer = (frames: framer.Frame[]) => async () => {
   let i = 0;
   return new MockHardenedStreamer([], async () => {
@@ -114,43 +110,18 @@ const createFrameStreamer = (frames: framer.Frame[]) => async () => {
   });
 };
 
-/**
- * Creates a single frame with the given channel data.
- */
-const createFrame = (data: Record<string, unknown[]>): framer.Frame => {
-  const frameData: Record<string, Series> = {};
-  for (const [channel, values] of Object.entries(data))
-    frameData[channel] = new Series(values);
-
-  return new Frame(frameData);
-};
-
-/**
- * Creates a basic store configuration with a single listener.
- */
 const createStoreConfig = <T>(
   channel: string,
   schema: z.ZodType<T>,
   onChange: Mock,
 ): flux.StoreConfig<flux.Store> => ({
-  labels: {
-    listeners: [
-      {
-        channel,
-        schema,
-        onChange,
-      },
-    ],
-  },
+  labels: { listeners: [{ channel, schema, onChange }] },
 });
 
-/**
- * Creates default streamer arguments for testing.
- */
 const createStreamerArgs = (
   overrides?: Partial<flux.StreamerArgs<flux.Store>>,
 ): flux.StreamerArgs<flux.Store> => ({
-  handleError: mockHandleError,
+  handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
   client: newTestClient(),
   store: {} as flux.Store,
@@ -158,13 +129,11 @@ const createStreamerArgs = (
   ...overrides,
 });
 
-// ==================== Test Suites ====================
-
 describe("openStreamer", () => {
   it("should open a streamer on a set of channels", async () => {
     const onChange = vi.fn();
     const schema = z.object({ name: z.string() });
-    const frames = [createFrame({ test: [{ name: "test" }] })];
+    const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
 
     const closeStreamer = await flux.openStreamer(
       createStreamerArgs({
@@ -185,9 +154,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const handleError = createMockErrorHandler();
       const schema = z.object({ name: z.string(), age: z.number() });
-      // Invalid data - missing required 'age' field
-      const frames = [createFrame({ test: [{ name: "test" }] })];
-
+      const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
           handleError,
@@ -195,7 +162,6 @@ describe("openStreamer", () => {
           openStreamer: createFrameStreamer(frames),
         }),
       );
-
       await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
       expect(onChange).not.toHaveBeenCalled();
       await closeStreamer();
@@ -210,8 +176,11 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const frames = [
-        createFrame({ test: [{ value: 1 }], test2: [{ value: 2 }] }),
-        createFrame({ test2: [{ value: 3 }] }),
+        new Frame({
+          test: new Series([{ value: 1 }]),
+          test2: new Series([{ value: 2 }]),
+        }),
+        new Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
       const storeConfig: flux.StoreConfig<flux.Store> = {
@@ -253,7 +222,7 @@ describe("openStreamer", () => {
                 i++;
                 return {
                   done: false,
-                  value: createFrame({ test: [{ value: 1 }] }),
+                  value: new Frame({ test: new Series([{ value: 1 }]) }),
                 };
               }
               if (i === 1) {
@@ -273,6 +242,35 @@ describe("openStreamer", () => {
       await closeStreamer();
     });
 
+    it("should call subsequent listeners even if the first listener throws an error", async () => {
+      const listener1 = vi.fn().mockImplementation(() => {
+        throw new Error("Listener 1 error");
+      });
+      const listener2 = vi.fn();
+      const schema = z.object({ value: z.number() });
+      const frames = [
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+      ];
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: {
+            labels: {
+              listeners: [
+                { channel: "test", schema, onChange: listener1 },
+                { channel: "test", schema, onChange: listener2 },
+              ],
+            },
+          },
+          handleError: createMockErrorHandler(),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => listener2.mock.calls.length).toBe(2);
+      expect(listener1).toHaveBeenCalledTimes(2);
+      await closeStreamer();
+    });
+
     it("should recover when an onChange handler rejects", async () => {
       let callCount = 0;
       const onChange = vi.fn().mockImplementation(async () => {
@@ -283,9 +281,9 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const frames = [
-        createFrame({ test: [{ value: 1 }] }),
-        createFrame({ test: [{ value: 2 }] }),
-        createFrame({ test: [{ value: 3 }] }),
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -323,8 +321,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({ test: [{ value: 1 }] }),
-        createFrame({ test: [{ value: 2 }] }),
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -367,8 +365,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({ test: [{ value: 1 }] }),
-        createFrame({ test: [{ value: 2 }] }),
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -384,7 +382,7 @@ describe("openStreamer", () => {
 
       // Listener2 should have been called even though it throws
       expect(listener2).toHaveBeenCalledTimes(2);
-      
+
       // Error handler should have been invoked for each failure
       expect(handleError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
@@ -421,9 +419,9 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({ test: [{ value: 1 }] }),
-        createFrame({ test: [{ value: 2 }] }),
-        createFrame({ test: [{ value: 3 }] }),
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -471,10 +469,10 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({ test: [{ value: 1 }] }),
-        createFrame({ test: [{ value: 2 }] }),
-        createFrame({ test: [{ value: 3 }] }),
-        createFrame({ test: [{ value: 4 }] }),
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new Series([{ value: 3 }]) }),
+        new Frame({ test: new Series([{ value: 4 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -490,7 +488,7 @@ describe("openStreamer", () => {
 
       // Listener2 should have been called all times despite throwing on even calls
       expect(listener2).toHaveBeenCalledTimes(4);
-      
+
       // Error handler should have been called for even numbered calls (2nd and 4th)
       expect(handleError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
@@ -507,7 +505,7 @@ describe("openStreamer", () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       const handleError = createMockErrorHandler();
-      
+
       // Different schemas for same channel
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
@@ -522,7 +520,7 @@ describe("openStreamer", () => {
       };
 
       // Data that satisfies schema1 but not schema2
-      const frames = [createFrame({ test: [{ value: 123 }] })];
+      const frames = [new Frame({ test: new Series([{ value: 123 }]) })];
 
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
@@ -533,13 +531,13 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => listener1.mock.calls.length).toBe(1);
-      
+
       // Listener1 should succeed with number schema
       expect(listener1.mock.calls[0][0].changed.value).toBe(123);
-      
+
       // Listener2 should fail validation (expecting string, got number)
       expect(listener2).not.toHaveBeenCalled();
-      
+
       // Error handler should have been called for schema2 validation failure
       expect(handleError.mock.calls.length).toBeGreaterThan(0);
 
@@ -571,12 +569,11 @@ describe("openStreamer", () => {
         },
       };
 
-      // Frame contains all three channels in non-sorted order
       const frames = [
-        createFrame({
-          user_create: [{ id: 1 }],
-          user_update: [{ id: 2 }],
-          user_delete: [{ id: 3 }],
+        new Frame({
+          user_create: new Series([{ id: 1 }]),
+          user_update: new Series([{ id: 2 }]),
+          user_delete: new Series([{ id: 3 }]),
         }),
       ];
 
@@ -589,9 +586,7 @@ describe("openStreamer", () => {
 
       await expect.poll(() => executionOrder.length).toBe(3);
 
-      // Delete should be processed first due to sorting
       expect(executionOrder[0]).toBe("delete");
-      // Then create and update in their original order
       expect(executionOrder[1]).toBe("create");
       expect(executionOrder[2]).toBe("update");
 
@@ -625,13 +620,13 @@ describe("openStreamer", () => {
         labels: { listeners: storeListeners },
       };
 
-      // Create frame with all channels
-      const frameData: Record<string, unknown[]> = {};
-      channels.forEach((channel, index) => {
-        frameData[channel] = [{ id: index }];
-      });
-
-      const frames = [createFrame(frameData)];
+      const frames = [
+        new Frame(
+          Object.fromEntries(
+            channels.map((channel, index) => [channel, new Series([{ id: index }])]),
+          ),
+        ),
+      ];
 
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
@@ -691,9 +686,13 @@ describe("openStreamer", () => {
 
       // Simulate updating a relationship (delete old, create new)
       const frames = [
-        createFrame({
-          relationship_create: [{ parentId: 1, childId: 2, type: "updated" }],
-          relationship_delete: [{ parentId: 1, childId: 2, type: "original" }],
+        new Frame({
+          relationship_create: new Series([
+            { parentId: 1, childId: 2, type: "updated" },
+          ]),
+          relationship_delete: new Series([
+            { parentId: 1, childId: 2, type: "original" },
+          ]),
         }),
       ];
 
@@ -742,10 +741,10 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({
-          user_delete: [{ id: 1 }],
-          role_delete: [{ id: 2 }],
-          permission_delete: [{ id: 3 }],
+        new Frame({
+          user_delete: new Series([{ id: 1 }]),
+          role_delete: new Series([{ id: 2 }]),
+          permission_delete: new Series([{ id: 3 }]),
         }),
       ];
 
@@ -784,10 +783,10 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        createFrame({
-          user_create: [{ id: 1 }],
-          role_update: [{ id: 2 }],
-          permission_grant: [{ id: 3 }],
+        new Frame({
+          user_create: new Series([{ id: 1 }]),
+          role_update: new Series([{ id: 2 }]),
+          permission_grant: new Series([{ id: 3 }]),
         }),
       ];
 
@@ -832,12 +831,13 @@ describe("openStreamer", () => {
         labels: { listeners },
       };
 
-      const frameData: Record<string, unknown[]> = {};
-      channels.forEach((channel, index) => {
-        frameData[channel] = [{ id: index }];
-      });
-
-      const frames = [createFrame(frameData)];
+      const frames = [
+        new Frame(
+          Object.fromEntries(
+            channels.map((channel, index) => [channel, new Series([{ id: index }])]),
+          ),
+        ),
+      ];
 
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
@@ -848,19 +848,395 @@ describe("openStreamer", () => {
 
       await expect.poll(() => executionOrder.length).toBe(6);
 
-      // Channels with 'delete' anywhere should come first
       const firstFour = executionOrder.slice(0, 4);
       expect(firstFour).toContain("delete_user");
       expect(firstFour).toContain("user_delete");
       expect(firstFour).toContain("user_soft_delete");
       expect(firstFour).toContain("undelete_user");
-
-      // Non-delete channels should come last
       const lastTwo = executionOrder.slice(4);
       expect(lastTwo).toContain("create_user");
       expect(lastTwo).toContain("update_user");
 
       await closeStreamer();
+    });
+  });
+
+  describe("Data Type Handling", () => {
+    it("should handle JSON data type parsing with schema validation", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({
+        name: z.string(),
+        age: z.number(),
+        active: z.boolean(),
+      });
+
+      const jsonData = [
+        { name: "Alice", age: 30, active: true },
+        { name: "Bob", age: 25, active: false },
+      ];
+
+      const frames = [
+        new Frame({ test: new Series({ data: jsonData, dataType: DataType.JSON }) }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+
+      expect(onChange.mock.calls[0][0].changed).toEqual({
+        name: "Alice",
+        age: 30,
+        active: true,
+      });
+      expect(onChange.mock.calls[1][0].changed).toEqual({
+        name: "Bob",
+        age: 25,
+        active: false,
+      });
+
+      await closeStreamer();
+    });
+
+    it("should handle non-JSON data types with schema parsing", async () => {
+      const onChange = vi.fn();
+      const schema = z.number();
+
+      const frames = [
+        new Frame({ test: new Series({ data: [42, 84], dataType: DataType.FLOAT64 }) }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+
+      expect(onChange.mock.calls[0][0].changed).toBe(42);
+      expect(onChange.mock.calls[1][0].changed).toBe(84);
+
+      await closeStreamer();
+    });
+
+    it("should handle string data types with schema validation", async () => {
+      const onChange = vi.fn();
+      const schema = z.string();
+
+      const frames = [
+        new Frame({
+          test: new Series({
+            data: ["hello", "world"],
+            dataType: DataType.STRING,
+          }),
+        }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+
+      expect(onChange.mock.calls[0][0].changed).toBe("hello");
+      expect(onChange.mock.calls[1][0].changed).toBe("world");
+
+      await closeStreamer();
+    });
+
+    it("should handle empty series gracefully", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+      const frames = [new Frame({ other_channel: new Series([{ value: 42 }]) })];
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(onChange).not.toHaveBeenCalled();
+      await closeStreamer();
+    });
+
+    it("should handle invalid data in series", async () => {
+      const onChange = vi.fn();
+      const handleError = createMockErrorHandler();
+      const schema = z.object({ value: z.number() });
+      const frames = [new Frame({ test: new Series([{ invalid: "data" }]) })];
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          handleError,
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
+      expect(onChange).not.toHaveBeenCalled();
+      await closeStreamer();
+    });
+
+    it("should handle mixed data types with different schemas", async () => {
+      const jsonListener = vi.fn();
+      const numericListener = vi.fn();
+      const handleError = createMockErrorHandler();
+
+      const jsonSchema = z.object({ id: z.number(), name: z.string() });
+      const numericSchema = z.number();
+
+      const storeConfig: flux.StoreConfig<flux.Store> = {
+        labels: {
+          listeners: [
+            { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
+            {
+              channel: "numeric_channel",
+              schema: numericSchema,
+              onChange: numericListener,
+            },
+          ],
+        },
+      };
+
+      const frames = [
+        new Frame({
+          json_channel: new Series({
+            data: [{ id: 1, name: "test" }],
+            dataType: DataType.JSON,
+          }),
+          numeric_channel: new Series({
+            data: [42],
+            dataType: DataType.FLOAT64,
+          }),
+        }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          handleError,
+          storeConfig,
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => numericListener.mock.calls.length).toBe(1);
+      await expect.poll(() => jsonListener.mock.calls.length).toBe(1);
+
+      expect(jsonListener.mock.calls[0][0].changed).toEqual({ id: 1, name: "test" });
+      expect(numericListener.mock.calls[0][0].changed).toBe(42);
+
+      await closeStreamer();
+    });
+
+    it("should handle schema validation errors for non-JSON data types", async () => {
+      const onChange = vi.fn();
+      const handleError = createMockErrorHandler();
+      const schema = z.number();
+      const frames = [
+        new Frame({
+          test: new Series({
+            data: ["not_a_number"],
+            dataType: DataType.STRING,
+          }),
+        }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          handleError,
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
+      expect(onChange).not.toHaveBeenCalled();
+
+      await closeStreamer();
+    });
+  });
+
+  describe("Streamer Lifecycle", () => {
+    it("should properly clean up resources when closing", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      // Create a mock streamer to track close calls
+      let mockStreamer: MockHardenedStreamer;
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: async () => {
+            mockStreamer = new MockHardenedStreamer([]);
+            return mockStreamer;
+          },
+        }),
+      );
+
+      // Verify streamer is working
+      expect(mockStreamer!).toBeDefined();
+      expect(mockStreamer!.closeVi).not.toHaveBeenCalled();
+
+      // Close the streamer
+      await closeStreamer();
+
+      // Verify close was called on the underlying streamer
+      expect(mockStreamer!.closeVi).toHaveBeenCalledTimes(1);
+    });
+
+    it("should stop listeners from receiving data after close", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      // Simple test with fixed frames
+      const frames = [
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      // Wait for all frames to be processed
+      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+
+      const callsBeforeClose = onChange.mock.calls.length;
+
+      // Close the streamer
+      await closeStreamer();
+
+      // Wait a bit longer to ensure no more calls happen
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify no additional calls were made after close
+      expect(onChange.mock.calls.length).toBe(callsBeforeClose);
+    });
+
+    it("should allow reopening a streamer after closing", async () => {
+      const onChange1 = vi.fn();
+      const onChange2 = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      // First streamer
+      const frames1 = [new Frame({ test: new Series([{ value: 1 }]) })];
+      const closeStreamer1 = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange1),
+          openStreamer: createFrameStreamer(frames1),
+        }),
+      );
+
+      await expect.poll(() => onChange1.mock.calls.length).toBe(1);
+      expect(onChange1.mock.calls[0][0].changed.value).toBe(1);
+
+      // Close first streamer
+      await closeStreamer1();
+
+      // Second streamer with different data
+      const frames2 = [new Frame({ test: new Series([{ value: 2 }]) })];
+      const closeStreamer2 = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange2),
+          openStreamer: createFrameStreamer(frames2),
+        }),
+      );
+
+      await expect.poll(() => onChange2.mock.calls.length).toBe(1);
+      expect(onChange2.mock.calls[0][0].changed.value).toBe(2);
+
+      // Verify first listener wasn't called again
+      expect(onChange1.mock.calls.length).toBe(1);
+
+      await closeStreamer2();
+    });
+
+    it("should handle concurrent close calls gracefully", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      let mockStreamer: MockHardenedStreamer;
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: async () => {
+            mockStreamer = new MockHardenedStreamer([]);
+            return mockStreamer;
+          },
+        }),
+      );
+
+      // Call close multiple times concurrently
+      const closePromises = [closeStreamer(), closeStreamer(), closeStreamer()];
+
+      // All should complete without throwing
+      await Promise.all(closePromises);
+
+      // Close should have been called on underlying streamer
+      // (Implementation may call it multiple times or use a guard)
+      expect(mockStreamer!.closeVi.mock.calls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should handle errors during close gracefully", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: async () => {
+            const mockStreamer = new MockHardenedStreamer([]);
+            // Make close throw an error
+            mockStreamer.closeVi.mockImplementation(() => {
+              throw new Error("Close error");
+            });
+            return mockStreamer;
+          },
+        }),
+      );
+
+      // Close might throw if underlying implementation throws
+      await expect(closeStreamer()).rejects.toThrow("Close error");
+    });
+
+    it("should handle close during active streaming", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ value: z.number() });
+
+      // Use a simple frame sequence
+      const frames = [
+        new Frame({ test: new Series([{ value: 1 }]) }),
+        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new Series([{ value: 3 }]) }),
+      ];
+
+      const closeStreamer = await flux.openStreamer(
+        createStreamerArgs({
+          storeConfig: createStoreConfig("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      // Wait for some frames to be processed
+      await expect.poll(() => onChange.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      // Close while potentially still processing
+      await closeStreamer();
+
+      // Should not crash and calls should be reasonable
+      expect(onChange.mock.calls.length).toBeLessThanOrEqual(3);
+      expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

@@ -54,9 +54,16 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
   name: "Racks",
-  retrieve: async ({ client, params }) => await client.hardware.racks.retrieve(params),
-  retrieveByKey: async ({ client, key }) =>
-    await client.hardware.racks.retrieve({ key }),
+  retrieve: async ({ client, params, store }) => {
+    const racks = await client.hardware.racks.retrieve(params);
+    racks.forEach((rack) => store.racks.set(rack.key, rack, { notify: false }));
+    return racks;
+  },
+  retrieveByKey: async ({ client, key, store }) => {
+    const rack = await client.hardware.racks.retrieve({ key, includeStatus: true });
+    store.racks.set(key, rack, { notify: false });
+    return rack;
+  },
   mountListeners: ({ store, onChange, onDelete }) => [
     store.racks.onSet(async (rack) => {
       onChange(rack.key, rack);

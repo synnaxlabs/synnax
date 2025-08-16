@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type Synnax, task } from "@synnaxlabs/client";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -44,10 +44,11 @@ const unknownStatusZ = task.statusZ(z.unknown());
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ> = {
   channel: task.STATUS_CHANNEL_NAME,
   schema: unknownStatusZ,
-  onChange: async ({ store, changed }) =>
+  onChange: async ({ store, changed }) => {
     store.tasks.set(changed.details.task, (prev) =>
       prev == null ? prev : ({ ...prev, status: changed } as task.Task),
-    ),
+    );
+  },
 };
 
 const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ> = {
@@ -86,9 +87,31 @@ export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
 };
 
-interface QueryParams {
-  key: task.Key | undefined;
+export interface RetrieveQueryParams {
+  key?: task.Key;
+  includeStatus?: boolean;
 }
+
+const retrieveByKey = async <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  client: Synnax,
+  store: SubStore,
+  params: RetrieveQueryParams & { key: task.Key },
+  schemas?: task.Schemas<Type, Config, StatusData>,
+): Promise<task.Task<Type, Config, StatusData>> => {
+  const cached = store.tasks.get(params.key);
+  if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
+  const task = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
+    ...params,
+    includeStatus: true,
+    schemas,
+  });
+  store.tasks.set(params.key, task as unknown as task.Task);
+  return task;
+};
 
 export const createRetrieveQuery = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -98,18 +121,19 @@ export const createRetrieveQuery = <
   schemas: task.Schemas<Type, Config, StatusData>,
 ) =>
   Flux.createRetrieve<
-    QueryParams,
+    RetrieveQueryParams,
     task.Task<Type, Config, StatusData> | null,
     SubStore
   >({
     name: "Task",
-    retrieve: async ({ client, params: { key } }) => {
-      if (key == null) return null;
-      return await client.hardware.tasks.retrieve({
-        key,
-        includeStatus: true,
+    retrieve: async ({ client, params, store }) => {
+      if (params.key == null) return null;
+      return await retrieveByKey<Type, Config, StatusData>(
+        client,
+        store,
+        { key: params.key, includeStatus: true },
         schemas,
-      });
+      );
     },
     mountListeners: ({ store, params: { key }, onChange }) => [
       store.tasks.onSet(async (task) => {
@@ -127,13 +151,17 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore>({
   name: "Task",
-  retrieve: async ({ client, params }) =>
-    await client.hardware.tasks.retrieve({
+  retrieve: async ({ client, params, store }) => {
+    const tasks = await client.hardware.tasks.retrieve({
       includeStatus: true,
       ...params,
-    }),
-  retrieveByKey: async ({ client, key }) =>
-    await client.hardware.tasks.retrieve({ key }),
+    });
+    tasks.forEach((task) => store.tasks.set(task.key, task, { notify: false }));
+    return tasks;
+  },
+
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveByKey(client, store, { key }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.tasks.onSet(async (task) => {
       onChange(task.key, task);

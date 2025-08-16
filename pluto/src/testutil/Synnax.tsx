@@ -18,6 +18,7 @@ import {
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
+import { Pluto } from "@/pluto";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -40,7 +41,7 @@ export const useConnectToClient = () => use(Context);
 
 export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
   client: Client | null = null,
-  storeConfig: Flux.StoreConfig<ScopedStore> = {},
+  storeConfig?: Flux.StoreConfig<ScopedStore>,
   requireStreamerMounted = true,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -48,7 +49,10 @@ export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
           <Flux.Provider
-            storeConfig={storeConfig}
+            storeConfig={
+              storeConfig ??
+              (Pluto.FLUX_STORE_CONFIG as unknown as Flux.StoreConfig<ScopedStore>)
+            }
             requireStreamerMounted={requireStreamerMounted}
           >
             {children}

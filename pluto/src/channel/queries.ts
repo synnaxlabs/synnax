@@ -50,6 +50,16 @@ const CALCULATION_STATUS_LISTENER: Flux.ChannelListener<
   },
 };
 
+export const useListenForCalculationStatus = (
+  onChange: (status: channel.Status) => void,
+): void => {
+  const store = Flux.useStore<SubStore>();
+  store.channels.onSet(async (ch) => {
+    if (ch.status == null) return;
+    onChange(ch.status);
+  });
+};
+
 export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [
     SET_CHANNEL_LISTENER,
