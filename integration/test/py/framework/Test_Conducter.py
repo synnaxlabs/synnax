@@ -9,11 +9,9 @@
 
 # TODO:
 # - Use system logging
-# - Return test results to test_conductore
 # - Return test_conductor results to workflow env
 # - Enable async test_case execution if configured
 # - Build test case infrastructure
-# - Run loaded test cases
 # - Integrate with github actions
 
 
@@ -36,7 +34,6 @@ import synnax as sy
 
 try:
     # Import from the framework module to ensure we get the same class objects
-    import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from framework.TestCase import TestCase, SynnaxConnection, STATUS
@@ -45,7 +42,7 @@ except ImportError:
     from TestCase import TestCase, SynnaxConnection, STATUS
 
 class STATE(Enum):
-    """Enum representing the status of the test conductor."""
+    """Test conductor execution states."""
     INITIALIZING = auto()
     LOADING = auto()
     RUNNING = auto()
@@ -78,14 +75,7 @@ class TestDefinition:
     params: Dict[str, Any] = field(default_factory=dict)
 
 class Test_Conductor:
-    """
-    Test conductor that manages the execution of test sequences.
-    
-    Features:
-    - Loads test sequences from configuration files
-    - Executes test cases (sequentially or randomly)
-    - Can kill tests if needed (timeout or manual intervention)
-    """
+    """Manages execution of test sequences with timeout monitoring and result collection."""
     
     def __init__(self, 
                  name: str, 
@@ -93,32 +83,17 @@ class Test_Conductor:
                  port: int = 9090,
                  username: str = "synnax", 
                  password: str = "seldon", 
-                 secure: bool = False,
-                 ):
-        """
-        Initialize the Test Conductor.
+                 secure: bool = False):
+        """Initialize test conductor with connection parameters."""
         
-        Args:
-            server_address: Synnax server address
-            port: Synnax server port
-            username: Authentication username
-            password: Authentication password
-            secure: Whether to use secure connection
-        """
-
-        # Should we use the transport or authentication client address
-        # instead of a uuid?
+        # Generate or validate name
         if name is None:
-            # Generate a 6-character random alphanumeric string
             random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             self.name = self.__class__.__name__.lower() + "_" + random_id
         else:
-            # Validate and sanitize the provided name
             self.name = self._validate_and_sanitize_name(str(name).lower())
         
-        
-        # Store connection parameters to
-        # pass down to test cases
+        # Create connection parameters
         self.SynnaxConnection = SynnaxConnection(
             server_address=server_address,
             port=port,
@@ -127,7 +102,7 @@ class Test_Conductor:
             secure=secure,
         )
         
-        # Test Conductor Client
+        # Initialize Synnax client
         self.client = sy.Synnax(
             host=server_address,
             port=port,
@@ -136,9 +111,8 @@ class Test_Conductor:
             secure=secure,
         )
         
-        # Initialize Test Conductor
-        self.state : STATE = STATE.INITIALIZING
-
+        # Initialize state and collections
+        self.state = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
         self.current_test: Optional[TestCase] = None
@@ -147,52 +121,33 @@ class Test_Conductor:
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self._timeout_result: Optional[TestResult] = None
         self.client_manager_thread: Optional[threading.Thread] = None
-
-        # Replace these bools with
         self.is_running = False
         self.should_stop = False
-        
-        # Monitoring
         self.status_callbacks: List[Callable[[TestResult], None]] = []
         
-        # Setup signal handlers for graceful shutdown
+        # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+        # Start client manager
         self._start_client_manager_async()
-        time.sleep(1) # Wait for client manager to start
+        time.sleep(1)  # Allow client manager to start
     
     def _validate_and_sanitize_name(self, name: str) -> str:
-        """
-        Validate and sanitize the name to only contain alphanumeric characters, 
-        hyphens, and underscores.
-        
-        Args:
-            name: The name to validate and sanitize
-            
-        Returns:
-            Sanitized name containing only allowed characters
-            
-        Raises:
-            ValueError: If the name is empty after sanitization
-        """
-        # Remove any characters that aren't alphanumeric, hyphen, or underscore
+        """Sanitize name to contain only alphanumeric characters, hyphens, and underscores."""
         sanitized = re.sub(r'[^a-zA-Z0-9_-]', '', name)
         
-        # Check if the sanitized name is empty
         if not sanitized:
-            raise ValueError("Name must contain at least one alphanumeric character, hyphen, or underscore")
+            raise ValueError("Name must contain at least one alphanumeric character")
         
-        # Ensure name doesn't start or end with hyphen/underscore (optional good practice)
         sanitized = sanitized.strip('_-')
-        
         if not sanitized:
             raise ValueError("Name cannot consist only of hyphens and underscores")
             
         return sanitized
 
     def _start_client_manager_async(self) -> None:
-        """Start the client manager in a separate daemon thread."""
+        """Start client manager in separate daemon thread."""
         self.client_manager_thread = threading.Thread(
             target=self._client_manager,
             daemon=True,
@@ -203,11 +158,10 @@ class Test_Conductor:
     
     def _client_manager(self) -> None:
         
-        loop = sy.Loop(1) # 1Hz
+        """Manage telemetry channels and writer for test conductor."""
+        loop = sy.Loop(1)  # 1Hz
 
-        """
-        Define Test Conductor Channels
-        """
+        # Create telemetry channels
         time = self.client.channels.create(
             name=f"{self.name}_time",
             data_type=sy.DataType.TIMESTAMP,
@@ -243,11 +197,8 @@ class Test_Conductor:
             retrieve_if_name_exists=True,
         )   
 
-        """
-        Initialize Test Conductor Telemetry
-        """
+        # Initialize telemetry
         start_time = sy.TimeStamp.now()
-
         self.tlm = {
             f"{self.name}_time": start_time,
             f"{self.name}_uptime": 0,
@@ -256,91 +207,56 @@ class Test_Conductor:
             f"{self.name}_test_cases_ran": 0,
         }
         
-        """
-        Open Test Conductor Writer
-        """
+        # Open telemetry writer
         with self.client.open_writer(
             start=start_time,
-            channels=[
-                time,
-                uptime,
-                state,
-                test_case_count,
-                test_cases_ran,
-            ],
+            channels=[time, uptime, state, test_case_count, test_cases_ran],
             name=self.name,
             enable_auto_commit=True,
         ) as writer:
-            # Write initial state
-            writer.write(self.tlm)
+            writer.write(self.tlm)  # Write initial state
 
             while loop.wait() and not self.should_stop:
-                """
-                Main writer loop
-                """
                 now = sy.TimeStamp.now()
                 uptime_value = (now - start_time)/1E9
                 
+                # Update telemetry
                 self.tlm[f"{self.name}_time"] = now
                 self.tlm[f"{self.name}_uptime"] = uptime_value
                 self.tlm[f"{self.name}_state"] = self.state.value
-
-                # Write Tlm 
                 writer.write(self.tlm)
 
-                # Check for shutdown or completion
+                # Check for shutdown
                 if self.state in [STATE.SHUTDOWN, STATE.COMPLETED]:
                     self.state = STATE.COMPLETED
                     self.tlm[f"{self.name}_state"] = self.state.value
                     writer.write(self.tlm)
                     break
     
-    def load_test_sequence(self, sequence: str=None) -> None:
-        """
-        Load test sequence from a JSON configuration file.
-        Args:
-            sequence: Path to the test sequence JSON file (can be relative or absolute)
-        
-        Expected format:
-        {
-            "tests": [
-                {
-                    "test_case": "testcases.check_connection_basic",
-                    "parameters": {"param1": "value1"}, # Optional
-                }
-            ]
-        }
-        """
+    def load_test_sequence(self, sequence: str = None) -> None:
+        """Load test sequence from JSON configuration file."""
         self.state = STATE.LOADING
         
         if sequence is None:
             raise ValueError("Path to JSON Sequence file is required (--sequence)")
 
-        # Convert to Path object and resolve relative paths
+        # Resolve sequence file path
         sequence_path = Path(sequence)
-
-        # If it's a relative path, resolve it relative to the current working directory
         if not sequence_path.is_absolute():
             sequence_path = sequence_path.resolve()
         
-        # Check if the resolved path exists
+        # Try to find the file in common locations
         if not sequence_path.exists():
-            # Try some common relative locations if the direct path doesn't work
             possible_paths = [
-                Path.cwd() / sequence,  # Current working directory
-                Path(__file__).parent / sequence,  # Same directory as this script
-                Path(__file__).parent.parent / sequence,  # Parent directory of this script
+                Path.cwd() / sequence,
+                Path(__file__).parent / sequence,
+                Path(__file__).parent.parent / sequence,
             ]
             
-            # Find the first path that exists
-            found_path = None
             for path in possible_paths:
                 if path.exists():
-                    found_path = path.resolve()
+                    sequence_path = path.resolve()
                     break
-            
-            if found_path:
-                sequence_path = found_path
             else:
                 raise FileNotFoundError(
                     f"{self.name} > Test sequence file not found: {sequence}\n"
@@ -352,6 +268,7 @@ class Test_Conductor:
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
+        # Load test definitions
         self.test_definitions = []
         for test in sequence_data.get("tests", []):
             test_def = TestDefinition(
@@ -360,35 +277,28 @@ class Test_Conductor:
             )
             self.test_definitions.append(test_def)
         
-        # Randomize the test order if specified
+        # Handle test ordering
         ordering = "Sequential"
-        if "sequence_order" in sequence_data:
-            if sequence_data["sequence_order"].lower() == "random":
-                ordering = "Random"
-                random.shuffle(self.test_definitions)
+        if sequence_data.get("sequence_order", "").lower() == "random":
+            ordering = "Random"
+            random.shuffle(self.test_definitions)
 
         print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
         
-        # Set the test case count in telemetry
+        # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
     
     def run_sequence(self) -> List[TestResult]:
-        """
-        Run the entire test case set.
-        
-        Returns:
-            List of TestResult objects for all executed tests
-        """
+        """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
-            raise ValueError("No test sequence loaded. Call load_test_sequence() first or ensure test sequence JSON is not empty.")
+            raise ValueError("No test sequence loaded. Call load_test_sequence() first.")
         
         self.state = STATE.RUNNING
-
         self.is_running = True
         self.should_stop = False
         self.test_results = []
         
-        # Start timeout monitoring thread
+        # Start timeout monitoring
         self.timeout_monitor_thread = threading.Thread(
             target=self._timeout_monitor_thread,
             args=(1.0,),  # Check every 1 second
@@ -398,6 +308,7 @@ class Test_Conductor:
         
         print(f"{self.name} > Starting execution of {len(self.test_definitions)} tests...")
         
+        # Execute each test
         for i, test_def in enumerate(self.test_definitions):
             if self.should_stop:
                 print(f"{self.name} > Test execution stopped by user request")
@@ -405,7 +316,7 @@ class Test_Conductor:
             
             print(f"\n{self.name} [{i+1}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
             
-            # Run test in a separate thread
+            # Run test in separate thread
             result_container = []
             test_thread = threading.Thread(
                 target=self._test_runner_thread,
@@ -414,11 +325,9 @@ class Test_Conductor:
             
             self.current_test_thread = test_thread
             test_thread.start()
-            
-            # Wait for test completion (timeout monitoring is handled by separate thread)
             test_thread.join()
             
-            # Get the result from the test execution
+            # Get test result
             if result_container:
                 result = result_container[0]
             else:
@@ -430,10 +339,7 @@ class Test_Conductor:
             
             self.test_results.append(result)
             self.current_test_thread = None
-
-            # Increment test case index for telemetry
             self.tlm[f"{self.name}_test_cases_ran"] += 1
-            
         
         self.is_running = False
         self._print_summary()
@@ -605,20 +511,14 @@ class Test_Conductor:
         result_container.append(result)
     
     def _timeout_monitor_thread(self, monitor_interval: float = 1.0) -> None:
-        """
-        Monitor thread that periodically checks if current test has exceeded its Expected_Timeout.
-        
-        Args:
-            monitor_interval: How often to check timeout (in seconds)
-        """
+        """Monitor test execution for timeout violations."""
         while self.is_running and not self.should_stop:
             if (self.current_test is not None and 
                 self.current_test_start_time is not None and 
                 hasattr(self.current_test, 'Expected_Timeout') and
-                self.current_test.Expected_Timeout > 0):  # Only monitor if timeout is set (not -1)
+                self.current_test.Expected_Timeout > 0):  # Only monitor if timeout is set
                 
                 elapsed_time = (datetime.now() - self.current_test_start_time).total_seconds()
-                
                 if elapsed_time > self.current_test.Expected_Timeout:
                     self.kill_current_test()
                     break
@@ -626,21 +526,16 @@ class Test_Conductor:
             time.sleep(monitor_interval)
     
     def kill_current_test(self) -> bool:
-        """
-        Kill the currently running test.
-        
-        Returns:
-            True if a test was killed, False if no test was running
-        """
+        """Kill currently running test and create timeout result."""
         if self.current_test is None:
             return False
         
-        # Create a timeout result if this is a timeout kill
+        # Create timeout result if this is a timeout kill
         if self.current_test_start_time:
             elapsed_time = (datetime.now() - self.current_test_start_time).total_seconds()
             expected_timeout = getattr(self.current_test, 'Expected_Timeout', -1)
             
-            # Determine if this is a timeout or manual kill
+            # Determine if timeout or manual kill
             if expected_timeout > 0 and elapsed_time > expected_timeout:
                 status = STATUS.TIMEOUT
                 error_msg = f"Test exceeded Expected_Timeout ({expected_timeout}s). Elapsed: {elapsed_time:.1f}s"
@@ -648,30 +543,17 @@ class Test_Conductor:
                 status = STATUS.KILLED
                 error_msg = "Test was manually killed"
             
-            # Create timeout/kill result
-            current_test_name = "unknown_test"
-            # Try to get test name from current test instance first, then from test results
-            if self.current_test:
-                current_test_name = self.current_test.name
-            elif self.test_results:
-                current_test_name = self.test_results[-1].test_name
+            # Get test name
+            current_test_name = self.current_test.name if self.current_test else "unknown_test"
             
-            timeout_result = TestResult(
+            # Create timeout result
+            self._timeout_result = TestResult(
                 test_name=current_test_name,
                 status=status,
                 start_time=self.current_test_start_time,
                 end_time=datetime.now(),
                 error_message=error_msg
             )
-            
-            # This will be picked up by the test runner thread
-            self._timeout_result = timeout_result
-        
-        # Force thread termination if needed
-        if self.current_test_thread and self.current_test_thread.is_alive():
-            # Note: Python doesn't have a clean way to kill threads
-            # The test should implement proper cancellation handling
-            pass
         
         # Clear current test info
         self.current_test = None
@@ -756,28 +638,19 @@ class Test_Conductor:
         sys.exit(0)
 
 
-# Threading-based monitoring functionality
 def monitor_test_execution(conductor: Test_Conductor) -> None:
-    """
-    Monitor test execution and provide status updates using threading.
-    
-    Args:
-        conductor: The Test_Conductor instance to monitor
-    """
+    """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
         print(f"Status: {status['completed_tests']}/{status['total_tests']} tests completed")
         if status['current_test']:
             print(f"Currently running: {status['current_test']}")
-        
         time.sleep(1)
 
 if __name__ == "__main__":
-    # Example usage
     import argparse
     
     parser = argparse.ArgumentParser(description="Run test sequences")
-    
     parser.add_argument("--name", default=None, help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
@@ -789,20 +662,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Create and run test conductor
-    conductor = Test_Conductor( name=args.name, 
-                                server_address=args.server, 
-                                port=args.port,
-                                username=args.username,
-                                password=args.password,
-                                secure=args.secure,
-                                )
+    conductor = Test_Conductor(
+        name=args.name, 
+        server_address=args.server, 
+        port=args.port,
+        username=args.username,
+        password=args.password,
+        secure=args.secure,
+    )
 
     try:
         conductor.load_test_sequence(args.sequence)
-        # Run tests
         results = conductor.run_sequence()
-        
-        # Wait for all async processes to complete before exiting
         conductor.wait_for_completion()
         
     except KeyboardInterrupt:
@@ -813,6 +684,5 @@ if __name__ == "__main__":
         conductor.shutdown()
         raise
     finally:
-        # Ensure cleanup even if something goes wrong
         print(f"\n{conductor.name} > Fin.")
 
