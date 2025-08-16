@@ -165,7 +165,7 @@ class Test_Conductor:
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         self._start_client_manager_async()
-        time.sleep(2) # Wait for client manager to start
+        time.sleep(1) # Wait for client manager to start
     
     def _validate_and_sanitize_name(self, name: str) -> str:
         """
@@ -353,8 +353,7 @@ class Test_Conductor:
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
         
-        print(f"{self.name} > Loading test campaign from: {sequence_path}")
-        time.sleep(2)
+        time.sleep(1)
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
@@ -373,7 +372,7 @@ class Test_Conductor:
                 ordering = "Random"
                 random.shuffle(self.test_definitions)
 
-        print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence_path}")
+        print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
     
     def run_sequence(self) -> List[TestResult]:
         """
@@ -444,17 +443,14 @@ class Test_Conductor:
         This ensures proper cleanup and prevents premature termination.
         """
         self.state = STATE.SHUTDOWN
-        print(f"{self.name} > Shutting down async processes...")
         
         # Wait for client manager thread to finish
         if self.client_manager_thread and self.client_manager_thread.is_alive():
             self.client_manager_thread.join()
-            print(f"{self.name} > Client Manager has stopped")
 
         # Wait for timeout monitor to finish
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
             self.timeout_monitor_thread.join()
-            print(f"{self.name} > Timeout Monitor has stopped")
         
         # Wait for current test to complete
         if self.current_test_thread and self.current_test_thread.is_alive():
@@ -736,14 +732,15 @@ class Test_Conductor:
         killed = sum(1 for r in self.test_results if r.status == STATUS.KILLED)
         timeout = sum(1 for r in self.test_results if r.status == STATUS.TIMEOUT)
         
+        # KILLED and TIMEOUT tests are also considered failed
+        total_failed = failed + killed + timeout
+
         print("\n" + "="*50)
         print("TEST EXECUTION SUMMARY")
         print("="*50)
         print(f"Total tests: {len(self.test_results)}")
         print(f"Passed: {passed}")
-        print(f"Failed: {failed}")
-        print(f"Killed: {killed}")
-        print(f"Timeout: {timeout}")
+        print(f"Failed: {total_failed} (includes {failed} failed, {killed} killed, {timeout} timeout)")
         print("="*50)
         
         for result in self.test_results:
@@ -758,6 +755,7 @@ class Test_Conductor:
             print(f"{status_symbol} {result.test_name} {duration_str}")
             if result.error_message:
                 print(f"    Error: {result.error_message}")
+        
     
     def _signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown."""
@@ -845,5 +843,5 @@ if __name__ == "__main__":
         raise
     finally:
         # Ensure cleanup even if something goes wrong
-        print(f"{conductor.name} > Fin.")
+        print(f"\n{conductor.name} > Fin.")
 

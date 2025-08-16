@@ -38,11 +38,9 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-        time.sleep(6)
 
-
-
-        # You might NOT need to call super() here
+        # You might NOT need to call super() here...
+        # ... but then what are you testing?
         super().run()
 
         
@@ -51,8 +49,6 @@ class CheckConnectionBasic(TestCase):
         """
         Teardown the test case.
         """
-
-        # Stuff goes here
 
         # Always call super() last
         super().teardown()
