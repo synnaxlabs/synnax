@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
 import { type AsyncDestructor } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -24,11 +25,13 @@ export type ProviderState = z.input<typeof providerStateZ>;
 /**
  * Internal state managed by the provider.
  */
-interface InternalState {
+interface InternalState<ScopedStore extends Store> {
   /** Function to close the active streamer connection */
   closeStreamer: AsyncDestructor;
   /** The store instance */
-  store: Store;
+  store: ScopedStore;
+  /** The Synnax client instance */
+  client: Synnax | null;
 }
 
 /**
@@ -39,32 +42,15 @@ export interface ContextValue {
   store: Store;
 }
 
-/**
- * Default context value with an empty store.
- * Used as a fallback when no provider is present.
- */
-export const ZERO_CONTEXT_VALUE: ContextValue = {
-  store: createStore({}),
-};
-
 /** Key used to store flux context in the Aether context */
 const CONTEXT_KEY = "flux-context";
-
-/**
- * Sets the flux context value in the Aether context.
- * 
- * @param ctx - The Aether context
- * @param value - The context value to set
- */
-const set = (ctx: aether.Context, value: ContextValue): void =>
-  ctx.set(CONTEXT_KEY, value);
 
 /** Type identifier for the flux provider component */
 export const PROVIDER_TYPE = "flux.Provider";
 
 /**
  * Hook to access the flux store from the Aether context.
- * 
+ *
  * @template ScopedStore - The type of the store
  * @param ctx - The Aether context
  * @returns The store instance from the context
@@ -75,42 +61,53 @@ export const useStore = <ScopedStore extends Store>(ctx: aether.Context): Scoped
 /**
  * Creates a flux provider component class for the given store configuration.
  * The provider manages the store lifecycle and handles streamer connections.
- * 
+ *
  * @template ScopedStore - The type of the store
  * @param storeConfig - Configuration for the store and its listeners
  * @returns A provider component class
  */
 const createProvider = <ScopedStore extends Store>(
   storeConfig: StoreConfig<ScopedStore>,
-) => {
-  const store = createStore<ScopedStore>(storeConfig);
-  return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
+) =>
+  class Provider extends aether.Composite<
+    typeof providerStateZ,
+    InternalState<ScopedStore>
+  > {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
     schema = Provider.stateZ;
 
     afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
-      if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, { store });
-      const client = synnax.use(ctx);
       const handleError = status.useErrorHandler(ctx);
-      if (client == null) return;
+      if (!ctx.wasSetPreviously(CONTEXT_KEY)) {
+        i.store = createStore<ScopedStore>(storeConfig, handleError);
+        ctx.set(CONTEXT_KEY, { store: i.store });
+      }
+      const nextClient = synnax.use(ctx);
+      if (i.client?.key === nextClient?.key) return;
+      // This means we've either switched connections or disconnected. In either case,
+      // we need to clear the store, stop the streamer, and start a new one (if connected).
+      i.client = nextClient;
+
       handleError(async () => {
-        i.closeStreamer ??= await openStreamer({
+        await i.closeStreamer?.();
+        if (i.client == null) return;
+        Object.values(i.store).forEach((store) => store.clear());
+        i.closeStreamer = await openStreamer({
           handleError,
           storeConfig,
-          client,
-          store,
-          openStreamer: client.openStreamer.bind(client),
+          client: i.client,
+          store: i.store,
+          openStreamer: i.client.openStreamer.bind(i.client),
         });
       });
     }
   };
-};
 
 /**
  * Creates an Aether component registry with the flux provider.
- * 
+ *
  * @template ScopedStore - The type of the store
  * @param storeConfig - Configuration for the store and its listeners
  * @returns An Aether component registry containing the provider

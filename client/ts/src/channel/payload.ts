@@ -53,7 +53,6 @@ export const newZ = payloadZ.extend({
 
 export interface New extends Omit<z.input<typeof newZ>, "dataType" | "status"> {
   dataType: CrudeDataType;
-  status?: status.Crude;
 }
 
 export const paramsZ = z.union([

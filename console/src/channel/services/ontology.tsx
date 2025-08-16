@@ -254,11 +254,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
-  // const aliases = PChannel.useAliases();
+  const alias = PChannel.retrieveAlias.useDirect({
+    params: { channelKey: Number(resourceIDs[0].key), rangeKey: activeRange?.key },
+  });
   const resources = getResource(resourceIDs);
-  const showDeleteAlias = resources.some(
-    ({ id: { key } }) => false, // aliases[Number(key)] != null,
-  );
+  const showDeleteAlias = resources.some(({ key }) => alias.data != null);
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();

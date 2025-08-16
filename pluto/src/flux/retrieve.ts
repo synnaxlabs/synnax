@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
-import { useCallback, useRef, useState } from "react";
+import { array, type Destructor } from "@synnaxlabs/x";
+import { useCallback, useEffect as useReactEffect, useRef, useState } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/aether/params";
@@ -221,6 +221,8 @@ const useObservable = <
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
   const store = useStore<ScopedStore>();
+  const unmountListeners = useRef<Destructor | null>(null);
+  useReactEffect(() => () => unmountListeners.current?.(), []);
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
@@ -237,19 +239,20 @@ const useObservable = <
         onChange((p) => pendingResult(name, "retrieving", p.data));
         const value = await retrieve({ client, params, store });
         if (signal?.aborted) return;
-        if (mountListeners != null)
-          mountListeners({
-            client,
-            store,
-            params,
-            onChange: (value) => {
-              onChange((prev) => {
-                if (prev.data == null) return prev;
-                const next = state.executeSetter(value, prev.data);
-                return successResult(name, "retrieved", next);
-              });
-            },
-          });
+        unmountListeners.current?.();
+        const unmount = mountListeners?.({
+          client,
+          store,
+          params,
+          onChange: (value) =>
+            onChange((prev) => {
+              if (prev.data == null) return prev;
+              const next = state.executeSetter(value, prev.data);
+              return successResult(name, "retrieved", next);
+            }),
+        });
+        unmountListeners.current = () =>
+          array.toArray(unmount).forEach((unmount) => unmount());
         onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         if (signal?.aborted) return;

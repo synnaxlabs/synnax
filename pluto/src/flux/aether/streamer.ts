@@ -11,7 +11,11 @@ import { framer, type Synnax } from "@synnaxlabs/client";
 import { type AsyncDestructor, DataType, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type Store, type StoreConfig } from "@/flux/aether/store";
+import {
+  type ChannelListener,
+  type Store,
+  type StoreConfig,
+} from "@/flux/aether/store";
 import { type Status } from "@/status";
 
 /**
@@ -68,10 +72,16 @@ export const openStreamer = async <ScopedStore extends Store>({
   const channels = unique.unique(
     configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),
   );
-  const listenersForChannel = (name: string) =>
-    configValues.flatMap(({ listeners }) =>
-      listeners.filter(({ channel }) => channel === name),
-    );
+  const listenersForChannels: Record<
+    string,
+    ChannelListener<ScopedStore, z.ZodType>[]
+  > = {};
+  configValues.forEach(({ listeners }) =>
+    listeners.forEach((lis) => {
+      const { channel } = lis;
+      listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
+    }),
+  );
   const hardenedStreamer = await framer.HardenedStreamer.open(streamOpener, channels);
   const observableStreamer = new framer.ObservableStreamer(hardenedStreamer);
   const handleChange = (frame: framer.Frame) => {
@@ -79,7 +89,7 @@ export const openStreamer = async <ScopedStore extends Store>({
     namesInFrame.sort(channelNameSort);
     namesInFrame.forEach((name) => {
       const series = frame.get(name);
-      listenersForChannel(name).forEach(({ onChange, schema }) => {
+      listenersForChannels[name].forEach(({ onChange, schema }) => {
         handleError(async () => {
           let parsed: z.output<typeof schema>[];
           if (!series.dataType.equals(DataType.JSON))

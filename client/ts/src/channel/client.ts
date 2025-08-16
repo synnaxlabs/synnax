@@ -134,7 +134,11 @@ export class Channel {
     status: argsStatus,
     expression = "",
     requires = [],
-  }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
+  }: New & {
+    frameClient?: framer.Client;
+    density?: CrudeDensity;
+    status?: status.Crude;
+  }) {
     this.key = key;
     this.name = name;
     this.dataType = new DataType(dataType);

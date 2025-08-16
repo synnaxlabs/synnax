@@ -34,10 +34,11 @@ const DELETE_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.keyZ>
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof device.statusZ> = {
   channel: device.STATUS_CHANNEL_NAME,
   schema: device.statusZ,
-  onChange: async ({ store, changed }) =>
+  onChange: async ({ store, changed }) => {
     store.devices.set(changed.details.device, (p) =>
       p == null ? p : { ...p, status: changed },
-    ),
+    );
+  },
 };
 
 export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -67,7 +68,7 @@ const retrieveByKey = async <
     ...params,
     includeStatus: true,
   });
-  store.devices.set(params.key, device);
+  store.devices.set(params.key, device, { notify: false });
   return device;
 };
 

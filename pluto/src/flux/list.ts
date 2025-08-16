@@ -18,7 +18,12 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect as useReactEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/aether/params";
@@ -343,6 +348,8 @@ export const createList =
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
     const unMountListenersRef = useRef<Destructor | null>(null);
+
+    useReactEffect(() => () => unMountListenersRef.current?.(), []);
 
     const store = useStore<ScopedStore>();
 

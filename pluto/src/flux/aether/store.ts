@@ -3,11 +3,12 @@ import { type Destructor, type observe, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { state } from "@/state";
+import { type status } from "@/status/aether";
 
 /**
  * Options for setting values in the store.
  */
-interface SetOptions {
+interface UpdateOptions {
   /** Whether to notify listeners of the change. Defaults to true. */
   notify?: boolean;
 }
@@ -23,9 +24,16 @@ export class UnaryStore<
   K extends record.Key = record.Key,
   V extends state.State = state.State,
 > {
-  private entries: Map<K, V> = new Map();
-  private setListeners: Map<observe.AsyncHandler<V>, K | undefined> = new Map();
-  private deleteListeners: Map<observe.AsyncHandler<K>, K | undefined> = new Map();
+  private readonly entries: Map<K, V> = new Map();
+  private readonly setListeners: Map<observe.AsyncHandler<V>, K | undefined> =
+    new Map();
+  private readonly deleteListeners: Map<observe.AsyncHandler<K>, K | undefined> =
+    new Map();
+  private readonly handleError: status.ErrorHandler;
+
+  constructor(handleError: status.ErrorHandler) {
+    this.handleError = handleError;
+  }
 
   /**
    * Sets a value for the given key in the store.
@@ -34,7 +42,7 @@ export class UnaryStore<
    * @param value - The value to set, or a function to compute the value from the previous state
    * @param opts - Options for the set operation
    */
-  set(key: K, value: state.SetArg<V | undefined>, opts: SetOptions = {}): void {
+  set(key: K, value: state.SetArg<V | undefined>, opts: UpdateOptions = {}): void {
     const { notify = true } = opts;
     const prev = this.entries.get(key);
     const next = state.executeSetter(value, prev);
@@ -74,9 +82,14 @@ export class UnaryStore<
    * Deletes an entry from the store and notifies delete listeners.
    * @param key - The key to delete
    */
-  delete(key: K) {
+  delete(key: K, opts: UpdateOptions = {}) {
+    const { notify = true } = opts;
     this.entries.delete(key);
-    this.notifyDelete(key);
+    if (notify) this.notifyDelete(key);
+  }
+
+  clear() {
+    this.entries.clear();
   }
 
   /**
@@ -95,25 +108,26 @@ export class UnaryStore<
    * Registers a listener for delete operations.
    *
    * @param callback - Function to call when a value is deleted
-   * @param key - Optional key to filter notifications (if provided, only deletion of this key triggers the callback)
+   * @param key - Optional key to filter notifications (if provided, only deletion
+   * of this key triggers the callback)
    * @returns A destructor function to remove the listener
    */
   onDelete(callback: observe.AsyncHandler<K>, key?: K): Destructor {
     this.deleteListeners.set(callback, key);
-    return () => {
-      this.deleteListeners.delete(callback);
-    };
+    return () => this.deleteListeners.delete(callback);
   }
 
   private notifySet(key: K, value: V) {
     this.setListeners.forEach((listenerKey, callback) => {
-      if (listenerKey == null || listenerKey === key) void callback(value);
+      if (listenerKey == null || listenerKey === key)
+        this.handleError(async () => callback(value), "Failed to notify set listener");
     });
   }
 
   private notifyDelete(key: K) {
     this.deleteListeners.forEach((listenerKey, callback) => {
-      if (listenerKey == null || listenerKey === key) void callback(key);
+      if (listenerKey == null || listenerKey === key)
+        this.handleError(async () => callback(key), "Failed to notify delete listener");
     });
   }
 }
@@ -192,7 +206,11 @@ export interface Store {
  */
 export const createStore = <ScopedStore extends Store>(
   config: StoreConfig<ScopedStore>,
+  handleError: status.ErrorHandler,
 ): ScopedStore =>
   Object.fromEntries(
-    Object.entries(config).map(([key]) => [key, new UnaryStore<string, state.State>()]),
+    Object.entries(config).map(([key]) => [
+      key,
+      new UnaryStore<string, state.State>(handleError),
+    ]),
   ) as ScopedStore;

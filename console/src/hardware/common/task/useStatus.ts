@@ -52,14 +52,17 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
       setStatus((prev) => ({ ...prev, variant: "loading", message })),
     [],
   );
-  const handleStatusUpdate = useCallback((status: task.Status) => {
-    if (keyRef.current.length == 0) {
-      setTimeout(() => handleStatusUpdate(status), 100);
-      return;
-    }
-    if (status.details.task !== keyRef.current) return;
-    setStatus(status);
-  }, []);
+  const handleStatusUpdate = useCallback(
+    (status: task.Status, retry: boolean = true) => {
+      if (keyRef.current.length == 0) {
+        if (retry) setTimeout(() => handleStatusUpdate(status, false), 100);
+        return;
+      }
+      if (status.details.task !== keyRef.current) return;
+      setStatus(status);
+    },
+    [],
+  );
   Task.useStatusSynchronizer(handleStatusUpdate);
 
   const triggerError = useCallback(

@@ -48,7 +48,7 @@ export const Provider = <ScopedStore extends flux.Store>({
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const storeRef = useInitializerRef<ScopedStore>(() =>
-    flux.createStore<ScopedStore>(storeConfig),
+    flux.createStore<ScopedStore>(storeConfig, handleError),
   );
   const [streamerMounted, setStreamerMounted] = useState(!requireStreamerMounted);
   const { path } = Aether.useLifecycle({
