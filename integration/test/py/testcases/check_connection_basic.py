@@ -26,10 +26,10 @@ class CheckConnectionBasic(TestCase):
         # Always call the parent class constructor first
         # This will initialize the index channel and baseline tlm
         super().__init__(SynnaxConnection=SynnaxConnection)
+        self.Expected_Timeout = 5
 
         # You can then add your own tlm channels here:
         self.add_channel(name="is_connected", data_type=sy.DataType.UINT8, initial_value=2)
-
     
 
     def run(self) -> None:
@@ -38,6 +38,7 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
+        time.sleep(10)
 
 
 

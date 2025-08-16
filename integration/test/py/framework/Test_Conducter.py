@@ -55,7 +55,6 @@ class STATE(Enum):
     ERROR = auto()
     SHUTDOWN = auto()
     COMPLETED = auto()
-    
 
 
 
@@ -354,7 +353,7 @@ class Test_Conductor:
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
         
-        print(f"{self.name} > Loading test campaign from: {sequence_path}")
+        print(f"\n{self.name} > Loading test campaign from: {sequence_path}")
         time.sleep(2)
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
@@ -407,7 +406,7 @@ class Test_Conductor:
                 print(f"{self.name} > Test execution stopped by user request")
                 break
             
-            print(f"{self.name} > [{i+1}/{len(self.test_definitions)}] Loading test: {test_def.case}")
+            print(f"\n{self.name} [{i+1}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
             
             # Run test in a separate thread
             result_container = []
@@ -629,8 +628,6 @@ class Test_Conductor:
                 elapsed_time = (datetime.now() - self.current_test_start_time).total_seconds()
                 
                 if elapsed_time > self.current_test.Expected_Timeout:
-                    print(f"Test exceeded Expected_Timeout ({self.current_test.Expected_Timeout}s). "
-                          f"Elapsed time: {elapsed_time:.1f}s. Killing test...")
                     self.kill_current_test()
                     break
             
@@ -645,8 +642,6 @@ class Test_Conductor:
         """
         if self.current_test is None:
             return False
-        
-        print(f"Killing current test...")
         
         # Create a timeout result if this is a timeout kill
         if self.current_test_start_time:
@@ -663,8 +658,10 @@ class Test_Conductor:
             
             # Create timeout/kill result
             current_test_name = "unknown_test"
-            # Try to get test name from current test results or test instance
-            if self.test_results and self.test_results[-1].status == STATUS.RUNNING:
+            # Try to get test name from current test instance first, then from test results
+            if self.current_test:
+                current_test_name = self.current_test.name
+            elif self.test_results:
                 current_test_name = self.test_results[-1].test_name
             
             timeout_result = TestResult(

@@ -184,7 +184,6 @@ class TestCase(ABC):
 
                     # Check for timeout
                     if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
-                        print(f"\n\n{self.name} > Test case timed out after {self.Expected_Timeout} seconds")
                         self._status = STATUS.TIMEOUT
                         self.tlm[f"{self.name}_state"] = self._status.value
                         writer.write(self.tlm)
@@ -227,11 +226,14 @@ class TestCase(ABC):
         # Wait for writer thread to complete before finishing
 
         self.stop_writer()
+        print(f"{self.name} > Teardown - current status: {self._status.name}")
         # If we get here without errors and no timeout, the test passed
         if self._status == STATUS.PENDING:
             self._status = STATUS.PASSED
+            print(f"{self.name} > Teardown - setting status to PASSED")
         elif self._status == STATUS.TIMEOUT:
-            print(f"{self.name} > TIMEOUT {self.Expected_Timeout} seconds")      
+            print(f"{self.name} > TIMEOUT ({self.Expected_Timeout} seconds)")
+        # Don't override TIMEOUT status - it was already set in _writer_loop      
         
     
     def stop_writer(self) -> None:
@@ -316,15 +318,16 @@ class TestCase(ABC):
             self._status = STATUS.RUNNING
             self.run()
 
-            self._status = STATUS.PENDING
+            # Only set to PENDING if not already in a final state
+            if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
+                self._status = STATUS.PENDING
             self.teardown()
             
             # PASS condition set within the last spot 
-            # of activity: _writer_loop()
+            # of activity: _writer_loop() (but don't override TIMEOUT/FAILED/KILLED)
 
         except Exception as e:
             self._status = STATUS.FAILED
             print(f"{self.name} > Test execution failed: {e}")
         finally:
             self.wait_for_writer_completion()
-            print(f"{self.name} > {self._status.name}")
