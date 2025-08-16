@@ -122,8 +122,6 @@ jobs:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NODE_OPTIONS: "--max_old_space_size=4096"
-      # APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
-      # APPLE_ID_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -136,6 +134,8 @@ jobs:
         if:
           matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -211,7 +211,7 @@ jobs:
       - name: Pre-sign Embedded lua-language-server (Before Build)
         if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
-          APPLE_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && env.CERT_ID || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
           EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
           if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
@@ -223,14 +223,20 @@ jobs:
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
 
-      - name: Build
-        # env:
-        #   APPLE_CERTIFICATE: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE || '' }}
-        #   APPLE_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-        #   APPLE_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && env.CERT_ID || '' }}
-        #   APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
-        #   APPLE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
-        #   APPLE_TEAM_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_TEAM_ID || '' }}
+      - name: Build (Push)
+        if: github.event_name != 'pull_request'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        working-directory: console
+        run: pnpm build
+
+      - name: Build (PR)
+        if: github.event_name == 'pull_request'
         working-directory: console
         run: pnpm build
 
