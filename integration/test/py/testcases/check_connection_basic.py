@@ -38,7 +38,7 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-        time.sleep(10)
+        time.sleep(6)
 
 
 

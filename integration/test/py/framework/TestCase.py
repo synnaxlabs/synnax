@@ -226,14 +226,19 @@ class TestCase(ABC):
         # Wait for writer thread to complete before finishing
 
         self.stop_writer()
-        print(f"{self.name} > Teardown - current status: {self._status.name}")
-        # If we get here without errors and no timeout, the test passed
+
+        # Happy path:
         if self._status == STATUS.PENDING:
             self._status = STATUS.PASSED
-            print(f"{self.name} > Teardown - setting status to PASSED")
+
+        # Timeout path:
         elif self._status == STATUS.TIMEOUT:
-            print(f"{self.name} > TIMEOUT ({self.Expected_Timeout} seconds)")
-        # Don't override TIMEOUT status - it was already set in _writer_loop      
+            print(f"{self.name} > TIMEOUT ({self.Expected_Timeout} seconds)")   
+
+        # Failed path:
+        elif self._status == STATUS.FAILED:
+            print(f"{self.name} > FAILED")
+
         
     
     def stop_writer(self) -> None:

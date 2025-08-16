@@ -353,7 +353,7 @@ class Test_Conductor:
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
         
-        print(f"\n{self.name} > Loading test campaign from: {sequence_path}")
+        print(f"{self.name} > Loading test campaign from: {sequence_path}")
         time.sleep(2)
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
@@ -581,8 +581,11 @@ class Test_Conductor:
             # Execute the test
             test_instance.execute()
             
-            # Check if test was killed/timed out during execution
-            if self._timeout_result is not None:
+            # Check the actual test instance status instead of relying on shared timeout result
+            if hasattr(test_instance, '_status') and test_instance._status == STATUS.TIMEOUT:
+                result.status = STATUS.TIMEOUT
+                result.error_message = f"{test_instance.Expected_Timeout}s timeout exceeded"
+            elif self._timeout_result is not None:
                 result = self._timeout_result
                 self._timeout_result = None
             else:
