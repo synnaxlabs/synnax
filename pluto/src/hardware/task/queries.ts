@@ -62,7 +62,7 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ>
         status: {
           ...prev.status,
           variant: "loading",
-          message: "Executing command...",
+          message: `Running ${changed.type} command...`,
           details: { task: changed.task, running: true, data: {} },
         },
       } as task.Task);

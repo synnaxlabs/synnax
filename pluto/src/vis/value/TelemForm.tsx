@@ -79,9 +79,8 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   if (typeof source.channel != "number")
     throw new Error("Must pass in a channel by key to Value.TelemForm");
 
-  // const [c] = Channel.useName(source.channel);
-  const c = "";
-  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
+  const { name } = Channel.useName({ key: source.channel, defaultName: "" });
+  useEffect(() => onChange({ ...value, tooltip: [name] }), [name]);
   return (
     <>
       <Input.Item label="Input Channel" grow>

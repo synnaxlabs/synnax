@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, status } from "@synnaxlabs/x";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -131,10 +131,10 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
-    status,
+    status: argsStatus,
     expression = "",
     requires = [],
-  }: New & { frameClient?: framer.Client; density?: CrudeDensity; status?: Status }) {
+  }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
     this.key = key;
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -146,7 +146,7 @@ export class Channel {
     this.virtual = virtual;
     this.expression = expression;
     this.requires = requires ?? [];
-    this.status = status;
+    if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
 

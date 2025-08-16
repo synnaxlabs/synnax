@@ -51,8 +51,9 @@ export const newZ = payloadZ.extend({
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
-export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
+export interface New extends Omit<z.input<typeof newZ>, "dataType" | "status"> {
   dataType: CrudeDataType;
+  status?: status.Crude;
 }
 
 export const paramsZ = z.union([

@@ -34,9 +34,7 @@ export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
     const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-    // const aliases = useAliases();
     const Icon = resolveIcon(item?.payload);
-    // const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
     return (
       <Select.ListItem itemKey={itemKey} {...rest}>
         <Icon />

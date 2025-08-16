@@ -42,7 +42,6 @@ export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
 export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   key: task.Key,
   initialState: task.Status<StatusData>,
-  // commandLoadingMessages: Record<string, string>,
 ): UseStatusReturn<StatusData> => {
   const [status, setStatus] = useReactState<task.Status<StatusData>>(() => ({
     ...initialState,
