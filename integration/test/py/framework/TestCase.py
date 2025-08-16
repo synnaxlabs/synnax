@@ -49,21 +49,12 @@ class TestCase(ABC):
     """
     
     def __init__(self, SynnaxConnection: SynnaxConnection):
-        """
-        Initialize the test case with connection to Synnax server.
-        
-        Args:
-            SynnaxConnection: The connection parameters for the Synnax server
-        """
-        
+        """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
-        
-        # Expected timeout in seconds (-1 means no timeout specified)
-        self.Expected_Timeout: int = -1
+        self.Expected_Timeout: int = -1  # -1 = no timeout
 
-        # Generate name - convert PascalCase back to lowercase with underscores
-        class_name = self.__class__.__name__
-        self.name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', class_name).lower()
+        # Convert PascalCase class name to lowercase with underscores
+        self.name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', self.__class__.__name__).lower()
 
         # Connect to Synnax server
         self.client = sy.Synnax(
@@ -74,17 +65,13 @@ class TestCase(ABC):
             secure=SynnaxConnection.secure,
         )
         
-        # Default rate
+        # 1Hz loop
         self.loop = sy.Loop(1)
-        
-        # Thread management
         self.writer_thread = None
         self.should_stop = False
         self.is_running = False
         
-        """
-        Define Test case channels
-        """
+        # Create telemetry channels
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
             data_type=sy.DataType.TIMESTAMP,
@@ -118,13 +105,7 @@ class TestCase(ABC):
 
 
     def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
-
-        """
-        This function Exists for your convenience.
-        It will create a channel with the name {self.name}_{name}
-        and the data type {data_type}
-        """
-
+        """Create a telemetry channel with name {self.name}_{name}."""
         self.client.channels.create(
             name=f"{self.name}_{name}",
             data_type=data_type,
@@ -140,25 +121,18 @@ class TestCase(ABC):
         pass
 
     def setup(self) -> None:
-        """
-        Setup logic. 
-        Creates writer with initialized tlm channels and runs it in a separate thread.
-        """
+        """Start telemetry writer thread."""
         self.is_running = True
         self.should_stop = False
         
         # Start writer thread
         self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
         self.writer_thread.start()
-
-        # Give the writer thread a chance to start
-        time.sleep(2)
+        time.sleep(2)  # Allow writer thread to start
         print(f"{self.name} > Writer thread started")
     
     def _writer_loop(self) -> None:
-        """
-        Main writer loop that runs in a separate thread.
-        """
+        """Main telemetry writer loop running in separate thread."""
         start_time = sy.TimeStamp.now()
         
         try:
@@ -169,18 +143,13 @@ class TestCase(ABC):
                 enable_auto_commit=True,
             ) as writer:
                 while self.loop.wait() and not self.should_stop:
-                    """
-                    Main writer loop
-                    """
                     now = sy.TimeStamp.now()
                     uptime_value = (now - start_time)/1E9
                     
-                    # Update State telemetry 
+                    # Update telemetry
                     self.tlm[f"{self.name}_time"] = now
                     self.tlm[f"{self.name}_uptime"] = uptime_value
                     self.tlm[f"{self.name}_state"] = self._status.value
-
-                    # Write Tlm 
                     writer.write(self.tlm)
 
                     # Check for timeout
@@ -190,9 +159,8 @@ class TestCase(ABC):
                         writer.write(self.tlm)
                         break
 
-                    # Check for shutdown or completion
+                    # Check for completion
                     if self._status in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
-                        # Update state telemetry        
                         self.tlm[f"{self.name}_state"] = self._status.value
                         writer.write(self.tlm)
                         break
@@ -208,8 +176,6 @@ class TestCase(ABC):
             self.is_running = False
     
 
-
-
     @abstractmethod
     def run(self) -> None:
         """
@@ -219,13 +185,7 @@ class TestCase(ABC):
         pass
     
     def teardown(self) -> None:
-
-        """
-        Teardown method called after the test runs.
-        Override this method in subclasses to implement test-specific cleanup logic.
-        """
-        # Wait for writer thread to complete before finishing
-
+        """Cleanup after test execution. Override for custom cleanup logic."""
         self.stop_writer()
 
         # Happy path:
@@ -236,22 +196,17 @@ class TestCase(ABC):
         elif self._status == STATUS.TIMEOUT:
             print(f"{self.name} > TIMEOUT ({self.Expected_Timeout} seconds)")   
 
-        # Failed path:
+        # Sad path:
         elif self._status == STATUS.FAILED:
             print(f"{self.name} > FAILED")
-
-        
     
     def stop_writer(self) -> None:
-        """
-        Stop the writer thread and wait for it to complete.
-        """
+        """Stop writer thread and wait for completion."""
         if self.writer_thread and self.is_running:
             print(f"{self.name} > Stopping writer thread...")
             self.should_stop = True
             self.is_running = False
             
-            # Wait for writer thread to complete (with timeout)
             if self.writer_thread.is_alive():
                 self.writer_thread.join(timeout=5.0)
                 if self.writer_thread.is_alive():
@@ -260,31 +215,16 @@ class TestCase(ABC):
                     print(f"{self.name} > Writer thread stopped successfully")
     
     def wait_for_writer_completion(self, timeout: float = None) -> None:
-        """
-        Wait for the writer thread to complete.
-        
-        Args:
-            timeout: Maximum time to wait in seconds. If None, wait indefinitely.
-        """
+        """Wait for writer thread to complete."""
         if self.writer_thread and self.writer_thread.is_alive():
             self.writer_thread.join(timeout=timeout)
     
     def is_writer_running(self) -> bool:
-        """
-        Check if the writer thread is currently running.
-        
-        Returns:
-            True if the writer thread is running, False otherwise.
-        """
+        """Check if writer thread is running."""
         return self.writer_thread is not None and self.writer_thread.is_alive()
     
     def get_writer_status(self) -> str:
-        """
-        Get the current status of the writer thread.
-        
-        Returns:
-            String describing the writer thread status.
-        """
+        """Get writer thread status."""
         if self.writer_thread is None:
             return "Not started"
         elif self.writer_thread.is_alive():
@@ -293,9 +233,7 @@ class TestCase(ABC):
             return "Stopped"
     
     def shutdown(self) -> None:
-        """
-        Gracefully shutdown the test case and stop all running threads.
-        """
+        """Gracefully shutdown test case and stop all threads."""
         print(f"{self.name} > Shutting down test case...")
         self._status = STATUS.KILLED
         self.stop_writer()
@@ -310,27 +248,21 @@ class TestCase(ABC):
         self.shutdown()
     
     def execute(self) -> None:
-        """
-        Execute the complete test lifecycle: setup -> run -> teardown.
-        This method should typically be called to run the test.
-        """
+        """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
-            # Update the status here so you can forget
-            # to call .super() in an override without concern.
-
             self._status = STATUS.INITIALIZING
             self.setup()
 
             self._status = STATUS.RUNNING
             self.run()
 
-            # Only set to PENDING if not already in a final state
+            # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self._status = STATUS.PENDING
             self.teardown()
             
             # PASS condition set within the last spot 
-            # of activity: _writer_loop() (but don't override TIMEOUT/FAILED/KILLED)
+            # of activity: _writer_loop()
 
         except Exception as e:
             self._status = STATUS.FAILED

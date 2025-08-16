@@ -38,7 +38,7 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-
+        time.sleep(10)
         # You might NOT need to call super() here...
         # ... but then what are you testing?
         super().run()

@@ -578,16 +578,7 @@ class Test_Conductor:
             
             # Execute the test
             test_instance.execute()
-            
-            # Check the actual test instance status instead of relying on shared timeout result
-            if hasattr(test_instance, '_status') and test_instance._status == STATUS.TIMEOUT:
-                result.status = STATUS.TIMEOUT
-                result.error_message = f"{test_instance.Expected_Timeout}s timeout exceeded"
-            elif self._timeout_result is not None:
-                result = self._timeout_result
-                self._timeout_result = None
-            else:
-                result.status = STATUS.PASSED
+            result.status = test_instance._status
             
         except Exception as e:
             # Check if test was killed/timed out during exception
@@ -757,8 +748,7 @@ class Test_Conductor:
             print(f"{status_symbol} {result.test_name} {duration_str}")
             if result.error_message:
                 print(f"    Error: {result.error_message}")
-        
-    
+           
     def _signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown."""
         print(f"\nReceived signal {signum}. Stopping test execution...")
