@@ -34,7 +34,6 @@ class STATUS(Enum):
     PASSED = auto()
     FAILED = auto()
     TIMEOUT = auto()
-    COMPLETED = auto()
     KILLED = auto()
 
 
@@ -56,9 +55,9 @@ class TestCase(ABC):
         Args:
             SynnaxConnection: The connection parameters for the Synnax server
         """
-        # Generate a 6-character random alphanumeric string
+        
         self._status = STATUS.INITIALIZING
-
+        
         # Expected timeout in seconds (-1 means no timeout specified)
         self.Expected_Timeout: int = -1
 
@@ -150,7 +149,9 @@ class TestCase(ABC):
         # Start writer thread
         self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
         self.writer_thread.start()
-        
+
+        # Give the writer thread a chance to start
+        time.sleep(2)
         print(f"{self.name} > Writer thread started")
     
     def _writer_loop(self) -> None:
@@ -181,15 +182,23 @@ class TestCase(ABC):
                     # Write Tlm 
                     writer.write(self.tlm)
 
-                    # Check for shutdown or completion
-                    if self._status in [STATUS.COMPLETED, STATUS.KILLED]:
+                    # Check for timeout
+                    if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
+                        print(f"\n\n{self.name} > Test case timed out after {self.Expected_Timeout} seconds")
+                        self._status = STATUS.TIMEOUT
                         self.tlm[f"{self.name}_state"] = self._status.value
                         writer.write(self.tlm)
                         break
-                    if uptime_value > 10:
-                        print(f"\n\n{self.name} > Test case timed out")
+
+                    # Check for shutdown or completion
+                    if self._status in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
+                        # Update state telemetry        
+                        self.tlm[f"{self.name}_state"] = self._status.value
+                        writer.write(self.tlm)
                         break
-     
+                
+                # Final write for redundancy
+                writer.write(self.tlm)
                 print(f"{self.name} > Writer thread shutting down")
                 
         except Exception as e:
@@ -203,7 +212,6 @@ class TestCase(ABC):
 
     @abstractmethod
     def run(self) -> None:
-        self._status = STATUS.RUNNING
         """
         Main test logic method.
         This method must be implemented by all subclasses.
@@ -211,13 +219,20 @@ class TestCase(ABC):
         pass
     
     def teardown(self) -> None:
-        self._status = STATUS.COMPLETED
 
         """
         Teardown method called after the test runs.
         Override this method in subclasses to implement test-specific cleanup logic.
         """
+        # Wait for writer thread to complete before finishing
+
         self.stop_writer()
+        # If we get here without errors and no timeout, the test passed
+        if self._status == STATUS.PENDING:
+            self._status = STATUS.PASSED
+        elif self._status == STATUS.TIMEOUT:
+            print(f"{self.name} > TIMEOUT {self.Expected_Timeout} seconds")      
+        
     
     def stop_writer(self) -> None:
         """
@@ -292,13 +307,24 @@ class TestCase(ABC):
         This method should typically be called to run the test.
         """
         try:
-            
+            # Update the status here so you can forget
+            # to call .super() in an override without concern.
+
+            self._status = STATUS.INITIALIZING
             self.setup()
+
+            self._status = STATUS.RUNNING
             self.run()
+
+            self._status = STATUS.PENDING
+            self.teardown()
+            
+            # PASS condition set within the last spot 
+            # of activity: _writer_loop()
+
         except Exception as e:
             self._status = STATUS.FAILED
             print(f"{self.name} > Test execution failed: {e}")
         finally:
-            self.teardown()
-            # Wait for writer thread to complete before finishing
             self.wait_for_writer_completion()
+            print(f"{self.name} > {self._status.name}")

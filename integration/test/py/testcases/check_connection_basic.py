@@ -9,7 +9,7 @@
 
 import sys
 import os
-from typing import NamedTuple
+import time
 
 # Set up the path before importing framework modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -22,12 +22,13 @@ class CheckConnectionBasic(TestCase):
     Check if the test case is connected to the synnax server.
     """
     def __init__(self, SynnaxConnection: SynnaxConnection):
+
         # Always call the parent class constructor first
         # This will initialize the index channel and baseline tlm
         super().__init__(SynnaxConnection=SynnaxConnection)
 
-        # You can then add your own tlm channels here
-        self.add_channel(name="is_connected", data_type=sy.DataType.UINT8, initial_value=1)
+        # You can then add your own tlm channels here:
+        self.add_channel(name="is_connected", data_type=sy.DataType.UINT8, initial_value=2)
 
     
 
@@ -36,7 +37,21 @@ class CheckConnectionBasic(TestCase):
         Run the test case.
         """
 
+        # Stuff goes here
+
+
+
+        # You might NOT need to call super() here
+        super().run()
+
+        
+
     def teardown(self) -> None:
         """
         Teardown the test case.
         """
+
+        # Stuff goes here
+
+        # Always call super() last
+        super().teardown()

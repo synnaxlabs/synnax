@@ -300,8 +300,6 @@ class Test_Conductor:
                     self.tlm[f"{self.name}_state"] = self.state.value
                     writer.write(self.tlm)
                     break
-
-            print(f"{self.name} > Client manager shutting down")
     
     def load_test_sequence(self, sequence: str=None) -> None:
         """
@@ -326,7 +324,7 @@ class Test_Conductor:
 
         # Convert to Path object and resolve relative paths
         sequence_path = Path(sequence)
-        print(f"Sequence path: {sequence_path}")
+
         # If it's a relative path, resolve it relative to the current working directory
         if not sequence_path.is_absolute():
             sequence_path = sequence_path.resolve()
@@ -349,10 +347,9 @@ class Test_Conductor:
             
             if found_path:
                 sequence_path = found_path
-                print(f"Found sequence file at: {sequence_path}")
             else:
                 raise FileNotFoundError(
-                    f"Test sequence file not found: {sequence}\n"
+                    f"{self.name} > Test sequence file not found: {sequence}\n"
                     f"Tried paths:\n" + 
                     "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
@@ -452,18 +449,18 @@ class Test_Conductor:
         
         # Wait for client manager thread to finish
         if self.client_manager_thread and self.client_manager_thread.is_alive():
-            print(f"{self.name} > Waiting for client manager to shutdown...")
             self.client_manager_thread.join()
-            print(f"{self.name} > Client manager has stopped")
-        
-        # Wait for any other threads
+            print(f"{self.name} > Client Manager has stopped")
+
+        # Wait for timeout monitor to finish
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
-            print(f"{self.name} > Waiting for timeout monitor to shutdown...")
             self.timeout_monitor_thread.join()
+            print(f"{self.name} > Timeout Monitor has stopped")
         
+        # Wait for current test to complete
         if self.current_test_thread and self.current_test_thread.is_alive():
-            print(f"{self.name} > Waiting for current test to complete...")
             self.current_test_thread.join()
+            print(f"{self.name} > Test Thread has stopped")
         
         self.state = STATE.COMPLETED
     
@@ -556,7 +553,6 @@ class Test_Conductor:
             
             if not issubclass(test_class, TestCase):
                 raise TypeError(f"{class_name} is not a subclass of TestCase")
-            print(f"{self.name} > Loaded test class: {test_class}")
             return test_class
         except Exception as e:
             raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
@@ -591,7 +587,7 @@ class Test_Conductor:
                 result = self._timeout_result
                 self._timeout_result = None
             else:
-                result.status = STATUS.COMPLETED
+                result.status = STATUS.PASSED
             
         except Exception as e:
             # Check if test was killed/timed out during exception
@@ -735,7 +731,7 @@ class Test_Conductor:
         if not self.test_results:
             return
         
-        passed = sum(1 for r in self.test_results if r.status == STATUS.COMPLETED)
+        passed = sum(1 for r in self.test_results if r.status == STATUS.PASSED)
         failed = sum(1 for r in self.test_results if r.status == STATUS.FAILED)
         killed = sum(1 for r in self.test_results if r.status == STATUS.KILLED)
         timeout = sum(1 for r in self.test_results if r.status == STATUS.TIMEOUT)
@@ -752,7 +748,7 @@ class Test_Conductor:
         
         for result in self.test_results:
             status_symbol = {
-                STATUS.COMPLETED: "✓",
+                STATUS.PASSED: "✓",
                 STATUS.FAILED: "✗",
                 STATUS.KILLED: "⚠",
                 STATUS.TIMEOUT: "⏱"
@@ -849,5 +845,5 @@ if __name__ == "__main__":
         raise
     finally:
         # Ensure cleanup even if something goes wrong
-        print(f"{conductor.name} > Shutting down...")
+        print(f"{conductor.name} > Fin.")
 
