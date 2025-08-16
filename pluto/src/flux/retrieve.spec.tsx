@@ -143,40 +143,6 @@ describe("retrieve", () => {
           { timeout: 1000 },
         );
       });
-
-      //   it("should move the query into an error state when the listener throws an error", async () => {
-      //     const signalChannelName = `signal_${uuid.create()}`;
-      //     await client.channels.create({
-      //       name: signalChannelName,
-      //       virtual: true,
-      //       dataType: "float32",
-      //     });
-
-      //     const { result } = renderHook(
-      //       () =>
-      //         Flux.createRetrieve<{}, number, Store>({
-      //           name: "Resource",
-      //           retrieve: async () => 5,
-      //           mountListeners: ({ store }) =>
-      //             store.labels.onSet((changed) => {
-      //               store.labels.set(changed.key, changed);
-      //             }),
-      //         }).useDirect({ params: {} }),
-      //       { wrapper: newSynnaxWrapper(client) },
-      //     );
-      //     await waitFor(() => {
-      //       expect(result.current.variant).toEqual("success");
-      //       expect(result.current.listenersMounted).toEqual(true);
-      //     });
-      //     await act(async () => {
-      //       const writer = await client.openWriter(signalChannelName);
-      //       await writer.write(signalChannelName, 12);
-      //       await writer.close();
-      //     });
-      //     await waitFor(() => {
-      //       expect(result.current.variant).toEqual("error");
-      //     });
-      //   });
     });
   });
 

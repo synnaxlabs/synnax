@@ -14,9 +14,15 @@ import type z from "zod";
 import { type Store, type StoreConfig } from "@/flux/aether/store";
 import { type Status } from "@/status";
 
-// This is a hack to ensure that deletions are processed before other changes, which
-// ensures that modifications to things like relationships, which are a delete
-// followed by a create, are processed in the correct order.
+/**
+ * Sorts channel names to ensure deletions are processed before other changes.
+ * This ensures that modifications to things like relationships (delete followed by create)
+ * are processed in the correct order.
+ *
+ * @param a - First channel name
+ * @param b - Second channel name
+ * @returns Sort order (-1, 0, or 1)
+ */
 const channelNameSort = (a: string, b: string) => {
   const aHasDelete = a.includes("delete");
   const bHasDelete = b.includes("delete");
@@ -25,14 +31,32 @@ const channelNameSort = (a: string, b: string) => {
   return 0;
 };
 
+/**
+ * Arguments for opening a flux streamer.
+ *
+ * @template ScopedStore - The type of the store
+ */
 export interface StreamerArgs<ScopedStore extends Store> {
+  /** Function to handle errors that occur during streaming */
   handleError: Status.ErrorHandler;
+  /** Configuration defining store structure and listeners */
   storeConfig: StoreConfig<ScopedStore>;
+  /** Synnax client instance for API access */
   client: Synnax;
+  /** Function to open a frame streamer */
   openStreamer: framer.StreamOpener;
+  /** The store instance to update with streamed data */
   store: ScopedStore;
 }
 
+/**
+ * Opens a hardened streamer that listens to configured channels and invokes
+ * the appropriate listeners when data changes.
+ *
+ * @template ScopedStore - The type of the store
+ * @param args - Configuration for the streamer
+ * @returns A destructor function to close the streamer
+ */
 export const openStreamer = async <ScopedStore extends Store>({
   openStreamer: streamOpener,
   storeConfig,
@@ -61,7 +85,7 @@ export const openStreamer = async <ScopedStore extends Store>({
           if (!series.dataType.equals(DataType.JSON))
             parsed = Array.from(series).map((s) => schema.parse(s));
           else parsed = series.parseJSON(schema);
-          if (series == null || client == null) return;
+          if (series == null) return;
           for (const changed of parsed) await onChange({ changed, client, store });
         }, "Failed to handle streamer change");
       });
