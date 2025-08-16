@@ -18,8 +18,6 @@
 
 
 import json
-import uuid
-import asyncio
 import threading
 import time
 import signal
@@ -86,9 +84,7 @@ class Test_Conductor:
     Features:
     - Loads test sequences from configuration files
     - Executes test cases (sequentially or randomly)
-    - Monitors execution of test cases (async)
     - Can kill tests if needed (timeout or manual intervention)
-    - Provides real-time status updates (async)
     """
     
     def __init__(self, 
@@ -158,7 +154,6 @@ class Test_Conductor:
         
         # Monitoring
         self.status_callbacks: List[Callable[[TestResult], None]] = []
-        self.monitor_task: Optional[asyncio.Task] = None
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -241,8 +236,8 @@ class Test_Conductor:
             retrieve_if_name_exists=True,
         )
 
-        test_case_index = self.client.channels.create(
-            name=f"{self.name}_test_case_index",
+        test_cases_ran = self.client.channels.create(
+            name=f"{self.name}_test_cases_ran",
             data_type=sy.DataType.UINT32,
             index=time.key,
             retrieve_if_name_exists=True,
@@ -258,7 +253,7 @@ class Test_Conductor:
             f"{self.name}_uptime": 0,
             f"{self.name}_state": STATE.INITIALIZING.value,
             f"{self.name}_test_case_count": 0,
-            f"{self.name}_test_case_index": 0,
+            f"{self.name}_test_cases_ran": 0,
         }
         
         """
@@ -271,7 +266,7 @@ class Test_Conductor:
                 uptime,
                 state,
                 test_case_count,
-                test_case_index,
+                test_cases_ran,
             ],
             name=self.name,
             enable_auto_commit=True,
@@ -373,6 +368,9 @@ class Test_Conductor:
                 random.shuffle(self.test_definitions)
 
         print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
+        
+        # Set the test case count in telemetry
+        self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
     
     def run_sequence(self) -> List[TestResult]:
         """
@@ -432,6 +430,10 @@ class Test_Conductor:
             
             self.test_results.append(result)
             self.current_test_thread = None
+
+            # Increment test case index for telemetry
+            self.tlm[f"{self.name}_test_cases_ran"] += 1
+            
         
         self.is_running = False
         self._print_summary()
@@ -764,15 +766,13 @@ class Test_Conductor:
         sys.exit(0)
 
 
-# Async monitoring functionality
-async def monitor_test_execution(conductor: Test_Conductor, 
-                                update_interval: float = 1.0) -> None:
+# Threading-based monitoring functionality
+def monitor_test_execution(conductor: Test_Conductor) -> None:
     """
-    Asynchronously monitor test execution and provide status updates.
+    Monitor test execution and provide status updates using threading.
     
     Args:
         conductor: The Test_Conductor instance to monitor
-        update_interval: How often to check status (in seconds)
     """
     while conductor.is_running:
         status = conductor.get_current_status()
@@ -780,26 +780,7 @@ async def monitor_test_execution(conductor: Test_Conductor,
         if status['current_test']:
             print(f"Currently running: {status['current_test']}")
         
-        await asyncio.sleep(update_interval)
-
-
-# Example usage functions
-def create_sample_test_sequence(output_path: str) -> None:
-    """Create a sample test sequence file for demonstration."""
-    sample_sequence = {
-        "tests": [
-            {
-                "module_path": "testcases.check_connection_basic",
-                "parameters": {},
-            }
-        ]
-    }
-    
-    with open(output_path, 'w') as f:
-        json.dump(sample_sequence, f, indent=2)
-    
-    print(f"Sample test sequence created at: {output_path}")
-
+        time.sleep(1)
 
 if __name__ == "__main__":
     # Example usage

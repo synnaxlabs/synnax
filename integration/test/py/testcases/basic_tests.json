@@ -6,6 +6,15 @@
         },
         {
             "case": "testcases.check_connection_basic"
+        },
+        {
+            "case": "testcases.check_connection_basic"
+        },
+        {
+            "case": "testcases.check_connection_basic"
+        },
+        {
+            "case": "testcases.check_connection_basic"
         }
     ]
 }

@@ -10,11 +10,11 @@
 import synnax as sy
 from dataclasses import dataclass, field
 from enum import Enum, auto
-import random
+import re
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -61,8 +61,9 @@ class TestCase(ABC):
         # Expected timeout in seconds (-1 means no timeout specified)
         self.Expected_Timeout: int = -1
 
-        # Generate name
-        self.name = self.__class__.__name__.lower()
+        # Generate name - convert PascalCase back to lowercase with underscores
+        class_name = self.__class__.__name__
+        self.name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', class_name).lower()
 
         # Connect to Synnax server
         self.client = sy.Synnax(
