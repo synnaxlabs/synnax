@@ -361,49 +361,11 @@ const YAxis = ({
 const Line = ({ line }: { line: LineProps }): ReactElement =>
   line.variant === "static" ? <StaticLine line={line} /> : <DynamicLine line={line} />;
 
-const DOWNSAMPLE_CONNECTIONS: telem.SourcePipelineProps["connections"] = [
-  { from: "source", to: "downsampler" },
-];
-
-const maybeDownsample = (
-  line: Pick<LineProps, "downsampleMode" | "downsample">,
-  base: telem.SeriesSourceSpec,
-): telem.SeriesSourceSpec => {
-  if (
-    line.downsampleMode == null ||
-    // line.downsampleMode === "decimate" ||
-    line.downsample == null ||
-    line.downsample === 1
-  )
-    return base;
-  return telem.sourcePipeline("series", {
-    connections: DOWNSAMPLE_CONNECTIONS,
-    outlet: "downsampler",
-    segments: {
-      source: base,
-      downsampler: telem.seriesDownsampler({
-        mode: line.downsampleMode,
-        windowSize: line.downsample,
-      }),
-    },
-  });
-};
-
-const parseGPUDownsample = ({
-  downsampleMode,
-  downsample,
-}: Pick<LineProps, "downsampleMode" | "downsample">): number | undefined => {
-  if (downsampleMode == null && downsample != null && downsample > 1) return downsample;
-  return undefined;
-};
-
 const DynamicLine = ({
   line: {
     key,
     timeSpan,
     channels: { x, y },
-    downsampleMode = "average",
-    downsample,
     axes: _,
     ...rest
   },
@@ -412,37 +374,21 @@ const DynamicLine = ({
 }): ReactElement => {
   const { xTelem, yTelem } = useMemo(() => {
     const keepFor = Number(timeSpan.valueOf()) * 3;
-    const yTelem = maybeDownsample(
-      { downsampleMode, downsample },
-      telem.streamChannelData({
-        timeSpan,
-        channel: y,
-        keepFor,
-      }),
-    );
+    const yTelem = telem.streamChannelData({
+      timeSpan,
+      channel: y,
+      keepFor,
+    });
     const hasX = x != null && x !== 0;
-    const xTelem = maybeDownsample(
-      { downsampleMode, downsample },
-      telem.streamChannelData({
-        timeSpan,
-        channel: hasX ? x : y,
-        useIndexOfChannel: !hasX,
-        keepFor,
-      }),
-    );
+    const xTelem = telem.streamChannelData({
+      timeSpan,
+      channel: hasX ? x : y,
+      useIndexOfChannel: !hasX,
+      keepFor,
+    });
     return { xTelem, yTelem };
-  }, [timeSpan.valueOf(), x, y, downsampleMode, downsample]);
-  const gpuDownsample = parseGPUDownsample({ downsampleMode, downsample });
-  return (
-    <Core.Line
-      key={key}
-      aetherKey={key}
-      y={yTelem}
-      x={xTelem}
-      downsample={gpuDownsample}
-      {...rest}
-    />
-  );
+  }, [timeSpan.valueOf(), x, y]);
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };
 
 const StaticLine = ({
@@ -450,45 +396,20 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
-    downsampleMode = "decimate",
-    downsample,
     ...rest
   },
 }: {
   line: StaticLineProps;
 }): ReactElement => {
   const { xTelem, yTelem } = useMemo(() => {
-    const yTelem = maybeDownsample(
-      { downsampleMode, downsample },
-      telem.channelData({ timeRange, channel: y }),
-    );
+    const yTelem = telem.channelData({ timeRange, channel: y });
     const hasX = x != null && x !== 0;
-    const xTelem = maybeDownsample(
-      { downsampleMode, downsample },
-      telem.channelData({
-        timeRange,
-        channel: hasX ? x : y,
-        useIndexOfChannel: !hasX,
-      }),
-    );
+    const xTelem = telem.channelData({
+      timeRange,
+      channel: hasX ? x : y,
+      useIndexOfChannel: !hasX,
+    });
     return { xTelem, yTelem };
-  }, [
-    timeRange.start.valueOf(),
-    timeRange.end.valueOf(),
-    x,
-    y,
-    downsampleMode,
-    downsample,
-  ]);
-  const gpuDownsample = parseGPUDownsample({ downsampleMode, downsample });
-  return (
-    <Core.Line
-      key={key}
-      aetherKey={key}
-      y={yTelem}
-      x={xTelem}
-      downsample={gpuDownsample}
-      {...rest}
-    />
-  );
+  }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };

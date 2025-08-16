@@ -78,6 +78,7 @@ export const Text = ({
   full,
   children,
   grow,
+  shrink,
   borderColor,
   borderWidth,
   bordered,
@@ -152,6 +153,7 @@ export const Text = ({
     style,
     full,
     grow,
+    shrink,
   };
   const hasChildren = children != null;
   const restButtonProps = hasChildren ? {} : outerProps;

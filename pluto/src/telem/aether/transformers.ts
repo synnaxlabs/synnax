@@ -11,6 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
   color,
+  id,
   MultiSeries,
   notation,
   scale,
@@ -56,8 +57,6 @@ export class TransformerFactory implements Factory {
         return new ColorGradient(spec.props);
       case ScaleNumber.TYPE:
         return new ScaleNumber(spec.props);
-      case SeriesDownsampler.TYPE:
-        return new SeriesDownsampler(spec.props);
     }
     return null;
   }
@@ -327,6 +326,7 @@ const average: DownsampleFunction = (source, downsampled, windowSize) => {
   const startIdx = downsampled.length * windowSize;
 
   for (let i = startIdx; i < source.length; i += windowSize) {
+    if (i + windowSize > source.length) break;
     const endIdx = Math.min(i + windowSize, source.length);
     let sum = 0;
     let count = 0;
@@ -383,16 +383,15 @@ const DOWNSAMPLE_FUNCTIONS: Record<DownsampleMode, DownsampleFunction> = {
   minmax,
 };
 
-export class SeriesDownsampler extends UnarySourceTransformer<
-  [bounds.Bounds, MultiSeries],
-  [bounds.Bounds, MultiSeries],
-  typeof downsampleModeProps
-> {
+export class SeriesDownsampler {
   static readonly TYPE = "series-downsampler";
-  static readonly propsZ = downsampleModeProps;
   private _downsample: DownsampleFunction | null = null;
   private readonly cache: MultiSeries = new MultiSeries();
-  schema = SeriesDownsampler.propsZ;
+  readonly props: DownsampleModeProps;
+
+  constructor(props: DownsampleModeProps) {
+    this.props = props;
+  }
 
   private downsample(source: MultiSeries): DownsampleFunction {
     if (this._downsample == null)
@@ -401,18 +400,16 @@ export class SeriesDownsampler extends UnarySourceTransformer<
     return this._downsample;
   }
 
-  protected transform(
-    value: [bounds.Bounds, MultiSeries],
-  ): [bounds.Bounds, MultiSeries] {
-    const [bounds, source] = value;
-    if (source.series.length === 0) return [bounds, this.cache];
+  transform(source: MultiSeries): MultiSeries {
+    if (this.props.mode === "decimate" || this.props.windowSize <= 1) return source;
+    if (source.series.length === 0) return this.cache;
 
     // Step 1: Evict Removed Series from Cache. We know we have an old entry if
     // the key of the first series in the source is not equal to the key of the
     // first series in the cache.
     while (
       this.cache.series.length > 0 &&
-      source.series[0].key !== this.cache.series[0].key
+      !this.cache.series[0].key.startsWith(source.series[0].key)
     )
       this.cache.series.shift();
 
@@ -426,7 +423,7 @@ export class SeriesDownsampler extends UnarySourceTransformer<
             ? Math.ceil(ser.capacity / this.props.windowSize) * 2
             : Math.ceil(ser.capacity / this.props.windowSize);
         downsampledSeries = Series.alloc({
-          key: ser.key,
+          key: ser.key + id.create(),
           dataType: ser.dataType,
           capacity,
           alignment: ser.alignment,
@@ -434,14 +431,13 @@ export class SeriesDownsampler extends UnarySourceTransformer<
           timeRange: ser.timeRange,
         });
         this.cache.push(downsampledSeries);
-      } else if (downsampledSeries.key !== ser.key)
+      } else if (!downsampledSeries.key.startsWith(ser.key))
         throw new UnexpectedError(
           `[SeriesDownsampler] - expected series with key ${ser.key} to be in cache, but found ${downsampledSeries.key}`,
         );
-
       this.downsample(source)(ser, downsampledSeries, this.props.windowSize);
     });
-    return [this.cache.bounds, this.cache];
+    return this.cache;
   }
 }
 
