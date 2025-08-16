@@ -122,8 +122,8 @@ jobs:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NODE_OPTIONS: "--max_old_space_size=4096"
-      APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
-      APPLE_ID_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
+      # APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
+      # APPLE_ID_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,13 +224,13 @@ jobs:
 
 
       - name: Build
-        env:
-          APPLE_CERTIFICATE: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && env.CERT_ID || '' }}
-          APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_TEAM_ID || '' }}
+        # env:
+        #   APPLE_CERTIFICATE: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE || '' }}
+        #   APPLE_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+        #   APPLE_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && env.CERT_ID || '' }}
+        #   APPLE_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID || '' }}
+        #   APPLE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.APPLE_ID_PASSWORD || '' }}
+        #   APPLE_TEAM_ID: ${{ github.event_name != 'pull_request' && secrets.APPLE_TEAM_ID || '' }}
         working-directory: console
         run: pnpm build
 
