@@ -587,6 +587,150 @@ describe("State", () => {
     });
   });
 
+  describe("union validation", () => {
+    const schema = z.object({
+      a: z.union([
+        z.object({
+          type: z.literal("a"),
+          color: z.string().min(1, "Color is required"),
+        }),
+        z.object({
+          type: z.literal("b"),
+          height: z.number(),
+        }),
+      ]),
+    });
+    it("should return success when all fields are valid", () => {
+      const state = new State({ a: { type: "a", color: "red" } }, schema);
+      state.setTouched("a");
+      state.validate();
+      expect(state.getState("a").status.variant).toBe("success");
+    });
+
+    it("should return an error for the most favored union field", () => {
+      const state = new State({ a: { type: "a", color: "" } }, schema);
+      state.setTouched("a.color");
+      state.validate();
+      expect(state.getState("a.color").status.variant).toBe("error");
+    });
+  });
+
+  describe("field array touched tracking", () => {
+    it("should reset touched status when field array item is removed after modification", () => {
+      const arraySchema = z.object({
+        items: z.array(z.object({
+          name: z.string(),
+          value: z.number(),
+        })),
+      });
+      
+      const initialValues = {
+        items: [
+          { name: "item1", value: 10 },
+          { name: "item2", value: 20 },
+        ],
+      };
+
+      const state = new State(initialValues, arraySchema);
+      
+      // Initially, the form should not be touched
+      expect(state.hasBeenTouched).toBe(false);
+      
+      // Add a new item to the array
+      const newItem = { name: "item3", value: 30 };
+      const updatedItems = [...state.values.items, newItem];
+      state.setValue("items", updatedItems);
+      
+      // Form should be touched after adding an item
+      expect(state.hasBeenTouched).toBe(true);
+      
+      // Modify a child field of the new item
+      state.setValue("items.2.name", "modified_item3");
+      
+      // Form should still be touched
+      expect(state.hasBeenTouched).toBe(true);
+      expect(state.getState("items.2.name").touched).toBe(true);
+      
+      // Remove the item we just added and modified
+      const finalItems = state.values.items.slice(0, 2); // Remove the last item
+      state.setValue("items", finalItems);
+      
+      // After removing the item that was added and modified,
+      // the form should no longer be touched since we're back to the initial state
+      expect(state.hasBeenTouched).toBe(false);
+    });
+
+    it("should maintain touched status for other modified fields when array item is removed", () => {
+      const arraySchema = z.object({
+        name: z.string(),
+        items: z.array(z.object({
+          title: z.string(),
+        })),
+      });
+      
+      const initialValues = {
+        name: "test",
+        items: [{ title: "original" }],
+      };
+
+      const state = new State(initialValues, arraySchema);
+      
+      // Modify a non-array field
+      state.setValue("name", "modified");
+      expect(state.hasBeenTouched).toBe(true);
+      
+      // Add an item to the array
+      state.setValue("items", [...state.values.items, { title: "new item" }]);
+      
+      // Modify the new item
+      state.setValue("items.1.title", "modified new item");
+      
+      // Remove the added item
+      state.setValue("items", [{ title: "original" }]);
+      
+      // The form should still be touched because the name field was modified
+      expect(state.hasBeenTouched).toBe(true);
+      expect(state.getState("name").touched).toBe(true);
+    });
+
+    it("should handle nested array operations correctly", () => {
+      const nestedArraySchema = z.object({
+        groups: z.array(z.object({
+          name: z.string(),
+          items: z.array(z.object({
+            value: z.string(),
+          })),
+        })),
+      });
+      
+      const initialValues = {
+        groups: [
+          {
+            name: "group1",
+            items: [{ value: "item1" }],
+          },
+        ],
+      };
+
+      const state = new State(initialValues, nestedArraySchema);
+      
+      // Add a new group
+      const newGroup = { name: "group2", items: [{ value: "item2" }] };
+      state.setValue("groups", [...state.values.groups, newGroup]);
+      
+      // Modify an item in the new group
+      state.setValue("groups.1.items.0.value", "modified_item2");
+      
+      expect(state.hasBeenTouched).toBe(true);
+      
+      // Remove the new group
+      state.setValue("groups", [{ name: "group1", items: [{ value: "item1" }] }]);
+      
+      // Should no longer be touched
+      expect(state.hasBeenTouched).toBe(false);
+    });
+  });
+
   describe("edge cases", () => {
     it("should handle empty string paths correctly", () => {
       const state = new State(initialValues, basicSchema);
