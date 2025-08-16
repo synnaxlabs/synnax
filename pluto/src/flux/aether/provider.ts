@@ -7,97 +7,116 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type Destructor, type MultiSeries } from "@synnaxlabs/x";
+import { type AsyncDestructor } from "@synnaxlabs/x";
 import z from "zod";
 
 import { aether, synnax } from "@/ether";
-import { type flux } from "@/flux/aether";
-import { type ListenerSpec } from "@/flux/aether/listeners";
-import { Streamer } from "@/flux/aether/streamer";
-import { type ListenerAdder } from "@/flux/aether/types";
+import { createStore, type Store, type StoreConfig } from "@/flux/aether/store";
+import { openStreamer } from "@/flux/aether/streamer";
 import { status } from "@/status/aether";
 
-export type ProviderState = z.input<typeof providerStateZ>;
+/** State schema for the flux provider (currently empty) */
 export const providerStateZ = z.object({});
 
+/** Type representing the provider's state */
+export type ProviderState = z.input<typeof providerStateZ>;
+
+/**
+ * Internal state managed by the provider.
+ */
 interface InternalState {
-  streamer: Streamer;
+  /** Function to close the active streamer connection */
+  closeStreamer: AsyncDestructor;
+  /** The store instance */
+  store: Store;
 }
 
+/**
+ * Value stored in the Aether context for flux components.
+ */
 export interface ContextValue {
-  addListener: ListenerAdder | null;
+  /** The store instance available to child components */
+  store: Store;
 }
 
+/**
+ * Default context value with an empty store.
+ * Used as a fallback when no provider is present.
+ */
 export const ZERO_CONTEXT_VALUE: ContextValue = {
-  addListener: null,
+  store: createStore({}),
 };
 
+/** Key used to store flux context in the Aether context */
 const CONTEXT_KEY = "flux-context";
 
+/**
+ * Sets the flux context value in the Aether context.
+ * 
+ * @param ctx - The Aether context
+ * @param value - The context value to set
+ */
 const set = (ctx: aether.Context, value: ContextValue): void =>
   ctx.set(CONTEXT_KEY, value);
 
-export class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
-  static readonly TYPE = "flux.Provider";
-  static readonly stateZ = providerStateZ;
-  schema = Provider.stateZ;
+/** Type identifier for the flux provider component */
+export const PROVIDER_TYPE = "flux.Provider";
 
-  afterUpdate(ctx: aether.Context): void {
-    const { internal: i } = this;
-    if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
-    const client = synnax.use(ctx);
-    const handleError = status.useErrorHandler(ctx);
-    i.streamer ??= new Streamer({ handleError });
-    if (client == null) return;
-    handleError(
-      async () => await i.streamer.updateStreamer(client.openStreamer.bind(client)),
-      "Failed to update Flux.Provider streamer",
-    );
-    const ctxValue: ContextValue = {
-      addListener: ({ channel, handler, onOpen }) =>
-        i.streamer.addListener(handler, channel, onOpen),
-    };
-    ctx.set(CONTEXT_KEY, ctxValue);
-  }
-}
+/**
+ * Hook to access the flux store from the Aether context.
+ * 
+ * @template ScopedStore - The type of the store
+ * @param ctx - The Aether context
+ * @returns The store instance from the context
+ */
+export const useStore = <ScopedStore extends Store>(ctx: aether.Context): ScopedStore =>
+  ctx.get<ContextValue>(CONTEXT_KEY).store as ScopedStore;
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Provider.TYPE]: Provider,
+/**
+ * Creates a flux provider component class for the given store configuration.
+ * The provider manages the store lifecycle and handles streamer connections.
+ * 
+ * @template ScopedStore - The type of the store
+ * @param storeConfig - Configuration for the store and its listeners
+ * @returns A provider component class
+ */
+const createProvider = <ScopedStore extends Store>(
+  storeConfig: StoreConfig<ScopedStore>,
+) => {
+  const store = createStore<ScopedStore>(storeConfig);
+  return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
+    static readonly TYPE = PROVIDER_TYPE;
+    static readonly stateZ = providerStateZ;
+    schema = Provider.stateZ;
+
+    afterUpdate(ctx: aether.Context): void {
+      const { internal: i } = this;
+      if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, { store });
+      const client = synnax.use(ctx);
+      const handleError = status.useErrorHandler(ctx);
+      if (client == null) return;
+      handleError(async () => {
+        i.closeStreamer ??= await openStreamer({
+          handleError,
+          storeConfig,
+          client,
+          store,
+          openStreamer: client.openStreamer.bind(client),
+        });
+      });
+    }
+  };
 };
 
-const noopListenerAdder: ListenerAdder = () => () => {};
-
-export const useAddListener = (ctx: aether.Context): ListenerAdder => {
-  const value = ctx.get<ContextValue>(CONTEXT_KEY);
-  return value.addListener ?? noopListenerAdder;
-};
-
-export const mountListeners = (
-  add: ListenerAdder,
-  handleError: status.ErrorHandler,
-  listeners: ListenerSpec<MultiSeries, {}> | flux.ListenerSpec<MultiSeries, {}>[],
-): Destructor => {
-  const destructors = array.toArray(listeners).map(({ channel, onChange }) =>
-    add({
-      channel,
-      handler: (frame) => {
-        handleError(
-          async () => await onChange({ changed: frame.get(channel) }),
-          `Error in Flux.useListener on channel ${channel}`,
-        );
-      },
-    }),
-  );
-  return () => destructors.forEach((d) => d());
-};
-
-export const useListener = (
-  ctx: aether.Context,
-  listeners: ListenerSpec<MultiSeries, {}> | flux.ListenerSpec<MultiSeries, {}>[],
-  destructor: Destructor | null,
-): Destructor => {
-  if (destructor != null) return destructor;
-  const addListener = useAddListener(ctx);
-  const handleError = status.useErrorHandler(ctx);
-  return mountListeners(addListener, handleError, listeners);
-};
+/**
+ * Creates an Aether component registry with the flux provider.
+ * 
+ * @template ScopedStore - The type of the store
+ * @param storeConfig - Configuration for the store and its listeners
+ * @returns An Aether component registry containing the provider
+ */
+export const createRegistry = <ScopedStore extends Store>(
+  storeConfig: StoreConfig<ScopedStore>,
+): aether.ComponentRegistry => ({
+  [PROVIDER_TYPE]: createProvider(storeConfig),
+});

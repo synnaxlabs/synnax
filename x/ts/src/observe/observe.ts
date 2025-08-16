@@ -12,6 +12,8 @@ import { type Destructor } from "@/destructor";
 /** Handler is called when the value of an Observable changes. */
 export type Handler<T> = (value: T) => void;
 
+export type AsyncHandler<T> = (value: T) => Promise<void>;
+
 /** A generic interface for an entity whose value can be observed when it changes. */
 export interface Observable<T> {
   /**

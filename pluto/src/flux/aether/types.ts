@@ -10,14 +10,29 @@
 import { type channel, type framer } from "@synnaxlabs/client";
 import { type Destructor, type observe } from "@synnaxlabs/x";
 
+/**
+ * Handler function for processing incoming frames from a streamer.
+ */
 export interface FrameHandler extends observe.Handler<framer.Frame> {}
 
+/**
+ * Configuration for subscribing to a channel stream.
+ */
 export interface Subscriber {
+  /** The name of the channel to subscribe to */
   channel: channel.Name;
+  /** Handler function called when frames are received */
   handler: FrameHandler;
+  /** Optional callback invoked when the stream opens */
   onOpen?: () => void;
 }
 
+/**
+ * Function type for adding a channel listener.
+ * 
+ * @param subscriber - The subscriber configuration
+ * @returns A destructor function to remove the listener
+ */
 export interface ListenerAdder {
   (subscriber: Subscriber): Destructor;
 }

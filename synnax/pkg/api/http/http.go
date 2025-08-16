@@ -67,6 +67,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.RangeAliasSet = fhttp.UnaryServer[api.RangeAliasSetRequest, types.Nil](router, "/api/v1/range/alias/set")
 	t.RangeAliasResolve = fhttp.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, "/api/v1/range/alias/resolve")
 	t.RangeAliasList = fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list")
+	t.RangeAliasRetrieve = fhttp.UnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse](router, "/api/v1/range/alias/retrieve")
 	t.RangeAliasDelete = fhttp.UnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete")
 
 	// WORKSPACE

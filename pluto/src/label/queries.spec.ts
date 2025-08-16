@@ -2,10 +2,35 @@ import { label, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Channel } from "@/channel";
+import { type Flux } from "@/flux";
 import { Label } from "@/label";
+import { Ontology } from "@/ontology";
+import { Ranger } from "@/ranger";
+import { ranger } from "@/ranger/aether";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+  channels: Channel.FluxStore;
+  rangeAliases: Ranger.AliasFluxStore;
+  ranges: ranger.FluxStore;
+  relationships: Ontology.RelationshipFluxStore;
+  resources: Ontology.ResourceFluxStore;
+  labels: Label.FluxStore;
+  rangeKV: Ranger.KVFluxStore;
+  aliases: Ranger.AliasFluxStore;
+}> = {
+  channels: Channel.STORE_CONFIG,
+  rangeAliases: Ranger.ALIAS_STORE_CONFIG,
+  ranges: ranger.STORE_CONFIG,
+  relationships: Ontology.RELATIONSHIP_STORE_CONFIG,
+  resources: Ontology.RESOURCE_STORE_CONFIG,
+  labels: Label.STORE_CONFIG,
+  rangeKV: Ranger.KV_STORE_CONFIG,
+  aliases: Ranger.ALIAS_STORE_CONFIG,
+};
 
 describe("queries", () => {
   describe("useList", () => {
@@ -20,7 +45,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({});
@@ -38,7 +63,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({});
@@ -62,7 +87,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({ searchTerm: "special" });
@@ -84,7 +109,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -95,7 +120,7 @@ describe("queries", () => {
 
     it("should update the list when a label is created", async () => {
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({});
@@ -121,14 +146,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
 
@@ -149,14 +173,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Label.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(testLabel.key);
 
@@ -193,7 +216,7 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -213,11 +236,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data?.length ?? 0;
 
@@ -250,11 +272,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
 
@@ -284,11 +305,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(
         result.current.data?.find((l) => l.key === originalLabel.key)?.name,
@@ -323,11 +343,10 @@ describe("queries", () => {
           Label.retrieveLabelsOf.useDirect({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
 
@@ -364,7 +383,7 @@ describe("queries", () => {
           Label.useLabelsOfForm({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -388,7 +407,7 @@ describe("queries", () => {
           Label.useLabelsOfForm({
             params: { id: label.ontologyID(targetLabel.key) },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -406,7 +425,7 @@ describe("queries", () => {
   describe("useForm", () => {
     it("should create a new label", async () => {
       const { result } = renderHook(() => Label.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
 
       act(() => {
@@ -430,7 +449,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useForm({ params: { key: existingLabel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -455,11 +474,10 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useForm({ params: { key: testLabel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
@@ -475,7 +493,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Label.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -492,7 +510,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Label.useDelete({ params: { key: labelToDelete.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
 
       act(() => {
@@ -518,11 +536,11 @@ describe("queries", () => {
 
       const { result: result1 } = renderHook(
         () => Label.useDelete({ params: { key: label1.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
       const { result: result2 } = renderHook(
         () => Label.useDelete({ params: { key: label2.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG) },
       );
 
       act(() => {

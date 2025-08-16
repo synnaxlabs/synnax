@@ -15,6 +15,7 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 import { Workspace } from "@/workspace";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   describe("useList", () => {
@@ -29,7 +30,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -51,7 +52,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -73,7 +74,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -93,7 +94,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -105,7 +106,7 @@ describe("queries", () => {
 
     it("should update the list when a workspace is created", async () => {
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -131,7 +132,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -155,7 +156,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -182,7 +183,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -208,7 +209,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -234,7 +235,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -268,7 +269,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Workspace.retrieve.useDirect({ params: { key: testWorkspace.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -286,7 +287,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Workspace.retrieve.useDirect({ params: { key: workspace.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 

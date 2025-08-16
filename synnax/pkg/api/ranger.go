@@ -446,3 +446,43 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 
 	return RangeAliasListResponse{Aliases: aliases}, err
 }
+
+type (
+	RangeAliasRetrieveRequest struct {
+		Range    uuid.UUID     `json:"range" msgpack:"range"`
+		Channels []channel.Key `json:"channels" msgpack:"channels"`
+	}
+	RangeAliasRetrieveResponse struct {
+		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	}
+)
+
+func (s *RangeService) AliasRetrieve(ctx context.Context, req RangeAliasRetrieveRequest) (res RangeAliasRetrieveResponse, _ error) {
+	var r ranger.Range
+	if err := s.internal.NewRetrieve().Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil); err != nil {
+		return res, err
+	}
+
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+	}); err != nil {
+		return res, err
+	}
+
+	aliases := make(map[channel.Key]string)
+	for _, ch := range req.Channels {
+		alias, err := r.RetrieveAlias(ctx, ch)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return res, err
+		}
+		if alias != "" {
+			aliases[ch] = alias
+		}
+	}
+
+	return RangeAliasRetrieveResponse{Aliases: aliases}, nil
+}

@@ -15,6 +15,7 @@ import { Channel } from "@/channel";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
@@ -43,12 +44,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(3);
       expect(result.current.data).toContain(ch1.key);
       expect(result.current.data).toContain(ch2.key);
@@ -62,7 +65,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -87,7 +90,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -113,7 +116,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
@@ -124,14 +127,13 @@ describe("queries", () => {
 
     it("should update the list when a channel is created", async () => {
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       const initialLength = result.current.data.length;
 
@@ -155,14 +157,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
 
@@ -181,14 +182,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.data).toContain(testChannel.key);
 
@@ -207,7 +207,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -228,7 +228,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -243,7 +243,7 @@ describe("queries", () => {
   describe("useForm", () => {
     it("should create a new virtual channel", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -266,7 +266,7 @@ describe("queries", () => {
 
     it("should create a new index channel", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -295,7 +295,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -325,7 +325,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useForm({ params: { key: existingChannel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -352,7 +352,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useForm({ params: { key: testChannel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().name).toEqual("externalUpdate");
@@ -366,7 +366,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -378,7 +378,7 @@ describe("queries", () => {
 
     it("should validate that index channels have timestamp data type", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -395,7 +395,7 @@ describe("queries", () => {
 
     it("should validate that data channels have an index or are virtual", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -414,7 +414,7 @@ describe("queries", () => {
 
     it("should validate that persisted channels have fixed-size data types", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -440,7 +440,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -480,7 +480,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useCalculatedForm({ params: { key: existingCalculated.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -504,7 +504,7 @@ describe("queries", () => {
 
     it("should validate that expression is not empty", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -520,7 +520,7 @@ describe("queries", () => {
 
     it("should validate that expression contains return statement", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -536,7 +536,7 @@ describe("queries", () => {
 
     it("should validate that expression uses at least one channel", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -553,7 +553,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -580,11 +580,10 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useCalculatedForm({ params: { key: testCalculated.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.form.value().name).toEqual("updateCalculated");
 

@@ -11,7 +11,6 @@ import { channel } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useAliases } from "@/channel/AliasContext";
 import { type ListParams, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
@@ -35,13 +34,13 @@ export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
     const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-    const aliases = useAliases();
+    // const aliases = useAliases();
     const Icon = resolveIcon(item?.payload);
-    const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
+    // const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
     return (
       <Select.ListItem itemKey={itemKey} {...rest}>
         <Icon />
-        {displayName}
+        {item?.name}
       </Select.ListItem>
     );
   },

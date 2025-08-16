@@ -268,6 +268,16 @@ export class Client {
     return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 
+  async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.retrieve(channel);
+  }
+
+  async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    await aliaser.set({ [channel]: alias });
+  }
+
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
       frameClient: this.frameClient,

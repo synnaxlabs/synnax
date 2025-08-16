@@ -8,46 +8,51 @@
 // included in the file licenses/APL.txt.
 
 import { type framer } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useMemo,
-  useRef,
+  useState,
 } from "react";
 
 import { Aether } from "@/aether";
 import { flux } from "@/flux/aether";
-import { type ListenerAdder } from "@/flux/aether/types";
-import { Context } from "@/flux/Context";
-import { useAsyncEffect } from "@/hooks";
+import { useAsyncEffect, useInitializerRef, useRequiredContext } from "@/hooks";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-export interface ProviderProps extends PropsWithChildren {
-  openStreamer?: framer.StreamOpener;
-  streamerRemovalDelay?: CrudeTimeSpan;
+interface ContextValue {
+  listenersMounted: boolean;
+  store: flux.Store;
 }
 
-const STREAMER_REMOVAL_DELAY = TimeSpan.seconds(5);
+const Context = createContext<ContextValue | null>(null);
 
-export const Provider = ({
+export const useStore = <ScopedStore extends flux.Store>(): ScopedStore =>
+  useRequiredContext(Context)?.store as ScopedStore;
+
+export interface ProviderProps<ScopedStore extends flux.Store>
+  extends PropsWithChildren {
+  openStreamer?: framer.StreamOpener;
+  storeConfig?: flux.StoreConfig<ScopedStore>;
+  requireStreamerMounted?: boolean;
+}
+
+export const Provider = <ScopedStore extends flux.Store>({
   children,
   openStreamer: propsOpenStreamer,
-  streamerRemovalDelay = STREAMER_REMOVAL_DELAY,
-}: ProviderProps): ReactElement => {
+  storeConfig = {} as flux.StoreConfig<ScopedStore>,
+  requireStreamerMounted = false,
+}: ProviderProps<ScopedStore>): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const streamerRef = useRef<flux.Streamer>(
-    new flux.Streamer({
-      handleError,
-      removalDelay: streamerRemovalDelay,
-    }),
+  const storeRef = useInitializerRef<ScopedStore>(() =>
+    flux.createStore<ScopedStore>(storeConfig),
   );
-
+  const [streamerMounted, setStreamerMounted] = useState(!requireStreamerMounted);
   const { path } = Aether.useLifecycle({
-    type: flux.Provider.TYPE,
+    type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
     initialState: {},
   });
@@ -58,19 +63,27 @@ export const Provider = ({
   );
 
   useAsyncEffect(async () => {
-    if (openStreamer == null) return;
-    await streamerRef.current.updateStreamer(openStreamer);
-    return streamerRef.current.close.bind(streamerRef.current);
+    if (openStreamer == null || client == null) return;
+    const destructor = await flux.openStreamer({
+      handleError,
+      storeConfig,
+      client,
+      store: storeRef.current,
+      openStreamer,
+    });
+    setStreamerMounted(true);
+    return () => destructor();
   }, [openStreamer]);
-
-  const addListener: ListenerAdder = useCallback(
-    ({ channel, handler, onOpen }) =>
-      streamerRef.current.addListener(handler, channel, onOpen),
-    [],
+  const value = useMemo(
+    () => ({
+      listenersMounted: streamerMounted,
+      store: storeRef.current,
+    }),
+    [streamerMounted, storeRef.current],
   );
   return (
     <Aether.Composite path={path}>
-      <Context value={addListener}>{children}</Context>
+      <Context value={value}>{children}</Context>
     </Aether.Composite>
   );
 };
