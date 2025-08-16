@@ -8,7 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 import sys
-from typing import NamedTuple
-
 import synnax as sy
-from integration import FILE_NAME

@@ -88,7 +88,3 @@ def test_no_timeout():
     finally:
         # Clean up
         conductor.shutdown()
-
-if __name__ == "__main__":
-    success = test_no_timeout()
-    sys.exit(0 if success else 1)
