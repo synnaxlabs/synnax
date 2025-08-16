@@ -32,6 +32,7 @@ import {
   useResize,
   useSyncedRef,
 } from "@/hooks";
+import { Menu } from "@/menu";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
@@ -183,6 +184,8 @@ export const Frame = ({
           const isTrigger = parentRef.current.contains(e.target as Node);
           exclude = isTrigger;
         }
+        const contextMenus = document.getElementsByClassName(Menu.CONTEXT_MENU_CLASS);
+        if (contextMenus.length > 0) exclude = true;
         if (!exclude) e.stopImmediatePropagation();
         return exclude;
       }
