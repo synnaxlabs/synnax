@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -65,6 +66,20 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ>
         },
       } as task.Task);
     }),
+};
+
+export const useStatusSynchronizer = (
+  onStatus: (status: task.Status) => void,
+): void => {
+  const store = Flux.useStore<SubStore>();
+  useEffect(
+    () =>
+      store.tasks.onSet(async (task) => {
+        if (task.status == null) return;
+        onStatus(task.status);
+      }),
+    [store],
+  );
 };
 
 export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {

@@ -33,6 +33,7 @@ interface SubStore extends Flux.Store {
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
   const cached = store.ranges.get(key);
   if (cached != null) return cached;
+
   const range = await client.ranges.retrieve(key);
   store.ranges.set(key, range);
   return range;
@@ -55,7 +56,7 @@ const multiCachedRetrieve = async (
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
   const store = Flux.useStore<SubStore>();
   useEffect(() => {
-    const destructor = store.ranges.onSet(async (changed) => onSet(changed));
+    const destructor = store.ranges.onSet(async (changed) => onSet(changed.payload));
     return () => destructor();
   }, [store.ranges]);
 };

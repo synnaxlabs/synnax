@@ -322,17 +322,25 @@ export const retrieveAlias = Flux.createRetrieve<
 
 export interface UseNameReturn {
   name: string;
-  alias: string;
+  alias?: string;
   rename: (name: string) => void;
 }
 
-export const useName = (key: channel.Key, range?: ranger.Key, defaultName?: string) => {
-  // const { data } = retrieveAlias.useDirect({
-  //   params: { channelKey: key, rangeKey: range },
-  // });
-  // const alias = data?.alias;
-  // const name = data?.name;
-  // if (alias != null) return alias;
-  // if (name != null) return name;
-  // return defaultName;
+interface UseNameArgs {
+  key: channel.Key;
+  range?: ranger.Key;
+  defaultName: string;
+}
+
+export const useName = ({ key, range, defaultName }: UseNameArgs): UseNameReturn => {
+  const args = { params: { key, rangeKey: range } };
+  const { data } = retrieve.useDirect(args);
+  const { update: rename } = update.useDirect(args);
+  const handleRename = (name: string) => {
+    if (data == null) return;
+    rename({ ...data, name });
+  };
+  const name = data?.alias ?? data?.name ?? defaultName;
+  const alias = data?.alias;
+  return { name, alias, rename: handleRename };
 };
