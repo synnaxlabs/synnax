@@ -211,11 +211,11 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server (Before Build)
-        if: matrix.os == 'macos-latest' 
+        if: matrix.os == 'macos-latest' && (github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch')
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
-          # Adjust this path to point to the embedded binary in your repository.
           EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
           if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
             echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
