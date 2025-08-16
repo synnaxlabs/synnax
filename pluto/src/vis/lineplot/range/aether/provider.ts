@@ -23,6 +23,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
+import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -58,6 +59,10 @@ interface ProviderProps {
   timeRange: TimeRange;
 }
 
+interface Store extends flux.Store {
+  ranges: aetherRanger.FluxStore;
+}
+
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   schema = providerStateZ;
@@ -74,31 +79,24 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
     if (client == null) return;
     i.client = client;
-
-    i.removeListener = flux.useListener(
-      ctx,
-      [
-        {
-          channel: ranger.SET_CHANNEL_NAME,
-          onChange: flux.parsedHandler(ranger.payloadZ, async ({ changed }) => {
-            if (i.client == null) return;
-            if (color.isCrude(changed.color))
-              i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
-            this.setState((s) => ({ ...s, count: i.ranges.size }));
-            i.requestRender("tool");
-          }),
-        },
-        {
-          channel: ranger.DELETE_CHANNEL_NAME,
-          onChange: flux.parsedHandler(ranger.keyZ, async ({ changed }) => {
-            i.ranges.delete(changed);
-            this.setState((s) => ({ ...s, count: i.ranges.size }));
-            i.requestRender("tool");
-          }),
-        },
-      ],
-      i.removeListener,
-    );
+    const store = flux.useStore<Store>(ctx);
+    i.removeListener?.();
+    const removeOnSet = store.ranges.onSet(async (changed) => {
+      if (i.client == null) return;
+      if (color.isCrude(changed.color))
+        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+      i.requestRender("tool");
+    });
+    const removeOnDelete = store.ranges.onDelete(async (changed) => {
+      i.ranges.delete(changed);
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+      i.requestRender("tool");
+    });
+    i.removeListener = () => {
+      removeOnSet();
+      removeOnDelete();
+    };
   }
 
   private fetchInitial(timeRange: TimeRange): void {

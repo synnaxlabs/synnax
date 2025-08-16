@@ -11,6 +11,7 @@ import { useCallback } from "react";
 import { type z } from "zod";
 
 import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type Store } from "@/flux/aether/store";
 import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
@@ -27,8 +28,9 @@ import { state } from "@/state";
 export interface CreateFormArgs<
   FormParams extends Params,
   DataSchema extends z.ZodObject,
-> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | null>,
-    CreateUpdateArgs<FormParams, z.infer<DataSchema>> {
+  SubStore extends Store,
+> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | null, SubStore>,
+    CreateUpdateArgs<FormParams, z.infer<DataSchema>, SubStore> {
   /** Zod schema for form validation */
   schema: DataSchema;
   /** Default values to use when creating new forms */
@@ -135,20 +137,27 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodObject> {
  * });
  * ```
  */
-export const createForm = <FormParams extends Params, Schema extends z.ZodObject>({
+export const createForm = <
+  FormParams extends Params,
+  Schema extends z.ZodObject,
+  SubStore extends Store = {},
+>({
   name,
   schema,
   retrieve,
-  listeners,
+  mountListeners,
   update,
   initialValues: baseInitialValues,
-}: CreateFormArgs<FormParams, Schema>): UseForm<FormParams, Schema> => {
-  const retrieveHook = createRetrieve<FormParams, z.infer<Schema> | null>({
+}: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> => {
+  const retrieveHook = createRetrieve<FormParams, z.infer<Schema> | null, SubStore>({
     name,
     retrieve,
-    listeners,
+    mountListeners,
   });
-  const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
+  const updateHook = createUpdate<FormParams, z.infer<Schema>, SubStore>({
+    name,
+    update,
+  });
 
   return ({
     params,
@@ -161,7 +170,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(pendingResult(name, "retrieving", null, false));
+    >(pendingResult(name, "retrieving", null));
 
     const form = Form.use<Schema>({
       schema,
@@ -212,7 +221,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
             afterSave?.({ form, params });
             form.setCurrentStateAsInitialValues();
           } catch (error) {
-            setResult((p) => errorResult(name, "update", error, p.listenersMounted));
+            setResult(errorResult(name, "update", error));
           }
         })(),
       [form, updateAsync, afterSave, params],

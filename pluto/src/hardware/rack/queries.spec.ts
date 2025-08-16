@@ -114,7 +114,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       const initialLength = result.current.data.length;
@@ -141,7 +140,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
@@ -168,7 +166,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.data).toContain(testRack.key);
@@ -192,7 +189,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
 

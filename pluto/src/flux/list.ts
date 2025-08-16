@@ -21,6 +21,7 @@ import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   nullClientResult,
@@ -28,8 +29,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { type CreateRetrieveArgs } from "@/flux/retrieve";
-import { useMountListeners } from "@/flux/useMountListeners";
+import { type CreateRetrieveArgs, type MountListenersArgs } from "@/flux/retrieve";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -103,6 +103,7 @@ export type UseListReturn<
 export interface RetrieveByKeyArgs<
   RetrieveParams extends Params,
   K extends record.Key,
+  ScopedStore extends flux.Store,
 > {
   /** Parameters for the retrieve operation */
   params: Partial<RetrieveParams>;
@@ -110,6 +111,8 @@ export interface RetrieveByKeyArgs<
   key: K;
   /** The Synnax client instance */
   client: Client;
+  /** The store instance */
+  store: ScopedStore;
 }
 
 /**
@@ -123,11 +126,16 @@ export interface CreateListArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
+  ScopedStore extends flux.Store,
+> extends Omit<CreateRetrieveArgs<RetrieveParams, E[], ScopedStore>, "mountListeners"> {
   /** Function to retrieve a single item by key for lazy loading */
-  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E | undefined>;
-  /** Optional listeners for real-time list updates */
-  listeners?: ListListenerConfig<RetrieveParams, K, E>[];
+  retrieveByKey: (
+    args: RetrieveByKeyArgs<RetrieveParams, K, ScopedStore>,
+  ) => Promise<E | undefined>;
+  /** Function to mount listeners for the list */
+  mountListeners?: (
+    args: ListMountListenersArgs<RetrieveParams, K, E, ScopedStore>,
+  ) => Destructor | Destructor[];
 }
 
 /**
@@ -203,18 +211,14 @@ export interface ListListenerExtraArgs<
  * @template K The type of the key (must be a record key)
  * @template E The type of the entity (must be keyed by K)
  */
-export interface ListListenerConfig<
+export interface ListMountListenersArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-> {
-  /** The channel to listen to for real-time updates */
-  channel: string;
-  /** The function to call when a new value is received from the channel */
-  onChange: flux.ListenerHandler<
-    MultiSeries,
-    ListListenerExtraArgs<RetrieveParams, K, E>
-  >;
+  ScopedStore extends flux.Store,
+> extends Omit<MountListenersArgs<ScopedStore, RetrieveParams, E[]>, "onChange"> {
+  onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
+  onDelete: (key: K) => void;
 }
 
 /**
@@ -306,12 +310,17 @@ const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
  * ```
  */
 export const createList =
-  <P extends Params, K extends record.Key, E extends record.Keyed<K>>({
+  <
+    P extends Params,
+    K extends record.Key,
+    E extends record.Keyed<K>,
+    ScopedStore extends flux.Store = {},
+  >({
     name,
-    listeners,
+    mountListeners,
     retrieve,
     retrieveByKey,
-  }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
+  }: CreateListArgs<P, K, E, ScopedStore>): UseList<P, K, E> =>
   (args: UseListArgs<P, K, E> = {}) => {
     const {
       filter = defaultFilter,
@@ -328,12 +337,12 @@ export const createList =
       listeners: new Map(),
     }));
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving", null, false),
+      pendingResult<K[]>(name, "retrieving", null),
     );
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
-    const mountSynchronizers = useMountListeners();
+    const store = useStore<ScopedStore>();
 
     const notifyListeners = useCallback(
       (changed: K) =>
@@ -365,21 +374,16 @@ export const createList =
         paramsRef.current = params;
 
         try {
-          if (client == null)
-            return setResult((p) =>
-              nullClientResult<K[]>(name, "retrieve", p.listenersMounted),
-            );
-          setResult((p) => pendingResult(name, "retrieving", p.data, false));
+          if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
+          setResult((p) => pendingResult(name, "retrieving", p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
           // of the query, so we start from the top again.
           if (mode === "replace") hasMoreRef.current = true;
           else if (mode === "append" && !hasMoreRef.current)
-            return setResult((p) =>
-              successResult(name, "retrieved", p.data ?? [], p.listenersMounted),
-            );
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
-          let value = await retrieve({ client, params });
+          let value = await retrieve({ client, params, store });
           if (signal?.aborted) return;
           value = value.filter(filterRef.current);
           if (sortRef.current != null) value = value.sort(sortRef.current);
@@ -393,91 +397,63 @@ export const createList =
             resultRef.current.data != null &&
             compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
           )
-            return setResult((p) =>
-              successResult(name, "retrieved", p.data ?? [], p.listenersMounted),
-            );
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
           value.forEach((v) => dataRef.current.set(v.key, v));
 
-          mountSynchronizers({
-            onOpen: () => {
-              setResult((p) => ({ ...p, listenersMounted: true }));
+          mountListeners?.({
+            client,
+            store,
+            params,
+            onDelete: (k) => {
+              dataRef.current.delete(k);
+              setResult((p) => {
+                if (p.data == null) return p;
+                return { ...p, data: p.data.filter((key) => key !== k) };
+              });
             },
-            listeners: listeners?.map((l) => ({
-              channel: l.channel,
-              handler: (frame) =>
-                void (async () => {
-                  if (client == null || paramsRef.current == null) return;
-                  try {
-                    await l.onChange({
-                      client,
-                      params: paramsRef.current,
-                      changed: frame.get(l.channel),
-                      onDelete: (k) => {
-                        dataRef.current.delete(k);
-                        setResult((p) => {
-                          if (p.data == null) return p;
-                          return { ...p, data: p.data.filter((key) => key !== k) };
-                        });
-                      },
-                      onChange: (k, setter, opts = {}) => {
-                        const { mode = "append" } = opts;
-                        const prev = dataRef.current.get(k) ?? null;
-                        if (prev != null && !filterRef.current(prev)) return;
-                        const res = state.executeSetter(setter, prev);
-                        if (res == null || !filterRef.current(res)) return;
+            onChange: (k, setter, opts = {}) => {
+              const { mode = "append" } = opts;
+              const prev = dataRef.current.get(k) ?? null;
+              if (prev != null && !filterRef.current(prev)) return;
+              const res = state.executeSetter(setter, prev);
+              if (res == null || !filterRef.current(res)) return;
+              dataRef.current.set(k, res);
+              setResult((p) => {
+                if (p.data == null) return p;
+                let newData: K[];
+                if (prev == null)
+                  if (sortRef.current != null)
+                    newData = updateSortedData([...p.data, k]);
+                  else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
+                else if (sortRef.current != null) {
+                  const currentIndex = p.data.indexOf(k);
+                  const sortedData = updateSortedData(p.data);
+                  const newIndex = sortedData.indexOf(k);
+                  if (currentIndex !== newIndex) newData = sortedData;
+                  else newData = p.data;
+                } else newData = p.data;
+                return { ...p, data: newData };
+              });
 
-                        dataRef.current.set(k, res);
-                        setResult((p) => {
-                          if (p.data == null) return p;
-                          let newData: K[];
-                          if (prev == null)
-                            if (sortRef.current != null)
-                              newData = updateSortedData([...p.data, k]);
-                            else
-                              newData =
-                                mode === "prepend" ? [k, ...p.data] : [...p.data, k];
-                          else if (sortRef.current != null) {
-                            const currentIndex = p.data.indexOf(k);
-                            const sortedData = updateSortedData(p.data);
-                            const newIndex = sortedData.indexOf(k);
-                            if (currentIndex !== newIndex) newData = sortedData;
-                            else newData = p.data;
-                          } else newData = p.data;
-                          return { ...p, data: newData };
-                        });
-
-                        notifyListeners(k);
-                      },
-                    });
-                  } catch (error) {
-                    if (signal?.aborted) return;
-                    setResult((p) =>
-                      errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
-                    );
-                  }
-                })(),
-            })),
+              notifyListeners(k);
+            },
           });
           return setResult((prev) => {
             if (mode === "replace" || prev.data == null)
-              return successResult(name, "retrieved", keys, prev.listenersMounted);
+              return successResult(name, "retrieved", keys);
             const keysSet = new Set(keys);
-            return successResult(
-              name,
-              "retrieved",
-              [...prev.data.filter((k) => !keysSet.has(k)), ...keys],
-              prev.listenersMounted,
-            );
+            return successResult(name, "retrieved", [
+              ...prev.data.filter((k) => !keysSet.has(k)),
+              ...keys,
+            ]);
           });
         } catch (error) {
           if (signal?.aborted) return;
-          setResult((p) =>
-            errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
-          );
+          setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
-      [client, name, mountSynchronizers, filterRef],
+      [client, name, store, filterRef],
     );
 
     const retrieveSingle = useCallback(
@@ -490,6 +466,7 @@ export const createList =
               client,
               key,
               params: paramsRef.current ?? {},
+              store,
             });
             if (signal?.aborted || item == null) return;
             if (!filterRef.current(item)) {
@@ -501,9 +478,7 @@ export const createList =
           } catch (error) {
             if (signal?.aborted) return;
             dataRef.current.set(key, null);
-            setResult((p) =>
-              errorResult<K[]>(name, "retrieve", error, p.listenersMounted),
-            );
+            setResult(errorResult<K[]>(name, "retrieve", error));
           }
         })();
       },

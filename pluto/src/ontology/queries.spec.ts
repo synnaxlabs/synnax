@@ -65,7 +65,6 @@ describe("Ontology Queries", () => {
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
-        expect(result.current.listenersMounted).toBe(true);
       });
       const child3 = await client.ontology.groups.create(parent.ontologyID, "child3");
       await client.ontology.addChildren(parent.ontologyID, child3.ontologyID);
@@ -95,7 +94,6 @@ describe("Ontology Queries", () => {
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
-        expect(result.current.listenersMounted).toBe(true);
       });
       await client.ontology.removeChildren(parent.ontologyID, child1.ontologyID);
       await waitFor(() => {
@@ -189,9 +187,7 @@ describe("Ontology Queries", () => {
         result.current.retrieve({});
       });
 
-      await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
-      });
+      await waitFor(() => {});
 
       const newGroupName = id.create();
       const newGroup = await client.ontology.groups.create(

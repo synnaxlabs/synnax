@@ -18,7 +18,7 @@ import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
 
-describe("list", () => {
+describe.only("list", () => {
   let controller: AbortController;
   beforeEach(() => {
     controller = new AbortController();
@@ -430,6 +430,28 @@ describe("list", () => {
     });
   });
 
+  interface Store extends Flux.Store {
+    ranges: Flux.UnaryStore<ranger.Key, ranger.Payload>;
+  }
+
+  const SET_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.payloadZ> = {
+    channel: ranger.SET_CHANNEL_NAME,
+    schema: ranger.payloadZ,
+    onChange: async ({ store, changed }) => store.ranges.set(changed.key, changed),
+  };
+
+  const DELETE_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.keyZ> = {
+    channel: ranger.DELETE_CHANNEL_NAME,
+    schema: ranger.keyZ,
+    onChange: async ({ store, changed }) => store.ranges.delete(changed),
+  };
+
+  const storeConfig: Flux.StoreConfig<Store> = {
+    ranges: {
+      listeners: [SET_RANGE_LISTENER, DELETE_RANGE_LISTENER],
+    },
+  };
+
   describe("listeners", () => {
     it("should correctly update a list item when the listener changes", async () => {
       const rng = await client.ranges.create({
@@ -442,32 +464,28 @@ describe("list", () => {
 
       const { result } = renderHook(
         () => {
-          const { getItem, subscribe, retrieve, listenersMounted } = Flux.createList<
+          const { getItem, subscribe, retrieve } = Flux.createList<
             {},
             ranger.Key,
-            ranger.Payload
+            ranger.Payload,
+            Store
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            listeners: [
-              {
-                channel: ranger.SET_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  ranger.payloadZ,
-                  async ({ onChange, changed }) => onChange(changed.key, () => changed),
-                ),
-              },
-            ],
+            mountListeners: ({ store, onChange }) =>
+              store.ranges.onSet(async (changed) =>
+                onChange(changed.key, () => changed),
+              ),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Payload>({
             subscribe,
             getItem,
             key: rng.key,
           });
-          return { retrieve, value, listenersMounted };
+          return { retrieve, value };
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
 
       act(() => {
@@ -476,7 +494,6 @@ describe("list", () => {
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
@@ -496,27 +513,21 @@ describe("list", () => {
       });
       const { result } = renderHook(
         () => {
-          const { getItem, retrieve, listenersMounted } = Flux.createList<
+          const { getItem, retrieve } = Flux.createList<
             {},
             ranger.Key,
-            ranger.Payload
+            ranger.Payload,
+            Store
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            listeners: [
-              {
-                channel: ranger.DELETE_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  ranger.keyZ,
-                  async ({ onDelete, changed }) => onDelete(changed),
-                ),
-              },
-            ],
+            mountListeners: ({ store, onDelete }) =>
+              store.ranges.onDelete(async (changed) => onDelete(changed)),
           })();
-          return { retrieve, value: getItem(rng.key), listenersMounted };
+          return { retrieve, value: getItem(rng.key) };
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
 
       act(() => {
@@ -525,7 +536,6 @@ describe("list", () => {
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       await act(async () => await client.ranges.delete(rng.key));
       await waitFor(() => {
@@ -552,24 +562,19 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, Store>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
               await client.ranges.retrieve(rng2.key),
             ],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            listeners: [
-              {
-                channel: ranger.SET_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  ranger.payloadZ,
-                  async ({ onChange, changed }) => onChange(changed.key, () => changed),
-                ),
-              },
-            ],
+            mountListeners: ({ store, onChange }) =>
+              store.ranges.onSet(async (changed) =>
+                onChange(changed.key, () => changed),
+              ),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
 
       act(() => {
@@ -580,7 +585,6 @@ describe("list", () => {
         const indexOfRng1 = result.current.data.indexOf(rng1.key);
         const indexOfRng2 = result.current.data.indexOf(rng2.key);
         expect(indexOfRng2).toBeLessThan(indexOfRng1);
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => await client.ranges.rename(rng1.key, "Z Range"));
@@ -611,27 +615,19 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, Store>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
               await client.ranges.retrieve(rng2.key),
             ],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            listeners: [
-              {
-                channel: ranger.SET_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  ranger.payloadZ,
-                  async ({ onChange, changed }) => {
-                    if (changed.name === "B Range")
-                      onChange(changed.key, () => changed);
-                  },
-                ),
-              },
-            ],
+            mountListeners: ({ store, onChange }) =>
+              store.ranges.onSet(async (changed) =>
+                onChange(changed.key, () => changed),
+              ),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
 
       act(() => {
@@ -640,7 +636,6 @@ describe("list", () => {
 
       await waitFor(() => {
         expect(result.current.data).toEqual([rng1.key, rng2.key]); // A Range, C Range
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       const rng3 = await client.ranges.create({

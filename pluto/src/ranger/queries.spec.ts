@@ -178,7 +178,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data.length;
 
@@ -207,7 +206,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(testRange.key)?.name).toEqual("original");
 
@@ -232,7 +230,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(testRange.key);
 
@@ -394,7 +391,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data.length;
       expect(initialLength).toEqual(0);
@@ -437,7 +433,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(childRange.key)?.name).toEqual("originalChild");
 
@@ -472,7 +467,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(childRange.key);
 
@@ -740,7 +734,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 
@@ -764,7 +757,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       const initialLabels = result.current.form.value().labels;
@@ -807,7 +799,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().labels).toContain(label1.key);
       expect(result.current.form.value().labels).toContain(label2.key);
@@ -843,7 +834,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().parent).toEqual(originalParent.key);
 

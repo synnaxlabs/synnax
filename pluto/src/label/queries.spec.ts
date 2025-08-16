@@ -128,7 +128,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.getItem(testLabel.key)?.name).toEqual("original");
 
@@ -156,7 +155,6 @@ describe("queries", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data).toContain(testLabel.key);
 
@@ -217,7 +215,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       const initialLength = result.current.data?.length ?? 0;
 
@@ -254,7 +251,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
 
@@ -288,7 +284,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(
         result.current.data?.find((l) => l.key === originalLabel.key)?.name,
@@ -327,7 +322,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
 
@@ -459,7 +453,6 @@ describe("queries", () => {
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
       expect(result.current.form.value().name).toEqual("externalUpdate");
 

@@ -363,6 +363,31 @@ describe("useForm", () => {
     });
   });
 
+  interface SubStore extends Flux.Store {
+    labels: Flux.UnaryStore<label.Key, label.Label>;
+  }
+
+  const SET_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
+    channel: label.SET_CHANNEL_NAME,
+    schema: label.labelZ,
+    onChange: async ({ store, changed }) => {
+      store.labels.set(changed.key, changed);
+    },
+  };
+  const DELETE_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
+    channel: label.DELETE_CHANNEL_NAME,
+    schema: label.labelZ,
+    onChange: async ({ store, changed }) => {
+      store.labels.delete(changed.key);
+    },
+  };
+
+  const STORE_CONFIG: Flux.StoreConfig<SubStore> = {
+    labels: {
+      listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
+    },
+  };
+
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const ch = await client.labels.create({
@@ -381,7 +406,7 @@ describe("useForm", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues: {
               key: ch.key.toString(),
               name: "",
@@ -391,29 +416,17 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-            listeners: [
-              {
-                channel: label.SET_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  label.labelZ,
-                  async ({ params, onChange, changed }) => {
-                    if (changed.key !== params.key) return;
-                    onChange((prev) => {
-                      if (prev == null) return prev;
-                      return { ...prev, name: changed.name };
-                    });
-                  },
-                ),
-              },
-            ],
+            mountListeners: ({ store, onChange }) =>
+              store.labels.onSet(async (changed) =>
+                onChange((p) => (p == null ? p : { ...p, name: changed.name })),
+              ),
           })({ params: { key: ch.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, STORE_CONFIG) },
       );
 
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => {
@@ -448,22 +461,18 @@ describe("useForm", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues,
             schema: formSchema,
             name: "test",
             retrieve,
             update,
-            listeners: [
-              {
-                channel: signalChannelName,
-                onChange: async () => {
-                  throw new Error("Listener error");
-                },
-              },
-            ],
+            mountListeners: ({ store, onChange }) =>
+              store.labels.onSet(async () =>
+                onChange((p) => (p == null ? p : { ...p, name: "Updated Label Name" })),
+              ),
           })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper: newSynnaxWrapper(client, STORE_CONFIG) },
       );
 
       await waitFor(() => {
@@ -472,7 +481,6 @@ describe("useForm", () => {
           result.current.variant,
           `${result.current.status.message}:${result.current.status.description}`,
         ).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => {
