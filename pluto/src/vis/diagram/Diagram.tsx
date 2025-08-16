@@ -58,6 +58,7 @@ import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
+import { Select } from "@/select";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -102,6 +103,7 @@ export const use = ({
   initialViewport = { position: xy.ZERO, zoom: 1 },
 }: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
+  const [viewportMode, onViewportModeChange] = useState<CoreViewport.Mode>("select");
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
   const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
   const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
@@ -118,6 +120,8 @@ export const use = ({
     onEditableChange,
     fitViewOnResize,
     setFitViewOnResize,
+    viewportMode,
+    onViewportModeChange,
   };
 };
 
@@ -134,6 +138,8 @@ export interface UseReturn {
   viewport: Viewport;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
 }
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -185,6 +191,8 @@ interface ContextValue {
   editable: boolean;
   visible: boolean;
   onEditableChange: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
@@ -193,6 +201,8 @@ interface ContextValue {
 const Context = createContext<ContextValue>({
   editable: true,
   visible: true,
+  viewportMode: "select",
+  onViewportModeChange: () => {},
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
   fitViewOnResize: false,
@@ -216,6 +226,12 @@ NodeRenderer.displayName = "NodeRenderer";
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
+const viewPortModeToRFProps = (mode: CoreViewport.Mode): Partial<ReactFlowProps> => {
+  if (mode === "pan") return { panOnDrag: true };
+  if (mode === "select") return { selectionOnDrag: true };
+  return {};
+};
+
 const Core = ({
   aetherKey,
   onNodesChange,
@@ -231,6 +247,8 @@ const Core = ({
   setFitViewOnResize,
   visible,
   dragHandleSelector,
+  viewportMode,
+  onViewportModeChange,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ visible });
@@ -433,8 +451,18 @@ const Core = ({
       registerNodeRenderer,
       fitViewOnResize,
       setFitViewOnResize,
+      viewportMode,
+      onViewportModeChange,
     }),
-    [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
+    [
+      editable,
+      visible,
+      onEditableChange,
+      registerNodeRenderer,
+      fitViewOnResize,
+      viewportMode,
+      onViewportModeChange,
+    ],
   );
 
   return (
@@ -473,6 +501,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
+            {...viewPortModeToRFProps(viewportMode)}
             nodesDraggable={editable}
           />
         )}
@@ -489,7 +518,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Flex.BoxProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Flex.Box pack borderColor={5} className={CSS.BE("diagram", "controls")} {...props} />
+  <Flex.Box x className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
@@ -541,6 +570,26 @@ export const FitViewControl = ({
     >
       <Icon.Expand />
     </Button.Toggle>
+  );
+};
+
+export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
+
+export const SelectViewportModeControl = (): ReactElement => {
+  const { viewportMode, onViewportModeChange } = useContext();
+  return (
+    <Select.Buttons
+      keys={VIEWPORT_MODES}
+      value={viewportMode}
+      onChange={onViewportModeChange}
+    >
+      <Select.Button itemKey="pan" size="small">
+        <Icon.Pan />
+      </Select.Button>
+      <Select.Button itemKey="select" size="small">
+        <Icon.Selection />
+      </Select.Button>
+    </Select.Buttons>
   );
 };
 

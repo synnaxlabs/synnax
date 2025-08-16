@@ -42,6 +42,7 @@ export interface BaseLineProps {
   strokeWidth?: number;
   label?: string;
   downsample?: number;
+  downsampleMode?: telem.DownsampleMode;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -387,7 +388,7 @@ const DynamicLine = ({
     });
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };
 
 const StaticLine = ({
@@ -410,5 +411,5 @@ const StaticLine = ({
     });
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };

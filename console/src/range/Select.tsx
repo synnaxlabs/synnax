@@ -54,15 +54,15 @@ interface RenderTagProps {
 const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   const range = useSelect(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
-  if (range == null) return null;
   return (
     <Tag.Tag
       icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
       onClose={onSelect}
       level="small"
       size="small"
+      status={range == null ? "error" : undefined}
     >
-      {range.name}
+      {range?.name ?? itemKey}
     </Tag.Tag>
   );
 };

@@ -75,11 +75,31 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.updateCachedRefs(path);
   }
 
-  checkTouched(path: string, value: unknown) {
+  private checkTouched(path: string, value: unknown) {
     const initialValue = deep.get(this.initialValues, path, { optional: true });
     const equalsInitial = deep.equal(initialValue, value);
-    if (equalsInitial) this.clearTouched(path);
-    else this.setTouched(path);
+    if (equalsInitial) {
+      this.clearTouched(path);
+      // When a value equals its initial value, we should also clear
+      // any touched child paths that no longer exist in the current value
+      this.clearOrphanedTouchedPaths(path);
+    } else this.setTouched(path);
+  }
+
+  private clearOrphanedTouchedPaths(parentPath: string) {
+    const pathsToRemove = new Set<string>();
+    this.touched.forEach((touchedPath) => {
+      if (
+        deep.pathsMatch(touchedPath, parentPath) &&
+        touchedPath !== parentPath &&
+        !deep.has(this.values, touchedPath)
+      )
+        pathsToRemove.add(touchedPath);
+    });
+    pathsToRemove.forEach((path) => {
+      this.touched.delete(path);
+      this.cachedRefs.delete(path);
+    });
   }
 
   setStatus(path: string, status: status.Crude) {
@@ -144,10 +164,45 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return this.processValidation(validateUntouched, result, path);
   }
 
+  private errorsToStatuses(
+    issues: z.core.$ZodIssue[],
+    path: PropertyKey[],
+    accumulated: status.Crude[],
+  ): status.Crude[] {
+    issues.forEach((issue) => {
+      const issuePath = [...path, ...issue.path];
+      const resolvedPath = deep.resolvePath(issuePath.join("."), this.values);
+      accumulated.push({
+        key: resolvedPath,
+        variant: getVariant(issue),
+        message: issue.message,
+      });
+      if (
+        issue.code === "invalid_union" &&
+        issue.errors != null &&
+        issue.errors.length > 0
+      ) {
+        // If we're operating on a union, we need to find the most favored error by
+        // finding the error with the least number of errors whose path exists in the
+        // current value, but has at least one error.
+        const rankedIssues = issue.errors.map((subIssues) =>
+          subIssues.filter((e) =>
+            deep.has(this.values, [...issuePath, ...e.path].join(".")),
+          ),
+        );
+        rankedIssues.sort((a, b) => a.length - b.length);
+        const candidateError = rankedIssues.find((i) => i.length > 0);
+        if (candidateError == null) return;
+        this.errorsToStatuses(candidateError, issuePath, accumulated);
+      }
+    });
+    return accumulated;
+  }
+
   private processValidation(
     validateUntouched: boolean = false,
     result: z.ZodSafeParseResult<z.infer<Z>>,
-    path?: string,
+    validationPath?: string,
   ): boolean {
     if (this.schema == null) return true;
     const cachedRefsToClear = new Set<string>();
@@ -158,17 +213,16 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     // Parse was a complete success. No errors encountered.
     if (result.success) return true;
     let success = true;
-    result.error.issues.forEach((issue) => {
-      const { message } = issue;
-      const issuePath = issue.path.join(".");
-      if (
-        path != null &&
-        !deep.pathsMatch(issuePath, path) &&
-        !deep.pathsMatch(path, issuePath)
-      )
-        return;
-      if (!validateUntouched && !this.touched.has(issuePath)) return;
-      const variant = getVariant(issue);
+    const statuses = this.errorsToStatuses(result.error.issues, [], []);
+    statuses.forEach((status) => {
+      const { key: issuePath, message, variant } = status;
+      if (issuePath == null) return;
+      const matchesPath =
+        validationPath == null ||
+        deep.pathsMatch(issuePath, validationPath) ||
+        deep.pathsMatch(validationPath, issuePath);
+      const isTouched = validateUntouched || this.touched.has(issuePath);
+      if (!matchesPath || !isTouched) return;
       if (variant !== "warning") success = false;
       this.setStatus(issuePath, { key: issuePath, variant, message });
     });
