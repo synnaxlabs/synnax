@@ -48,13 +48,8 @@ describe("Ontology Queries", () => {
 
     it("should update the query when a child is added to the parent", async () => {
       const parent = await client.ontology.groups.create(ontology.ROOT_ID, "parent");
-      const child1 = await client.ontology.groups.create(parent.ontologyID, "child1");
-      const child2 = await client.ontology.groups.create(parent.ontologyID, "child2");
-      await client.ontology.addChildren(
-        parent.ontologyID,
-        child1.ontologyID,
-        child2.ontologyID,
-      );
+      await client.ontology.groups.create(parent.ontologyID, "child1");
+      await client.ontology.groups.create(parent.ontologyID, "child2");
       const { result } = renderHook(
         () =>
           Ontology.useChildren({
@@ -68,8 +63,14 @@ describe("Ontology Queries", () => {
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
       });
-      const child3 = await client.ontology.groups.create(parent.ontologyID, "child3");
-      await client.ontology.addChildren(parent.ontologyID, child3.ontologyID);
+      await act(async () => {
+        const alternateParent = await client.ontology.groups.create(
+          ontology.ROOT_ID,
+          "alternateParent",
+        );
+        await client.ontology.groups.create(parent.ontologyID, "child3");
+        await client.ontology.groups.create(alternateParent.ontologyID, "child4");
+      });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(3);
       });

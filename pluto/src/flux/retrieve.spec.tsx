@@ -117,8 +117,11 @@ describe("retrieve", () => {
               name: "Resource",
               retrieve: async ({ client, params: { key } }) =>
                 await client.labels.retrieve({ key }),
-              mountListeners: ({ store, onChange }) =>
-                store.labels.onSet(async (changed) => onChange(changed)),
+              mountListeners: ({ store, onChange, params: { key } }) =>
+                store.labels.onSet(async (changed) => {
+                  if (changed.key !== key) return;
+                  onChange(changed);
+                }),
             }).useDirect({ params: { key: ch.key } }),
           { wrapper: newSynnaxWrapper(client, storeConfig) },
         );

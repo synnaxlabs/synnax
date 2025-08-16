@@ -156,12 +156,15 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
         )
           onDelete(ontology.idToString(rel[direction]));
       }),
-      store.resources.onSet(async (resource) => {
-        onChange(resource.key, resource);
-      }),
-      store.resources.onDelete(async (resource) => {
-        onDelete(resource);
-      }),
+      store.resources.onSet(async (resource) =>
+        onChange(resource.key, (prev) => {
+          // Default to null if the resource is not in the list,
+          // as we don't want to add any non-children.
+          if (prev == null) return null;
+          return { ...prev, ...resource };
+        }),
+      ),
+      store.resources.onDelete(async (resource) => onDelete(resource)),
     ],
   });
 

@@ -298,7 +298,7 @@ describe("queries", () => {
       await waitFor(() => {
         const taskInList = result.current.getItem(testTask.key);
         expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Executing command...");
+        expect(taskInList?.status?.message).toEqual("Running start command...");
         expect(taskInList?.status?.details.running).toBe(true);
       });
     });
