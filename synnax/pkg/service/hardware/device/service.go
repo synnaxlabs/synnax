@@ -71,7 +71,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	if err := s.migrateDeviceParents(ctx); err != nil {
 		return s, err
 	}
