@@ -74,6 +74,9 @@ func (w Writer) CreateWithParent(
 	// Range already exists and no parent provided = do nothing
 	// Range does not exist = define parent
 	if exists && hasParent {
+		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+			return err
+		}
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
 			return
 		}
@@ -141,7 +144,7 @@ func (w Writer) Rename(
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children
-// of the range. Delete is idempotent.
+// of the range. Delete is idemp.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
