@@ -50,29 +50,29 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
 }
 
 export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
-  ranges: ranger.FluxStore;
-  labels: Label.FluxStore;
-  racks: Rack.FluxStore;
-  devices: Device.FluxStore;
-  tasks: Task.FluxStore;
-  workspaces: Workspace.FluxStore;
-  relationships: Ontology.RelationshipFluxStore;
-  rangeKV: Ranger.KVFluxStore;
-  resources: Ontology.ResourceFluxStore;
-  channels: Channel.FluxStore;
-  rangeAliases: Ranger.AliasFluxStore;
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [Label.FLUX_STORE_KEY]: Label.FluxStore;
+  [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
+  [Device.FLUX_STORE_KEY]: Device.FluxStore;
+  [Task.FLUX_STORE_KEY]: Task.FluxStore;
+  [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
 }> = {
-  ranges: ranger.STORE_CONFIG,
-  labels: Label.STORE_CONFIG,
-  racks: Rack.STORE_CONFIG,
-  devices: Device.STORE_CONFIG,
-  tasks: Task.STORE_CONFIG,
-  workspaces: Workspace.STORE_CONFIG,
-  relationships: Ontology.RELATIONSHIP_STORE_CONFIG,
-  resources: Ontology.RESOURCE_STORE_CONFIG,
-  rangeKV: Ranger.KV_STORE_CONFIG,
-  channels: Channel.STORE_CONFIG,
-  rangeAliases: Ranger.ALIAS_STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
+  [Rack.FLUX_STORE_KEY]: Rack.STORE_CONFIG,
+  [Device.FLUX_STORE_KEY]: Device.STORE_CONFIG,
+  [Task.FLUX_STORE_KEY]: Task.STORE_CONFIG,
+  [Workspace.FLUX_STORE_KEY]: Workspace.STORE_CONFIG,
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_STORE_CONFIG,
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_STORE_CONFIG,
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
+  [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
 };
 
 export const Provider = ({

@@ -37,9 +37,9 @@ import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
-  ranges: ranger.FluxStore;
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
 }> = {
-  ranges: ranger.STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
 };
 
 export const render = (): void => {

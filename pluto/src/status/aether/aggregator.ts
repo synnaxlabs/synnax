@@ -66,12 +66,14 @@ export interface AsyncErrorHandler {
 
 export const createErrorHandler =
   (add: Adder): ErrorHandler =>
-  (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
+  (excOrFunc: unknown | (() => Promise<void> | void), message?: string): void => {
     if (typeof excOrFunc !== "function")
       return add(status.fromException(excOrFunc, message));
     void (async () => {
       try {
-        await excOrFunc();
+        const promise = excOrFunc();
+        // Skip the added microtask if the function returns void instead of a promise.
+        if (promise != null) await promise;
       } catch (exc) {
         add(status.fromException(exc, message));
       }

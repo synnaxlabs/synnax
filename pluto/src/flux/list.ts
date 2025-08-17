@@ -9,7 +9,6 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import {
-  array,
   compare,
   type CrudeTimeSpan,
   type Destructor,
@@ -18,12 +17,7 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import {
-  useCallback,
-  useEffect as useReactEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/aether/params";
@@ -39,6 +33,7 @@ import { type CreateRetrieveArgs, type MountListenersArgs } from "@/flux/retriev
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
+  useDestructors,
   useInitializerRef,
   useSyncedRef,
 } from "@/hooks";
@@ -227,17 +222,6 @@ export interface ListMountListenersArgs<
   onDelete: (key: K) => void;
 }
 
-/**
- * Internal reference object for managing list listeners.
- * @internal
- */
-interface ListenersRef<K extends record.Key> {
-  /** Whether listeners are currently mounted */
-  mounted: boolean;
-  /** Map of listener callbacks to their associated keys */
-  listeners: Map<() => void, K>;
-}
-
 /** Default filter function that accepts all items */
 const defaultFilter = () => true;
 /** Default debounce time for retrieve operations */
@@ -338,27 +322,22 @@ export const createList =
     const sortRef = useSyncedRef(sort);
     const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
-    const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
-      mounted: false,
-      listeners: new Map(),
-    }));
+    const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
       pendingResult<K[]>(name, "retrieving", null),
     );
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
-    const unMountListenersRef = useRef<Destructor | null>(null);
-
-    useReactEffect(() => () => unMountListenersRef.current?.(), []);
+    const storeListeners = useDestructors();
 
     const store = useStore<ScopedStore>();
 
     const notifyListeners = useCallback(
       (changed: K) =>
-        listenersRef.current.listeners.forEach((key, notify) => {
+        listItemListeners.current.forEach((key, notify) => {
           if (key === changed) notify();
         }),
-      [listenersRef],
+      [listItemListeners.current],
     );
 
     const updateSortedData = useCallback(
@@ -400,48 +379,47 @@ export const createList =
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
 
-          unMountListenersRef.current?.();
-          const destructors = mountListeners?.({
-            client,
-            store,
-            params,
-            onDelete: (k) => {
-              dataRef.current.delete(k);
-              setResult((p) => {
-                if (p.data == null) return p;
-                return { ...p, data: p.data.filter((key) => key !== k) };
-              });
-            },
-            onChange: (k, setter, opts = {}) => {
-              const { mode = "append" } = opts;
-              const prev = dataRef.current.get(k) ?? null;
-              if (prev != null && !filterRef.current(prev)) return;
-              const res = state.executeSetter(setter, prev);
-              if (res == null || !filterRef.current(res)) return;
-              dataRef.current.set(k, res);
-              setResult((p) => {
-                if (p.data == null) return p;
-                let newData: K[];
-                if (prev == null)
-                  if (sortRef.current != null)
-                    newData = updateSortedData([...p.data, k]);
-                  else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
-                else if (sortRef.current != null) {
-                  const currentIndex = p.data.indexOf(k);
-                  const sortedData = updateSortedData(p.data);
-                  const newIndex = sortedData.indexOf(k);
-                  if (currentIndex !== newIndex) newData = sortedData;
-                  else newData = p.data;
-                } else newData = p.data;
-                return { ...p, data: newData };
-              });
+          storeListeners.cleanup();
+          storeListeners.set(
+            mountListeners?.({
+              client,
+              store,
+              params,
+              onDelete: (k) => {
+                dataRef.current.delete(k);
+                setResult((p) => {
+                  if (p.data == null) return p;
+                  return { ...p, data: p.data.filter((key) => key !== k) };
+                });
+              },
+              onChange: (k, setter, opts = {}) => {
+                const { mode = "append" } = opts;
+                const prev = dataRef.current.get(k) ?? null;
+                if (prev != null && !filterRef.current(prev)) return;
+                const res = state.executeSetter(setter, prev);
+                if (res == null || !filterRef.current(res)) return;
+                dataRef.current.set(k, res);
+                setResult((p) => {
+                  if (p.data == null) return p;
+                  let newData: K[];
+                  if (prev == null)
+                    if (sortRef.current != null)
+                      newData = updateSortedData([...p.data, k]);
+                    else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
+                  else if (sortRef.current != null) {
+                    const currentIndex = p.data.indexOf(k);
+                    const sortedData = updateSortedData(p.data);
+                    const newIndex = sortedData.indexOf(k);
+                    if (currentIndex !== newIndex) newData = sortedData;
+                    else newData = p.data;
+                  } else newData = p.data;
+                  return { ...p, data: newData };
+                });
 
-              notifyListeners(k);
-            },
-          });
-          if (destructors != null)
-            unMountListenersRef.current = () =>
-              array.toArray(destructors).forEach((d) => d());
+                notifyListeners(k);
+              },
+            }),
+          );
 
           // If we've already retrieved the initial data, and it's the same as the
           // data we just retrieved, then don't notify listeners.
@@ -513,8 +491,8 @@ export const createList =
 
     const subscribe = useCallback((callback: () => void, key?: K) => {
       if (key == null) return () => {};
-      listenersRef.current.listeners.set(callback, key);
-      return () => listenersRef.current.listeners.delete(callback);
+      listItemListeners.current.set(callback, key);
+      return () => listItemListeners.current.delete(callback);
     }, []);
 
     const retrieveSync = useDebouncedCallback(

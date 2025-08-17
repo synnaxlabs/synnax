@@ -158,7 +158,6 @@ export const createForm = <
     name,
     update,
   });
-
   return ({
     params,
     initialValues,
@@ -184,16 +183,10 @@ export const createForm = <
     });
 
     const handleResultChange = useCallback(
-      (
-        setter: state.SetArg<Result<z.infer<Schema> | null>>,
-        resetForm: boolean = true,
-      ) => {
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>) => {
         const nextStatus = state.executeSetter(setter, resultRef.current);
         resultRef.current = nextStatus;
-        if (nextStatus.data != null) {
-          form.set("", nextStatus.data);
-          if (resetForm) form.setCurrentStateAsInitialValues();
-        }
+        if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
       },
       [form],
@@ -201,15 +194,9 @@ export const createForm = <
 
     retrieveHook.useEffect({ params, onChange: handleResultChange });
 
-    const handleUpdateResultChange = useCallback(
-      (setter: state.SetArg<Result<z.infer<Schema> | null>>) =>
-        handleResultChange(setter, false),
-      [handleResultChange],
-    );
-
     const { updateAsync } = updateHook.useObservable({
       params,
-      onChange: handleUpdateResultChange,
+      onChange: handleResultChange,
     });
 
     const handleSave = useCallback(
@@ -219,7 +206,6 @@ export const createForm = <
             if (!(await form.validateAsync())) return;
             if (!(await updateAsync(form.value(), opts))) return;
             afterSave?.({ form, params });
-            form.setCurrentStateAsInitialValues();
           } catch (error) {
             setResult(errorResult(name, "update", error));
           }

@@ -113,7 +113,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   reset(initialValues?: z.infer<Z>) {
-    if (initialValues != null) this.initialValues = initialValues;
+    if (initialValues != null) this.initialValues = deep.copy(initialValues);
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
     this.touched.clear();

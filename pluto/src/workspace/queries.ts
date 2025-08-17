@@ -11,11 +11,13 @@ import { workspace } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
+export const FLUX_STORE_KEY = "workspaces";
+
 export interface FluxStore
   extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
 
 interface SubStore extends Flux.Store {
-  workspaces: Flux.UnaryStore<workspace.Key, workspace.Workspace>;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
 const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
@@ -24,14 +26,14 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 > = {
   channel: workspace.SET_CHANNEL_NAME,
   schema: workspace.workspaceZ,
-  onChange: async ({ store, changed }) => store.workspaces.set(changed.key, changed),
+  onChange: ({ store, changed }) => store.workspaces.set(changed.key, changed),
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<SubStore, typeof workspace.keyZ> =
   {
     channel: workspace.DELETE_CHANNEL_NAME,
     schema: workspace.keyZ,
-    onChange: async ({ store, changed }) => store.workspaces.delete(changed),
+    onChange: ({ store, changed }) => store.workspaces.delete(changed),
   };
 
 export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -50,10 +52,7 @@ export const retrieve = Flux.createRetrieve<
   name: "Workspace",
   retrieve: ({ params, client }) => client.workspaces.retrieve(params.key),
   mountListeners: ({ store, params, onChange }) => [
-    store.workspaces.onSet(async (workspace) => {
-      if (workspace.key !== params.key) return;
-      onChange(workspace);
-    }, params.key),
+    store.workspaces.onSet(onChange, params.key),
   ],
 });
 
@@ -72,9 +71,7 @@ export const useList = Flux.createList<
   retrieve: async ({ client, params }) => await client.workspaces.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.workspaces.retrieve(key),
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.workspaces.onSet(async (workspace) => {
-      onChange(workspace.key, workspace);
-    }),
-    store.workspaces.onDelete(async (key) => onDelete(key)),
+    store.workspaces.onSet((workspace) => onChange(workspace.key, workspace)),
+    store.workspaces.onDelete(onDelete),
   ],
 });

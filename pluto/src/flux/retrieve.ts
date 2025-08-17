@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { array, type Destructor } from "@synnaxlabs/x";
-import { useCallback, useEffect as useReactEffect, useRef, useState } from "react";
+import { type Destructor } from "@synnaxlabs/x";
+import { useCallback, useRef, useState } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/aether/params";
@@ -22,6 +22,7 @@ import {
   successResult,
 } from "@/flux/result";
 import { useAsyncEffect } from "@/hooks";
+import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Synnax } from "@/synnax";
@@ -221,8 +222,7 @@ const useObservable = <
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
   const store = useStore<ScopedStore>();
-  const unmountListeners = useRef<Destructor | null>(null);
-  useReactEffect(() => () => unmountListeners.current?.(), []);
+  const listeners = useDestructors();
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
@@ -239,20 +239,20 @@ const useObservable = <
         onChange((p) => pendingResult(name, "retrieving", p.data));
         const value = await retrieve({ client, params, store });
         if (signal?.aborted) return;
-        unmountListeners.current?.();
-        const unmount = mountListeners?.({
-          client,
-          store,
-          params,
-          onChange: (value) =>
-            onChange((prev) => {
-              if (prev.data == null) return prev;
-              const next = state.executeSetter(value, prev.data);
-              return successResult(name, "retrieved", next);
-            }),
-        });
-        unmountListeners.current = () =>
-          array.toArray(unmount).forEach((unmount) => unmount());
+        listeners.cleanup();
+        listeners.set(
+          mountListeners?.({
+            client,
+            store,
+            params,
+            onChange: (value) =>
+              onChange((prev) => {
+                if (prev.data == null) return prev;
+                const next = state.executeSetter(value, prev.data);
+                return successResult(name, "retrieved", next);
+              }),
+          }),
+        );
         onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         if (signal?.aborted) return;

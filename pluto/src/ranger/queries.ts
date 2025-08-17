@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { array, type Optional, primitive } from "@synnaxlabs/x";
+import { type Optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -19,23 +19,24 @@ import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.KVPair> {}
-
 export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias> {}
 
+export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
+export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
+
 interface SubStore extends Flux.Store {
-  ranges: aetherRanger.FluxStore;
-  relationships: Ontology.RelationshipFluxStore;
-  labels: Label.FluxStore;
-  rangeKV: Flux.UnaryStore<string, ranger.KVPair>;
-  rangeAliases: AliasFluxStore;
+  [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Label.FLUX_STORE_KEY]: Label.FluxStore;
+  [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
+  [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
   const cached = store.ranges.get(key);
   if (cached != null) return cached;
-
   const range = await client.ranges.retrieve(key);
-  store.ranges.set(key, range);
+  store.ranges.set(key, range, { notify: false });
   return range;
 };
 
@@ -49,16 +50,13 @@ const multiCachedRetrieve = async (
     includeParent: true,
     includeLabels: true,
   });
-  ranges.forEach((range) => store.ranges.set(range.key, range));
+  store.ranges.set(ranges, { notify: false });
   return ranges;
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
   const store = Flux.useStore<SubStore>();
-  useEffect(() => {
-    const destructor = store.ranges.onSet(async (changed) => onSet(changed.payload));
-    return () => destructor();
-  }, [store.ranges]);
+  useEffect(() => store.ranges.onSet((c) => onSet(c.payload)), [store]);
 };
 
 export interface ChildrenParams {
@@ -77,8 +75,11 @@ const handleListLabelRelationshipSet = async (
     to: { type: "label" },
   });
   if (isLabel) {
-    const label = await client.labels.retrieve({ key: rel.to.key });
-    store.labels.set(rel.to.key, label);
+    let label = store.labels.get(rel.to.key);
+    if (label == null) {
+      label = await client.labels.retrieve({ key: rel.to.key });
+      store.labels.set(rel.to.key, label, { notify: false });
+    }
     onChange(rel.from.key, (prev) => {
       if (prev == null) return prev;
       return client.ranges.sugarOne({
@@ -129,7 +130,7 @@ export const useChildren = Flux.createList<
   retrieveByKey: async ({ client, key, store }) =>
     await cachedRetrieve(client, store, key),
   mountListeners: ({ store, onChange, onDelete, client, params: { key } }) => [
-    store.ranges.onSet(async (range) => {
+    store.ranges.onSet((range) => {
       onChange(range.key, (prev) => {
         if (prev == null) return prev;
         return client.ranges.sugarOne({
@@ -191,7 +192,7 @@ export const retrieveParent = Flux.createRetrieve<
     return client.ranges.sugarOntologyResource(parent);
   },
   mountListeners: ({ store, onChange, client, params: { key } }) => [
-    store.ranges.onSet(async (range) => {
+    store.ranges.onSet((range) => {
       onChange((prev) => {
         if (prev == null || prev.key !== key) return prev;
         return client.ranges.sugarOne({ ...prev, parent: range.parent ?? prev.parent });
@@ -342,7 +343,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
           return { ...values, labels: prev.labels, parent: prev.parent };
         });
       }),
-      store.relationships.onSet(async (rel) => {
+      store.relationships.onSet((rel) => {
         onChange((prev) => {
           if (prev == null || prev.key == null) return prev;
           const otgID = ranger.ontologyID(prev.key);
@@ -360,7 +361,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
           return prev;
         });
       }),
-      store.relationships.onDelete(async (relKey) => {
+      store.relationships.onDelete((relKey) => {
         onChange((prev) => {
           if (prev == null || prev.key == null) return prev;
           const rel = ontology.relationshipZ.parse(relKey);
@@ -414,7 +415,7 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, Sub
     return range;
   },
   mountListeners: ({ store, onChange, onDelete, client }) => [
-    store.ranges.onSet(async (range) => {
+    store.ranges.onSet((range) => {
       onChange(range.key, (prev) => {
         if (prev == null) return range;
         return client.ranges.sugarOne({
@@ -447,8 +448,8 @@ const deleteKVPairChannelValueZ = z
 const SET_KV_LISTENER: Flux.ChannelListener<SubStore, typeof ranger.kvPairZ> = {
   channel: ranger.KV_SET_CHANNEL,
   schema: ranger.kvPairZ,
-  onChange: async ({ store, changed }) => {
-    store.rangeKV.set(`${changed.range}<--->${changed.key}`, changed);
+  onChange: ({ store, changed }) => {
+    store.rangeKV.set(ranger.kvPairKey(changed), changed);
   },
 };
 
@@ -458,9 +459,7 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
 > = {
   channel: ranger.KV_DELETE_CHANNEL,
   schema: deleteKVPairChannelValueZ,
-  onChange: async ({ store, changed }) => {
-    store.rangeKV.delete(`${changed.range}<--->${changed.key}`);
-  },
+  onChange: ({ store, changed }) => store.rangeKV.delete(ranger.kvPairKey(changed)),
 };
 
 export const KV_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -486,11 +485,11 @@ export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair, Su
       return { key, value, range: rangeKey };
     },
     mountListeners: ({ store, onChange, onDelete, params: { rangeKey } }) => [
-      store.rangeKV.onSet(async (pair) => {
+      store.rangeKV.onSet((pair) => {
         if (pair.range !== rangeKey) return;
         onChange(pair.key, pair);
       }),
-      store.rangeKV.onDelete(async (pairKey) => {
+      store.rangeKV.onDelete((pairKey) => {
         const pair = deleteKVPairChannelValueZ.parse(pairKey);
         if (pair.range !== rangeKey) return;
         onDelete(pair.key);
@@ -556,23 +555,23 @@ export const useDelete = Flux.createUpdate<
   name: "Range",
   update: async ({ client, value, store }) => {
     await client.ranges.delete(value);
-    array.toArray(value).forEach((key) => store.ranges.delete(key));
+    store.ranges.delete(value);
   },
 });
 
 const SET_ALIAS_LISTENER: Flux.ChannelListener<SubStore, typeof ranger.aliasZ> = {
   channel: ranger.SET_ALIAS_CHANNEL_NAME,
   schema: ranger.aliasZ,
-  onChange: async ({ store, changed }) => {
+  onChange: ({ store, changed }) => {
     store.rangeAliases.set(ranger.aliasKey(changed), changed);
   },
 };
+const aliasDeleteZ = z.string().transform((val) => ranger.decodeDeleteAliasChange(val));
 
-const DELETE_ALIAS_LISTENER: Flux.ChannelListener<SubStore, typeof ranger.aliasZ> = {
+const DELETE_ALIAS_LISTENER: Flux.ChannelListener<SubStore, typeof aliasDeleteZ> = {
   channel: ranger.DELETE_ALIAS_CHANNEL_NAME,
-  schema: ranger.aliasZ,
-  onChange: async ({ store, changed }) =>
-    store.rangeAliases.delete(ranger.aliasKey(changed)),
+  schema: aliasDeleteZ,
+  onChange: ({ store, changed }) => store.rangeAliases.delete(ranger.aliasKey(changed)),
 };
 
 export const ALIAS_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {

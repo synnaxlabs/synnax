@@ -27,11 +27,11 @@ export const ChannelName = ({
   ...rest
 }: ChannelNameProps) => {
   const range = Range.useSelect();
-  const { name, rename } = Channel.useName({
-    key: channel,
-    range: range?.key,
-    defaultName,
+  const { data } = Channel.retrieve.useDirect({
+    params: { key: channel, rangeKey: range?.key },
   });
+  const { update: rename } = Channel.rename.useDirect({ params: { key: channel } });
+  const name = data?.name ?? defaultName;
   return (
     <Text.MaybeEditable
       className={CSS(className, CSS.BE("task", "channel-name"))}

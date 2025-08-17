@@ -13,10 +13,12 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 
+export const FLUX_STORE_KEY = "tasks";
+
 export interface FluxStore extends Flux.UnaryStore<task.Key, task.Task> {}
 
 interface SubStore extends Flux.Store {
-  tasks: FluxStore;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
 // Temporary hack that filters the set of commands that should change the
@@ -36,7 +38,7 @@ const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
 const DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
   channel: task.DELETE_CHANNEL_NAME,
   schema: task.keyZ,
-  onChange: async ({ store, changed }) => store.tasks.delete(changed),
+  onChange: ({ store, changed }) => store.tasks.delete(changed),
 };
 
 const unknownStatusZ = task.statusZ(z.unknown());
@@ -44,7 +46,7 @@ const unknownStatusZ = task.statusZ(z.unknown());
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ> = {
   channel: task.STATUS_CHANNEL_NAME,
   schema: unknownStatusZ,
-  onChange: async ({ store, changed }) => {
+  onChange: ({ store, changed }) => {
     store.tasks.set(changed.details.task, (prev) =>
       prev == null ? prev : ({ ...prev, status: changed } as task.Task),
     );
@@ -54,7 +56,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ>
 const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ> = {
   channel: task.COMMAND_CHANNEL_NAME,
   schema: task.commandZ,
-  onChange: async ({ store, changed, client }) =>
+  onChange: ({ store, changed, client }) =>
     store.tasks.set(changed.task, (prev) => {
       if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
       return client.hardware.tasks.sugar({
@@ -75,9 +77,8 @@ export const useStatusSynchronizer = (
   const store = Flux.useStore<SubStore>();
   useEffect(
     () =>
-      store.tasks.onSet(async (task) => {
-        if (task.status == null) return;
-        onStatus(task.status);
+      store.tasks.onSet((task) => {
+        if (task.status != null) onStatus(task.status);
       }),
     [store],
   );
@@ -136,7 +137,7 @@ export const createRetrieveQuery = <
       );
     },
     mountListeners: ({ store, params: { key }, onChange }) => [
-      store.tasks.onSet(async (task) => {
+      store.tasks.onSet((task) => {
         if (key == null || task.key !== key) return;
         onChange(task as unknown as task.Task<Type, Config, StatusData>);
       }, key),
@@ -163,9 +164,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore
   retrieveByKey: async ({ client, key, store }) =>
     await retrieveByKey(client, store, { key }),
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.tasks.onSet(async (task) => {
-      onChange(task.key, task);
-    }),
-    store.tasks.onDelete(async (key) => onDelete(key)),
+    store.tasks.onSet((task) => onChange(task.key, task)),
+    store.tasks.onDelete(onDelete),
   ],
 });

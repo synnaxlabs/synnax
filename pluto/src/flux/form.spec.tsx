@@ -370,16 +370,12 @@ describe("useForm", () => {
   const SET_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
     channel: label.SET_CHANNEL_NAME,
     schema: label.labelZ,
-    onChange: async ({ store, changed }) => {
-      store.labels.set(changed.key, changed);
-    },
+    onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
   };
   const DELETE_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
     channel: label.DELETE_CHANNEL_NAME,
     schema: label.labelZ,
-    onChange: async ({ store, changed }) => {
-      store.labels.delete(changed.key);
-    },
+    onChange: ({ store, changed }) => store.labels.delete(changed.key),
   };
 
   const STORE_CONFIG: Flux.StoreConfig<SubStore> = {
@@ -417,7 +413,7 @@ describe("useForm", () => {
             retrieve,
             update,
             mountListeners: ({ store, onChange }) =>
-              store.labels.onSet(async (changed) =>
+              store.labels.onSet((changed) =>
                 onChange((p) => (p == null ? p : { ...p, name: changed.name })),
               ),
           })({ params: { key: ch.key } }),

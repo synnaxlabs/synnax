@@ -11,10 +11,12 @@ import { rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
+export const FLUX_STORE_KEY = "racks";
+
 export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
 
 interface SubStore extends Flux.Store {
-  racks: FluxStore;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
 const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
@@ -29,13 +31,13 @@ const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
 const DELETE_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
   channel: rack.DELETE_CHANNEL_NAME,
   schema: rack.keyZ,
-  onChange: async ({ store, changed }) => store.racks.delete(changed),
+  onChange: ({ store, changed }) => store.racks.delete(changed),
 };
 
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> = {
   channel: rack.STATUS_CHANNEL_NAME,
   schema: rack.statusZ,
-  onChange: async ({ store, changed }) =>
+  onChange: ({ store, changed }) =>
     store.racks.set(changed.details.rack, (prev) =>
       prev == null ? prev : { ...prev, status: changed },
     ),
@@ -65,9 +67,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubSt
     return rack;
   },
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.racks.onSet(async (rack) => {
-      onChange(rack.key, rack);
-    }),
-    store.racks.onDelete(async (key) => onDelete(key)),
+    store.racks.onSet((rack) => onChange(rack.key, rack)),
+    store.racks.onDelete(onDelete),
   ],
 });

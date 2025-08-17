@@ -18,9 +18,12 @@ export interface RelationshipFluxStore
 
 export interface ResourceFluxStore extends Flux.UnaryStore<string, ontology.Resource> {}
 
+export const RELATIONSHIPS_FLUX_STORE_KEY = "relationships";
+export const RESOURCES_FLUX_STORE_KEY = "resources";
+
 interface SubStore extends Flux.Store {
-  relationships: RelationshipFluxStore;
-  resources: ResourceFluxStore;
+  [RELATIONSHIPS_FLUX_STORE_KEY]: RelationshipFluxStore;
+  [RESOURCES_FLUX_STORE_KEY]: ResourceFluxStore;
 }
 
 const RELATIONSHIP_SET_LISTENER: Flux.ChannelListener<
@@ -29,9 +32,8 @@ const RELATIONSHIP_SET_LISTENER: Flux.ChannelListener<
 > = {
   channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
   schema: ontology.relationshipZ,
-  onChange: async ({ store, changed }) => {
-    store.relationships.set(ontology.relationshipToString(changed), changed);
-  },
+  onChange: ({ store, changed }) =>
+    store.relationships.set(ontology.relationshipToString(changed), changed),
 };
 
 const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
@@ -40,9 +42,8 @@ const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
 > = {
   channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
   schema: ontology.relationshipZ,
-  onChange: async ({ store, changed }) => {
-    store.relationships.delete(ontology.relationshipToString(changed));
-  },
+  onChange: ({ store, changed }) =>
+    store.relationships.delete(ontology.relationshipToString(changed)),
 };
 
 export const RELATIONSHIP_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -52,18 +53,14 @@ export const RELATIONSHIP_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 const RESOURCE_SET_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: async ({ store, changed, client }) => {
-    const res = await client.ontology.retrieve(changed);
-    store.resources.set(changed.key, res);
-  },
+  onChange: async ({ store, changed, client }) =>
+    store.resources.set(changed.key, await client.ontology.retrieve(changed)),
 };
 
 const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
   channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: async ({ store, changed }) => {
-    store.resources.delete(changed.key);
-  },
+  onChange: ({ store, changed }) => store.resources.delete(changed.key),
 };
 
 export const RESOURCE_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -74,10 +71,7 @@ export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
 ): void => {
   const store = Flux.useStore<SubStore>();
-  useEffect(() => {
-    const destructor = store.resources.onSet(async (changed) => onSet(changed));
-    return () => destructor();
-  }, [store.resources]);
+  useEffect(() => store.resources.onSet(onSet), [store.resources]);
 };
 
 export const useResourceDeleteSynchronizer = (
@@ -96,22 +90,20 @@ export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
   const store = Flux.useStore<SubStore>();
-  useEffect(() => {
-    const destructor = store.relationships.onSet(async (changed) => onSet(changed));
-    return () => destructor();
-  }, [store.relationships]);
+  useEffect(() => store.relationships.onSet(onSet), [store.relationships]);
 };
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void => {
   const store = Flux.useStore<SubStore>();
-  useEffect(() => {
-    const destructor = store.relationships.onDelete(async (changed) =>
-      onDelete(ontology.relationshipZ.parse(changed)),
-    );
-    return () => destructor();
-  }, [store.relationships]);
+  useEffect(
+    () =>
+      store.relationships.onDelete((changed) =>
+        onDelete(ontology.relationshipZ.parse(changed)),
+      ),
+    [store.relationships],
+  );
 };
 
 interface UseDependentQueryParams extends List.PagerParams {
@@ -146,7 +138,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
           onChange(dependent.key, dependent);
         }
       }),
-      store.relationships.onDelete(async (relationship) => {
+      store.relationships.onDelete((relationship) => {
         const rel = ontology.relationshipZ.parse(relationship);
         if (
           ontology.matchRelationship(rel, {
@@ -156,7 +148,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
         )
           onDelete(ontology.idToString(rel[direction]));
       }),
-      store.resources.onSet(async (resource) =>
+      store.resources.onSet((resource) =>
         onChange(resource.key, (prev) => {
           // Default to null if the resource is not in the list,
           // as we don't want to add any non-children.
