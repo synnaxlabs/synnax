@@ -1,47 +1,18 @@
 {
-    "sequence_order": "Sequential",
+    "sequence_order": "asynchronous",
     "tests": [
         {
             "case": "testcases.check_connection_basic",
             "parameters": {
-            }
-        },
-        {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
             },
             "expect": "TIMEOUT"
         },
-            {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
-                "fail_test": true
-            },
+        {
+            "case": "testcases.simple_async_1"
+        },
+        {
+            "case": "testcases.simple_async_2",
             "expect": "FAILED"
-        },
-        {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
-                "fail_test": true
-            }
-        },
-        {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
-                "timeout": 2,
-                "wait_time": 5
-            },
-            "expect": "TIMEOUT"
-        },
-        {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
-                "timeout": 2,
-                "wait_time": 5
-            }
-        },
-        {
-            "case": "testcases.test_no_timeout"
         }
     ]
 }

@@ -17,10 +17,11 @@ from framework.TestCase import TestCase, SynnaxConnection
 
 import synnax as sy
 
-class Check_Connection_Basic(TestCase):
+class Simple_Async_2(TestCase):
     """
     Check if the test case is connected to the synnax server.
     """
+        
 
     def setup(self) -> None:
         """
@@ -29,12 +30,6 @@ class Check_Connection_Basic(TestCase):
 
         # You can then add your own tlm channels here:
         self.add_channel(name="is_connected", data_type=sy.DataType.UINT32, initial_value=1)
-
-        # Or explcitiely change the time out 
-        self.Expected_Timeout = 6
-
-        # Or change it via test parameters
-        self.Expected_Timeout = self.params.get("timeout", -1)
 
         # Just make sure to call super() last!
         super().setup()
@@ -45,12 +40,9 @@ class Check_Connection_Basic(TestCase):
         """
 
         # Stuff goes here
-        wait_time = self.params.get("wait_time", 0)
-        time.sleep(wait_time)
-    
-        # Or induce a failure
-        if self.params.get("fail_test", False):
-            raise Exception("Injected failure")
+        print(f"{self.name} > Running")
+        time.sleep(3)
+        print(f"{self.name} > Done")
 
         # You might NOT need to override
         # ... but then what are you testing?

@@ -23,7 +23,7 @@ import sys
 import random
 import string
 import re
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, Tuple
 from pathlib import Path
 from enum import Enum, auto
 from dataclasses import dataclass, field
@@ -125,6 +125,9 @@ class Test_Conductor:
         self.is_running = False
         self.should_stop = False
         self.status_callbacks: List[Callable[[TestResult], None]] = []
+        self.sequence_ordering: str = "Sequential"
+        # For asynchronous execution, track multiple tests
+        self.active_tests: List[Tuple[TestCase, datetime]] = []
         
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -281,11 +284,14 @@ class Test_Conductor:
         
         # Handle test ordering
         ordering = "Sequential"
-        if sequence_data.get("sequence_order", "").lower() == "random":
-            ordering = "Random"
+        sequence_order = sequence_data.get("sequence_order", "Sequential").lower()
+        if sequence_order == "random":
             random.shuffle(self.test_definitions)
 
         print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
+        
+        # Store the ordering for use in run_sequence
+        self.sequence_ordering = sequence_order
         
         # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
@@ -308,9 +314,19 @@ class Test_Conductor:
         )
         self.timeout_monitor_thread.start()
         
-        print(f"{self.name} > Starting execution of {len(self.test_definitions)} tests...")
+        print(f"\n{self.name} > Starting {self.sequence_ordering} execution of {len(self.test_definitions)} tests...\n")
+
+        if self.sequence_ordering == "asynchronous":
+            self._execute_tests_asynchronously()
+        else:
+            self._execute_tests_sequentially()
         
-        # Execute each test
+        self.is_running = False
+        self._print_summary()
+        return self.test_results
+    
+    def _execute_tests_sequentially(self) -> None:
+        """Execute tests one after another."""
         for i, test_def in enumerate(self.test_definitions):
             if self.should_stop:
                 print(f"{self.name} > Test execution stopped by user request")
@@ -342,10 +358,51 @@ class Test_Conductor:
             self.test_results.append(result)
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
+    
+    def _execute_tests_asynchronously(self) -> None:
+        """Execute all tests simultaneously."""
+        # Launch all tests at once
+        test_threads = []
+        result_containers = []
+
+        for i, test_def in enumerate(self.test_definitions):
+            if self.should_stop:
+                print(f"{self.name} > Test execution stopped by user request")
+                break
+            
+            print(f"{self.name} ({i+1}/{len(self.test_definitions)}) > ==== {test_def.case} ====")
+            
+            # Create result container and thread for each test
+            result_container = []
+            test_thread = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, result_container)
+            )
+            
+            test_threads.append(test_thread)
+            result_containers.append(result_container)
+            
+            # Start the test thread
+            test_thread.start()
         
-        self.is_running = False
-        self._print_summary()
-        return self.test_results
+        # Wait for all tests to complete
+        print(f"{self.name} > Waiting for {len(test_threads)} tests to complete...\n")
+        for i, test_thread in enumerate(test_threads):
+            if test_thread.is_alive():
+                test_thread.join()
+            
+            # Get test result
+            if result_containers[i]:
+                result = result_containers[i][0]
+            else:
+                result = TestResult(
+                    test_name=self.test_definitions[i].case,
+                    status=STATUS.FAILED,
+                    error_message="Unknown error - no result returned"
+                )
+            
+            self.test_results.append(result)
+            self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def wait_for_completion(self) -> None:
         """
@@ -452,7 +509,6 @@ class Test_Conductor:
                                   TestCase in getattr(module, name).__bases__)]
                 if test_classes:
                     test_class = test_classes[0]  # Use the first TestCase subclass found
-                    print(f"{self.name} > Found TestCase subclass: {test_class.__name__}")
                 else:
                     raise AttributeError(f"No TestCase subclass found in {file_path}")
             
@@ -479,10 +535,15 @@ class Test_Conductor:
                 **test_def.params
             )
             
-            self.current_test = test_instance
-            self.current_test_start_time = datetime.now()
+            # Track test for timeout monitoring
+            if self.sequence_ordering == "asynchronous":
+                self.active_tests.append((test_instance, datetime.now()))
+            else:
+                self.current_test = test_instance
+                self.current_test_start_time = datetime.now()
+            
             result.status = STATUS.RUNNING
-            result.start_time = self.current_test_start_time
+            result.start_time = datetime.now()
             self._notify_status_change(result)
             
             # Execute the test
@@ -502,8 +563,15 @@ class Test_Conductor:
         
         finally:
             result.end_time = datetime.now()
-            self.current_test = None
-            self.current_test_start_time = None
+            
+            # Clean up test tracking
+            if self.sequence_ordering == "asynchronous":
+                # Remove from active tests list
+                self.active_tests = [(test, start_time) for test, start_time in self.active_tests if test != test_instance]
+            else:
+                self.current_test = None
+                self.current_test_start_time = None
+            
             self._notify_status_change(result)
         
         return result
@@ -516,15 +584,34 @@ class Test_Conductor:
     def _timeout_monitor_thread(self, monitor_interval: float = 1.0) -> None:
         """Monitor test execution for timeout violations."""
         while self.is_running and not self.should_stop:
+            # Check current test (for sequential execution)
             if (self.current_test is not None and 
                 self.current_test_start_time is not None and 
                 hasattr(self.current_test, 'Expected_Timeout') and
-                self.current_test.Expected_Timeout > 0):  # Only monitor if timeout is set
+                self.current_test.Expected_Timeout > 0):
                 
                 elapsed_time = (datetime.now() - self.current_test_start_time).total_seconds()
                 if elapsed_time > self.current_test.Expected_Timeout:
                     self.kill_current_test()
                     break
+            
+            # Check active tests (for asynchronous execution)
+            if self.sequence_ordering == "asynchronous" and self.active_tests:
+                tests_to_remove = []
+                for test_instance, start_time in self.active_tests:
+                    if (hasattr(test_instance, 'Expected_Timeout') and 
+                        test_instance.Expected_Timeout > 0):
+                        
+                        elapsed_time = (datetime.now() - start_time).total_seconds()
+                        if elapsed_time > test_instance.Expected_Timeout:
+                            print(f"{self.name} > {test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)")
+                            # Mark test as timed out - it will handle itself
+                            test_instance._status = STATUS.TIMEOUT
+                            tests_to_remove.append((test_instance, start_time))
+                
+                # Remove completed tests from active list
+                for test_tuple in tests_to_remove:
+                    self.active_tests.remove(test_tuple)
             
             time.sleep(monitor_interval)
     
