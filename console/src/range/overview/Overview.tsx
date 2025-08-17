@@ -13,11 +13,10 @@ import { Flex } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
-import { Annotations } from "@/range/overview/Annotations";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
-import { Snapshots } from "@/range/overview/Snapshots";
 import { MetaData } from "@/range/overview/MetaData";
+import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Flex.Box
@@ -29,7 +28,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     <Details rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
     <MetaData rangeKey={layoutKey} />
-    <Annotations rangeKey={layoutKey} />
+    {/* <Annotations rangeKey={layoutKey} /> */}
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
 );

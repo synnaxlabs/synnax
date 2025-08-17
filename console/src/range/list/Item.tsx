@@ -86,6 +86,8 @@ export const Item = ({
             onChange={onSelect}
             onClick={stopPropagation}
             size="medium"
+            variant="text"
+            ghost={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<ranger.Stage> path="stage" showHelpText showLabel={false}>
@@ -120,7 +122,7 @@ export const Item = ({
           {showTimeRange && (
             <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
           )}
-          {showFavorite && <FavoriteButton range={item} />}
+          {showFavorite && <FavoriteButton range={item} ghost />}
         </Flex.Box>
       </Form.Form>
     </List.Item>

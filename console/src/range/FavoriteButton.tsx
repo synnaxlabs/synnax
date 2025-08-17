@@ -13,7 +13,7 @@ export interface FavoriteButtonProps extends Button.ButtonProps {
   range: ranger.Range;
 }
 
-export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
+export const FavoriteButton = ({ range, ghost, ...rest }: FavoriteButtonProps) => {
   const sliceRange = useSelect(range.key);
   const dispatch = useDispatch();
   const starred = sliceRange != null;
@@ -35,6 +35,7 @@ export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
       }
       size="small"
       variant="text"
+      ghost={starred ? false : ghost}
       {...rest}
     >
       {sliceRange != null ? <Icon.StarFilled /> : <Icon.StarOutlined />}

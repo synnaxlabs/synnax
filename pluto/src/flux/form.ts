@@ -175,6 +175,7 @@ export const createForm = <
       schema,
       values: initialValues ?? baseInitialValues,
       onChange: ({ path }) => {
+        console.log("onChange", path);
         if (autoSave && path !== "") handleSave();
       },
       sync,

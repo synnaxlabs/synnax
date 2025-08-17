@@ -145,10 +145,6 @@ export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
 export const buildTextField = fieldBuilder<string, string, Input.TextProps>(Input.Text);
 export const TextField = buildTextField({ inputProps: {} });
 
-export type TextAreaFieldProps = BuiltFieldProps<string, string, Input.TextAreaProps>;
-export const buildTextAreaField = fieldBuilder(Input.TextArea);
-export const TextAreaField = buildTextAreaField({ inputProps: {} });
-
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;
 export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps>(
   Input.Switch,

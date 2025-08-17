@@ -1,26 +1,3 @@
-.console-range__list-item {
-    .console-star-button,
-    .pluto-input__checkbox-checkmark {
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-    }
-
-    .console-range__favorite-button {
-        opacity: 0;
-    }
-
-    &:is(:hover)
-        :is(.console-range__favorite-button, .pluto-input__checkbox-checkmark) {
-        opacity: 1;
-    }
-
-    &.pluto--selected {
-        .pluto-input__checkbox-checkmark {
-            opacity: 1;
-        }
-    }
-}
-
 @container (max-width: 500px) {
     .console-range__list-item {
         .pluto-tags {

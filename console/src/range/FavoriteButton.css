@@ -1,8 +1,8 @@
 .console-range__favorite-button {
     transition: opacity 0.2s ease-in-out;
+    will-change: opacity;
 
     &.console--favorite {
         color: goldenrod;
-        opacity: 1;
     }
 }
