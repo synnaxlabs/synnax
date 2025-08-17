@@ -68,7 +68,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
   const dispatch = useDispatch();
-  const { form } = Ranger.useForm({
+  const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
@@ -86,11 +86,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   useEffect(() => {
-    if (prevLayoutName == layoutName || prevLayoutName == null) return;
+    if (
+      prevLayoutName == layoutName ||
+      prevLayoutName == null ||
+      status.variant !== "success"
+    )
+      return;
     form.set("name", layoutName);
-  }, [layoutName]);
+  }, [layoutName, status]);
   useEffect(() => {
-    if (name == null) return;
+    if (name == null || name === "") return;
     dispatch(rename({ key: rangeKey, name }));
   }, [name]);
 

@@ -3,38 +3,11 @@ import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channel } from "@/channel";
-import { type Flux } from "@/flux";
 import { Task } from "@/hardware/task";
-import { Label } from "@/label";
-import { Ontology } from "@/ontology";
-import { Ranger } from "@/ranger";
-import { ranger } from "@/ranger/aether";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
-  tasks: Task.FluxStore;
-  channels: Channel.FluxStore;
-  rangeAliases: Ranger.AliasFluxStore;
-  ranges: ranger.FluxStore;
-  relationships: Ontology.RelationshipFluxStore;
-  resources: Ontology.ResourceFluxStore;
-  labels: Label.FluxStore;
-  rangeKV: Ranger.KVFluxStore;
-  aliases: Ranger.AliasFluxStore;
-}> = {
-  tasks: Task.STORE_CONFIG,
-  channels: Channel.STORE_CONFIG,
-  rangeAliases: Ranger.ALIAS_STORE_CONFIG,
-  ranges: ranger.STORE_CONFIG,
-  relationships: Ontology.RELATIONSHIP_STORE_CONFIG,
-  resources: Ontology.RESOURCE_STORE_CONFIG,
-  labels: Label.STORE_CONFIG,
-  rangeKV: Ranger.KV_STORE_CONFIG,
-  aliases: Ranger.ALIAS_STORE_CONFIG,
-};
+const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   describe("useList", () => {
@@ -54,7 +27,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -78,7 +51,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -106,7 +79,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ term: "special" });
@@ -132,7 +105,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -147,7 +120,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -178,7 +151,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -207,7 +180,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -233,7 +206,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -275,7 +248,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Task.useList(), {
-        wrapper: newSynnaxWrapper(client, FLUX_STORE_CONFIG),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});

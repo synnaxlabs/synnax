@@ -20,9 +20,14 @@ export class ScopedUnaryStore<
   private readonly setListeners: Map<Handler<V>, ListenerScope<K>> = new Map();
   private readonly deleteListeners: Map<Handler<K>, ListenerScope<K>> = new Map();
   private readonly handleError: status.ErrorHandler;
+  private readonly equal: (a: V, b: V, key: K) => boolean;
 
-  constructor(handleError: status.ErrorHandler) {
+  constructor(
+    handleError: status.ErrorHandler,
+    equal: (a: V, b: V, key: K) => boolean = () => false,
+  ) {
     this.handleError = handleError;
+    this.equal = equal;
   }
 
   /**
@@ -40,7 +45,7 @@ export class ScopedUnaryStore<
     if (Array.isArray(key)) return key.forEach((v) => this.set(scope, v.key, v));
     const prev = this.entries.get(key);
     const next = state.executeSetter(value, prev);
-    if (next == null) return;
+    if (next == null || (prev != null && this.equal(next, prev, key))) return;
     this.entries.set(key, next);
     this.notifySet(scope, key, next);
   }
@@ -81,7 +86,9 @@ export class ScopedUnaryStore<
     key?: K,
   ): Destructor {
     this.setListeners.set(callback, { scope, key });
-    return () => this.setListeners.delete(callback);
+    return () => {
+      this.setListeners.delete(callback);
+    };
   }
 
   /**
@@ -176,7 +183,13 @@ export type ChannelListenerArgs<
  *
  * @template ScopedStore - The type of the scoped store
  */
-export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
+export interface UnaryStoreConfig<
+  ScopedStore extends Store = {},
+  K extends record.Key = record.Key,
+  V extends state.State = state.State,
+> {
+  /** Function to determine if two values are equal */
+  equal?: (a: V, b: V, key: K) => boolean;
   /** Array of channel listeners to register for this store */
   listeners: ChannelListener<ScopedStore>[];
 }
@@ -188,7 +201,7 @@ export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
  * @template ScopedStore - The type of the scoped store
  */
 export interface StoreConfig<ScopedStore extends Store = {}> {
-  [key: string]: UnaryStoreConfig<ScopedStore>;
+  [key: string]: UnaryStoreConfig<ScopedStore, any, any>;
 }
 
 export interface UnaryStore<
@@ -229,9 +242,9 @@ export const createStore = <ScopedStore extends Store>(
   handleError: status.ErrorHandler,
 ): InternalStore =>
   Object.fromEntries(
-    Object.entries(config).map(([key]) => [
+    Object.entries(config).map(([key, { equal }]) => [
       key,
-      new ScopedUnaryStore<string, state.State>(handleError),
+      new ScopedUnaryStore<string, state.State>(handleError, equal),
     ]),
   );
 
@@ -240,5 +253,8 @@ export const scopeStore = <ScopedStore extends Store>(
   scope: string,
 ): ScopedStore =>
   Object.fromEntries(
-    Object.entries(store).map(([key]) => [key, store[key].scope(scope)]),
+    Object.entries(store).map(([key]): [string, UnaryStore<any, any>] => [
+      key,
+      store[key].scope(scope),
+    ]),
   ) as ScopedStore;

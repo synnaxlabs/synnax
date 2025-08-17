@@ -188,10 +188,11 @@ export const createForm = <
     });
 
     const handleResultChange = useCallback(
-      (setter: state.SetArg<Result<z.infer<Schema> | null>>, reset: boolean = true) => {
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>) => {
+        if (resultRef.current.data != null) resultRef.current.data = form.value();
         const nextStatus = state.executeSetter(setter, resultRef.current);
         resultRef.current = nextStatus;
-        if (nextStatus.data != null && reset) form.reset(nextStatus.data);
+        if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
       },
       [form],
@@ -199,15 +200,9 @@ export const createForm = <
 
     retrieveHook.useEffect({ params, onChange: handleResultChange, scope });
 
-    const handleUpdateResultChange = useCallback(
-      (setter: state.SetArg<Result<z.infer<Schema> | null>>) =>
-        handleResultChange(setter, false),
-      [handleResultChange],
-    ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
-
     const { updateAsync } = updateHook.useObservable({
       params,
-      onChange: handleUpdateResultChange,
+      onChange: handleResultChange,
       scope,
     });
 

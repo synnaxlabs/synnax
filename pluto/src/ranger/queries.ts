@@ -353,6 +353,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
               ...prev,
               labels: [...prev.labels.filter((l) => l !== rel.to.key), rel.to.key],
             };
+
           const isParentChange = ontology.matchRelationship(rel, {
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
             to: otgID,
@@ -372,6 +373,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
               ...prev,
               labels: prev.labels.filter((l) => l !== rel.to.key),
             };
+
           const isParentChange = ontology.matchRelationship(rel, {
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
             to: otgID,

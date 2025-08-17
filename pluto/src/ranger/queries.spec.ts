@@ -762,11 +762,14 @@ describe("queries", () => {
 
       const initialLabels = result.current.form.value().labels;
 
-      const newLabel = await client.labels.create({
-        name: "externalLabel",
-        color: "#FF5500",
+      const newLabel = await act(async () => {
+        const newLabel = await client.labels.create({
+          name: "externalLabel",
+          color: "#FF5500",
+        });
+        await client.labels.label(testRange.ontologyID, [newLabel.key]);
+        return newLabel;
       });
-      await client.labels.label(testRange.ontologyID, [newLabel.key]);
 
       await waitFor(() => {
         expect(result.current.form.value().labels).toHaveLength(
@@ -804,7 +807,7 @@ describe("queries", () => {
       expect(result.current.form.value().labels).toContain(label1.key);
       expect(result.current.form.value().labels).toContain(label2.key);
 
-      await client.labels.label(testRange.ontologyID, [label2.key], { replace: true });
+      await client.labels.remove(testRange.ontologyID, [label1.key]);
 
       await waitFor(() => {
         expect(result.current.form.value().labels).not.toContain(label1.key);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { newTestClient, ranger } from "@synnaxlabs/client";
-import { type record, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -605,6 +605,8 @@ describe("list", () => {
           end: TimeSpan.seconds(13),
         }),
       });
+      const rng3Key = uuid.create();
+      const rangeKeys = new Set([rng1.key, rng2.key, rng3Key]);
 
       const { result } = renderHook(
         () =>
@@ -616,7 +618,9 @@ describe("list", () => {
             ],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
+              store.ranges.onSet((changed) => {
+                if (rangeKeys.has(changed.key)) onChange(changed.key, changed);
+              }),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
@@ -630,6 +634,7 @@ describe("list", () => {
       });
 
       const rng3 = await client.ranges.create({
+        key: rng3Key,
         name: "B Range",
         timeRange: new TimeRange({
           start: TimeSpan.seconds(14),

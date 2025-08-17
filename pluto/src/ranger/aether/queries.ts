@@ -1,4 +1,5 @@
 import { ranger } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 
 import { type flux } from "@/flux/aether";
 
@@ -22,6 +23,7 @@ const DELETE_LISTENER: flux.ChannelListener<SubStore, typeof ranger.keyZ> = {
   onChange: ({ store, changed }) => store.ranges.delete(changed),
 };
 
-export const STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
+export const STORE_CONFIG: flux.UnaryStoreConfig<SubStore, ranger.Key, ranger.Range> = {
+  equal: (a, b) => deep.equal(a.payload, b.payload),
   listeners: [SET_LISTENER, DELETE_LISTENER],
 };

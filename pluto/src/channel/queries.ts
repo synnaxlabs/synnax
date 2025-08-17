@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, ranger } from "@synnaxlabs/client";
-import { type Optional } from "@synnaxlabs/x";
+import { deep, type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -64,7 +64,12 @@ export const useListenForCalculationStatus = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const STORE_CONFIG: Flux.UnaryStoreConfig<
+  SubStore,
+  channel.Key,
+  channel.Channel
+> = {
+  equal: (a, b) => deep.equal(a.payload, b.payload),
   listeners: [
     SET_CHANNEL_LISTENER,
     DELETE_CHANNEL_LISTENER,
