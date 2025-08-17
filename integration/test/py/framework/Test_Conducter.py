@@ -36,10 +36,10 @@ try:
     # Import from the framework module to ensure we get the same class objects
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-    from framework.TestCase import TestCase, SynnaxConnection, STATUS
+    from framework.TestCase import TestCase, SynnaxConnection, STATUS, SYMBOLS
 except ImportError:
     # Handle case when running script directly
-    from TestCase import TestCase, SynnaxConnection, STATUS
+    from TestCase import TestCase, SynnaxConnection, STATUS, SYMBOLS
 
 class STATE(Enum):
     """Test conductor execution states."""
@@ -622,12 +622,8 @@ class Test_Conductor:
         print("="*50)
         
         for result in self.test_results:
-            status_symbol = {
-                STATUS.PASSED: "✓",
-                STATUS.FAILED: "✗",
-                STATUS.KILLED: "⚠",
-                STATUS.TIMEOUT: "⏱"
-            }.get(result.status, "?")
+            
+            status_symbol = SYMBOLS.get_symbol(result.status)
             
             duration_str = f"({result.duration:.2f}s)" if result.duration else ""
             print(f"{status_symbol} {result.test_name} {duration_str}")

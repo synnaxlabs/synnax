@@ -4,6 +4,17 @@
         {
             "case": "testcases.check_connection_basic",
             "parameters": {
+            }
+        },
+        {
+            "case": "testcases.check_connection_basic",
+            "parameters": {
+            },
+            "expect": "TIMEOUT"
+        },
+            {
+            "case": "testcases.check_connection_basic",
+            "parameters": {
                 "fail_test": true
             },
             "expect": "FAILED"
@@ -28,6 +39,9 @@
                 "timeout": 2,
                 "wait_time": 5
             }
+        },
+        {
+            "case": "testcases.test_no_timeout"
         }
     ]
 }

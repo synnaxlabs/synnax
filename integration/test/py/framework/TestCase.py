@@ -36,6 +36,19 @@ class STATUS(Enum):
     TIMEOUT = auto()
     KILLED = auto()
 
+class SYMBOLS(Enum):
+    PASSED = "✓"
+    FAILED = "✗"
+    KILLED = "⚠"
+    TIMEOUT = "⏱"
+    
+    @classmethod
+    def get_symbol(cls, status):
+        """Get symbol for a given status, with fallback to '?' if not found."""
+        try:
+            return cls[status.name].value
+        except (KeyError, AttributeError):
+            return "?"
 
 class TestCase(ABC):
     """
@@ -195,10 +208,10 @@ class TestCase(ABC):
     
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""
-        ##self.stop_client()
         
-        ##if self._status == STATUS.PENDING:
-        ##    self._status = STATUS.PASSED
+        # Unload configs 
+        # or open vents
+        # or whatever else
         pass
 
     def stop_client(self) -> None:
@@ -251,33 +264,30 @@ class TestCase(ABC):
     
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
+        # Convert PENDING to PASSED if no final status set
         if self._status == STATUS.PENDING:
             self._status = STATUS.PASSED
 
-        status_symbol = {
-                STATUS.PASSED: "✓",
-                STATUS.FAILED: "✗",
-                STATUS.KILLED: "⚠",
-                STATUS.TIMEOUT: "⏱"
-            }.get(self._status, "?")
+        status_symbol = SYMBOLS.get_symbol(self._status)
+        expected_symbol = SYMBOLS.get_symbol(self.expected_outcome)
 
+        # Handle expected outcome logic
         if self._status == STATUS.PASSED:
-            print(f"{self.name} > PASSED ({status_symbol})")
+            if self.expected_outcome == STATUS.PASSED:
+                print(f"{self.name} > PASSED ({status_symbol})")
+            else:
+                self._status = STATUS.FAILED
+                print(f"{self.name} > FAILED (✗): Expected {expected_symbol}, got {status_symbol}")
 
-        if self.expected_outcome != STATUS.PASSED:
-            if self._status == self.expected_outcome:
-                print(f"{self.name} > PASSED: Expected outcome achieved ({status_symbol})")
-                self._status = STATUS.PASSED
-        
-        if self._status == STATUS.FAILED:
+        elif self._status == self.expected_outcome:
+            print(f"{self.name} > PASSED (✓): Expected outcome achieved ({status_symbol})")
+            self._status = STATUS.PASSED
+        elif self._status == STATUS.FAILED:
             print(f"{self.name} > FAILED ({status_symbol})")
-        if self._status == STATUS.TIMEOUT:
+        elif self._status == STATUS.TIMEOUT:
             print(f"{self.name} > TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
-        if self._status == STATUS.KILLED:
+        elif self._status == STATUS.KILLED:
             print(f"{self.name} > KILLED ({status_symbol})")
-
-        
-        
             
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
@@ -301,7 +311,5 @@ class TestCase(ABC):
             self._status = STATUS.FAILED
             print(f"{self.name} > EXCEPTION: {e}")
         finally:
-            # Always call teardown, even if exception occurred
             self.stop_client()
-            
             self.wait_for_client_completion()
