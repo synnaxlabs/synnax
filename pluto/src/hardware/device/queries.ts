@@ -48,7 +48,7 @@ export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 };
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void => {
-  const store = Flux.useStore<SubStore>();
+  const { store } = Flux.useStore<SubStore>();
   useEffect(() => store.devices.onSet(onSet), [store]);
 };
 

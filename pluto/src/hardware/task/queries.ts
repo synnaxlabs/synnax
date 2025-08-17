@@ -74,7 +74,7 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ>
 export const useStatusSynchronizer = (
   onStatus: (status: task.Status) => void,
 ): void => {
-  const store = Flux.useStore<SubStore>();
+  const { store } = Flux.useStore<SubStore>();
   useEffect(
     () =>
       store.tasks.onSet((task) => {

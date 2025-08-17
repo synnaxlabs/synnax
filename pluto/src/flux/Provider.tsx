@@ -13,7 +13,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useMemo,
-  useState,
 } from "react";
 
 import { Aether } from "@/aether";
@@ -25,63 +24,73 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 interface ContextValue {
-  listenersMounted: boolean;
+  mounted: Promise<void>;
   store: flux.InternalStore;
 }
 
 const Context = createContext<ContextValue | null>(null);
 
-export const useStore = <ScopedStore extends flux.Store>(scope?: string): ScopedStore =>
-  scopeStore<ScopedStore>(useRequiredContext(Context)?.store, useUniqueKey(scope));
+export interface UseStoreReturn<ScopedStore extends flux.Store> {
+  store: ScopedStore;
+  mounted: Promise<void>;
+}
+
+export const useStore = <ScopedStore extends flux.Store>(
+  scope?: string,
+): UseStoreReturn<ScopedStore> => {
+  const { store, mounted } = useRequiredContext(Context);
+  return { store: scopeStore<ScopedStore>(store, useUniqueKey(scope)), mounted };
+};
 
 export interface ProviderProps<ScopedStore extends flux.Store>
   extends PropsWithChildren {
   openStreamer?: framer.StreamOpener;
   storeConfig?: flux.StoreConfig<ScopedStore>;
-  requireStreamerMounted?: boolean;
 }
 
 export const Provider = <ScopedStore extends flux.Store>({
   children,
   openStreamer: propsOpenStreamer,
   storeConfig = {} as flux.StoreConfig<ScopedStore>,
-  requireStreamerMounted = false,
 }: ProviderProps<ScopedStore>): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const storeRef = useInitializerRef<flux.InternalStore>(() =>
     flux.createStore<ScopedStore>(storeConfig, handleError),
   );
-  const [streamerMounted, setStreamerMounted] = useState(!requireStreamerMounted);
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
     initialState: {},
   });
 
-  const openStreamer = useMemo(
-    () => propsOpenStreamer ?? client?.openStreamer.bind(client),
-    [client, propsOpenStreamer],
-  );
-
-  useAsyncEffect(async () => {
-    if (openStreamer == null || client == null) return;
-    const destructor = await flux.openStreamer({
+  const destructor = useMemo(() => {
+    if (client == null) return Promise.resolve(null);
+    return flux.openStreamer({
       handleError,
       storeConfig,
       client,
       store: scopeStore<ScopedStore>(storeRef.current, ""),
-      openStreamer,
+      openStreamer: propsOpenStreamer ?? client?.openStreamer.bind(client),
     });
-    setStreamerMounted(true);
-    return () => destructor();
-  }, [openStreamer]);
+  }, [client, propsOpenStreamer]);
+  useAsyncEffect(
+    async () => async () => {
+      const d = await destructor;
+      if (d == null) return;
+      await d();
+    },
+    [destructor],
+  );
+
   const value = useMemo(
-    () => ({
-      listenersMounted: streamerMounted,
+    (): ContextValue => ({
       store: storeRef.current,
+      mounted: (async () => {
+        await destructor;
+      })(),
     }),
-    [streamerMounted, storeRef.current],
+    [storeRef.current, destructor],
   );
   return (
     <Aether.Composite path={path}>

@@ -150,7 +150,7 @@ const useObservable = <
     ScopedStore
   >): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
-  const store = useStore<ScopedStore>(scope);
+  const { store } = useStore<ScopedStore>(scope);
   const handleUpdate = useCallback(
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;

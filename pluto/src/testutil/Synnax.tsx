@@ -42,7 +42,6 @@ export const useConnectToClient = () => use(Context);
 export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
   client: Client | null = null,
   storeConfig?: Flux.StoreConfig<ScopedStore>,
-  requireStreamerMounted = true,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
@@ -53,7 +52,6 @@ export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
               storeConfig ??
               (Pluto.FLUX_STORE_CONFIG as unknown as Flux.StoreConfig<ScopedStore>)
             }
-            requireStreamerMounted={requireStreamerMounted}
           >
             {children}
           </Flux.Provider>

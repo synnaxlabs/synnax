@@ -224,7 +224,7 @@ const useObservable = <
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const store = useStore<ScopedStore>(scope);
+  const { store, mounted } = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
   const retrieveAsync = useCallback(
     async (
@@ -240,6 +240,8 @@ const useObservable = <
       try {
         if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
         onChange((p) => pendingResult(name, "retrieving", p.data));
+        await mounted;
+        if (signal?.aborted) return;
         const value = await retrieve({ client, params, store });
         if (signal?.aborted) return;
         listeners.cleanup();

@@ -53,7 +53,7 @@ const CALCULATION_STATUS_LISTENER: Flux.ChannelListener<
 export const useListenForCalculationStatus = (
   onChange: (status: channel.Status) => void,
 ): void => {
-  const store = Flux.useStore<SubStore>();
+  const { store } = Flux.useStore<SubStore>();
   useEffect(
     () =>
       store.channels.onSet((ch) => {
