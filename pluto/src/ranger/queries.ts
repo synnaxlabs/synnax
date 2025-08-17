@@ -35,9 +35,13 @@ interface SubStore extends Flux.Store {
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
   const cached = store.ranges.get(key);
   if (cached != null) return cached;
-  const range = await client.ranges.retrieve(key);
-  store.ranges.set(key, range, { notify: false });
-  return range;
+  const range = await client.ranges.retrieve({
+    keys: [key],
+    includeParent: true,
+    includeLabels: true,
+  });
+  store.ranges.set(key, range[0], { notify: false });
+  return range[0];
 };
 
 const multiCachedRetrieve = async (
@@ -238,11 +242,11 @@ export const retrieveParent = Flux.createRetrieve<
   ],
 });
 
-export interface QueryParams {
+export interface RetrieveParams {
   key: ranger.Key;
 }
 
-export const retrieveQuery = Flux.createRetrieve<QueryParams, ranger.Range, SubStore>({
+export const retrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) =>
     await cachedRetrieve(client, store, key),
@@ -282,7 +286,7 @@ export const retrieveQuery = Flux.createRetrieve<QueryParams, ranger.Range, SubS
   ],
 });
 
-export const useRetrieve = retrieveQuery.useDirect;
+export const useRetrieve = retrieve.useDirect;
 
 export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
@@ -291,18 +295,14 @@ export const formSchema = z.object({
   timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
-export const toFormValues = async (
-  range: ranger.Range,
-  labels?: label.Key[],
-  parent?: ranger.Key,
-) => ({
+export const toFormValues = async (range: ranger.Range) => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
-  labels: labels ?? (await range.retrieveLabels()).map((l) => l.key),
-  parent: parent ?? (await range.retrieveParent())?.key ?? "",
+  parent: range.parent?.key,
+  labels: range.labels.map((l) => l.key),
 });
 
-export interface UseFormQueryParams extends Optional<QueryParams, "key"> {}
+export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -335,11 +335,11 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
         parent: value.parent,
       });
     },
-    mountListeners: ({ store, onChange, params: { key } }) => [
+    mountListeners: ({ store, onChange }) => [
       store.ranges.onSet(async (range) => {
         const values = await toFormValues(range);
         onChange((prev) => {
-          if (prev == null || prev?.key !== key) return prev;
+          if (prev == null || prev?.key !== range.key) return prev;
           return { ...values, labels: prev.labels, parent: prev.parent };
         });
       }),
