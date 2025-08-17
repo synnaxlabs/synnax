@@ -386,13 +386,13 @@ describe("useForm", () => {
 
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const ch = await client.labels.create({
+      const label = await client.labels.create({
         name: "Initial Name",
         color: "#000000",
       });
 
       const initialValues = {
-        key: ch.key.toString(),
+        key: label.key.toString(),
         name: "Initial Name",
         age: 25,
       };
@@ -404,7 +404,7 @@ describe("useForm", () => {
         () =>
           Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues: {
-              key: ch.key.toString(),
+              key: label.key.toString(),
               name: "",
               age: 0,
             },
@@ -413,10 +413,12 @@ describe("useForm", () => {
             retrieve,
             update,
             mountListeners: ({ store, onChange }) =>
-              store.labels.onSet((changed) =>
-                onChange((p) => (p == null ? p : { ...p, name: changed.name })),
+              store.labels.onSet(
+                (changed) =>
+                  onChange((p) => (p == null ? p : { ...p, name: changed.name })),
+                label.key,
               ),
-          })({ params: { key: ch.key } }),
+          })({ params: { key: label.key } }),
         { wrapper: newSynnaxWrapper(client, STORE_CONFIG) },
       );
 
@@ -427,7 +429,7 @@ describe("useForm", () => {
 
       await act(async () => {
         await client.labels.create({
-          ...ch,
+          ...label,
           name: "Updated Label Name",
         });
       });
