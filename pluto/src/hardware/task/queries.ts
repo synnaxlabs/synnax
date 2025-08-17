@@ -157,7 +157,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore
       includeStatus: true,
       ...params,
     });
-    tasks.forEach((task) => store.tasks.set(task.key, task, { notify: false }));
+    tasks.forEach((task) => store.tasks.set(task.key, task));
     return tasks;
   },
 

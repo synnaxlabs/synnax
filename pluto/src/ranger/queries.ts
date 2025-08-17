@@ -40,7 +40,7 @@ const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) 
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(key, range[0], { notify: false });
+  store.ranges.set(key, range[0]);
   return range[0];
 };
 
@@ -54,7 +54,7 @@ const multiCachedRetrieve = async (
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(ranges, { notify: false });
+  store.ranges.set(ranges);
   return ranges;
 };
 
@@ -82,7 +82,7 @@ const handleListLabelRelationshipSet = async (
     let label = store.labels.get(rel.to.key);
     if (label == null) {
       label = await client.labels.retrieve({ key: rel.to.key });
-      store.labels.set(rel.to.key, label, { notify: false });
+      store.labels.set(rel.to.key, label);
     }
     onChange(rel.from.key, (prev) => {
       if (prev == null) return prev;

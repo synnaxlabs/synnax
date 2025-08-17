@@ -12,7 +12,13 @@ import { type AsyncDestructor } from "@synnaxlabs/x";
 import z from "zod";
 
 import { aether, synnax } from "@/ether";
-import { createStore, type Store, type StoreConfig } from "@/flux/aether/store";
+import {
+  createStore,
+  type InternalStore,
+  scopeStore,
+  type Store,
+  type StoreConfig,
+} from "@/flux/aether/store";
 import { openStreamer } from "@/flux/aether/streamer";
 import { status } from "@/status/aether";
 
@@ -25,11 +31,11 @@ export type ProviderState = z.input<typeof providerStateZ>;
 /**
  * Internal state managed by the provider.
  */
-interface InternalState<ScopedStore extends Store> {
+interface InternalState {
   /** Function to close the active streamer connection */
   closeStreamer: AsyncDestructor;
   /** The store instance */
-  store: ScopedStore;
+  store: InternalStore;
   /** The Synnax client instance */
   client: Synnax | null;
 }
@@ -39,7 +45,7 @@ interface InternalState<ScopedStore extends Store> {
  */
 export interface ContextValue {
   /** The store instance available to child components */
-  store: Store;
+  store: InternalStore;
 }
 
 /** Key used to store flux context in the Aether context */
@@ -55,8 +61,11 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useStore = <ScopedStore extends Store>(ctx: aether.Context): ScopedStore =>
-  ctx.get<ContextValue>(CONTEXT_KEY).store as ScopedStore;
+export const useStore = <ScopedStore extends Store>(
+  ctx: aether.Context,
+  scope: string,
+): ScopedStore =>
+  scopeStore<ScopedStore>(ctx.get<ContextValue>(CONTEXT_KEY).store, scope);
 
 /**
  * Creates a flux provider component class for the given store configuration.
@@ -69,10 +78,7 @@ export const useStore = <ScopedStore extends Store>(ctx: aether.Context): Scoped
 const createProvider = <ScopedStore extends Store>(
   storeConfig: StoreConfig<ScopedStore>,
 ) =>
-  class Provider extends aether.Composite<
-    typeof providerStateZ,
-    InternalState<ScopedStore>
-  > {
+  class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
     schema = Provider.stateZ;
@@ -98,7 +104,7 @@ const createProvider = <ScopedStore extends Store>(
           handleError,
           storeConfig,
           client: i.client,
-          store: i.store,
+          store: scopeStore<ScopedStore>(i.store, ""),
           openStreamer: i.client.openStreamer.bind(i.client),
         });
       });

@@ -17,6 +17,7 @@ import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
 import { useCombinedStateAndRef } from "@/hooks";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { state } from "@/state";
 
 /**
@@ -81,6 +82,8 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject>
   params: FormParams;
   /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
+  /** The scope to use for the form operation */
+  scope?: string;
 }
 
 /**
@@ -166,10 +169,12 @@ export const createForm = <
     sync,
     onHasTouched,
     mode,
+    scope: argsScope,
   }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null));
+    const scope = useUniqueKey(argsScope);
 
     const form = Form.use<Schema>({
       schema,
@@ -183,20 +188,27 @@ export const createForm = <
     });
 
     const handleResultChange = useCallback(
-      (setter: state.SetArg<Result<z.infer<Schema> | null>>) => {
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>, reset: boolean = true) => {
         const nextStatus = state.executeSetter(setter, resultRef.current);
         resultRef.current = nextStatus;
-        if (nextStatus.data != null) form.reset(nextStatus.data);
+        if (nextStatus.data != null && reset) form.reset(nextStatus.data);
         setResult(nextStatus);
       },
       [form],
     ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
 
-    retrieveHook.useEffect({ params, onChange: handleResultChange });
+    retrieveHook.useEffect({ params, onChange: handleResultChange, scope });
+
+    const handleUpdateResultChange = useCallback(
+      (setter: state.SetArg<Result<z.infer<Schema> | null>>) =>
+        handleResultChange(setter, false),
+      [handleResultChange],
+    ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
 
     const { updateAsync } = updateHook.useObservable({
       params,
-      onChange: handleResultChange,
+      onChange: handleUpdateResultChange,
+      scope,
     });
 
     const handleSave = useCallback(

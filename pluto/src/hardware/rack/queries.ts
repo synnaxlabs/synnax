@@ -69,7 +69,7 @@ const retrieveFn = async ({
       ...DEFAULT_PARAMS,
       ...params,
     });
-    store.racks.set(rack.key, rack, { notify: false });
+    store.racks.set(rack.key, rack);
   }
   return rack;
 };
@@ -80,7 +80,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubSt
       ...DEFAULT_PARAMS,
       ...params,
     });
-    racks.forEach((rack) => store.racks.set(rack.key, rack, { notify: false }));
+    racks.forEach((rack) => store.racks.set(rack.key, rack));
     return racks;
   },
   retrieveByKey: async ({ client, key, store }) =>

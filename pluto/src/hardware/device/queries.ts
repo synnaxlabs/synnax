@@ -67,7 +67,7 @@ const retrieveByKey = async <
     ...params,
     includeStatus: true,
   });
-  store.devices.set(params.key, device, { notify: false });
+  store.devices.set(params.key, device);
   return device;
 };
 
@@ -102,7 +102,7 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device, Su
         includeStatus: true,
         ...params,
       });
-      devices.forEach((d) => store.devices.set(d.key, d, { notify: false }));
+      devices.forEach((d) => store.devices.set(d.key, d));
       return devices;
     },
     retrieveByKey: async ({ client, key, store }) =>

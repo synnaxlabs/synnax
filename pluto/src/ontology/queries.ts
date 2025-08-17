@@ -173,12 +173,12 @@ export const useResourceList = Flux.createList<
   name: "useResourceList",
   retrieve: async ({ client, params, store }) => {
     const res = await client.ontology.retrieve(params);
-    res.forEach((r) => store.resources.set(r.key, r, { notify: false }));
+    res.forEach((r) => store.resources.set(r.key, r));
     return res;
   },
   retrieveByKey: async ({ client, key, store }) => {
     const res = await client.ontology.retrieve(ontology.idZ.parse(key));
-    store.resources.set(key, res, { notify: false });
+    store.resources.set(key, res);
     return res;
   },
   mountListeners: ({ store, onChange, onDelete }) => [

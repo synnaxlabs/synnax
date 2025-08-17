@@ -18,19 +18,21 @@ import {
 
 import { Aether } from "@/aether";
 import { flux } from "@/flux/aether";
+import { scopeStore } from "@/flux/aether/store";
 import { useAsyncEffect, useInitializerRef, useRequiredContext } from "@/hooks";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 interface ContextValue {
   listenersMounted: boolean;
-  store: flux.Store;
+  store: flux.InternalStore;
 }
 
 const Context = createContext<ContextValue | null>(null);
 
-export const useStore = <ScopedStore extends flux.Store>(): ScopedStore =>
-  useRequiredContext(Context)?.store as ScopedStore;
+export const useStore = <ScopedStore extends flux.Store>(scope?: string): ScopedStore =>
+  scopeStore<ScopedStore>(useRequiredContext(Context)?.store, useUniqueKey(scope));
 
 export interface ProviderProps<ScopedStore extends flux.Store>
   extends PropsWithChildren {
@@ -47,7 +49,7 @@ export const Provider = <ScopedStore extends flux.Store>({
 }: ProviderProps<ScopedStore>): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const storeRef = useInitializerRef<ScopedStore>(() =>
+  const storeRef = useInitializerRef<flux.InternalStore>(() =>
     flux.createStore<ScopedStore>(storeConfig, handleError),
   );
   const [streamerMounted, setStreamerMounted] = useState(!requireStreamerMounted);
@@ -68,7 +70,7 @@ export const Provider = <ScopedStore extends flux.Store>({
       handleError,
       storeConfig,
       client,
-      store: storeRef.current,
+      store: scopeStore<ScopedStore>(storeRef.current, ""),
       openStreamer,
     });
     setStreamerMounted(true);

@@ -92,6 +92,8 @@ export interface CreateRetrieveArgs<
 export interface UseObservableRetrieveArgs<V extends state.State> {
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<V>>;
+  /** The scope to use for the retrieve operation */
+  scope?: string;
 }
 
 /**
@@ -213,6 +215,7 @@ const useObservable = <
   mountListeners,
   name,
   onChange,
+  scope,
 }: UseObservableRetrieveArgs<Data> &
   CreateRetrieveArgs<
     RetrieveParams,
@@ -221,7 +224,7 @@ const useObservable = <
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const store = useStore<ScopedStore>();
+  const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
   const retrieveAsync = useCallback(
     async (

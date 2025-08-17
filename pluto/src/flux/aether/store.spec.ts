@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createStore, UnaryStore } from "@/flux/aether/store";
+import { createStore, ScopedUnaryStore as UnaryStore } from "@/flux/aether/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();
@@ -32,32 +32,32 @@ describe("UnaryStore", () => {
 
   describe("set and get", () => {
     it("should set and get a value", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "value1");
       expect(store.get("key1")).toBe("value1");
     });
 
     it("should update an existing value", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "value1");
       store.set("key1", "value2");
       expect(store.get("key1")).toBe("value2");
     });
 
     it("should handle setter functions", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "initial");
       store.set("key1", (prev) => `${prev}_updated`);
       expect(store.get("key1")).toBe("initial_updated");
     });
 
     it("should return undefined for non-existent keys", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       expect(store.get("nonexistent")).toBeUndefined();
     });
 
     it("should get multiple values by keys array", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "value1");
       store.set("key2", "value2");
       store.set("key3", "value3");
@@ -67,7 +67,7 @@ describe("UnaryStore", () => {
     });
 
     it("should filter values using a predicate", () => {
-      const store = new UnaryStore<string, number>(basicHandleError);
+      const store = new UnaryStore<string, number>(basicHandleError).scope("scope");
       store.set("a", 1);
       store.set("b", 2);
       store.set("c", 3);
@@ -78,7 +78,7 @@ describe("UnaryStore", () => {
     });
 
     it("should not set null values", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "value1");
       store.set("key1", () => null as any);
       expect(store.get("key1")).toBe("value1");
@@ -87,7 +87,7 @@ describe("UnaryStore", () => {
 
   describe("delete", () => {
     it("should delete an entry", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       store.set("key1", "value1");
       expect(store.get("key1")).toBe("value1");
 
@@ -96,14 +96,14 @@ describe("UnaryStore", () => {
     });
 
     it("should handle deleting non-existent keys", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       expect(() => store.delete("nonexistent")).not.toThrow();
     });
   });
 
   describe("onSet listeners", () => {
     it("should notify listeners when a value is set", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener = vi.fn();
 
       store.onSet(listener);
@@ -113,7 +113,7 @@ describe("UnaryStore", () => {
     });
 
     it("should notify only for specific key when key filter is provided", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -129,18 +129,8 @@ describe("UnaryStore", () => {
       expect(listener1).toHaveBeenCalledTimes(1);
     });
 
-    it("should not notify when notify option is false", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
-      const listener = vi.fn();
-
-      store.onSet(listener);
-      store.set("key1", "value1", { notify: false });
-
-      expect(listener).not.toHaveBeenCalled();
-    });
-
     it("should remove listener when destructor is called", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener = vi.fn();
 
       const destructor = store.onSet(listener);
@@ -153,7 +143,7 @@ describe("UnaryStore", () => {
     });
 
     it("should handle multiple listeners", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -168,7 +158,7 @@ describe("UnaryStore", () => {
 
     it("should call error handler when a listener throws a synchronous error", async () => {
       const errorHandler = vi.fn();
-      const store = new UnaryStore<string, string>(errorHandler);
+      const store = new UnaryStore<string, string>(errorHandler).scope("scope");
       const error = new Error("Listener error");
       const listener = vi.fn(() => {
         throw error;
@@ -187,7 +177,7 @@ describe("UnaryStore", () => {
 
     it("should call error handler when a listener returns a rejected promise", async () => {
       const errorHandler = vi.fn();
-      const store = new UnaryStore<string, string>(errorHandler);
+      const store = new UnaryStore<string, string>(errorHandler).scope("scope");
       const error = new Error("Async listener error");
       const listener = vi.fn(async () => {
         throw error;
@@ -205,7 +195,7 @@ describe("UnaryStore", () => {
     });
 
     it("should continue notifying other listeners when one throws an error", async () => {
-      const store = new UnaryStore<string, string>(squashError);
+      const store = new UnaryStore<string, string>(squashError).scope("scope");
       const listener1 = vi.fn(() => {
         throw new Error("First listener error");
       });
@@ -228,7 +218,7 @@ describe("UnaryStore", () => {
     });
 
     it("should handle errors from multiple listeners", async () => {
-      const store = new UnaryStore<string, string>(squashError);
+      const store = new UnaryStore<string, string>(squashError).scope("scope");
       const listener1 = vi.fn(() => {
         throw new Error("First error");
       });
@@ -253,7 +243,7 @@ describe("UnaryStore", () => {
 
   describe("onDelete listeners", () => {
     it("should notify listeners when a value is deleted", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener = vi.fn();
 
       store.onDelete(listener);
@@ -264,7 +254,7 @@ describe("UnaryStore", () => {
     });
 
     it("should notify only for specific key when key filter is provided", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener1 = vi.fn();
       const listener2 = vi.fn();
 
@@ -284,7 +274,7 @@ describe("UnaryStore", () => {
     });
 
     it("should remove listener when destructor is called", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener = vi.fn();
 
       const destructor = store.onDelete(listener);
@@ -300,7 +290,7 @@ describe("UnaryStore", () => {
 
     it("should call error handler when a listener throws a synchronous error", async () => {
       const errorHandler = vi.fn();
-      const store = new UnaryStore<string, string>(errorHandler);
+      const store = new UnaryStore<string, string>(errorHandler).scope("scope");
       const error = new Error("Delete listener error");
       const listener = vi.fn(() => {
         throw error;
@@ -320,7 +310,7 @@ describe("UnaryStore", () => {
 
     it("should call error handler when a listener returns a rejected promise", async () => {
       const errorHandler = vi.fn();
-      const store = new UnaryStore<string, string>(errorHandler);
+      const store = new UnaryStore<string, string>(errorHandler).scope("scope");
       const error = new Error("Async delete listener error");
       const listener = vi.fn(async () => {
         throw error;
@@ -339,7 +329,7 @@ describe("UnaryStore", () => {
     });
 
     it("should continue notifying other listeners when one throws an error", async () => {
-      const store = new UnaryStore<string, string>(squashError);
+      const store = new UnaryStore<string, string>(squashError).scope("scope");
       const listener1 = vi.fn(() => {
         throw new Error("First delete listener error");
       });
@@ -363,7 +353,7 @@ describe("UnaryStore", () => {
     });
 
     it("should handle errors from multiple delete listeners", async () => {
-      const store = new UnaryStore<string, string>(squashError);
+      const store = new UnaryStore<string, string>(squashError).scope("scope");
       const listener1 = vi.fn(() => {
         throw new Error("First delete error");
       });
@@ -387,12 +377,12 @@ describe("UnaryStore", () => {
     });
 
     it("should not notify when notify option is false", () => {
-      const store = new UnaryStore<string, string>(basicHandleError);
+      const store = new UnaryStore<string, string>(basicHandleError).scope("scope");
       const listener = vi.fn();
 
       store.onDelete(listener);
       store.set("key1", "value1");
-      store.delete("key1", { notify: false });
+      store.delete("key1");
 
       expect(listener).not.toHaveBeenCalled();
     });
@@ -406,7 +396,7 @@ describe("UnaryStore", () => {
     }
 
     it("should handle object state", () => {
-      const store = new UnaryStore<string, User>(basicHandleError);
+      const store = new UnaryStore<string, User>(basicHandleError).scope("scope");
       const user: User = { id: "1", name: "John", age: 30 };
 
       store.set("user1", user);
@@ -414,7 +404,7 @@ describe("UnaryStore", () => {
     });
 
     it("should update nested properties with setter function", () => {
-      const store = new UnaryStore<string, User>(basicHandleError);
+      const store = new UnaryStore<string, User>(basicHandleError).scope("scope");
       const user: User = { id: "1", name: "John", age: 30 };
 
       store.set("user1", user);
@@ -428,20 +418,6 @@ describe("UnaryStore", () => {
 });
 
 describe("createStore", () => {
-  it("should create a store with configured keys", () => {
-    const config = {
-      users: { listeners: [] },
-      tasks: { listeners: [] },
-      settings: { listeners: [] },
-    };
-
-    const store = createStore(config, basicHandleError);
-
-    expect(store.users).toBeInstanceOf(UnaryStore);
-    expect(store.tasks).toBeInstanceOf(UnaryStore);
-    expect(store.settings).toBeInstanceOf(UnaryStore);
-  });
-
   it("should create independent stores for each key", () => {
     const config = {
       store1: { listeners: [] },
