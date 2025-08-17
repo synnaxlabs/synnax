@@ -1,5 +1,5 @@
 import { type channel, type Synnax } from "@synnaxlabs/client";
-import { type Destructor, type observe, type record } from "@synnaxlabs/x";
+import { array, type Destructor, type observe, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { state } from "@/state";
@@ -25,15 +25,22 @@ export class UnaryStore<
   V extends state.State = state.State,
 > {
   private readonly entries: Map<K, V> = new Map();
-  private readonly setListeners: Map<observe.AsyncHandler<V>, K | undefined> =
-    new Map();
-  private readonly deleteListeners: Map<observe.AsyncHandler<K>, K | undefined> =
-    new Map();
+  private readonly setListeners: Map<
+    observe.Handler<V> | observe.AsyncHandler<V>,
+    K | undefined
+  > = new Map();
+  private readonly deleteListeners: Map<
+    observe.Handler<K> | observe.AsyncHandler<K>,
+    K | undefined
+  > = new Map();
   private readonly handleError: status.ErrorHandler;
 
   constructor(handleError: status.ErrorHandler) {
     this.handleError = handleError;
   }
+
+  set(key: K, value: state.SetArg<V | undefined>, opts?: UpdateOptions): void;
+  set(values: Array<V & record.Keyed<K>>, opts?: UpdateOptions): void;
 
   /**
    * Sets a value for the given key in the store.
@@ -42,10 +49,16 @@ export class UnaryStore<
    * @param value - The value to set, or a function to compute the value from the previous state
    * @param opts - Options for the set operation
    */
-  set(key: K, value: state.SetArg<V | undefined>, opts: UpdateOptions = {}): void {
-    const { notify = true } = opts;
+  set(
+    key: K | Array<V & record.Keyed<K>>,
+    value?: state.SetArg<V | undefined> | UpdateOptions,
+    opts?: UpdateOptions,
+  ): void {
+    if (Array.isArray(key))
+      return key.forEach((v) => this.set(v.key, v, (value as UpdateOptions) ?? {}));
+    const { notify = true } = opts ?? {};
     const prev = this.entries.get(key);
-    const next = state.executeSetter(value, prev);
+    const next = state.executeSetter(value as state.SetArg<V | undefined>, prev);
     if (next == null) return;
     this.entries.set(key, next);
     if (notify) this.notifySet(key, next);
@@ -82,10 +95,12 @@ export class UnaryStore<
    * Deletes an entry from the store and notifies delete listeners.
    * @param key - The key to delete
    */
-  delete(key: K, opts: UpdateOptions = {}) {
-    const { notify = true } = opts;
-    this.entries.delete(key);
-    if (notify) this.notifyDelete(key);
+  delete(key: K | K[], opts: UpdateOptions = {}) {
+    const { notify = true } = opts ?? {};
+    array.toArray(key).forEach((k) => {
+      this.entries.delete(k);
+      if (notify) this.notifyDelete(k);
+    });
   }
 
   clear() {
@@ -99,7 +114,7 @@ export class UnaryStore<
    * @param key - Optional key to filter notifications (if provided, only changes to this key trigger the callback)
    * @returns A destructor function to remove the listener
    */
-  onSet(callback: observe.AsyncHandler<V>, key?: K): Destructor {
+  onSet(callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K): Destructor {
     this.setListeners.set(callback, key);
     return () => this.setListeners.delete(callback);
   }
@@ -112,7 +127,10 @@ export class UnaryStore<
    * of this key triggers the callback)
    * @returns A destructor function to remove the listener
    */
-  onDelete(callback: observe.AsyncHandler<K>, key?: K): Destructor {
+  onDelete(
+    callback: observe.AsyncHandler<K> | observe.Handler<K>,
+    key?: K,
+  ): Destructor {
     this.deleteListeners.set(callback, key);
     return () => this.deleteListeners.delete(callback);
   }

@@ -17,17 +17,14 @@ import { type ontology as aetherOntology } from "@/ontology/aether";
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
 ): void => {
-  const store = Flux.useStore<aetherOntology.SubStore>();
-  useEffect(() => {
-    const destructor = store.resources.onSet(async (changed) => onSet(changed));
-    return () => destructor();
-  }, [store.resources]);
+  const store = Flux.useStore<SubStore>();
+  useEffect(() => store.resources.onSet(onSet), [store.resources]);
 };
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void => {
-  const store = Flux.useStore<aetherOntology.SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(() => {
     const destructor = store.resources.onDelete(async (changed) =>
       onDelete(ontology.idZ.parse(changed)),
@@ -39,36 +36,34 @@ export const useResourceDeleteSynchronizer = (
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
-  const store = Flux.useStore<aetherOntology.SubStore>();
-  useEffect(() => {
-    const destructor = store.relationships.onSet(async (changed) => onSet(changed));
-    return () => destructor();
-  }, [store.relationships]);
+  const store = Flux.useStore<SubStore>();
+  useEffect(() => store.relationships.onSet(onSet), [store.relationships]);
 };
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void => {
-  const store = Flux.useStore<aetherOntology.SubStore>();
-  useEffect(() => {
-    const destructor = store.relationships.onDelete(async (changed) =>
-      onDelete(ontology.relationshipZ.parse(changed)),
-    );
-    return () => destructor();
-  }, [store.relationships]);
+  const store = Flux.useStore<SubStore>();
+  useEffect(
+    () =>
+      store.relationships.onDelete((changed) =>
+        onDelete(ontology.relationshipZ.parse(changed)),
+      ),
+    [store.relationships],
+  );
 };
 
 interface UseDependentQueryParams extends List.PagerParams {
   id?: ontology.ID;
 }
 
+interface SubStore extends Flux.Store {
+  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
+  [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
+}
+
 export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>
-  Flux.createList<
-    UseDependentQueryParams,
-    string,
-    ontology.Resource,
-    aetherOntology.SubStore
-  >({
+  Flux.createList<UseDependentQueryParams, string, ontology.Resource, SubStore>({
     name: "useDependents",
     retrieve: async ({ client, params: { id } }) => {
       if (id == null) return [];
@@ -90,7 +85,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
           onChange(dependent.key, dependent);
         }
       }),
-      store.relationships.onDelete(async (relationship) => {
+      store.relationships.onDelete((relationship) => {
         const rel = ontology.relationshipZ.parse(relationship);
         if (
           ontology.matchRelationship(rel, {
@@ -100,7 +95,7 @@ export const createDependentsListHook = (direction: ontology.RelationshipDirecti
         )
           onDelete(ontology.idToString(rel[direction]));
       }),
-      store.resources.onSet(async (resource) =>
+      store.resources.onSet((resource) =>
         onChange(resource.key, (prev) => {
           // Default to null if the resource is not in the list,
           // as we don't want to add any non-children.
@@ -120,7 +115,7 @@ export const useResourceList = Flux.createList<
   ListParams,
   string,
   ontology.Resource,
-  aetherOntology.SubStore
+  SubStore
 >({
   name: "useResourceList",
   retrieve: async ({ client, params, store }) => {
@@ -147,7 +142,7 @@ export interface RetrieveParentIDParams {
 export const retrieveParentID = Flux.createRetrieve<
   RetrieveParentIDParams,
   ontology.ID | null,
-  aetherOntology.SubStore
+  SubStore
 >({
   name: "useParentID",
   retrieve: async ({ client, params }) => {

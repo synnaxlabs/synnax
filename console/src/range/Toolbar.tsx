@@ -29,41 +29,32 @@ import {
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
-import { select, useSelect, useSelectKeys } from "@/range/selectors";
+import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const handleLinkClick = () => {
-    placeLayout(CREATE_LAYOUT);
-  };
+  const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
-    <Flex.Box
-      empty
-      style={{ height: "100%", position: "relative", padding: "1rem" }}
-      className={CSS.B("range-toolbar-no-ranges")}
-    >
-      <Flex.Box y style={{ height: "100%" }} gap="medium">
-        <Text.Text level="p">No ranges loaded.</Text.Text>
-        <Text.Text level="p" onClick={handleLinkClick}>
-          Create a Range
-        </Text.Text>
-      </Flex.Box>
-    </Flex.Box>
+    <EmptyAction
+      message="No ranges loaded"
+      action="Create a Range"
+      onClick={handleLinkClick}
+    />
   );
 };
 
 const List = (): ReactElement => {
   const dispatch = useDispatch();
   const activeRange = useSelect();
-  const data = useSelectKeys();
+  const data = useSelectStaticKeys();
 
   const handleSelect = (key: string): void => {
     dispatch(setActive(key));
@@ -178,10 +169,7 @@ const Content = (): ReactElement => {
           <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
             <Icon.Add />
           </Toolbar.Action>
-          <Toolbar.Action
-            onClick={() => placeLayout(EXPLORER_LAYOUT)}
-            variant="filled"
-          >
+          <Toolbar.Action onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
             <Icon.Explore />
           </Toolbar.Action>
         </Toolbar.Actions>

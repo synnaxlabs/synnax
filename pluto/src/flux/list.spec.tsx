@@ -437,15 +437,13 @@ describe("list", () => {
   const SET_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.payloadZ> = {
     channel: ranger.SET_CHANNEL_NAME,
     schema: ranger.payloadZ,
-    onChange: async ({ store, changed }) => store.ranges.set(changed.key, changed),
+    onChange: ({ store, changed }) => store.ranges.set(changed.key, changed),
   };
 
   const DELETE_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.keyZ> = {
     channel: ranger.DELETE_CHANNEL_NAME,
     schema: ranger.keyZ,
-    onChange: async ({ store, changed }) => {
-      store.ranges.delete(changed);
-    },
+    onChange: ({ store, changed }) => store.ranges.delete(changed),
   };
 
   const storeConfig: Flux.StoreConfig<Store> = {
@@ -476,9 +474,7 @@ describe("list", () => {
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet(async (changed) =>
-                onChange(changed.key, () => changed),
-              ),
+              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Payload>({
             subscribe,
@@ -569,9 +565,7 @@ describe("list", () => {
             ],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet(async (changed) =>
-                onChange(changed.key, () => changed),
-              ),
+              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper: newSynnaxWrapper(client, storeConfig) },
       );
@@ -622,9 +616,7 @@ describe("list", () => {
             ],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet(async (changed) =>
-                onChange(changed.key, () => changed),
-              ),
+              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper: newSynnaxWrapper(client, storeConfig) },
       );

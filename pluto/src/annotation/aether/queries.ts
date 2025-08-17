@@ -3,6 +3,8 @@ import { annotation } from "@synnaxlabs/client";
 import { type flux } from "@/flux/aether";
 import { type ontology } from "@/ontology/aether";
 
+export const FLUX_STORE_KEY = "annotations";
+
 export interface FluxStore
   extends flux.UnaryStore<annotation.Key, annotation.Annotation> {}
 
@@ -17,9 +19,7 @@ const SET_ANNOTATION_LISTENER: flux.ChannelListener<
 > = {
   channel: annotation.SET_CHANNEL_NAME,
   schema: annotation.annotationZ,
-  onChange: async ({ store, changed }) => {
-    store.annotations.set(changed.key, changed);
-  },
+  onChange: ({ store, changed }) => store.annotations.set(changed.key, changed),
 };
 
 const DELETE_ANNOTATION_LISTENER: flux.ChannelListener<
@@ -28,7 +28,7 @@ const DELETE_ANNOTATION_LISTENER: flux.ChannelListener<
 > = {
   channel: annotation.DELETE_CHANNEL_NAME,
   schema: annotation.keyZ,
-  onChange: async ({ store, changed }) => store.annotations.delete(changed),
+  onChange: ({ store, changed }) => store.annotations.delete(changed),
 };
 
 export const STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {

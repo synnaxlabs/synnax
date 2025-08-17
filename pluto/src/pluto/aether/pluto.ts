@@ -40,15 +40,15 @@ import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
-  ranges: ranger.FluxStore;
-  annotations: aetherAnnotation.FluxStore;
-  relationships: ontology.RelationshipFluxStore;
-  resources: ontology.ResourceFluxStore;
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.FluxStore;
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
 }> = {
-  ranges: ranger.STORE_CONFIG,
-  annotations: aetherAnnotation.STORE_CONFIG,
-  relationships: ontology.RELATIONSHIP_STORE_CONFIG,
-  resources: ontology.RESOURCE_STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,
 };
 
 export const render = (): void => {

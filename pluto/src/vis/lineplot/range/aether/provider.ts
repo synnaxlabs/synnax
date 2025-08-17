@@ -81,7 +81,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.client = client;
     const store = flux.useStore<Store>(ctx);
     i.removeListener?.();
-    const removeOnSet = store.ranges.onSet(async (changed) => {
+    const removeOnSet = store.ranges.onSet((changed) => {
       if (i.client == null) return;
       if (color.isCrude(changed.color))
         i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));

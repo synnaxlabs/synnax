@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
-import { z } from "zod";
 
 import { Flux } from "@/flux";
+
+export const FLUX_STORE_KEY = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -21,13 +22,13 @@ interface SubStore extends Flux.Store {
 const SET_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.labelZ> = {
   channel: label.SET_CHANNEL_NAME,
   schema: label.labelZ,
-  onChange: async ({ store, changed }) => store.labels.set(changed.key, changed),
+  onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
 };
 
 const DELETE_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.keyZ> = {
   channel: label.DELETE_CHANNEL_NAME,
   schema: label.keyZ,
-  onChange: async ({ store, changed }) => store.labels.delete(changed),
+  onChange: ({ store, changed }) => store.labels.delete(changed),
 };
 
 export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
@@ -58,16 +59,16 @@ export const retrieveLabelsOf = Flux.createRetrieve<
   retrieve: async ({ client, params: { id } }) =>
     await client.labels.retrieve({ for: id }),
   mountListeners: ({ client, store, params: { id }, onChange }) => [
-    store.labels.onSet(async (label) => {
+    store.labels.onSet((label) => {
       onChange((prev) => {
         const filtered = prev.filter((l) => l.key !== label.key);
         if (filtered.length === prev.length) return prev;
         return [...filtered, label];
       });
     }),
-    store.labels.onDelete(async (key) => {
-      onChange((prev) => prev.filter((l) => l.key !== key));
-    }),
+    store.labels.onDelete((key) =>
+      onChange((prev) => prev.filter((l) => l.key !== key)),
+    ),
     store.relationships.onSet(async (rel) => {
       if (!matchRelationship(rel, id)) return;
       const { key } = rel.to;
@@ -75,50 +76,10 @@ export const retrieveLabelsOf = Flux.createRetrieve<
       store.labels.set(key, l);
       onChange((prev) => [...prev.filter((l) => l.key !== key), l]);
     }),
-    store.relationships.onDelete(async (relKey) => {
+    store.relationships.onDelete((relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
       if (!matchRelationship(rel, id)) return;
       onChange((prev) => prev.filter((l) => l.key !== rel.to.key));
-    }),
-  ],
-});
-
-export const labelsOfFormSchema = z.object({ labels: z.array(label.keyZ) });
-
-export const useLabelsOfForm = Flux.createForm<
-  UseLabelsOfQueryParams,
-  typeof labelsOfFormSchema,
-  SubStore
->({
-  name: "Labels",
-  schema: labelsOfFormSchema,
-  initialValues: { labels: [] },
-  retrieve: async ({ client, params: { id } }) => {
-    if (id == null) return null;
-    const labels = await client.labels.retrieve({ for: id });
-    return { labels: labels.map((l) => l.key) };
-  },
-  update: async ({ client, value, params: { id } }) => {
-    await client.labels.label(id, value.labels, { replace: true });
-  },
-  mountListeners: ({ client, store, params: { id }, onChange }) => [
-    store.relationships.onSet(async (rel) => {
-      if (!matchRelationship(rel, id)) return;
-      const { key } = rel.to;
-      const l = await client.labels.retrieve({ key });
-      store.labels.set(key, l);
-      onChange((prev) => {
-        if (prev == null) return { labels: [l.key] };
-        return { labels: [...prev.labels.filter((l) => l !== key), l.key] };
-      });
-    }),
-    store.relationships.onDelete(async (relKey) => {
-      const rel = ontology.relationshipZ.parse(relKey);
-      if (!matchRelationship(rel, id)) return;
-      onChange((prev) => {
-        if (prev == null) return { labels: [] };
-        return { labels: prev.labels.filter((l) => l !== rel.to.key) };
-      });
     }),
   ],
 });

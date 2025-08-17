@@ -96,7 +96,7 @@ describe("retrieve", () => {
     const SET_LABEL_LISTENER: Flux.ChannelListener<Store, typeof label.labelZ> = {
       channel: label.SET_CHANNEL_NAME,
       schema: label.labelZ,
-      onChange: async ({ store, changed }) => store.labels.set(changed.key, changed),
+      onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
     };
 
     const storeConfig: Flux.StoreConfig<Store> = {
@@ -118,10 +118,7 @@ describe("retrieve", () => {
               retrieve: async ({ client, params: { key } }) =>
                 await client.labels.retrieve({ key }),
               mountListeners: ({ store, onChange, params: { key } }) =>
-                store.labels.onSet(async (changed) => {
-                  if (changed.key !== key) return;
-                  onChange(changed);
-                }),
+                store.labels.onSet(onChange, key),
             }).useDirect({ params: { key: ch.key } }),
           { wrapper: newSynnaxWrapper(client, storeConfig) },
         );
