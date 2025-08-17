@@ -21,16 +21,23 @@ class CheckConnectionBasic(TestCase):
     """
     Check if the test case is connected to the synnax server.
     """
-    def __init__(self, SynnaxConnection: SynnaxConnection):
 
-        # Always call the parent class constructor first
-        # This will initialize the index channel and baseline tlm
-        super().__init__(SynnaxConnection=SynnaxConnection)
-        self.Expected_Timeout = 5
+    def setup(self) -> None:
+        """
+        Setup the test case.
+        """
 
         # You can then add your own tlm channels here:
-        self.add_channel(name="is_connected", data_type=sy.DataType.UINT8, initial_value=2)
-    
+        self.add_channel(name="is_connected", data_type=sy.DataType.UINT32, initial_value=1)
+
+        # Or explcitiely change the time out 
+        self.Expected_Timeout = 6
+
+        # Or change it via test parameters
+        self.Expected_Timeout = self.params.get("timeout", -1)
+
+        # Just make sure to call super() last!
+        super().setup()
 
     def run(self) -> None:
         """
@@ -38,12 +45,16 @@ class CheckConnectionBasic(TestCase):
         """
 
         # Stuff goes here
-        time.sleep(10)
-        # You might NOT need to call super() here...
+        wait_time = self.params.get("wait_time", 0)
+        time.sleep(wait_time)
+    
+        # Or induce a failure
+        if self.params.get("fail_test", False):
+            raise Exception("Injected failure")
+
+        # You might NOT need to override
         # ... but then what are you testing?
         super().run()
-
-        
 
     def teardown(self) -> None:
         """

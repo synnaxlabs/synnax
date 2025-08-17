@@ -17,15 +17,13 @@ from framework.TestCase import TestCase, STATUS
 from framework.Test_Conducter import Test_Conductor, TestDefinition
 
 class NoTimeoutTest(TestCase):
-    """Test case with no timeout (Expected_Timeout=-1) to test timeout ignoring."""
-    
-    def __init__(self, SynnaxConnection):
-        super().__init__(SynnaxConnection)
-        # Set no timeout (-1) to test that timeout checks are ignored
-        self.Expected_Timeout = -1
+    """Test case with no timeout (Expected_Timeout=-1) to test timeout ignoring."""       
         
     def setup(self):
         """Setup the test."""
+
+         # Set no timeout (-1) to test that timeout checks are ignored
+        self.Expected_Timeout = -1
         super().setup()
         print(f"{self.name} > Setup complete")
         

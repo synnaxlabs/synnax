@@ -2,19 +2,32 @@
     "sequence_order": "Sequential",
     "tests": [
         {
-            "case": "testcases.check_connection_basic"
+            "case": "testcases.check_connection_basic",
+            "parameters": {
+                "fail_test": true
+            },
+            "expect": "FAILED"
         },
         {
-            "case": "testcases.test_no_timeout"
+            "case": "testcases.check_connection_basic",
+            "parameters": {
+                "fail_test": true
+            }
         },
         {
-            "case": "testcases.test_no_timeout"
+            "case": "testcases.check_connection_basic",
+            "parameters": {
+                "timeout": 2,
+                "wait_time": 5
+            },
+            "expect": "TIMEOUT"
         },
         {
-            "case": "testcases.check_connection_basic"
-        },
-        {
-            "case": "testcases.check_connection_basic"
+            "case": "testcases.check_connection_basic",
+            "parameters": {
+                "timeout": 2,
+                "wait_time": 5
+            }
         }
     ]
 }

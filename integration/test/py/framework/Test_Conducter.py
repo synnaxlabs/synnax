@@ -73,6 +73,7 @@ class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
     case: str
     params: Dict[str, Any] = field(default_factory=dict)
+    expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
 
 class Test_Conductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
@@ -274,6 +275,7 @@ class Test_Conductor:
             test_def = TestDefinition(
                 case=test["case"],
                 params=test.get("parameters", {}),
+                expect=test.get("expect", "PASSED"),  # Default to "PASSED" if not specified
             )
             self.test_definitions.append(test_def)
         
@@ -473,6 +475,7 @@ class Test_Conductor:
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
                 SynnaxConnection=self.SynnaxConnection,
+                expect=test_def.expect,
                 **test_def.params
             )
             

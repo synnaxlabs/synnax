@@ -48,9 +48,22 @@ class TestCase(ABC):
     - teardown(): Called after the test runs
     """
     
-    def __init__(self, SynnaxConnection: SynnaxConnection):
+    def __init__(self, SynnaxConnection: SynnaxConnection, expect: str = "PASSED", **params):
+
+        if expect in ["FAILED", "TIMEOUT", "KILLED"]:
+            # Use this wisely!
+            if expect == "FAILED":
+                self.expected_outcome = STATUS.FAILED
+            elif expect == "TIMEOUT":
+                self.expected_outcome = STATUS.TIMEOUT
+            elif expect == "KILLED":
+                self.expected_outcome = STATUS.KILLED
+        else:
+            self.expected_outcome = STATUS.PASSED
+        
         """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
+        self.params = params
         self.Expected_Timeout: int = -1  # -1 = no timeout
 
         # Convert PascalCase class name to lowercase with underscores
@@ -65,9 +78,9 @@ class TestCase(ABC):
             secure=SynnaxConnection.secure,
         )
         
-        # 1Hz loop
+        # Default 1Hz loop 
         self.loop = sy.Loop(1)
-        self.writer_thread = None
+        self.client_thread = None
         self.should_stop = False
         self.is_running = False
         
@@ -93,16 +106,14 @@ class TestCase(ABC):
     
     @STATUS.setter
     def STATUS(self, value: STATUS) -> None:
-        """Set the test status and update telemetry if writer is running."""
+        """Set the test status and update telemetry if client is running."""
         self._status = value
-        # Update telemetry if writer thread is running
-        if hasattr(self, 'tlm') and self.is_writer_running():
+        # Update telemetry if client thread is running
+        if hasattr(self, 'tlm') and self.is_client_running():
             try:
                 self.tlm[f"{self.name}_state"] = value.value
             except Exception:
                 pass  # Ignore errors if tlm is not fully initialized
-
-
 
     def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
         """Create a telemetry channel with name {self.name}_{name}."""
@@ -121,18 +132,18 @@ class TestCase(ABC):
         pass
 
     def setup(self) -> None:
-        """Start telemetry writer thread."""
+        """Start telemetry client thread."""
         self.is_running = True
         self.should_stop = False
         
-        # Start writer thread
-        self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
-        self.writer_thread.start()
-        time.sleep(2)  # Allow writer thread to start
-        print(f"{self.name} > Writer thread started")
+        # Start client thread
+        self.client_thread = threading.Thread(target=self._client_loop, daemon=True)
+        self.client_thread.start()
+        time.sleep(2)  # Allow client thread to start
+        print(f"{self.name} > client thread started")
     
-    def _writer_loop(self) -> None:
-        """Main telemetry writer loop running in separate thread."""
+    def _client_loop(self) -> None:
+        """Main telemetry client loop running in separate thread."""
         start_time = sy.TimeStamp.now()
         
         try:
@@ -141,40 +152,38 @@ class TestCase(ABC):
                 channels=list(self.tlm.keys()),
                 name=self.name,
                 enable_auto_commit=True,
-            ) as writer:
+            ) as client:
                 while self.loop.wait() and not self.should_stop:
                     now = sy.TimeStamp.now()
-                    uptime_value = (now - start_time)/1E9
-                    
+                    uptime_value = (now - start_time)/1E9                    
+
                     # Update telemetry
                     self.tlm[f"{self.name}_time"] = now
                     self.tlm[f"{self.name}_uptime"] = uptime_value
                     self.tlm[f"{self.name}_state"] = self._status.value
-                    writer.write(self.tlm)
+                    client.write(self.tlm)
 
                     # Check for timeout
                     if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
                         self._status = STATUS.TIMEOUT
-                        self.tlm[f"{self.name}_state"] = self._status.value
-                        writer.write(self.tlm)
-                        break
 
                     # Check for completion
-                    if self._status in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
+                    if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
                         self.tlm[f"{self.name}_state"] = self._status.value
-                        writer.write(self.tlm)
+                        client.write(self.tlm)
                         break
                 
+                self._check_expectation()
+
                 # Final write for redundancy
-                writer.write(self.tlm)
-                print(f"{self.name} > Writer thread shutting down")
+                client.write(self.tlm)
+                print(f"{self.name} > client thread shutting down")
                 
         except Exception as e:
-            print(f"{self.name} > Writer thread error: {e}")
+            print(f"{self.name} > client thread error: {e}")
             self._status = STATUS.FAILED
         finally:
-            self.is_running = False
-    
+            self.is_running = False 
 
     @abstractmethod
     def run(self) -> None:
@@ -186,48 +195,41 @@ class TestCase(ABC):
     
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""
-        self.stop_writer()
+        ##self.stop_client()
+        
+        ##if self._status == STATUS.PENDING:
+        ##    self._status = STATUS.PASSED
+        pass
 
-        # Happy path:
-        if self._status == STATUS.PENDING:
-            self._status = STATUS.PASSED
-
-        # Timeout path:
-        elif self._status == STATUS.TIMEOUT:
-            print(f"{self.name} > TIMEOUT ({self.Expected_Timeout} seconds)")   
-
-        # Sad path:
-        elif self._status == STATUS.FAILED:
-            print(f"{self.name} > FAILED")
-    
-    def stop_writer(self) -> None:
-        """Stop writer thread and wait for completion."""
-        if self.writer_thread and self.is_running:
-            print(f"{self.name} > Stopping writer thread...")
+    def stop_client(self) -> None:
+        """Stop client thread and wait for completion."""
+        if self.client_thread and self.is_running:
             self.should_stop = True
             self.is_running = False
             
-            if self.writer_thread.is_alive():
-                self.writer_thread.join(timeout=5.0)
-                if self.writer_thread.is_alive():
-                    print(f"{self.name} > Warning: Writer thread did not stop within timeout")
-                else:
-                    print(f"{self.name} > Writer thread stopped successfully")
+            if self.client_thread.is_alive():
+                self.client_thread.join(timeout=5.0)
+                if self.client_thread.is_alive():
+                    print(f"{self.name} > Warning: client thread did not stop within timeout")
+
+        # All done? All done.                
+        if self._status == STATUS.PENDING:
+            self._status = STATUS.PASSED
     
-    def wait_for_writer_completion(self, timeout: float = None) -> None:
-        """Wait for writer thread to complete."""
-        if self.writer_thread and self.writer_thread.is_alive():
-            self.writer_thread.join(timeout=timeout)
+    def wait_for_client_completion(self, timeout: float = None) -> None:
+        """Wait for client thread to complete."""
+        if self.client_thread and self.client_thread.is_alive():
+            self.client_thread.join(timeout=timeout)
     
-    def is_writer_running(self) -> bool:
-        """Check if writer thread is running."""
-        return self.writer_thread is not None and self.writer_thread.is_alive()
+    def is_client_running(self) -> bool:
+        """Check if client thread is running."""
+        return self.client_thread is not None and self.client_thread.is_alive()
     
-    def get_writer_status(self) -> str:
-        """Get writer thread status."""
-        if self.writer_thread is None:
+    def get_client_status(self) -> str:
+        """Get client thread status."""
+        if self.client_thread is None:
             return "Not started"
-        elif self.writer_thread.is_alive():
+        elif self.client_thread.is_alive():
             return "Running"
         else:
             return "Stopped"
@@ -236,7 +238,7 @@ class TestCase(ABC):
         """Gracefully shutdown test case and stop all threads."""
         print(f"{self.name} > Shutting down test case...")
         self._status = STATUS.KILLED
-        self.stop_writer()
+        self.stop_client()
         print(f"{self.name} > Test case shutdown complete")
     
     def __enter__(self):
@@ -247,6 +249,36 @@ class TestCase(ABC):
         """Context manager exit point - ensures cleanup."""
         self.shutdown()
     
+    def _check_expectation(self) -> None:
+        """Check if test met expected outcome and handle failures gracefully."""
+        if self._status == STATUS.PENDING:
+            self._status = STATUS.PASSED
+
+        status_symbol = {
+                STATUS.PASSED: "✓",
+                STATUS.FAILED: "✗",
+                STATUS.KILLED: "⚠",
+                STATUS.TIMEOUT: "⏱"
+            }.get(self._status, "?")
+
+        if self._status == STATUS.PASSED:
+            print(f"{self.name} > PASSED ({status_symbol})")
+
+        if self.expected_outcome != STATUS.PASSED:
+            if self._status == self.expected_outcome:
+                print(f"{self.name} > PASSED: Expected outcome achieved ({status_symbol})")
+                self._status = STATUS.PASSED
+        
+        if self._status == STATUS.FAILED:
+            print(f"{self.name} > FAILED ({status_symbol})")
+        if self._status == STATUS.TIMEOUT:
+            print(f"{self.name} > TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
+        if self._status == STATUS.KILLED:
+            print(f"{self.name} > KILLED ({status_symbol})")
+
+        
+        
+            
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:
@@ -259,13 +291,17 @@ class TestCase(ABC):
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self._status = STATUS.PENDING
+            
             self.teardown()
             
-            # PASS condition set within the last spot 
-            # of activity: _writer_loop()
+            # PASS condition set at final 
+            # spot of activity: _client_loop()
 
         except Exception as e:
             self._status = STATUS.FAILED
-            print(f"{self.name} > Test execution failed: {e}")
+            print(f"{self.name} > EXCEPTION: {e}")
         finally:
-            self.wait_for_writer_completion()
+            # Always call teardown, even if exception occurred
+            self.stop_client()
+            
+            self.wait_for_client_completion()
