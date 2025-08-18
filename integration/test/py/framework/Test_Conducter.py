@@ -7,13 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# TODO:
-# - Use system logging
-# - Return test_conductor results to workflow env
-# - Enable async test_case execution if configured
-# - Build test case infrastructure
-# - Integrate with github actions
-
 
 import json
 import logging
@@ -36,12 +29,13 @@ import synnax as sy
 
 try:
     # Import from the framework module to ensure we get the same class objects
-    import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from framework.TestCase import TestCase, SynnaxConnection, STATUS, SYMBOLS
+    from framework.utils import validate_and_sanitize_name
 except ImportError:
     # Handle case when running script directly
     from TestCase import TestCase, SynnaxConnection, STATUS, SYMBOLS
+    from utils import validate_and_sanitize_name
 
 
 class STATE(Enum):
@@ -61,6 +55,7 @@ class TestResult:
     """Data class to store test execution results."""
     test_name: str
     status: STATUS
+    name: str = None  # Custom name from test definition
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     error_message: Optional[str] = None
@@ -75,6 +70,7 @@ class TestResult:
 class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
     case: str
+    name: str = None  # Optional custom name for the test case
     params: Dict[str, Any] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
 
@@ -82,7 +78,7 @@ class Test_Conductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
     
     def __init__(self, 
-                 name: str, 
+                 name: str = None, 
                  server_address: str = "localhost", 
                  port: int = 9090,
                  username: str = "synnax", 
@@ -95,7 +91,7 @@ class Test_Conductor:
             random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             self.name = self.__class__.__name__.lower() + "_" + random_id
         else:
-            self.name = self._validate_and_sanitize_name(str(name).lower())
+            self.name = validate_and_sanitize_name(str(name).lower())
         
         # Configure logging for real-time output in CI
         self._setup_logging()
@@ -143,19 +139,6 @@ class Test_Conductor:
         # Start client manager
         self._start_client_manager_async()
         time.sleep(1)  # Allow client manager to start
-    
-    def _validate_and_sanitize_name(self, name: str) -> str:
-        """Sanitize name to contain only alphanumeric characters, hyphens, and underscores."""
-        sanitized = re.sub(r'[^a-zA-Z0-9_-]', '', name)
-        
-        if not sanitized:
-            raise ValueError("Name must contain at least one alphanumeric character")
-        
-        sanitized = sanitized.strip('_-')
-        if not sanitized:
-            raise ValueError("Name cannot consist only of hyphens and underscores")
-            
-        return sanitized
 
     def _start_client_manager_async(self) -> None:
         """Start client manager in separate daemon thread."""
@@ -252,8 +235,6 @@ class Test_Conductor:
         # Force unbuffered output in CI environments
         if is_ci:
             sys.stdout.reconfigure(line_buffering=True)
-            # Ensure proper newline handling in CI
-            os.environ['PYTHONUNBUFFERED'] = '1'
         
         # Create logger for this test conductor (don't configure root logger)
         self.logger = logging.getLogger(self.name)
@@ -266,8 +247,7 @@ class Test_Conductor:
         # Add single handler
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        # Use a formatter that preserves whitespace and newlines
-        formatter = logging.Formatter('%(message)s', validate=False)
+        formatter = logging.Formatter('%(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         
@@ -352,6 +332,7 @@ class Test_Conductor:
                 for test in seq_tests:
                     test_def = TestDefinition(
                         case=test["case"],
+                        name=test.get("name", None),
                         params=test.get("parameters", {}),
                         expect=test.get("expect", "PASSED"),
                     )
@@ -369,6 +350,7 @@ class Test_Conductor:
             for test in sequence_data.get("tests", []):
                 test_def = TestDefinition(
                     case=test["case"],
+                    name=test.get("name", None),
                     params=test.get("parameters", {}),
                     expect=test.get("expect", "PASSED"),
                 )
@@ -447,6 +429,27 @@ class Test_Conductor:
         self._print_summary()
         return self.test_results
     
+    def _display_name(self, obj) -> str:
+        """Display name for TestDefinition or TestResult objects."""
+        if hasattr(obj, 'name') and obj.name:
+            # For TestDefinition objects
+            if hasattr(obj, 'case'):
+                return f"{obj.case} ({obj.name})"
+            # For TestResult objects
+            elif hasattr(obj, 'test_name'):
+                return f"{obj.test_name} ({obj.name})"
+        else:
+            # For TestDefinition objects
+            if hasattr(obj, 'case'):
+                return obj.case
+            # For TestResult objects
+            elif hasattr(obj, 'test_name'):
+                return obj.test_name
+        
+        # Fallback
+        return str(obj)
+
+    
     def _execute_sequence(self, sequence: dict, tests_to_execute: list) -> None:
         """Execute tests in a sequence one after another."""
         for i, test_def in enumerate(tests_to_execute):
@@ -456,7 +459,8 @@ class Test_Conductor:
             
             # Calculate global test index
             global_test_idx = len(self.test_results) + 1
-            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
+            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {self._display_name(test_def)} ====")
+
             
             # Run test in separate thread
             result_container = []
@@ -475,6 +479,7 @@ class Test_Conductor:
             else:
                 result = TestResult(
                     test_name=test_def.case,
+                    name=test_def.name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned"
                 )
@@ -496,7 +501,7 @@ class Test_Conductor:
             
             # Calculate global test index - each test gets a unique index
             global_test_idx = len(self.test_results) + i + 1
-            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
+            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {self._display_name(test_def)} ====")
             
             # Create result container and thread for each test
             result_container = []
@@ -523,6 +528,7 @@ class Test_Conductor:
             else:
                 result = TestResult(
                     test_name=tests_to_execute[i].case,
+                    name=tests_to_execute[i].name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned"
                 )
@@ -647,6 +653,7 @@ class Test_Conductor:
         """Execute a single test case."""
         result = TestResult(
             test_name=test_def.case,
+            name=test_def.name,
             status=STATUS.PENDING,
             start_time=datetime.now()
         )
@@ -656,6 +663,7 @@ class Test_Conductor:
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
                 SynnaxConnection=self.SynnaxConnection,
+                name=test_def.name,
                 expect=test_def.expect,
                 **test_def.params
             )
@@ -766,6 +774,7 @@ class Test_Conductor:
             # Create timeout result
             self._timeout_result = TestResult(
                 test_name=current_test_name,
+                name=getattr(self.current_test, 'custom_name', None) if self.current_test else None,
                 status=status,
                 start_time=self.current_test_start_time,
                 end_time=datetime.now(),
@@ -865,7 +874,7 @@ class Test_Conductor:
             status_symbol = SYMBOLS.get_symbol(result.status)
             
             duration_str = f"({result.duration:.2f}s)" if result.duration else ""
-            self.log_message(f"{status_symbol} {result.test_name} {duration_str}")
+            self.log_message(f"{status_symbol} {self._display_name(result)} {duration_str}")
             if result.error_message:
                 self.log_message(f"ERROR: {result.error_message}")
 

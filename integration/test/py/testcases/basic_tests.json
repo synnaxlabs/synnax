@@ -27,10 +27,12 @@
                 "case": "testcases.check_connection_basic"
             },
             {
-                "case": "testcases.simple_async_1"
+                "case": "testcases.simple_async",
+                "name": "name_test_123"
             },
             {
-                "case": "testcases.simple_async_2",
+                "case": "testcases.simple_async",
+                "name": "name_test_abc",
                 "expect": "PASSED"
             }
         ]
@@ -43,10 +45,11 @@
                 "case": "testcases.check_connection_basic"
             },
             {
-                "case": "testcases.simple_async_1"
+                "case": "testcases.simple_async"
             },
             {
-                "case": "testcases.simple_async_2",
+                "case": "testcases.simple_async",
+                "name": "name_test_xyz",
                 "expect": "PASSED"
             },
             {
