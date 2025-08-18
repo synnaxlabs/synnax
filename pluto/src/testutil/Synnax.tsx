@@ -61,7 +61,6 @@ const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
   const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
   if (excludeFluxStores)
     excludeFluxStores.forEach((store) => delete storeConfig[store]);
-  console.log(storeConfig);
   return new Flux.Client({
     client,
     storeConfig,

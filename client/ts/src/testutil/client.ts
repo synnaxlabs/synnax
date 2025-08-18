@@ -16,5 +16,5 @@ export const TEST_CLIENT_PROPS: SynnaxProps = {
   password: "seldon",
 };
 
-export const newTestClient = (props?: Partial<SynnaxProps>): Synnax =>
+export const createTestClient = (props?: Partial<SynnaxProps>): Synnax =>
   new Synnax({ ...TEST_CLIENT_PROPS, ...props });

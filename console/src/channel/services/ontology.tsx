@@ -33,6 +33,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
+import { useMemo } from "react";
 
 const canDrop = (): boolean => false;
 
@@ -261,8 +262,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
   const resources = getResource(resourceIDs);
-  // const showDeleteAlias = resources.some(({ data }) => data.alias != null);
-  const showDeleteAlias = true;
+  const channelKeys = useMemo(
+    () => resourceIDs.map((r) => Number(r.key)),
+    [resourceIDs],
+  );
+  const channels = PChannel.retrieveMany.useDirect({
+    params: { rangeKey: activeRange?.key, keys: channelKeys },
+  });
+  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();

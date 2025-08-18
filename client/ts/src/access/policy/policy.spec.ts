@@ -12,10 +12,10 @@ import { describe, expect, test } from "vitest";
 
 import { type policy } from "@/access/policy";
 import { AuthError } from "@/errors";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Policy", () => {
   describe("create", () => {
@@ -299,7 +299,7 @@ describe("privilege", async () => {
     const username = id.create();
     const user2 = await client.user.create({ username, password: "pwd1" });
     expect(user2).toBeDefined();
-    const client2 = newTestClient({ username: user2.username, password: "pwd1" });
+    const client2 = createTestClient({ username: user2.username, password: "pwd1" });
     await expect(
       client2.user.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
