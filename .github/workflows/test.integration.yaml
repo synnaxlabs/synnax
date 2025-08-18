@@ -104,6 +104,16 @@ jobs:
       - name: Install and Start Synnax as Service
         run: |
           echo "Creating systemd service for Synnax..."
+          
+          # Create necessary directories with proper permissions
+          echo "=== Creating Required Directories ==="
+          sudo mkdir -p /var/lib/synnax-driver
+          sudo chown $USER:$USER /var/lib/synnax-driver
+          sudo chmod 755 /var/lib/synnax-driver
+          
+          # Also create a local data directory as backup
+          mkdir -p $HOME/synnax-data
+          
           sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
           [Unit]
           Description=Synnax Server
@@ -112,12 +122,13 @@ jobs:
           [Service]
           Type=simple
           User=$USER
-          WorkingDirectory=$HOME/Desktop
+          WorkingDirectory=$HOME/synnax-data
           ExecStart=$HOME/Desktop/synnax start -mi
           Restart=always
           RestartSec=5
           StandardOutput=journal
           StandardError=journal
+          Environment=SYNNAX_DATA_DIR=$HOME/synnax-data
           
           [Install]
           WantedBy=multi-user.target
@@ -163,6 +174,29 @@ jobs:
           if command -v ldd >/dev/null 2>&1; then
             echo "Checking binary dependencies..."
             ldd $HOME/Desktop/synnax 2>/dev/null || echo "ldd failed or binary is statically linked"
+          fi
+          
+          # Verify directory permissions
+          echo "=== Directory Permissions ==="
+          echo "Checking /var/lib/synnax-driver permissions:"
+          ls -la /var/lib/synnax-driver
+          echo "Checking $HOME/synnax-data permissions:"
+          ls -la $HOME/synnax-data
+          
+          # Test if we can write to the directories
+          echo "=== Write Permission Test ==="
+          if touch /var/lib/synnax-driver/test-write 2>/dev/null; then
+            echo "✅ Can write to /var/lib/synnax-driver"
+            rm /var/lib/synnax-driver/test-write
+          else
+            echo "❌ Cannot write to /var/lib/synnax-driver"
+          fi
+          
+          if touch $HOME/synnax-data/test-write 2>/dev/null; then
+            echo "✅ Can write to $HOME/synnax-data"
+            rm $HOME/synnax-data/test-write
+          else
+            echo "❌ Cannot write to $HOME/synnax-data"
           fi
           
           sudo systemctl daemon-reload
