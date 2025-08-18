@@ -339,10 +339,10 @@ class TestCase(ABC):
                 self._log_message(f"PASSED ({status_symbol})")
             else:
                 self._status = STATUS.FAILED
-                self._log_message(f"FAILED (✗): Expected {expected_symbol}, got {status_symbol}")
+                self._log_message(f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}")
 
         elif self._status == self.expected_outcome:
-            self._log_message(f"PASSED (✓): Expected outcome achieved ({status_symbol})")
+            self._log_message(f"PASSED (✅): Expected outcome achieved ({status_symbol})")
             self._status = STATUS.PASSED
         elif self._status == STATUS.FAILED:
             self._log_message(f"FAILED ({status_symbol})")

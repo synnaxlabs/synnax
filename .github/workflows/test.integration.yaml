@@ -67,17 +67,18 @@ jobs:
 
       - name: Setup Bazel
         run: |
-          # Check if Bazel is already installed and cached
-          if command -v bazel &> /dev/null; then
-            echo "Bazel already installed, using cached version"
-            bazel --version
+          # Check if Bazelisk is already installed and cached
+          if command -v bazelisk &> /dev/null; then
+            echo "Bazelisk already installed, using cached version"
+            bazelisk --version
           else
-            echo "Installing Bazel..."
-            curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
-            sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
-            echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-            sudo apt-get update
-            sudo apt-get install -y bazel
+            echo "Installing Bazelisk..."
+            # Download Bazelisk binary
+            curl -L -o bazelisk https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+            chmod +x bazelisk
+            sudo mv bazelisk /usr/local/bin/
+            # Create bazel symlink
+            sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
           fi
 
       - name: Build Driver
