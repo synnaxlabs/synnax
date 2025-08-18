@@ -633,17 +633,31 @@ class Test_Conductor:
             
             # Try different possible file paths (handle nested directories)
             import os
+            # Get the current working directory and construct paths relative to it
+            current_dir = os.getcwd()
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            
             if len(case_parts) >= 4 or (len(case_parts) >= 3 and 'subdir' in locals()):
                 # Nested directory structure
                 possible_paths = [
-                    f"../{directory}/{subdir}/{module_name}.py",  # ../testcases/latency/bench_latency_response.py
-                    f"{directory}/{subdir}/{module_name}.py",     # testcases/latency/bench_latency_response.py
+                    # From framework directory: ../testcases/latency/bench_latency_response.py
+                    os.path.join(script_dir, "..", directory, subdir, f"{module_name}.py"),
+                    # From current working directory: testcases/latency/bench_latency_response.py
+                    os.path.join(current_dir, directory, subdir, f"{module_name}.py"),
+                    # Relative paths as fallback
+                    f"../{directory}/{subdir}/{module_name}.py",
+                    f"{directory}/{subdir}/{module_name}.py",
                 ]
             else:
                 # Flat directory structure
                 possible_paths = [
-                    f"../{directory}/{module_name}.py",           # ../testcases/check_connection_basic1.py
-                    f"{directory}/{module_name}.py",              # testcases/check_connection_basic1.py
+                    # From framework directory: ../testcases/check_connection_basic1.py
+                    os.path.join(script_dir, "..", directory, f"{module_name}.py"),
+                    # From current working directory: testcases/check_connection_basic1.py
+                    os.path.join(current_dir, directory, f"{module_name}.py"),
+                    # Relative paths as fallback
+                    f"../{directory}/{module_name}.py",
+                    f"{directory}/{module_name}.py",
                 ]
             
             # Find the first path that exists
@@ -654,7 +668,23 @@ class Test_Conductor:
                     break
             
             if file_path is None:
-                raise FileNotFoundError(f"Could not find test module for {test_def.case}. Tried: {possible_paths}")
+                # Add debug information to help troubleshoot path issues
+                debug_info = f"""
+                Current working directory: {os.getcwd()}
+                Script directory: {os.path.dirname(os.path.abspath(__file__))}
+                Test case: {test_def.case}
+                Parsed parts: {case_parts}
+                Directory: {directory}
+                """
+                if 'subdir' in locals():
+                    debug_info += f"Subdirectory: {subdir}\n"
+                if 'module_name' in locals():
+                    debug_info += f"Module name: {module_name}\n"
+                if 'class_name' in locals():
+                    debug_info += f"Class name: {class_name}\n"
+                
+                debug_info += f"Tried paths: {possible_paths}"
+                raise FileNotFoundError(f"Could not find test module for {test_def.case}.\n{debug_info}")
             
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec is None:
