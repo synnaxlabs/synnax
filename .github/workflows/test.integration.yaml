@@ -187,17 +187,6 @@ jobs:
             libfreetype6-dev \
             libpng-dev \
             libjpeg-dev \
-            libtiff-dev \
-            libgif-dev \
-            libx11-dev \
-            libxext-dev \
-            libxrender-dev \
-            libxrandr-dev \
-            libxfixes-dev \
-            libxcursor-dev \
-            libxinerama-dev \
-            libxss-dev \
-            libglib2.0-dev
 
       - name: Install Dependencies
         working-directory: integration/py
