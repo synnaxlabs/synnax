@@ -162,6 +162,21 @@ jobs:
           # Verify installation
           poetry --version
 
+      - name: Check System Python
+        run: |
+          echo "=== System Python Info ==="
+          python3 --version
+          python3 -c "import sys; print(f'Python path: {sys.executable}')"
+          
+          echo "=== System Pydantic Check ==="
+          python3 -c "import pydantic; print(f'System Pydantic: {pydantic.__version__}')" 2>/dev/null || echo "No system Pydantic found"
+          
+          echo "=== Poetry Python Info ==="
+          cd integration/py
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry env info
+          poetry run python -c "import sys; print(f'Poetry Python path: {sys.executable}')"
+
       - name: Install Dependencies
         working-directory: integration/py
         run: |
@@ -170,10 +185,18 @@ jobs:
           
           # Clean any existing virtual environment and reinstall
           poetry env remove --all || true
+          
+          # Force install the correct Pydantic version first
+          poetry add "pydantic>=2.11.5,<3.0" --no-cache
+          
+          # Install all other dependencies
           poetry install --no-cache
           
           # Verify Pydantic version
           poetry run python -c "import pydantic; print(f'Pydantic version: {pydantic.__version__}')"
+          
+          # Check what's actually installed
+          poetry show pydantic
 
       - name: Debug Imports
         working-directory: integration/py
