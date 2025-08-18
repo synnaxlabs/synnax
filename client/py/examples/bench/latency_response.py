@@ -39,7 +39,7 @@ client.channels.create(
     virtual=True,
     retrieve_if_name_exists=True,
 )
-iteration = 0
+
 with client.open_streamer(CMD_CHANNEL) as stream:
     with client.open_writer(sy.TimeStamp.now(), STATE_CHANNEL) as writer:
         while True:

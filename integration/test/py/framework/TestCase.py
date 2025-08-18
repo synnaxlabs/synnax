@@ -76,6 +76,9 @@ class TestCase(ABC):
     
     def __init__(self, SynnaxConnection: SynnaxConnection, name:str=None, expect: str = "PASSED", **params):
 
+        # Store for test cases to use
+        self.SynnaxConnection = SynnaxConnection
+
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
             # Use this wisely!
             if expect == "FAILED":
@@ -211,7 +214,7 @@ class TestCase(ABC):
         # Start client thread
         self.client_thread = threading.Thread(target=self._client_loop, daemon=True)
         self.client_thread.start()
-        time.sleep(2)  # Allow client thread to start
+        time.sleep(1)  # Allow client thread to start
         self._log_message("client thread started")
     
     def _client_loop(self) -> None:
