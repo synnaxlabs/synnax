@@ -49,6 +49,10 @@ jobs:
           sudo rm -f /var/cache/apt/archives/lock
           sudo rm -f /var/lib/dpkg/lock
           
+          # Remove any existing broken Bazel repositories
+          sudo rm -f /etc/apt/sources.list.d/bazel.list
+          sudo rm -f /etc/apt/trusted.gpg.d/bazel.gpg
+          
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
