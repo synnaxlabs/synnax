@@ -168,8 +168,30 @@ jobs:
           # Ensure Poetry is in PATH
           export PATH="$HOME/.local/bin:$PATH"
           
-          # Install dependencies
-          poetry install
+          # Clean any existing virtual environment and reinstall
+          poetry env remove --all || true
+          poetry install --no-cache
+          
+          # Verify Pydantic version
+          poetry run python -c "import pydantic; print(f'Pydantic version: {pydantic.__version__}')"
+
+      - name: Debug Imports
+        working-directory: integration/py
+        run: |
+          # Ensure Poetry is in PATH for this step
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Check what's available in synnax module
+          poetry run python -c "
+          try:
+              import synnax
+              print('Synnax imported successfully')
+              print(f'Synnax version: {synnax.__version__}')
+          except Exception as e:
+              print(f'Error importing synnax: {e}')
+              import traceback
+              traceback.print_exc()
+          "
 
       - name: Run Conductor Test
         working-directory: integration/test/py/framework
