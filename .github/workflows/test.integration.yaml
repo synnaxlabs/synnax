@@ -62,11 +62,19 @@ jobs:
             libjpeg-dev
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ env.CACHE_SCOPE }}-self-hosted-linux
-          repository-cache: true
+        run: |
+          # Check if Bazel is already installed and cached
+          if command -v bazel &> /dev/null; then
+            echo "Bazel already installed, using cached version"
+            bazel --version
+          else
+            echo "Installing Bazel..."
+            curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
+            sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
+            echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+            sudo apt-get update
+            sudo apt-get install -y bazel
+          fi
 
       - name: Build Driver
         run: |
