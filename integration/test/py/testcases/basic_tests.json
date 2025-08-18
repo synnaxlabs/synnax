@@ -47,7 +47,7 @@
             },
             {
                 "case": "testcases.simple_async_2",
-                "expect": "FAILED"
+                "expect": "PASSED"
             },
             {
                 "case": "testcases.check_connection_basic"

@@ -239,7 +239,7 @@ class Test_Conductor:
                     writer.write(self.tlm)
                     break
 
-    def log_message(self, message: str, use_name = False) -> None:
+    def log_message(self, message: str, use_name = True) -> None:
         """Simple logging function to consolidate print statements."""
         if use_name:
             print(f"{self.name} > {message}")
@@ -369,7 +369,7 @@ class Test_Conductor:
         )
         self.timeout_monitor_thread.start()
         
-        self.log_message(f"\nStarting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...")
+        self.log_message(f"Starting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...\n")
 
         # Execute sequences linearly (one after another)
         for seq_idx, sequence in enumerate(self.sequences):
@@ -377,67 +377,38 @@ class Test_Conductor:
                 self.log_message("Test execution stopped by user request")
                 break
             
-            self.log_message(f"\n==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ====")
-            self.log_message(f"Executing {len(sequence['tests'])} tests with {sequence['order']} order...")
+            self.log_message(f"==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ====")
+            self.log_message(f"Executing {len(sequence['tests'])} tests with {sequence['order']} order...\n")
             
-            # Execute tests within this sequence according to its order
+            # Prepare tests for execution (randomize if needed)
+            tests_to_execute = sequence['tests'].copy()
+
+            # Execute tests within this sequence using the prepared test list
+            # This consolidates sequential and random execution into a single path
             if sequence['order'] == "asynchronous":
-                self._execute_sequence_asynchronously(sequence)
-            elif sequence['order'] == "random":
-                self._execute_sequence_randomly(sequence)
-            else:  # sequential
-                self._execute_sequence_sequentially(sequence)
+                self._execute_sequence_asynchronously(sequence, tests_to_execute)
+            else:  # sequential or random (both use the same execution method)
+                if sequence['order'] == "random":
+                    random.shuffle(tests_to_execute)
+                    self.log_message(f"Tests randomized for execution")
+                self._execute_sequence(sequence, tests_to_execute)
             
-            self.log_message(f"Completed sequence '{sequence['name']}'")
+            self.log_message(f"Completed sequence '{sequence['name']}'\n")
         
         self.is_running = False
         self._print_summary()
         return self.test_results
     
-    def _execute_tests_sequentially(self) -> None:
-        """Execute tests one after another."""
-        for i, test_def in enumerate(self.test_definitions):
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-            
-            self.log_message(f"\n[{i+1}/{len(self.test_definitions)}] ==== {test_def.case} ====")
-            
-            # Run test in separate thread
-            result_container = []
-            test_thread = threading.Thread(
-                target=self._test_runner_thread,
-                args=(test_def, result_container)
-            )
-            
-            self.current_test_thread = test_thread
-            test_thread.start()
-            test_thread.join()
-            
-            # Get test result
-            if result_container:
-                result = result_container[0]
-            else:
-                result = TestResult(
-                    test_name=test_def.case,
-                    status=STATUS.FAILED,
-                    error_message="Unknown error - no result returned"
-                )
-            
-            self.test_results.append(result)
-            self.current_test_thread = None
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
-    
-    def _execute_sequence_sequentially(self, sequence: dict) -> None:
+    def _execute_sequence(self, sequence: dict, tests_to_execute: list) -> None:
         """Execute tests in a sequence one after another."""
-        for i, test_def in enumerate(sequence['tests']):
+        for i, test_def in enumerate(tests_to_execute):
             if self.should_stop:
                 self.log_message("Test execution stopped by user request")
                 break
             
             # Calculate global test index
             global_test_idx = len(self.test_results) + 1
-            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
+            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Run test in separate thread
             result_container = []
@@ -464,60 +435,20 @@ class Test_Conductor:
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
     
-    def _execute_sequence_randomly(self, sequence: dict) -> None:
-        """Execute tests in a sequence in random order."""
-        # Create a copy of tests and shuffle them
-        shuffled_tests = sequence['tests'].copy()
-        random.shuffle(shuffled_tests)
-        
-        for i, test_def in enumerate(shuffled_tests):
-            if self.should_stop:
-                self.log_message("Test execution stopped by user request")
-                break
-            
-            # Calculate global test index
-            global_test_idx = len(self.test_results) + 1
-            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
-            
-            # Run test in separate thread
-            result_container = []
-            test_thread = threading.Thread(
-                target=self._test_runner_thread,
-                args=(test_def, result_container)
-            )
-            
-            self.current_test_thread = test_thread
-            test_thread.start()
-            test_thread.join()
-            
-            # Get test result
-            if result_container:
-                result = result_container[0]
-            else:
-                result = TestResult(
-                    test_name=test_def.case,
-                    status=STATUS.FAILED,
-                    error_message="Unknown error - no result returned"
-                )
-            
-            self.test_results.append(result)
-            self.current_test_thread = None
-            self.tlm[f"{self.name}_test_cases_ran"] += 1
-    
-    def _execute_sequence_asynchronously(self, sequence: dict) -> None:
+    def _execute_sequence_asynchronously(self, sequence: dict, tests_to_execute: list) -> None:
         """Execute tests in a sequence simultaneously."""
         # Launch all tests in this sequence at once
         test_threads = []
         result_containers = []
         
-        for i, test_def in enumerate(sequence['tests']):
+        for i, test_def in enumerate(tests_to_execute):
             if self.should_stop:
                 self.log_message("Test execution stopped by user request")
                 break
             
-            # Calculate global test index
-            global_test_idx = len(self.test_results) + 1
-            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
+            # Calculate global test index - each test gets a unique index
+            global_test_idx = len(self.test_results) + i + 1
+            self.log_message(f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Create result container and thread for each test
             result_container = []
@@ -543,7 +474,7 @@ class Test_Conductor:
                 result = result_containers[i][0]
             else:
                 result = TestResult(
-                    test_name=sequence['tests'][i].case,
+                    test_name=tests_to_execute[i].case,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned"
                 )
@@ -888,7 +819,9 @@ class Test_Conductor:
             duration_str = f"({result.duration:.2f}s)" if result.duration else ""
             self.log_message(f"{status_symbol} {result.test_name} {duration_str}")
             if result.error_message:
-                self.log_message(f"    Error: {result.error_message}")
+                self.log_message(f"ERROR: {result.error_message}")
+
+        self.log_message("\n", False)
            
     def _signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown."""
@@ -943,7 +876,7 @@ if __name__ == "__main__":
         conductor.shutdown()
         raise
     finally:
-        conductor.log_message(f"\n{conductor.name} > Fin.")
+        conductor.log_message(f"Fin.")
         
         if conductor.test_results:
             stats = conductor._get_test_statistics()
@@ -952,7 +885,7 @@ if __name__ == "__main__":
                 conductor.log_message(f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests")
                 sys.exit(1)
             else:
-                conductor.log_message(f"\nAll {stats['total']} tests passed successfully")
+                conductor.log_message(f"\nAll {stats['total']} tests passed successfully", False)
                 sys.exit(0)
         else:
             conductor.log_message("\nNo test results available")
