@@ -590,27 +590,61 @@ class Test_Conductor:
             # Flexible format handling:
             # - "testcases.module_name.ClassName" (3 parts)
             # - "testcases.module_name" (2 parts - infer class name)
+            # - "testcases.subdir.module_name.ClassName" (4+ parts for nested directories)
             case_parts = test_def.case.split('.')
             if len(case_parts) < 2:
-                raise ValueError(f"{self.name} > Invalid test case format: {test_def.case}. Expected 'testcases.module_name[.ClassName]'")
+                raise ValueError(f"{self.name} > Invalid test case format: {test_def.case}. Expected 'testcases.module_name[.ClassName]' or 'testcases.subdir.module_name[.ClassName]'")
             
             directory = case_parts[0]  # "testcases"
-            module_name = case_parts[1]  # "check_connection_basic1" or "check_connection_basic"
             
-            # If 3 parts, use the third as class name, otherwise infer from module name
-            if len(case_parts) >= 3:
-                class_name = case_parts[2]
+            # Handle nested directory structures
+            if len(case_parts) >= 4:
+                # Format: testcases.subdir.module_name.ClassName
+                subdir = case_parts[1]  # "latency"
+                module_name = case_parts[2]  # "bench_latency_response"
+                class_name = case_parts[3]  # "BenchLatencyResponse"
+            elif len(case_parts) >= 3:
+                # Check if the second part is a subdirectory by looking for a file
+                potential_subdir = case_parts[1]  # "latency"
+                potential_module = case_parts[2]  # "bench_latency_response"
+                
+                # Check if this looks like a nested structure by testing if the path exists
+                import os
+                nested_path = f"../{directory}/{potential_subdir}/{potential_module}.py"
+                flat_path = f"../{directory}/{potential_module}.py"
+                
+                if os.path.exists(nested_path):
+                    # This is a nested structure: testcases.subdir.module_name
+                    subdir = potential_subdir
+                    module_name = potential_module
+                    # Convert module_name to PascalCase class name with underscores
+                    # "bench_latency_response" -> "Bench_Latency_Response"
+                    class_name = '_'.join(word.capitalize() for word in module_name.split('_'))
+                else:
+                    # This is a flat structure: testcases.module_name.ClassName
+                    module_name = case_parts[1]  # "check_connection_basic1"
+                    class_name = case_parts[2]  # "CheckConnectionBasic1"
             else:
-                # Convert module_name to PascalCase class name
-                # "check_connection_basic" -> "CheckConnectionBasic"
-                class_name = ''.join(word.capitalize() for word in module_name.split('_'))
+                # Format: testcases.module_name (infer class name)
+                module_name = case_parts[1]  # "check_connection_basic"
+                # Convert module_name to PascalCase class name with underscores
+                # "check_connection_basic" -> "Check_Connection_Basic"
+                class_name = '_'.join(word.capitalize() for word in module_name.split('_'))
             
-            # Try different possible file paths (exact match only)
+            # Try different possible file paths (handle nested directories)
             import os
-            possible_paths = [
-                f"../{directory}/{module_name}.py",           # ../testcases/check_connection_basic1.py
-                f"{directory}/{module_name}.py",              # testcases/check_connection_basic1.py
-            ]
+            if len(case_parts) >= 4 or (len(case_parts) >= 3 and 'subdir' in locals()):
+                # Nested directory structure
+                possible_paths = [
+                    f"../{directory}/{subdir}/{module_name}.py",  # ../testcases/latency/bench_latency_response.py
+                    f"{directory}/{subdir}/{module_name}.py",     # testcases/latency/bench_latency_response.py
+                ]
+            else:
+                # Flat directory structure
+                possible_paths = [
+                    f"../{directory}/{module_name}.py",           # ../testcases/check_connection_basic1.py
+                    f"{directory}/{module_name}.py",              # testcases/check_connection_basic1.py
+                ]
             
             # Find the first path that exists
             file_path = None

@@ -1,5 +1,17 @@
 [
     {
+        "sequence_name": "Bench_Latency",
+        "sequence_order": "asynchronous",
+        "tests": [
+            {
+                "case": "testcases.latency.bench_latency_response"
+            },
+            {
+                "case": "testcases.latency.bench_latency_report"
+            }
+        ]
+    },
+    {
         "sequence_name": "Sequential_Tests",
         "sequence_order": "Sequential",
         "tests": [
@@ -34,26 +46,6 @@
                 "case": "testcases.simple_async",
                 "name": "name_test_abc",
                 "expect": "PASSED"
-            }
-        ]
-    },
-    {
-        "sequence_name": "Random_Test",
-        "sequence_order": "random",
-        "tests": [
-            {
-                "case": "testcases.check_connection_basic"
-            },
-            {
-                "case": "testcases.simple_async"
-            },
-            {
-                "case": "testcases.simple_async",
-                "name": "name_test_xyz",
-                "expect": "PASSED"
-            },
-            {
-                "case": "testcases.check_connection_basic"
             }
         ]
     }
