@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { framer, type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor, DataType, unique } from "@synnaxlabs/x";
+import { type AsyncDestructor, DataType, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/core/store";
@@ -38,7 +38,7 @@ const channelNameSort = (a: string, b: string) => {
  */
 export interface StreamerArgs<ScopedStore extends Store> {
   /** Function to handle errors that occur during streaming */
-  handleError: Status.ErrorHandler;
+  handleError: Status.AsyncErrorHandler;
   /** Configuration defining store structure and listeners */
   storeConfig: StoreConfig<ScopedStore>;
   /** Synnax client instance for API access */
@@ -83,18 +83,28 @@ export const openStreamer = async <ScopedStore extends Store>({
   const handleChange = (frame: framer.Frame) => {
     const namesInFrame = [...frame.uniqueNames];
     namesInFrame.sort(channelNameSort);
-    namesInFrame.forEach((name) => {
-      const series = frame.get(name);
-      listenersForChannels[name]?.forEach(({ onChange, schema }) => {
-        handleError(async () => {
-          let parsed: z.output<typeof schema>[];
-          if (!series.dataType.equals(DataType.JSON))
-            parsed = Array.from(series).map((s) => schema.parse(s));
-          else parsed = series.parseJSON(schema);
-          for (const changed of parsed) await onChange({ changed, client, store });
-        }, `Failed to handle streamer change for ${name}`);
-      });
-    });
+    void handleError(
+      async () => {
+        for (const name of namesInFrame) {
+          const series = frame.get(name);
+          const listeners = listenersForChannels[name];
+          if (listeners == null) continue;
+          for (const { onChange, schema } of listeners)
+            await handleError(async () => {
+              let parsed: z.output<typeof schema>[];
+              if (!series.dataType.equals(DataType.JSON))
+                parsed = Array.from(series).map((s) => schema.parse(s));
+              else parsed = series.parseJSON(schema);
+              for (const changed of parsed)
+                await handleError(
+                  () => onChange({ changed, client, store }),
+                  `Failed to handle streamer change for ${name}`,
+                );
+            }, `Failed to parse streamer change for ${name}`);
+        }
+      },
+      `Failed to handle streamer change for ${strings.naturalLanguageJoin(namesInFrame)}`,
+    );
   };
   observableStreamer.onChange(handleChange);
   return observableStreamer.close.bind(observableStreamer);

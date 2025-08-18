@@ -65,6 +65,8 @@ export const useAdder = () => use(AdderContext);
 
 export interface ErrorHandler extends status.ErrorHandler {}
 
+export interface AsyncErrorHandler extends status.AsyncErrorHandler {}
+
 export const useErrorHandler = (): ErrorHandler => {
   const add = useAdder();
   return useMemo(() => status.createErrorHandler(add), [add]);

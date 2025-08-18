@@ -16,6 +16,7 @@ import {
   Icon,
   Input,
   Ranger,
+  Status,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
@@ -121,6 +122,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     );
   };
 
+  if (status.variant !== "success" && status.variant !== "disabled")
+    return (
+      <Status.Summary
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
+      />
+    );
+
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
       <Flex.Box y gap="large">
@@ -146,16 +156,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             style={{ height: "fit-content" }}
             gap="small"
           >
-            <Flex.Box x>
+            <Flex.Box x gap="small">
               <Button.Button
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
+                onClick={handleCopyPythonCode}
               >
-                <Icon.Python
-                  onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l9)" }}
-                />
+                <Icon.Python color={9} />
               </Button.Button>
               <Button.Button
                 variant="text"
@@ -163,7 +171,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.TypeScript color={9} />
               </Button.Button>
             </Flex.Box>
             <Divider.Divider y />
@@ -173,7 +181,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
-              <Icon.Link />
+              <Icon.Link color={10} />
             </Button.Button>
           </Flex.Box>
         </Flex.Box>
