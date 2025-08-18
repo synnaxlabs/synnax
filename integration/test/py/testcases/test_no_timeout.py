@@ -25,28 +25,28 @@ class NoTimeoutTest(TestCase):
          # Set no timeout (-1) to test that timeout checks are ignored
         self.Expected_Timeout = -1
         super().setup()
-        print(f"{self.name} > Setup complete")
+        self._log_message("Setup complete")
         
     def run(self):
         """Main test logic that should not be killed by timeout."""
-        print(f"{self.name} > Starting test execution...")
-        print(f"{self.name} > This test has Expected_Timeout=-1, so it should not be killed by timeout")
+        self._log_message("Starting test execution...")
+        self._log_message("This test has Expected_Timeout=-1, so it should not be killed by timeout")
         
         # Simulate work that would normally exceed a timeout
         for i in range(3):
-            print(f"{self.name} > Working... {i+1}/3")
+            self._log_message(f"Working... {i+1}/3")
             time.sleep(1)
             
-        print(f"{self.name} > Test execution complete (this should be reached since no timeout)")
+        self._log_message("Test execution complete (this should be reached since no timeout)")
         
     def teardown(self):
         """Teardown the test."""
-        print(f"{self.name} > Teardown called")
+        self._log_message("Teardown called")
         super().teardown()
 
-def test_no_timeout():
+def test_no_timeout(self):
     """Test that the test conductor ignores timeout checks when Expected_Timeout=-1."""
-    print("Testing no timeout functionality (Expected_Timeout=-1)...")
+    self._log_message("Testing no timeout functionality (Expected_Timeout=-1)...")
     
     # Create test conductor
     conductor = Test_Conductor(name="no_timeout_test_conductor")
@@ -59,29 +59,29 @@ def test_no_timeout():
     
     try:
         # Run the test sequence
-        print("Starting test execution...")
+        self._log_message("Starting test execution...")
         results = conductor.run_sequence()
         
         # Check the results
         if results:
             result = results[0]
-            print(f"\nTest result: {result.status.name}")
+            self._log_message(f"Test result: {result.status.name}")
             if result.error_message:
-                print(f"Error message: {result.error_message}")
+                self._log_message(f"Error message: {result.error_message}")
             
             # Verify that the test completed successfully (not killed)
             if result.status == STATUS.PASSED:
-                print("✓ SUCCESS: Test completed successfully without being killed by timeout")
+                self._log_message("✓ SUCCESS: Test completed successfully without being killed by timeout")
                 return True
             else:
-                print(f"✗ FAILURE: Expected test to pass, but got status: {result.status.name}")
+                self._log_message(f"✗ FAILURE: Expected test to pass, but got status: {result.status.name}")
                 return False
         else:
-            print("✗ FAILURE: No test results returned")
+            self._log_message("✗ FAILURE: No test results returned")
             return False
             
     except Exception as e:
-        print(f"✗ ERROR: {e}")
+        self._log_message(f"✗ ERROR: {e}")
         return False
     finally:
         # Clean up

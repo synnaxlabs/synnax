@@ -124,6 +124,8 @@ class TestCase(ABC):
         # Force unbuffered output in CI environments
         if is_ci:
             sys.stdout.reconfigure(line_buffering=True)
+            # Ensure proper newline handling in CI
+            os.environ['PYTHONUNBUFFERED'] = '1'
         
         # Create logger for this test case (don't configure root logger)
         self.logger = logging.getLogger(self.name)
@@ -136,7 +138,8 @@ class TestCase(ABC):
         # Add single handler
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(message)s')
+        # Use a formatter that preserves whitespace and newlines
+        formatter = logging.Formatter('%(message)s', validate=False)
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         
@@ -150,6 +153,12 @@ class TestCase(ABC):
         
         if is_ci:
             self.logger.info("CI environment detected - enabling real-time logging")
+    
+    def log_with_spacing(self, message: str, add_newline: bool = False) -> None:
+        """Log a message with optional spacing control for better CI formatting."""
+        self._log_message(message)
+        if add_newline:
+            self.logger.info("")  # Add empty line for spacing
     
     @property
     def STATUS(self) -> STATUS:
@@ -169,7 +178,18 @@ class TestCase(ABC):
     
     def _log_message(self, message: str) -> None:
         """Log a message to the console with real-time output."""
-        self.logger.info(f"{self.name} > {message}")
+        # Ensure proper newline handling in CI environments
+        if '\n' in message:
+            # Split multi-line messages and log each line separately to preserve formatting
+            lines = message.split('\n')
+            for line in lines:
+                if line.strip():  # Only log non-empty lines
+                    self.logger.info(f"{self.name} > {line}")
+                else:
+                    # Log empty lines to preserve spacing
+                    self.logger.info("")
+        else:
+            self.logger.info(f"{self.name} > {message}")
         
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:

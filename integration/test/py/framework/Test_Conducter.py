@@ -252,6 +252,8 @@ class Test_Conductor:
         # Force unbuffered output in CI environments
         if is_ci:
             sys.stdout.reconfigure(line_buffering=True)
+            # Ensure proper newline handling in CI
+            os.environ['PYTHONUNBUFFERED'] = '1'
         
         # Create logger for this test conductor (don't configure root logger)
         self.logger = logging.getLogger(self.name)
@@ -264,7 +266,8 @@ class Test_Conductor:
         # Add single handler
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(message)s')
+        # Use a formatter that preserves whitespace and newlines
+        formatter = logging.Formatter('%(message)s', validate=False)
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         
