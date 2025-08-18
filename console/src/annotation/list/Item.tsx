@@ -102,6 +102,7 @@ export const Item = ({
   }, [confirmDelete, del]);
 
   const username = creator?.username ?? currentUser.username;
+  console.log(username);
 
   return (
     <List.Item

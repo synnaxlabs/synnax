@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, ranger } from "@synnaxlabs/client";
-import { type Optional } from "@synnaxlabs/x";
+import { deep, type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -64,7 +64,12 @@ export const useListenForCalculationStatus = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const STORE_CONFIG: Flux.UnaryStoreConfig<
+  SubStore,
+  channel.Key,
+  channel.Channel
+> = {
+  equal: (a, b) => deep.equal(a.payload, b.payload),
   listeners: [
     SET_CHANNEL_LISTENER,
     DELETE_CHANNEL_LISTENER,
@@ -140,7 +145,7 @@ const retrieveFn = async ({
   let ch = store.channels.get(key);
   if (ch == null) {
     ch = await client.channels.retrieve(key);
-    store.channels.set(ch.key, ch, { notify: false });
+    store.channels.set(ch.key, ch);
   }
   if (rangeKey != null) {
     let alias = store.rangeAliases.get(
@@ -152,7 +157,6 @@ const retrieveFn = async ({
       store.rangeAliases.set(
         ranger.aliasKey({ range: rangeKey, channel: ch.key }),
         alias,
-        { notify: false },
       );
     }
     ch.alias = alias.alias;
@@ -208,7 +212,7 @@ const updateForm = async ({
   SubStore
 >) => {
   const ch = await client.channels.create(value);
-  store.channels.set(ch.key, ch, { notify: false });
+  store.channels.set(ch.key, ch);
   onChange(channelToFormValues(ch));
 };
 
@@ -272,7 +276,7 @@ export const useList = Flux.createList<
       ...DEFAULT_LIST_PARAMS,
       ...params,
     });
-    store.channels.set(channels, { notify: false });
+    store.channels.set(channels);
     return channels;
   },
   retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
@@ -288,7 +292,7 @@ export const update = Flux.createUpdate<UpdateArgs, channel.New, SubStore>({
   name: "Channel",
   update: async ({ client, value, store }) => {
     const ch = await client.channels.create(value);
-    store.channels.set(ch.key, ch, { notify: false });
+    store.channels.set(ch.key, ch);
   },
 });
 
@@ -317,6 +321,6 @@ export const updateAlias = Flux.createUpdate<UpdateAliasArgs, string, SubStore>(
     if (rangeKey == null) return;
     const alias: ranger.Alias = { alias: value, channel: channelKey, range: rangeKey };
     await client.ranges.setAlias(rangeKey, channelKey, value);
-    store.rangeAliases.set(ranger.aliasKey(alias), alias, { notify: false });
+    store.rangeAliases.set(ranger.aliasKey(alias), alias);
   },
 });

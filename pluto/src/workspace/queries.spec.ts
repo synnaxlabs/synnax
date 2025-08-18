@@ -9,15 +9,20 @@
 
 import { newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { type PropsWithChildren } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 import { Workspace } from "@/workspace";
 
 const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await newSynnaxWrapperWithAwait(client);
+  });
+
   describe("useList", () => {
     it("should return a list of workspace keys", async () => {
       const ws1 = await client.workspaces.create({

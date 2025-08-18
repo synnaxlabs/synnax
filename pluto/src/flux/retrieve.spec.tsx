@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, newTestClient } from "@synnaxlabs/client";
+import { type label, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import { Flux } from "@/flux";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("retrieve", () => {
   describe("useDirect", () => {
@@ -27,7 +28,7 @@ describe("retrieve", () => {
               name: "Resource",
               retrieve: async () => 0,
             }).useDirect({ params: {} }),
-          { wrapper: newSynnaxWrapper(client) },
+          { wrapper },
         );
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(null);
@@ -41,7 +42,7 @@ describe("retrieve", () => {
               name: "Resource",
               retrieve: async () => 12,
             }).useDirect({ params: {} }),
-          { wrapper: newSynnaxWrapper(client) },
+          { wrapper },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
@@ -59,7 +60,7 @@ describe("retrieve", () => {
                 throw new Error("test");
               },
             }).useDirect({ params: {} }),
-          { wrapper: newSynnaxWrapper(client) },
+          { wrapper },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
@@ -79,7 +80,7 @@ describe("retrieve", () => {
           { wrapper: newSynnaxWrapper(null) },
         );
         await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
+          expect(result.current.variant).toEqual("disabled");
           expect(result.current.data).toEqual(null);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual(
@@ -92,18 +93,6 @@ describe("retrieve", () => {
     interface Store extends Flux.Store {
       labels: Flux.UnaryStore<label.Key, label.Label>;
     }
-
-    const SET_LABEL_LISTENER: Flux.ChannelListener<Store, typeof label.labelZ> = {
-      channel: label.SET_CHANNEL_NAME,
-      schema: label.labelZ,
-      onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
-    };
-
-    const storeConfig: Flux.StoreConfig<Store> = {
-      labels: {
-        listeners: [SET_LABEL_LISTENER],
-      },
-    };
 
     describe("listeners", () => {
       it("should correctly update the resource when the listener changes", async () => {
@@ -120,7 +109,7 @@ describe("retrieve", () => {
               mountListeners: ({ store, onChange, params: { key } }) =>
                 store.labels.onSet(onChange, key),
             }).useDirect({ params: { key: ch.key } }),
-          { wrapper: newSynnaxWrapper(client, storeConfig) },
+          { wrapper },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
@@ -173,7 +162,7 @@ describe("retrieve", () => {
           }).useEffect({ params: { key: "test" }, onChange: handleChange });
           return result;
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(onChangeMock).toHaveBeenCalledTimes(2);

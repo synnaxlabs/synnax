@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Input, Nav, type Triggers as PTrigger } from "@synnaxlabs/pluto";
+import { Button, Input, Nav } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
@@ -24,8 +24,6 @@ export interface PromptRenameLayoutArgs extends BaseArgs<string> {
 export const RENAME_LAYOUT_TYPE = "rename";
 
 export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
-
-const SAVE_TRIGGER: PTrigger.Trigger = ["Enter"];
 
 export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
   "Name",
@@ -44,7 +42,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
     const [error, setError] = useState<string | undefined>(undefined);
     const footer = (
       <>
-        <Triggers.SaveHelpText action="Save" trigger={SAVE_TRIGGER} />
+        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
         <Nav.Bar.End x align="center">
           <Button.Button
             status="success"
@@ -56,7 +54,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
                 return setError(`${label} is required`);
               return onFinish(name);
             }}
-            trigger={SAVE_TRIGGER}
+            trigger={Triggers.SAVE}
           >
             Save
           </Button.Button>

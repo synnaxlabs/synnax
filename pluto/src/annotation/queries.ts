@@ -47,10 +47,7 @@ export const useList = Flux.createList<
       )
         onChange(
           changed.to.key,
-          (prev) => {
-            if (prev != null) return prev;
-            return store.annotations.get(changed.to.key) ?? null;
-          },
+          (prev) => store.annotations.get(changed.to.key) ?? prev,
           { mode: "append" },
         );
     }),
@@ -100,11 +97,11 @@ export const useForm = Flux.createForm<
     const annotation = await client.annotations.retrieve({ key: params.key });
     return annotationToFormValues(annotation);
   },
-  update: async ({ params, client, value }) => {
+  update: async ({ params, client, value, store }) => {
     if (value.parent == null) return;
     let timeRange = TimeRange.z.parse(value.timeRange);
     if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);
-    await client.annotations.create(
+    const annotation = await client.annotations.create(
       {
         key: params.key ?? value.key,
         message: value.message,
@@ -112,6 +109,7 @@ export const useForm = Flux.createForm<
       },
       value.parent,
     );
+    store.annotations.set(annotation.key, annotation);
   },
 });
 

@@ -10,8 +10,8 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/aether/params";
-import { type Store } from "@/flux/aether/store";
+import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type Store } from "@/flux/core/store";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -89,6 +89,8 @@ export interface UseObservableUpdateArgs<
   onChange: state.Setter<Result<Data | null>>;
   /** Parameters for the update operation */
   params: UpdateParams;
+  /** The scope to use for the update operation */
+  scope?: string;
 }
 
 /**
@@ -140,6 +142,7 @@ const useObservable = <
   params,
   update,
   name,
+  scope,
 }: UseObservableUpdateArgs<UpdateParams, Data> &
   CreateUpdateArgs<
     UpdateParams,
@@ -147,7 +150,7 @@ const useObservable = <
     ScopedStore
   >): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
-  const store = useStore<ScopedStore>();
+  const store = useStore<ScopedStore>(scope);
   const handleUpdate = useCallback(
     async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/flux/aether/params";
-export * from "@/flux/aether/store";
-export * from "@/flux/aether/types";
+export * from "@/flux/core/client";
+export * from "@/flux/core/params";
+export * from "@/flux/core/store";
 export * from "@/flux/form";
 export * from "@/flux/list";
 export * from "@/flux/Provider";

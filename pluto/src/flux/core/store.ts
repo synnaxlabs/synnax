@@ -5,42 +5,30 @@ import type z from "zod";
 import { state } from "@/state";
 import { type status } from "@/status/aether";
 
-/**
- * Options for setting values in the store.
- */
-interface UpdateOptions {
-  /** Whether to notify listeners of the change. Defaults to true. */
-  notify?: boolean;
+interface ListenerScope<K extends record.Key> {
+  scope: string;
+  key?: K;
 }
 
-/**
- * A key-value store that manages state with reactive update notifications.
- * Supports setting, getting, and deleting entries while notifying registered listeners.
- *
- * @template K - The type of keys used in the store
- * @template V - The type of values stored, must extend state.State
- */
-export class UnaryStore<
+type Handler<V> = observe.Handler<V> | observe.AsyncHandler<V>;
+
+export class ScopedUnaryStore<
   K extends record.Key = record.Key,
   V extends state.State = state.State,
 > {
   private readonly entries: Map<K, V> = new Map();
-  private readonly setListeners: Map<
-    observe.Handler<V> | observe.AsyncHandler<V>,
-    K | undefined
-  > = new Map();
-  private readonly deleteListeners: Map<
-    observe.Handler<K> | observe.AsyncHandler<K>,
-    K | undefined
-  > = new Map();
+  private readonly setListeners: Map<Handler<V>, ListenerScope<K>> = new Map();
+  private readonly deleteListeners: Map<Handler<K>, ListenerScope<K>> = new Map();
   private readonly handleError: status.ErrorHandler;
+  private readonly equal: (a: V, b: V, key: K) => boolean;
 
-  constructor(handleError: status.ErrorHandler) {
+  constructor(
+    handleError: status.ErrorHandler,
+    equal: (a: V, b: V, key: K) => boolean = () => false,
+  ) {
     this.handleError = handleError;
+    this.equal = equal;
   }
-
-  set(key: K, value: state.SetArg<V | undefined>, opts?: UpdateOptions): void;
-  set(values: Array<V & record.Keyed<K>>, opts?: UpdateOptions): void;
 
   /**
    * Sets a value for the given key in the store.
@@ -50,38 +38,17 @@ export class UnaryStore<
    * @param opts - Options for the set operation
    */
   set(
+    scope: string,
     key: K | Array<V & record.Keyed<K>>,
-    value?: state.SetArg<V | undefined> | UpdateOptions,
-    opts?: UpdateOptions,
+    value?: state.SetArg<V | undefined>,
   ): void {
-    if (Array.isArray(key))
-      return key.forEach((v) => this.set(v.key, v, (value as UpdateOptions) ?? {}));
-    const { notify = true } = opts ?? {};
+    if (Array.isArray(key)) return key.forEach((v) => this.set(scope, v.key, v));
     const prev = this.entries.get(key);
-    const next = state.executeSetter(value as state.SetArg<V | undefined>, prev);
-    if (next == null) return;
+    const next = state.executeSetter(value, prev);
+    if (next == null || (prev != null && this.equal(next, prev, key))) return;
     this.entries.set(key, next);
-    if (notify) this.notifySet(key, next);
+    this.notifySet(scope, key, next);
   }
-
-  /**
-   * Gets a value from the store by key.
-   * @param key - The key to retrieve
-   * @returns The value associated with the key, or undefined if not found
-   */
-  get(key: K): V | undefined;
-  /**
-   * Gets values from the store matching a filter predicate.
-   * @param filter - A function to test each value
-   * @returns An array of matching values
-   */
-  get(filter: (value: V) => boolean): V[];
-  /**
-   * Gets multiple values from the store by their keys.
-   * @param keys - An array of keys to retrieve
-   * @returns An array of values (undefined values are filtered out)
-   */
-  get(keys: K[]): V[];
 
   get(keys: K | K[] | ((value: V) => boolean)): V | V[] | undefined {
     if (typeof keys === "function")
@@ -91,15 +58,18 @@ export class UnaryStore<
     return this.entries.get(keys);
   }
 
+  has(key: K): boolean {
+    return this.entries.has(key);
+  }
+
   /**
    * Deletes an entry from the store and notifies delete listeners.
    * @param key - The key to delete
    */
-  delete(key: K | K[], opts: UpdateOptions = {}) {
-    const { notify = true } = opts ?? {};
+  delete(scope: string, key: K | K[]) {
     array.toArray(key).forEach((k) => {
       this.entries.delete(k);
-      if (notify) this.notifyDelete(k);
+      this.notifyDelete(scope, k);
     });
   }
 
@@ -114,9 +84,15 @@ export class UnaryStore<
    * @param key - Optional key to filter notifications (if provided, only changes to this key trigger the callback)
    * @returns A destructor function to remove the listener
    */
-  onSet(callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K): Destructor {
-    this.setListeners.set(callback, key);
-    return () => this.setListeners.delete(callback);
+  onSet(
+    scope: string,
+    callback: observe.AsyncHandler<V> | observe.Handler<V>,
+    key?: K,
+  ): Destructor {
+    this.setListeners.set(callback, { scope, key });
+    return () => {
+      this.setListeners.delete(callback);
+    };
   }
 
   /**
@@ -128,25 +104,46 @@ export class UnaryStore<
    * @returns A destructor function to remove the listener
    */
   onDelete(
+    scope: string,
     callback: observe.AsyncHandler<K> | observe.Handler<K>,
     key?: K,
   ): Destructor {
-    this.deleteListeners.set(callback, key);
+    this.deleteListeners.set(callback, { scope, key });
     return () => this.deleteListeners.delete(callback);
   }
 
-  private notifySet(key: K, value: V) {
+  private notifySet(scope: string, key: K, value: V) {
     this.setListeners.forEach((listenerKey, callback) => {
-      if (listenerKey == null || listenerKey === key)
+      const matchesKey = listenerKey.key == null || listenerKey.key === key;
+      const matchesScope = listenerKey.scope !== scope;
+      if (matchesKey && matchesScope)
         this.handleError(async () => callback(value), "Failed to notify set listener");
     });
   }
 
-  private notifyDelete(key: K) {
+  private notifyDelete(scope: string, key: K) {
     this.deleteListeners.forEach((listenerKey, callback) => {
-      if (listenerKey == null || listenerKey === key)
+      const matchesKey = listenerKey.key == null || listenerKey.key === key;
+      const matchesScope = listenerKey.scope !== scope;
+      if (matchesKey && matchesScope)
         this.handleError(async () => callback(key), "Failed to notify delete listener");
     });
+  }
+
+  scope(scope: string): UnaryStore<K, V> {
+    return {
+      set: (key: K | Array<V & record.Keyed<K>>, value?: state.SetArg<V | undefined>) =>
+        this.set(scope, key, value),
+      get: ((key: K | K[] | ((value: V) => boolean)) => this.get(key)) as UnaryStore<
+        K,
+        V
+      >["get"],
+      has: (key: K) => this.has(key),
+      delete: (key: K | K[]) => this.delete(scope, key),
+      onSet: (callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K) =>
+        this.onSet(scope, callback, key),
+      onDelete: (callback, key) => this.onDelete(scope, callback, key),
+    };
   }
 }
 
@@ -191,7 +188,13 @@ export type ChannelListenerArgs<
  *
  * @template ScopedStore - The type of the scoped store
  */
-export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
+export interface UnaryStoreConfig<
+  ScopedStore extends Store = {},
+  K extends record.Key = record.Key,
+  V extends state.State = state.State,
+> {
+  /** Function to determine if two values are equal */
+  equal?: (a: V, b: V, key: K) => boolean;
   /** Array of channel listeners to register for this store */
   listeners: ChannelListener<ScopedStore>[];
 }
@@ -203,7 +206,21 @@ export interface UnaryStoreConfig<ScopedStore extends Store = {}> {
  * @template ScopedStore - The type of the scoped store
  */
 export interface StoreConfig<ScopedStore extends Store = {}> {
-  [key: string]: UnaryStoreConfig<ScopedStore>;
+  [key: string]: UnaryStoreConfig<ScopedStore, any, any>;
+}
+
+export interface UnaryStore<
+  K extends record.Key = record.Key,
+  V extends state.State = state.State,
+> {
+  set(values: Array<V & record.Keyed<K>>): void;
+  set(key: K, value: state.SetArg<V | undefined>): void;
+  get(key: K): V | undefined;
+  get(keys: K[] | ((value: V) => boolean)): V[];
+  has(key: K): boolean;
+  delete(key: K | K[]): void;
+  onSet(callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K): Destructor;
+  onDelete(callback: observe.AsyncHandler<K> | observe.Handler<K>, key?: K): Destructor;
 }
 
 /**
@@ -212,6 +229,10 @@ export interface StoreConfig<ScopedStore extends Store = {}> {
  */
 export interface Store {
   [key: string]: UnaryStore<any, any>;
+}
+
+export interface InternalStore {
+  [key: string]: ScopedUnaryStore<string, state.State>;
 }
 
 /**
@@ -225,10 +246,21 @@ export interface Store {
 export const createStore = <ScopedStore extends Store>(
   config: StoreConfig<ScopedStore>,
   handleError: status.ErrorHandler,
+): InternalStore =>
+  Object.fromEntries(
+    Object.entries(config).map(([key, { equal }]) => [
+      key,
+      new ScopedUnaryStore<string, state.State>(handleError, equal),
+    ]),
+  );
+
+export const scopeStore = <ScopedStore extends Store>(
+  store: InternalStore,
+  scope: string,
 ): ScopedStore =>
   Object.fromEntries(
-    Object.entries(config).map(([key]) => [
+    Object.entries(store).map(([key]): [string, UnaryStore<any, any>] => [
       key,
-      new UnaryStore<string, state.State>(handleError),
+      store[key].scope(scope),
     ]),
   ) as ScopedStore;

@@ -1,14 +1,18 @@
 import { label, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { type FC, type PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 
 const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
+  let wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
+    wrapper = await newSynnaxWrapperWithAwait(client);
+  });
   describe("useList", () => {
     it("should return a list of label keys", async () => {
       const label1 = await client.labels.create({
@@ -78,17 +82,24 @@ describe("queries", () => {
     });
 
     it("should handle pagination with limit and offset", async () => {
-      for (let i = 0; i < 5; i++)
-        await client.labels.create({
-          name: `paginationLabel${i}`,
-          color: "#0000FF",
-        });
+      const labels = await Promise.all(
+        Array.from({ length: 5 }).map((_, i) =>
+          client.labels.create({
+            name: `paginationLabel${i}`,
+            color: "#0000FF",
+          }),
+        ),
+      );
 
       const { result } = renderHook(() => Label.useList(), {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.retrieve({
+          limit: 2,
+          offset: 1,
+          keys: labels.map((l) => l.key),
+        });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);

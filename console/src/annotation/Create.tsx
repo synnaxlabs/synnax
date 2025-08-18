@@ -88,8 +88,11 @@ export const Create: Layout.Renderer = (props) => {
           <Flex.Box y gap="small">
             <Form.Field<string> path="message">
               {(p) => (
-                <Input.TextArea
-                  // placeholder="Enter annotation message"
+                <Input.Text
+                  placeholder="Enter annotation message"
+                  variant="text"
+                  area
+                  level="h5"
                   style={{ minHeight: "100px" }}
                   autoFocus
                   {...p}

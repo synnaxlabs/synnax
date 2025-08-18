@@ -33,6 +33,7 @@ import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
+import { User } from "@/user";
 
 const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,
@@ -66,6 +67,7 @@ const SideEffect = (): null => {
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   // Permissions.useSync();
+  User.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };

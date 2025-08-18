@@ -25,6 +25,7 @@ interface SimpleEntry {
   label: string;
   color: color.Crude;
   visible: boolean;
+  axis: string;
 }
 
 export interface SimpleProps
@@ -56,7 +57,7 @@ export const LegendSwatches = memo(
     <>
       {data
         .sort((a, b) => a.label.localeCompare(b.label))
-        .map(({ key, color, label, visible = true }) => (
+        .map(({ key, color, label, visible = true, axis }) => (
           <Flex.Box
             key={key}
             style={{ cursor: "pointer", height: "3rem" }}
@@ -69,16 +70,23 @@ export const LegendSwatches = memo(
             <Flex.Box direction="x" align="center" gap="small">
               <Color.Swatch
                 value={color}
-                onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
+                onChange={(c) =>
+                  onEntryChange?.({ key, color: c, label, visible, axis })
+                }
                 onVisibleChange={onVisibleChange}
                 allowChange={onEntryChange != null}
                 draggable={false}
                 size="tiny"
               />
+              <Text.Text level="small" color={8}>
+                {axis.toUpperCase()}
+              </Text.Text>
               <Text.MaybeEditable
                 level="small"
                 value={label}
-                onChange={(l) => onEntryChange?.({ key, color, label: l, visible })}
+                onChange={(l) =>
+                  onEntryChange?.({ key, color, label: l, visible, axis })
+                }
                 overflow="nowrap"
                 color={visible ? 10 : 7}
                 onDoubleClick={(e) => e.stopPropagation()}
@@ -89,7 +97,7 @@ export const LegendSwatches = memo(
                 className={CSS.B("visible-toggle")}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEntryChange?.({ key, color, label, visible: !visible });
+                  onEntryChange?.({ key, color, label, visible: !visible, axis });
                 }}
                 onDoubleClick={(e) => e.stopPropagation()}
                 size="tiny"

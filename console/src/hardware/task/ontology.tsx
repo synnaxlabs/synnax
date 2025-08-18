@@ -90,7 +90,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     handleError,
     state: { getResource, shape },
   } = props;
-  const { resourceIDs } = selection;
+  const { resourceIDs, rootID } = selection;
   const resources = getResource(resourceIDs);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -121,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

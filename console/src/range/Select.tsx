@@ -22,6 +22,7 @@ import { type ReactElement } from "react";
 
 import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
+import { DynamicRange, StaticRange } from "@/range/types";
 
 interface SelectMultipleRangesProps
   extends Omit<
@@ -33,24 +34,46 @@ const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
 );
 
+const DynamicListItem = Component.renderProp(
+  (props: List.ItemProps<string> & { range: DynamicRange }) => {
+    const { range } = props;
+    return (
+      <Select.ListItem {...props} justify="between">
+        <Text.Text style={{ width: 100 }}>{range.name}</Text.Text>
+        <Text.Text>
+          {new TimeSpan(range.span).toString()}
+          {dynamicIcon}
+        </Text.Text>
+      </Select.ListItem>
+    );
+  },
+);
+
+const StaticListItem = Component.renderProp(
+  (props: List.ItemProps<string> & { range: StaticRange }) => {
+    const { range } = props;
+    const parent = Ranger.retrieveParent.useDirect({ params: { key: range.key } }).data;
+    return (
+      <Select.ListItem {...props} justify="between">
+        <Ranger.Breadcrumb
+          key={range.key}
+          name={range.name}
+          parent={parent}
+          level="small"
+        />
+        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
+      </Select.ListItem>
+    );
+  },
+);
+
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
   if (range == null) return null;
   const { variant, name } = range;
-  return (
-    <Select.ListItem {...props}>
-      <Text.Text style={{ width: 100 }}>{name}</Text.Text>
-      {variant === "dynamic" ? (
-        <Text.Text>
-          {dynamicIcon}
-          {new TimeSpan(range.span).toString()}
-        </Text.Text>
-      ) : (
-        <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
-      )}
-    </Select.ListItem>
-  );
+  if (variant === "dynamic") return <DynamicListItem {...props} range={range} />;
+  return <StaticListItem {...props} range={range} />;
 });
 
 interface RenderTagProps {

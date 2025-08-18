@@ -21,4 +21,7 @@
     position: relative;
     user-select: none;
     -webkit-user-select: none;
+    gap: inherit;
+    flex-direction: inherit;
+    display: inherit;
 }

@@ -90,12 +90,16 @@ export const useList = Flux.createList<ListParams, label.Key, label.Label, SubSt
   name: "Labels",
   retrieve: async ({ client, params }) => await client.labels.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.labels.onSet(async (label) => {
-      onChange(label.key, label, { mode: "prepend" });
-    }),
-    store.labels.onDelete(async (key) => onDelete(key)),
-  ],
+  mountListeners: ({ store, onChange, onDelete, params: { keys } }) => {
+    const keysSet = keys ? new Set(keys) : undefined;
+    return [
+      store.labels.onSet(async (label) => {
+        if (keysSet != null && !keysSet.has(label.key)) return;
+        onChange(label.key, label, { mode: "prepend" });
+      }),
+      store.labels.onDelete(async (key) => onDelete(key)),
+    ];
+  },
 });
 
 interface FormParams {

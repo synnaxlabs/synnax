@@ -40,6 +40,7 @@ export interface UseArgs<Z extends z.ZodType> {
   onChange?: (props: OnChangeArgs<Z>) => void;
   onHasTouched?: (value: boolean) => void;
   schema?: Z;
+  scope?: string;
 }
 
 export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}

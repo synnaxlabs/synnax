@@ -40,6 +40,7 @@ export interface BaseLineProps {
   axes: { x: string; y: string };
   channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
   color: color.Crude;
+  axis: string;
   strokeWidth?: number;
   label?: string;
   downsample?: number;
@@ -348,7 +349,7 @@ const YAxis = ({
       onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
-        <Line key={lineKey(l)} line={l} />
+        <Line key={lineKey(l)} line={{ ...l, axis: key }} />
       ))}
       {rules?.map((r) => (
         <Rule.Rule
@@ -374,6 +375,7 @@ const DynamicLine = ({
     timeSpan,
     channels: { x, y },
     axes: _,
+    axis,
     ...rest
   },
 }: {
@@ -395,7 +397,10 @@ const DynamicLine = ({
     });
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
-  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  console.log(axis);
+  return (
+    <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} axis={axis} {...rest} />
+  );
 };
 
 const StaticLine = ({
@@ -403,6 +408,7 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
+    axis,
     ...rest
   },
 }: {
@@ -418,5 +424,7 @@ const StaticLine = ({
     });
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
-  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return (
+    <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} axis={axis} {...rest} />
+  );
 };

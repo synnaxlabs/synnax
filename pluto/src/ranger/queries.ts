@@ -40,7 +40,7 @@ const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) 
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(key, range[0], { notify: false });
+  store.ranges.set(key, range[0]);
   return range[0];
 };
 
@@ -54,7 +54,7 @@ const multiCachedRetrieve = async (
     includeParent: true,
     includeLabels: true,
   });
-  store.ranges.set(ranges, { notify: false });
+  store.ranges.set(ranges);
   return ranges;
 };
 
@@ -82,13 +82,13 @@ const handleListLabelRelationshipSet = async (
     let label = store.labels.get(rel.to.key);
     if (label == null) {
       label = await client.labels.retrieve({ key: rel.to.key });
-      store.labels.set(rel.to.key, label, { notify: false });
+      store.labels.set(rel.to.key, label);
     }
     onChange(rel.from.key, (prev) => {
       if (prev == null) return prev;
       return client.ranges.sugarOne({
         ...prev,
-        labels: [...prev.labels.filter((l) => l.key !== rel.to.key), label],
+        labels: [...(prev.labels?.filter((l) => l.key !== rel.to.key) ?? []), label],
       });
     });
   }
@@ -176,7 +176,7 @@ export const useChildren = Flux.createList<
           if (prev == null) return prev;
           return client.ranges.sugarOne({
             ...prev,
-            labels: prev.labels.filter((l) => l.key !== rel.to.key),
+            labels: prev.labels?.filter((l) => l.key !== rel.to.key),
           });
         });
     }),
@@ -235,7 +235,7 @@ export const retrieveParent = Flux.createRetrieve<
           if (prev == null) return prev;
           return client.ranges.sugarOne({
             ...prev,
-            labels: prev.labels.filter((l) => l.key !== rel.to.key),
+            labels: prev.labels?.filter((l) => l.key !== rel.to.key),
           });
         });
     }),
@@ -295,11 +295,13 @@ export const formSchema = z.object({
   timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
-export const toFormValues = async (range: ranger.Range) => ({
+export const toFormValues = async (
+  range: ranger.Range,
+): Promise<z.infer<typeof formSchema>> => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
   parent: range.parent?.key,
-  labels: range.labels.map((l) => l.key),
+  labels: range.labels?.map((l) => l.key) ?? [],
 });
 
 export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
@@ -322,12 +324,24 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
       return await toFormValues(await cachedRetrieve(client, store, key));
     },
     update: async ({ client, value, onChange, store }) => {
-      const parentID = primitive.isZero(value.parent)
-        ? undefined
-        : ranger.ontologyID(value.parent as string);
+      const hasParent = !primitive.isZero(value.parent);
+      const parentID = hasParent
+        ? ranger.ontologyID(value.parent as string)
+        : undefined;
       const rng = await client.ranges.create(value, { parent: parentID });
       await client.labels.label(rng.ontologyID, value.labels, { replace: true });
-      store.ranges.set(rng.key, rng);
+      const labels: label.Label[] = store.labels.get(value.labels);
+      const cachedLabelKeys = new Set(labels.map((l) => l.key));
+      const missingLabels = value.labels.filter((l) => !cachedLabelKeys.has(l));
+      if (missingLabels.length > 0) {
+        const newLabels = await client.labels.retrieve({ keys: missingLabels });
+        labels.push(...newLabels);
+        store.labels.set(newLabels);
+      }
+      let parent: ranger.Range | null = null;
+      if (hasParent)
+        parent = await cachedRetrieve(client, store, value.parent as string);
+      store.ranges.set(rng.key, client.ranges.sugarOne({ ...rng.payload, labels }));
       onChange({
         ...value,
         ...rng.payload,

@@ -83,7 +83,7 @@ export const wrap = <
     const { data, variant, status } = useRetrieve({
       params: { key: taskKey },
     });
-    if (variant !== "success")
+    if (variant !== "success" && variant !== "disabled" && taskKey != null)
       return (
         <Status.Summary
           variant={variant}

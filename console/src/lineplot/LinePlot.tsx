@@ -467,7 +467,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   };
 
   const parents = useMemo(
-    () => [...ranges.x1, ...ranges.x2].map((r) => ranger.ontologyID(r.key)),
+    () =>
+      [
+        ...ranges.x1.filter((r) => r.variant === "static"),
+        ...ranges.x2.filter((r) => r.variant === "static"),
+      ].map((r) => ranger.ontologyID(r.key)),
     [ranges],
   );
 

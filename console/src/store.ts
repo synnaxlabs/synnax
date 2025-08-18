@@ -31,7 +31,7 @@ import { Range } from "@/range";
 import { RUNTIME } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import * as User from "@/user";
+import { User } from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -51,7 +51,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
-  [User.slice.SLICE_NAME]: User.slice.ZERO_SLICE_STATE,
+  [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
 };
@@ -67,7 +67,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
-  [User.slice.SLICE_NAME]: User.slice.reducer,
+  [User.SLICE_NAME]: User.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
@@ -83,7 +83,7 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [User.slice.SLICE_NAME]: User.slice.SliceState;
+  [User.SLICE_NAME]: User.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
 }
@@ -99,7 +99,7 @@ export type RootAction =
   | Range.Action
   | Schematic.Action
   | Table.Action
-  | User.slice.Action
+  | User.Action
   | Version.Action
   | Workspace.Action;
 
@@ -122,7 +122,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  const user = User.slice.migrateSlice(prev.user);
+  const user = User.migrateSlice(prev.user);
   console.log("Migrated State");
   console.groupEnd();
   return {

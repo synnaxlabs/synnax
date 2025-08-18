@@ -56,7 +56,7 @@ export class Range {
   readonly color: string | undefined;
   readonly stage: Stage;
   readonly parent: Payload | null;
-  readonly labels: label.Label[];
+  readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
@@ -72,7 +72,7 @@ export class Range {
       color,
       parent,
       stage,
-      labels = [],
+      labels,
     }: Payload,
     {
       frameClient,
@@ -105,6 +105,10 @@ export class Range {
   }
 
   get payload(): Payload {
+    let parent: Payload | null = null;
+    if (this.parent != null)
+      if ("payload" in this.parent) parent = (this.parent as Range).payload;
+      else parent = this.parent;
     return {
       key: this.key,
       name: this.name,
@@ -112,7 +116,7 @@ export class Range {
       stage: this.stage,
       color: this.color,
       labels: this.labels,
-      parent: this.parent,
+      parent,
     };
   }
 

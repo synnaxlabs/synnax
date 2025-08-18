@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor } from "@synnaxlabs/x";
 import z from "zod";
 
 import { aether, synnax } from "@/ether";
-import { createStore, type Store, type StoreConfig } from "@/flux/aether/store";
-import { openStreamer } from "@/flux/aether/streamer";
+import { core } from "@/flux/core";
 import { status } from "@/status/aether";
 
 /** State schema for the flux provider (currently empty) */
@@ -25,22 +22,15 @@ export type ProviderState = z.input<typeof providerStateZ>;
 /**
  * Internal state managed by the provider.
  */
-interface InternalState<ScopedStore extends Store> {
-  /** Function to close the active streamer connection */
-  closeStreamer: AsyncDestructor;
+interface InternalState {
   /** The store instance */
-  store: ScopedStore;
-  /** The Synnax client instance */
-  client: Synnax | null;
+  store: core.Client<core.Store>;
 }
 
 /**
  * Value stored in the Aether context for flux components.
  */
-export interface ContextValue {
-  /** The store instance available to child components */
-  store: Store;
-}
+export type ContextValue = core.Client<core.Store>;
 
 /** Key used to store flux context in the Aether context */
 const CONTEXT_KEY = "flux-context";
@@ -55,8 +45,18 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useStore = <ScopedStore extends Store>(ctx: aether.Context): ScopedStore =>
-  ctx.get<ContextValue>(CONTEXT_KEY).store as ScopedStore;
+export const useClient = <ScopedStore extends core.Store>(
+  ctx: aether.Context,
+  scope: string,
+): ScopedStore => ctx.get<ContextValue>(CONTEXT_KEY).scopedStore<ScopedStore>(scope);
+
+export type ProviderConfig<ScopedStore extends core.Store = core.Store> =
+  | {
+      client: core.Client;
+    }
+  | {
+      storeConfig: core.StoreConfig<ScopedStore>;
+    };
 
 /**
  * Creates a flux provider component class for the given store configuration.
@@ -66,44 +66,34 @@ export const useStore = <ScopedStore extends Store>(ctx: aether.Context): Scoped
  * @param storeConfig - Configuration for the store and its listeners
  * @returns A provider component class
  */
-const createProvider = <ScopedStore extends Store>(
-  storeConfig: StoreConfig<ScopedStore>,
-) =>
-  class Provider extends aether.Composite<
-    typeof providerStateZ,
-    InternalState<ScopedStore>
-  > {
+const createProvider = <ScopedStore extends core.Store>(
+  cfg: ProviderConfig<ScopedStore>,
+) => {
+  const buildClient = (
+    ctx: aether.Context,
+    prevClient: core.Client<ScopedStore>,
+  ): core.Client<ScopedStore> => {
+    if ("client" in cfg) return cfg.client;
+    const nextClient = synnax.use(ctx);
+    if (prevClient?.client?.key === nextClient?.key) return prevClient;
+    return new core.Client<ScopedStore>({
+      client: nextClient,
+      storeConfig: cfg.storeConfig,
+      handleError: status.useErrorHandler(ctx),
+      handleAsyncError: status.useAsyncErrorHandler(ctx),
+    });
+  };
+  return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
     schema = Provider.stateZ;
-
     afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
-      const handleError = status.useErrorHandler(ctx);
-      if (!ctx.wasSetPreviously(CONTEXT_KEY)) {
-        i.store = createStore<ScopedStore>(storeConfig, handleError);
-        ctx.set(CONTEXT_KEY, { store: i.store });
-      }
-      const nextClient = synnax.use(ctx);
-      if (i.client?.key === nextClient?.key) return;
-      // This means we've either switched connections or disconnected. In either case,
-      // we need to clear the store, stop the streamer, and start a new one (if connected).
-      i.client = nextClient;
-
-      handleError(async () => {
-        await i.closeStreamer?.();
-        if (i.client == null) return;
-        Object.values(i.store).forEach((store) => store.clear());
-        i.closeStreamer = await openStreamer({
-          handleError,
-          storeConfig,
-          client: i.client,
-          store: i.store,
-          openStreamer: i.client.openStreamer.bind(i.client),
-        });
-      });
+      i.store = buildClient(ctx, i.store);
+      if (!ctx.wasSetPreviously(CONTEXT_KEY)) ctx.set(CONTEXT_KEY, i.store);
     }
   };
+};
 
 /**
  * Creates an Aether component registry with the flux provider.
@@ -112,8 +102,6 @@ const createProvider = <ScopedStore extends Store>(
  * @param storeConfig - Configuration for the store and its listeners
  * @returns An Aether component registry containing the provider
  */
-export const createRegistry = <ScopedStore extends Store>(
-  storeConfig: StoreConfig<ScopedStore>,
-): aether.ComponentRegistry => ({
-  [PROVIDER_TYPE]: createProvider(storeConfig),
-});
+export const createRegistry = <ScopedStore extends core.Store>(
+  cfg: ProviderConfig<ScopedStore>,
+): aether.ComponentRegistry => ({ [PROVIDER_TYPE]: createProvider(cfg) });

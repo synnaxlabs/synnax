@@ -57,11 +57,11 @@ export const useOptionalAdder = (ctx: aether.Context): Adder => {
 
 export interface ErrorHandler {
   (exc: unknown, message?: string): void;
-  (func: () => Promise<void>, message?: string): void;
+  (func: () => Promise<void> | void, message?: string): void;
 }
 
 export interface AsyncErrorHandler {
-  (func: () => Promise<void>, message?: string): Promise<void>;
+  (func: () => Promise<void> | void, message?: string): Promise<void>;
 }
 
 export const createErrorHandler =
@@ -75,17 +75,21 @@ export const createErrorHandler =
         // Skip the added microtask if the function returns void instead of a promise.
         if (promise != null) await promise;
       } catch (exc) {
+        console.error(exc);
         add(status.fromException(exc, message));
       }
     })();
   };
 
-export const createAsyncExceptionHandler =
+export const createAsyncErrorHandler =
   (add: Adder): AsyncErrorHandler =>
-  async (func: () => Promise<void>, message?: string): Promise<void> => {
+  async (func: () => Promise<void> | void, message?: string): Promise<void> => {
     try {
-      await func();
+      const promise = func();
+      // Skip the added microtask if the function returns void instead of a promise.
+      if (promise != null) await promise;
     } catch (exc) {
+      console.error(exc);
       add(status.fromException(exc, message));
     }
   };
@@ -94,7 +98,7 @@ export const useErrorHandler = (ctx: aether.Context): ErrorHandler =>
   createErrorHandler(useAdder(ctx));
 
 export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
-  createAsyncExceptionHandler(useAdder(ctx));
+  createAsyncErrorHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

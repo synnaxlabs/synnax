@@ -9,16 +9,19 @@
 
 import { type channel, DataType, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type FC, type PropsWithChildren } from "react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
-
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 
 describe("queries", () => {
   let controller: AbortController;
+  const client = newTestClient();
+  let wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
+    wrapper = await newSynnaxWrapperWithAwait(client);
+  });
   beforeEach(() => {
     controller = new AbortController();
   });
@@ -587,7 +590,9 @@ describe("queries", () => {
       });
       expect(result.current.form.value().name).toEqual("updateCalculated");
 
-      await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
+      await act(async () => {
+        await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
+      });
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("externallyUpdatedCalculated");

@@ -7,83 +7,75 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer } from "@synnaxlabs/client";
+import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
   useMemo,
-  useState,
+  useRef,
 } from "react";
 
 import { Aether } from "@/aether";
 import { flux } from "@/flux/aether";
-import { useAsyncEffect, useInitializerRef, useRequiredContext } from "@/hooks";
+import { core } from "@/flux/core";
+import { useInitializerRef, useRequiredContext } from "@/hooks";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-interface ContextValue {
-  listenersMounted: boolean;
-  store: flux.Store;
-}
+type ContextValue = core.Client;
 
 const Context = createContext<ContextValue | null>(null);
 
-export const useStore = <ScopedStore extends flux.Store>(): ScopedStore =>
-  useRequiredContext(Context)?.store as ScopedStore;
+export const useStore = <ScopedStore extends flux.Store>(
+  scope?: string,
+): ScopedStore => {
+  const client = useRequiredContext(Context);
+  const uniqueKey = useUniqueKey(scope);
+  return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
+};
 
-export interface ProviderProps<ScopedStore extends flux.Store>
-  extends PropsWithChildren {
-  openStreamer?: framer.StreamOpener;
-  storeConfig?: flux.StoreConfig<ScopedStore>;
-  requireStreamerMounted?: boolean;
-}
+export type ProviderProps<ScopedStore extends flux.Store> = (
+  | {
+      client: core.Client<ScopedStore>;
+    }
+  | {
+      storeConfig: flux.StoreConfig<ScopedStore>;
+    }
+) &
+  PropsWithChildren;
 
 export const Provider = <ScopedStore extends flux.Store>({
   children,
-  openStreamer: propsOpenStreamer,
-  storeConfig = {} as flux.StoreConfig<ScopedStore>,
-  requireStreamerMounted = false,
+  ...cfg
 }: ProviderProps<ScopedStore>): ReactElement | null => {
-  const client = Synnax.use();
+  const synnaxClient = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const storeRef = useInitializerRef<ScopedStore>(() =>
-    flux.createStore<ScopedStore>(storeConfig, handleError),
-  );
-  const [streamerMounted, setStreamerMounted] = useState(!requireStreamerMounted);
+  const handleAsyncError = Status.useAsyncErrorHandler();
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
     initialState: {},
   });
-
-  const openStreamer = useMemo(
-    () => propsOpenStreamer ?? client?.openStreamer.bind(client),
-    [client, propsOpenStreamer],
-  );
-
-  useAsyncEffect(async () => {
-    if (openStreamer == null || client == null) return;
-    const destructor = await flux.openStreamer({
+  const initializeClient = () => {
+    if ("client" in cfg) return cfg.client;
+    return new core.Client<ScopedStore>({
+      client: synnaxClient,
+      storeConfig: cfg.storeConfig,
       handleError,
-      storeConfig,
-      client,
-      store: storeRef.current,
-      openStreamer,
+      handleAsyncError,
     });
-    setStreamerMounted(true);
-    return () => destructor();
-  }, [openStreamer]);
-  const value = useMemo(
-    () => ({
-      listenersMounted: streamerMounted,
-      store: storeRef.current,
-    }),
-    [streamerMounted, storeRef.current],
-  );
+  };
+  const clientRef = useInitializerRef(initializeClient);
+  const prevSynnaxClient = useRef<SynnaxClient | null>(null);
+  if (synnaxClient?.key !== prevSynnaxClient.current?.key) {
+    prevSynnaxClient.current = synnaxClient;
+    clientRef.current = initializeClient();
+  }
   return (
     <Aether.Composite path={path}>
-      <Context value={value}>{children}</Context>
+      <Context value={clientRef.current}>{children}</Context>
     </Aether.Composite>
   );
 };

@@ -10,14 +10,16 @@
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import { type FetchOptions, type Params } from "@/flux/aether/params";
-import { type Store } from "@/flux/aether/store";
+import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type Store } from "@/flux/core/store";
 import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
 import { useCombinedStateAndRef } from "@/hooks";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { state } from "@/state";
+import { Status } from "@/status";
 
 /**
  * Configuration arguments for creating a form query.
@@ -81,6 +83,8 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject>
   params: FormParams;
   /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
+  /** The scope to use for the form operation */
+  scope?: string;
 }
 
 /**
@@ -166,16 +170,18 @@ export const createForm = <
     sync,
     onHasTouched,
     mode,
+    scope: argsScope,
   }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null));
+    const scope = useUniqueKey(argsScope);
+    const addstatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
       values: initialValues ?? baseInitialValues,
       onChange: ({ path }) => {
-        console.log("onChange", path);
         if (autoSave && path !== "") handleSave();
       },
       sync,
@@ -185,19 +191,22 @@ export const createForm = <
 
     const handleResultChange = useCallback(
       (setter: state.SetArg<Result<z.infer<Schema> | null>>) => {
+        if (resultRef.current.data != null) resultRef.current.data = form.value();
         const nextStatus = state.executeSetter(setter, resultRef.current);
         resultRef.current = nextStatus;
         if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
+        if (nextStatus.variant === "error") addstatus(nextStatus.status);
       },
       [form],
     ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
 
-    retrieveHook.useEffect({ params, onChange: handleResultChange });
+    retrieveHook.useEffect({ params, onChange: handleResultChange, scope });
 
     const { updateAsync } = updateHook.useObservable({
       params,
       onChange: handleResultChange,
+      scope,
     });
 
     const handleSave = useCallback(

@@ -111,7 +111,7 @@ describe("result", () => {
     it("should create an error result with DisconnectedError", () => {
       const result = nullClientResult<TestState>("user", "fetch");
 
-      expect(result.variant).toBe("error");
+      expect(result.variant).toBe("disabled");
       expect(result.status.message).toBe("Failed to fetch user");
       expect(result.data).toBeNull();
     });
@@ -135,9 +135,9 @@ describe("result", () => {
 
     it("should maintain consistent structure with other error results", () => {
       const result = nullClientResult<TestState>("service", "start");
-
-      expect(result.variant).toBe("error");
+      expect(result.variant).toBe("disabled");
       expect(result.data).toBeNull();
+      expect(result.status.message).toBeDefined();
       expect(result.status.description).toBeDefined();
     });
   });

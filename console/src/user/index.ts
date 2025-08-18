@@ -8,5 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * as User from "@/user/external";
-export * as selectors from "@/user/selectors";
-export * as slice from "@/user/slice";

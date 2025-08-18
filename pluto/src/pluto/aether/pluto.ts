@@ -80,7 +80,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
-    ...flux.createRegistry(STORE_CONFIG),
+    ...flux.createRegistry({ storeConfig: STORE_CONFIG }),
   };
 
   void aether.render({

@@ -56,7 +56,7 @@ const BaseItems = <
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
   return (
     <Flex.Box
-      empty
+      gap={0}
       ref={ref}
       className={CSS(
         className,

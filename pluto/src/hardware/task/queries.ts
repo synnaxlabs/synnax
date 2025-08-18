@@ -46,9 +46,9 @@ const unknownStatusZ = task.statusZ(z.unknown());
 const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ> = {
   channel: task.STATUS_CHANNEL_NAME,
   schema: unknownStatusZ,
-  onChange: ({ store, changed }) => {
+  onChange: ({ store, changed, client }) => {
     store.tasks.set(changed.details.task, (prev) =>
-      prev == null ? prev : ({ ...prev, status: changed } as task.Task),
+      prev == null ? prev : client.hardware.tasks.sugar({ ...prev, status: changed }),
     );
   },
 };
@@ -157,7 +157,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore
       includeStatus: true,
       ...params,
     });
-    tasks.forEach((task) => store.tasks.set(task.key, task, { notify: false }));
+    tasks.forEach((task) => store.tasks.set(task.key, task));
     return tasks;
   },
 

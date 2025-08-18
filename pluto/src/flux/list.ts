@@ -20,7 +20,7 @@ import {
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type FetchOptions, type Params } from "@/flux/core/params";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,

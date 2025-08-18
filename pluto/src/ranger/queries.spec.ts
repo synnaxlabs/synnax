@@ -10,18 +10,20 @@
 import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 
 const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
-  beforeEach(() => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
     controller = new AbortController();
+    wrapper = await newSynnaxWrapperWithAwait(client);
   });
   afterEach(() => {
     controller.abort();
@@ -649,7 +651,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -689,7 +691,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -714,7 +716,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: childRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -731,7 +733,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -754,7 +756,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -762,11 +764,14 @@ describe("queries", () => {
 
       const initialLabels = result.current.form.value().labels;
 
-      const newLabel = await client.labels.create({
-        name: "externalLabel",
-        color: "#FF5500",
+      const newLabel = await act(async () => {
+        const newLabel = await client.labels.create({
+          name: "externalLabel",
+          color: "#FF5500",
+        });
+        await client.labels.label(testRange.ontologyID, [newLabel.key]);
+        return newLabel;
       });
-      await client.labels.label(testRange.ontologyID, [newLabel.key]);
 
       await waitFor(() => {
         expect(result.current.form.value().labels).toHaveLength(
@@ -796,7 +801,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -804,7 +809,7 @@ describe("queries", () => {
       expect(result.current.form.value().labels).toContain(label1.key);
       expect(result.current.form.value().labels).toContain(label2.key);
 
-      await client.labels.label(testRange.ontologyID, [label2.key], { replace: true });
+      await client.labels.remove(testRange.ontologyID, [label1.key]);
 
       await waitFor(() => {
         expect(result.current.form.value().labels).not.toContain(label1.key);
@@ -831,7 +836,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: childRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");

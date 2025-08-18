@@ -12,7 +12,7 @@ import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type FetchOptions, type Params } from "@/flux/core/params";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -92,6 +92,8 @@ export interface CreateRetrieveArgs<
 export interface UseObservableRetrieveArgs<V extends state.State> {
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<V>>;
+  /** The scope to use for the retrieve operation */
+  scope?: string;
 }
 
 /**
@@ -213,6 +215,7 @@ const useObservable = <
   mountListeners,
   name,
   onChange,
+  scope,
 }: UseObservableRetrieveArgs<Data> &
   CreateRetrieveArgs<
     RetrieveParams,
@@ -221,7 +224,7 @@ const useObservable = <
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const store = useStore<ScopedStore>();
+  const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
   const retrieveAsync = useCallback(
     async (
@@ -237,6 +240,7 @@ const useObservable = <
       try {
         if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
         onChange((p) => pendingResult(name, "retrieving", p.data));
+        if (signal?.aborted) return;
         const value = await retrieve({ client, params, store });
         if (signal?.aborted) return;
         listeners.cleanup();
