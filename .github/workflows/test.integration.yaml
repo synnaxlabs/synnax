@@ -181,6 +181,24 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           poetry --version
 
+      - name: Install System Dependencies for Matplotlib
+        run: |
+          sudo apt-get install -y \
+            libfreetype6-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libtiff-dev \
+            libgif-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrender-dev \
+            libxrandr-dev \
+            libxfixes-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxss-dev \
+            libglib2.0-dev
+
       - name: Install Dependencies
         working-directory: integration/py
         run: |
@@ -199,6 +217,16 @@ jobs:
               print('Synnax imported successfully')
           except Exception as e:
               print(f'Error importing synnax: {e}')
+              import traceback
+              traceback.print_exc()
+          
+          try:
+              import matplotlib
+              matplotlib.use('Agg')  # Test non-interactive backend
+              import matplotlib.pyplot as plt
+              print('Matplotlib imported successfully')
+          except Exception as e:
+              print(f'Error importing matplotlib: {e}')
               import traceback
               traceback.print_exc()
           "
