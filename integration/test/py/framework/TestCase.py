@@ -50,10 +50,10 @@ class STATUS(Enum):
     KILLED = auto()
 
 class SYMBOLS(Enum):
-    PASSED = "✓"
-    FAILED = "✗"
-    KILLED = "⚠"
-    TIMEOUT = "⏱"
+    PASSED = "✅"      # Green checkmark
+    FAILED = "❌"      # Red X
+    KILLED = "💀"      # Skull
+    TIMEOUT = "⏰"      # Alarm clock
     
     @classmethod
     def get_symbol(cls, status):
@@ -61,7 +61,7 @@ class SYMBOLS(Enum):
         try:
             return cls[status.name].value
         except (KeyError, AttributeError):
-            return "?"
+            return "❓"  # Question mark emoji
 
 class TestCase(ABC):
     """

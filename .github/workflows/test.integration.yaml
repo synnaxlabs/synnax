@@ -224,7 +224,7 @@ jobs:
               traceback.print_exc()
           "
 
-      - name: Run Conductor Test
+      - name: Test Conductor
         working-directory: integration/test/py/framework
         run: |
           export PATH="$HOME/.local/bin:$PATH"
