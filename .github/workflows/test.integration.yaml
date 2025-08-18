@@ -43,6 +43,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          # Clear any existing package manager locks
+          sudo rm -f /var/lib/dpkg/lock-frontend
+          sudo rm -f /var/lib/apt/lists/lock
+          sudo rm -f /var/cache/apt/archives/lock
+          sudo rm -f /var/lib/dpkg/lock
+          
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -183,10 +189,16 @@ jobs:
 
       - name: Install System Dependencies for Matplotlib
         run: |
+          # Clear any existing package manager locks
+          sudo rm -f /var/lib/dpkg/lock-frontend
+          sudo rm -f /var/lib/apt/lists/lock
+          sudo rm -f /var/cache/apt/archives/lock
+          sudo rm -f /var/lib/dpkg/lock
+          
           sudo apt-get install -y \
             libfreetype6-dev \
             libpng-dev \
-            libjpeg-dev \
+            libjpeg-dev
 
       - name: Install Dependencies
         working-directory: integration/py
