@@ -1,4 +1,11 @@
+"""
+Run latency_response.py before running this script.
+"""
+
 import gc
+import platform
+import subprocess
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +14,140 @@ import synnax as sy
 
 gc.disable()
 
-client = sy.Synnax()
+def get_machine_info():
+    """Get machine information programmatically."""
+    system = platform.system()
+    
+    if system == "Darwin":  # macOS
+        try:
+            # Try to get Apple Silicon info
+            result = subprocess.run(['sysctl', '-n', 'machdep.cpu.brand_string'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                cpu_info = result.stdout.strip()
+                if 'Apple' in cpu_info:
+                    # Extract M1/M2/M3 info
+                    if 'M1' in cpu_info:
+                        return "Apple Silicon M1"
+                    elif 'M2' in cpu_info:
+                        return "Apple Silicon M2"
+                    elif 'M3' in cpu_info:
+                        return "Apple Silicon M3"
+                    elif 'M4' in cpu_info:
+                        return "Apple Silicon M4"
+                    elif 'M5' in cpu_info:
+                        return "Apple Silicon M5"
+                    else:
+                        return "Apple Silicon Mac"
+                else:
+                    return "Intel Mac"
+            else:
+                return "macOS"
+        except:
+            return "macOS"
+    
+    elif system == "Linux":
+        try:
+            # Try to get distribution info
+            result = subprocess.run(['lsb_release', '-d'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                distro = result.stdout.split('\t')[1].strip()
+                return distro
+            else:
+                # Try reading from /etc/os-release
+                with open('/etc/os-release', 'r') as f:
+                    for line in f:
+                        if line.startswith('PRETTY_NAME='):
+                            distro = line.split('=')[1].strip().strip('"')
+                            return distro
+                return "Linux"
+        except:
+            return "Linux"
+    
+    elif system == "Windows":
+        try:
+            # Get Windows version info
+            result = subprocess.run(['wmic', 'os', 'get', 'Caption'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                if len(lines) > 1:
+                    return lines[1].strip()
+                else:
+                    return "Windows"
+            else:
+                return "Windows"
+        except:
+            return "Windows"
+    
+    else:
+        return system
+
+def get_memory_info():
+    """Get memory information."""
+    try:
+        if platform.system() == "Darwin":  # macOS
+            result = subprocess.run(['sysctl', '-n', 'hw.memsize'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                mem_bytes = int(result.stdout.strip())
+                mem_gb = mem_bytes // (1024**3)
+                return f"{mem_gb}GB RAM"
+        elif platform.system() == "Linux":
+            with open('/proc/meminfo', 'r') as f:
+                for line in f:
+                    if line.startswith('MemTotal:'):
+                        mem_kb = int(line.split()[1])
+                        mem_gb = mem_kb // (1024**2)
+                        return f"{mem_gb}GB RAM"
+        elif platform.system() == "Windows":
+            result = subprocess.run(['wmic', 'computersystem', 'get', 'TotalPhysicalMemory'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                if len(lines) > 1:
+                    mem_bytes = int(lines[1].strip())
+                    mem_gb = mem_bytes // (1024**3)
+                    return f"{mem_gb}GB RAM"
+    except:
+        pass
+    
+    return ""
+
+def get_synnax_version():
+    """Get the current Synnax version from the VERSION file."""
+    try:
+        # Try to read from the VERSION file in the synnax package
+        version_file = "../../../synnax/pkg/version/VERSION"
+        with open(version_file, 'r') as f:
+            version = f.read().strip()
+            return version
+    except:
+        try:
+            # Fallback: try to get version from git tags
+            result = subprocess.run(['git', 'describe', '--tags', '--abbrev=0'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                version = result.stdout.strip()
+                # Remove 'v' prefix if present
+                if version.startswith('v'):
+                    version = version[1:]
+                return version
+        except:
+            pass
+    
+    return "unknown"
+
+#client = sy.Synnax()
+
+client = sy.Synnax(
+            host='localhost',
+            port=9090,
+            username='synnax',
+            password='seldon',
+            secure=False,
+        )
 
 STATE_CHANNEL = "state"
 CMD_CHANNEL = "command"
@@ -47,6 +187,13 @@ p90 = np.percentile(times_ms, 90)
 p95 = np.percentile(times_ms, 95)
 p99 = np.percentile(times_ms, 99)
 
+# Get machine information dynamically
+machine_name = get_machine_info()
+memory_info = get_memory_info()
+machine_desc = f"Machine: {machine_name}"
+if memory_info:
+    machine_desc += f", {memory_info}"
+
 # Create the plot (updated for 2x2 layout)
 fig = plt.figure(figsize=(12, 10))
 gs = fig.add_gridspec(2, 2, height_ratios=[2, 1])
@@ -59,7 +206,7 @@ plt.suptitle("Echo Benchmark Results", fontsize=14, y=0.98)
 plt.figtext(
     0.1,
     0.92,
-    "Machine: M2 Max, 64GB RAM | Platform Version: 0.41.0 | Config: "
+    f"{machine_desc} | Platform Version: {get_synnax_version()} | Config: "
     "LL-PP-C500-R1-50-R2-10",
     fontsize=10,
     ha="left",

@@ -13,11 +13,11 @@ import time
 
 # Set up the path before importing framework modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from framework.TestCase import TestCase, SynnaxConnection
+from framework.TestCase import TestCase
 
 import synnax as sy
 
-class Simple_Async_1(TestCase):
+class Simple_Async(TestCase):
     """
     Check if the test case is connected to the synnax server.
     """

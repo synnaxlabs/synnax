@@ -1,10 +1,21 @@
+"""
+Run first prior to running bench_latency.py
+"""
+
 import gc
 
 import synnax as sy
 
 gc.disable()
 
-client = sy.Synnax()
+# client = sy.Synnax()
+client = sy.Synnax(
+            host='localhost',
+            port=9090,
+            username='synnax',
+            password='seldon',
+            secure=False,
+        )
 
 STATE_CHANNEL = "state"
 CMD_CHANNEL = "command"
@@ -28,7 +39,7 @@ client.channels.create(
     virtual=True,
     retrieve_if_name_exists=True,
 )
-
+iteration = 0
 with client.open_streamer(CMD_CHANNEL) as stream:
     with client.open_writer(sy.TimeStamp.now(), STATE_CHANNEL) as writer:
         while True:
