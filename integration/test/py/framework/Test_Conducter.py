@@ -16,6 +16,8 @@
 
 
 import json
+import logging
+import os
 import threading
 import time
 import signal
@@ -94,6 +96,9 @@ class Test_Conductor:
             self.name = self.__class__.__name__.lower() + "_" + random_id
         else:
             self.name = self._validate_and_sanitize_name(str(name).lower())
+        
+        # Configure logging for real-time output in CI
+        self._setup_logging()
         
         # Create connection parameters
         self.SynnaxConnection = SynnaxConnection(
@@ -239,12 +244,52 @@ class Test_Conductor:
                     writer.write(self.tlm)
                     break
 
+    def _setup_logging(self) -> None:
+        """Configure logging for real-time output in CI environments."""
+        # Check if running in CI environment
+        is_ci = any(env_var in os.environ for env_var in ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'JENKINS_URL'])
+        
+        # Force unbuffered output in CI environments
+        if is_ci:
+            sys.stdout.reconfigure(line_buffering=True)
+        
+        # Create logger for this test conductor (don't configure root logger)
+        self.logger = logging.getLogger(self.name)
+        self.logger.setLevel(logging.INFO)
+        
+        # Remove any existing handlers to avoid duplicates
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
+        
+        # Add single handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        
+        # Prevent propagation to root logger to avoid duplicate output
+        self.logger.propagate = False
+        
+        # Force immediate flush for real-time output in CI
+        for handler in self.logger.handlers:
+            if hasattr(handler.stream, 'flush'):
+                handler.flush = lambda h=handler: h.stream.flush()
+        
+        if is_ci:
+            self.logger.info("CI environment detected - enabling real-time logging")
+
     def log_message(self, message: str, use_name = True) -> None:
-        """Simple logging function to consolidate print statements."""
+        """Log message with real-time output using logging module."""
         if use_name:
-            print(f"{self.name} > {message}")
+            self.logger.info(f"{self.name} > {message}")
         else:
-            print(message)
+            self.logger.info(message)
+        
+        # Force flush to ensure immediate output in CI
+        for handler in self.logger.handlers:
+            if hasattr(handler, 'flush'):
+                handler.flush()
 
     def load_test_sequence(self, sequence: str = None) -> None:
         """Load test sequence from JSON configuration file."""

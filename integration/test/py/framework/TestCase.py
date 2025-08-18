@@ -8,6 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+import logging
+import os
+import sys
 from dataclasses import dataclass, field
 from enum import Enum, auto
 import re
@@ -81,6 +84,8 @@ class TestCase(ABC):
         # Convert PascalCase class name to lowercase with underscores
         self.name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', self.__class__.__name__).lower()
 
+        self._setup_logging()
+
         # Connect to Synnax server
         self.client = sy.Synnax(
             host=SynnaxConnection.server_address,
@@ -111,6 +116,41 @@ class TestCase(ABC):
         self.add_channel(name="uptime", data_type=sy.DataType.UINT32, initial_value=0)
         self.add_channel(name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value)
     
+    def _setup_logging(self) -> None:
+        """Setup logging for real-time output (same approach as Test_Conductor)."""
+        # Check if running in CI environment
+        is_ci = any(env_var in os.environ for env_var in ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'JENKINS_URL'])
+        
+        # Force unbuffered output in CI environments
+        if is_ci:
+            sys.stdout.reconfigure(line_buffering=True)
+        
+        # Create logger for this test case (don't configure root logger)
+        self.logger = logging.getLogger(self.name)
+        self.logger.setLevel(logging.INFO)
+        
+        # Remove any existing handlers to avoid duplicates
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
+        
+        # Add single handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        
+        # Prevent propagation to root logger to avoid duplicate output
+        self.logger.propagate = False
+        
+        # Force immediate flush for real-time output in CI
+        for handler in self.logger.handlers:
+            if hasattr(handler.stream, 'flush'):
+                handler.flush = lambda h=handler: h.stream.flush()
+        
+        if is_ci:
+            self.logger.info("CI environment detected - enabling real-time logging")
+    
     @property
     def STATUS(self) -> STATUS:
         """Get the current test status."""
@@ -128,8 +168,13 @@ class TestCase(ABC):
                 pass  # Ignore errors if tlm is not fully initialized
     
     def _log_message(self, message: str) -> None:
-        """Log a message to the console."""
-        print(f"{self.name} > {message}")
+        """Log a message to the console with real-time output."""
+        self.logger.info(f"{self.name} > {message}")
+        
+        # Force flush to ensure immediate output in CI
+        for handler in self.logger.handlers:
+            if hasattr(handler, 'flush'):
+                handler.flush()
         
     def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
         """Create a telemetry channel with name {self.name}_{name}."""
