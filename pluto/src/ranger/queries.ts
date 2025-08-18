@@ -340,7 +340,14 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
       let parent: ranger.Range | null = null;
       if (hasParent)
         parent = await cachedRetrieve(client, store, value.parent as string);
-      store.ranges.set(rng.key, client.ranges.sugarOne({ ...rng.payload, labels }));
+      store.ranges.set(
+        rng.key,
+        client.ranges.sugarOne({
+          ...rng.payload,
+          labels,
+          parent: parent?.payload ?? null,
+        }),
+      );
       onChange({
         ...value,
         ...rng.payload,
