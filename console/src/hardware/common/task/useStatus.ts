@@ -53,9 +53,10 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
     [],
   );
   const handleStatusUpdate = useCallback(
-    (status: task.Status, retry: boolean = true) => {
+    (status: task.Status, retryCount: number = 0) => {
       if (keyRef.current.length == 0) {
-        if (retry) setTimeout(() => handleStatusUpdate(status, false), 100);
+        if (retryCount > 5) return;
+        setTimeout(() => handleStatusUpdate(status, retryCount + 1), 100);
         return;
       }
       if (status.details.task !== keyRef.current) return;

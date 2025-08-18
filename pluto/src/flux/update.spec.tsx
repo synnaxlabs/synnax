@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("update", () => {
   let controller: AbortController;
@@ -85,7 +85,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(null) },
+        { wrapper: createSynnaxWrapper({ client: null }) },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -157,7 +157,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(null) },
+        { wrapper: createSynnaxWrapper({ client: null }) },
       );
       const updated = await result.current.updateAsync(12, {
         signal: controller.signal,

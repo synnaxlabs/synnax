@@ -277,6 +277,19 @@ export class Client {
     return await aliaser.retrieve(channel);
   }
 
+  async retrieveAliases(
+    range: Key,
+    channels: channel.Key[],
+  ): Promise<Record<channel.Key, string>> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.retrieve(channels);
+  }
+
+  async listAliases(range: Key): Promise<Record<channel.Key, string>> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.list();
+  }
+
   async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
     const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
     await aliaser.set({ [channel]: alias });

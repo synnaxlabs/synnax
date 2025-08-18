@@ -137,46 +137,87 @@ export const ZERO_FORM_VALUES: z.infer<
   requires: [],
 };
 
-const retrieveFn = async ({
+const retrieveSingleFn = async ({
   client,
   params: { key, rangeKey },
   store,
 }: Flux.RetrieveArgs<RetrieveArgs, SubStore>) => {
   let ch = store.channels.get(key);
   if (ch == null) {
-    ch = await client.channels.retrieve(key);
+    ch = await client.channels.retrieve(key, { rangeKey });
     store.channels.set(ch.key, ch);
   }
   if (rangeKey != null) {
-    let alias = store.rangeAliases.get(
-      ranger.aliasKey({ range: rangeKey, channel: ch.key }),
-    );
-    if (alias == null) {
-      const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
-      alias = { alias: aliasName, channel: ch.key, range: rangeKey };
-      store.rangeAliases.set(
-        ranger.aliasKey({ range: rangeKey, channel: ch.key }),
-        alias,
-      );
-    }
-    ch.alias = alias.alias;
+    const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
+    let alias = store.rangeAliases.get(aliasKey);
+    if (alias == null)
+      try {
+        const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
+        alias = { alias: aliasName, channel: ch.key, range: rangeKey };
+      } finally {
+        store.rangeAliases.set(aliasKey, { channel: ch.key, range: rangeKey });
+      }
+
+    if (alias != null) ch.alias = alias.alias;
   }
   return ch;
 };
 
+const retrieveManyFn = async ({
+  client,
+  params: { keys, rangeKey },
+  store,
+}: Flux.RetrieveArgs<RetrieveManyArgs, SubStore>) => {
+  const channels = store.channels.get(keys);
+  const existingKeys = new Set(channels?.map((ch) => ch.key));
+  const missingKeys = keys.filter((key) => !existingKeys.has(key));
+  if (missingKeys.length > 0) {
+    const missingChannels = await client.channels.retrieve(missingKeys);
+    channels.push(...missingChannels);
+    store.channels.set(missingChannels);
+  }
+  if (rangeKey != null) {
+    const aliasKeys = keys.map((key) =>
+      ranger.aliasKey({ range: rangeKey, channel: key }),
+    );
+    const aliases = store.rangeAliases.get(aliasKeys);
+    aliases.forEach((alias) => {
+      if (alias == null) return;
+      const ch = channels.find((ch) => ch.key === alias.channel);
+      if (ch != null) ch.alias = alias.alias;
+    });
+    const existingAliasChannels = new Set(aliases.map((alias) => alias.channel));
+    const missingAliasChannels = keys.filter((key) => !existingAliasChannels.has(key));
+    if (missingAliasChannels.length > 0) {
+      const missingAliases = await client.ranges.retrieveAliases(
+        rangeKey,
+        missingAliasChannels,
+      );
+      Object.entries(missingAliases).forEach(([channel, alias]: [string, string]) => {
+        const chKey = Number(channel);
+        const ch = channels.find((ch) => ch.key === chKey);
+        if (ch != null) ch.alias = alias;
+        const aliasKey = ranger.aliasKey({ range: rangeKey, channel: chKey });
+        store.rangeAliases.set(aliasKey, { alias, channel: chKey, range: rangeKey });
+      });
+    }
+  }
+  return channels;
+};
+
 const formRetrieveFn = async (args: Flux.RetrieveArgs<FormRetrieveArgs, SubStore>) => {
-  if (args.params.key == null) return null;
+  const {
+    params: { key, rangeKey },
+  } = args;
+  if (key == null) return null;
   return channelToFormValues(
-    await retrieveFn({
-      ...args,
-      params: { key: args.params.key, rangeKey: args.params.rangeKey },
-    }),
+    await retrieveSingleFn({ ...args, params: { key, rangeKey } }),
   );
 };
 
 export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>({
   name: "Channel",
-  retrieve: retrieveFn,
+  retrieve: retrieveSingleFn,
   mountListeners: ({ store, onChange, params: { key, rangeKey }, client }) => {
     const ch = store.channels.onSet((channel) => {
       if (rangeKey != null) {
@@ -189,15 +230,71 @@ export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubSt
     }, key);
     if (rangeKey == null) return ch;
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
-    const onSetAlias = store.rangeAliases.onSet(
-      ({ alias }) => onChange((p) => client.channels.sugar({ ...p, alias })),
-      aliasKey,
-    );
+    const onSetAlias = store.rangeAliases.onSet((alias) => {
+      if (alias == null) return;
+      onChange((p) => client.channels.sugar({ ...p, alias: alias.alias }));
+    }, aliasKey);
     const onDeleteAlias = store.rangeAliases.onDelete(
       () => onChange((p) => client.channels.sugar({ ...p, alias: undefined })),
       aliasKey,
     );
     return [ch, onSetAlias, onDeleteAlias];
+  },
+});
+
+export interface RetrieveManyArgs extends channel.RetrieveOptions {
+  keys: channel.Keys;
+}
+
+export const retrieveMany = Flux.createRetrieve<
+  RetrieveManyArgs,
+  channel.Channel[],
+  SubStore
+>({
+  name: "Channels",
+  retrieve: retrieveManyFn,
+  mountListeners: ({ store, onChange, params: { keys, rangeKey }, client }) => {
+    const keysSet = new Set(keys);
+    const ch = store.channels.onSet(async (channel) => {
+      if (!keysSet.has(channel.key)) return;
+      if (rangeKey != null) {
+        const aliasKey = ranger.aliasKey({ range: rangeKey, channel: channel.key });
+        let alias = store.rangeAliases.get(aliasKey);
+        if (alias == null)
+          try {
+            const aliasName = await client.ranges.retrieveAlias(rangeKey, channel.key);
+            alias = { alias: aliasName, channel: channel.key, range: rangeKey };
+            store.rangeAliases.set(aliasKey, alias);
+          } catch (e) {
+            console.error(e);
+          }
+
+        if (alias != null) channel.alias = alias.alias;
+      }
+      onChange((p) => p.map((ch) => (ch.key === channel.key ? channel : ch)));
+    });
+    if (rangeKey == null) return ch;
+    const onSetAlias = store.rangeAliases.onSet((alias) => {
+      if (alias == null) return;
+      onChange((p) =>
+        p.map((ch) =>
+          ch.key === alias.channel
+            ? client.channels.sugar({ ...ch, alias: alias.alias })
+            : ch,
+        ),
+      );
+    });
+    const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
+      const decoded = ranger.decodeDeleteAliasChange(aliasKey);
+      onChange((p) =>
+        p.map((ch) =>
+          ch.key === decoded.channel
+            ? client.channels.sugar({ ...ch, alias: undefined })
+            : ch,
+        ),
+      );
+    });
+    return [ch, onSetAlias, onRemoveAlias];
   },
 });
 
@@ -279,7 +376,8 @@ export const useList = Flux.createList<
     store.channels.set(channels);
     return channels;
   },
-  retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveSingleFn({ client, params: { key }, store }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.channels.onSet((channel) => onChange(channel.key, channel)),
     store.channels.onDelete((key) => onDelete(key)),

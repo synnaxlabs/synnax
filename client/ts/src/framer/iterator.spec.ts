@@ -12,11 +12,11 @@ import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
 import { newIndexedPair } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Iterator", () => {
   test("happy path", async () => {

@@ -63,7 +63,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
         </>
       )}
-      <MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {!isZeroDepth && (
         <>
           <PMenu.Item itemKey="ungroup">

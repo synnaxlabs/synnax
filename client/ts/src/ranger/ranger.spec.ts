@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { type ranger } from "@/ranger";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Ranger", () => {
   describe("create", () => {

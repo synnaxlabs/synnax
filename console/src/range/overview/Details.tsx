@@ -44,7 +44,9 @@ const ParentRangeButton = ({
   const parent = res.data;
   return (
     <Flex.Box x gap="small" align="center">
-      <Text.Text weight={450}>Child Range of</Text.Text>
+      <Text.Text weight={450} color={9}>
+        Child Range of
+      </Text.Text>
       <Button.Button
         variant="text"
         weight={400}

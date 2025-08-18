@@ -74,7 +74,8 @@ export const useCreateFromSelection = (): CreateFromSelection => {
     },
     onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.Canceled.matches(e.message)) return;
+      console.log(e);
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to group resources");
     },
   }).mutate;
