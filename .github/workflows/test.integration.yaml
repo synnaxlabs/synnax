@@ -123,6 +123,48 @@ jobs:
           WantedBy=multi-user.target
           EOF
           
+          # Debug: Check if binary exists and has proper permissions
+          echo "=== Binary Debug ==="
+          ls -la $HOME/Desktop/synnax*
+          echo "Binary size: $(stat -c%s $HOME/Desktop/synnax)"
+          echo "Binary permissions: $(stat -c%a $HOME/Desktop/synnax)"
+          
+          # Debug: Try running the binary manually to see what error it produces
+          echo "=== Manual Run Test ==="
+          cd $HOME/Desktop
+          if timeout 10 ./synnax start -mi; then
+            echo "✅ Binary runs successfully manually"
+          else
+            echo "❌ Binary failed when run manually"
+            echo "Exit code: $?"
+          fi
+          
+          # Debug: Check for missing dependencies or configuration
+          echo "=== Dependency Check ==="
+          echo "Checking for required files and directories..."
+          
+          # Check if required directories exist
+          if [ -d "$HOME/Desktop" ]; then
+            echo "✅ Desktop directory exists"
+          else
+            echo "❌ Desktop directory missing"
+          fi
+          
+          # Check if there are any config files needed
+          if [ -f "$HOME/Desktop/config.yaml" ] || [ -f "$HOME/Desktop/.env" ]; then
+            echo "✅ Config files found"
+            ls -la $HOME/Desktop/config.* $HOME/Desktop/.env 2>/dev/null || echo "No config files found"
+          else
+            echo "ℹ️ No config files found (this might be expected)"
+          fi
+          
+          # Check system dependencies
+          echo "=== System Dependencies ==="
+          if command -v ldd >/dev/null 2>&1; then
+            echo "Checking binary dependencies..."
+            ldd $HOME/Desktop/synnax 2>/dev/null || echo "ldd failed or binary is statically linked"
+          fi
+          
           sudo systemctl daemon-reload
           sudo systemctl stop synnax || true
           sudo systemctl enable synnax
