@@ -103,17 +103,15 @@ jobs:
     steps:
       - name: Install and Start Synnax as Service
         run: |
-          echo "Creating systemd service for Synnax..."
-          
           # Create necessary directories with proper permissions
-          echo "=== Creating Required Directories ==="
           sudo mkdir -p /var/lib/synnax-driver
           sudo chown $USER:$USER /var/lib/synnax-driver
           sudo chmod 755 /var/lib/synnax-driver
           
-          # Also create a local data directory as backup
+          # Create local data directory
           mkdir -p $HOME/synnax-data
           
+          # Create systemd service
           sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
           [Unit]
           Description=Synnax Server
@@ -134,137 +132,29 @@ jobs:
           WantedBy=multi-user.target
           EOF
           
-          # Debug: Check if binary exists and has proper permissions
-          echo "=== Binary Debug ==="
-          ls -la $HOME/Desktop/synnax*
-          echo "Binary size: $(stat -c%s $HOME/Desktop/synnax)"
-          echo "Binary permissions: $(stat -c%a $HOME/Desktop/synnax)"
-          
-          # Debug: Try running the binary manually to see what error it produces
-          echo "=== Manual Run Test ==="
-          cd $HOME/Desktop
-          if timeout 10 ./synnax start -mi; then
-            echo "✅ Binary runs successfully manually"
-          else
-            echo "❌ Binary failed when run manually"
-            echo "Exit code: $?"
-          fi
-          
-          # Debug: Check for missing dependencies or configuration
-          echo "=== Dependency Check ==="
-          echo "Checking for required files and directories..."
-          
-          # Check if required directories exist
-          if [ -d "$HOME/Desktop" ]; then
-            echo "✅ Desktop directory exists"
-          else
-            echo "❌ Desktop directory missing"
-          fi
-          
-          # Check if there are any config files needed
-          if [ -f "$HOME/Desktop/config.yaml" ] || [ -f "$HOME/Desktop/.env" ]; then
-            echo "✅ Config files found"
-            ls -la $HOME/Desktop/config.* $HOME/Desktop/.env 2>/dev/null || echo "No config files found"
-          else
-            echo "ℹ️ No config files found (this might be expected)"
-          fi
-          
-          # Check system dependencies
-          echo "=== System Dependencies ==="
-          if command -v ldd >/dev/null 2>&1; then
-            echo "Checking binary dependencies..."
-            ldd $HOME/Desktop/synnax 2>/dev/null || echo "ldd failed or binary is statically linked"
-          fi
-          
-          # Verify directory permissions
-          echo "=== Directory Permissions ==="
-          echo "Checking /var/lib/synnax-driver permissions:"
-          ls -la /var/lib/synnax-driver
-          echo "Checking $HOME/synnax-data permissions:"
-          ls -la $HOME/synnax-data
-          
-          # Test if we can write to the directories
-          echo "=== Write Permission Test ==="
-          if touch /var/lib/synnax-driver/test-write 2>/dev/null; then
-            echo "✅ Can write to /var/lib/synnax-driver"
-            rm /var/lib/synnax-driver/test-write
-          else
-            echo "❌ Cannot write to /var/lib/synnax-driver"
-          fi
-          
-          if touch $HOME/synnax-data/test-write 2>/dev/null; then
-            echo "✅ Can write to $HOME/synnax-data"
-            rm $HOME/synnax-data/test-write
-          else
-            echo "❌ Cannot write to $HOME/synnax-data"
-          fi
-          
+          # Start the service
           sudo systemctl daemon-reload
           sudo systemctl stop synnax || true
           sudo systemctl enable synnax
           sudo systemctl start synnax
           
-          echo "Waiting for Synnax service to start and stabilize..."
+          # Wait for service to start
           sleep 15
           
-          # Check service status
-          echo "=== Service Status ==="
-          sudo systemctl status synnax
-          
-          # Wait a bit more and check again
-          sleep 10
-          
-          # Verify service is actually running and responding
-          echo "=== Health Check ==="
+          # Verify service is running and responding
           if sudo systemctl is-active --quiet synnax; then
-            echo "Service is active, checking if it's responding on port 9090..."
-            
-            # Try to connect to the service
             if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
-              echo "✅ Synnax service is responding on port 9090"
+              echo "Synnax service is running and responding on port 9090"
             else
-              echo "❌ Service is running but not responding on port 9090"
-              echo "=== Recent logs ==="
+              echo "Service is running but not responding on port 9090"
               sudo journalctl -u synnax --no-pager -n 20
               exit 1
             fi
           else
-            echo "❌ Service failed to start"
-            echo "=== Recent logs ==="
+            echo "Service failed to start"
             sudo journalctl -u synnax --no-pager -n 20
             exit 1
           fi
-          
-          echo "Synnax service installed and started successfully"
-          echo "Check logs with: sudo journalctl -u synnax -f"
-          echo "Manage service with: sudo systemctl [start|stop|restart|status] synnax"
-
-      - name: Verify Service Health
-        run: |
-          echo "=== Final Service Verification ==="
-          
-          # Check if service is still running
-          if sudo systemctl is-active --quiet synnax; then
-            echo "✅ Service is active"
-          else
-            echo "❌ Service is not active"
-            sudo systemctl status synnax
-            exit 1
-          fi
-          
-          # Check if it's listening on port 9090
-          if netstat -tlnp | grep :9090; then
-            echo "✅ Service is listening on port 9090"
-          else
-            echo "❌ Service is not listening on port 9090"
-            exit 1
-          fi
-          
-          # Show recent logs to verify no errors
-          echo "=== Recent Service Logs ==="
-          sudo journalctl -u synnax --no-pager -n 10
-          
-          echo "Service verification complete - Synnax is ready for testing"
 
   test:
     name: Run Test Conductor
@@ -288,61 +178,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl python3-pip
           curl -sSL https://install.python-poetry.org | python3 -
-          
-          # Add Poetry to PATH for this session
           export PATH="$HOME/.local/bin:$PATH"
-          
-          # Verify installation
           poetry --version
-
-      - name: Check System Python
-        run: |
-          echo "=== System Python Info ==="
-          python3 --version
-          python3 -c "import sys; print(f'Python path: {sys.executable}')"
-          
-          echo "=== System Pydantic Check ==="
-          python3 -c "import pydantic; print(f'System Pydantic: {pydantic.__version__}')" 2>/dev/null || echo "No system Pydantic found"
-          
-          echo "=== Poetry Python Info ==="
-          cd integration/py
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry env info
-          poetry run python -c "import sys; print(f'Poetry Python path: {sys.executable}')"
 
       - name: Install Dependencies
         working-directory: integration/py
         run: |
-          # Ensure Poetry is in PATH
           export PATH="$HOME/.local/bin:$PATH"
-          
-          # Clean any existing virtual environment and reinstall
           poetry env remove --all || true
-          
-          # Force install the correct Pydantic version first
           poetry add "pydantic>=2.11.5,<3.0" --no-cache
-          
-          # Install all other dependencies
           poetry install --no-cache
-          
-          # Verify Pydantic version
-          poetry run python -c "import pydantic; print(f'Pydantic version: {pydantic.__version__}')"
-          
-          # Check what's actually installed
-          poetry show pydantic
 
       - name: Debug Imports
         working-directory: integration/py
         run: |
-          # Ensure Poetry is in PATH for this step
           export PATH="$HOME/.local/bin:$PATH"
-          
-          # Check what's available in synnax module
           poetry run python -c "
           try:
               import synnax
               print('Synnax imported successfully')
-              print(f'Synnax version: {synnax.__version__}')
           except Exception as e:
               print(f'Error importing synnax: {e}')
               import traceback
@@ -352,8 +206,5 @@ jobs:
       - name: Run Conductor Test
         working-directory: integration/test/py/framework
         run: |
-          # Ensure Poetry is in PATH for this step
           export PATH="$HOME/.local/bin:$PATH"
-          
-          # Run the test from the correct directory, pointing to the pyproject.toml location
-          poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
+          poetry run --directory ../../py python3 Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
