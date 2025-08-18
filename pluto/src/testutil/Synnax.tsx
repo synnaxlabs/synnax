@@ -39,9 +39,8 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-const newWrapper =
-  (client: Client | null, fluxClient: Flux.Client) =>
-  ({ children }: PropsWithChildren): ReactElement => (
+const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
@@ -50,6 +49,8 @@ const newWrapper =
       </Status.Aggregator>
     </AetherProvider>
   );
+  return Wrapper;
+};
 
 export interface CreateSynnaxWrapperArgs {
   client: Client | null;

@@ -13,10 +13,9 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Ranger } from "@/ranger";
-import { ranger as aetherRanger } from "@/ranger/aether";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 import { Ontology } from "@/ontology";
+import { Ranger } from "@/ranger";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
 const client = createTestClient();
 

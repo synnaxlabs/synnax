@@ -150,17 +150,15 @@ const retrieveSingleFn = async ({
   if (rangeKey != null) {
     const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
-    if (alias == null) {
+    if (alias == null)
       try {
         const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
         alias = { alias: aliasName, channel: ch.key, range: rangeKey };
       } finally {
         store.rangeAliases.set(aliasKey, { channel: ch.key, range: rangeKey });
       }
-    }
-    if (alias != null) {
-      ch.alias = alias.alias;
-    }
+
+    if (alias != null) ch.alias = alias.alias;
   }
   return ch;
 };
@@ -262,7 +260,7 @@ export const retrieveMany = Flux.createRetrieve<
       if (rangeKey != null) {
         const aliasKey = ranger.aliasKey({ range: rangeKey, channel: channel.key });
         let alias = store.rangeAliases.get(aliasKey);
-        if (alias == null) {
+        if (alias == null)
           try {
             const aliasName = await client.ranges.retrieveAlias(rangeKey, channel.key);
             alias = { alias: aliasName, channel: channel.key, range: rangeKey };
@@ -270,15 +268,12 @@ export const retrieveMany = Flux.createRetrieve<
           } catch (e) {
             console.error(e);
           }
-        }
+
         if (alias != null) channel.alias = alias.alias;
       }
       onChange((p) => p.map((ch) => (ch.key === channel.key ? channel : ch)));
     });
     if (rangeKey == null) return ch;
-    const aliasKeys = keys.map((key) =>
-      ranger.aliasKey({ range: rangeKey, channel: key }),
-    );
     const onSetAlias = store.rangeAliases.onSet((alias) => {
       if (alias == null) return;
       onChange((p) =>

@@ -21,6 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { errors, type record } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -33,7 +34,6 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { useMemo } from "react";
 
 const canDrop = (): boolean => false;
 
