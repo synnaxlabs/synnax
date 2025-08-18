@@ -59,7 +59,7 @@ const multiCachedRetrieve = async (
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
-  const { store } = Flux.useStore<SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(() => store.ranges.onSet((c) => onSet(c.payload)), [store]);
 };
 

@@ -28,7 +28,7 @@ import { createAetherProvider } from "@/testutil/Aether";
 const AetherProvider = createAetherProvider({
   ...synnax.REGISTRY,
   ...status.REGISTRY,
-  ...flux.createRegistry({}),
+  ...flux.createRegistry({ storeConfig: {} }),
 });
 
 interface ClientConnector {
@@ -39,22 +39,19 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const newSynnaxWrapper = <ScopedStore extends flux.Store>(
+export const newSynnaxWrapper = (
   client: Client | null = null,
-  storeConfig?: Flux.StoreConfig<ScopedStore>,
 ): FC<PropsWithChildren> => {
+  const fluxClient = new Flux.Client({
+    client,
+    storeConfig: Pluto.FLUX_STORE_CONFIG,
+    handleError: status.createErrorHandler(console.error),
+  });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider
-            storeConfig={
-              storeConfig ??
-              (Pluto.FLUX_STORE_CONFIG as unknown as Flux.StoreConfig<ScopedStore>)
-            }
-          >
-            {children}
-          </Flux.Provider>
+          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>

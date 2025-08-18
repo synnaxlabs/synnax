@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, ranger } from "@synnaxlabs/client";
+import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
+import { type ranger as aetherRanger } from "@/ranger/aether";
 import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
+const wrapper = newSynnaxWrapper(client);
 
 describe("list", () => {
   let controller: AbortController;
@@ -35,7 +37,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
@@ -50,7 +52,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -71,7 +73,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -93,7 +95,7 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })({ filter: (item) => item.key === 1 }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -118,7 +120,7 @@ describe("list", () => {
           });
           return { ...result, value };
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -152,7 +154,7 @@ describe("list", () => {
               priority: key,
             }),
           })({ sort: (a, b) => a.key - b.key }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -178,7 +180,7 @@ describe("list", () => {
               priority: key,
             }),
           })({ sort: (a, b) => b.key - a.key }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -204,7 +206,7 @@ describe("list", () => {
               priority: key,
             }),
           })({ sort: (a, b) => a.value.localeCompare(b.value) }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -234,7 +236,7 @@ describe("list", () => {
             filter: (item) => item.key % 2 === 0, // Even keys only
             sort: (a, b) => b.key - a.key, // Descending order
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -259,7 +261,7 @@ describe("list", () => {
               priority: key,
             }),
           })({ sort: (a, b) => a.key - b.key }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
 
       act(() => {
@@ -296,7 +298,7 @@ describe("list", () => {
               priority: key,
             }),
           })(), // No sort function provided
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -333,7 +335,7 @@ describe("list", () => {
               description: "Retrieved",
             }),
           })({ sort: (a, b) => a.priority - b.priority }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
 
       act(() => {
@@ -394,7 +396,7 @@ describe("list", () => {
           });
           return { retrieve, value };
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
@@ -418,7 +420,7 @@ describe("list", () => {
           });
           return { ...result, value };
         },
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -430,27 +432,9 @@ describe("list", () => {
     });
   });
 
-  interface Store extends Flux.Store {
-    ranges: Flux.UnaryStore<ranger.Key, ranger.Payload>;
+  interface SubStore extends Flux.Store {
+    ranges: aetherRanger.FluxStore;
   }
-
-  const SET_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.payloadZ> = {
-    channel: ranger.SET_CHANNEL_NAME,
-    schema: ranger.payloadZ,
-    onChange: ({ store, changed }) => store.ranges.set(changed.key, changed),
-  };
-
-  const DELETE_RANGE_LISTENER: Flux.ChannelListener<Store, typeof ranger.keyZ> = {
-    channel: ranger.DELETE_CHANNEL_NAME,
-    schema: ranger.keyZ,
-    onChange: ({ store, changed }) => store.ranges.delete(changed),
-  };
-
-  const storeConfig: Flux.StoreConfig<Store> = {
-    ranges: {
-      listeners: [SET_RANGE_LISTENER, DELETE_RANGE_LISTENER],
-    },
-  };
 
   describe("listeners", () => {
     it("should correctly update a list item when the listener changes", async () => {
@@ -468,7 +452,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            Store
+            SubStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -483,7 +467,7 @@ describe("list", () => {
           });
           return { retrieve, value };
         },
-        { wrapper: newSynnaxWrapper(client, storeConfig) },
+        { wrapper },
       );
 
       act(() => {
@@ -515,7 +499,7 @@ describe("list", () => {
             {},
             ranger.Key,
             ranger.Payload,
-            Store
+            SubStore
           >({
             name: "Resource",
             retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
@@ -525,7 +509,7 @@ describe("list", () => {
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
-        { wrapper: newSynnaxWrapper(client, storeConfig) },
+        { wrapper },
       );
 
       await result.current.retrieveAsync({}, { signal: controller.signal });
@@ -557,7 +541,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, Store>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
@@ -567,7 +551,7 @@ describe("list", () => {
             mountListeners: ({ store, onChange }) =>
               store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
-        { wrapper: newSynnaxWrapper(client, storeConfig) },
+        { wrapper },
       );
 
       act(() => {
@@ -610,7 +594,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, Store>({
+          Flux.createList<{}, ranger.Key, ranger.Payload, SubStore>({
             name: "Resource",
             retrieve: async ({ client }) => [
               await client.ranges.retrieve(rng1.key),
@@ -622,7 +606,7 @@ describe("list", () => {
                 if (rangeKeys.has(changed.key)) onChange(changed.key, changed);
               }),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
-        { wrapper: newSynnaxWrapper(client, storeConfig) },
+        { wrapper },
       );
 
       act(() => {

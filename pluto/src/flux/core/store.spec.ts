@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createStore, ScopedUnaryStore, scopeStore } from "@/flux/aether/store";
+import { createStore, ScopedUnaryStore, scopeStore } from "@/flux/core/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();

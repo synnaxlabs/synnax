@@ -13,8 +13,17 @@ interface SubStore extends flux.Store {
 const SET_LISTENER: flux.ChannelListener<SubStore, typeof ranger.payloadZ> = {
   channel: ranger.SET_CHANNEL_NAME,
   schema: ranger.payloadZ,
-  onChange: ({ store, changed, client }) =>
-    store.ranges.set(changed.key, client.ranges.sugarOne(changed)),
+  onChange: async ({ store, changed, client }) => {
+    const range = client.ranges.sugarOne(changed);
+    store.ranges.set(
+      changed.key,
+      client.ranges.sugarOne({
+        ...range.payload,
+        labels: await range.retrieveLabels(),
+        parent: await range.retrieveParent(),
+      }),
+    );
+  },
 };
 
 const DELETE_LISTENER: flux.ChannelListener<SubStore, typeof ranger.keyZ> = {

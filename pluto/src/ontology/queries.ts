@@ -70,14 +70,14 @@ export const RESOURCE_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
 ): void => {
-  const { store } = Flux.useStore<SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(() => store.resources.onSet(onSet), [store.resources]);
 };
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void => {
-  const { store } = Flux.useStore<SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(() => {
     const destructor = store.resources.onDelete(async (changed) =>
       onDelete(ontology.idZ.parse(changed)),
@@ -89,14 +89,14 @@ export const useResourceDeleteSynchronizer = (
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
-  const { store } = Flux.useStore<SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(() => store.relationships.onSet(onSet), [store.relationships]);
 };
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void => {
-  const { store } = Flux.useStore<SubStore>();
+  const store = Flux.useStore<SubStore>();
   useEffect(
     () =>
       store.relationships.onDelete((changed) =>

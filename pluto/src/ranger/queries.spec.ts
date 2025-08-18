@@ -649,7 +649,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -689,7 +689,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -714,7 +714,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: childRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -731,7 +731,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -754,7 +754,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -799,7 +799,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: testRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -834,7 +834,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: childRange.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");

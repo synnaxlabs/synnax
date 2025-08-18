@@ -20,7 +20,7 @@ import {
 import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type FetchOptions, type Params } from "@/flux/core/params";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -330,7 +330,7 @@ export const createList =
     const paramsRef = useRef<P | null>(initialParams ?? null);
     const storeListeners = useDestructors();
 
-    const { store, mounted } = useStore<ScopedStore>();
+    const store = useStore<ScopedStore>();
 
     const notifyListeners = useCallback(
       (changed: K) =>
@@ -371,7 +371,6 @@ export const createList =
           else if (mode === "append" && !hasMoreRef.current)
             return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
-          await mounted;
           let value = await retrieve({ client, params, store });
           if (signal?.aborted) return;
           value = value.filter(filterRef.current);

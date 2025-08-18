@@ -11,11 +11,7 @@ import { framer, type Synnax } from "@synnaxlabs/client";
 import { type AsyncDestructor, DataType, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import {
-  type ChannelListener,
-  type Store,
-  type StoreConfig,
-} from "@/flux/aether/store";
+import { type ChannelListener, type Store, type StoreConfig } from "@/flux/core/store";
 import { type Status } from "@/status";
 
 /**
