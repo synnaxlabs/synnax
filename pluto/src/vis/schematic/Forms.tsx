@@ -17,7 +17,7 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useEffect } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -646,11 +646,6 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     });
     onChange({ ...value, source: t });
   };
-
-  // const [c] = Channel.useName(source.channel as number);
-  const c = "";
-
-  useEffect(() => onChange({ ...value }), [c]);
 
   return (
     <FormWrapper x align="stretch">

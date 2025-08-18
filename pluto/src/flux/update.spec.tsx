@@ -91,7 +91,7 @@ describe("update", () => {
         result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
+        expect(result.current.variant).toEqual("disabled");
         expect(result.current.data).toEqual(null);
         expect(result.current.status.message).toEqual("Failed to update Resource");
       });

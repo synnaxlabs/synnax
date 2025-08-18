@@ -80,7 +80,7 @@ describe("retrieve", () => {
           { wrapper: newSynnaxWrapper(null) },
         );
         await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
+          expect(result.current.variant).toEqual("disabled");
           expect(result.current.data).toEqual(null);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual(

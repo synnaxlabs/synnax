@@ -591,7 +591,6 @@ describe("queries", () => {
       expect(result.current.form.value().name).toEqual("updateCalculated");
 
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
         await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
       });
 

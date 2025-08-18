@@ -10,18 +10,20 @@
 import { newTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 
 const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
 
 describe("queries", () => {
   let controller: AbortController;
-  beforeEach(() => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
     controller = new AbortController();
+    wrapper = await newSynnaxWrapperWithAwait(client);
   });
   afterEach(() => {
     controller.abort();

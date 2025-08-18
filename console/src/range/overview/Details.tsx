@@ -15,7 +15,6 @@ import {
   Form,
   Icon,
   Input,
-  Label,
   Ranger,
   Text,
   usePrevious,
@@ -26,6 +25,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { rename } from "@/layout/slice";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor } from "@synnaxlabs/x";
 import z from "zod";
 
 import { aether, synnax } from "@/ether";
@@ -25,12 +23,8 @@ export type ProviderState = z.input<typeof providerStateZ>;
  * Internal state managed by the provider.
  */
 interface InternalState {
-  /** Function to close the active streamer connection */
-  closeStreamer: AsyncDestructor;
   /** The store instance */
   store: core.Client<core.Store>;
-  /** The Synnax client instance */
-  client: Synnax | null;
 }
 
 /**

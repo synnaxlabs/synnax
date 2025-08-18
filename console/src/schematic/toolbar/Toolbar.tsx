@@ -110,7 +110,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               {name}
             </Breadcrumb.Segment>
             {selectedNames.length === 1 && selectedNames[0] !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="p">
+              <Breadcrumb.Segment weight={400} color={8} level="small">
                 {selectedNames[0]}
               </Breadcrumb.Segment>
             )}
