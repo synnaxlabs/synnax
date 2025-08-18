@@ -1,17 +1,17 @@
-import { label, newTestClient } from "@synnaxlabs/client";
+import { label, createTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({ client });
   });
   describe("useList", () => {
     it("should return a list of label keys", async () => {

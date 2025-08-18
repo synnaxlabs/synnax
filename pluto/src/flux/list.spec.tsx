@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, type ranger } from "@synnaxlabs/client";
+import { createTestClient, type ranger } from "@synnaxlabs/client";
 import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
@@ -15,10 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("list", () => {
   let controller: AbortController;

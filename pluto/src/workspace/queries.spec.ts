@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 import { Workspace } from "@/workspace";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({ client });
   });
 
   describe("useList", () => {

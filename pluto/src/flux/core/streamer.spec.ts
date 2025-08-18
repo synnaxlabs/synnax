@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, Frame, type framer, newTestClient } from "@synnaxlabs/client";
+import { type channel, Frame, type framer, createTestClient } from "@synnaxlabs/client";
 import { EOF } from "@synnaxlabs/freighter";
 import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -123,7 +123,7 @@ const createStreamerArgs = (
 ): flux.StreamerArgs<flux.Store> => ({
   handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
-  client: newTestClient(),
+  client: createTestClient(),
   store: {} as flux.Store,
   openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,
