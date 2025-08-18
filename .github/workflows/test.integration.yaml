@@ -229,3 +229,27 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
+
+      - name: Debug File Locations
+        if: always()
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "Files in framework directory:"
+          ls -la integration/test/py/framework/ || echo "Framework directory not found"
+          echo "Files in latency directory:"
+          ls -la integration/test/py/testcases/latency/ || echo "Latency directory not found"
+          echo "Searching for PNG files:"
+          find . -name "*.png" -type f 2>/dev/null || echo "No PNG files found"
+
+      - name: Upload Benchmark Plot
+        uses: actions/upload-artifact@v4
+        if: always()  # Run even if tests fail
+        with:
+          name: benchmark-plots
+          path: |
+            integration/test/py/*.png
+            integration/test/py/framework/*.png
+            integration/test/py/testcases/latency/*.png
+          retention-days: 30
