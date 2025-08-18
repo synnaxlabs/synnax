@@ -176,7 +176,7 @@ export const createForm = <
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null));
     const scope = useUniqueKey(argsScope);
-    const addstatus = Status.useAdder();
+    const addStatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -196,7 +196,7 @@ export const createForm = <
         resultRef.current = nextStatus;
         if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
-        if (nextStatus.variant === "error") addstatus(nextStatus.status);
+        if (nextStatus.variant === "error") addStatus(nextStatus.status);
       },
       [form],
     ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
