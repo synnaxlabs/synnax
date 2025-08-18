@@ -16,6 +16,7 @@ interface ClientArgs<ScopedStore extends Store> {
   openStreamer?: framer.StreamOpener;
   storeConfig: StoreConfig<ScopedStore>;
   handleError: status.ErrorHandler;
+  handleAsyncError: status.AsyncErrorHandler;
 }
 
 export class Client<ScopedStore extends Store = Store> {
@@ -28,6 +29,7 @@ export class Client<ScopedStore extends Store = Store> {
     openStreamer,
     storeConfig,
     handleError,
+    handleAsyncError,
   }: ClientArgs<ScopedStore>) {
     this.store = createStore(storeConfig, handleError);
     this.client = client;
@@ -36,7 +38,7 @@ export class Client<ScopedStore extends Store = Store> {
     this.streamCloser = fluxOpenStreamer({
       client,
       storeConfig,
-      handleError,
+      handleError: handleAsyncError,
       store: scopeStore<ScopedStore>(this.store, ""),
       openStreamer,
     });

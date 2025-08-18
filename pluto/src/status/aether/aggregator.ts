@@ -80,7 +80,7 @@ export const createErrorHandler =
     })();
   };
 
-export const createAsyncExceptionHandler =
+export const createAsyncErrorHandler =
   (add: Adder): AsyncErrorHandler =>
   async (func: () => Promise<void> | void, message?: string): Promise<void> => {
     try {
@@ -96,7 +96,7 @@ export const useErrorHandler = (ctx: aether.Context): ErrorHandler =>
   createErrorHandler(useAdder(ctx));
 
 export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
-  createAsyncExceptionHandler(useAdder(ctx));
+  createAsyncErrorHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

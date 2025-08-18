@@ -52,6 +52,7 @@ export const Provider = <ScopedStore extends flux.Store>({
 }: ProviderProps<ScopedStore>): ReactElement | null => {
   const synnaxClient = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const handleAsyncError = Status.useAsyncErrorHandler();
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
@@ -63,6 +64,7 @@ export const Provider = <ScopedStore extends flux.Store>({
       client: synnaxClient,
       storeConfig: cfg.storeConfig,
       handleError,
+      handleAsyncError,
     });
   };
   const clientRef = useInitializerRef(initializeClient);

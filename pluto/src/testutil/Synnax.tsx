@@ -46,6 +46,7 @@ export const newSynnaxWrapper = (
     client,
     storeConfig: Pluto.FLUX_STORE_CONFIG,
     handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
@@ -66,6 +67,7 @@ export const newSynnaxWrapperWithAwait = async (
     client,
     storeConfig: Pluto.FLUX_STORE_CONFIG,
     handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
   });
   await fluxClient.awaitInitialized();
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

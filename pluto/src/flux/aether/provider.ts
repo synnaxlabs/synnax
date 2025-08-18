@@ -80,6 +80,7 @@ const createProvider = <ScopedStore extends core.Store>(
       client: nextClient,
       storeConfig: cfg.storeConfig,
       handleError: status.useErrorHandler(ctx),
+      handleAsyncError: status.useAsyncErrorHandler(ctx),
     });
   };
   return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {

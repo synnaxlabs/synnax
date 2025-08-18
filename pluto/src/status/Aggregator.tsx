@@ -72,6 +72,11 @@ export const useErrorHandler = (): ErrorHandler => {
   return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
+export const useAsyncErrorHandler = (): AsyncErrorHandler => {
+  const add = useAdder();
+  return useMemo(() => status.createAsyncErrorHandler(add), [add]);
+};
+
 export type NotificationSpec<D = undefined> = xstatus.Status<D> & { count: number };
 
 export interface UseNotificationsReturn<D = undefined> {
