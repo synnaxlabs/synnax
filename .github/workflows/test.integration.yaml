@@ -207,4 +207,4 @@ jobs:
         working-directory: integration/test/py/framework
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          poetry run --directory ../../py python3 Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
+          poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json

@@ -41,6 +41,7 @@ except ImportError:
     # Handle case when running script directly
     from TestCase import TestCase, SynnaxConnection, STATUS, SYMBOLS
 
+
 class STATE(Enum):
     """Test conductor execution states."""
     INITIALIZING = auto()
@@ -159,7 +160,7 @@ class Test_Conductor:
             name=f"{self.name}_client_manager"
         )
         self.client_manager_thread.start()
-        print(f"{self.name} > Client manager started (async)")
+        self.log_message("Client manager started (async)")
     
     def _client_manager(self) -> None:
         
@@ -237,7 +238,14 @@ class Test_Conductor:
                     self.tlm[f"{self.name}_state"] = self.state.value
                     writer.write(self.tlm)
                     break
-    
+
+    def log_message(self, message: str, use_name = False) -> None:
+        """Simple logging function to consolidate print statements."""
+        if use_name:
+            print(f"{self.name} > {message}")
+        else:
+            print(message)
+
     def load_test_sequence(self, sequence: str = None) -> None:
         """Load test sequence from JSON configuration file."""
         self.state = STATE.LOADING
@@ -305,9 +313,9 @@ class Test_Conductor:
                 seq_obj["end_idx"] = len(self.test_definitions)
                 self.sequences.append(seq_obj)
                 
-                print(f"{self.name} > Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})")
+                self.log_message(f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})")
             
-            print(f"{self.name} > Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}")
+            self.log_message(f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}")
         else:
             # Old format: single sequence
             for test in sequence_data.get("tests", []):
@@ -335,7 +343,7 @@ class Test_Conductor:
                 "end_idx": len(self.test_definitions)
             }]
             
-            print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
+            self.log_message(f"Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
         
         # Store the ordering for use in run_sequence (for backward compatibility)
         self.sequence_ordering = self.sequences[0]["order"] if self.sequences else "Sequential"
@@ -361,16 +369,16 @@ class Test_Conductor:
         )
         self.timeout_monitor_thread.start()
         
-        print(f"\n{self.name} > Starting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...\n")
+        self.log_message(f"\nStarting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...")
 
         # Execute sequences linearly (one after another)
         for seq_idx, sequence in enumerate(self.sequences):
             if self.should_stop:
-                print(f"{self.name} > Test execution stopped by user request")
+                self.log_message("Test execution stopped by user request")
                 break
             
-            print(f"\n{self.name} > ==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ====")
-            print(f"{self.name} > Executing {len(sequence['tests'])} tests with {sequence['order']} order...")
+            self.log_message(f"\n==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ====")
+            self.log_message(f"Executing {len(sequence['tests'])} tests with {sequence['order']} order...")
             
             # Execute tests within this sequence according to its order
             if sequence['order'] == "asynchronous":
@@ -380,7 +388,7 @@ class Test_Conductor:
             else:  # sequential
                 self._execute_sequence_sequentially(sequence)
             
-            print(f"{self.name} > Completed sequence '{sequence['name']}'")
+            self.log_message(f"Completed sequence '{sequence['name']}'")
         
         self.is_running = False
         self._print_summary()
@@ -390,10 +398,10 @@ class Test_Conductor:
         """Execute tests one after another."""
         for i, test_def in enumerate(self.test_definitions):
             if self.should_stop:
-                print(f"{self.name} > Test execution stopped by user request")
+                self.log_message("Test execution stopped by user request")
                 break
             
-            print(f"\n{self.name} [{i+1}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            self.log_message(f"\n[{i+1}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Run test in separate thread
             result_container = []
@@ -424,12 +432,12 @@ class Test_Conductor:
         """Execute tests in a sequence one after another."""
         for i, test_def in enumerate(sequence['tests']):
             if self.should_stop:
-                print(f"{self.name} > Test execution stopped by user request")
+                self.log_message("Test execution stopped by user request")
                 break
             
             # Calculate global test index
             global_test_idx = len(self.test_results) + 1
-            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Run test in separate thread
             result_container = []
@@ -464,12 +472,12 @@ class Test_Conductor:
         
         for i, test_def in enumerate(shuffled_tests):
             if self.should_stop:
-                print(f"{self.name} > Test execution stopped by user request")
+                self.log_message("Test execution stopped by user request")
                 break
             
             # Calculate global test index
             global_test_idx = len(self.test_results) + 1
-            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Run test in separate thread
             result_container = []
@@ -504,12 +512,12 @@ class Test_Conductor:
         
         for i, test_def in enumerate(sequence['tests']):
             if self.should_stop:
-                print(f"{self.name} > Test execution stopped by user request")
+                self.log_message("Test execution stopped by user request")
                 break
             
             # Calculate global test index
             global_test_idx = len(self.test_results) + 1
-            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            self.log_message(f"\n[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def.case} ====")
             
             # Create result container and thread for each test
             result_container = []
@@ -525,7 +533,7 @@ class Test_Conductor:
             test_thread.start()
         
         # Wait for all tests in this sequence to complete
-        print(f"{self.name} > Waiting for {len(test_threads)} tests in sequence '{sequence['name']}' to complete...")
+        self.log_message(f"Waiting for {len(test_threads)} tests in sequence '{sequence['name']}' to complete...")
         for i, test_thread in enumerate(test_threads):
             if test_thread.is_alive():
                 test_thread.join()
@@ -561,7 +569,7 @@ class Test_Conductor:
         # Wait for current test to complete
         if self.current_test_thread and self.current_test_thread.is_alive():
             self.current_test_thread.join()
-            print(f"{self.name} > Test Thread has stopped")
+            self.log_message("Test Thread has stopped")
         
         self.state = STATE.COMPLETED
     
@@ -569,15 +577,14 @@ class Test_Conductor:
         """
         Gracefully shutdown the test conductor and all its processes.
         """
-        print("\n")
-        print(f"{self.name} > Shut down initiated...")
+        self.log_message("\nShut down initiated...")
         self.state = STATE.SHUTDOWN
         self.should_stop = True
         
         # Wait for all processes to complete
         self.wait_for_completion()
         
-        print(f"{self.name} > Shutdown complete\n")
+        self.log_message("Shutdown complete\n")
     
     def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -589,7 +596,7 @@ class Test_Conductor:
             try:
                 callback(result)
             except Exception as e:
-                print(f"Error in status callback: {e}")
+                self.log_message(f"Error in status callback: {e}")
     
     def _load_test_class(self, test_def: TestDefinition) -> type:
         """Dynamically load a test class from its case identifier."""
@@ -697,8 +704,10 @@ class Test_Conductor:
             else:
                 result.status = STATUS.FAILED
                 result.error_message = str(e)
-                print(f"{self.name} > {test_def.case} FAILED: {e}")
-                traceback.print_exc()
+                self.log_message(f"{test_def.case} FAILED: {e}")
+                # Log the full traceback for debugging
+                import traceback
+                self.log_message(f"Traceback: {traceback.format_exc()}")
         
         finally:
             result.end_time = datetime.now()
@@ -743,7 +752,7 @@ class Test_Conductor:
                         
                         elapsed_time = (datetime.now() - start_time).total_seconds()
                         if elapsed_time > test_instance.Expected_Timeout:
-                            print(f"{self.name} > {test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)")
+                            self.log_message(f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)")
                             # Mark test as timed out - it will handle itself
                             test_instance._status = STATUS.TIMEOUT
                             tests_to_remove.append((test_instance, start_time))
@@ -791,7 +800,7 @@ class Test_Conductor:
     
     def stop_sequence(self) -> None:
         """Stop the entire test sequence execution."""
-        print("Stopping test sequence...")
+        self.log_message("Stopping test sequence...")
         self.should_stop = True
         self.kill_current_test()
         self._stop_client_manager()
@@ -799,14 +808,14 @@ class Test_Conductor:
     def _stop_client_manager(self) -> None:
         """Stop the client manager thread gracefully."""
         if self.client_manager_thread and self.client_manager_thread.is_alive():
-            print("Stopping client manager...")
+            self.log_message("Stopping client manager...")
             # The thread will stop when self.should_stop becomes True
             # or when status reaches SHUTDOWN
             self.client_manager_thread.join(timeout=5.0)
             if self.client_manager_thread.is_alive():
-                print("Warning: Client manager thread did not stop gracefully")
+                self.log_message("Warning: Client manager thread did not stop gracefully")
             else:
-                print("Client manager stopped successfully")
+                self.log_message("Client manager stopped successfully")
     
     def get_current_status(self) -> Dict[str, Any]:
         """Get the current status of test execution."""
@@ -864,26 +873,26 @@ class Test_Conductor:
         stats = self._get_test_statistics()
         self._last_stats = stats
 
-        print("\n" + "="*50)
-        print("TEST EXECUTION SUMMARY")
-        print("="*50)
-        print(f"Total tests: {stats['total']}")
-        print(f"Passed: {stats['passed']}")
-        print(f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)")
-        print("="*50)
+        self.log_message("\n" + "="*50, False)
+        self.log_message("TEST EXECUTION SUMMARY", False)
+        self.log_message("="*50, False)
+        self.log_message(f"Total tests: {stats['total']}", False)
+        self.log_message(f"Passed: {stats['passed']}", False)
+        self.log_message(f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)", False)
+        self.log_message("="*50, False)
         
         for result in self.test_results:
             
             status_symbol = SYMBOLS.get_symbol(result.status)
             
             duration_str = f"({result.duration:.2f}s)" if result.duration else ""
-            print(f"{status_symbol} {result.test_name} {duration_str}")
+            self.log_message(f"{status_symbol} {result.test_name} {duration_str}")
             if result.error_message:
-                print(f"    Error: {result.error_message}")
+                self.log_message(f"    Error: {result.error_message}")
            
     def _signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown."""
-        print(f"\nReceived signal {signum}. Stopping test execution...")
+        self.log_message(f"Received signal {signum}. Stopping test execution...")
         self.shutdown()
         sys.exit(0)
 
@@ -892,9 +901,9 @@ def monitor_test_execution(conductor: Test_Conductor) -> None:
     """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
-        print(f"Status: {status['completed_tests']}/{status['total_tests']} tests completed")
+        conductor.log_message(f"Status: {status['completed_tests']}/{status['total_tests']} tests completed")
         if status['current_test']:
-            print(f"Currently running: {status['current_test']}")
+            conductor.log_message(f"Currently running: {status['current_test']}")
         time.sleep(1)
 
 if __name__ == "__main__":
@@ -927,25 +936,25 @@ if __name__ == "__main__":
         conductor.wait_for_completion()
         
     except KeyboardInterrupt:
-        print("\nKeyboard interrupt received. Shutting down gracefully...")
+        conductor.log_message("Keyboard interrupt received. Shutting down gracefully...")
         conductor.shutdown()
     except Exception as e:
-        print(f"Error occurred: {e}")
+        conductor.log_message(f"Error occurred: {e}")
         conductor.shutdown()
         raise
     finally:
-        print(f"\n{conductor.name} > Fin.")
+        conductor.log_message(f"\n{conductor.name} > Fin.")
         
         if conductor.test_results:
             stats = conductor._get_test_statistics()
 
             if stats['total_failed'] > 0:
-                print(f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests")
+                conductor.log_message(f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests")
                 sys.exit(1)
             else:
-                print(f"\nAll {stats['total']} tests passed successfully")
+                conductor.log_message(f"\nAll {stats['total']} tests passed successfully")
                 sys.exit(0)
         else:
-            print("\nNo test results available")
+            conductor.log_message("\nNo test results available")
             sys.exit(1)
 

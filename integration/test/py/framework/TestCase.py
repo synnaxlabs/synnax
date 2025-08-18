@@ -16,7 +16,6 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-
 @dataclass
 class SynnaxConnection:
     """Data class representing the Synnax connection parameters."""
@@ -127,7 +126,11 @@ class TestCase(ABC):
                 self.tlm[f"{self.name}_state"] = value.value
             except Exception:
                 pass  # Ignore errors if tlm is not fully initialized
-
+    
+    def _log_message(self, message: str) -> None:
+        """Log a message to the console."""
+        print(f"{self.name} > {message}")
+        
     def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
         """Create a telemetry channel with name {self.name}_{name}."""
         self.client.channels.create(
@@ -153,7 +156,7 @@ class TestCase(ABC):
         self.client_thread = threading.Thread(target=self._client_loop, daemon=True)
         self.client_thread.start()
         time.sleep(2)  # Allow client thread to start
-        print(f"{self.name} > client thread started")
+        self._log_message("client thread started")
     
     def _client_loop(self) -> None:
         """Main telemetry client loop running in separate thread."""
@@ -190,10 +193,10 @@ class TestCase(ABC):
 
                 # Final write for redundancy
                 client.write(self.tlm)
-                print(f"{self.name} > client thread shutting down")
+                self._log_message("client thread shutting down")
                 
         except Exception as e:
-            print(f"{self.name} > client thread error: {e}")
+            self._log_message(f"client thread error: {e}")
             self._status = STATUS.FAILED
         finally:
             self.is_running = False 
@@ -223,7 +226,7 @@ class TestCase(ABC):
             if self.client_thread.is_alive():
                 self.client_thread.join(timeout=5.0)
                 if self.client_thread.is_alive():
-                    print(f"{self.name} > Warning: client thread did not stop within timeout")
+                    self._log_message("Warning: client thread did not stop within timeout")
 
         # All done? All done.                
         if self._status == STATUS.PENDING:
@@ -249,10 +252,10 @@ class TestCase(ABC):
     
     def shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
-        print(f"{self.name} > Shutting down test case...")
+        self._log_message("Shutting down test case...")
         self._status = STATUS.KILLED
         self.stop_client()
-        print(f"{self.name} > Test case shutdown complete")
+        self._log_message("Test case shutdown complete")
     
     def __enter__(self):
         """Context manager entry point."""
@@ -274,20 +277,20 @@ class TestCase(ABC):
         # Handle expected outcome logic
         if self._status == STATUS.PASSED:
             if self.expected_outcome == STATUS.PASSED:
-                print(f"{self.name} > PASSED ({status_symbol})")
+                self._log_message(f"PASSED ({status_symbol})")
             else:
                 self._status = STATUS.FAILED
-                print(f"{self.name} > FAILED (✗): Expected {expected_symbol}, got {status_symbol}")
+                self._log_message(f"FAILED (✗): Expected {expected_symbol}, got {status_symbol}")
 
         elif self._status == self.expected_outcome:
-            print(f"{self.name} > PASSED (✓): Expected outcome achieved ({status_symbol})")
+            self._log_message(f"PASSED (✓): Expected outcome achieved ({status_symbol})")
             self._status = STATUS.PASSED
         elif self._status == STATUS.FAILED:
-            print(f"{self.name} > FAILED ({status_symbol})")
+            self._log_message(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            print(f"{self.name} > TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
+            self._log_message(f"TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
         elif self._status == STATUS.KILLED:
-            print(f"{self.name} > KILLED ({status_symbol})")
+            self._log_message(f"KILLED ({status_symbol})")
             
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
@@ -309,7 +312,7 @@ class TestCase(ABC):
 
         except Exception as e:
             self._status = STATUS.FAILED
-            print(f"{self.name} > EXCEPTION: {e}")
+            self._log_message(f"EXCEPTION: {e}")
         finally:
             self.stop_client()
             self.wait_for_client_completion()
