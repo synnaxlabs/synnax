@@ -1,4 +1,4 @@
-import { ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 
 import { type flux } from "@/flux/aether";
@@ -15,12 +15,16 @@ const SET_LISTENER: flux.ChannelListener<SubStore, typeof ranger.payloadZ> = {
   schema: ranger.payloadZ,
   onChange: async ({ store, changed, client }) => {
     const range = client.ranges.sugarOne(changed);
-    store.ranges.set(
-      changed.key,
+    const prev = store.ranges.get(changed.key);
+    let labels: label.Label[] | undefined;
+    if (prev?.labels == null) labels = await range.retrieveLabels();
+    let parent: ranger.Range | null = null;
+    if (prev?.parent == null) parent = await range.retrieveParent();
+    store.ranges.set(changed.key, (p) =>
       client.ranges.sugarOne({
         ...range.payload,
-        labels: await range.retrieveLabels(),
-        parent: await range.retrieveParent(),
+        labels: p?.labels ?? labels,
+        parent: p?.parent ?? parent,
       }),
     );
   },

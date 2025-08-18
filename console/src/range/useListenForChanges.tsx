@@ -18,7 +18,13 @@ export const useListenForChanges = (): void => {
   const dispatch = useDispatch();
   const handleRangeSet = useCallback(
     ({ timeRange, ...rest }: ranger.Payload): void => {
-      dispatch(updateIfExists({ ...rest, timeRange: timeRange.numeric }));
+      dispatch(
+        updateIfExists({
+          ...rest,
+          parent: null,
+          timeRange: timeRange.numeric,
+        }),
+      );
     },
     [dispatch],
   );

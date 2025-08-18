@@ -88,7 +88,7 @@ const handleListLabelRelationshipSet = async (
       if (prev == null) return prev;
       return client.ranges.sugarOne({
         ...prev,
-        labels: [...prev.labels.filter((l) => l.key !== rel.to.key), label],
+        labels: [...(prev.labels?.filter((l) => l.key !== rel.to.key) ?? []), label],
       });
     });
   }
@@ -176,7 +176,7 @@ export const useChildren = Flux.createList<
           if (prev == null) return prev;
           return client.ranges.sugarOne({
             ...prev,
-            labels: prev.labels.filter((l) => l.key !== rel.to.key),
+            labels: prev.labels?.filter((l) => l.key !== rel.to.key),
           });
         });
     }),
@@ -235,7 +235,7 @@ export const retrieveParent = Flux.createRetrieve<
           if (prev == null) return prev;
           return client.ranges.sugarOne({
             ...prev,
-            labels: prev.labels.filter((l) => l.key !== rel.to.key),
+            labels: prev.labels?.filter((l) => l.key !== rel.to.key),
           });
         });
     }),
@@ -295,11 +295,13 @@ export const formSchema = z.object({
   timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
-export const toFormValues = async (range: ranger.Range) => ({
+export const toFormValues = async (
+  range: ranger.Range,
+): Promise<z.infer<typeof formSchema>> => ({
   ...range.payload,
   timeRange: range.timeRange.numeric,
   parent: range.parent?.key,
-  labels: range.labels.map((l) => l.key),
+  labels: range.labels?.map((l) => l.key) ?? [],
 });
 
 export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
@@ -353,7 +355,6 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
               ...prev,
               labels: [...prev.labels.filter((l) => l !== rel.to.key), rel.to.key],
             };
-
           const isParentChange = ontology.matchRelationship(rel, {
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
             to: otgID,
@@ -373,7 +374,6 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
               ...prev,
               labels: prev.labels.filter((l) => l !== rel.to.key),
             };
-
           const isParentChange = ontology.matchRelationship(rel, {
             type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
             to: otgID,

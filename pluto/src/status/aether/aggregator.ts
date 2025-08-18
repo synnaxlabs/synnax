@@ -75,6 +75,7 @@ export const createErrorHandler =
         // Skip the added microtask if the function returns void instead of a promise.
         if (promise != null) await promise;
       } catch (exc) {
+        console.error(exc);
         add(status.fromException(exc, message));
       }
     })();
@@ -88,6 +89,7 @@ export const createAsyncErrorHandler =
       // Skip the added microtask if the function returns void instead of a promise.
       if (promise != null) await promise;
     } catch (exc) {
+      console.error(exc);
       add(status.fromException(exc, message));
     }
   };

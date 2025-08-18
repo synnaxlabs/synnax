@@ -122,7 +122,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     );
   };
 
-  if (status.variant !== "success" && status.variant !== "disabled")
+  if (status.variant === "error")
     return (
       <Status.Summary
         variant={status.variant}

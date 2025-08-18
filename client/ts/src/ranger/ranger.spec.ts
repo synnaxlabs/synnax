@@ -194,7 +194,7 @@ describe("Ranger", () => {
         includeLabels: true,
       });
       expect(newRange[0].labels).toHaveLength(1);
-      expect(newRange[0].labels[0]).toEqual(label);
+      expect(newRange[0].labels?.[0]).toEqual(label);
     });
   });
 
