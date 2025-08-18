@@ -116,6 +116,7 @@ class Test_Conductor:
         self.state = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
+        self.sequences: List[dict] = []
         self.current_test: Optional[TestCase] = None
         self.current_test_thread: Optional[threading.Thread] = None
         self.current_test_start_time: Optional[datetime] = None
@@ -229,7 +230,7 @@ class Test_Conductor:
                 self.tlm[f"{self.name}_uptime"] = uptime_value
                 self.tlm[f"{self.name}_state"] = self.state.value
                 writer.write(self.tlm)
-
+                
                 # Check for shutdown
                 if self.state in [STATE.SHUTDOWN, STATE.COMPLETED]:
                     self.state = STATE.COMPLETED
@@ -272,26 +273,72 @@ class Test_Conductor:
         with open(sequence_path, 'r') as f:
             sequence_data = json.load(f)
         
-        # Load test definitions
+        # Load test definitions - support both single sequence and multi-sequence format
         self.test_definitions = []
-        for test in sequence_data.get("tests", []):
-            test_def = TestDefinition(
-                case=test["case"],
-                params=test.get("parameters", {}),
-                expect=test.get("expect", "PASSED"),  # Default to "PASSED" if not specified
-            )
-            self.test_definitions.append(test_def)
+        self.sequences = []
         
-        # Handle test ordering
-        ordering = "Sequential"
-        sequence_order = sequence_data.get("sequence_order", "Sequential").lower()
-        if sequence_order == "random":
-            random.shuffle(self.test_definitions)
-
-        print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
+        if isinstance(sequence_data, list):
+            # New format: array of sequences
+            for seq_idx, sequence in enumerate(sequence_data):
+                seq_name = sequence.get("sequence_name", f"Sequence_{seq_idx + 1}")
+                seq_order = sequence.get("sequence_order", "Sequential").lower()
+                seq_tests = sequence.get("tests", [])
+                
+                # Create sequence object
+                seq_obj = {
+                    "name": seq_name,
+                    "order": seq_order,
+                    "tests": [],
+                    "start_idx": len(self.test_definitions)
+                }
+                
+                # Load tests for this sequence
+                for test in seq_tests:
+                    test_def = TestDefinition(
+                        case=test["case"],
+                        params=test.get("parameters", {}),
+                        expect=test.get("expect", "PASSED"),
+                    )
+                    self.test_definitions.append(test_def)
+                    seq_obj["tests"].append(test_def)
+                
+                seq_obj["end_idx"] = len(self.test_definitions)
+                self.sequences.append(seq_obj)
+                
+                print(f"{self.name} > Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})")
+            
+            print(f"{self.name} > Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from {sequence}")
+        else:
+            # Old format: single sequence
+            for test in sequence_data.get("tests", []):
+                test_def = TestDefinition(
+                    case=test["case"],
+                    params=test.get("parameters", {}),
+                    expect=test.get("expect", "PASSED"),
+                )
+                self.test_definitions.append(test_def)
+            
+            # Handle test ordering for single sequence
+            ordering = "Sequential"
+            sequence_order = sequence_data.get("sequence_order", "Sequential").lower()
+            if sequence_order == "random":
+                random.shuffle(self.test_definitions)
+            elif sequence_order == "asynchronous":
+                ordering = "Asynchronous"
+            
+            # Create single sequence object for compatibility
+            self.sequences = [{
+                "name": "Main Sequence",
+                "order": sequence_order,
+                "tests": self.test_definitions,
+                "start_idx": 0,
+                "end_idx": len(self.test_definitions)
+            }]
+            
+            print(f"{self.name} > Sequence loaded with {len(self.test_definitions)} tests ({ordering}) from {sequence}")
         
-        # Store the ordering for use in run_sequence
-        self.sequence_ordering = sequence_order
+        # Store the ordering for use in run_sequence (for backward compatibility)
+        self.sequence_ordering = self.sequences[0]["order"] if self.sequences else "Sequential"
         
         # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
@@ -314,12 +361,26 @@ class Test_Conductor:
         )
         self.timeout_monitor_thread.start()
         
-        print(f"\n{self.name} > Starting {self.sequence_ordering} execution of {len(self.test_definitions)} tests...\n")
+        print(f"\n{self.name} > Starting execution of {len(self.sequences)} sequences with {len(self.test_definitions)} total tests...\n")
 
-        if self.sequence_ordering == "asynchronous":
-            self._execute_tests_asynchronously()
-        else:
-            self._execute_tests_sequentially()
+        # Execute sequences linearly (one after another)
+        for seq_idx, sequence in enumerate(self.sequences):
+            if self.should_stop:
+                print(f"{self.name} > Test execution stopped by user request")
+                break
+            
+            print(f"\n{self.name} > ==== SEQUENCE {seq_idx + 1}/{len(self.sequences)}: {sequence['name']} ====")
+            print(f"{self.name} > Executing {len(sequence['tests'])} tests with {sequence['order']} order...")
+            
+            # Execute tests within this sequence according to its order
+            if sequence['order'] == "asynchronous":
+                self._execute_sequence_asynchronously(sequence)
+            elif sequence['order'] == "random":
+                self._execute_sequence_randomly(sequence)
+            else:  # sequential
+                self._execute_sequence_sequentially(sequence)
+            
+            print(f"{self.name} > Completed sequence '{sequence['name']}'")
         
         self.is_running = False
         self._print_summary()
@@ -359,18 +420,96 @@ class Test_Conductor:
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
     
-    def _execute_tests_asynchronously(self) -> None:
-        """Execute all tests simultaneously."""
-        # Launch all tests at once
-        test_threads = []
-        result_containers = []
-
-        for i, test_def in enumerate(self.test_definitions):
+    def _execute_sequence_sequentially(self, sequence: dict) -> None:
+        """Execute tests in a sequence one after another."""
+        for i, test_def in enumerate(sequence['tests']):
             if self.should_stop:
                 print(f"{self.name} > Test execution stopped by user request")
                 break
             
-            print(f"{self.name} ({i+1}/{len(self.test_definitions)}) > ==== {test_def.case} ====")
+            # Calculate global test index
+            global_test_idx = len(self.test_results) + 1
+            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            
+            # Run test in separate thread
+            result_container = []
+            test_thread = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, result_container)
+            )
+            
+            self.current_test_thread = test_thread
+            test_thread.start()
+            test_thread.join()
+            
+            # Get test result
+            if result_container:
+                result = result_container[0]
+            else:
+                result = TestResult(
+                    test_name=test_def.case,
+                    status=STATUS.FAILED,
+                    error_message="Unknown error - no result returned"
+                )
+            
+            self.test_results.append(result)
+            self.current_test_thread = None
+            self.tlm[f"{self.name}_test_cases_ran"] += 1
+    
+    def _execute_sequence_randomly(self, sequence: dict) -> None:
+        """Execute tests in a sequence in random order."""
+        # Create a copy of tests and shuffle them
+        shuffled_tests = sequence['tests'].copy()
+        random.shuffle(shuffled_tests)
+        
+        for i, test_def in enumerate(shuffled_tests):
+            if self.should_stop:
+                print(f"{self.name} > Test execution stopped by user request")
+                break
+            
+            # Calculate global test index
+            global_test_idx = len(self.test_results) + 1
+            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
+            
+            # Run test in separate thread
+            result_container = []
+            test_thread = threading.Thread(
+                target=self._test_runner_thread,
+                args=(test_def, result_container)
+            )
+            
+            self.current_test_thread = test_thread
+            test_thread.start()
+            test_thread.join()
+            
+            # Get test result
+            if result_container:
+                result = result_container[0]
+            else:
+                result = TestResult(
+                    test_name=test_def.case,
+                    status=STATUS.FAILED,
+                    error_message="Unknown error - no result returned"
+                )
+            
+            self.test_results.append(result)
+            self.current_test_thread = None
+            self.tlm[f"{self.name}_test_cases_ran"] += 1
+    
+    def _execute_sequence_asynchronously(self, sequence: dict) -> None:
+        """Execute tests in a sequence simultaneously."""
+        # Launch all tests in this sequence at once
+        test_threads = []
+        result_containers = []
+        
+        for i, test_def in enumerate(sequence['tests']):
+            if self.should_stop:
+                print(f"{self.name} > Test execution stopped by user request")
+                break
+            
+            # Calculate global test index
+            global_test_idx = len(self.test_results) + 1
+            print(f"\n{self.name} [{global_test_idx}/{len(self.test_definitions)}] > ==== {test_def.case} ====")
             
             # Create result container and thread for each test
             result_container = []
@@ -385,8 +524,8 @@ class Test_Conductor:
             # Start the test thread
             test_thread.start()
         
-        # Wait for all tests to complete
-        print(f"{self.name} > Waiting for {len(test_threads)} tests to complete...\n")
+        # Wait for all tests in this sequence to complete
+        print(f"{self.name} > Waiting for {len(test_threads)} tests in sequence '{sequence['name']}' to complete...")
         for i, test_thread in enumerate(test_threads):
             if test_thread.is_alive():
                 test_thread.join()
@@ -396,14 +535,14 @@ class Test_Conductor:
                 result = result_containers[i][0]
             else:
                 result = TestResult(
-                    test_name=self.test_definitions[i].case,
+                    test_name=sequence['tests'][i].case,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned"
                 )
             
             self.test_results.append(result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
-
+    
     def wait_for_completion(self) -> None:
         """
         Wait for all async processes to complete before allowing main to exit.

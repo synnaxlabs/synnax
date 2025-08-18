@@ -1,18 +1,57 @@
-{
-    "sequence_order": "asynchronous",
-    "tests": [
-        {
-            "case": "testcases.check_connection_basic",
-            "parameters": {
+[
+    {
+        "sequence_name": "Sequential_Tests",
+        "sequence_order": "Sequential",
+        "tests": [
+            {
+                "case": "testcases.check_connection_basic",
+                "parameters": {
+                    "timeout": 2,
+                    "wait_time": 5
+                },
+                "expect": "TIMEOUT"
             },
-            "expect": "TIMEOUT"
-        },
-        {
-            "case": "testcases.simple_async_1"
-        },
-        {
-            "case": "testcases.simple_async_2",
-            "expect": "FAILED"
-        }
-    ]
-}
+            {
+                "case": "testcases.check_connection_basic"
+            },
+            {
+                "case": "testcases.test_no_timeout"
+            }
+        ]
+    },
+    {
+        "sequence_name": "Async_Tests",
+        "sequence_order": "asynchronous",
+        "tests": [
+            {
+                "case": "testcases.check_connection_basic"
+            },
+            {
+                "case": "testcases.simple_async_1"
+            },
+            {
+                "case": "testcases.simple_async_2",
+                "expect": "PASSED"
+            }
+        ]
+    },
+    {
+        "sequence_name": "Random_Test",
+        "sequence_order": "random",
+        "tests": [
+            {
+                "case": "testcases.check_connection_basic"
+            },
+            {
+                "case": "testcases.simple_async_1"
+            },
+            {
+                "case": "testcases.simple_async_2",
+                "expect": "PASSED"
+            },
+            {
+                "case": "testcases.check_connection_basic"
+            }
+        ]
+    }
+]
