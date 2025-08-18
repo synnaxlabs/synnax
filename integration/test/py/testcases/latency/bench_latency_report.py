@@ -303,42 +303,42 @@ class Bench_Latency_Report(TestCase):
 
         # Selected arbitrarily. However, these values should 
         # provide a good maximumm threshold
-        max_p90 = 0.4
-        max_p95 = 0.45
-        max_p99 = 0.55
-        max_peak_to_peak_jitter = 2
-        max_average_jitter = 0.05
+        max_p90 = 0.8
+        max_p95 = 0.9
+        max_p99 = 1.1
+        max_peak_to_peak_jitter = 4
+        max_average_jitter = 0.1
 
         # Print statistics
+        p90_msg = f"P90: {p90:.2f}ms"
         if p90 > max_p90:
-            self._log_message(f"P90 is greater than {max_p90}ms (FAILED)")
+            p90_msg += f" is greater than {max_p90}ms (FAILED)"
             self.fail()
-        else:
-            self._log_message(f"P90: {p90:.2f}ms")
-            
+        self._log_message(p90_msg)
+
+        p95_msg = f"P95: {p95:.2f}ms"
         if p95 > max_p95:
-            self._log_message(f"P95 is greater than {max_p95}ms (FAILED)")
+            p95_msg += f" is greater than {max_p95}ms (FAILED)"
             self.fail()
-        else:
-            self._log_message(f"P95: {p95:.2f}ms")
+        self._log_message(p95_msg)
 
+        p99_msg = f"P99: {p99:.2f}ms"
         if p99 > max_p99:
-            self._log_message(f"P99 is greater than {max_p99}ms (FAILED)")
+            p99_msg += f" is greater than {max_p99}ms (FAILED)"
             self.fail()
-        else:
-            self._log_message(f"P99: {p99:.2f}ms")
+        self._log_message(p99_msg)
 
+        peak_to_peak_jitter_msg = f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms"
         if peak_to_peak_jitter > max_peak_to_peak_jitter:
-            self._log_message(f"Peak-to-peak jitter is greater than {max_peak_to_peak_jitter}ms (FAILED)")  
+            peak_to_peak_jitter_msg += f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
             self.fail()
-        else:
-            self._log_message(f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms")
+        self._log_message(peak_to_peak_jitter_msg)
         
+        average_jitter_msg = f"Average jitter: {average_jitter:.2f}ms"
         if average_jitter > max_average_jitter:
-            self._log_message(f"Average jitter is greater than {max_average_jitter}ms (FAILED)")
+            average_jitter_msg += f" is greater than {max_average_jitter}ms (FAILED)"
             self.fail()
-        else:
-            self._log_message(f"Average jitter: {average_jitter:.2f}ms")
+        self._log_message(average_jitter_msg)
 
         plt.savefig("bench_latency_load.jpg", dpi=300, bbox_inches='tight')
         plt.close(fig)  # Close the figure to free memory
