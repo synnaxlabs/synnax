@@ -190,8 +190,6 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           poetry --version
 
-
-
       - name: Install Dependencies
         working-directory: integration/py
         run: |
@@ -205,23 +203,8 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           poetry run python -c "
-          try:
-              import synnax
-              print('Synnax imported successfully')
-          except Exception as e:
-              print(f'Error importing synnax: {e}')
-              import traceback
-              traceback.print_exc()
-          
-          try:
-              import matplotlib
-              matplotlib.use('Agg')  # Test non-interactive backend
-              import matplotlib.pyplot as plt
-              print('Matplotlib imported successfully')
-          except Exception as e:
-              print(f'Error importing matplotlib: {e}')
-              import traceback
-              traceback.print_exc()
+          import synnax; print('Synnax imported successfully')
+          import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot; print('Matplotlib imported successfully')
           "
 
       - name: Test Conductor
@@ -229,19 +212,6 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
-
-      - name: Debug File Locations
-        if: always()
-        run: |
-          echo "Current working directory: $(pwd)"
-          echo "Files in current directory:"
-          ls -la
-          echo "Files in framework directory:"
-          ls -la integration/test/py/framework/ || echo "Framework directory not found"
-          echo "Files in latency directory:"
-          ls -la integration/test/py/testcases/latency/ || echo "Latency directory not found"
-          echo "Searching for PNG files:"
-          find . -name "*.png" -type f 2>/dev/null || echo "No PNG files found"
 
       - name: Upload Benchmark Plot
         uses: actions/upload-artifact@v4
@@ -251,5 +221,4 @@ jobs:
           path: |
             integration/test/py/*.png
             integration/test/py/framework/*.png
-            integration/test/py/testcases/latency/*.png
           retention-days: 30
