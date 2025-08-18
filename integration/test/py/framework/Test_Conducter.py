@@ -826,10 +826,17 @@ class Test_Conductor:
             ]
         }
     
-    def _print_summary(self) -> None:
-        """Print a summary of test execution results."""
+    def _get_test_statistics(self) -> dict:
+        """Calculate and return test execution statistics."""
         if not self.test_results:
-            return
+            return {
+                'total': 0,
+                'passed': 0,
+                'failed': 0,
+                'killed': 0,
+                'timeout': 0,
+                'total_failed': 0
+            }
         
         passed = sum(1 for r in self.test_results if r.status == STATUS.PASSED)
         failed = sum(1 for r in self.test_results if r.status == STATUS.FAILED)
@@ -838,13 +845,31 @@ class Test_Conductor:
         
         # KILLED and TIMEOUT tests are also considered failed
         total_failed = failed + killed + timeout
+        
+        return {
+            'total': len(self.test_results),
+            'passed': passed,
+            'failed': failed,
+            'killed': killed,
+            'timeout': timeout,
+            'total_failed': total_failed
+        }
+
+    def _print_summary(self) -> None:
+        """Print a summary of test execution results."""
+        if not self.test_results:
+            return
+        
+        # Store stats for reuse in the finally block]
+        stats = self._get_test_statistics()
+        self._last_stats = stats
 
         print("\n" + "="*50)
         print("TEST EXECUTION SUMMARY")
         print("="*50)
-        print(f"Total tests: {len(self.test_results)}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {total_failed} (includes {failed} failed, {killed} killed, {timeout} timeout)")
+        print(f"Total tests: {stats['total']}")
+        print(f"Passed: {stats['passed']}")
+        print(f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)")
         print("="*50)
         
         for result in self.test_results:
@@ -910,4 +935,17 @@ if __name__ == "__main__":
         raise
     finally:
         print(f"\n{conductor.name} > Fin.")
+        
+        if conductor.test_results:
+            stats = conductor._get_test_statistics()
+            
+            if stats['total_failed'] > 0:
+                print(f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests")
+                sys.exit(1)
+            else:
+                print(f"\nAll {stats['total']} tests passed successfully")
+                sys.exit(0)
+        else:
+            print("\nNo test results available")
+            sys.exit(1)
 

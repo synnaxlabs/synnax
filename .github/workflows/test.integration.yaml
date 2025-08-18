@@ -132,3 +132,34 @@ jobs:
           echo "Synnax service installed and started"
           echo "Check logs with: sudo journalctl -u synnax -f"
           echo "Manage service with: sudo systemctl [start|stop|restart|status] synnax"
+
+  test:
+    name: Run Test Conductor
+    runs-on: [self-hosted, linux]
+    needs: deploy
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Set up Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Install Dependencies
+        working-directory: integration/py
+        run: |
+          poetry install
+
+      - name: Run Conductor Test
+        working-directory: integration/test/py/framework
+        run: |
+          poetry run python3 Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
