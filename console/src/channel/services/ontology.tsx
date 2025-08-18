@@ -254,11 +254,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
-  const aliases = PChannel.useAliases();
   const resources = getResource(resourceIDs);
-  const showDeleteAlias = resources.some(
-    ({ id: { key } }) => aliases[Number(key)] != null,
-  );
+  // const showDeleteAlias = resources.some(({ data }) => data.alias != null);
+  const showDeleteAlias = true;
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();
@@ -334,7 +332,12 @@ export const Item = ({
   onRename,
   ...rest
 }: Ontology.TreeItemProps) => {
-  const alias = PChannel.useAlias(Number(id.key));
+  const activeRange = Range.useSelect();
+  const res = PChannel.retrieve.useDirect({
+    params: { key: Number(id.key), rangeKey: activeRange?.key },
+  }).data;
+  let name = resource.name;
+  if (res?.alias != null && res.alias.length > 0) name = res.alias;
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (
@@ -344,7 +347,7 @@ export const Item = ({
         <Text.MaybeEditable
           id={ontology.idToString(id)}
           allowDoubleClick={false}
-          value={alias ?? resource.name}
+          value={name}
           disabled={!allowRename(resource)}
           onChange={onRename}
         />

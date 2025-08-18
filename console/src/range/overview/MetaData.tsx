@@ -182,13 +182,14 @@ export interface MetaDataProps {
 
 const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 
-export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
+export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   const [newFormVisible, setNewFormVisible] = useState(false);
-  const { data, getItem, subscribe, retrieve } = Ranger.useListKV({
+  const { data, getItem, subscribe, retrieve, status } = Ranger.useListKV({
     initialParams: { rangeKey },
     sort,
   });
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);
+  if (status.variant === "error") return null;
   return (
     <Flex.Box y>
       <Header.Header level="h4" borderColor={5}>

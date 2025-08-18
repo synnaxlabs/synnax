@@ -1,14 +1,20 @@
 import { newTestClient, rack } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { type PropsWithChildren } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Rack } from "@/hardware/rack";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
 
 const client = newTestClient();
 
 describe("queries", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await newSynnaxWrapperWithAwait(client);
+  });
+
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
       const rack1 = await client.hardware.racks.create({
@@ -19,7 +25,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -36,7 +42,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -57,7 +63,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ term: "special" });
@@ -78,7 +84,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -93,7 +99,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ includeStatus: true });
@@ -108,13 +114,12 @@ describe("queries", () => {
 
     it("should update the list when a rack is created", async () => {
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       const initialLength = result.current.data.length;
@@ -135,13 +140,12 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
@@ -162,13 +166,12 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
       expect(result.current.data).toContain(testRack.key);
@@ -186,13 +189,12 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Rack.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
       });
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
         expect(result.current.variant).toEqual("success");
       });
 

@@ -9,9 +9,10 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
-import { type Optional } from "@synnaxlabs/x";
+import { type Optional, primitive } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
+import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
 export interface ChannelNameProps
   extends Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
@@ -25,11 +26,16 @@ export const ChannelName = ({
   className,
   ...rest
 }: ChannelNameProps) => {
-  const [name, rename] = Channel.useName(channel, defaultName);
+  const range = useSelectActiveRangeKey();
+  const { data } = Channel.retrieve.useDirect({
+    params: { key: channel, rangeKey: range ?? undefined },
+  });
+  const { update: rename } = Channel.rename.useDirect({ params: { key: channel } });
+  const name = data?.name ?? defaultName;
   return (
     <Text.MaybeEditable
       className={CSS(className, CSS.BE("task", "channel-name"))}
-      color={channel ? undefined : "var(--pluto-warning-m1)"}
+      status={primitive.isZero(channel) ? "warning" : undefined}
       level="small"
       value={name}
       onChange={rename}

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Header as PHeader, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { EmptyAction } from "@/components";
 import {
   ChannelList as Core,
   type ChannelListProps as CoreProps,
@@ -45,14 +46,11 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
-  <Flex.Box grow center>
-    <Text.Text>No channels in task.</Text.Text>
-    {!isSnapshot && (
-      <Text.Text onClick={onAdd} variant="link">
-        Add a channel
-      </Text.Text>
-    )}
-  </Flex.Box>
+  <EmptyAction
+    message="No channels in task"
+    action="Add a channel"
+    onClick={isSnapshot ? undefined : onAdd}
+  />
 );
 
 export interface ChannelListProps<C extends Channel>

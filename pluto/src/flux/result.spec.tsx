@@ -25,7 +25,7 @@ interface TestState {
 describe("result", () => {
   describe("pendingResult", () => {
     it("should create a loading result with correct structure", () => {
-      const result = pendingResult<TestState>("user", "fetch", null, false);
+      const result = pendingResult<TestState>("user", "fetch", null);
 
       expect(result.variant).toBe("loading");
       expect(result.status.message).toBe("Fetch user");
@@ -33,18 +33,13 @@ describe("result", () => {
     });
 
     it("should capitalize the operation name", () => {
-      const result = pendingResult<TestState>("channel", "create", null, false);
+      const result = pendingResult<TestState>("channel", "create", null);
 
       expect(result.status.message).toBe("Create channel");
     });
 
     it("should handle complex operation names", () => {
-      const result = pendingResult<TestState>(
-        "database connection",
-        "establish",
-        null,
-        false,
-      );
+      const result = pendingResult<TestState>("database connection", "establish", null);
 
       expect(result.status.message).toBe("Establish database connection");
     });
@@ -58,7 +53,7 @@ describe("result", () => {
         value: 42,
       };
 
-      const result = successResult<TestState>("user", "fetch", testData, false);
+      const result = successResult<TestState>("user", "fetch", testData);
 
       expect(result.variant).toBe("success");
       expect(result.status.message).toBe("Fetch user");
@@ -72,7 +67,7 @@ describe("result", () => {
         value: 100,
       };
 
-      const result = successResult<TestState>("entity", "save", complexData, false);
+      const result = successResult<TestState>("entity", "save", complexData);
 
       expect(result.data).toBe(complexData);
       expect(result.data?.id).toBe("456");
@@ -87,7 +82,7 @@ describe("result", () => {
         value: 0,
       };
 
-      const result = successResult<TestState>("item", "update", testData, false);
+      const result = successResult<TestState>("item", "update", testData);
 
       expect(result.status.message).toBe("Update item");
     });
@@ -97,7 +92,7 @@ describe("result", () => {
     it("should create an error result with correct structure", () => {
       const testError = new Error("Test error");
 
-      const result = errorResult<TestState>("user", "fetch", testError, false);
+      const result = errorResult<TestState>("user", "fetch", testError);
 
       expect(result.variant).toBe("error");
       expect(result.status.message).toBe("Failed to fetch user");
@@ -106,7 +101,7 @@ describe("result", () => {
 
     it("should include exception details when error is an Error object", () => {
       const error = new Error("Database connection timeout");
-      const result = errorResult<TestState>("connection", "establish", error, false);
+      const result = errorResult<TestState>("connection", "establish", error);
       expect(result.variant).toBe("error");
       expect(result.status.description).toBe("Database connection timeout");
     });
@@ -114,15 +109,15 @@ describe("result", () => {
 
   describe("nullClientResult", () => {
     it("should create an error result with DisconnectedError", () => {
-      const result = nullClientResult<TestState>("user", "fetch", false);
+      const result = nullClientResult<TestState>("user", "fetch");
 
-      expect(result.variant).toBe("error");
+      expect(result.variant).toBe("disabled");
       expect(result.status.message).toBe("Failed to fetch user");
       expect(result.data).toBeNull();
     });
 
     it("should include correct disconnection message", () => {
-      const result = nullClientResult<TestState>("channel", "create", false);
+      const result = nullClientResult<TestState>("channel", "create");
 
       expect(result.status.description).toBe(
         "Cannot create channel because no cluster is connected.",
@@ -130,7 +125,7 @@ describe("result", () => {
     });
 
     it("should handle different operation names", () => {
-      const result = nullClientResult<TestState>("database", "query", false);
+      const result = nullClientResult<TestState>("database", "query");
 
       expect(result.status.message).toBe("Failed to query database");
       expect(result.status.description).toBe(
@@ -139,10 +134,10 @@ describe("result", () => {
     });
 
     it("should maintain consistent structure with other error results", () => {
-      const result = nullClientResult<TestState>("service", "start", false);
-
-      expect(result.variant).toBe("error");
+      const result = nullClientResult<TestState>("service", "start");
+      expect(result.variant).toBe("disabled");
       expect(result.data).toBeNull();
+      expect(result.status.message).toBeDefined();
       expect(result.status.description).toBeDefined();
     });
   });

@@ -58,7 +58,10 @@ export class Writer {
       this.client,
       CREATE_ENDPOINT,
       {
-        channels: channels.map((c) => ({ ...c, dataType: c.dataType as DataType })),
+        channels: channels.map((c) => ({
+          ...c,
+          dataType: c.dataType as DataType,
+        })),
       },
       createReqZ,
       createResZ,

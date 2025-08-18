@@ -17,9 +17,10 @@ interface RackProps {
 }
 
 export const Rack = ({ taskKey }: RackProps) => {
-  const rackKey = task.rackKey(taskKey);
-  const rack = PRack.use(rackKey);
-  if (rack == null) return null;
+  const rack = PRack.retrieve.useDirect({
+    params: { key: task.rackKey(taskKey) },
+  }).data;
+  if (rack == null) return;
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>

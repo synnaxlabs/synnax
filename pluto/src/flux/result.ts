@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
 import { caseconv, status } from "@synnaxlabs/x";
 
 import { type state } from "@/state";
@@ -36,19 +35,21 @@ export type Result<Data extends state.State> =
       variant: "error";
       status: status.Status<status.ExceptionDetails, "error">;
       data: null;
-      listenersMounted: boolean;
     }
   | {
       variant: "success";
       status: status.Status<undefined, "success">;
       data: Data;
-      listenersMounted: boolean;
     }
   | {
       variant: "loading";
       status: status.Status<undefined, "loading">;
       data: null | Data;
-      listenersMounted: boolean;
+    }
+  | {
+      variant: "disabled";
+      status: status.Status<undefined, "disabled">;
+      data: null | Data;
     };
 
 /**
@@ -70,7 +71,6 @@ export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
   data: Data | null,
-  listenersMounted: boolean,
 ): Result<Data> => ({
   variant: "loading",
   status: status.create<undefined, "loading">({
@@ -78,7 +78,6 @@ export const pendingResult = <Data extends state.State>(
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
-  listenersMounted,
 });
 
 /**
@@ -100,7 +99,6 @@ export const successResult = <Data extends state.State>(
   name: string,
   op: string,
   data: Data,
-  listenersMounted: boolean,
 ): Result<Data> => ({
   variant: "success",
   status: status.create<undefined, "success">({
@@ -108,7 +106,6 @@ export const successResult = <Data extends state.State>(
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data,
-  listenersMounted,
 });
 
 /**
@@ -130,12 +127,10 @@ export const errorResult = <Data extends state.State>(
   name: string,
   op: string,
   error: unknown,
-  listenersMounted: boolean,
 ): Result<Data> => ({
   variant: "error",
   status: status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
-  listenersMounted,
 });
 
 /**
@@ -155,11 +150,12 @@ export const errorResult = <Data extends state.State>(
 export const nullClientResult = <Data extends state.State>(
   name: string,
   opName: string,
-  listenersMounted: boolean,
-): Result<Data> =>
-  errorResult(
-    name,
-    opName,
-    new DisconnectedError(`Cannot ${opName} ${name} because no cluster is connected.`),
-    listenersMounted,
-  );
+): Result<Data> => ({
+  variant: "disabled",
+  status: status.create<undefined, "disabled">({
+    variant: "disabled",
+    message: `Failed to ${opName} ${name}`,
+    description: `Cannot ${opName} ${name} because no cluster is connected.`,
+  }),
+  data: null,
+});

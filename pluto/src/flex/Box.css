@@ -264,6 +264,18 @@
     &.pluto--color-11 {
         color: var(--pluto-gray-l11);
     }
+    &.pluto--status-error {
+        color: var(--pluto-error-z);
+    }
+    &.pluto--status-warning {
+        color: var(--pluto-warning-z);
+    }
+    &.pluto--status-success {
+        color: var(--pluto-primary-z);
+    }
+    &.pluto--status-disabled {
+        color: var(--pluto-gray-l8);
+    }
 
     &.pluto--square {
         align-items: center;

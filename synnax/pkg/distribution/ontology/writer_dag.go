@@ -66,6 +66,14 @@ func (d dagWriter) HasResource(ctx context.Context, key ID) (bool, error) {
 	return gorp.NewRetrieve[ID, Resource]().WhereKeys(key).Exists(ctx, d.tx)
 }
 
+func (d dagWriter) HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error) {
+	return d.checkRelationshipExists(ctx, Relationship{
+		From: from,
+		Type: t,
+		To:   to,
+	})
+}
+
 func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
 	for _, id := range ids {
 		if err := d.deleteIncomingRelationships(ctx, id); err != nil {

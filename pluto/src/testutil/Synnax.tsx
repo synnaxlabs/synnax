@@ -18,6 +18,7 @@ import {
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
+import { Pluto } from "@/pluto";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -27,7 +28,7 @@ import { createAetherProvider } from "@/testutil/Aether";
 const AetherProvider = createAetherProvider({
   ...synnax.REGISTRY,
   ...status.REGISTRY,
-  ...flux.REGISTRY,
+  ...flux.createRegistry({ storeConfig: {} }),
 });
 
 interface ClientConnector {
@@ -41,11 +42,39 @@ export const useConnectToClient = () => use(Context);
 export const newSynnaxWrapper = (
   client: Client | null = null,
 ): FC<PropsWithChildren> => {
+  const fluxClient = new Flux.Client({
+    client,
+    storeConfig: Pluto.FLUX_STORE_CONFIG,
+    handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
+  });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider>{children}</Flux.Provider>
+          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
+        </Synnax.TestProvider>
+      </Status.Aggregator>
+    </AetherProvider>
+  );
+  return Wrapper;
+};
+
+export const newSynnaxWrapperWithAwait = async (
+  client: Client | null = null,
+): Promise<FC<PropsWithChildren>> => {
+  const fluxClient = new Flux.Client({
+    client,
+    storeConfig: Pluto.FLUX_STORE_CONFIG,
+    handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
+  });
+  await fluxClient.awaitInitialized();
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <AetherProvider>
+      <Status.Aggregator>
+        <Synnax.TestProvider client={client}>
+          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>

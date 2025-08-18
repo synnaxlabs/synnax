@@ -113,7 +113,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   reset(initialValues?: z.infer<Z>) {
-    if (initialValues != null) this.initialValues = initialValues;
+    if (deep.equal(this.values, initialValues ?? this.initialValues)) return;
+    if (initialValues != null) this.initialValues = deep.copy(initialValues);
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
     this.touched.clear();
@@ -121,7 +122,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.cachedRefs.forEach((_, path) => {
       const prev = deep.get(this.values, path, { optional: true });
       const next = deep.get(nextValues, path, { optional: true });
-      if (prev !== next) cachedRefsToClear.add(path);
+      if (!deep.equal(prev, next)) cachedRefsToClear.add(path);
     });
     cachedRefsToClear.forEach((path) => this.cachedRefs.delete(path));
     this.values = nextValues;
