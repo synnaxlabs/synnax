@@ -42,6 +42,11 @@ export class Client<ScopedStore extends Store = Store> {
     });
   }
 
+  async awaitInitialized() {
+    if (this.streamCloser == null) return;
+    await this.streamCloser;
+  }
+
   scopedStore<ScopedStore extends Store>(scope: string): ScopedStore {
     return scopeStore<ScopedStore>(this.store, scope);
   }

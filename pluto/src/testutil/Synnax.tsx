@@ -58,3 +58,24 @@ export const newSynnaxWrapper = (
   );
   return Wrapper;
 };
+
+export const newSynnaxWrapperWithAwait = async (
+  client: Client | null = null,
+): Promise<FC<PropsWithChildren>> => {
+  const fluxClient = new Flux.Client({
+    client,
+    storeConfig: Pluto.FLUX_STORE_CONFIG,
+    handleError: status.createErrorHandler(console.error),
+  });
+  await fluxClient.awaitInitialized();
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <AetherProvider>
+      <Status.Aggregator>
+        <Synnax.TestProvider client={client}>
+          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
+        </Synnax.TestProvider>
+      </Status.Aggregator>
+    </AetherProvider>
+  );
+  return Wrapper;
+};

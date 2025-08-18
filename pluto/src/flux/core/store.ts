@@ -58,6 +58,10 @@ export class ScopedUnaryStore<
     return this.entries.get(keys);
   }
 
+  has(key: K): boolean {
+    return this.entries.has(key);
+  }
+
   /**
    * Deletes an entry from the store and notifies delete listeners.
    * @param key - The key to delete
@@ -134,6 +138,7 @@ export class ScopedUnaryStore<
         K,
         V
       >["get"],
+      has: (key: K) => this.has(key),
       delete: (key: K | K[]) => this.delete(scope, key),
       onSet: (callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K) =>
         this.onSet(scope, callback, key),
@@ -212,6 +217,7 @@ export interface UnaryStore<
   set(key: K, value: state.SetArg<V | undefined>): void;
   get(key: K): V | undefined;
   get(keys: K[] | ((value: V) => boolean)): V[];
+  has(key: K): boolean;
   delete(key: K | K[]): void;
   onSet(callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K): Destructor;
   onDelete(callback: observe.AsyncHandler<K> | observe.Handler<K>, key?: K): Destructor;

@@ -53,8 +53,12 @@ export const RELATIONSHIP_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
 const RESOURCE_SET_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: async ({ store, changed, client }) =>
-    store.resources.set(changed.key, await client.ontology.retrieve(changed)),
+  onChange: async ({ store, changed, client }) => {
+    store.resources.set(
+      ontology.idToString(changed),
+      await client.ontology.retrieve(changed),
+    );
+  },
 };
 
 const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
