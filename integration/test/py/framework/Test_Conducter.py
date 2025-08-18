@@ -307,7 +307,7 @@ class Test_Conductor:
                 
                 print(f"{self.name} > Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})")
             
-            print(f"{self.name} > Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from {sequence}")
+            print(f"{self.name} > Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences from: \n{sequence}")
         else:
             # Old format: single sequence
             for test in sequence_data.get("tests", []):
@@ -938,7 +938,7 @@ if __name__ == "__main__":
         
         if conductor.test_results:
             stats = conductor._get_test_statistics()
-            
+
             if stats['total_failed'] > 0:
                 print(f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests")
                 sys.exit(1)

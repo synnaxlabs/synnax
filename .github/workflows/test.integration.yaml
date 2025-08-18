@@ -152,14 +152,30 @@ jobs:
 
       - name: Set up Poetry
         run: |
+          sudo apt-get update
+          sudo apt-get install -y curl python3-pip
           curl -sSL https://install.python-poetry.org | python3 -
+          
+          # Add Poetry to PATH for this session
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Verify installation
+          poetry --version
 
       - name: Install Dependencies
         working-directory: integration/py
         run: |
+          # Ensure Poetry is in PATH
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Install dependencies
           poetry install
 
       - name: Run Conductor Test
         working-directory: integration/test/py/framework
         run: |
-          poetry run python3 Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
+          # Ensure Poetry is in PATH for this step
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Run the test from the correct directory, pointing to the pyproject.toml location
+          poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
