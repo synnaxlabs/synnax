@@ -24,8 +24,6 @@ class Bench_Latency_Response(TestCase):
 
     def setup(self) -> None:
 
-        self.Expected_Timeout = 15
-
         self.bench_client = sy.Synnax(
             host=self.SynnaxConnection.server_address,
             port=self.SynnaxConnection.port,
@@ -37,8 +35,6 @@ class Bench_Latency_Response(TestCase):
         self.STATE_CHANNEL = "bench_state"
         self.CMD_CHANNEL = "bench_command"
         self.STATE = True
-
-        time = list()
 
         self.bench_client.channels.create(
             name=self.STATE_CHANNEL,
@@ -64,19 +60,21 @@ class Bench_Latency_Response(TestCase):
         """
         start = time.time()
         uptime = 0
-        with self.bench_client.open_streamer(self.CMD_CHANNEL) as stream:
-            with self.bench_client.open_writer(sy.TimeStamp.now(), self.STATE_CHANNEL) as writer:
-                while uptime < 10:
-                    frame = stream.read(timeout=0)
-                    if frame is not None:
-                        writer.write(self.STATE_CHANNEL, frame[self.CMD_CHANNEL])
-                    uptime = time.time() - start
 
+        # Set channels here to avoid calling "self"
+        STATE_CHANNEL = self.STATE_CHANNEL
+        CMD_CHANNEL = self.CMD_CHANNEL
+        try:
 
-    def teardown(self) -> None:
-        """
-        Teardown the test case.
-        """
+            with self.bench_client.open_streamer(CMD_CHANNEL) as stream:
+                with self.bench_client.open_writer(sy.TimeStamp.now(), STATE_CHANNEL) as writer:
+                    while uptime < 10:
+                        frame = stream.read(timeout=2.5)
+                        if frame is not None:
+                            writer.write(STATE_CHANNEL, frame[CMD_CHANNEL])
+                        else:
+                            # Only check uptime if we're not getting frames
+                            uptime = time.time() - start
 
-        # Always call super() last
-        super().teardown()
+        except Exception as e:
+            raise Exception(f"EXCEPTION: {e}")

@@ -350,7 +350,10 @@ class TestCase(ABC):
             self._log_message(f"TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
-            
+
+    def fail(self) -> None:
+        self._status = STATUS.FAILED
+
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
         try:

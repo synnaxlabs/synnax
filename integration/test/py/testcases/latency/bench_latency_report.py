@@ -17,6 +17,8 @@ import platform
 import subprocess
 import sys
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -172,8 +174,6 @@ class Bench_Latency_Report(TestCase):
 
         self.loop_start = sy.TimeStamp.now()
 
-        self.BENCH_TIME = sy.TimeSpan.SECOND * 3
-
 
         # Just make sure to call super() last!
         super().setup()
@@ -183,18 +183,30 @@ class Bench_Latency_Report(TestCase):
         Run the test case.
         """
 
+        # Wait for the "response" to start
+        time.sleep(3)
         cycles = 0
         times = list()
-        with self.report_client.open_streamer(self.STATE_CHANNEL) as stream:
-            with self.report_client.open_writer(sy.TimeStamp.now(), self.CMD_CHANNEL) as writer:
-                while sy.TimeStamp.since(self.loop_start) < self.BENCH_TIME:
-                    start = sy.TimeStamp.now()
-                    writer.write(self.CMD_CHANNEL, self.STATE)
-                    value = stream.read()
-                    times.append(sy.TimeStamp.since(start))
-                    cycles += 1
+        loop_start = sy.TimeStamp.now()
+        STATE_CHANNEL = self.STATE_CHANNEL
+        CMD_CHANNEL = self.CMD_CHANNEL
+        BENCH_TIME = sy.TimeSpan.SECOND * 3
 
-        self._log_message(f"Cycles/second: {cycles / self.BENCH_TIME.seconds}")
+        # Set channels here to avoid calling "self"
+        try:
+            with self.report_client.open_streamer(STATE_CHANNEL) as stream:
+                with self.report_client.open_writer(sy.TimeStamp.now(), CMD_CHANNEL) as writer:
+                    while sy.TimeStamp.since(loop_start) < BENCH_TIME:
+                        start = sy.TimeStamp.now()
+                        writer.write(CMD_CHANNEL, self.STATE)
+                        value = stream.read()
+                        times.append(sy.TimeStamp.since(start))
+                        cycles += 1
+        
+        except Exception as e:
+            raise Exception(f"EXCEPTION: {e}")
+        
+        self._log_message(f"Cycles/second: {cycles / BENCH_TIME.seconds}")
 
 
         # Convert times to milliseconds for better readability
@@ -289,22 +301,46 @@ class Bench_Latency_Report(TestCase):
         plt.tight_layout()
         plt.subplots_adjust(top=0.85)  # Make room for the title and description
 
-        # Print statistics
-        print(f"P90: {p90:.2f}ms")
-        print(f"P95: {p95:.2f}ms")
-        print(f"P99: {p99:.2f}ms")
-        print(f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms")
-        print(f"Average jitter: {average_jitter:.2f}ms")
+        # Selected arbitrarily. However, these values should 
+        # provide a good maximumm threshold
+        max_p90 = 0.4
+        max_p95 = 0.45
+        max_p99 = 0.55
+        max_peak_to_peak_jitter = 2
+        max_average_jitter = 0.05
 
-        plt.savefig("bench_latency_load_2.png")
+        # Print statistics
+        if p90 > max_p90:
+            self._log_message(f"P90 is greater than {max_p90}ms (FAILED)")
+            self.fail()
+        else:
+            self._log_message(f"P90: {p90:.2f}ms")
+            
+        if p95 > max_p95:
+            self._log_message(f"P95 is greater than {max_p95}ms (FAILED)")
+            self.fail()
+        else:
+            self._log_message(f"P95: {p95:.2f}ms")
+
+        if p99 > max_p99:
+            self._log_message(f"P99 is greater than {max_p99}ms (FAILED)")
+            self.fail()
+        else:
+            self._log_message(f"P99: {p99:.2f}ms")
+
+        if peak_to_peak_jitter > max_peak_to_peak_jitter:
+            self._log_message(f"Peak-to-peak jitter is greater than {max_peak_to_peak_jitter}ms (FAILED)")  
+            self.fail()
+        else:
+            self._log_message(f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms")
+        
+        if average_jitter > max_average_jitter:
+            self._log_message(f"Average jitter is greater than {max_average_jitter}ms (FAILED)")
+            self.fail()
+        else:
+            self._log_message(f"Average jitter: {average_jitter:.2f}ms")
+
+        plt.savefig("bench_latency_load.jpg", dpi=300, bbox_inches='tight')
+        plt.close(fig)  # Close the figure to free memory
 
         
-
-
-    def teardown(self) -> None:
-        """
-        Teardown the test case.
-        """
-
-        # Always call super() last
-        super().teardown()
