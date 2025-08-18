@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
+import gc
+import argparse
 import json
 import logging
 import os
@@ -906,7 +907,8 @@ def monitor_test_execution(conductor: Test_Conductor) -> None:
         time.sleep(1)
 
 if __name__ == "__main__":
-    import argparse
+
+    gc.disable()
     
     parser = argparse.ArgumentParser(description="Run test sequences")
     parser.add_argument("--name", default=None, help="Test conductor name")
@@ -957,3 +959,4 @@ if __name__ == "__main__":
             conductor.log_message("\nNo test results available")
             sys.exit(1)
 
+    gc.enable()

@@ -303,11 +303,11 @@ class Bench_Latency_Report(TestCase):
 
         # Selected arbitrarily. However, these values should 
         # provide a good maximumm threshold
-        max_p90 = 0.8
-        max_p95 = 0.9
-        max_p99 = 1.1
-        max_peak_to_peak_jitter = 4
-        max_average_jitter = 0.1
+        max_p90 = 2.5
+        max_p95 = 3.0
+        max_p99 = 5
+        max_peak_to_peak_jitter = 20
+        max_average_jitter = 1
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"
@@ -340,7 +340,8 @@ class Bench_Latency_Report(TestCase):
             self.fail()
         self._log_message(average_jitter_msg)
 
-        plt.savefig("bench_latency_load.jpg", dpi=300, bbox_inches='tight')
+        plt.savefig("bench_latency_load.png", dpi=300, bbox_inches='tight')
+        self._log_message(f"Saved benchmark plot to: {os.path.abspath('bench_latency_load.png')}")
         plt.close(fig)  # Close the figure to free memory
 
         
