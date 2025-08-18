@@ -19,6 +19,7 @@ import { Form } from "@/form";
 import { useCombinedStateAndRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { state } from "@/state";
+import { Status } from "@/status";
 
 /**
  * Configuration arguments for creating a form query.
@@ -175,6 +176,7 @@ export const createForm = <
       Result<z.infer<Schema> | null>
     >(pendingResult(name, "retrieving", null));
     const scope = useUniqueKey(argsScope);
+    const addstatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -194,6 +196,7 @@ export const createForm = <
         resultRef.current = nextStatus;
         if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
+        if (nextStatus.variant === "error") addstatus(nextStatus.status);
       },
       [form],
     ) satisfies state.Setter<Result<z.infer<Schema> | null>>;

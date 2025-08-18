@@ -45,6 +45,12 @@ const handleSelect: Ontology.HandleSelect = ({
   const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
+  const nonVirtualSelection = selection
+    .filter((s) => s.data?.virtual !== true || s.data.expression != "")
+    .map((s) => Number(s.id.key));
+
+  if (nonVirtualSelection.length === 0) return;
+
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE:
@@ -53,7 +59,7 @@ const handleSelect: Ontology.HandleSelect = ({
           key: layout.key,
           mode: "add",
           axisKey: "y1",
-          channels: selection.map((s) => Number(s.id.key)),
+          channels: nonVirtualSelection,
         }),
       );
       break;
@@ -62,7 +68,7 @@ const handleSelect: Ontology.HandleSelect = ({
         LinePlot.create({
           channels: {
             ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: selection.map((s) => Number(s.id.key)),
+            y1: nonVirtualSelection,
           },
         }),
       );
@@ -248,7 +254,7 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs },
+    selection: { resourceIDs, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
@@ -279,7 +285,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {isCalc && (
         <>
           <PMenu.Divider />
