@@ -4,10 +4,10 @@
         "sequence_order": "asynchronous",
         "tests": [
             {
-                "case": "testcases.latency.bench_latency_response"
+                "case": "testcases/latency/bench_latency_response"
             },
             {
-                "case": "testcases.latency.bench_latency_report"
+                "case": "testcases/latency/bench_latency_report"
             }
         ]
     },
@@ -16,7 +16,7 @@
         "sequence_order": "Sequential",
         "tests": [
             {
-                "case": "testcases.check_connection_basic",
+                "case": "testcases/check_connection_basic",
                 "parameters": {
                     "timeout": 2,
                     "wait_time": 5
@@ -24,10 +24,10 @@
                 "expect": "TIMEOUT"
             },
             {
-                "case": "testcases.check_connection_basic"
+                "case": "testcases/check_connection_basic"
             },
             {
-                "case": "testcases.test_no_timeout"
+                "case": "testcases/test_no_timeout"
             }
         ]
     },
@@ -36,14 +36,14 @@
         "sequence_order": "asynchronous",
         "tests": [
             {
-                "case": "testcases.check_connection_basic"
+                "case": "testcases/check_connection_basic"
             },
             {
-                "case": "testcases.simple_async",
+                "case": "testcases/simple_async",
                 "name": "name_test_123"
             },
             {
-                "case": "testcases.simple_async",
+                "case": "testcases/simple_async",
                 "name": "name_test_abc",
                 "expect": "PASSED"
             }
