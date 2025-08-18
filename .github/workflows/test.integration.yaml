@@ -127,11 +127,68 @@ jobs:
           sudo systemctl stop synnax || true
           sudo systemctl enable synnax
           sudo systemctl start synnax
-          sleep 10
+          
+          echo "Waiting for Synnax service to start and stabilize..."
+          sleep 15
+          
+          # Check service status
+          echo "=== Service Status ==="
           sudo systemctl status synnax
-          echo "Synnax service installed and started"
+          
+          # Wait a bit more and check again
+          sleep 10
+          
+          # Verify service is actually running and responding
+          echo "=== Health Check ==="
+          if sudo systemctl is-active --quiet synnax; then
+            echo "Service is active, checking if it's responding on port 9090..."
+            
+            # Try to connect to the service
+            if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
+              echo "✅ Synnax service is responding on port 9090"
+            else
+              echo "❌ Service is running but not responding on port 9090"
+              echo "=== Recent logs ==="
+              sudo journalctl -u synnax --no-pager -n 20
+              exit 1
+            fi
+          else
+            echo "❌ Service failed to start"
+            echo "=== Recent logs ==="
+            sudo journalctl -u synnax --no-pager -n 20
+            exit 1
+          fi
+          
+          echo "Synnax service installed and started successfully"
           echo "Check logs with: sudo journalctl -u synnax -f"
           echo "Manage service with: sudo systemctl [start|stop|restart|status] synnax"
+
+      - name: Verify Service Health
+        run: |
+          echo "=== Final Service Verification ==="
+          
+          # Check if service is still running
+          if sudo systemctl is-active --quiet synnax; then
+            echo "✅ Service is active"
+          else
+            echo "❌ Service is not active"
+            sudo systemctl status synnax
+            exit 1
+          fi
+          
+          # Check if it's listening on port 9090
+          if netstat -tlnp | grep :9090; then
+            echo "✅ Service is listening on port 9090"
+          else
+            echo "❌ Service is not listening on port 9090"
+            exit 1
+          fi
+          
+          # Show recent logs to verify no errors
+          echo "=== Recent Service Logs ==="
+          sudo journalctl -u synnax --no-pager -n 10
+          
+          echo "Service verification complete - Synnax is ready for testing"
 
   test:
     name: Run Test Conductor
