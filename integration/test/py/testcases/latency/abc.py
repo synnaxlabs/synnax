@@ -107,8 +107,7 @@ class Latency_ABC(TestCase):
                 if td is not None:
                     self.tlm['t_d'] = td
                 
-                self.tlm['t_a'] = sy.TimeStamp.now()
-                
+                self.tlm['t_a'] = sy.TimeStamp.now()           
         
         elif self.mode == "b":
             while self.loop.wait() and self.should_continue:

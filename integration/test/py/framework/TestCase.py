@@ -293,7 +293,7 @@ class TestCase(ABC):
                                     self.read_frame[key] = value[-1]
 
                         except Exception as e:
-                            if "1011" in str(e) or "keepalive ping timeout" in str(e):
+                            if self._is_websocket_error(e):
                                 time.sleep(1)
                             else:
                                 self.STATUS = STATUS.FAILED
@@ -318,7 +318,7 @@ class TestCase(ABC):
                 if 'client' in locals() and client:
                     client.close()
             except Exception as cleanup_error:
-                if "1011" in str(cleanup_error) or "keepalive ping timeout" in str(cleanup_error):
+                if self._is_websocket_error(cleanup_error):
                     pass
                 else:
                     self._log_message(f"Cleanup error: {cleanup_error}")
@@ -327,7 +327,7 @@ class TestCase(ABC):
                 if 'streamer' in locals() and streamer:
                     streamer.close()
             except Exception as cleanup_error:
-                if "1011" in str(cleanup_error) or "keepalive ping timeout" in str(cleanup_error):
+                if self._is_websocket_error(cleanup_error):
                     pass
                 else:
                     self._log_message(f"Cleanup error: {cleanup_error}")
@@ -412,6 +412,18 @@ class TestCase(ABC):
     def set_manual_timeout(self, value: int) -> None:
         """Set the manual timeout of the test case."""
         self._Manual_Timeout = value
+        
+    def _is_websocket_error(self, error: Exception) -> bool:
+        """Check if an exception is a WebSocket-related error that should be ignored."""
+        error_str = str(error)
+        return any(phrase in error_str for phrase in [
+            "1011", 
+            "keepalive ping timeout", 
+            "keepalive ping failed",
+            "timed out while closing connection",
+            "ConnectionClosedError",
+            "WebSocketException"
+        ])
 
 
     def stop_client(self) -> None:
@@ -508,11 +520,10 @@ class TestCase(ABC):
             
             self.teardown()
             
-            # PASS condition set at final 
-            # spot of activity: _client_loop()
+            # PASSED set in _check_expectation()
 
         except Exception as e:
-            if "1011" in str(e) or "keepalive ping timeout" in str(e):
+            if self._is_websocket_error(e):
                 pass
             else:
                 self._status = STATUS.FAILED

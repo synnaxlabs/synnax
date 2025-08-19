@@ -20,5 +20,38 @@
                 "name": "async_d"
             }
         ]
+    },
+    {
+        "sequence_name": "Bench_Latency",
+        "sequence_order": "asynchronous",
+        "tests": [
+            {
+                "case": "testcases/latency/bench_latency_response"
+            },
+            {
+                "case": "testcases/latency/bench_latency_report"
+            }
+        ]
+    },
+    
+    {
+        "sequence_name": "Sequential_Tests",
+        "sequence_order": "Sequential",
+        "tests": [
+            {
+                "case": "testcases/check_connection_basic",
+                "parameters": {
+                    "timeout": 2,
+                    "wait_time": 5
+                },
+                "expect": "TIMEOUT"
+            },
+            {
+                "case": "testcases/check_connection_basic"
+            },
+            {
+                "case": "testcases/test_no_timeout"
+            }
+        ]
     }
 ]
