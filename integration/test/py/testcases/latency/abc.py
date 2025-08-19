@@ -63,7 +63,7 @@ class Latency_ABC(TestCase):
 
         self.configure(
             loop_rate=0.01,
-            manual_timeout=15
+            manual_timeout=30
         )
         
 
@@ -89,37 +89,32 @@ class Latency_ABC(TestCase):
             self.add_channel("d_cd",sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_da",sy.DataType.FLOAT64, 0, False)
 
-        time.sleep(2)
-        # Just make sure to call super() last!
-        super().setup()
 
     def run(self) -> None:
         """
         Run the test case.
         """
-
-        self.set_manual_timeout(60)
         
         # Wait for the client thread to start and populate data
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
                 if td is not None:
-                    self.tlm['t_d'] = td
+                    self.write_tlm('t_d', td)
                 
-                self.tlm['t_a'] = sy.TimeStamp.now()           
+                self.write_tlm('t_a', sy.TimeStamp.now())           
         
         elif self.mode == "b":
             while self.loop.wait() and self.should_continue:
                 t_b = self.read_tlm("t_a", None)
                 if t_b is not None:
-                    self.tlm['t_b'] = t_b
+                    self.write_tlm('t_b', t_b)
 
         elif self.mode == "c":
             while self.loop.wait() and self.should_continue:
                 t_c = self.read_tlm("t_b", None)
                 if t_c is not None:
-                    self.tlm['t_c'] = t_c
+                    self.write_tlm('t_c', t_c)
 
         elif self.mode == "d":
             # 100Hz for 20 seconds
@@ -155,8 +150,7 @@ class Latency_ABC(TestCase):
                     delta_d_a[idx] = d_da
                     
                     idx += 1
-
-                
+            
         
     def teardown(self) -> None:
         """`

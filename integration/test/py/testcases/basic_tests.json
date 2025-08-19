@@ -40,11 +40,20 @@
         "tests": [
             {
                 "case": "testcases/check_connection_basic",
+                "name": "inject_timeout",
                 "parameters": {
                     "timeout": 2,
                     "wait_time": 5
                 },
                 "expect": "TIMEOUT"
+            },
+            {
+                "case": "testcases/check_connection_basic",
+                "name": "inject_failure",
+                "parameters": {
+                    "fail_test": true
+                },
+                "expect": "FAILED"
             },
             {
                 "case": "testcases/check_connection_basic"
