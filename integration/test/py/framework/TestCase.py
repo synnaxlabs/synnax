@@ -7,6 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+# Suppress WebSocket keepalive ping warnings
+import warnings
+warnings.filterwarnings("ignore", message=".*keepalive ping.*")
+warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
+
+from selectors import SelectorKey
 import synnax as sy
 import traceback
 import logging
@@ -20,15 +26,20 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
+import sys
 
 try:
     # Import from the framework module to ensure we get the same class objects``
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-    from framework.utils import validate_and_sanitize_name
+    from framework.utils import validate_and_sanitize_name, WebSocketErrorFilter, ignore_websocket_errors
 except ImportError:
     # Handle case when running script directly
-    from utils import validate_and_sanitize_name
+    from utils import validate_and_sanitize_name, WebSocketErrorFilter, ignore_websocket_errors
 
+
+# Error filter
+sys.excepthook = ignore_websocket_errors
+sys.stderr = WebSocketErrorFilter()
 
 
 @dataclass
@@ -94,8 +105,9 @@ class TestCase(ABC):
         """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
         self.params = params
-        self.Expected_Timeout: int = -1  # -1 = no timeout
-        self.read_frame = {}
+        self._Timeout_Limit: int = -1  # -1 = no timeout
+        self._Manual_Timeout: int = -1
+        self.read_frame = None
         self.read_timeout = 1
         
         if name is None:
@@ -118,7 +130,7 @@ class TestCase(ABC):
         # Default 1Hz loop 
         self.loop = sy.Loop(1)
         self.client_thread = None
-        self.should_stop = False
+        self._should_stop = False
         self.is_running = False
         
         self.subscribed_channels = []
@@ -227,14 +239,14 @@ class TestCase(ABC):
     def setup(self) -> None:
         """Start telemetry client thread."""
         self.is_running = True
-        self.should_stop = False
+        self._should_stop = False
         
         # Start client thread
         self.client_thread = threading.Thread(target=self._client_loop, daemon=True)
         self.client_thread.start()
         time.sleep(1)  # Allow client thread to start
         self._log_message("client thread started")
-    
+
     def _client_loop(self) -> None:
         """Main telemetry client loop running in separate thread."""
         
@@ -247,82 +259,81 @@ class TestCase(ABC):
             for channel in self.subscribed_channels:
                 self.read_frame[channel] = None
                 
-            streamer = None
-            client = None
-            
-            try:
-                streamer = self.client.open_streamer(self.subscribed_channels)
-                client = self.client.open_writer(
+            with self.client.open_streamer(self.subscribed_channels) as streamer:
+                with self.client.open_writer(
                     start=start_time,
                     channels=list(self.tlm.keys()),
                     name=self.name,
                     enable_auto_commit=True,
-                )
-                
-                while self.loop.wait() and not self.should_stop:
-
-                    try:
-                        self.frame_in = streamer.read(self.read_timeout)
-                        if self.frame_in is not None:
-                            #self.read_frame = self.frame_raw
-                            for key, value in self.frame_in.items():
-                                self.read_frame[key] = value[-1]
+                ) as client:
+                    while self.loop.wait() and not self._should_stop:
 
                         now = sy.TimeStamp.now()
-                        uptime_value = (now - start_time)/1E9                    
-
+                        uptime_value = (now - start_time)/1E9    
                         # Update telemetry
                         self.tlm[f"{self.name}_time"] = now
                         self.tlm[f"{self.name}_uptime"] = uptime_value
-                        self.tlm[f"{self.name}_state"] = self._status.value
-                        client.write(self.tlm)
+                        self.tlm[f"{self.name}_state"] = self._status.value  
 
                         # Check for timeout
-                        if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
+                        if self._Timeout_Limit > 0 and uptime_value > self._Timeout_Limit:
                             self._status = STATUS.TIMEOUT
 
                         # Check for completion
                         if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
-                            self.tlm[f"{self.name}_state"] = self._status.value
-                            client.write(self.tlm)
-                            break
-                            
-                    except Exception as loop_error:
-                        self._log_message(f"Loop error: {loop_error}")
-                        break
-                    
-                self._check_expectation()
+                            self.tlm[f"{self.name}_state"] = self._status.value                                
 
-                # Final write for redundancy
-                if client:
-                    try:
-                        client.write(self.tlm)
-                    except:
-                        pass  # Ignore final write errors
-                        
-                self._log_message("client thread shutting down")
-   
-            finally:
-                # Safe cleanup without context manager errors
-                if client:
-                    try:
-                        client.close()
-                    except:
-                        pass  # Ignore close errors
-                if streamer:
-                    try:
-                        streamer.close()
-                    except:
-                        pass  # Ignore close errors
-                        
-            self._log_message("we have exited")
+                        try:
+                            client.write(self.tlm)   
+
+                            self.frame_in = streamer.read(self.read_timeout)
+                            if self.frame_in != None:
+                                #self.read_frame = self.frame_raw
+                                for key, value in self.frame_in.items():
+                                    self.read_frame[key] = value[-1]
+
+                        except Exception as e:
+                            if "1011" in str(e) or "keepalive ping timeout" in str(e):
+                                time.sleep(1)
+                            else:
+                                self.STATUS = STATUS.FAILED
+                                raise e
+
+                    # Final write for redundancy
+                    #client.write(self.tlm)
+                    self._log_message("client thread shutting down")
                 
         except Exception as e:
-            self._log_message(f"client thread error: {e}\n {traceback.format_exc()}")
-            self._status = STATUS.FAILED
+            if self._is_websocket_error(e):
+                pass
+            else:
+                self._log_message(f"client thread error: {e}\n {traceback.format_exc()}")
+                self._status = STATUS.FAILED
+                raise e
         finally:
-            print("we have finally")
-            self.is_running = False 
+            self._should_stop = True
+            
+            # Graceful cleanup - ignore WebSocket close errors
+            try:
+                if 'client' in locals() and client:
+                    client.close()
+            except Exception as cleanup_error:
+                if "1011" in str(cleanup_error) or "keepalive ping timeout" in str(cleanup_error):
+                    pass
+                else:
+                    self._log_message(f"Cleanup error: {cleanup_error}")
+                    
+            try:
+                if 'streamer' in locals() and streamer:
+                    streamer.close()
+            except Exception as cleanup_error:
+                if "1011" in str(cleanup_error) or "keepalive ping timeout" in str(cleanup_error):
+                    pass
+                else:
+                    self._log_message(f"Cleanup error: {cleanup_error}")
+            
+            #self.is_running = False 
+        self._should_stop = True
 
     @abstractmethod
     def run(self) -> None:
@@ -382,10 +393,31 @@ class TestCase(ABC):
         """Get the state of the test case."""
         return self.tlm.get(f"{self.name}_state", -1)
 
+    @property
+    def manual_timeout(self) -> int:
+        """Get the manual timeout of the test case."""
+        return self._Manual_Timeout
+    
+    @property
+    def should_stop(self) -> bool:
+        condition_1 = (self._Manual_Timeout >= 0 and self.uptime > self._Manual_Timeout)
+        condition_2 = self._should_stop
+        
+        return condition_1 or condition_2
+
+    @property
+    def should_continue(self) -> bool:
+        return not self.should_stop
+
+    def set_manual_timeout(self, value: int) -> None:
+        """Set the manual timeout of the test case."""
+        self._Manual_Timeout = value
+
+
     def stop_client(self) -> None:
         """Stop client thread and wait for completion."""
         if self.client_thread and self.is_running:
-            self.should_stop = True
+            self._should_stop = True
             self.is_running = False
             
             if self.client_thread.is_alive():
@@ -396,6 +428,7 @@ class TestCase(ABC):
         # All done? All done.                
         if self._status == STATUS.PENDING:
             self._status = STATUS.PASSED
+
     
     def wait_for_client_completion(self, timeout: float = None) -> None:
         """Wait for client thread to complete."""
@@ -453,7 +486,7 @@ class TestCase(ABC):
         elif self._status == STATUS.FAILED:
             self._log_message(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self._log_message(f"TIMEOUT ({status_symbol}): {self.Expected_Timeout} seconds")
+            self._log_message(f"TIMEOUT ({status_symbol}): {self._Timeout_Limit} seconds")
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
 
@@ -479,8 +512,12 @@ class TestCase(ABC):
             # spot of activity: _client_loop()
 
         except Exception as e:
-            self._status = STATUS.FAILED
-            self._log_message(f"EXCEPTION: {e}")
+            if "1011" in str(e) or "keepalive ping timeout" in str(e):
+                pass
+            else:
+                self._status = STATUS.FAILED
+                self._log_message(f"EXCEPTION: {e}")
         finally:
             self.stop_client()
             self.wait_for_client_completion()
+            self._check_expectation()

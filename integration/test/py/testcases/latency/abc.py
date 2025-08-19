@@ -60,13 +60,14 @@ class Latency_ABC(TestCase):
         """
         Setup the test case.
         """
-        self.global_uptime = 60
-        self.Expected_Timeout = 80
-
-        self.loop = sy.Loop(0.001) # 100Hz
         
 
-        self.mode = self.name[-1] # A, B, or C
+        self.loop = sy.Loop(0.005) # 100Hz
+
+        self.set_manual_timeout(20)
+        
+
+        self.mode = self.name[-1] # A, B, , 
         
         if self.mode == "a":
             self.add_channel(name="t_a", data_type=sy.DataType.TIMESTAMP, initial_value=sy.TimeStamp.now(), append_name=False),
@@ -86,7 +87,7 @@ class Latency_ABC(TestCase):
             self.add_channel("d_ab",sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_bc",sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_cd",sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_ad",sy.DataType.FLOAT64, 0, False)
+            self.add_channel("d_da",sy.DataType.FLOAT64, 0, False)
 
         time.sleep(2)
         # Just make sure to call super() last!
@@ -96,11 +97,12 @@ class Latency_ABC(TestCase):
         """
         Run the test case.
         """
-        time_start = sy.TimeStamp.now()
+
+        self.set_manual_timeout(60)
         
         # Wait for the client thread to start and populate data
         if self.mode == "a":
-            while self.loop.wait() and self.uptime < self.global_uptime:
+            while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
                 if td is not None:
                     self.tlm['t_d'] = td
@@ -109,61 +111,51 @@ class Latency_ABC(TestCase):
                 
         
         elif self.mode == "b":
-            while self.loop.wait() and self.uptime < self.global_uptime:
+            while self.loop.wait() and self.should_continue:
                 t_b = self.read_tlm("t_a", None)
                 if t_b is not None:
                     self.tlm['t_b'] = t_b
 
         elif self.mode == "c":
-            while self.loop.wait() and self.uptime < self.global_uptime:
+            while self.loop.wait() and self.should_continue:
                 t_c = self.read_tlm("t_b", None)
                 if t_c is not None:
                     self.tlm['t_c'] = t_c
 
         elif self.mode == "d":
             # 100Hz for 20 seconds
-            delta_b_a = np.zeros(100*20) 
-            delta_c_b = np.zeros(100*20)
-            delta_d_c = np.zeros(100*20)
-            delta_d_a = np.zeros(100*20)
+            delta_a_b = np.zeros(1000*20) 
+            delta_b_c = np.zeros(1000*20)
+            delta_c_d = np.zeros(1000*20)
+            delta_d_a = np.zeros(1000*20)
             idx = 0
-            times = {
-                "t_a": 0,
-                "t_b": 0,
-                "t_c": 0,
-                "t_d": 0
-            }
-            # To this:
-            while self.loop.wait():
-                #print(self.uptime)
-                if self.uptime >= self.global_uptime:
-                    break
-                time.sleep(0.001)  # Small delay to prevent busy waiting
-                # Just assume we'll never exceed
-                # the 20 second limit for the np arrays
-                t_a = self.read_tlm("t_a")
-                t_b = self.read_tlm("t_b")
-                t_c = self.read_tlm("t_c")
-                t_d = self.read_tlm("t_d")
 
-                d_ab = (t_a - t_b)/1E9
-                d_bc = (t_b - t_c)/1E9
-                d_cd = (t_c - t_d)/1E9
-                d_ad = (t_d - t_a)/1E9
+            time.sleep(5) # Let other processes start
+            while self.loop.wait() and self.should_continue:
 
-                self.write_tlm("d_ab", d_ab)
-                self.write_tlm("d_bc", d_bc)
-                self.write_tlm("d_cd", d_cd)
-                self.write_tlm("d_da", d_ad)
+                    # Just assume we'll never exceed
+                    # the 20 second limit for the np arrays
+                    t_a = self.read_tlm("t_a")
+                    t_b = self.read_tlm("t_b")
+                    t_c = self.read_tlm("t_c")
+                    t_d = self.read_tlm("t_d")
 
-                """
-                delta_b_a[idx] = d_ba
-                delta_c_b[idx] = d_cb
-                delta_d_c[idx] = d_dc
-                delta_d_a[idx] = d_da
-                
-                idx += 1
-                """
+                    d_ab = (t_a - t_b)/1E9
+                    d_bc = (t_b - t_c)/1E9
+                    d_cd = (t_c - t_d)/1E9
+                    d_da = -(t_d - t_a)/1E9
+                    self.write_tlm("d_ab", d_ab)
+                    self.write_tlm("d_bc", d_bc)
+                    self.write_tlm("d_cd", d_cd)
+                    self.write_tlm("d_da", d_da)
+
+
+                    delta_a_b[idx] = d_ab
+                    delta_b_c[idx] = d_bc
+                    delta_c_d[idx] = d_cd
+                    delta_d_a[idx] = d_da
+                    
+                    idx += 1
 
                 
         
