@@ -198,8 +198,12 @@ export const retrieveParent = Flux.createRetrieve<
   mountListeners: ({ store, onChange, client, params: { key } }) => [
     store.ranges.onSet((range) => {
       onChange((prev) => {
-        if (prev == null || prev.key !== key) return prev;
-        return client.ranges.sugarOne({ ...prev, parent: range.parent ?? prev.parent });
+        if (prev == null || prev.key !== range.key) return prev;
+        return client.ranges.sugarOne({
+          ...range,
+          parent: range.parent ?? prev.parent,
+          labels: range.labels ?? prev.labels,
+        });
       });
     }),
     store.relationships.onSet(async (rel) => {
@@ -207,13 +211,11 @@ export const retrieveParent = Flux.createRetrieve<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),
       });
-      if (isParent) {
-        const parent = await cachedRetrieve(client, store, rel.from.key);
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent });
-        });
-      }
+      if (!isParent) return;
+      const parentIsRange = rel.from.type === "range";
+      if (!parentIsRange) return onChange(null);
+      const parent = await cachedRetrieve(client, store, rel.from.key);
+      onChange(client.ranges.sugarOne(parent.payload));
     }),
     store.relationships.onDelete(async (relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
@@ -221,11 +223,7 @@ export const retrieveParent = Flux.createRetrieve<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),
       });
-      if (isParent)
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent: null });
-        });
+      if (isParent) onChange(null);
       const isLabel = ontology.matchRelationship(rel, {
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),

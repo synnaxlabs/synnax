@@ -36,7 +36,7 @@ describe("update", () => {
         { wrapper },
       );
       expect(result.current.variant).toEqual("success");
-      expect(result.current.data).toEqual(null);
+      expect(result.current.data).toEqual(undefined);
       expect(result.current.status.message).toEqual("Updated Resource");
     });
 
@@ -71,7 +71,7 @@ describe("update", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.data).toEqual(null);
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Failed to update Resource");
       });
     });
@@ -90,7 +90,7 @@ describe("update", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("disabled");
-        expect(result.current.data).toEqual(null);
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Failed to update Resource");
       });
     });
@@ -110,8 +110,8 @@ describe("update", () => {
         result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.variant).toEqual("loading");
-        expect(result.current.data).toEqual(null);
         expect(result.current.status.message).toEqual("Updating Resource");
       });
     });

@@ -25,21 +25,25 @@ interface TestState {
 describe("result", () => {
   describe("pendingResult", () => {
     it("should create a loading result with correct structure", () => {
-      const result = pendingResult<TestState>("user", "fetch", null);
+      const result = pendingResult<TestState>("user", "fetch", undefined);
 
       expect(result.variant).toBe("loading");
       expect(result.status.message).toBe("Fetch user");
-      expect(result.data).toBeNull();
+      expect(result.data).toBeUndefined();
     });
 
     it("should capitalize the operation name", () => {
-      const result = pendingResult<TestState>("channel", "create", null);
+      const result = pendingResult<TestState>("channel", "create", undefined);
 
       expect(result.status.message).toBe("Create channel");
     });
 
     it("should handle complex operation names", () => {
-      const result = pendingResult<TestState>("database connection", "establish", null);
+      const result = pendingResult<TestState>(
+        "database connection",
+        "establish",
+        undefined,
+      );
 
       expect(result.status.message).toBe("Establish database connection");
     });
@@ -96,7 +100,7 @@ describe("result", () => {
 
       expect(result.variant).toBe("error");
       expect(result.status.message).toBe("Failed to fetch user");
-      expect(result.data).toBeNull();
+      expect(result.data).toBeUndefined();
     });
 
     it("should include exception details when error is an Error object", () => {
@@ -113,7 +117,7 @@ describe("result", () => {
 
       expect(result.variant).toBe("disabled");
       expect(result.status.message).toBe("Failed to fetch user");
-      expect(result.data).toBeNull();
+      expect(result.data).toBeUndefined();
     });
 
     it("should include correct disconnection message", () => {
@@ -136,7 +140,7 @@ describe("result", () => {
     it("should maintain consistent structure with other error results", () => {
       const result = nullClientResult<TestState>("service", "start");
       expect(result.variant).toBe("disabled");
-      expect(result.data).toBeNull();
+      expect(result.data).toBeUndefined();
       expect(result.status.message).toBeDefined();
       expect(result.status.description).toBeDefined();
     });

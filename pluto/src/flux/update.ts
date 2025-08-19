@@ -86,7 +86,7 @@ export interface UseObservableUpdateArgs<
   Data extends state.State,
 > {
   /** Callback function to handle state changes */
-  onChange: state.Setter<Result<Data | null>>;
+  onChange: state.Setter<Result<Data | undefined>>;
   /** Parameters for the update operation */
   params: UpdateParams;
   /** The scope to use for the update operation */
@@ -108,7 +108,7 @@ export interface UseDirectUpdateArgs<UpdateParams extends Params> {
  *
  * @template Data The type of data being updated
  */
-export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | null> &
+export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | undefined> &
   UseObservableUpdateReturn<Data>;
 
 /**
@@ -205,8 +205,8 @@ const useDirect = <
   ...restArgs
 }: UseDirectUpdateArgs<UpdateParams> &
   CreateUpdateArgs<UpdateParams, Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
-  const [result, setResult] = useState<Result<Data | null>>(
-    successResult(name, "updated", null),
+  const [result, setResult] = useState<Result<Data | undefined>>(
+    successResult(name, "updated", undefined),
   );
   const methods = useObservable<UpdateParams, Data, ScopedStore>({
     ...restArgs,
