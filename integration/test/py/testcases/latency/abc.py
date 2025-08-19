@@ -38,9 +38,9 @@ class Latency_ABC(TestCase):
     due to any phase offsets. 
 
     A > T_0 = time.time()
-    B > T_1 = get_latest(T_0)
-    C > T_2 = get_latest(T_1)
-    A > T_3 = get_latest(T_2)
+    B > T_1 = read_tlm(T_0)
+    C > T_2 = read_tlm(T_1)
+    A > T_3 = read_tlm(T_2)
 
 
     The latency report is only valid if the proceses are running on the same 
@@ -67,7 +67,7 @@ class Latency_ABC(TestCase):
         )
         
 
-        self.mode = self.name[-1] # A, B, , 
+        self.mode = self.name[-1] # A, B, C, D
         
         if self.mode == "a":
             self.add_channel(name="t_a", data_type=sy.DataType.TIMESTAMP, initial_value=sy.TimeStamp.now(), append_name=False),
@@ -95,7 +95,6 @@ class Latency_ABC(TestCase):
         Run the test case.
         """
         
-        # Wait for the client thread to start and populate data
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
@@ -151,11 +150,4 @@ class Latency_ABC(TestCase):
                     
                     idx += 1
             
-        
-    def teardown(self) -> None:
-        """`
-        Teardown the test case.
-        """
-
-        # Always call super() last
-        super().teardown()
+            self.write_tlm("Latency_ABC Report not implemented...")
