@@ -168,17 +168,17 @@ xerrors::Error ni::Scanner::start() {
             NISysCfgIsPresentTypePresent
         ))
         return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsChassis,
-            NISysCfgBoolFalse
-        ))
-        return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsNIProduct,
-            NISysCfgBoolTrue
-        ))
-        return err;
-    return xerrors::NIL;
+    //if (const auto err = this->syscfg->SetFilterProperty(
+    //        this->filter,
+    //        NISysCfgFilterPropertyIsChassis,
+    //         NISysCfgBoolFalse
+    //   ))
+    //    return err;
+    //if (const auto err = this->syscfg->SetFilterProperty(
+    //        this->filter,
+    //        NISysCfgFilterPropertyIsNIProduct,
+    //        NISysCfgBoolTrue
+    //    ))
+    //     return err;
+    //return xerrors::NIL;
 }
