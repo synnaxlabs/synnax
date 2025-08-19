@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { framer, type Synnax } from "@synnaxlabs/client";
+import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { type AsyncDestructor, DataType, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -99,6 +99,7 @@ export const openStreamer = async <ScopedStore extends Store>({
                 await handleError(
                   () => onChange({ changed, client, store }),
                   `Failed to handle streamer change for ${name}`,
+                  NotFoundError,
                 );
             }, `Failed to parse streamer change for ${name}`);
         }

@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, newTestClient } from "@synnaxlabs/client";
+import { createTestClient, type label } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("retrieve", () => {
   describe("useDirect", () => {
@@ -31,7 +31,7 @@ describe("retrieve", () => {
           { wrapper },
         );
         expect(result.current.variant).toEqual("loading");
-        expect(result.current.data).toEqual(null);
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
@@ -64,7 +64,7 @@ describe("retrieve", () => {
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
-          expect(result.current.data).toEqual(null);
+          expect(result.current.data).toEqual(undefined);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual("test");
         });
@@ -77,11 +77,11 @@ describe("retrieve", () => {
               name: "Resource",
               retrieve: async () => 0,
             }).useDirect({ params: {} }),
-          { wrapper: newSynnaxWrapper(null) },
+          { wrapper: createSynnaxWrapper({ client: null }) },
         );
         await waitFor(() => {
           expect(result.current.variant).toEqual("disabled");
-          expect(result.current.data).toEqual(null);
+          expect(result.current.data).toEqual(undefined);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual(
             "Cannot retrieve Resource because no cluster is connected.",
@@ -141,7 +141,7 @@ describe("retrieve", () => {
       const { result } = renderHook(
         () => {
           const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.pendingResult<number>("Resource", "retrieving", null),
+            Flux.pendingResult<number>("Resource", "retrieving", undefined),
           );
           const handleChange: Flux.UseEffectRetrieveArgs<
             { key: string },

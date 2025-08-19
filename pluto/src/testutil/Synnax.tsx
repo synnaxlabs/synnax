@@ -39,15 +39,7 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const newSynnaxWrapper = (
-  client: Client | null = null,
-): FC<PropsWithChildren> => {
-  const fluxClient = new Flux.Client({
-    client,
-    storeConfig: Pluto.FLUX_STORE_CONFIG,
-    handleError: status.createErrorHandler(console.error),
-    handleAsyncError: status.createAsyncErrorHandler(console.error),
-  });
+const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
@@ -60,24 +52,35 @@ export const newSynnaxWrapper = (
   return Wrapper;
 };
 
-export const newSynnaxWrapperWithAwait = async (
-  client: Client | null = null,
-): Promise<FC<PropsWithChildren>> => {
-  const fluxClient = new Flux.Client({
+export interface CreateSynnaxWrapperArgs {
+  client: Client | null;
+  excludeFluxStores?: string[];
+}
+
+const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
+  const { client, excludeFluxStores } = args;
+  const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
+  if (excludeFluxStores)
+    excludeFluxStores.forEach((store) => delete storeConfig[store]);
+  return new Flux.Client({
     client,
-    storeConfig: Pluto.FLUX_STORE_CONFIG,
+    storeConfig,
     handleError: status.createErrorHandler(console.error),
     handleAsyncError: status.createAsyncErrorHandler(console.error),
   });
+};
+
+export const createSynnaxWrapper = ({
+  client,
+  excludeFluxStores,
+}: CreateSynnaxWrapperArgs): FC<PropsWithChildren> =>
+  newWrapper(client, createFluxClient({ client, excludeFluxStores }));
+
+export const createSynnaxWraperWithAwait = async (
+  args: CreateSynnaxWrapperArgs,
+): Promise<FC<PropsWithChildren>> => {
+  const { client } = args;
+  const fluxClient = createFluxClient(args);
   await fluxClient.awaitInitialized();
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <AetherProvider>
-      <Status.Aggregator>
-        <Synnax.TestProvider client={client}>
-          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
-        </Synnax.TestProvider>
-      </Status.Aggregator>
-    </AetherProvider>
-  );
-  return Wrapper;
+  return newWrapper(client, fluxClient);
 };

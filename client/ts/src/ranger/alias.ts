@@ -143,7 +143,7 @@ export class Aliaser {
 }
 
 export const aliasZ = z.object({
-  alias: z.string(),
+  alias: z.string().optional(),
   channel: channel.keyZ,
   range: keyZ,
 });

@@ -34,7 +34,7 @@ export type Result<Data extends state.State> =
   | {
       variant: "error";
       status: status.Status<status.ExceptionDetails, "error">;
-      data: null;
+      data: undefined;
     }
   | {
       variant: "success";
@@ -44,12 +44,12 @@ export type Result<Data extends state.State> =
   | {
       variant: "loading";
       status: status.Status<undefined, "loading">;
-      data: null | Data;
+      data: Data | undefined;
     }
   | {
       variant: "disabled";
       status: status.Status<undefined, "disabled">;
-      data: null | Data;
+      data: Data | undefined;
     };
 
 /**
@@ -70,7 +70,7 @@ export type Result<Data extends state.State> =
 export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
-  data: Data | null,
+  data: Data | undefined,
 ): Result<Data> => ({
   variant: "loading",
   status: status.create<undefined, "loading">({
@@ -130,7 +130,7 @@ export const errorResult = <Data extends state.State>(
 ): Result<Data> => ({
   variant: "error",
   status: status.fromException(error, `Failed to ${op} ${name}`),
-  data: null,
+  data: undefined,
 });
 
 /**
@@ -157,5 +157,5 @@ export const nullClientResult = <Data extends state.State>(
     message: `Failed to ${opName} ${name}`,
     description: `Cannot ${opName} ${name} because no cluster is connected.`,
   }),
-  data: null,
+  data: undefined,
 });

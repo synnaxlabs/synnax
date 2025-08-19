@@ -1,18 +1,22 @@
-import { newTestClient, rack } from "@synnaxlabs/client";
+import { createTestClient, rack } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Rack } from "@/hardware/rack";
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { Ontology } from "@/ontology";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
 
   describe("useList", () => {

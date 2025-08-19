@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, newTestClient } from "@synnaxlabs/client";
+import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { Ontology } from "@/ontology";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
 describe("queries", () => {
   let controller: AbortController;
-  const client = newTestClient();
+  const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
   beforeEach(() => {
     controller = new AbortController();

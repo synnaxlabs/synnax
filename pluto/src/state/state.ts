@@ -10,7 +10,7 @@
 import { type primitive, type record } from "@synnaxlabs/x";
 import { useState } from "react";
 
-export type State = primitive.Value | record.Unknown | void;
+export type State = Exclude<primitive.Value, undefined> | record.Unknown | void;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
 
 export const isSetter = <S extends State, PS = S>(

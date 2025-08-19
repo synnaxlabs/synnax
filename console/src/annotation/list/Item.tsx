@@ -48,7 +48,7 @@ export const Item = ({
 }: AnnotationListItemProps) => {
   const { itemKey } = rest;
   const initialValues = List.useItem<string, annotation.Annotation>(itemKey);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState(isCreate);
   const [focused, setFocused] = useState(false);
   const currentUser = User.useSelect();
@@ -102,7 +102,6 @@ export const Item = ({
   }, [confirmDelete, del]);
 
   const username = creator?.username ?? currentUser.username;
-  console.log(username);
 
   return (
     <List.Item

@@ -98,6 +98,7 @@ type (
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		NotHasLabels  []uuid.UUID     `json:"not_has_labels" msgpack:"not_has_labels"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`
 		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
@@ -116,6 +117,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		hasKeys         = len(req.Keys) > 0
 		hasSearch       = req.SearchTerm != ""
 		hasOverlapsWith = !req.OverlapsWith.IsZero()
+		hasLabels       = len(req.HasLabels) > 0
 	)
 	if hasOverlapsWith {
 		q = q.WhereOverlapsWith(req.OverlapsWith)
@@ -125,6 +127,9 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if hasLabels {
+		q = q.WhereHasLabels(req.HasLabels...)
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)

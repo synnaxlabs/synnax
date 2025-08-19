@@ -80,7 +80,7 @@ export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubSt
       ...DEFAULT_PARAMS,
       ...params,
     });
-    racks.forEach((rack) => store.racks.set(rack.key, rack));
+    store.racks.set(racks);
     return racks;
   },
   retrieveByKey: async ({ client, key, store }) =>
@@ -99,5 +99,7 @@ export interface RetrieveParams {
 export const retrieve = Flux.createRetrieve<RetrieveParams, rack.Payload, SubStore>({
   name: "Rack",
   retrieve: retrieveFn,
-  mountListeners: ({ store, onChange }) => [store.racks.onSet(onChange)],
+  mountListeners: ({ store, onChange, params: { key } }) => [
+    store.racks.onSet(onChange, key),
+  ],
 });

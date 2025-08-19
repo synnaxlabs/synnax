@@ -20,7 +20,8 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
-export const stageZ = z.enum(["to_do", "in_progress", "completed"]);
+export const STAGES = ["to_do", "in_progress", "completed"];
+export const stageZ = z.enum(STAGES);
 
 export type Stage = z.infer<typeof stageZ>;
 

@@ -11,9 +11,9 @@ import { id, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Task", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });

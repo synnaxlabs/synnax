@@ -7,23 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, type ranger } from "@synnaxlabs/client";
+import { createTestClient, type ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { Ontology } from "@/ontology";
 import { Ranger } from "@/ranger";
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
   let controller: AbortController;
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     controller = new AbortController();
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
   afterEach(() => {
     controller.abort();

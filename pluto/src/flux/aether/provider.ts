@@ -45,7 +45,7 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useClient = <ScopedStore extends core.Store>(
+export const useStore = <ScopedStore extends core.Store>(
   ctx: aether.Context,
   scope: string,
 ): ScopedStore => ctx.get<ContextValue>(CONTEXT_KEY).scopedStore<ScopedStore>(scope);
@@ -75,7 +75,8 @@ const createProvider = <ScopedStore extends core.Store>(
   ): core.Client<ScopedStore> => {
     if ("client" in cfg) return cfg.client;
     const nextClient = synnax.use(ctx);
-    if (prevClient?.client?.key === nextClient?.key) return prevClient;
+    if (prevClient != null && prevClient?.client?.key === nextClient?.key)
+      return prevClient;
     return new core.Client<ScopedStore>({
       client: nextClient,
       storeConfig: cfg.storeConfig,

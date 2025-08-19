@@ -1,17 +1,17 @@
 import { type ranger } from "@synnaxlabs/client";
 import {
-  Button,
   Flex,
   type Flux,
   Icon,
   Input,
   List as PList,
   Select,
-  Text,
+  type state,
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Item, type ItemProps } from "@/range/list/Item";
+import { SelectFilters } from "@/range/list/SelectFilters";
 
 export interface ListProps
   extends Pick<
@@ -20,6 +20,7 @@ export interface ListProps
     >,
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
+  initialRequest?: ranger.RetrieveRequest;
 }
 
 export const List = ({
@@ -32,19 +33,26 @@ export const List = ({
   showLabels = true,
   showTimeRange = true,
   showFavorite = true,
+  initialRequest = {},
 }: ListProps) => {
-  const { fetchMore, search } = PList.usePager({ retrieve });
-  const [value, setValue] = useState<ranger.Key[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
+  const [selected, setSelected] = useState<ranger.Key[]>([]);
+  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
+    retrieve(setter);
+    setRequest(setter);
+  };
+  const handleSearch = (term: string) =>
+    handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
+  const handleFetchMore = () => handleRequestChange(PList.page);
   return (
     <Select.Frame<ranger.Key, ranger.Range>
       multiple
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onChange={setValue}
-      value={value}
-      onFetchMore={fetchMore}
+      onChange={setSelected}
+      value={selected}
+      onFetchMore={handleFetchMore}
     >
       {enableSearch && (
         <Flex.Box
@@ -54,25 +62,20 @@ export const List = ({
           background={1}
           justify="between"
         >
+          <SelectFilters request={request} onRequestChange={handleRequestChange} />
           <Input.Text
             size="small"
             level="h4"
             variant="text"
-            value={searchTerm}
+            value={request.searchTerm ?? ""}
             placeholder={
               <>
                 <Icon.Search />
                 Search Ranges...
               </>
             }
-            onChange={(value) => {
-              setSearchTerm(value);
-              search(value);
-            }}
+            onChange={handleSearch}
           />
-          <Button.Button>
-            <Icon.Filter />
-          </Button.Button>
         </Flex.Box>
       )}
       <PList.Items<string>>

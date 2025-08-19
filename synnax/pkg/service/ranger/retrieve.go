@@ -64,7 +64,7 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
 	r.gorp.Where(func(rng *Range) bool {
-		oRng := rng.UseTx(r.baseTX)
+		oRng := rng.UseTx(r.baseTX).setLabel(r.label).setOntology(r.otg)
 		labels, _ := oRng.RetrieveLabels(context.Background())
 		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
 		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {

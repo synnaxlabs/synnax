@@ -31,7 +31,7 @@ export interface CreateFormArgs<
   FormParams extends Params,
   DataSchema extends z.ZodObject,
   SubStore extends Store,
-> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | null, SubStore>,
+> extends CreateRetrieveArgs<FormParams, z.infer<DataSchema> | undefined, SubStore>,
     CreateUpdateArgs<FormParams, z.infer<DataSchema>, SubStore> {
   /** Zod schema for form validation */
   schema: DataSchema;
@@ -153,7 +153,11 @@ export const createForm = <
   update,
   initialValues: baseInitialValues,
 }: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> => {
-  const retrieveHook = createRetrieve<FormParams, z.infer<Schema> | null, SubStore>({
+  const retrieveHook = createRetrieve<
+    FormParams,
+    z.infer<Schema> | undefined,
+    SubStore
+  >({
     name,
     retrieve,
     mountListeners,
@@ -173,10 +177,10 @@ export const createForm = <
     scope: argsScope,
   }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
-      Result<z.infer<Schema> | null>
-    >(pendingResult(name, "retrieving", null));
+      Result<z.infer<Schema> | undefined>
+    >(pendingResult(name, "retrieving", undefined));
     const scope = useUniqueKey(argsScope);
-    const addstatus = Status.useAdder();
+    const addStatus = Status.useAdder();
 
     const form = Form.use<Schema>({
       schema,
@@ -190,16 +194,16 @@ export const createForm = <
     });
 
     const handleResultChange = useCallback(
-      (setter: state.SetArg<Result<z.infer<Schema> | null>>) => {
+      (setter: state.SetArg<Result<z.infer<Schema> | undefined>>) => {
         if (resultRef.current.data != null) resultRef.current.data = form.value();
         const nextStatus = state.executeSetter(setter, resultRef.current);
         resultRef.current = nextStatus;
         if (nextStatus.data != null) form.reset(nextStatus.data);
         setResult(nextStatus);
-        if (nextStatus.variant === "error") addstatus(nextStatus.status);
+        if (nextStatus.variant === "error") addStatus(nextStatus.status);
       },
       [form],
-    ) satisfies state.Setter<Result<z.infer<Schema> | null>>;
+    ) satisfies state.Setter<Result<z.infer<Schema> | undefined>>;
 
     retrieveHook.useEffect({ params, onChange: handleResultChange, scope });
 

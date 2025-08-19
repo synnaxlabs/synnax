@@ -12,7 +12,64 @@ import { useEffect } from "react";
 
 import { Flux } from "@/flux";
 import { type List } from "@/list";
-import { type ontology as aetherOntology } from "@/ontology/aether";
+
+export interface RelationshipFluxStore
+  extends Flux.UnaryStore<string, ontology.Relationship> {}
+
+export interface ResourceFluxStore extends Flux.UnaryStore<string, ontology.Resource> {}
+
+export const RELATIONSHIPS_FLUX_STORE_KEY = "relationships";
+export const RESOURCES_FLUX_STORE_KEY = "resources";
+
+interface SubStore extends Flux.Store {
+  [RELATIONSHIPS_FLUX_STORE_KEY]: RelationshipFluxStore;
+  [RESOURCES_FLUX_STORE_KEY]: ResourceFluxStore;
+}
+
+const RELATIONSHIP_SET_LISTENER: Flux.ChannelListener<
+  SubStore,
+  typeof ontology.relationshipZ
+> = {
+  channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+  schema: ontology.relationshipZ,
+  onChange: ({ store, changed }) =>
+    store.relationships.set(ontology.relationshipToString(changed), changed),
+};
+
+const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
+  SubStore,
+  typeof ontology.relationshipZ
+> = {
+  channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+  schema: ontology.relationshipZ,
+  onChange: ({ store, changed }) =>
+    store.relationships.delete(ontology.relationshipToString(changed)),
+};
+
+export const RELATIONSHIP_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+  listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
+};
+
+const RESOURCE_SET_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
+  channel: ontology.RESOURCE_SET_CHANNEL_NAME,
+  schema: ontology.idZ,
+  onChange: async ({ store, changed, client }) => {
+    store.resources.set(
+      ontology.idToString(changed),
+      await client.ontology.retrieve(changed),
+    );
+  },
+};
+
+const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.idZ> = {
+  channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
+  schema: ontology.idZ,
+  onChange: ({ store, changed }) => store.resources.delete(changed.key),
+};
+
+export const RESOURCE_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+  listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
+};
 
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
@@ -58,8 +115,8 @@ interface UseDependentQueryParams extends List.PagerParams {
 }
 
 interface SubStore extends Flux.Store {
-  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
-  [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
+  relationships: RelationshipFluxStore;
+  resources: ResourceFluxStore;
 }
 
 export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>

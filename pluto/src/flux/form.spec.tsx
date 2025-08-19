@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, newTestClient } from "@synnaxlabs/client";
+import { createTestClient, type label } from "@synnaxlabs/client";
 import { testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
   key: z.string(),
@@ -26,8 +26,8 @@ interface Params {
   key?: string;
 }
 
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -204,12 +204,8 @@ describe("useForm", () => {
           })({ params: {}, afterSave }),
         { wrapper },
       );
-      act(() => {
-        result.current.save({ signal: controller.signal });
-      });
-      await testutil.expectAlways(() => {
-        expect(afterSave).not.toHaveBeenCalled();
-      });
+      act(() => result.current.save({ signal: controller.signal }));
+      await testutil.expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
     });
 
     it("should not call afterSave if the form is not valid", async () => {

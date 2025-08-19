@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
-const client = newTestClient();
-const wrapper = newSynnaxWrapper(client);
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("update", () => {
   let controller: AbortController;
@@ -36,7 +36,7 @@ describe("update", () => {
         { wrapper },
       );
       expect(result.current.variant).toEqual("success");
-      expect(result.current.data).toEqual(null);
+      expect(result.current.data).toEqual(undefined);
       expect(result.current.status.message).toEqual("Updated Resource");
     });
 
@@ -50,9 +50,7 @@ describe("update", () => {
           }).useDirect({ params: {} }),
         { wrapper },
       );
-      act(() => {
-        result.current.update(12, { signal: controller.signal });
-      });
+      act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);
@@ -73,7 +71,7 @@ describe("update", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.data).toEqual(null);
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Failed to update Resource");
       });
     });
@@ -85,14 +83,14 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(null) },
+        { wrapper: createSynnaxWrapper({ client: null }) },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("disabled");
-        expect(result.current.data).toEqual(null);
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Failed to update Resource");
       });
     });
@@ -112,8 +110,8 @@ describe("update", () => {
         result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
+        expect(result.current.data).toEqual(undefined);
         expect(result.current.variant).toEqual("loading");
-        expect(result.current.data).toEqual(null);
         expect(result.current.status.message).toEqual("Updating Resource");
       });
     });
@@ -129,9 +127,12 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(true);
     });
 
@@ -144,9 +145,12 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(false);
     });
 
@@ -157,11 +161,14 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newSynnaxWrapper(null) },
+        { wrapper: createSynnaxWrapper({ client: null }) },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(false);
     });
 
@@ -175,9 +182,11 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      controller.abort();
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
+      const updated = await act(async () => {
+        controller.abort();
+        return await result.current.updateAsync(12, {
+          signal: controller.signal,
+        });
       });
       expect(updated).toEqual(false);
     });

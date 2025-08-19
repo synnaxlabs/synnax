@@ -92,7 +92,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (client == null) return;
     i.client = client;
 
-    const store = flux.useClient<aetherAnnotation.SubStore>(ctx, this.key);
+    const store = flux.useStore<aetherAnnotation.SubStore>(ctx, this.key);
     i.removeListeners?.();
 
     const removeOnSet = store.annotations.onSet(async (changed) => {
@@ -373,3 +373,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     return lines;
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Provider.TYPE]: Provider,
+};

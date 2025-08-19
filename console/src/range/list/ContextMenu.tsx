@@ -1,19 +1,11 @@
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Button,
-  Divider,
-  Form,
-  Icon,
-  type List,
-  Menu as PMenu,
-  Ranger,
-} from "@synnaxlabs/pluto";
+import { Divider, Form, type List, Menu as PMenu, Ranger } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { addChildRangeMenuItem, deleteMenuItem } from "@/range/ContextMenu";
+import { createChildRangeMenuItem, deleteMenuItem } from "@/range/ContextMenu";
 import { createCreateLayout } from "@/range/Create";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
@@ -60,15 +52,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {isSingle && <Menu.RenameItem />}
       {!isEmpty && deleteMenuItem}
       <Divider.Divider x />
-      {isSingle && addChildRangeMenuItem}
-      <Button.Button
-        onClick={() => placeLayout(createCreateLayout({ parent: ranges[0].key }))}
-        variant="text"
-        contrast={2}
-        tooltip="Add Range"
-      >
-        <Icon.Add />
-      </Button.Button>
+      {isSingle && createChildRangeMenuItem}
     </PMenu.Menu>
   );
 };

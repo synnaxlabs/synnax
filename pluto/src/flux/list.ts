@@ -324,7 +324,7 @@ export const createList =
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving", null),
+      pendingResult<K[]>(name, "retrieving", undefined),
     );
     const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);

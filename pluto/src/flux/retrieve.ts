@@ -198,7 +198,7 @@ const useStateful = <
   args: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
 ): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
   const [state, setState] = useState<Result<Data>>(
-    pendingResult<Data>(args.name, "retrieving", null),
+    pendingResult<Data>(args.name, "retrieving", undefined),
   );
   return {
     ...state,
@@ -251,7 +251,7 @@ const useObservable = <
             params,
             onChange: (value) =>
               onChange((prev) => {
-                if (prev.data == null) return prev;
+                if (prev.data === undefined) return prev;
                 const next = state.executeSetter(value, prev.data);
                 return successResult(name, "retrieved", next);
               }),

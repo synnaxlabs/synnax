@@ -16,9 +16,11 @@ import {
   Icon,
   Input,
   Ranger,
+  Status,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -45,8 +47,8 @@ const ParentRangeButton = ({
   const Icon = Ranger.STAGE_ICONS[parent.stage];
   return (
     <Flex.Box x gap="small" align="center">
-      <Text.Text level="p" color={8} weight={450}>
-        Child range of
+      <Text.Text weight={450} color={9}>
+        Child Range of
       </Text.Text>
       <Button.Button
         color={8}
@@ -74,7 +76,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const prevLayoutName = usePrevious(layoutName);
   const dispatch = useDispatch();
   const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
-  const { form } = Ranger.useForm({
+  const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
@@ -93,12 +95,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   useEffect(() => {
-    if (prevLayoutName == layoutName || prevLayoutName == null) return;
+    if (
+      prevLayoutName == layoutName ||
+      prevLayoutName == null ||
+      status.variant !== "success"
+    )
+      return;
     form.set("name", layoutName);
-  }, [layoutName]);
+  }, [layoutName, status]);
   useEffect(() => {
-    if (name == null) return;
-    dispatch(rename({ key: rangeKey, name }));
+    if (primitive.isNonZero(name)) dispatch(rename({ key: rangeKey, name }));
   }, [name]);
 
   const copy = useCopyToClipboard();
@@ -122,6 +128,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       `TypeScript code to retrieve ${name}`,
     );
   };
+
+  if (status.variant === "error")
+    return (
+      <Status.Summary
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
+      />
+    );
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -176,7 +191,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               onClick={handleCopyLink}
               textColor={9}
             >
-              <Icon.Link />
+              <Icon.Link color={10} />
             </Button.Button>
             <Divider.Divider y />
             {range != null && <FavoriteButton range={range} size="medium" />}

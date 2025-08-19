@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { type ontology as aetherOntology } from "@/ontology/aether";
+import { type Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
 
@@ -26,7 +26,7 @@ export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
 interface SubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
-  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
@@ -198,8 +198,12 @@ export const retrieveParent = Flux.createRetrieve<
   mountListeners: ({ store, onChange, client, params: { key } }) => [
     store.ranges.onSet((range) => {
       onChange((prev) => {
-        if (prev == null || prev.key !== key) return prev;
-        return client.ranges.sugarOne({ ...prev, parent: range.parent ?? prev.parent });
+        if (prev == null || prev.key !== range.key) return prev;
+        return client.ranges.sugarOne({
+          ...range,
+          parent: range.parent ?? prev.parent,
+          labels: range.labels ?? prev.labels,
+        });
       });
     }),
     store.relationships.onSet(async (rel) => {
@@ -207,13 +211,11 @@ export const retrieveParent = Flux.createRetrieve<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),
       });
-      if (isParent) {
-        const parent = await cachedRetrieve(client, store, rel.from.key);
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent });
-        });
-      }
+      if (!isParent) return;
+      const parentIsRange = rel.from.type === "range";
+      if (!parentIsRange) return onChange(null);
+      const parent = await cachedRetrieve(client, store, rel.from.key);
+      onChange(client.ranges.sugarOne(parent.payload));
     }),
     store.relationships.onDelete(async (relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
@@ -221,11 +223,7 @@ export const retrieveParent = Flux.createRetrieve<
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),
       });
-      if (isParent)
-        onChange((prev) => {
-          if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent: null });
-        });
+      if (isParent) onChange(null);
       const isLabel = ontology.matchRelationship(rel, {
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
         to: ranger.ontologyID(key),
@@ -309,8 +307,8 @@ export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   labels: [],
-  parent: "",
   stage: "to_do",
+  parent: "",
   timeRange: { start: 0, end: 0 },
 };
 
@@ -320,13 +318,12 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
     schema: formSchema,
     initialValues: ZERO_FORM_VALUES,
     retrieve: async ({ client, params: { key }, store }) => {
-      if (key == null) return null;
+      if (key == null) return undefined;
       return await toFormValues(await cachedRetrieve(client, store, key));
     },
     update: async ({ client, value, onChange, store }) => {
-      const hasParent = !primitive.isZero(value.parent);
-      const parentID = hasParent
-        ? ranger.ontologyID(value.parent as string)
+      const parentID = primitive.isNonZero(value.parent)
+        ? ranger.ontologyID(value.parent)
         : undefined;
       const rng = await client.ranges.create(value, { parent: parentID });
       await client.labels.label(rng.ontologyID, value.labels, { replace: true });
@@ -339,9 +336,16 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
         store.labels.set(newLabels);
       }
       let parent: ranger.Range | null = null;
-      if (hasParent)
-        parent = await cachedRetrieve(client, store, value.parent as string);
-      store.ranges.set(rng.key, client.ranges.sugarOne({ ...rng.payload, labels }));
+      if (primitive.isNonZero(value.parent))
+        parent = await cachedRetrieve(client, store, value.parent);
+      store.ranges.set(
+        rng.key,
+        client.ranges.sugarOne({
+          ...rng.payload,
+          labels,
+          parent: parent?.payload ?? null,
+        }),
+      );
       onChange({
         ...value,
         ...rng.payload,
@@ -522,7 +526,7 @@ export const useKVPairForm = Flux.createForm<
 >({
   name: "Range Meta Data",
   schema: kvPairFormSchema,
-  retrieve: async () => null,
+  retrieve: async () => undefined,
   update: async ({ client, value }) => {
     const kv = client.ranges.getKV(value.range);
     await kv.set(value.key, value.value);

@@ -1,17 +1,30 @@
-import { label, newTestClient } from "@synnaxlabs/client";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createTestClient, label } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { newSynnaxWrapperWithAwait } from "@/testutil/Synnax";
+import { Ontology } from "@/ontology";
+import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await newSynnaxWrapperWithAwait(client);
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
   describe("useList", () => {
     it("should return a list of label keys", async () => {

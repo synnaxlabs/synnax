@@ -77,7 +77,9 @@ interface UseFormParams {
   key?: annotation.Key;
 }
 
-const annotationToFormValues = (annotation: annotation.Annotation) => ({
+const annotationToFormValues = (
+  annotation: annotation.Annotation,
+): z.output<typeof formSchema> => ({
   key: annotation.key,
   timeRange: annotation.timeRange.numeric,
   message: annotation.message,
@@ -92,9 +94,9 @@ export const useForm = Flux.createForm<
   name: "Annotation",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ params, client }) => {
-    if (params.key == null) return null;
-    const annotation = await client.annotations.retrieve({ key: params.key });
+  retrieve: async ({ client, params: { key } }) => {
+    if (key == null) return undefined;
+    const annotation = await client.annotations.retrieve({ key });
     return annotationToFormValues(annotation);
   },
   update: async ({ params, client, value, store }) => {

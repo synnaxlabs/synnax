@@ -25,7 +25,7 @@ interface SimpleEntry {
   label: string;
   color: color.Crude;
   visible: boolean;
-  axis: string;
+  axis?: string;
 }
 
 export interface SimpleProps
@@ -78,9 +78,11 @@ export const LegendSwatches = memo(
                 draggable={false}
                 size="tiny"
               />
-              <Text.Text level="small" color={8}>
-                {axis.toUpperCase()}
-              </Text.Text>
+              {axis != null && (
+                <Text.Text level="small" color={8}>
+                  {axis.toUpperCase()}
+                </Text.Text>
+              )}
               <Text.MaybeEditable
                 level="small"
                 value={label}

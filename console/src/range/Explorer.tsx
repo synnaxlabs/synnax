@@ -1,3 +1,4 @@
+import { ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
@@ -14,8 +15,13 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
+const sortByStage = (a: ranger.Range, b: ranger.Range) =>
+  ranger.STAGES.indexOf(b.stage) - ranger.STAGES.indexOf(a.stage);
+
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({});
+  const { data, getItem, subscribe, retrieve } = Ranger.useList({
+    sort: sortByStage,
+  });
   return (
     <List
       data={data}

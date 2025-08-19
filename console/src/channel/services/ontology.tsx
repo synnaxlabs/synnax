@@ -19,8 +19,9 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, type record } from "@synnaxlabs/x";
+import { errors, primitive, type record } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -261,8 +262,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
   const resources = getResource(resourceIDs);
-  // const showDeleteAlias = resources.some(({ data }) => data.alias != null);
-  const showDeleteAlias = true;
+  const channelKeys = useMemo(
+    () => resourceIDs.map((r) => Number(r.key)),
+    [resourceIDs],
+  );
+  const channels = PChannel.retrieveMany.useDirect({
+    params: { rangeKey: activeRange?.key, keys: channelKeys },
+  });
+  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();
@@ -343,7 +350,7 @@ export const Item = ({
     params: { key: Number(id.key), rangeKey: activeRange?.key },
   }).data;
   let name = resource.name;
-  if (res?.alias != null && res.alias.length > 0) name = res.alias;
+  if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (

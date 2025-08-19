@@ -53,6 +53,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Group:    g,
 			Label:    lab,
 		}))
+		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
 		closer = xio.MultiCloser{db, otg, g, svc}
 	})
 	AfterAll(func() {
