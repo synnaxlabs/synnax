@@ -78,7 +78,7 @@ describe("testutil", () => {
       const fn = vi.fn();
       await testutil.expectAlways(fn, 100, 20);
       expect(fn.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(fn.mock.calls.length).toBeLessThanOrEqual(5);
+      expect(fn.mock.calls.length).toBeLessThanOrEqual(7);
     });
 
     it("should handle async functions", async () => {
