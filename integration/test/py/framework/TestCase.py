@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+import traceback
 import logging
 import os
 import sys
@@ -94,6 +95,8 @@ class TestCase(ABC):
         self._status = STATUS.INITIALIZING
         self.params = params
         self.Expected_Timeout: int = -1  # -1 = no timeout
+        self.read_frame = {}
+        self.read_timeout = 1
         
         if name is None:
             # Convert PascalCase class name to lowercase with underscores
@@ -118,6 +121,7 @@ class TestCase(ABC):
         self.should_stop = False
         self.is_running = False
         
+        self.subscribed_channels = []
         # Create telemetry channels
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -190,21 +194,35 @@ class TestCase(ABC):
             if hasattr(handler, 'flush'):
                 handler.flush()
         
-    def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None):
+    def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None, append_name: bool = True):
+        
         """Create a telemetry channel with name {self.name}_{name}."""
+        if append_name:
+            tlm_name = f"{self.name}_{name}"
+        else:
+            tlm_name = name
+            
         self.client.channels.create(
-            name=f"{self.name}_{name}",
+            name=tlm_name,
             data_type=data_type,
             index=self.time_index.key,
             retrieve_if_name_exists=True,
         )
-        self.tlm[f"{self.name}_{name}"] = initial_value
+    
+        self.tlm[tlm_name] = initial_value
 
-    def subscribe_to_channels(self, channels: list[str]) -> None:
-        """
-        Subscribe to the given channels.
-        """
-        pass
+    def subscribe(self, channels) -> None:
+        """ Subscribe to channels. Can take either a single channel name or a list of channels."""
+        if isinstance(channels, str):
+            # Single channel name
+            self.subscribed_channels.append(channels)
+        elif isinstance(channels, list):
+            # List of channels - extend the list
+            self.subscribed_channels.extend(channels)
+        else:
+            # Convert to string if it's another type
+            self.subscribed_channels.append(str(channels))
+        return None
 
     def setup(self) -> None:
         """Start telemetry client thread."""
@@ -219,45 +237,91 @@ class TestCase(ABC):
     
     def _client_loop(self) -> None:
         """Main telemetry client loop running in separate thread."""
+        
+        # For simplicity, read/write will both happen here.
+        
         start_time = sy.TimeStamp.now()
         
-        try:
-            with self.client.open_writer(
-                start=start_time,
-                channels=list(self.tlm.keys()),
-                name=self.name,
-                enable_auto_commit=True,
-            ) as client:
+        try:  
+            self.read_frame = {}
+            for channel in self.subscribed_channels:
+                self.read_frame[channel] = None
+                
+            streamer = None
+            client = None
+            
+            try:
+                streamer = self.client.open_streamer(self.subscribed_channels)
+                client = self.client.open_writer(
+                    start=start_time,
+                    channels=list(self.tlm.keys()),
+                    name=self.name,
+                    enable_auto_commit=True,
+                )
+                
                 while self.loop.wait() and not self.should_stop:
-                    now = sy.TimeStamp.now()
-                    uptime_value = (now - start_time)/1E9                    
 
-                    # Update telemetry
-                    self.tlm[f"{self.name}_time"] = now
-                    self.tlm[f"{self.name}_uptime"] = uptime_value
-                    self.tlm[f"{self.name}_state"] = self._status.value
-                    client.write(self.tlm)
+                    try:
+                        self.frame_in = streamer.read(self.read_timeout)
+                        if self.frame_in is not None:
+                            #self.read_frame = self.frame_raw
+                            for key, value in self.frame_in.items():
+                                self.read_frame[key] = value[-1]
 
-                    # Check for timeout
-                    if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
-                        self._status = STATUS.TIMEOUT
+                        now = sy.TimeStamp.now()
+                        uptime_value = (now - start_time)/1E9                    
 
-                    # Check for completion
-                    if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
+                        # Update telemetry
+                        self.tlm[f"{self.name}_time"] = now
+                        self.tlm[f"{self.name}_uptime"] = uptime_value
                         self.tlm[f"{self.name}_state"] = self._status.value
                         client.write(self.tlm)
+
+                        # Check for timeout
+                        if self.Expected_Timeout > 0 and uptime_value > self.Expected_Timeout:
+                            self._status = STATUS.TIMEOUT
+
+                        # Check for completion
+                        if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
+                            self.tlm[f"{self.name}_state"] = self._status.value
+                            client.write(self.tlm)
+                            break
+                            
+                    except Exception as loop_error:
+                        self._log_message(f"Loop error: {loop_error}")
                         break
-                
+                    
                 self._check_expectation()
 
                 # Final write for redundancy
-                client.write(self.tlm)
+                if client:
+                    try:
+                        client.write(self.tlm)
+                    except:
+                        pass  # Ignore final write errors
+                        
                 self._log_message("client thread shutting down")
+   
+            finally:
+                # Safe cleanup without context manager errors
+                if client:
+                    try:
+                        client.close()
+                    except:
+                        pass  # Ignore close errors
+                if streamer:
+                    try:
+                        streamer.close()
+                    except:
+                        pass  # Ignore close errors
+                        
+            self._log_message("we have exited")
                 
         except Exception as e:
-            self._log_message(f"client thread error: {e}")
+            self._log_message(f"client thread error: {e}\n {traceback.format_exc()}")
             self._status = STATUS.FAILED
         finally:
+            print("we have finally")
             self.is_running = False 
 
     @abstractmethod
@@ -275,6 +339,48 @@ class TestCase(ABC):
         # or open vents
         # or whatever else
         pass
+    
+
+    def write_tlm(self, channel:str, value: Any = None) -> None:
+        """Write values to telemetry dictionary. Can take single key-value or dict of multiple channels."""
+        #if isinstance(channel, self.tlm.keys()):
+        self.tlm[channel] = value
+        #else:
+        #    raise KeyError(f"Key {channel} not found in telemetry dictionary ({self.tlm.keys()})")
+
+    def read_tlm(self, key: str, default: Any = None) -> Any:
+
+        try:
+            return self.read_frame.get(key, default)
+        except:
+            return default
+
+    def get_state(self, key: str, default: Any = None) -> Any:
+        """
+        Easily get state of this object.
+
+        - self.name + "state"
+        - self.name + "time"
+        - self.name + "uptime"    
+            """
+
+        name_ch = self.name + "_" + key
+        return self.tlm.get(name_ch, default)
+
+    @property
+    def uptime(self) -> float:
+        """Get the uptime of the test case."""
+        return self.tlm.get(f"{self.name}_uptime", -1)
+
+    @property
+    def time(self) -> float:
+        """Get the uptime of the test case."""
+        return self.tlm.get(f"{self.name}_time", -1)
+    
+    @property
+    def state(self) -> float:
+        """Get the state of the test case."""
+        return self.tlm.get(f"{self.name}_state", -1)
 
     def stop_client(self) -> None:
         """Stop client thread and wait for completion."""

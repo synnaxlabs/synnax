@@ -1,5 +1,23 @@
 [
     {
+        "sequence_name": "Async_ABC",
+        "sequence_order": "asynchronous",
+        "tests": [
+            {
+                "case": "testcases/latency/abc",
+                "name": "async_a"
+            },
+            {
+                "case": "testcases/latency/abc",
+                "name": "async_b"
+            },
+            {
+                "case": "testcases/latency/abc",
+                "name": "async_c"
+            }
+        ]
+    },
+    {
         "sequence_name": "Bench_Latency",
         "sequence_order": "asynchronous",
         "tests": [
@@ -11,6 +29,7 @@
             }
         ]
     },
+    
     {
         "sequence_name": "Sequential_Tests",
         "sequence_order": "Sequential",
@@ -28,24 +47,6 @@
             },
             {
                 "case": "testcases/test_no_timeout"
-            }
-        ]
-    },
-    {
-        "sequence_name": "Async_Tests",
-        "sequence_order": "asynchronous",
-        "tests": [
-            {
-                "case": "testcases/check_connection_basic"
-            },
-            {
-                "case": "testcases/simple_async",
-                "name": "name_test_123"
-            },
-            {
-                "case": "testcases/simple_async",
-                "name": "name_test_abc",
-                "expect": "PASSED"
             }
         ]
     }
