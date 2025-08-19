@@ -317,7 +317,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
     schema: formSchema,
     initialValues: ZERO_FORM_VALUES,
     retrieve: async ({ client, params: { key }, store }) => {
-      if (key == null) return null;
+      if (key == null) return undefined;
       return await toFormValues(await cachedRetrieve(client, store, key));
     },
     update: async ({ client, value, onChange, store }) => {
@@ -525,7 +525,7 @@ export const useKVPairForm = Flux.createForm<
 >({
   name: "Range Meta Data",
   schema: kvPairFormSchema,
-  retrieve: async () => null,
+  retrieve: async () => undefined,
   update: async ({ client, value }) => {
     const kv = client.ranges.getKV(value.range);
     await kv.set(value.key, value.value);

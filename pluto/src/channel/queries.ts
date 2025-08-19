@@ -209,7 +209,7 @@ const formRetrieveFn = async (args: Flux.RetrieveArgs<FormRetrieveArgs, SubStore
   const {
     params: { key, rangeKey },
   } = args;
-  if (key == null) return null;
+  if (key == null) return undefined;
   return channelToFormValues(
     await retrieveSingleFn({ ...args, params: { key, rangeKey } }),
   );

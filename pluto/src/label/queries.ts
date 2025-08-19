@@ -116,7 +116,7 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, SubStore>(
   },
   schema: formSchema,
   retrieve: async ({ client, params: { key } }) => {
-    if (key == null) return null;
+    if (key == null) return undefined;
     const label = await client.labels.retrieve({ key });
     return label;
   },
