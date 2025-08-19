@@ -75,7 +75,8 @@ const createProvider = <ScopedStore extends core.Store>(
   ): core.Client<ScopedStore> => {
     if ("client" in cfg) return cfg.client;
     const nextClient = synnax.use(ctx);
-    if (prevClient?.client?.key === nextClient?.key) return prevClient;
+    if (prevClient != null && prevClient?.client?.key === nextClient?.key)
+      return prevClient;
     return new core.Client<ScopedStore>({
       client: nextClient,
       storeConfig: cfg.storeConfig,
