@@ -60,11 +60,11 @@ class Latency_ABC(TestCase):
         """
         Setup the test case.
         """
-        
 
-        self.loop = sy.Loop(0.005) # 100Hz
-
-        self.set_manual_timeout(20)
+        self.configure(
+            loop_rate=0.01,
+            manual_timeout=15
+        )
         
 
         self.mode = self.name[-1] # A, B, , 

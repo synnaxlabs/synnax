@@ -79,12 +79,21 @@ class TestCase(ABC):
     """
     Parent class for all test cases in the integration test framework.
     
-    This class handles the connection to the Synnax server and provides
+    This class handles the connection to Synnax server and provides
     three key lifecycle methods that can be overridden by subclasses:
     - setup(): Called before the test runs
     - run(): The main test logic (must be implemented by subclasses)
     - teardown(): Called after the test runs
     """
+    
+    # Configuration constants
+    DEFAULT_READ_TIMEOUT = 1
+    DEFAULT_LOOP_RATE = 1
+    WEBSOCKET_RETRY_DELAY = 1
+    MAX_CLEANUP_RETRIES = 3
+    CLIENT_THREAD_START_DELAY = 1
+    DEFAULT_TIMEOUT_LIMIT = -1
+    DEFAULT_MANUAL_TIMEOUT = -1
     
     def __init__(self, SynnaxConnection: SynnaxConnection, name:str=None, expect: str = "PASSED", **params):
 
@@ -105,10 +114,10 @@ class TestCase(ABC):
         """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
         self.params = params
-        self._Timeout_Limit: int = -1  # -1 = no timeout
-        self._Manual_Timeout: int = -1
+        self._Timeout_Limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
+        self._Manual_Timeout: int = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame = None
-        self.read_timeout = 1
+        self.read_timeout = self.DEFAULT_READ_TIMEOUT
         
         if name is None:
             # Convert PascalCase class name to lowercase with underscores
@@ -127,8 +136,8 @@ class TestCase(ABC):
             secure=SynnaxConnection.secure,
         )
         
-        # Default 1Hz loop 
-        self.loop = sy.Loop(1)
+        # Default loop rate
+        self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self.client_thread = None
         self._should_stop = False
         self.is_running = False
@@ -244,7 +253,7 @@ class TestCase(ABC):
         # Start client thread
         self.client_thread = threading.Thread(target=self._client_loop, daemon=True)
         self.client_thread.start()
-        time.sleep(1)  # Allow client thread to start
+        time.sleep(self.CLIENT_THREAD_START_DELAY)  # Allow client thread to start
         self._log_message("client thread started")
 
     def _client_loop(self) -> None:
@@ -294,7 +303,7 @@ class TestCase(ABC):
 
                         except Exception as e:
                             if self._is_websocket_error(e):
-                                time.sleep(1)
+                                time.sleep(self.WEBSOCKET_RETRY_DELAY)
                             else:
                                 self.STATUS = STATUS.FAILED
                                 raise e
@@ -412,6 +421,25 @@ class TestCase(ABC):
     def set_manual_timeout(self, value: int) -> None:
         """Set the manual timeout of the test case."""
         self._Manual_Timeout = value
+        
+    def configure(self, **kwargs) -> None:
+        """Configure test case parameters.
+        
+        Args:
+            read_timeout: Timeout for read operations (default: 1)
+            loop_rate: Loop frequency in Hz (default: 1)
+            websocket_retry_delay: Delay before retrying WebSocket operations (default: 1)
+            timeout_limit: Maximum execution time in seconds (default: -1, no limit)
+            manual_timeout: Manual timeout value (default: -1, no limit)
+        """
+        if 'read_timeout' in kwargs:
+            self.read_timeout = kwargs['read_timeout']
+        if 'loop_rate' in kwargs:
+            self.loop = sy.Loop(kwargs['loop_rate'])
+        if 'timeout_limit' in kwargs:
+            self._Timeout_Limit = kwargs['timeout_limit']
+        if 'manual_timeout' in kwargs:
+            self._Manual_Timeout = kwargs['manual_timeout']
         
     def _is_websocket_error(self, error: Exception) -> bool:
         """Check if an exception is a WebSocket-related error that should be ignored."""
