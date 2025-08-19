@@ -78,7 +78,7 @@ export const Palette = ({
           size="medium"
           justify="center"
           contrast={2}
-          color={9}
+          textColor={9}
           gap="small"
           full="x"
         >

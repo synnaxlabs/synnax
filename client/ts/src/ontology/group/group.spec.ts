@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Group", () => {
   describe("create", () => {

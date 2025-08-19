@@ -15,17 +15,19 @@ import {
   Form,
   Icon,
   Input,
-  Label,
   Ranger,
+  Status,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { rename } from "@/layout/slice";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -43,7 +45,9 @@ const ParentRangeButton = ({
   const parent = res.data;
   return (
     <Flex.Box x gap="small" align="center">
-      <Text.Text weight={450}>Child Range of</Text.Text>
+      <Text.Text weight={450} color={9}>
+        Child Range of
+      </Text.Text>
       <Button.Button
         variant="text"
         weight={400}
@@ -68,7 +72,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
   const dispatch = useDispatch();
-  const { form } = Ranger.useForm({
+  const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
@@ -86,12 +90,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   useEffect(() => {
-    if (prevLayoutName == layoutName || prevLayoutName == null) return;
+    if (
+      prevLayoutName == layoutName ||
+      prevLayoutName == null ||
+      status.variant !== "success"
+    )
+      return;
     form.set("name", layoutName);
-  }, [layoutName]);
+  }, [layoutName, status]);
   useEffect(() => {
-    if (name == null) return;
-    dispatch(rename({ key: rangeKey, name }));
+    if (primitive.isNonZero(name)) dispatch(rename({ key: rangeKey, name }));
   }, [name]);
 
   const copy = useCopyToClipboard();
@@ -115,6 +123,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       `TypeScript code to retrieve ${name}`,
     );
   };
+
+  if (status.variant === "error")
+    return (
+      <Status.Summary
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
+      />
+    );
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -141,16 +158,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             style={{ height: "fit-content" }}
             gap="small"
           >
-            <Flex.Box x>
+            <Flex.Box x gap="small">
               <Button.Button
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
+                onClick={handleCopyPythonCode}
               >
-                <Icon.Python
-                  onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l9)" }}
-                />
+                <Icon.Python color={9} />
               </Button.Button>
               <Button.Button
                 variant="text"
@@ -158,7 +173,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.TypeScript color={9} />
               </Button.Button>
             </Flex.Box>
             <Divider.Divider y />
@@ -168,7 +183,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
-              <Icon.Link />
+              <Icon.Link color={10} />
             </Button.Button>
           </Flex.Box>
         </Flex.Box>

@@ -19,8 +19,9 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, type record } from "@synnaxlabs/x";
+import { errors, primitive, type record } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -45,6 +46,12 @@ const handleSelect: Ontology.HandleSelect = ({
   const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
+  const nonVirtualSelection = selection
+    .filter((s) => s.data?.virtual !== true || s.data.expression != "")
+    .map((s) => Number(s.id.key));
+
+  if (nonVirtualSelection.length === 0) return;
+
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE:
@@ -53,7 +60,7 @@ const handleSelect: Ontology.HandleSelect = ({
           key: layout.key,
           mode: "add",
           axisKey: "y1",
-          channels: selection.map((s) => Number(s.id.key)),
+          channels: nonVirtualSelection,
         }),
       );
       break;
@@ -62,7 +69,7 @@ const handleSelect: Ontology.HandleSelect = ({
         LinePlot.create({
           channels: {
             ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: selection.map((s) => Number(s.id.key)),
+            y1: nonVirtualSelection,
           },
         }),
       );
@@ -248,17 +255,21 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs },
+    selection: { resourceIDs, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
-  const aliases = PChannel.useAliases();
   const resources = getResource(resourceIDs);
-  const showDeleteAlias = resources.some(
-    ({ id: { key } }) => aliases[Number(key)] != null,
+  const channelKeys = useMemo(
+    () => resourceIDs.map((r) => Number(r.key)),
+    [resourceIDs],
   );
+  const channels = PChannel.retrieveMany.useDirect({
+    params: { rangeKey: activeRange?.key, keys: channelKeys },
+  });
+  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
   const delAlias = useDeleteAlias();
   const del = useDelete();
@@ -281,7 +292,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {isCalc && (
         <>
           <PMenu.Divider />
@@ -334,7 +345,12 @@ export const Item = ({
   onRename,
   ...rest
 }: Ontology.TreeItemProps) => {
-  const alias = PChannel.useAlias(Number(id.key));
+  const activeRange = Range.useSelect();
+  const res = PChannel.retrieve.useDirect({
+    params: { key: Number(id.key), rangeKey: activeRange?.key },
+  }).data;
+  let name = resource.name;
+  if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (
@@ -344,7 +360,7 @@ export const Item = ({
         <Text.MaybeEditable
           id={ontology.idToString(id)}
           allowDoubleClick={false}
-          value={alias ?? resource.name}
+          value={name}
           disabled={!allowRename(resource)}
           onChange={onRename}
         />

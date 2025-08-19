@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type Synnax as Client } from "@synnaxlabs/client";
-import { type MultiSeries } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type FetchOptions, type Params } from "@/flux/core/params";
+import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   nullClientResult,
@@ -21,57 +21,35 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { useMountListeners } from "@/flux/useMountListeners";
-import { useAsyncEffect, useInitializerRef } from "@/hooks";
+import { useAsyncEffect } from "@/hooks";
+import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Synnax } from "@/synnax";
-
-/**
- * Extra arguments passed to retrieve listener handlers.
- *
- * @template RetrieveParams The type of parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
-interface RetrieveListenerExtraArgs<RetrieveParams, Data extends state.State> {
-  /** The current retrieve parameters */
-  params: RetrieveParams;
-  /** The Synnax client instance */
-  client: Client;
-  /** Function that updates the query data when a new value is received */
-  onChange: state.Setter<Data>;
-}
-
-/**
- * Configuration for a listener that is called whenever a new value is received
- * from the specified channel. The listener is called with the new value and can
- * choose to update the state of the query by calling the `onChange` function.
- *
- * The listener will not be called if the query is in a loading or an error state.
- *
- * @template RetrieveParams The type of parameters for the retrieve operation
- * @template Data The type of data being retrieved
- */
-export interface RetrieveListenerConfig<RetrieveParams, Data extends state.State> {
-  /** The channel to listen to for real-time updates */
-  channel: channel.Name;
-  /** The function to call when a new value is received from the channel */
-  onChange: flux.ListenerHandler<
-    MultiSeries,
-    RetrieveListenerExtraArgs<RetrieveParams, Data>
-  >;
-}
 
 /**
  * Arguments passed to the `retrieve` function when executing a query.
  *
  * @template RetrieveParams The type of parameters for the retrieve operation
  */
-export interface RetrieveArgs<RetrieveParams> {
+export interface RetrieveArgs<RetrieveParams, ScopedStore extends flux.Store> {
   /** The Synnax client instance for making requests */
   client: Client;
   /** The parameters for the retrieve operation */
   params: RetrieveParams;
+  /** The store instance for storing data */
+  store: ScopedStore;
+}
+
+export interface MountListenersArgs<
+  ScopedStore extends flux.Store,
+  RetrieveParams,
+  Data extends state.State,
+> {
+  store: ScopedStore;
+  client: Client;
+  params: RetrieveParams;
+  onChange: state.Setter<Data>;
 }
 
 /**
@@ -80,7 +58,11 @@ export interface RetrieveArgs<RetrieveParams> {
  * @template RetrieveParams The type of parameters for the retrieve operation
  * @template Data The type of data being retrieved
  */
-export interface CreateRetrieveArgs<RetrieveParams, Data extends state.State> {
+export interface CreateRetrieveArgs<
+  RetrieveParams,
+  Data extends state.State,
+  ScopedStore extends flux.Store,
+> {
   /**
    * The name of the resource being retrieved. This is used to make pretty messages for
    * the various query states. This name should be in a human readable format and
@@ -88,7 +70,7 @@ export interface CreateRetrieveArgs<RetrieveParams, Data extends state.State> {
    */
   name: string;
   /** Function executed when the query is evaluated or the query parameters change. */
-  retrieve: (args: RetrieveArgs<RetrieveParams>) => Promise<Data>;
+  retrieve: (args: RetrieveArgs<RetrieveParams, ScopedStore>) => Promise<Data>;
   /**
    * Listeners to mount to the query. These listeners will be re-mounted when
    * the query parameters change and/or the client disconnects/re-connects or clusters
@@ -97,7 +79,9 @@ export interface CreateRetrieveArgs<RetrieveParams, Data extends state.State> {
    * These listeners will NOT be remounted when the identity of the onChange function
    * changes, as the onChange function should be static.
    */
-  listeners?: RetrieveListenerConfig<RetrieveParams, Data>[];
+  mountListeners?: (
+    args: MountListenersArgs<ScopedStore, RetrieveParams, Data>,
+  ) => Destructor | Destructor[];
 }
 
 /**
@@ -108,6 +92,8 @@ export interface CreateRetrieveArgs<RetrieveParams, Data extends state.State> {
 export interface UseObservableRetrieveArgs<V extends state.State> {
   /** Callback function to handle state changes */
   onChange: state.Setter<Result<V>>;
+  /** The scope to use for the retrieve operation */
+  scope?: string;
 }
 
 /**
@@ -204,11 +190,15 @@ export interface CreateRetrieveReturn<
   useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
 }
 
-const useStateful = <RetrieveParams extends Params, Data extends state.State>(
-  args: CreateRetrieveArgs<RetrieveParams, Data>,
+const useStateful = <
+  RetrieveParams extends Params,
+  Data extends state.State,
+  ScopedStore extends flux.Store,
+>(
+  args: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
 ): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
   const [state, setState] = useState<Result<Data>>(
-    pendingResult<Data>(args.name, "retrieving", null, false),
+    pendingResult<Data>(args.name, "retrieving", undefined),
   );
   return {
     ...state,
@@ -216,20 +206,26 @@ const useStateful = <RetrieveParams extends Params, Data extends state.State>(
   };
 };
 
-const useObservable = <RetrieveParams extends Params, Data extends state.State>({
+const useObservable = <
+  RetrieveParams extends Params,
+  Data extends state.State,
+  ScopedStore extends flux.Store,
+>({
   retrieve,
-  listeners = [],
+  mountListeners,
   name,
   onChange,
+  scope,
 }: UseObservableRetrieveArgs<Data> &
   CreateRetrieveArgs<
     RetrieveParams,
-    Data
+    Data,
+    ScopedStore
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = Synnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const mu = useInitializerRef(() => new Mutex());
-  const mountListeners = useMountListeners();
+  const store = useStore<ScopedStore>(scope);
+  const listeners = useDestructors();
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
@@ -242,56 +238,32 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       );
       paramsRef.current = params;
       try {
-        if (client == null)
-          return onChange((p) =>
-            nullClientResult<Data>(name, "retrieve", p.listenersMounted),
-          );
-        onChange((p) => pendingResult(name, "retrieving", p.data, p.listenersMounted));
-        const value = await retrieve({ client, params });
+        if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
+        onChange((p) => pendingResult(name, "retrieving", p.data));
         if (signal?.aborted) return;
-        mountListeners({
-          onOpen: () => onChange((p) => ({ ...p, listenersMounted: true })),
-          listeners: listeners.map((l) => ({
-            channel: l.channel,
-            handler: (frame) =>
-              void mu.current.runExclusive(async () => {
-                if (client == null || paramsRef.current == null) return;
-                try {
-                  await l.onChange({
-                    client,
-                    params: paramsRef.current,
-                    changed: frame.get(l.channel),
-                    onChange: (value) => {
-                      onChange((prev) => {
-                        if (prev.data == null) return prev;
-                        const next = state.executeSetter(value, prev.data);
-                        return successResult(
-                          name,
-                          "retrieved",
-                          next,
-                          prev.listenersMounted,
-                        );
-                      });
-                    },
-                  });
-                } catch (error) {
-                  if (signal?.aborted) return;
-                  onChange((p) =>
-                    errorResult<Data>(name, "retrieve", error, p.listenersMounted),
-                  );
-                }
+        const value = await retrieve({ client, params, store });
+        if (signal?.aborted) return;
+        listeners.cleanup();
+        listeners.set(
+          mountListeners?.({
+            client,
+            store,
+            params,
+            onChange: (value) =>
+              onChange((prev) => {
+                if (prev.data === undefined) return prev;
+                const next = state.executeSetter(value, prev.data);
+                return successResult(name, "retrieved", next);
               }),
-          })),
-        });
-        onChange((p) =>
-          successResult<Data>(name, "retrieved", value, p.listenersMounted),
+          }),
         );
+        onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         if (signal?.aborted) return;
-        onChange((p) => errorResult<Data>(name, "retrieve", error, p.listenersMounted));
+        onChange(errorResult<Data>(name, "retrieve", error));
       }
     },
-    [client, name, mountListeners],
+    [client, name],
   );
   const retrieveSync = useCallback(
     (
@@ -306,11 +278,19 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   };
 };
 
-const useDirect = <RetrieveParams extends Params, Data extends state.State>({
+const useDirect = <
+  RetrieveParams extends Params,
+  Data extends state.State,
+  ScopedStore extends flux.Store,
+>({
   params,
   ...restArgs
 }: UseDirectRetrieveArgs<RetrieveParams> &
-  CreateRetrieveArgs<RetrieveParams, Data>): UseDirectRetrieveReturn<Data> => {
+  CreateRetrieveArgs<
+    RetrieveParams,
+    Data,
+    ScopedStore
+  >): UseDirectRetrieveReturn<Data> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restArgs);
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
@@ -320,12 +300,16 @@ const useDirect = <RetrieveParams extends Params, Data extends state.State>({
   return rest;
 };
 
-const useEffect = <RetrieveParams extends Params, Data extends state.State>({
+const useEffect = <
+  RetrieveParams extends Params,
+  Data extends state.State,
+  ScopedStore extends flux.Store,
+>({
   params,
   ...restArgs
 }: UseEffectRetrieveArgs<RetrieveParams, Data> &
-  CreateRetrieveArgs<RetrieveParams, Data>): void => {
-  const { retrieveAsync } = useObservable<RetrieveParams, Data>(restArgs);
+  CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>): void => {
+  const { retrieveAsync } = useObservable<RetrieveParams, Data, ScopedStore>(restArgs);
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
     async (signal) => await retrieveAsync(memoParams, { signal }),
@@ -393,8 +377,12 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
  * });
  * ```
  */
-export const createRetrieve = <RetrieveParams extends Params, Data extends state.State>(
-  factoryArgs: CreateRetrieveArgs<RetrieveParams, Data>,
+export const createRetrieve = <
+  RetrieveParams extends Params,
+  Data extends state.State,
+  ScopedStore extends flux.Store = {},
+>(
+  factoryArgs: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
 ): CreateRetrieveReturn<RetrieveParams, Data> => ({
   useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
     useDirect({ ...factoryArgs, ...args }),

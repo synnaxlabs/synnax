@@ -11,6 +11,42 @@ import { rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
+export const FLUX_STORE_KEY = "racks";
+
+export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
+
+interface SubStore extends Flux.Store {
+  [FLUX_STORE_KEY]: FluxStore;
+}
+
+const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+  channel: rack.SET_CHANNEL_NAME,
+  schema: rack.keyZ,
+  onChange: async ({ store, changed, client }) => {
+    const r = await client.hardware.racks.retrieve({ key: changed });
+    store.racks.set(changed, r.payload);
+  },
+};
+
+const DELETE_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
+  channel: rack.DELETE_CHANNEL_NAME,
+  schema: rack.keyZ,
+  onChange: ({ store, changed }) => store.racks.delete(changed),
+};
+
+const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> = {
+  channel: rack.STATUS_CHANNEL_NAME,
+  schema: rack.statusZ,
+  onChange: ({ store, changed }) =>
+    store.racks.set(changed.details.rack, (prev) =>
+      prev == null ? prev : { ...prev, status: changed },
+    ),
+};
+
+export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+  listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
+};
+
 export interface ListParams {
   term?: string;
   offset?: number;
@@ -18,33 +54,52 @@ export interface ListParams {
   includeStatus?: boolean;
 }
 
-export const useList = Flux.createList<ListParams, rack.Key, rack.Payload>({
+const DEFAULT_PARAMS = {
+  includeStatus: true,
+};
+
+const retrieveFn = async ({
+  client,
+  params,
+  store,
+}: Flux.RetrieveArgs<RetrieveParams, SubStore>) => {
+  let rack = store.racks.get(params.key);
+  if (rack == null) {
+    rack = await client.hardware.racks.retrieve({
+      ...DEFAULT_PARAMS,
+      ...params,
+    });
+    store.racks.set(rack.key, rack);
+  }
+  return rack;
+};
+export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
   name: "Racks",
-  retrieve: async ({ client, params }) => await client.hardware.racks.retrieve(params),
-  retrieveByKey: async ({ client, key }) =>
-    await client.hardware.racks.retrieve({ key }),
-  listeners: [
-    {
-      channel: rack.STATUS_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(rack.statusZ, async ({ changed, onChange }) =>
-        onChange(changed.details.rack, (prev) =>
-          prev == null ? prev : { ...prev, status: changed },
-        ),
-      ),
-    },
-    {
-      channel: rack.SET_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(
-        rack.keyZ,
-        async ({ changed: key, onChange, client }) =>
-          onChange(key, (await client.hardware.racks.retrieve({ key })).payload),
-      ),
-    },
-    {
-      channel: rack.DELETE_CHANNEL_NAME,
-      onChange: Flux.parsedHandler(rack.keyZ, async ({ changed, onDelete }) =>
-        onDelete(changed),
-      ),
-    },
+  retrieve: async ({ client, params, store }) => {
+    const racks = await client.hardware.racks.retrieve({
+      ...DEFAULT_PARAMS,
+      ...params,
+    });
+    store.racks.set(racks);
+    return racks;
+  },
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveFn({ client, params: { key }, store }),
+  mountListeners: ({ store, onChange, onDelete }) => [
+    store.racks.onSet((rack) => onChange(rack.key, rack)),
+    store.racks.onDelete(onDelete),
+  ],
+});
+
+export interface RetrieveParams {
+  key: rack.Key;
+  includeStatus?: boolean;
+}
+
+export const retrieve = Flux.createRetrieve<RetrieveParams, rack.Payload, SubStore>({
+  name: "Rack",
+  retrieve: retrieveFn,
+  mountListeners: ({ store, onChange, params: { key } }) => [
+    store.racks.onSet(onChange, key),
   ],
 });

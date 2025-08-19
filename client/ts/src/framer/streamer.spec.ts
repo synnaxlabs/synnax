@@ -20,9 +20,9 @@ import {
   streamerConfigZ,
 } from "@/framer/streamer";
 import { newVirtualChannel } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Streamer", () => {
   describe("standard", () => {

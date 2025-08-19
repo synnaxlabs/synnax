@@ -21,7 +21,7 @@ export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const { data: parentRangeID } = Ontology.retrieveParentID.useDirect({
     params: { id: task.ontologyID(taskKey) },
   });
-  const { data: parentRange } = Ranger.retrieveQuery.useDirect({
+  const { data: parentRange } = Ranger.retrieve.useDirect({
     params: { key: parentRangeID?.key ?? "" },
   });
   const placeLayout = Layout.usePlacer();

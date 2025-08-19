@@ -12,9 +12,9 @@ import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError, PathError } from "@/errors";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Channel", () => {
   describe("create", () => {

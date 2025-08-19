@@ -56,13 +56,7 @@ export const Summary = ({
     </BaseText.Text>
   );
   return (
-    <Flex.Box
-      y
-      className={CSS.BE("status", "text")}
-      align="start"
-      gap="small"
-      {...rest}
-    >
+    <Flex.Box y align="start" gap="small" center {...rest}>
       {baseText}
       {descriptionText}
     </Flex.Box>
