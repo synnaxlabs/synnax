@@ -13,6 +13,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
+import { Ontology } from "@/ontology";
 import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
 describe("queries", () => {
@@ -20,7 +21,10 @@ describe("queries", () => {
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createSynnaxWraperWithAwait({ client });
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
   beforeEach(() => {
     controller = new AbortController();

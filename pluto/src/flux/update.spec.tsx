@@ -50,9 +50,7 @@ describe("update", () => {
           }).useDirect({ params: {} }),
         { wrapper },
       );
-      act(() => {
-        result.current.update(12, { signal: controller.signal });
-      });
+      act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);
@@ -129,9 +127,12 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(true);
     });
 
@@ -144,9 +145,12 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(false);
     });
 
@@ -159,9 +163,12 @@ describe("update", () => {
           }),
         { wrapper: createSynnaxWrapper({ client: null }) },
       );
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
-      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
       expect(updated).toEqual(false);
     });
 
@@ -175,9 +182,11 @@ describe("update", () => {
           }),
         { wrapper },
       );
-      controller.abort();
-      const updated = await result.current.updateAsync(12, {
-        signal: controller.signal,
+      const updated = await act(async () => {
+        controller.abort();
+        return await result.current.updateAsync(12, {
+          signal: controller.signal,
+        });
       });
       expect(updated).toEqual(false);
     });

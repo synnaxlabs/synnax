@@ -512,14 +512,15 @@ describe("list", () => {
         { wrapper },
       );
 
-      await result.current.retrieveAsync({}, { signal: controller.signal });
+      await act(
+        async () =>
+          await result.current.retrieveAsync({}, { signal: controller.signal }),
+      );
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
       await act(async () => await client.ranges.delete(rng.key));
-      await waitFor(() => {
-        expect(result.current.value?.key).not.toEqual(rng.key);
-      });
+      await waitFor(() => expect(result.current.value?.key).not.toEqual(rng.key));
     });
 
     it("should maintain sort order when items are updated through listeners", async () => {

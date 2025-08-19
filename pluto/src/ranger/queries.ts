@@ -323,9 +323,8 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
       return await toFormValues(await cachedRetrieve(client, store, key));
     },
     update: async ({ client, value, onChange, store }) => {
-      const hasParent = !primitive.isZero(value.parent);
-      const parentID = hasParent
-        ? ranger.ontologyID(value.parent as string)
+      const parentID = primitive.isNonZero(value.parent)
+        ? ranger.ontologyID(value.parent)
         : undefined;
       const rng = await client.ranges.create(value, { parent: parentID });
       await client.labels.label(rng.ontologyID, value.labels, { replace: true });
@@ -338,8 +337,8 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
         store.labels.set(newLabels);
       }
       let parent: ranger.Range | null = null;
-      if (hasParent)
-        parent = await cachedRetrieve(client, store, value.parent as string);
+      if (primitive.isNonZero(value.parent))
+        parent = await cachedRetrieve(client, store, value.parent);
       store.ranges.set(
         rng.key,
         client.ranges.sugarOne({

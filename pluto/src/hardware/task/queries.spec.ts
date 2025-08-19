@@ -5,6 +5,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Task } from "@/hardware/task";
+import { Ontology } from "@/ontology";
 import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -12,7 +13,10 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createSynnaxWraperWithAwait({ client });
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
 
   describe("useList", () => {

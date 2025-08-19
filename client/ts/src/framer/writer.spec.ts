@@ -18,6 +18,7 @@ import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
+
 describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {

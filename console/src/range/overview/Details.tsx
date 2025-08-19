@@ -20,6 +20,7 @@ import {
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -98,8 +99,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     form.set("name", layoutName);
   }, [layoutName, status]);
   useEffect(() => {
-    if (name == null || name === "") return;
-    dispatch(rename({ key: rangeKey, name }));
+    if (primitive.isNonZero(name)) dispatch(rename({ key: rangeKey, name }));
   }, [name]);
 
   const copy = useCopyToClipboard();

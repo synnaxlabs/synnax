@@ -13,6 +13,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
+import { Ontology } from "@/ontology";
 import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -20,7 +21,10 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createSynnaxWraperWithAwait({ client });
+    wrapper = await createSynnaxWraperWithAwait({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
   });
   describe("useList", () => {
     it("should return a list of label keys", async () => {

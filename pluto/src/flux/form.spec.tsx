@@ -204,12 +204,8 @@ describe("useForm", () => {
           })({ params: {}, afterSave }),
         { wrapper },
       );
-      act(() => {
-        result.current.save({ signal: controller.signal });
-      });
-      await testutil.expectAlways(() => {
-        expect(afterSave).not.toHaveBeenCalled();
-      });
+      act(() => result.current.save({ signal: controller.signal }));
+      await testutil.expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
     });
 
     it("should not call afterSave if the form is not valid", async () => {
