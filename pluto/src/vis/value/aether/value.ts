@@ -58,6 +58,7 @@ interface InternalState {
   fontString: string;
   staleTimeout?: ReturnType<typeof setTimeout>;
   isInitialized: boolean;
+  timed_out: boolean;
 }
 
 export class Value
@@ -73,26 +74,23 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    // If not initialzied, set to STALENESS_COLOR
-    if (i.isInitialized === undefined) 
+    // Initialize with stale color and timed_out = true
+    if (i.isInitialized === undefined) {
       i.textColor = STALENESS_COLOR;
+      i.timed_out = true;
+      i.isInitialized = false;
+    }
     
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
+      // Reset timed_out when receiving new data
+      i.timed_out = false;
+      
       if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
       else i.textColor = this.state.color;
 
-      if (i.staleTimeout) clearTimeout(i.staleTimeout);
-      // If not initialized, set timout to 10ms for immediate staleness.
-      const timeoutDuration = i.isInitialized ? STALENESS_TIMEOUT : 20;
-      i.staleTimeout = setTimeout(() => {
-        i.textColor = STALENESS_COLOR;
-        i.isInitialized = true;
-        this.requestRender();
-      }, timeoutDuration);
-      
-      // Always re-render on new value
+      this.resetStaleTimeout();
       this.requestRender();
     });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
@@ -116,6 +114,20 @@ export class Value
     if (i.requestRender == null)
       i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender("layout");
+  }
+
+  private resetStaleTimeout(): void {
+    const { internal: i } = this;
+    if (i.staleTimeout) clearTimeout(i.staleTimeout);
+    // Needs the initial quick timeout bc when the val renders,
+    // it always goes "unstale", so the init timeout kicks it back.
+    const timeoutDuration = i.isInitialized ? STALENESS_TIMEOUT : 20;
+    i.staleTimeout = setTimeout(() => {
+      i.textColor = STALENESS_COLOR;
+      i.timed_out = true;
+      i.isInitialized = true;
+      this.requestRender();
+    }, timeoutDuration);
   }
 
   private requestRender(): void {
@@ -214,3 +226,4 @@ export class Value
 export const REGISTRY: aether.ComponentRegistry = {
   [Value.TYPE]: Value,
 };
+
