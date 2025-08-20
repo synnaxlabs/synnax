@@ -18,19 +18,11 @@ jobs:
     steps:
       - name: Force Quit Synnax Processes
         run: |
-          if (!(Test-Path "$env:USERPROFILE\Desktop")) { New-Item -ItemType Directory -Path "$env:USERPROFILE\Desktop" -Force }
-          Get-ChildItem "$env:USERPROFILE\Desktop\*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-          Write-Host "Checking for existing synnax processes..."
-          $processes = Get-Process -Name "*synnax*" -ErrorAction SilentlyContinue
-          if ($processes) {
-            Write-Host "Found synnax processes. Terminating..."
-            $processes | Stop-Process -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
-            Write-Host "All synnax processes terminated."
-          } else {
-            Write-Host "No synnax processes found."
-          }
-        shell: powershell
+          mkdir -p $HOME/Desktop || true
+          rm -rf $HOME/Desktop/* || true
+          echo "Checking for existing synnax processes..."
+          taskkill //F //IM "*synnax*" 2>nul || echo "No synnax processes found"
+        shell: bash
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -40,47 +32,40 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          echo Installing required build tools...
+          echo "Installing required build tools..."
           choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
           choco install -y cmake
           choco install -y git
-          echo Build tools installation completed.
-        shell: cmd
+        shell: bash
 
       - name: Setup Bazel
         run: |
-          echo Checking if Bazelisk is already installed...
-          where bazelisk >nul 2>&1
-          if errorlevel 1 goto install_bazel
-          echo Bazelisk already installed, using cached version
-          bazelisk --version
-          goto end_bazel
-          :install_bazel
-          echo Installing Bazelisk...
-          curl -L -o bazelisk.exe https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe
-          move bazelisk.exe C:\Windows\System32\bazelisk.exe
-          copy C:\Windows\System32\bazelisk.exe C:\Windows\System32\bazel.exe
-          echo Bazelisk installation completed
-          :end_bazel
-        shell: cmd
+          if command -v bazelisk &> /dev/null; then
+            echo "Bazelisk already installed, using cached version"
+            bazelisk --version
+          else
+            echo "Installing Bazelisk..."
+            curl -L -o bazelisk.exe https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe
+            mv bazelisk.exe /usr/bin/bazelisk.exe
+            ln -sf /usr/bin/bazelisk.exe /usr/bin/bazel.exe
+          fi
+        shell: bash
 
       - name: Build Driver
         run: |
           bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
-        shell: cmd
+        shell: bash
 
       - name: Get Version
         id: version
         working-directory: synnax
         run: |
-          for /f %%i in (pkg/version/VERSION) do echo VERSION=%%i >> %GITHUB_OUTPUT%
-        shell: cmd
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Move Driver to Assets
         run: |
-          if not exist "synnax\pkg\service\hardware\embedded\assets" mkdir "synnax\pkg\service\hardware\embedded\assets"
-          copy "bazel-bin\driver\driver.exe" "synnax\pkg\service\hardware\embedded\assets\driver.exe"
-        shell: cmd
+          mkdir -p synnax/pkg/service/hardware/embedded/assets
+          cp bazel-bin/driver/driver.exe synnax/pkg/service/hardware/embedded/assets/driver.exe
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -95,18 +80,16 @@ jobs:
       - name: Build Synnax Server
         working-directory: synnax
         run: |
-          set GOOS=windows
-          set GOARCH=amd64
+          export GOOS=windows
+          export GOARCH=amd64
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
-        shell: cmd
 
       - name: Copy Binaries to Desktop
         run: |
-          copy "bazel-bin\driver\driver.exe" "%USERPROFILE%\Desktop\synnax-driver.exe"
-          copy "synnax\synnax-v${{ steps.version.outputs.VERSION }}-windows.exe" "%USERPROFILE%\Desktop\synnax.exe"
-          echo Binaries created in %USERPROFILE%\Desktop:
-          dir "%USERPROFILE%\Desktop\synnax*"
-        shell: cmd
+          cp bazel-bin/driver/driver.exe $HOME/Desktop/synnax-driver.exe
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe $HOME/Desktop/synnax.exe
+          echo "Binaries created in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax*
 
   deploy:
     name: Deploy Synnax Service
