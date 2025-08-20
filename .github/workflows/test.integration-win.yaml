@@ -33,16 +33,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
       - name: Install Dependencies
         run: |
-          echo "Installing required build tools..."
+          Write-Host "Installing required build tools..."
           choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
           choco install -y cmake
           choco install -y git
-        shell: bash
+          refreshenv
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Setup Bazel
         run: |
