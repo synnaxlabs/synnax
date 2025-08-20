@@ -31,7 +31,7 @@ jobs:
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+            echo "VERSION=$(cat pkg/version/VERSION)-tc" >> $GITHUB_OUTPUT
           fi
 
       - name: Diff Changes

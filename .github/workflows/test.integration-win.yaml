@@ -19,7 +19,8 @@ jobs:
       - name: Force Quit Synnax Processes
         run: |
           New-Item -ItemType Directory -Path "$env:USERPROFILE\Desktop" -Force -ErrorAction SilentlyContinue
-          Remove-Item "$env:USERPROFILE\Desktop\*" -Force -ErrorAction SilentlyContinue
+          Write-Host "Cleaning up old synnax binaries..."
+          Remove-Item "$env:USERPROFILE\Desktop\synnax*" -Force -ErrorAction SilentlyContinue
           Write-Host "Checking for existing synnax processes..."
           $processes = Get-Process | Where-Object {$_.ProcessName -like "*synnax*"}
           if ($processes) {
