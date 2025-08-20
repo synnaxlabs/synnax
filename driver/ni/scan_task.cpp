@@ -175,12 +175,12 @@ xerrors::Error ni::Scanner::start() {
              NISysCfgBoolFalse
        ))
         return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsNIProduct,
-            NISysCfgBoolTrue
-        ))
-         return err;
+    //if (const auto err = this->syscfg->SetFilterProperty(
+    //        this->filter,
+    //        NISysCfgFilterPropertyIsNIProduct,
+    //         NISysCfgBoolTrue
+    //    ))
+    //     return err;
     return xerrors::NIL;
 
 }
