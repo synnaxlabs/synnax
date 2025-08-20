@@ -46,6 +46,7 @@ jobs:
           choco install -y git
           
           Write-Host "Refreshing environment..."
+          Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
           refreshenv
 
       - name: Update Submodules

@@ -38,7 +38,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
+          base: rc
           filters: |
             changed:
               - .github/workflows/deploy.synnax.yaml
