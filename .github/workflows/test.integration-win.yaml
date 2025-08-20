@@ -3,7 +3,7 @@ name: Test - Run Integration Tests on Windows
 on:
   push:
     branches:
-      - "sy-2746-ni-device-scanner-detection-failure"
+      - "None"
   workflow_dispatch:
 
 env:
@@ -34,21 +34,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Chocolatey
         run: |
           Write-Host "Installing Chocolatey..."
           Set-ExecutionPolicy Bypass -Scope Process -Force
           [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
           iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+      - name: Install Build Tools
+        run: |
+          Write-Host "Installing Visual Studio Build Tools..."
+          & "$env:ProgramData\chocolatey\bin\choco.exe" install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
           
-          Write-Host "Installing required build tools..."
-          choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
-          choco install -y cmake
-          choco install -y git
-          
-          Write-Host "Refreshing environment..."
-          Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
-          refreshenv
+      - name: Install Additional Tools  
+        run: |
+          Write-Host "Installing CMake and Git..."
+          & "$env:ProgramData\chocolatey\bin\choco.exe" install -y cmake git
 
       - name: Update Submodules
         run: git submodule update --init --recursive
