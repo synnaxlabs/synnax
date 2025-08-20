@@ -30,7 +30,7 @@ jobs:
           } else {
             Write-Host "No synnax processes found."
           }
-        shell: pwsh
+        shell: powershell
 
       - name: Checkout Repository
         uses: actions/checkout@v4
