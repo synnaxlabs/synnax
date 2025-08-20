@@ -21,8 +21,14 @@ jobs:
           New-Item -ItemType Directory -Path "$env:USERPROFILE\Desktop" -Force -ErrorAction SilentlyContinue
           Remove-Item "$env:USERPROFILE\Desktop\*" -Force -ErrorAction SilentlyContinue
           Write-Host "Checking for existing synnax processes..."
-          taskkill /F /IM "*synnax*" 2>$null
-          if ($LASTEXITCODE -ne 0) { Write-Host "No synnax processes found" }
+          $processes = Get-Process | Where-Object {$_.ProcessName -like "*synnax*"}
+          if ($processes) {
+            Write-Host "Found synnax processes. Terminating..."
+            $processes | Stop-Process -Force
+            Write-Host "All synnax processes terminated."
+          } else {
+            Write-Host "No synnax processes found."
+          }
 
       - name: Checkout Repository
         uses: actions/checkout@v4
