@@ -156,30 +156,30 @@ xerrors::Error ni::Scanner::start() {
 
     if (const auto err = this->syscfg->CreateFilter(this->session, &this->filter))
         return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsDevice,
-            NISysCfgBoolTrue
-        ))
-        return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-           this->filter,
-            NISysCfgFilterPropertyIsPresent,
-            NISysCfgIsPresentTypePresent
-         ))
-        return err;
     //if (const auto err = this->syscfg->SetFilterProperty(
     //        this->filter,
-    //        NISysCfgFilterPropertyIsChassis,
-    //         NISysCfgBoolFalse
-    //   ))
-    //    return err;
-    //if (const auto err = this->syscfg->SetFilterProperty(
-    //        this->filter,
-    //        NISysCfgFilterPropertyIsNIProduct,
+    //        NISysCfgFilterPropertyIsDevice,
     //        NISysCfgBoolTrue
     //    ))
-    //     return err;
-    //return xerrors::NIL;
+    //    return err;
+    //if (const auto err = this->syscfg->SetFilterProperty(
+    //       this->filter,
+    //        NISysCfgFilterPropertyIsPresent,
+    //        NISysCfgIsPresentTypePresent
+    //     ))
+    //    return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
+            this->filter,
+            NISysCfgFilterPropertyIsChassis,
+             NISysCfgBoolFalse
+       ))
+        return err;
+    if (const auto err = this->syscfg->SetFilterProperty(
+            this->filter,
+            NISysCfgFilterPropertyIsNIProduct,
+            NISysCfgBoolTrue
+        ))
+         return err;
+    return xerrors::NIL;
 
 }
