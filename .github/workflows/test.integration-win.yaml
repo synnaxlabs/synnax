@@ -18,22 +18,19 @@ jobs:
     steps:
       - name: Force Quit Synnax Processes
         run: |
-          if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
-          del /q "%USERPROFILE%\Desktop\*" 2>nul
-          if errorlevel 1 echo No files to delete
-          echo Checking for existing synnax processes...
-          tasklist /FI "IMAGENAME eq synnax*" 2>nul | find /i "synnax" >nul
-          if errorlevel 1 goto no_processes
-          echo Found synnax processes. Terminating...
-          taskkill /F /IM "synnax*" 2>nul
-          if errorlevel 1 echo No synnax processes to kill
-          timeout /t 2 /nobreak >nul
-          echo All synnax processes terminated.
-          goto end
-          :no_processes
-          echo No synnax processes found.
-          :end
-        shell: cmd
+          if (!(Test-Path "$env:USERPROFILE\Desktop")) { New-Item -ItemType Directory -Path "$env:USERPROFILE\Desktop" -Force }
+          Get-ChildItem "$env:USERPROFILE\Desktop\*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+          Write-Host "Checking for existing synnax processes..."
+          $processes = Get-Process -Name "*synnax*" -ErrorAction SilentlyContinue
+          if ($processes) {
+            Write-Host "Found synnax processes. Terminating..."
+            $processes | Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+            Write-Host "All synnax processes terminated."
+          } else {
+            Write-Host "No synnax processes found."
+          }
+        shell: pwsh
 
       - name: Checkout Repository
         uses: actions/checkout@v4

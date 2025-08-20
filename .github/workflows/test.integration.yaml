@@ -1,93 +1,237 @@
-name: "Test - Integration"
+name: Test - Integration (End-to-End)
 
 on:
   push:
     branches:
-      - "leo/sy-685-integration-testing"
+      - "sy-2769-integration-test-development"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
+env:
+  CACHE_SCOPE: build-synnax
 
 jobs:
-  test-integration-ubuntu:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
+  build:
+    name: Build Synnax
+    runs-on: [self-hosted, linux]
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Force Quit Synnax Processes
+        run: |
+          mkdir -p $HOME/Desktop
+          rm -rf $HOME/Desktop/*
+          echo "Checking for existing synnax processes..."
+          if pgrep -f "synnax" > /dev/null; then
+            echo "Found synnax processes. Terminating..."
+            pkill -f "synnax" || true
+            sleep 2
+            # Force kill if still running
+            if pgrep -f "synnax" > /dev/null; then
+              echo "Force killing remaining synnax processes..."
+              pkill -9 -f "synnax" || true
+            fi
+            echo "All synnax processes terminated."
+          else
+            echo "No synnax processes found."
+          fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i --no-frozen-lockfile
+        run: |
+          # Clear any existing package manager locks
+          sudo rm -f /var/lib/dpkg/lock-frontend
+          sudo rm -f /var/lib/apt/lists/lock
+          sudo rm -f /var/cache/apt/archives/lock
+          sudo rm -f /var/lib/dpkg/lock
+          
+          # Remove any existing broken Bazel repositories
+          sudo rm -f /etc/apt/sources.list.d/bazel.list
+          sudo rm -f /etc/apt/trusted.gpg.d/bazel.gpg
+          
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gcc \
+            g++ \
+            cmake \
+            libsystemd-dev \
+            pkg-config \
+            libfreetype6-dev \
+            libpng-dev \
+            libjpeg-dev
 
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
+      - name: Setup Bazel
+        run: |
+          # Check if Bazelisk is already installed and cached
+          if command -v bazelisk &> /dev/null; then
+            echo "Bazelisk already installed, using cached version"
+            bazelisk --version
+          else
+            echo "Installing Bazelisk..."
+            # Download Bazelisk binary
+            curl -L -o bazelisk https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+            chmod +x bazelisk
+            sudo mv bazelisk /usr/local/bin/
+            # Create bazel symlink
+            sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
+          fi
 
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
+      - name: Build Driver
+        run: |
+          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
-      - name: Mini Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r-mini.json
-        working-directory: ./integration
+      - name: Get Version
+        id: version
+        working-directory: synnax
+        run: |
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
-      - name: Delete Test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/delete-test.json
-        working-directory: ./integration
+      - name: Move Driver to Assets
+        run: |
+          mkdir -p synnax/pkg/service/hardware/embedded/assets
+          cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
 
-      - name: Load test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r.json
-        working-directory: ./integration
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
-      - name: Benchmark test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/benchmark-test.json
-        working-directory: ./integration
+      - name: Download Go Dependencies
+        working-directory: synnax
+        run: go mod download
 
-  test-benchmark-cesium:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
+      - name: Build Synnax Server
+        working-directory: synnax
+        run: |
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
+
+      - name: Copy Binaries to Desktop
+        run: |      
+          cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver
+          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/synnax
+          echo "Binaries created in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax*
+
+  deploy:
+    name: Deploy Synnax Service
+    runs-on: [self-hosted, linux]
+    needs: build
+    steps:
+      - name: Install and Start Synnax as Service
+        run: |
+          # Create necessary directories with proper permissions
+          sudo mkdir -p /var/lib/synnax-driver
+          sudo chown $USER:$USER /var/lib/synnax-driver
+          sudo chmod 755 /var/lib/synnax-driver
+          
+          # Create local data directory
+          mkdir -p $HOME/synnax-data
+          
+          # Create systemd service
+          sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
+          [Unit]
+          Description=Synnax Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=$USER
+          WorkingDirectory=$HOME/synnax-data
+          ExecStart=$HOME/Desktop/synnax start -mi
+          Restart=always
+          RestartSec=5
+          StandardOutput=journal
+          StandardError=journal
+          Environment=SYNNAX_DATA_DIR=$HOME/synnax-data
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Start the service
+          sudo systemctl daemon-reload
+          sudo systemctl stop synnax || true
+          sudo systemctl enable synnax
+          sudo systemctl start synnax
+          
+          # Wait for service to start
+          sleep 15
+          
+          # Verify service is running and responding
+          if sudo systemctl is-active --quiet synnax; then
+            if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
+              echo "Synnax service is running and responding on port 9090"
+            else
+              echo "Service is running but not responding on port 9090"
+              sudo journalctl -u synnax --no-pager -n 20
+              exit 1
+            fi
+          else
+            echo "Service failed to start"
+            sudo journalctl -u synnax --no-pager -n 20
+            exit 1
+          fi
+
+  test:
+    name: Run Test Conductor
+    runs-on: [self-hosted, linux]
+    needs: deploy
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          filters: |
-            changed:
-              - "cesium/**"
-              - ".github/workflows/test.integration.yaml"
+          python-version: '3.12'
+          cache: 'pip'
 
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./cesium/internal/benchmark
+      - name: Set up Poetry
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl python3-pip
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry --version
 
-      - name: Benchmark
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry run python benchmarker.py
-        working-directory: ./cesium/internal/benchmark
+      - name: Install Dependencies
+        working-directory: integration/py
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry env remove --all || true
+          poetry add "pydantic>=2.11.5,<3.0" --no-cache
+          poetry install --no-cache
+
+      - name: Debug Imports
+        working-directory: integration/py
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run python -c "
+          import synnax; print('Synnax imported successfully')
+          import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot; print('Matplotlib imported successfully')
+          "
+
+      - name: Test Conductor
+        working-directory: integration/test/py/framework
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run --directory ../../py python3 framework/Test_Conducter.py --name test_conductor --sequence ../testcases/basic_tests.json
+
+      - name: Upload Benchmark Plot
+        uses: actions/upload-artifact@v4
+        if: always()  # Run even if tests fail
+        with:
+          name: benchmark-plots
+          path: |
+            integration/test/py/*.png
+            integration/test/py/framework/*.png
+          retention-days: 30
