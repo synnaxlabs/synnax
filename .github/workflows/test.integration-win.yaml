@@ -19,17 +19,20 @@ jobs:
       - name: Force Quit Synnax Processes
         run: |
           if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
-          del /q "%USERPROFILE%\Desktop\*" 2>nul || echo No files to delete
+          del /q "%USERPROFILE%\Desktop\*" 2>nul
+          if errorlevel 1 echo No files to delete
           echo Checking for existing synnax processes...
           tasklist /FI "IMAGENAME eq synnax*" 2>nul | find /i "synnax" >nul
-          if %errorlevel% equ 0 (
-            echo Found synnax processes. Terminating...
-            taskkill /F /IM "synnax*" 2>nul || echo No synnax processes to kill
-            timeout /t 2 /nobreak >nul
-            echo All synnax processes terminated.
-          ) else (
-            echo No synnax processes found.
-          )
+          if errorlevel 1 goto no_processes
+          echo Found synnax processes. Terminating...
+          taskkill /F /IM "synnax*" 2>nul
+          if errorlevel 1 echo No synnax processes to kill
+          timeout /t 2 /nobreak >nul
+          echo All synnax processes terminated.
+          goto end
+          :no_processes
+          echo No synnax processes found.
+          :end
         shell: cmd
 
       - name: Checkout Repository
@@ -51,16 +54,17 @@ jobs:
         run: |
           echo Checking if Bazelisk is already installed...
           where bazelisk >nul 2>&1
-          if %errorlevel% equ 0 (
-            echo Bazelisk already installed, using cached version
-            bazelisk --version
-          ) else (
-            echo Installing Bazelisk...
-            curl -L -o bazelisk.exe https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe
-            move bazelisk.exe C:\Windows\System32\bazelisk.exe
-            copy C:\Windows\System32\bazelisk.exe C:\Windows\System32\bazel.exe
-            echo Bazelisk installation completed
-          )
+          if errorlevel 1 goto install_bazel
+          echo Bazelisk already installed, using cached version
+          bazelisk --version
+          goto end_bazel
+          :install_bazel
+          echo Installing Bazelisk...
+          curl -L -o bazelisk.exe https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe
+          move bazelisk.exe C:\Windows\System32\bazelisk.exe
+          copy C:\Windows\System32\bazelisk.exe C:\Windows\System32\bazel.exe
+          echo Bazelisk installation completed
+          :end_bazel
         shell: cmd
 
       - name: Build Driver
@@ -72,7 +76,8 @@ jobs:
         id: version
         working-directory: synnax
         run: |
-          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+          for /f %%i in (pkg/version/VERSION) do echo VERSION=%%i >> %GITHUB_OUTPUT%
+        shell: cmd
 
       - name: Move Driver to Assets
         run: |
@@ -118,8 +123,10 @@ jobs:
           if not exist "%USERPROFILE%\synnax-data" mkdir "%USERPROFILE%\synnax-data"
           
           echo Stopping existing Synnax service if running...
-          sc stop "Synnax" 2>nul || echo No existing service to stop
-          sc delete "Synnax" 2>nul || echo No existing service to delete
+          sc stop "Synnax" 2>nul
+          if errorlevel 1 echo No existing service to stop
+          sc delete "Synnax" 2>nul
+          if errorlevel 1 echo No existing service to delete
           
           echo Creating Windows service...
           sc create "Synnax" binpath="%USERPROFILE%\Desktop\synnax.exe start -mi" start=auto
@@ -134,22 +141,23 @@ jobs:
           
           echo Verifying service is running and responding...
           sc query "Synnax" | find "RUNNING" >nul
-          if %errorlevel% equ 0 (
-            echo Service is running, checking port 9090...
-            for /l %%i in (1,1,10) do (
-              netstat -an | find ":9090" >nul && goto :port_ready
-              timeout /t 1 /nobreak >nul
-            )
-            echo Service is running but not responding on port 9090
-            sc query "Synnax"
-            exit /b 1
-            :port_ready
-            echo Synnax service is running and responding on port 9090
-          ) else (
-            echo Service failed to start
-            sc query "Synnax"
-            exit /b 1
+          if errorlevel 1 goto service_failed
+          echo Service is running, checking port 9090...
+          for /l %%i in (1,1,10) do (
+            netstat -an | find ":9090" >nul && goto port_ready
+            timeout /t 1 /nobreak >nul
           )
+          echo Service is running but not responding on port 9090
+          sc query "Synnax"
+          exit /b 1
+          :port_ready
+          echo Synnax service is running and responding on port 9090
+          goto service_end
+          :service_failed
+          echo Service failed to start
+          sc query "Synnax"
+          exit /b 1
+          :service_end
         shell: cmd
 
   test:
@@ -181,7 +189,8 @@ jobs:
         working-directory: integration/py
         run: |
           set PATH=%USERPROFILE%\.local\bin;%PATH%
-          poetry env remove --all 2>nul || echo No environments to remove
+          poetry env remove --all 2>nul
+          if errorlevel 1 echo No environments to remove
           poetry add "pydantic>=2.11.5,<3.0" --no-cache
           poetry install --no-cache
         shell: cmd
