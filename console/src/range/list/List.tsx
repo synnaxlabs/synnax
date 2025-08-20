@@ -58,14 +58,13 @@ export const List = ({
         <Flex.Box
           x
           bordered
-          style={{ padding: "2rem" }}
+          style={{ padding: "1.5rem" }}
           background={1}
           justify="between"
         >
-          <SelectFilters request={request} onRequestChange={handleRequestChange} />
           <Input.Text
             size="small"
-            level="h4"
+            level="h5"
             variant="text"
             value={request.searchTerm ?? ""}
             placeholder={
@@ -78,6 +77,15 @@ export const List = ({
           />
         </Flex.Box>
       )}
+      <Flex.Box
+        x
+        bordered
+        style={{ padding: "1rem 2rem", borderTop: "none" }}
+        background={1}
+        justify="between"
+      >
+        <SelectFilters request={request} onRequestChange={handleRequestChange} />
+      </Flex.Box>
       <PList.Items<string>>
         {({ key, ...rest }) => (
           <Item

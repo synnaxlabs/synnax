@@ -9,7 +9,7 @@
 
 import "@/menu/ContextMenu.css";
 
-import { box, position, unique, xy } from "@synnaxlabs/x";
+import { box, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -17,6 +17,7 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
+import { Dialog } from "@/dialog";
 
 interface ContextMenuState {
   visible: boolean;
@@ -112,11 +113,11 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (el == null) return;
     setMenuState((prev) => {
       if (!prev.visible) return prev;
-      const { adjustedDialog } = position.dialog({
+      const { adjustedDialog } = Dialog.position({
         container: box.construct(0, 0, window.innerWidth, window.innerHeight),
         dialog: box.construct(el),
         target: box.construct(prev.cursor, 0, 0),
-        prefer: [{ y: "bottom" }],
+        prefer: [{ targetCorner: { y: "bottom" } }],
       });
       const nextPos = box.topLeft(adjustedDialog);
       if (xy.equals(prev.position, nextPos)) return prev;

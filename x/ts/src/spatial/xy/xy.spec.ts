@@ -9,7 +9,8 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import * as xy from "@/spatial/xy/xy";
+import { location } from "@/spatial/location";
+import { xy } from "@/spatial/xy";
 
 describe("XY", () => {
   describe("construction", () => {
@@ -61,6 +62,44 @@ describe("XY", () => {
     p = xy.translate(p, [5, 5], [2, 2]);
     expect(p.x).toEqual(8);
     expect(p.y).toEqual(9);
+  });
+
+  describe("translate with Direction", () => {
+    it("should translate in the x direction", () => {
+      const p = xy.construct([1, 2]);
+      const result = xy.translate(p, "x", 5);
+      expect(result.x).toEqual(6);
+      expect(result.y).toEqual(2);
+    });
+
+    it("should translate in the y direction", () => {
+      const p = xy.construct([1, 2]);
+      const result = xy.translate(p, "y", 3);
+      expect(result.x).toEqual(1);
+      expect(result.y).toEqual(5);
+    });
+
+    it("should translate negative values in x direction", () => {
+      const p = xy.construct([10, 20]);
+      const result = xy.translate(p, "x", -7);
+      expect(result.x).toEqual(3);
+      expect(result.y).toEqual(20);
+    });
+
+    it("should translate negative values in y direction", () => {
+      const p = xy.construct([10, 20]);
+      const result = xy.translate(p, "y", -15);
+      expect(result.x).toEqual(10);
+      expect(result.y).toEqual(5);
+    });
+
+    it("should work with different input formats", () => {
+      const couple = xy.translate([5, 5], "x", 10);
+      expect(couple).toEqual({ x: 15, y: 5 });
+
+      const dims = xy.translate({ width: 3, height: 4 }, "y", 6);
+      expect(dims).toEqual({ x: 3, y: 10 });
+    });
   });
 
   describe("equals", () => {
@@ -149,6 +188,84 @@ describe("XY", () => {
       expect(xy.swap([1, 2])).toEqual({ x: 2, y: 1 });
       expect(xy.swap({ x: 3, y: 4 })).toEqual({ x: 4, y: 3 });
       expect(xy.swap({ width: 5, height: 6 })).toEqual({ x: 6, y: 5 });
+    });
+  });
+
+  describe("translate with location.XY", () => {
+    it("should translate with top-left location", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.TOP_LEFT, [5, 5]);
+      expect(result).toEqual({ x: 5, y: 5 });
+    });
+
+    it("should translate with top-right location", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.TOP_RIGHT, [5, 5]);
+      expect(result).toEqual({ x: 15, y: 5 });
+    });
+
+    it("should translate with bottom-left location", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.BOTTOM_LEFT, [5, 5]);
+      expect(result).toEqual({ x: 5, y: 15 });
+    });
+
+    it("should translate with bottom-right location", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.BOTTOM_RIGHT, [5, 5]);
+      expect(result).toEqual({ x: 15, y: 15 });
+    });
+
+    it("should handle center x locations", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.TOP_CENTER, [5, 5]);
+      expect(result).toEqual({ x: 10, y: 5 });
+
+      const result2 = xy.translate(p, location.BOTTOM_CENTER, [5, 5]);
+      expect(result2).toEqual({ x: 10, y: 15 });
+    });
+
+    it("should handle center y locations", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.CENTER_LEFT, [5, 5]);
+      expect(result).toEqual({ x: 5, y: 10 });
+
+      const result2 = xy.translate(p, location.CENTER_RIGHT, [5, 5]);
+      expect(result2).toEqual({ x: 15, y: 10 });
+    });
+
+    it("should handle center-center location", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.CENTER, [5, 5]);
+      expect(result).toEqual({ x: 10, y: 10 });
+    });
+
+    it("should work with different coordinate input formats", () => {
+      const result1 = xy.translate([10, 10], { x: "left", y: "top" }, [5, 5]);
+      expect(result1).toEqual({ x: 5, y: 5 });
+
+      const result2 = xy.translate(
+        { width: 10, height: 10 },
+        { x: "right", y: "bottom" },
+        { width: 5, height: 5 },
+      );
+      expect(result2).toEqual({ x: 15, y: 15 });
+    });
+
+    it("should handle negative translations correctly", () => {
+      const p = xy.construct([10, 10]);
+      const result = xy.translate(p, location.TOP_LEFT, [-5, -5]);
+      expect(result).toEqual({ x: 15, y: 15 });
+
+      const result2 = xy.translate(p, location.BOTTOM_RIGHT, [-5, -5]);
+      expect(result2).toEqual({ x: 5, y: 5 });
+    });
+
+    it("should work with custom location objects", () => {
+      const p = xy.construct([10, 10]);
+      const customLocation: location.XY = { x: "left", y: "bottom" };
+      const result = xy.translate(p, customLocation, [3, 7]);
+      expect(result).toEqual({ x: 7, y: 17 });
     });
   });
 });

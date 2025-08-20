@@ -23,7 +23,7 @@ import {
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { positionDialog, type Variant } from "@/dialog/position";
+import { type LocationPreference, position } from "@/dialog/position";
 import { Flex } from "@/flex";
 import {
   useClickOutside,
@@ -36,13 +36,15 @@ import { Menu } from "@/menu";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
+export type Variant = "connected" | "floating" | "modal";
+
 /** Props for the {@link Frame} component. */
 export interface FrameProps
   extends Omit<Flex.BoxProps, "ref" | "reverse" | "size" | "empty"> {
   initialVisible?: boolean;
   visible?: boolean;
   onVisibleChange?: state.Setter<boolean>;
-  location?: xlocation.Y | xlocation.XY;
+  location?: LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -94,6 +96,29 @@ const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean =>
   box.top(next) === box.top(prev) &&
   box.width(next) === box.width(prev);
 
+const PREFERENCES: LocationPreference[] = [
+  {
+    targetCorner: xlocation.BOTTOM_LEFT,
+    dialogCorner: xlocation.TOP_LEFT,
+  },
+  {
+    targetCorner: xlocation.TOP_LEFT,
+    dialogCorner: xlocation.BOTTOM_LEFT,
+  },
+  {
+    targetCorner: xlocation.BOTTOM_RIGHT,
+    dialogCorner: xlocation.TOP_RIGHT,
+  },
+  {
+    targetCorner: xlocation.TOP_RIGHT,
+    dialogCorner: xlocation.BOTTOM_RIGHT,
+  },
+  {
+    targetCorner: xlocation.TOP_RIGHT,
+    dialogCorner: xlocation.TOP_LEFT,
+  },
+];
+
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest
  * case, use the {@link use} hook (more behavioral details explained there).
@@ -140,13 +165,20 @@ export const Frame = ({
   const calculatePosition = useCallback(() => {
     if (parentRef.current == null || dialogRef.current == null || !visibleRef.current)
       return;
-    const { adjustedDialog, location } = positionDialog({
-      variant,
-      target: parentRef.current,
-      dialog: dialogRef.current,
+    const target = box.construct(parentRef.current);
+    let dialog = box.construct(dialogRef.current);
+    if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
+
+    const container = box.construct(0, 0, window.innerWidth, window.innerHeight);
+    const { adjustedDialog, targetCorner, dialogCorner } = position({
+      target,
+      dialog,
+      container,
+      prefer: PREFERENCES,
       initial: propsLocation,
-      prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
+      offset: 3,
     });
+    console.log(targetCorner, dialogCorner);
     prevLocation.current = location;
     const roundedDialog = box.round(adjustedDialog);
     if (positionsEqual(roundedDialog, prevBox.current)) return;
@@ -154,16 +186,15 @@ export const Frame = ({
     const style: CSSProperties = {};
     if (variant !== "modal" && parentRef.current != null) {
       style.left = box.left(roundedDialog);
-      if (location.y === "bottom") style.top = box.top(roundedDialog);
-      else {
-        const windowBox = box.construct(window.document.documentElement);
-        style.bottom = box.height(windowBox) - box.bottom(roundedDialog);
-      }
+      if (targetCorner.y === "bottom") style.top = box.top(roundedDialog);
+      else if (targetCorner.y === "center") style.top = box.top(roundedDialog);
+      else style.bottom = box.height(container) - box.bottom(roundedDialog);
+
       if (variant === "connected") style.width = box.width(roundedDialog);
     } else if (variant === "modal") style.top = `${modalOffset}%`;
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-    setState({ location, style });
+    setState({ location: targetCorner, style });
   }, [propsLocation, variant]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });

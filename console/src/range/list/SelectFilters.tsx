@@ -13,13 +13,15 @@ export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersPro
     <Label.SelectMultiple
       value={request.hasLabels ?? []}
       onChange={(v) => onRequestChange((p) => ({ ...p, hasLabels: v }))}
+      triggerProps={{ hideTags: true, variant: "text" }}
+      location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
     />
   </PMenu.Menu>
 );
 
 export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) => (
   <Dialog.Frame location={location.BOTTOM_LEFT}>
-    <Dialog.Trigger>
+    <Dialog.Trigger hideCaret>
       <Icon.Filter />
     </Dialog.Trigger>
     <Dialog.Dialog
