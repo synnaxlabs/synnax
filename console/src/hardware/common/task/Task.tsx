@@ -15,6 +15,7 @@ import { type z } from "zod";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
+import { Optional } from "@synnaxlabs/x";
 
 export interface LayoutArgs {
   deviceKey?: device.Key;
@@ -47,12 +48,12 @@ export interface GetInitialPayloadArgs {
   config?: unknown;
 }
 
-export interface GetInitialPayload<
+export interface GetInitialValues<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  (args: GetInitialPayloadArgs): task.Payload<Type, Config, StatusData>;
+  (args: GetInitialPayloadArgs): Task.InitialValues<Type, Config, StatusData>;
 }
 
 export interface WrapOptions<
@@ -61,45 +62,5 @@ export interface WrapOptions<
   StatusData extends z.ZodType = z.ZodType,
 > {
   schemas: task.Schemas<Type, Config, StatusData>;
-  getInitialPayload: GetInitialPayload<Type, Config, StatusData>;
+  getInitialPayload: GetInitialValues<Type, Config, StatusData>;
 }
-
-export const wrap = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->(
-  Wrapped: FC<TaskProps<Type, Config, StatusData>>,
-  options: WrapOptions<Type, Config, StatusData>,
-): Layout.Renderer => {
-  const { schemas, getInitialPayload } = options;
-  const useRetrieve = Task.createRetrieveQuery(schemas).useDirect;
-  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = useStore<RootState>();
-    const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<LayoutArgs>(
-      store.getState(),
-      layoutKey,
-    );
-    const { data, variant, status } = useRetrieve({
-      params: { key: taskKey },
-    });
-    if (variant !== "success" && variant !== "disabled" && taskKey != null)
-      return (
-        <Status.Summary
-          variant={variant}
-          message={status.message}
-          description={status.description}
-          center
-        />
-      );
-    return (
-      <Wrapped
-        rackKey={data ? task.rackKey(data.key) : rackKey}
-        task={data ?? getInitialPayload({ deviceKey, config })}
-        layoutKey={layoutKey}
-      />
-    );
-  };
-  Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
-  return Wrapper;
-};

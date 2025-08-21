@@ -11,19 +11,20 @@ import "@/hardware/common/task/Form.css";
 
 import { type rack, type Synnax as Client, task } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Input, Task, Flux } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
 import { Rack } from "@/hardware/common/task/Rack";
-import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
+import { LayoutArgs, type WrapOptions } from "@/hardware/common/task/Task";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
+import { RootState } from "@/store";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -44,7 +45,7 @@ export interface WrapFormArgs<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > extends WrapOptions<Type, Config, StatusData> {
-  Properties: FC<{}>;
+  Properties?: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
@@ -54,26 +55,36 @@ export interface UseFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
-> extends TaskProps<Type, Config, StatusData>,
-    Pick<
-      WrapFormArgs<Type, Config, StatusData>,
-      "schemas" | "onConfigure" | "type" | "getInitialPayload"
-    > {
-  taskKey?: task.Key;
+> extends Pick<
+    WrapFormArgs<Type, Config, StatusData>,
+    "schemas" | "onConfigure" | "type" | "getInitialPayload"
+  > {
+  layoutKey: string;
 }
 
+const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
+  ReturnType<typeof task.statusDetailsZ<StatusData>>
+> => ({
+  key: id.create(),
+  variant: "disabled",
+  message: "Task has not been configured",
+  time: TimeStamp.now(),
+  details: { task: "", running: false, data: {} as any },
+});
+
 export const useStatus = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
-  PForm.useFieldValue<task.Status>("status", { ctx });
+  PForm.useFieldValue<task.Status>("status", { ctx, optional: true }) ??
+  defaultStatus();
 
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx).details.running;
+) => useStatus(ctx)?.details.running ?? false;
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
 export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
-  PForm.useFieldValue<task.Key>("key", { ctx });
+  PForm.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
 
 export const useForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -81,20 +92,28 @@ export const useForm = <
   StatusData extends z.ZodType = z.ZodType,
 >({
   layoutKey,
-  taskKey,
   onConfigure,
   schemas,
   getInitialPayload,
 }: UseFormArgs<Type, Config, StatusData>): Flux.UseFormReturn<
   Task.FormSchema<Type, Config, StatusData>
 > => {
+  const store = useStore<RootState>();
+  const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<LayoutArgs>(
+    store.getState(),
+    layoutKey,
+  );
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (unsavedChanges: boolean) =>
       dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
     [dispatch, layoutKey],
   );
-  const initialValues = getInitialPayload({});
+  const initialValues = {
+    ...getInitialPayload({ deviceKey, config }),
+    key: taskKey,
+    rackKey: (rackKey ?? taskKey == null) ? 0 : task.rackKey(taskKey),
+  };
   const confirm = useConfirm();
   return Task.createForm({ schemas, initialValues })({
     params: { key: taskKey },
@@ -139,9 +158,8 @@ export const wrapForm = <
   getInitialPayload,
   onConfigure,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
-  const Wrapper = ({ layoutKey, ...rest }: TaskProps<Type, Config, StatusData>) => {
+  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const { form, save, status } = useForm({
-      ...rest,
       layoutKey,
       schemas,
       type,
@@ -171,9 +189,11 @@ export const wrapForm = <
               </Flex.Box>
             </Flex.Box>
             <ParentRangeButton />
-            <Flex.Box className={CSS.B("task-properties")} x wrap>
-              <Properties />
-            </Flex.Box>
+            {Properties != null && (
+              <Flex.Box className={CSS.B("task-properties")} x wrap>
+                <Properties />
+              </Flex.Box>
+            )}
             <Flex.Box
               x
               className={CSS.B("task-channel-form-container")}
@@ -191,5 +211,5 @@ export const wrapForm = <
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  return wrap(Wrapper, { getInitialPayload, schemas });
+  return Wrapper;
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback, useState } from "react";
-import { type z } from "zod";
+import { set, type z } from "zod";
 
 import { type FetchOptions, type Params } from "@/flux/core/params";
 import { type Store } from "@/flux/core/store";
@@ -280,11 +280,19 @@ export const createForm = <
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          setResult((p) => pendingResult(name, "updating", p.data));
+          setResult(pendingResult(name, "updating", undefined));
           const args = { client, params, store, ...form };
-          if (!(await form.validateAsync())) return false;
-          if ((await beforeSave?.(args)) === false) return false;
-          if (!(await form.validateAsync())) return false;
+          if (!(await form.validateAsync())) {
+            console.log("beforeValidate", args.getStatuses());
+            setResult(successResult(name, "updated", undefined));
+            return false;
+          }
+          console.log("beforeSave", args.value());
+          if ((await beforeSave?.(args)) === false) {
+            setResult(successResult(name, "updated", undefined));
+            return false;
+          }
+          console.log("beforeUpdate", args.value());
           if (signal?.aborted === true) return false;
           await update(args);
           setResult(successResult(name, "updated", undefined));

@@ -110,7 +110,7 @@ const TaskForm: FC<
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialPayload: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ

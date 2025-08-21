@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { id, status } from "@synnaxlabs/x";
+import { id, Optional, status } from "@synnaxlabs/x";
 
 export const FLUX_STORE_KEY = "tasks";
 
@@ -189,7 +189,7 @@ const createSchema = <
     type: schemas.typeSchema,
     snapshot: z.boolean(),
     config: schemas.configSchema,
-    status: task.statusZ(schemas.statusDataSchema),
+    status: task.statusZ(schemas.statusDataSchema).optional(),
   }) as unknown as FormSchema<Type, Config, StatusData>;
 
 export type FormSchema<
@@ -203,7 +203,7 @@ export type FormSchema<
   type: z.infer<Type>;
   snapshot: boolean;
   config: z.infer<Config>;
-  status: z.infer<ReturnType<typeof task.statusZ<StatusData>>>;
+  status?: z.infer<ReturnType<typeof task.statusZ<StatusData>>>;
 }>;
 
 export interface CreateFormArgs<
@@ -212,37 +212,34 @@ export interface CreateFormArgs<
   StatusData extends z.ZodType = z.ZodType,
 > {
   schemas: task.Schemas<Type, Config, StatusData>;
-  initialValues: task.Payload<Type, Config, StatusData>;
+  initialValues: InitialValues<Type, Config, StatusData>;
+}
+
+export interface InitialValues<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> extends Optional<task.Payload<Type, Config, StatusData>, "key"> {
+  key?: task.Key;
 }
 
 export interface UseFormParams {
   key?: task.Key;
 }
 
-const createDefaultStatus = <StatusData extends z.ZodType>(taskKey: task.Key) => {
-  const details = { task: taskKey, running: false, data: {} as StatusData };
-  return {
-    key: id.create(),
-    variant: "success",
-    message: "Task is ready",
-    time: TimeStamp.now(),
-    details,
-  } as task.Status<StatusData>;
-};
-
 const taskToFormValues = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  t: task.Payload<Type, Config, StatusData>,
+  t: InitialValues<Type, Config, StatusData>,
 ): z.infer<FormSchema<Type, Config, StatusData>> => ({
   key: t.key,
   name: t.name,
-  rackKey: task.rackKey(t.key),
+  rackKey: t.key == null ? 0 : task.rackKey(t.key),
   type: t.type,
   config: t.config,
-  status: t.status ?? createDefaultStatus(t.key),
+  status: t.status,
   snapshot: t.snapshot ?? false,
 });
 
@@ -255,8 +252,7 @@ export const createForm = <
   initialValues,
 }: CreateFormArgs<Type, Config, StatusData>) => {
   const schema = createSchema<Type, Config, StatusData>(schemas);
-  const actualInitialValues = taskToFormValues(initialValues);
-  console.log(actualInitialValues);
+  const actualInitialValues = taskToFormValues<Type, Config, StatusData>(initialValues);
   return Flux.createForm<UseFormParams, FormSchema<Type, Config, StatusData>, SubStore>(
     {
       name: "Task",
@@ -270,11 +266,13 @@ export const createForm = <
           { key },
           schemas,
         );
+        console.log("res", res);
         reset(taskToFormValues(res));
       },
       update: async ({ client, params, store, ...form }) => {
         const typedValue = form.value();
-        const task = await client.hardware.tasks.create({
+        const rack = await client.hardware.racks.retrieve({ key: typedValue.rackKey });
+        const task = await rack.createTask({
           key: params.key,
           name: typedValue.name,
           type: typedValue.type,

@@ -12,6 +12,7 @@ import { createContext, use } from "react";
 import { type z } from "zod";
 
 import { type FieldState, type State } from "@/form/state";
+import { type status } from "@synnaxlabs/x";
 
 export interface RemoveFunc {
   (path: string): void;
@@ -44,6 +45,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
+  getStatuses: () => status.Crude[];
 }
 
 export const Context = createContext<ContextValue>({
@@ -65,6 +67,7 @@ export const Context = createContext<ContextValue>({
   setStatus: () => {},
   clearStatuses: () => {},
   setCurrentStateAsInitialValues: () => {},
+  getStatuses: () => [],
 });
 
 export const useContext = <Z extends z.ZodType = z.ZodType>(

@@ -78,7 +78,7 @@ const Form: FC<
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialPayload: Common.Task.GetInitialValues<
   typeof digitalWriteTypeZ,
   typeof digitalWriteConfigZ,
   typeof digitalWriteStatusDataZ

@@ -14,6 +14,7 @@ import { binary } from "@synnaxlabs/x";
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useKey } from "@/hardware/common/task/Form";
 
 interface UtilityButtonProps {
   children: Icon.FC;
@@ -35,7 +36,7 @@ const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps)
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
-  const taskKey = Form.useFieldValue<task.Key | undefined>("key");
+  const taskKey = useKey();
   const getName = () => ctx.get<string>("name").value;
   const copy = useCopyToClipboard();
   const export_ = useExport();

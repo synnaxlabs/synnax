@@ -109,32 +109,13 @@ const schema = configZ.extend({
   rack: rack.keyZ.refine((v) => v > 0, "Location is required"),
 });
 
-const Internal = ({
-  task: base,
-  layoutKey,
-  rackKey,
-}: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
+const Internal = ({}: Common.Task.FormProps<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+>) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
-  const { form, status, save } = useForm({
-    getInitialPayload: getInitialPayload,
-    task: {
-      ...base,
-      config: {
-        ...base.config,
-        rack: rackKey ?? task.rackKey(base.key ?? "0"),
-      },
-    },
-    layoutKey,
-    schemas: {
-      typeSchema: typeZ,
-      configSchema: schema,
-      statusDataSchema: statusDetailsZ,
-    },
-    type: TYPE,
-    onConfigure: async (_, config) => [config, config.rack],
-  });
-
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
@@ -143,128 +124,114 @@ const Internal = ({
 
   return (
     <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<Task.FormSchema<typeof typeZ, typeof configZ, typeof statusDetailsZ>>
-        {...form}
+      <Form.Field<string>
+        path="config.script"
+        showLabel={false}
+        showHelpText={false}
+        padHelpText={false}
+        grow
       >
-        <Form.Field<string>
-          path="config.script"
-          showLabel={false}
-          showHelpText={false}
-          padHelpText={false}
-          grow
-        >
-          {(p) => <Editor {...p} globals={globals} />}
-        </Form.Field>
-        <Flex.Box
-          pack
-          y
-          bordered={false}
-          full="x"
-          style={{
-            background: "var(--pluto-gray-l0)",
-            boxShadow: "var(--pluto-shadow-v1)",
-            borderTop: "var(--pluto-border)",
-            flexShrink: 0, // Prevent the bottom section from shrinking
-          }}
-        >
-          <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
-            <Flex.Box x>
-              <Form.Field<rack.Key>
-                path="config.rack"
-                label="Location"
-                padHelpText={false}
-                grow
-              >
-                {({ value, onChange }) => (
-                  <Rack.SelectSingle
-                    allowNone={false}
-                    value={value}
-                    onChange={onChange}
-                  />
-                )}
-              </Form.Field>
-              <Form.NumericField
-                label="Loop Rate"
-                path="config.rate"
-                padHelpText={false}
-                style={{ width: 120 }}
-                inputProps={{
-                  endContent: "Hz",
-                  bounds: { lower: 1, upper: 1001 },
-                  dragScale: { x: 1, y: 1 },
-                }}
-              />
-            </Flex.Box>
-            <Form.Field<channel.Key[]>
-              path="config.read"
-              label="Read From"
+        {(p) => <Editor {...p} globals={globals} />}
+      </Form.Field>
+      <Flex.Box
+        pack
+        y
+        bordered={false}
+        full="x"
+        style={{
+          background: "var(--pluto-gray-l0)",
+          boxShadow: "var(--pluto-shadow-v1)",
+          borderTop: "var(--pluto-border)",
+          flexShrink: 0, // Prevent the bottom section from shrinking
+        }}
+      >
+        <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
+          <Flex.Box x>
+            <Form.Field<rack.Key>
+              path="config.rack"
+              label="Location"
               padHelpText={false}
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("config.read").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
-              }}
+              grow
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple
+                <Rack.SelectSingle
+                  allowNone={false}
                   value={value}
                   onChange={onChange}
-                  location="top"
                 />
               )}
             </Form.Field>
-            <Form.Field<channel.Key[]>
-              path="config.write"
-              label="Write To"
+            <Form.NumericField
+              label="Loop Rate"
+              path="config.rate"
               padHelpText={false}
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("config.write").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
+              style={{ width: 120 }}
+              inputProps={{
+                endContent: "Hz",
+                bounds: { lower: 1, upper: 1001 },
+                dragScale: { x: 1, y: 1 },
               }}
-            >
-              {({ value, onChange }) => (
-                <Channel.SelectMultiple
-                  value={value}
-                  onChange={onChange}
-                  location="top"
-                />
-              )}
-            </Form.Field>
+            />
           </Flex.Box>
-          <Controls
-            layoutKey={layoutKey}
-            formStatus={status}
-            onConfigure={save}
-            style={{
-              padding: "2rem",
-              border: "none",
-              borderTop: "var(--pluto-border)",
+          <Form.Field<channel.Key[]>
+            path="config.read"
+            label="Read From"
+            padHelpText={false}
+            onChange={(v, extra) => {
+              if (client == null) return;
+              handleError(
+                async () =>
+                  await bindChannelsAsGlobals(
+                    client,
+                    extra.get<channel.Key[]>("config.read").value,
+                    v,
+                    globals,
+                  ),
+                FAILED_TO_UPDATE_AUTOCOMPLETE,
+              );
             }}
-          />
+          >
+            {({ value, onChange }) => (
+              <Channel.SelectMultiple
+                value={value}
+                onChange={onChange}
+                location="top"
+              />
+            )}
+          </Form.Field>
+          <Form.Field<channel.Key[]>
+            path="config.write"
+            label="Write To"
+            padHelpText={false}
+            onChange={(v, extra) => {
+              if (client == null) return;
+              handleError(
+                async () =>
+                  await bindChannelsAsGlobals(
+                    client,
+                    extra.get<channel.Key[]>("config.write").value,
+                    v,
+                    globals,
+                  ),
+                FAILED_TO_UPDATE_AUTOCOMPLETE,
+              );
+            }}
+          >
+            {({ value, onChange }) => (
+              <Channel.SelectMultiple
+                value={value}
+                onChange={onChange}
+                location="top"
+              />
+            )}
+          </Form.Field>
         </Flex.Box>
-      </Form.Form>
+      </Flex.Box>
     </Flex.Box>
   );
 };
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialPayload: Common.Task.GetInitialValues<
   typeof typeZ,
   typeof configZ,
   typeof statusDetailsZ
@@ -273,11 +240,20 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   return { ...ZERO_PAYLOAD, config: cfg };
 };
 
-export const Sequence = Common.Task.wrap(Internal, {
+const SCHEMAS = {
+  typeSchema: typeZ,
+  configSchema: configZ,
+  statusDataSchema: statusDetailsZ,
+};
+
+export const Sequence = Common.Task.wrapForm<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+>({
+  type: TYPE,
+  Form: Internal,
   getInitialPayload,
-  schemas: {
-    typeSchema: typeZ,
-    configSchema: configZ,
-    statusDataSchema: statusDetailsZ,
-  },
+  schemas: SCHEMAS,
+  onConfigure: async (_, config) => [config, config.rack],
 });

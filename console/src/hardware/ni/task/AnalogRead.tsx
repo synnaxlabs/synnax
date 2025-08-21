@@ -122,13 +122,16 @@ const Form: FC<
   );
 };
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialPayload: Common.Task.GetInitialValues<
   typeof analogReadTypeZ,
   typeof analogReadConfigZ,
   typeof analogReadStatusDataZ
 > = ({ deviceKey, config }) => {
   if (config != null)
-    return { ...ZERO_ANALOG_READ_PAYLOAD, config: analogReadConfigZ.parse(config) };
+    return {
+      ...ZERO_ANALOG_READ_PAYLOAD,
+      config: analogReadConfigZ.parse(config),
+    };
   return {
     ...ZERO_ANALOG_READ_PAYLOAD,
     config: {

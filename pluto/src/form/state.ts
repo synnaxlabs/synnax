@@ -234,6 +234,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return this.touched.size > 0;
   }
 
+  getStatuses(): status.Crude[] {
+    return Array.from(this.statuses.values()).filter(
+      (status) => status.variant !== "success",
+    );
+  }
+
   getState<V>(path: string, opts?: RequiredGetOptions): FieldState<V>;
   getState<V>(path: string, opts?: DefaultGetOptions<V>): FieldState<V>;
   getState<V>(path: string, opts?: OptionalGetOptions): FieldState<V> | null;

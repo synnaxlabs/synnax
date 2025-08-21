@@ -168,6 +168,7 @@ export const use = <Z extends z.ZodType>({
       clearStatuses,
       reset,
       setCurrentStateAsInitialValues,
+      getStatuses: () => ref.current.getStatuses(),
     }),
     [
       bind,

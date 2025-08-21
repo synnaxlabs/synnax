@@ -15,6 +15,7 @@ import {
   Form,
   Icon,
   Status,
+  Synnax,
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
@@ -23,10 +24,11 @@ import { type z } from "zod";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useKey, useStatus } from "@/hardware/common/task/Form";
 
 export interface ControlsProps extends Flex.BoxProps {
   layoutKey: string;
-  taskKey?: task.Key;
   formStatus: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
@@ -36,16 +38,23 @@ const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 export const Controls = <StatusData extends z.ZodType = z.ZodType>({
   layoutKey,
   onConfigure,
-  taskKey,
   formStatus,
   ...props
 }: ControlsProps) => {
-  const ctx = Form.useContext();
-  const taskStatus = Form.useFieldValue<task.Status<StatusData>>("status");
+  const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
-  let status: status.Status = taskStatus;
-  if (formStatus.variant !== "success") status = formStatus;
+  let stat: status.Status = taskStatus;
+  if (formStatus.variant !== "success") stat = formStatus;
   const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  const client = Synnax.use();
+  const key = useKey();
+  const handleStartStop = useCallback(async () => {
+    if (key == null) return;
+    await client?.hardware.tasks.executeCommand(
+      key,
+      taskStatus.details.running ? "stop" : "start",
+    );
+  }, [taskStatus]);
   return (
     <Flex.Box
       className={CSS.B("task-controls")}
@@ -56,13 +65,13 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
       {...props}
     >
       <Flex.Box className={CSS.B("task-state")} x>
-        <Status.Summary variant={status.variant}>{status.message}</Status.Summary>
+        <Status.Summary variant={stat.variant}>{stat.message}</Status.Summary>
       </Flex.Box>
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">
           <Button.Button
-            status={status.variant}
             onClick={onConfigure}
+            status={status.filterVariant(formStatus.variant, ["loading", "disabled"])}
             size="medium"
             tooltip={
               hasTriggers ? (
@@ -78,8 +87,9 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
             Configure
           </Button.Button>
           <Button.Button
-            status={status.variant}
-            onClick={() => {}}
+            disabled={formStatus.variant !== "success"}
+            status={status.filterVariant(taskStatus.variant, "loading")}
+            onClick={handleStartStop}
             size="medium"
             variant="filled"
           >

@@ -17,7 +17,7 @@ import { useKey } from "@/hardware/common/task/Form";
 export const ParentRangeButton = () => {
   const taskKey = useKey();
   const { data: parentRangeID } = Ontology.retrieveParentID.useDirect({
-    params: { id: task.ontologyID(taskKey) },
+    params: { id: task.ontologyID(taskKey ?? "") },
   });
   const { data: parentRange } = Ranger.retrieve.useDirect({
     params: { key: parentRangeID?.key ?? "" },
