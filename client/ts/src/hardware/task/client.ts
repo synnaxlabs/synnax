@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { caseconv, id } from "@synnaxlabs/x";
+import { caseconv, id, strings } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
@@ -445,13 +445,19 @@ export class Client {
     name?: string,
     statusDataZ: StatusData = z.unknown() as unknown as StatusData,
   ): Promise<Status<StatusData> | Status<StatusData>[]> {
-    if (Array.isArray(task))
+    if (Array.isArray(task)) {
+      const retrieveNames = async () => {
+        const ts = await this.retrieve({ keys: task.map((t) => t.task) });
+        return ts.map((t) => t.name);
+      };
       return await executeCommandsSync(
         this.frameClient,
         task,
         type as CrudeTimeSpan,
         statusDataZ,
+        retrieveNames,
       );
+    }
     const retrieveName = async () => {
       const t = await this.retrieve({ key: task });
       return t.name;
@@ -505,7 +511,13 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
   args?: {},
 ): Promise<Status<StatusData>> =>
   (
-    await executeCommandsSync(frameClient, [{ args, task, type }], timeout, statusDataZ)
+    await executeCommandsSync(
+      frameClient,
+      [{ args, task, type }],
+      timeout,
+      statusDataZ,
+      tskName,
+    )
   )[0];
 
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
@@ -513,16 +525,20 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
   commands: NewCommand[],
   timeout: CrudeTimeSpan,
   statusDataZ: StatusData,
+  tskName: string | string[] | (() => Promise<string | string[]>),
 ): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const cmdKeys = await executeCommands(frameClient, commands);
   const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
+  const cmdKeys = await executeCommands(frameClient, commands);
   const parsedTimeout = new TimeSpan(timeout);
   let states: Status<StatusData>[] = [];
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
-      reject(new Error("Command timed out"));
+      void (async () => {
+        const taskKeys = commands.map((c) => c.task);
+        reject(await formatTimeoutError("command", tskName, parsedTimeout, taskKeys));
+      })();
     }, parsedTimeout.milliseconds);
   });
   try {
@@ -541,16 +557,20 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
 
 const formatTimeoutError = async (
   type: string,
-  name: string | (() => Promise<string>),
+  name: string | string[] | (() => Promise<string | string[]>),
   timeout: TimeSpan,
-  key: Key,
+  key: Key | Key[],
 ): Promise<Error> => {
   const formattedType = caseconv.capitalize(type);
   const formattedTimeout = timeout.toString();
   try {
-    const name_ = typeof name === "string" ? name : await name();
+    let names: string[];
+    if (typeof name === "string") names = [name];
+    else if (Array.isArray(name)) names = name;
+    else names = array.toArray(await name());
+    const formattedName = strings.naturalLanguageJoin(names);
     return new Error(
-      `${formattedType} command to ${name_} timed out after ${formattedTimeout}`,
+      `${formattedType} command to ${formattedName} timed out after ${formattedTimeout}`,
     );
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);

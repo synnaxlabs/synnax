@@ -140,7 +140,11 @@ const Content = () => {
         task: k,
         type: command,
       }));
-      await client.hardware.tasks.executeCommand(commands);
+      const statuses = await client.hardware.tasks.executeCommandSync(
+        commands,
+        TimeSpan.fromSeconds(10),
+      );
+      statuses.forEach((s) => addStatus({ ...s, time: TimeStamp.now() }));
     },
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
   }).mutate;
