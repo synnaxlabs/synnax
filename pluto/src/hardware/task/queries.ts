@@ -288,7 +288,7 @@ export const createForm = <
       },
       mountListeners: ({ store, get, reset }) => [
         store.tasks.onSet((task) => {
-          const prevKey = get<string>("key").value;
+          const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || prevKey !== task.key) return;
           reset(
             taskToFormValues(task as unknown as task.Payload<Type, Config, StatusData>),

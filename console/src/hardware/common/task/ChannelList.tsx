@@ -169,6 +169,8 @@ export const ChannelList = <C extends Channel>({
           value={selected}
           onChange={handleChange}
           replaceOnSingle
+          allowNone={false}
+          autoSelectOnNone
         >
           <List.Items<string, C>
             onDragOver={onDragOver}
