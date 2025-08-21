@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DisconnectedError, TimeSpan } from "@synnaxlabs/client";
+import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -40,14 +40,9 @@ export const useTare = <C extends TareableChannel>({
       if (client == null) throw new DisconnectedError();
       if (key == null) throw new Error("Task has not been configured");
       handleError(async () => {
-        await client.hardware.tasks.executeCommandSync(
-          key,
-          "tare",
-          TimeSpan.seconds(10),
-          {
-            keys,
-          },
-        );
+        await client.hardware.tasks.executeCommand(key, "tare", {
+          keys,
+        });
       }, "Failed to tare channels");
     },
     [client, key, handleError],

@@ -35,11 +35,11 @@ export const Select = ({
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
-    (key: device.Key, extra: Form.ContextValue) => {
+    (key: device.Key, { set }: Form.ContextValue) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
         const { configured, rack } = await client.hardware.devices.retrieve({ key });
-        extra.set("rackKey", rack);
+        set("rackKey", rack);
         if (configured) return;
         placeLayout({ ...configureLayout, key });
       }, "Failed to retrieve device");
