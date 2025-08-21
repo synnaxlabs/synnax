@@ -275,7 +275,6 @@ export const createForm = <
       update: async ({ client, params, store, ...form }) => {
         const value = form.value();
         const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
-        console.log("CREATE TASK");
         const task = await rack.createTask({
           key: params.key,
           name: value.name,

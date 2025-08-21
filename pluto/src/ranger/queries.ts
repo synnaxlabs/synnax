@@ -410,7 +410,7 @@ export const useLabels = (
 export interface ListParams
   extends Pick<
     ranger.RetrieveRequest,
-    "includeLabels" | "includeParent" | "searchTerm" | "offset" | "limit"
+    "includeLabels" | "includeParent" | "searchTerm" | "offset" | "limit" | "keys"
   > {}
 
 const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
@@ -432,22 +432,27 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, Sub
     store.ranges.set(key, range);
     return range;
   },
-  mountListeners: ({ store, onChange, onDelete, client }) => [
-    store.ranges.onSet((range) => {
-      onChange(range.key, (prev) => {
-        if (prev == null) return range;
-        return client.ranges.sugarOne({
-          ...range.payload,
-          labels: range.labels ?? prev.labels,
+  mountListeners: ({ store, onChange, onDelete, client, params: { keys } }) => {
+    const hasKeys = keys != null && keys.length > 0;
+    const keysSet = new Set(keys);
+    return [
+      store.ranges.onSet((range) => {
+        if (hasKeys && !keysSet.has(range.key)) return;
+        onChange(range.key, (prev) => {
+          if (prev == null) return range;
+          return client.ranges.sugarOne({
+            ...range.payload,
+            labels: range.labels ?? prev.labels,
+          });
         });
-      });
-    }),
-    store.ranges.onDelete(async (key) => onDelete(key)),
-    store.relationships.onSet(async (rel) => {
-      await handleListParentRelationshipSet(rel, onChange, client, store);
-      await handleListLabelRelationshipSet(rel, onChange, client, store);
-    }),
-  ],
+      }),
+      store.ranges.onDelete(async (key) => onDelete(key)),
+      store.relationships.onSet(async (rel) => {
+        await handleListParentRelationshipSet(rel, onChange, client, store);
+        await handleListLabelRelationshipSet(rel, onChange, client, store);
+      }),
+    ];
+  },
 });
 
 export const metaDataFormSchema = z.object({
