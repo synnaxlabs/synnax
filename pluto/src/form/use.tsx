@@ -109,7 +109,6 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const set: SetFunc = useCallback((path, value, options): void => {
-    console.log("SET", path, value, options);
     const { notifyOnChange = true } = options ?? {};
     const prev = deep.get(ref.current.values, path, { optional: true });
     const prevHasTouched = ref.current.hasBeenTouched;

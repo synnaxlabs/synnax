@@ -321,7 +321,6 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
       reset(await toFormValues(await cachedRetrieve(client, store, key)));
     },
     update: async ({ client, value: getValue, reset, store }) => {
-      console.log("VALUE", getValue());
       const value = getValue();
       const parentKey = value.parent;
       const parentID = primitive.isNonZero(parentKey)
