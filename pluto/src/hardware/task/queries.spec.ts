@@ -12,6 +12,7 @@ import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
 const client = createTestClient();
 
 describe("queries", () => {
+  const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     wrapper = await createSynnaxWraperWithAwait({
@@ -490,7 +491,11 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.save();
+        result.current.save({ signal: abortController.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
       });
 
       expect(beforeSave).toHaveBeenCalledWith(
@@ -542,7 +547,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        result.current.save();
+        result.current.save({ signal: abortController.signal });
       });
 
       await waitFor(() => {
@@ -794,22 +799,27 @@ describe("queries", () => {
         config: complexConfig,
       });
 
+      const typeSchema = z.literal("complexType");
+      const configSchema = z.object({
+        connection: z.object({
+          host: z.string(),
+          port: z.number(),
+          secure: z.boolean(),
+        }),
+        settings: z.object({
+          timeout: z.number(),
+          retryCount: z.number(),
+        }),
+      });
+      const statusDataSchema = z.any();
+      const schemas = {
+        typeSchema,
+        configSchema,
+        statusDataSchema,
+      };
+
       const useForm = Task.createForm({
-        schemas: {
-          typeSchema: z.literal("complexType"),
-          configSchema: z.object({
-            connection: z.object({
-              host: z.string(),
-              port: z.number(),
-              secure: z.boolean(),
-            }),
-            settings: z.object({
-              timeout: z.number(),
-              retryCount: z.number(),
-            }),
-          }),
-          statusDataSchema: z.any(),
-        },
+        schemas,
         initialValues: {
           key: testTask.key,
           name: "complexTask",
@@ -834,13 +844,19 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.save();
+        result.current.save({ signal: abortController.signal });
       });
 
-      // const updatedTask = await client.hardware.tasks.retrieve<({
-      //   key: testTask.key,
-      // });
-      // expect(updatedTask.config.connection.port).toEqual(9090);
+      await waitFor(async () => {
+        const updatedTask = await client.hardware.tasks.retrieve<
+          typeof typeSchema,
+          typeof configSchema,
+          typeof statusDataSchema
+        >({
+          key: testTask.key,
+        });
+        expect(updatedTask.config.connection.port).toEqual(9090);
+      });
     });
   });
 });

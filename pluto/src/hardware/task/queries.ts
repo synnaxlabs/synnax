@@ -189,7 +189,7 @@ const createSchema = <
     type: schemas.typeSchema,
     snapshot: z.boolean(),
     config: schemas.configSchema,
-    status: task.statusZ(schemas.statusDataSchema).optional(),
+    status: task.statusZ(schemas.statusDataSchema).optional().nullable(),
   }) as unknown as FormSchema<Type, Config, StatusData>;
 
 export type FormSchema<
