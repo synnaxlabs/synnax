@@ -37,14 +37,14 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
-export interface LayoutArgs {
+export interface FormLayoutArgs {
   deviceKey?: device.Key;
   taskKey?: task.Key;
   rackKey?: rack.Key;
   config?: unknown;
 }
 
-export interface Layout extends Layout.BaseState<LayoutArgs> {}
+export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
 
 export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
@@ -143,7 +143,7 @@ export const useForm = <
   Task.FormSchema<Type, Config, StatusData>
 > => {
   const store = useStore<RootState>();
-  const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<LayoutArgs>(
+  const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
     store.getState(),
     layoutKey,
   );
