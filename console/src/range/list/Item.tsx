@@ -44,7 +44,7 @@ export const Item = ({
     if (item == null) return null;
     return {
       ...item.payload,
-      labels: item.labels.map((l) => l.key),
+      labels: item.labels?.map((l) => l.key) ?? [],
       parent: item.parent?.key ?? "",
       timeRange: item.timeRange.numeric,
     };

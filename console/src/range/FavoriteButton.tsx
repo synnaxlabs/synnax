@@ -33,7 +33,6 @@ export const FavoriteButton = ({ range, ghost, ...rest }: FavoriteButtonProps) =
           {starred ? "Remove from" : "Add to"} Workspace Favorites
         </Text.Text>
       }
-      size="small"
       variant="text"
       ghost={starred ? false : ghost}
       {...rest}
