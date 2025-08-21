@@ -820,7 +820,7 @@ export class TimeSpan
    * @returns A new TimeSpan that is this TimeSpan multiplied by the provided value.
    */
   mult(value: number): TimeSpan {
-    return new TimeSpan(this.valueOf() * BigInt(value));
+    return new TimeSpan(math.mult(this.valueOf(), value));
   }
 
   /** @returns the decimal number of days in the TimeSpan. */
@@ -999,7 +999,10 @@ export class TimeSpan
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
     z.number().transform((n) => new TimeSpan(n)),
+    z.bigint().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
+    z.instanceof(TimeStamp).transform((t) => new TimeSpan(t)),
+    z.custom<Rate>((r) => r instanceof Rate).transform((r) => new TimeSpan(r)),
   ]);
 }
 

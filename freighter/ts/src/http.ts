@@ -16,11 +16,21 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
+const UNREACHBLE_CAUSES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
 const shouldCastToUnreachable = (err: Error): boolean =>
   typeof err.cause === "object" &&
   err.cause !== null &&
   "code" in err.cause &&
-  err.cause.code === "ECONNREFUSED";
+  typeof err.cause.code === "string" &&
+  UNREACHBLE_CAUSES.has(err.cause.code);
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
