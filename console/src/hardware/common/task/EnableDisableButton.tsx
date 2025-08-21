@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
+
 import { Common } from "@/hardware/common";
 
 export interface EnableDisableButtonProps

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, type Synnax, task, TimeStamp } from "@synnaxlabs/client";
+import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { id, Optional, status } from "@synnaxlabs/x";
 
 export const FLUX_STORE_KEY = "tasks";
 

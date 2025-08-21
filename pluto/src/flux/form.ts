@@ -7,29 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { set, type z } from "zod";
+import { type z } from "zod";
 
 import { type FetchOptions, type Params } from "@/flux/core/params";
 import { type Store } from "@/flux/core/store";
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { useStore } from "@/flux/external";
 import {
   errorResult,
   nullClientResult,
   pendingResult,
-  successResult,
   type Result,
+  successResult,
 } from "@/flux/result";
 import { type UpdateArgs as BaseUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { state } from "@/state";
-import { Status } from "@/status";
-import { useStore } from "@/flux/external";
-import { Synnax } from "@/synnax";
-import { Destructor } from "@synnaxlabs/x";
 import { useMemoDeepEqual } from "@/memo";
+import { type state } from "@/state";
+import { Synnax } from "@/synnax";
 
 export interface FormUpdateArgs<
   UpdateParams extends Params,
@@ -204,19 +203,20 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.St
  * });
  * ```
  */
-export const createForm = <
-  FormParams extends Params,
-  Schema extends z.ZodType<state.State>,
-  SubStore extends Store = {},
->({
-  name,
-  schema,
-  retrieve,
-  mountListeners,
-  update,
-  initialValues: baseInitialValues,
-}: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> => {
-  return ({
+export const createForm =
+  <
+    FormParams extends Params,
+    Schema extends z.ZodType<state.State>,
+    SubStore extends Store = {},
+  >({
+    name,
+    schema,
+    retrieve,
+    mountListeners,
+    update,
+    initialValues: baseInitialValues,
+  }: CreateFormArgs<FormParams, Schema, SubStore>): UseForm<FormParams, Schema> =>
+  ({
     params,
     initialValues,
     autoSave = false,
@@ -296,7 +296,7 @@ export const createForm = <
           if (signal?.aborted === true) return false;
           await update(args);
           setResult(successResult(name, "updated", undefined));
-          if (afterSave != null) await afterSave(args);
+          if (afterSave != null) afterSave(args);
           return true;
         } catch (error) {
           if (signal?.aborted !== true)
@@ -313,4 +313,3 @@ export const createForm = <
 
     return { form, save, ...result };
   };
-};

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Form, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
-import { useEffect } from "react";
 import { useKey } from "@/hardware/common/task/Form";
 
 export const Rack = () => {

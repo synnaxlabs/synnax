@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
-  Flux,
+  type Flux,
   Form,
   Icon,
   Status,
@@ -19,13 +18,12 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { type z } from "zod";
-
-import { CSS } from "@/css";
-import { Layout } from "@/layout";
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
+
+import { CSS } from "@/css";
 import { useKey, useStatus } from "@/hardware/common/task/Form";
+import { Layout } from "@/layout";
 
 export interface ControlsProps extends Flex.BoxProps {
   layoutKey: string;
@@ -35,7 +33,7 @@ export interface ControlsProps extends Flex.BoxProps {
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const Controls = <StatusData extends z.ZodType = z.ZodType>({
+export const Controls = ({
   layoutKey,
   onConfigure,
   formStatus,
@@ -43,17 +41,18 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
 }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
+  const handleError = Status.useErrorHandler();
   let stat: status.Status = taskStatus;
   if (formStatus.variant !== "success") stat = formStatus;
   const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   const client = Synnax.use();
   const key = useKey();
-  const handleStartStop = useCallback(async () => {
+  const handleStartStop = useCallback(() => {
     if (key == null) return;
-    await client?.hardware.tasks.executeCommand(
-      key,
-      taskStatus.details.running ? "stop" : "start",
-    );
+    const command = taskStatus.details.running ? "stop" : "start";
+    handleError(async () => {
+      await client?.hardware.tasks.executeCommand(key, command);
+    }, `Failed to ${command} task`);
   }, [taskStatus]);
   return (
     <Flex.Box

@@ -11,12 +11,12 @@ import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
+import { Common } from "@/hardware/common";
 import {
   ChannelList as Core,
   type ChannelListProps as CoreProps,
 } from "@/hardware/common/task/ChannelList";
 import { type Channel } from "@/hardware/common/task/types";
-import { Common } from "@/hardware/common";
 
 interface HeaderProps {
   onAdd: () => void;

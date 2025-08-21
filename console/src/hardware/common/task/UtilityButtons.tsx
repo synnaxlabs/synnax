@@ -13,8 +13,8 @@ import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useKey } from "@/hardware/common/task/Form";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface UtilityButtonProps {
   children: Icon.FC;

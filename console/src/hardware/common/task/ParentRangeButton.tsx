@@ -10,9 +10,9 @@
 import { task } from "@synnaxlabs/client";
 import { Button, Flex, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
 
+import { useKey } from "@/hardware/common/task/Form";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useKey } from "@/hardware/common/task/Form";
 
 export const ParentRangeButton = () => {
   const taskKey = useKey();

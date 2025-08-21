@@ -3,11 +3,11 @@ import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import z from "zod";
 
 import { Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
 import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
-import z from "zod";
 
 const client = createTestClient();
 
@@ -489,8 +489,8 @@ describe("queries", () => {
         result.current.form.set("name", "modifiedName");
       });
 
-      await act(async () => {
-        await result.current.save();
+      act(() => {
+        result.current.save();
       });
 
       expect(beforeSave).toHaveBeenCalledWith(
@@ -833,8 +833,8 @@ describe("queries", () => {
         result.current.form.set("config.connection.port", 9090);
       });
 
-      await act(async () => {
-        await result.current.save();
+      act(() => {
+        result.current.save();
       });
 
       // const updatedTask = await client.hardware.tasks.retrieve<({

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useIsRunning, useKey } from "@/hardware/common/task/Form";
 import { type channel, DisconnectedError, TimeSpan } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
+
+import { useIsRunning, useKey } from "@/hardware/common/task/Form";
 
 export interface TareableChannel {
   key: string;
@@ -35,16 +35,23 @@ export const useTare = <C extends TareableChannel>({
   const key = useKey();
   const isRunning = useIsRunning();
   const handleError = Status.useErrorHandler();
-  const tare = useMutation({
-    onError: (e) => handleError(e, "Failed to tare channels"),
-    mutationFn: async (keys: channel.Key[]) => {
+  const tare = useCallback(
+    (keys: channel.Key[]) => {
       if (client == null) throw new DisconnectedError();
       if (key == null) throw new Error("Task has not been configured");
-      client.hardware.tasks.executeCommandSync(key, "tare", TimeSpan.seconds(10), {
-        keys,
-      });
+      handleError(async () => {
+        await client.hardware.tasks.executeCommandSync(
+          key,
+          "tare",
+          TimeSpan.seconds(10),
+          {
+            keys,
+          },
+        );
+      }, "Failed to tare channels");
     },
-  }).mutate;
+    [client, key, handleError],
+  );
   const getTareableChannels = useCallback(
     (keys: string[], channels: C[]) => {
       const keySet = new Set(keys);

@@ -10,21 +10,21 @@
 import "@/hardware/common/task/Form.css";
 
 import { type rack, type Synnax as Client, task } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Input, Task, Flux } from "@synnaxlabs/pluto";
+import { Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
+import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
-import { LayoutArgs, type WrapOptions } from "@/hardware/common/task/Task";
+import { type LayoutArgs, type WrapOptions } from "@/hardware/common/task/Task";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
-import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (

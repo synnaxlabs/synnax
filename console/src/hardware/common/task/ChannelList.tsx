@@ -21,8 +21,8 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
-import { type Channel } from "@/hardware/common/task/types";
 import { Common } from "@/hardware/common";
+import { type Channel } from "@/hardware/common/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];

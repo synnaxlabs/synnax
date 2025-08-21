@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, rack, task } from "@synnaxlabs/client";
+import { type channel, type rack } from "@synnaxlabs/client";
 import {
   Channel,
   Flex,
@@ -17,7 +17,6 @@ import {
   Rack,
   Status,
   Synnax,
-  Task,
 } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
@@ -27,8 +26,6 @@ import { Lua } from "@/code/lua";
 import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
-import { Controls } from "@/hardware/common/task/Controls";
-import { useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   configZ,
@@ -105,15 +102,7 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
   return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
 };
 
-const schema = configZ.extend({
-  rack: rack.keyZ.refine((v) => v > 0, "Location is required"),
-});
-
-const Internal = ({}: Common.Task.FormProps<
-  typeof typeZ,
-  typeof configZ,
-  typeof statusDetailsZ
->) => {
+const Internal = () => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const globals = usePhantomGlobals({
