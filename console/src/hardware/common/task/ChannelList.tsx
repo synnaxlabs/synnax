@@ -22,6 +22,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/types";
+import { Common } from "@/hardware/common";
 
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];
@@ -32,7 +33,6 @@ interface ContextMenuProps<C extends Channel>
   extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove"> {
   keys: string[];
   allowTare?: (keys: string[], channels: C[]) => boolean;
-  isSnapshot: boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
@@ -43,7 +43,6 @@ interface ContextMenuProps<C extends Channel>
 const ContextMenu = <C extends Channel>({
   allowTare,
   keys,
-  isSnapshot,
   onDuplicate,
   onSelect,
   onTare,
@@ -51,6 +50,7 @@ const ContextMenu = <C extends Channel>({
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { set } = Form.useContext();
   const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
@@ -125,11 +125,7 @@ const ContextMenu = <C extends Channel>({
   );
 };
 
-export interface ChannelListItemProps extends List.ItemProps<string> {
-  key: string;
-  isSnapshot: boolean;
-  path: string;
-}
+export interface ChannelListItemProps extends List.ItemProps<string> {}
 
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
@@ -152,7 +148,7 @@ export const ChannelList = <C extends Channel>({
   grow,
   ...rest
 }: ChannelListProps<C>) => {
-  const { isSnapshot, onSelect, path, data } = rest;
+  const { onSelect, path, data } = rest;
   const handleChange = useCallback(
     (keys: string[]) => onSelect(keys),
     [onSelect, path],
@@ -181,9 +177,7 @@ export const ChannelList = <C extends Channel>({
             onContextMenu={menuProps.open}
             emptyContent={emptyContent}
           >
-            {(props) =>
-              listItem({ isSnapshot, path: `${path}.${props.key}`, ...props })
-            }
+            {listItem}
           </List.Items>
         </Select.Frame>
       </PMenu.ContextMenu>

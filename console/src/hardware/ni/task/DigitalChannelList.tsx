@@ -23,14 +23,13 @@ interface ListItemProps<C extends DigitalChannel>
 
 const ListItem = <C extends DigitalChannel>({
   name,
-  path,
-  isSnapshot,
+  itemKey: path,
   ...rest
 }: ListItemProps<C>) => {
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem {...rest} align="center" justify="between" full="x">
+    <Select.ListItem {...rest} itemKey={path} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
         <Flex.Box
           pack
@@ -67,10 +66,7 @@ const ListItem = <C extends DigitalChannel>({
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name(channel)}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

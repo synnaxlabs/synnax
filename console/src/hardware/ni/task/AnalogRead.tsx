@@ -59,27 +59,22 @@ const Properties = () => (
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  isRunning: boolean;
 }
 
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  onTare,
-  isRunning,
-  ...rest
-}: ChannelListItemProps) => {
+const ChannelListItem = ({ onTare, itemKey: path, ...rest }: ChannelListItemProps) => {
   const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
+  const isSnapshot = Common.Task.useIsSnapshot();
+  const isRunning = Common.Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
+      itemKey={path}
       port={port}
       canTare={canTare}
       onTare={onTare}
-      isSnapshot={isSnapshot}
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
@@ -107,31 +102,19 @@ const Form: FC<
     typeof analogReadConfigZ,
     typeof analogReadStatusDataZ
   >
-> = ({ task, isRunning, isSnapshot, configured }) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
-    task,
-    isRunning,
-    configured,
-  } as Common.Task.UseTareProps<AIChannel>);
+> = () => {
+  const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>();
   const listItem = useCallback(
     ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
-      <ChannelListItem
-        key={key}
-        itemKey={itemKey}
-        {...rest}
-        onTare={tare}
-        isRunning={isRunning}
-      />
+      <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
     ),
-    [tare, isRunning],
+    [tare],
   );
   return (
     <Common.Task.Layouts.ListAndDetails<AIChannel>
       listItem={listItem}
       details={channelDetails}
       createChannel={createAIChannel}
-      isSnapshot={isSnapshot}
-      initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Common.Task.readChannelContextMenuItem}

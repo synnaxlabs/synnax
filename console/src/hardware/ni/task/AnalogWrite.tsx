@@ -56,24 +56,22 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps {}
-
-const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const item = PForm.useFieldValue<AOChannel>(path);
+const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => {
+  const item = PForm.useFieldValue<AOChannel>(itemKey);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
+      itemKey={itemKey}
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      isSnapshot={isSnapshot}
-      path={path}
+      path={itemKey}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
@@ -98,13 +96,11 @@ const Form: FC<
     typeof analogWriteConfigZ,
     typeof analogWriteStatusDataZ
   >
-> = ({ task, isSnapshot }) => (
+> = () => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}
-    isSnapshot={isSnapshot}
-    initialChannels={task.config.channels}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );

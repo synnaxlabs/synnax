@@ -9,58 +9,21 @@
 
 import "@/hardware/common/task/Form.css";
 
-import {
-  DisconnectedError,
-  type rack,
-  type Synnax as Client,
-  task,
-  UnexpectedError,
-} from "@synnaxlabs/client";
-import { Flex, Form as PForm, Input, Status, Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
-import { type FC, useCallback, useEffect, useState as useReactState } from "react";
+import { type rack, type Synnax as Client, task } from "@synnaxlabs/client";
+import { Flex, Form as PForm, Input, Task, Flux } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
+import { type FC, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
-import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
-import { type Command } from "@/hardware/common/task/types";
-import { useCreate } from "@/hardware/common/task/useCreate";
-import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
-
-export type FormSchema<Config extends z.ZodType = z.ZodType> = z.ZodObject<{
-  name: z.ZodString;
-  config: Config;
-}>;
-
-export type FormProps<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = { methods: PForm.ContextValue<FormSchema<Config>> } & (
-  | {
-      configured: false;
-      task: task.Payload<Type, Config, StatusData>;
-      isSnapshot: false;
-      isRunning: false;
-    }
-  | ({ configured: true; task: task.Task<Type, Config, StatusData> } & (
-      | { isSnapshot: false; isRunning: boolean }
-      | { isSnapshot: true; isRunning: false }
-    ))
-);
-
-const COMMAND_MESSAGES: Record<Command, string> = {
-  start: "Starting task",
-  stop: "Stopping task",
-};
+import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -69,6 +32,12 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
+
+export interface FormProps<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> extends PForm.UseReturn<Task.FormSchema<Type, Config, StatusData>> {}
 
 export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -86,91 +55,54 @@ export interface UseFormArgs<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > extends TaskProps<Type, Config, StatusData>,
-    Pick<WrapFormArgs<Type, Config, StatusData>, "schemas" | "onConfigure" | "type"> {}
-
-export interface UseFormReturn<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
-  formProps: FormProps<Type, Config, StatusData>;
-  handleConfigure: UseMutateFunction<void, Error, void, unknown>;
-  handleStartOrStop: UseMutateFunction<void, Error, Command, unknown>;
-  status: task.Status<StatusData>;
-  isConfiguring: boolean;
+    Pick<
+      WrapFormArgs<Type, Config, StatusData>,
+      "schemas" | "onConfigure" | "type" | "getInitialPayload"
+    > {
+  taskKey?: task.Key;
 }
 
-const nameZ = z.string().min(1, "Name is required");
+export const useStatus = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
+  PForm.useFieldValue<task.Status>("status", { ctx });
 
-const DEFAULT_STATUS: task.Status<z.ZodType> = {
-  key: "",
-  variant: "disabled",
-  message: "Task is not configured",
-  time: TimeStamp.now(),
-  details: { running: false, task: "", data: {} },
-};
+export const useIsRunning = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => useStatus(ctx).details.running;
+export const useIsSnapshot = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => PForm.useFieldValue<boolean>("snapshot", { ctx });
+
+export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
+  PForm.useFieldValue<task.Key>("key", { ctx });
 
 export const useForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >({
-  task: initialTask,
   layoutKey,
+  taskKey,
   onConfigure,
-  type,
   schemas,
-}: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
-  const schema = z.object({ name: nameZ, config: schemas.configSchema });
-  const client = Synnax.use();
-  const handleError_ = Status.useErrorHandler();
+  getInitialPayload,
+}: UseFormArgs<Type, Config, StatusData>): Flux.UseFormReturn<
+  Task.FormSchema<Type, Config, StatusData>
+> => {
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
-    (hasUnsavedChanges: boolean) => {
-      dispatch(
-        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
-      );
-    },
+    (unsavedChanges: boolean) =>
+      dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
     [dispatch, layoutKey],
   );
-  const methods = PForm.use<FormSchema<Config>>({
-    schema,
-    values: {
-      name: initialTask.name,
-      config: initialTask.config,
-    } as z.infer<FormSchema<Config>>,
-    onHasTouched: handleUnsavedChanges,
-  });
-  const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
-  const name = Layout.useSelectName(layoutKey);
-  useEffect(() => {
-    if (name != null) methods.set("name", name);
-  }, [name]);
-  const [task_, setTask_] = useReactState(initialTask);
-  const configured = task_.key.length > 0;
-  const { status, triggerError, triggerLoading } = useStatus<StatusData>(
-    task_.key,
-    initialTask.status ?? DEFAULT_STATUS,
-  );
-  const handleError = (e: Error, action: string) => {
-    triggerError(e.message);
-    handleError_(e, `Failed to ${action} ${methods.get<string>("name").value}`);
-  };
-
+  const initialValues = getInitialPayload({});
   const confirm = useConfirm();
-
-  const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
-    mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      if (initialTask.snapshot) return;
-      if (!(await methods.validateAsync())) return;
-      const { name, config } = methods.value() as {
-        name: string;
-        config: z.infer<Config>;
-      };
-      if (config == null) throw new Error("Config is required");
+  return Task.createForm({ schemas, initialValues })({
+    params: { key: taskKey },
+    onHasTouched: handleUnsavedChanges,
+    beforeSave: async ({ client, ...form }) => {
+      const { name, config } = form.value();
       const [newConfig, rackKey] = await onConfigure(client, config, name);
-      if (task_.key != "" && rackKey != task.rackKey(task_.key)) {
+      if (primitive.isNonZero(taskKey) && rackKey != task.rackKey(taskKey)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
           description:
@@ -178,47 +110,21 @@ export const useForm = <
           confirm: { label: "Confirm", variant: "error" },
           cancel: { label: "Cancel" },
         });
-        if (!confirmed) return;
-        await client.hardware.tasks.delete(task_.key);
+        if (!confirmed) return false;
+        await client.hardware.tasks.delete(taskKey);
       }
-
-      methods.setCurrentStateAsInitialValues();
-      methods.set("config", newConfig);
-      // current work around for Pluto form issues (Issue: SY-1465)
       if ("channels" in (newConfig as { channels: any }))
-        methods.set("config.channels", (newConfig as { channels: any }).channels);
+        form.set("config.channels", (newConfig as { channels: any }).channels);
+      return true;
+    },
+    afterSave: ({ client, ...form }) => {
+      const { key, name } = form.value();
+      if (key == null) return;
       dispatch(Layout.rename({ key: layoutKey, name }));
-      const t = await create(
-        { key: task_.key, name, type, config: newConfig as z.infer<Config> },
-        rackKey,
-      );
-      setTask_(t);
+      dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
+      dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
     },
-    onError: (e: Error) => handleError(e, "configure"),
   });
-  const { mutate: handleStartOrStop } = useMutation({
-    mutationFn: async (command: Command) => {
-      if (!configured) throw new UnexpectedError("Task has not been configured");
-      triggerLoading(COMMAND_MESSAGES[command]);
-      const sugaredTask = client?.hardware.tasks.sugar({
-        ...initialTask,
-        key: task_.key,
-      });
-      await sugaredTask?.executeCommandSync(command, TimeSpan.fromSeconds(10));
-    },
-    onError: handleError,
-  });
-  const isSnapshot = configured ? (initialTask.snapshot ?? false) : false;
-  const isRunning =
-    configured && !isSnapshot ? (status?.details.running ?? false) : false;
-  const formProps = {
-    methods,
-    configured,
-    task: task_,
-    isSnapshot,
-    isRunning,
-  } as FormProps<Type, Config, StatusData>;
-  return { formProps, handleConfigure, handleStartOrStop, status, isConfiguring };
 };
 
 export const wrapForm = <
@@ -234,9 +140,15 @@ export const wrapForm = <
   onConfigure,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper = ({ layoutKey, ...rest }: TaskProps<Type, Config, StatusData>) => {
-    const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
-      useForm({ ...rest, layoutKey, schemas, type, onConfigure });
-    const { isSnapshot, methods, configured, task } = formProps;
+    const { form, save, status } = useForm({
+      ...rest,
+      layoutKey,
+      schemas,
+      type,
+      onConfigure,
+      getInitialPayload,
+    });
+    const isSnapshot = useIsSnapshot<Task.FormSchema<Type, Config, StatusData>>(form);
     return (
       <Flex.Box
         y
@@ -245,8 +157,8 @@ export const wrapForm = <
         empty
       >
         <Flex.Box grow>
-          <PForm.Form<FormSchema<Config>>
-            {...methods}
+          <PForm.Form<Task.FormSchema<Type, Config, StatusData>>
+            {...form}
             mode={isSnapshot ? "preview" : "normal"}
           >
             <Flex.Box x justify="between">
@@ -254,15 +166,11 @@ export const wrapForm = <
                 {(p) => <Input.Text variant="text" level="h2" {...p} />}
               </PForm.Field>
               <Flex.Box align="end" gap="small">
-                <UtilityButtons
-                  getConfig={() => methods.get("config").value}
-                  getName={() => methods.get<string>("name").value}
-                  taskKey={task.key}
-                />
-                <Rack taskKey={task.key} />
+                <UtilityButtons />
+                <Rack />
               </Flex.Box>
             </Flex.Box>
-            {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
+            <ParentRangeButton />
             <Flex.Box className={CSS.B("task-properties")} x wrap>
               <Properties />
             </Flex.Box>
@@ -274,18 +182,10 @@ export const wrapForm = <
               grow
               empty
             >
-              <Form {...formProps} />
+              <Form {...form} />
             </Flex.Box>
           </PForm.Form>
-          <Controls
-            layoutKey={layoutKey}
-            status={status}
-            isConfiguring={isConfiguring}
-            onCommand={handleStartOrStop}
-            onConfigure={handleConfigure}
-            isSnapshot={isSnapshot}
-            hasBeenConfigured={configured}
-          />
+          <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
         </Flex.Box>
       </Flex.Box>
     );

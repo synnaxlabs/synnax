@@ -128,9 +128,8 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
 
 const TaskForm: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = ({ isSnapshot }) => (
+> = () => (
   <Form
-    isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
     contextMenuItems={Common.Task.readChannelContextMenuItem}

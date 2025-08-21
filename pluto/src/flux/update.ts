@@ -91,6 +91,21 @@ export interface UseObservableUpdateArgs<
   params: UpdateParams;
   /** The scope to use for the update operation */
   scope?: string;
+  /** Function to run before the update operation. If the function returns undefined,
+   * the update will be cancelled. */
+  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | undefined>;
+  /** Function to run after the update operation. */
+  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
+}
+
+export interface BeforeUpdateArgs<Data extends state.State> {
+  client: Client;
+  value: Data;
+}
+
+export interface AfterUpdateArgs<Data extends state.State> {
+  client: Client;
+  value: Data;
 }
 
 /**
@@ -143,6 +158,8 @@ const useObservable = <
   update,
   name,
   scope,
+  beforeUpdate,
+  afterUpdate,
 }: UseObservableUpdateArgs<UpdateParams, Data> &
   CreateUpdateArgs<
     UpdateParams,
@@ -161,6 +178,11 @@ const useObservable = <
         }
         onChange((p) => pendingResult(name, "updating", p.data));
         let updated = false;
+        if (beforeUpdate != null) {
+          const updatedValue = await beforeUpdate({ client, value });
+          if (updatedValue == null) return false;
+          value = updatedValue;
+        }
         await update({
           client,
           onChange: (value) => {
@@ -173,6 +195,7 @@ const useObservable = <
         });
         if (signal?.aborted === true) return false;
         if (!updated) onChange(successResult(name, "updated", value));
+        if (afterUpdate != null) await afterUpdate({ client, value });
         return true;
       } catch (error) {
         if (signal?.aborted !== true) onChange(errorResult(name, "update", error));

@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Form, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
+import { useEffect } from "react";
 
-interface RackProps {
-  taskKey: task.Key;
-}
-
-export const Rack = ({ taskKey }: RackProps) => {
-  const rack = PRack.retrieve.useDirect({
-    params: { key: task.rackKey(taskKey) },
-  }).data;
+export const Rack = () => {
+  const { data: rack, retrieve } = PRack.retrieve.useStateful();
+  const taskKey = Form.useFieldValue<task.Key | undefined>("task");
+  useEffect(() => {
+    if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
+  }, [taskKey]);
   if (rack == null) return;
   return (
     <Tooltip.Dialog>

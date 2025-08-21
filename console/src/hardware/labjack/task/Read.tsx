@@ -75,32 +75,31 @@ const getRenderedPort = (
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  isRunning: boolean;
   deviceModel: Device.Model;
 }
 
 const ChannelListItem = ({
-  path,
-  isSnapshot,
   onTare,
-  isRunning,
   deviceModel,
+  itemKey: path,
   ...rest
 }: ChannelListItemProps) => {
   const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
   const port = PForm.useFieldValue<string>(`${path}.port`);
   const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
   const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
+  const isSnapshot = Common.Task.useIsSnapshot();
+  const isRunning = Common.Task.useIsRunning();
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
+      itemKey={path}
       port={renderedPort}
       canTare={canTare}
       onTare={onTare}
-      isSnapshot={isSnapshot}
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
@@ -195,25 +194,15 @@ const getOpenChannel = (
 
 type ChannelsFormProps = {
   device: Device.Device;
-  isRunning: boolean;
-  isSnapshot: boolean;
-  configured: boolean;
-  task: ReadPayload | ReadTask;
 };
 
-const ChannelsForm = ({
-  device,
-  isSnapshot,
-  isRunning,
-  configured,
-  task,
-}: ChannelsFormProps) => {
+const isChannelTareable = <C extends InputChannel>(channel: C) =>
+  channel.type === AI_CHANNEL_TYPE;
+
+const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<InputChannel>({
-    isChannelTareable: ({ type }) => type === AI_CHANNEL_TYPE,
-    isRunning,
-    configured,
-    task,
-  } as Common.Task.UseTareProps<InputChannel>);
+    isChannelTareable: isChannelTareable<InputChannel>,
+  });
   const createChannel = useCallback(
     (channels: InputChannel[], channelKeyToCopy?: string) =>
       getOpenChannel(channels, device, channelKeyToCopy),
@@ -221,15 +210,9 @@ const ChannelsForm = ({
   );
   const listItem = useCallback(
     ({ key, ...p }: Common.Task.ChannelListItemProps) => (
-      <ChannelListItem
-        {...p}
-        onTare={tare}
-        key={key}
-        isRunning={isRunning}
-        deviceModel={device.model}
-      />
+      <ChannelListItem {...p} onTare={tare} key={key} deviceModel={device.model} />
     ),
-    [tare, isRunning, device.model],
+    [tare, device.model],
   );
   const details = useCallback(
     (p: Common.Task.Layouts.DetailsProps) => (
@@ -242,8 +225,6 @@ const ChannelsForm = ({
       listItem={listItem}
       details={details}
       createChannel={createChannel}
-      isSnapshot={isSnapshot}
-      initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Common.Task.readChannelContextMenuItem}
@@ -254,7 +235,7 @@ const ChannelsForm = ({
 const Form: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
 > = (props) => {
-  const { isSnapshot } = props;
+  const isSnapshot = Common.Task.useIsSnapshot();
   return (
     <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
       canConfigure={!isSnapshot}

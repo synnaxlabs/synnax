@@ -70,14 +70,17 @@ describe("useForm", () => {
 
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
-      const retrieve = vi.fn().mockReturnValue({
-        key: "123",
-        name: "Apple Cat",
-        age: 30,
-      });
+      const retrieve = vi.fn(
+        async ({ reset }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+          reset({
+            key: "123",
+            name: "Apple Cat",
+            age: 30,
+          }),
+      );
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues: {
               key: "",
               name: "",
@@ -317,7 +320,7 @@ describe("useForm", () => {
             schema: formSchema,
             name: "test",
             retrieve,
-            update: ({ value }) => update(value.name),
+            update: ({ get }) => update(get("name").value),
           })({ params: {}, autoSave: true }),
         { wrapper },
       );
@@ -377,7 +380,10 @@ describe("useForm", () => {
         age: 25,
       };
 
-      const retrieve = vi.fn().mockReturnValue(initialValues);
+      const retrieve = async ({
+        reset,
+      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+        reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
@@ -392,12 +398,8 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-            mountListeners: ({ store, onChange }) =>
-              store.labels.onSet(
-                (changed) =>
-                  onChange((p) => (p == null ? p : { ...p, name: changed.name })),
-                label.key,
-              ),
+            mountListeners: ({ store, set }) =>
+              store.labels.onSet((changed) => set("name", changed.name), label.key),
           })({ params: { key: label.key } }),
         { wrapper },
       );

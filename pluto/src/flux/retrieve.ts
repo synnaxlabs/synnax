@@ -226,6 +226,15 @@ const useObservable = <
   const paramsRef = useRef<RetrieveParams | null>(null);
   const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
+  const handleListenerChange = useCallback(
+    (value: state.SetArg<Data>) =>
+      onChange((prev) => {
+        if (prev.data === undefined) return prev;
+        const next = state.executeSetter(value, prev.data);
+        return successResult(name, "retrieved", next);
+      }),
+    [onChange, name],
+  );
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
@@ -241,22 +250,11 @@ const useObservable = <
         if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
         onChange((p) => pendingResult(name, "retrieving", p.data));
         if (signal?.aborted) return;
-        const value = await retrieve({ client, params, store });
+        const args = { client, params, store };
+        const value = await retrieve(args);
         if (signal?.aborted) return;
         listeners.cleanup();
-        listeners.set(
-          mountListeners?.({
-            client,
-            store,
-            params,
-            onChange: (value) =>
-              onChange((prev) => {
-                if (prev.data === undefined) return prev;
-                const next = state.executeSetter(value, prev.data);
-                return successResult(name, "retrieved", next);
-              }),
-          }),
-        );
+        listeners.set(mountListeners?.({ ...args, onChange: handleListenerChange }));
         onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         if (signal?.aborted) return;

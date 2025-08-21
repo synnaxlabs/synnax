@@ -12,12 +12,10 @@ import { Button, Flex, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { useKey } from "@/hardware/common/task/Form";
 
-export interface ParentRangeButtonProps {
-  taskKey: task.Key;
-}
-
-export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
+export const ParentRangeButton = () => {
+  const taskKey = useKey();
   const { data: parentRangeID } = Ontology.retrieveParentID.useDirect({
     params: { id: task.ontologyID(taskKey) },
   });

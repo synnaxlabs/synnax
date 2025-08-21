@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  DisconnectedError,
-  type task as clientTask,
-} from "@synnaxlabs/client";
+import { useIsRunning, useKey } from "@/hardware/common/task/Form";
+import { type channel, DisconnectedError, TimeSpan } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -21,19 +18,9 @@ export interface TareableChannel {
   channel: channel.Key;
 }
 
-export type UseTareProps<C extends TareableChannel> =
-  | {
-      task: clientTask.Payload;
-      isChannelTareable?: (channel: C) => boolean;
-      isRunning: boolean;
-      configured: false;
-    }
-  | {
-      task: clientTask.Task;
-      isChannelTareable?: (channel: C) => boolean;
-      isRunning: boolean;
-      configured: true;
-    };
+export type UseTareProps<C extends TareableChannel> = {
+  isChannelTareable?: (channel: C) => boolean;
+};
 
 export type UseTareReturn<C extends TareableChannel> = [
   tare: (key: channel.Key) => void,
@@ -42,19 +29,20 @@ export type UseTareReturn<C extends TareableChannel> = [
 ];
 
 export const useTare = <C extends TareableChannel>({
-  task,
   isChannelTareable,
-  isRunning,
-  configured,
-}: UseTareProps<C>): UseTareReturn<C> => {
+}: UseTareProps<C> = {}): UseTareReturn<C> => {
   const client = Synnax.use();
+  const key = useKey();
+  const isRunning = useIsRunning();
   const handleError = Status.useErrorHandler();
   const tare = useMutation({
     onError: (e) => handleError(e, "Failed to tare channels"),
     mutationFn: async (keys: channel.Key[]) => {
       if (client == null) throw new DisconnectedError();
-      if (!configured) throw new Error("Task has not been configured");
-      await task.executeCommand("tare", { keys });
+      if (key == null) throw new Error("Task has not been configured");
+      client.hardware.tasks.executeCommandSync(key, "tare", TimeSpan.seconds(10), {
+        keys,
+      });
     },
   }).mutate;
   const getTareableChannels = useCallback(

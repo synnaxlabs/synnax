@@ -17,6 +17,7 @@ import {
   Rack,
   Status,
   Synnax,
+  Task,
 } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
@@ -27,7 +28,7 @@ import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom"
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
 import { Controls } from "@/hardware/common/task/Controls";
-import { type FormSchema, useForm } from "@/hardware/common/task/Form";
+import { useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   configZ,
@@ -115,25 +116,24 @@ const Internal = ({
 }: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
-  const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
-    useForm({
-      task: {
-        ...base,
-        config: {
-          ...base.config,
-          rack: rackKey ?? task.rackKey(base.key ?? "0"),
-        },
+  const { form, status, save } = useForm({
+    getInitialPayload: getInitialPayload,
+    task: {
+      ...base,
+      config: {
+        ...base.config,
+        rack: rackKey ?? task.rackKey(base.key ?? "0"),
       },
-      layoutKey,
-      schemas: {
-        typeSchema: typeZ,
-        configSchema: schema,
-        statusDataSchema: statusDetailsZ,
-      },
-      type: TYPE,
-      onConfigure: async (_, config) => [config, config.rack],
-    });
-  const { configured, isSnapshot, methods } = formProps;
+    },
+    layoutKey,
+    schemas: {
+      typeSchema: typeZ,
+      configSchema: schema,
+      statusDataSchema: statusDetailsZ,
+    },
+    type: TYPE,
+    onConfigure: async (_, config) => [config, config.rack],
+  });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -143,7 +143,9 @@ const Internal = ({
 
   return (
     <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<FormSchema<typeof configZ>> {...methods}>
+      <Form.Form<Task.FormSchema<typeof typeZ, typeof configZ, typeof statusDetailsZ>>
+        {...form}
+      >
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -248,12 +250,8 @@ const Internal = ({
           </Flex.Box>
           <Controls
             layoutKey={layoutKey}
-            status={status}
-            isConfiguring={isConfiguring}
-            onCommand={handleStartOrStop}
-            onConfigure={handleConfigure}
-            isSnapshot={isSnapshot}
-            hasBeenConfigured={configured}
+            formStatus={status}
+            onConfigure={save}
             style={{
               padding: "2rem",
               border: "none",

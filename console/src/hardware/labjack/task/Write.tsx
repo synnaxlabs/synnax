@@ -57,17 +57,12 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   device: Device.Device;
 }
 
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  device,
-  ...rest
-}: ChannelListItemProps) => {
+const ChannelListItem = ({ itemKey: path, device, ...rest }: ChannelListItemProps) => {
   const { set } = PForm.useContext();
   const item = PForm.useFieldValue<OutputChannel>(path);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.Item {...rest} full="x" justify="between">
+    <List.Item {...rest} itemKey={path} full="x" justify="between">
       <Flex.Box pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}
@@ -132,10 +127,7 @@ const ChannelListItem = ({
           itemKey={item.key}
           stateChannel={stateChannel}
         />
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </List.Item>
   );
@@ -164,10 +156,9 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
 
 interface ChannelListProps {
   device: Device.Device;
-  isSnapshot: boolean;
 }
 
-const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
+const ChannelList = ({ device }: ChannelListProps) => {
   const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
@@ -180,7 +171,6 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   );
   return (
     <Common.Task.Layouts.List<OutputChannel>
-      isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Common.Task.writeChannelContextMenuItems}
@@ -190,14 +180,17 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
 
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = ({ isSnapshot }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-  >
-    {({ device }) => <ChannelList device={device} isSnapshot={isSnapshot} />}
-  </Common.Device.Provider>
-);
+> = () => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    >
+      {({ device }) => <ChannelList device={device} />}
+    </Common.Device.Provider>
+  );
+};
 
 const getInitialPayload: Common.Task.GetInitialPayload<
   typeof writeTypeZ,

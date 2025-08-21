@@ -8,68 +8,43 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import {
+  Button,
+  Flex,
+  Flux,
+  Form,
+  Icon,
+  Status,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
-import { type Command } from "@/hardware/common/task/types";
 import { Layout } from "@/layout";
+import { status } from "@synnaxlabs/x";
 
-export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
-  extends Flex.BoxProps {
+export interface ControlsProps extends Flex.BoxProps {
   layoutKey: string;
-  status: task.Status<StatusData>;
-  onCommand: (command: Command) => void;
+  taskKey?: task.Key;
+  formStatus: Flux.Result<undefined>["status"];
   onConfigure: () => void;
-  isConfiguring: boolean;
-  isSnapshot: boolean;
-  hasBeenConfigured: boolean;
 }
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Controls = <StatusData extends z.ZodType = z.ZodType>({
-  status,
-  onCommand,
   layoutKey,
   onConfigure,
-  hasBeenConfigured,
-  isConfiguring,
-  isSnapshot,
+  taskKey,
+  formStatus,
   ...props
-}: ControlsProps<StatusData>) => {
-  const {
-    message,
-    variant,
-    details: { running },
-  } = status ?? {};
-  const content = isSnapshot ? (
-    <Status.Summary center hideIcon variant="disabled">
-      This task is a snapshot and cannot be modified or started.
-    </Status.Summary>
-  ) : message != null ? (
-    <Status.Summary variant={variant}>{message}</Status.Summary>
-  ) : isConfiguring ? (
-    <Status.Summary center variant="loading">
-      Configuring...
-    </Status.Summary>
-  ) : !hasBeenConfigured ? (
-    <Status.Summary center hideIcon variant="disabled">
-      Task must be configured to start.
-    </Status.Summary>
-  ) : null;
-  const isLoading = variant === "loading";
-  const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
-  const canStartOrStop =
-    !isLoading && !isConfiguring && !isSnapshot && hasBeenConfigured;
-  const hasTriggers =
-    Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
-  const handleStartStop = useCallback(
-    () => onCommand(running ? "stop" : "start"),
-    [running, onCommand],
-  );
-  if (isConfiguring) status.variant = "loading";
+}: ControlsProps) => {
+  const taskStatus = Form.useFieldValue<task.Status<StatusData>>("status");
+  const isSnapshot = Form.useFieldValue<boolean>("snapshot");
+  let status: status.Status = taskStatus;
+  if (formStatus.variant !== "success") status = formStatus;
+  const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   return (
     <Flex.Box
       className={CSS.B("task-controls")}
@@ -80,12 +55,12 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
       {...props}
     >
       <Flex.Box className={CSS.B("task-state")} x>
-        {content}
+        <Status.Summary variant={status.variant}>{status.message}</Status.Summary>
       </Flex.Box>
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">
           <Button.Button
-            disabled={!canConfigure || status.variant === "loading"}
+            status={status.variant}
             onClick={onConfigure}
             size="medium"
             tooltip={
@@ -102,13 +77,12 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
             Configure
           </Button.Button>
           <Button.Button
-            disabled={!canStartOrStop}
             status={status.variant}
-            onClick={handleStartStop}
+            onClick={() => {}}
             size="medium"
             variant="filled"
           >
-            {running ? <Icon.Pause /> : <Icon.Play />}
+            {taskStatus.details.running ? <Icon.Pause /> : <Icon.Play />}
           </Button.Button>
         </Flex.Box>
       )}

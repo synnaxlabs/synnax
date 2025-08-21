@@ -316,11 +316,12 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
     name: "Range",
     schema: formSchema,
     initialValues: ZERO_FORM_VALUES,
-    retrieve: async ({ client, params: { key }, store }) => {
-      if (key == null) return undefined;
-      return await toFormValues(await cachedRetrieve(client, store, key));
+    retrieve: async ({ client, params: { key }, store, reset }) => {
+      if (key == null) return;
+      reset(await toFormValues(await cachedRetrieve(client, store, key)));
     },
-    update: async ({ client, value, onChange, store }) => {
+    update: async ({ client, value: getValue, reset, store }) => {
+      const value = getValue();
       const parentID = primitive.isNonZero(value.parent)
         ? ranger.ontologyID(value.parent)
         : undefined;
@@ -345,7 +346,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
           parent: parent?.payload ?? null,
         }),
       );
-      onChange({
+      reset({
         ...value,
         ...rng.payload,
         timeRange: rng.timeRange.numeric,
@@ -353,50 +354,49 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
         parent: value.parent,
       });
     },
-    mountListeners: ({ store, onChange }) => [
+    mountListeners: ({ store, reset, get, set }) => [
       store.ranges.onSet(async (range) => {
         const values = await toFormValues(range);
-        onChange((prev) => {
-          if (prev == null || prev?.key !== range.key) return prev;
-          return { ...values, labels: prev.labels, parent: prev.parent };
-        });
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null || prevKey !== range.key) return;
+        const prevParent = get<string>("parent", { optional: true })?.value;
+        const prevLabels = get<string[]>("labels").value;
+        reset({ ...values, labels: prevLabels, parent: prevParent });
       }),
       store.relationships.onSet((rel) => {
-        onChange((prev) => {
-          if (prev == null || prev.key == null) return prev;
-          const otgID = ranger.ontologyID(prev.key);
-          const isLabelChange = Label.matchRelationship(rel, otgID);
-          if (isLabelChange)
-            return {
-              ...prev,
-              labels: [...prev.labels.filter((l) => l !== rel.to.key), rel.to.key],
-            };
-          const isParentChange = ontology.matchRelationship(rel, {
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: otgID,
-          });
-          if (isParentChange) return { ...prev, parent: rel.from.key };
-          return prev;
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null) return;
+        const otgID = ranger.ontologyID(prevKey);
+        const isLabelChange = Label.matchRelationship(rel, otgID);
+        if (isLabelChange) {
+          const prevLabels = get<string[]>("labels").value;
+          return set("labels", [
+            ...prevLabels.filter((l) => l !== rel.to.key),
+            rel.to.key,
+          ]);
+        }
+        const isParentChange = ontology.matchRelationship(rel, {
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: otgID,
         });
+        if (isParentChange) set("parent", rel.from.key);
       }),
       store.relationships.onDelete((relKey) => {
-        onChange((prev) => {
-          if (prev == null || prev.key == null) return prev;
-          const rel = ontology.relationshipZ.parse(relKey);
-          const otgID = ranger.ontologyID(prev.key);
-          const isLabelChange = Label.matchRelationship(rel, otgID);
-          if (isLabelChange)
-            return {
-              ...prev,
-              labels: prev.labels.filter((l) => l !== rel.to.key),
-            };
-          const isParentChange = ontology.matchRelationship(rel, {
-            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-            to: otgID,
-          });
-          if (isParentChange) return { ...prev, parent: undefined };
-          return prev;
+        const prevKey = get<string>("key", { optional: true })?.value;
+        if (prevKey == null) return;
+        const rel = ontology.relationshipZ.parse(relKey);
+        const otgID = ranger.ontologyID(prevKey);
+        const isLabelChange = Label.matchRelationship(rel, otgID);
+        if (isLabelChange)
+          return set(
+            "labels",
+            get<string[]>("labels").value.filter((l) => l !== rel.to.key),
+          );
+        const isParentChange = ontology.matchRelationship(rel, {
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: otgID,
         });
+        if (isParentChange) return set("parent", undefined);
       }),
     ],
   },
@@ -526,9 +526,10 @@ export const useKVPairForm = Flux.createForm<
   name: "Range Meta Data",
   schema: kvPairFormSchema,
   retrieve: async () => undefined,
-  update: async ({ client, value }) => {
-    const kv = client.ranges.getKV(value.range);
-    await kv.set(value.key, value.value);
+  update: async ({ client, value: getValue }) => {
+    const { key, value, range } = getValue();
+    const kv = client.ranges.getKV(range);
+    await kv.set(key, value);
   },
   initialValues: {
     key: "",
