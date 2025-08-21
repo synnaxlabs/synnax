@@ -9,7 +9,7 @@
 
 import "@/menu/ContextMenu.css";
 
-import { box, unique, xy } from "@synnaxlabs/x";
+import { box, location, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -81,6 +81,13 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   return [target];
 };
 
+const PREFERENCES: Dialog.LocationPreference[] = [
+  { targetCorner: location.BOTTOM_RIGHT, dialogCorner: location.TOP_LEFT },
+  { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_RIGHT },
+  { targetCorner: location.TOP_RIGHT, dialogCorner: location.BOTTOM_LEFT },
+  { targetCorner: location.TOP_LEFT, dialogCorner: location.BOTTOM_RIGHT },
+];
+
 /**
  * Menu.useContextMenu extracts the logic for toggling a context menu, allowing
  * the caller to control the menu's visibility and position.
@@ -117,7 +124,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
         container: box.construct(0, 0, window.innerWidth, window.innerHeight),
         dialog: box.construct(el),
         target: box.construct(prev.cursor, 0, 0),
-        prefer: [{ targetCorner: { y: "bottom" } }],
+        prefer: PREFERENCES,
       });
       const nextPos = box.topLeft(adjustedDialog);
       if (xy.equals(prev.position, nextPos)) return prev;

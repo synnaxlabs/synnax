@@ -33,6 +33,7 @@ import { CSS } from "@/css";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Triggers } from "@/triggers";
 import { User } from "@/user";
+import { location } from "@synnaxlabs/x";
 
 export interface AnnotationListItemProps extends List.ItemProps<annotation.Key> {
   parent?: ontology.ID;
@@ -141,7 +142,13 @@ export const Item = ({
             />
           )}
           {!edit && (
-            <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
+            <Dialog.Frame
+              variant="floating"
+              location={{
+                targetCorner: location.BOTTOM_RIGHT,
+                dialogCorner: location.TOP_RIGHT,
+              }}
+            >
               <Dialog.Trigger hideCaret variant="text" contrast={1}>
                 <Icon.KebabMenu />
               </Dialog.Trigger>

@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 
 import { Item, type ItemProps } from "@/range/list/Item";
-import { SelectFilters } from "@/range/list/SelectFilters";
+import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
 export interface ListProps
   extends Pick<
@@ -20,6 +20,7 @@ export interface ListProps
     >,
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
+  enableFilters?: boolean;
   initialRequest?: ranger.RetrieveRequest;
 }
 
@@ -29,6 +30,7 @@ export const List = ({
   subscribe,
   retrieve,
   enableSearch = false,
+  enableFilters = false,
   showParent = true,
   showLabels = true,
   showTimeRange = true,
@@ -77,15 +79,18 @@ export const List = ({
           />
         </Flex.Box>
       )}
-      <Flex.Box
-        x
-        bordered
-        style={{ padding: "1rem 2rem", borderTop: "none" }}
-        background={1}
-        justify="between"
-      >
-        <SelectFilters request={request} onRequestChange={handleRequestChange} />
-      </Flex.Box>
+      {enableFilters && (
+        <Flex.Box
+          x
+          bordered
+          style={{ padding: "1rem 2rem", borderTop: "none" }}
+          background={1}
+          justify="between"
+        >
+          <SelectFilters request={request} onRequestChange={handleRequestChange} />
+          <Filters request={request} onRequestChange={handleRequestChange} />
+        </Flex.Box>
+      )}
       <PList.Items<string>>
         {({ key, ...rest }) => (
           <Item

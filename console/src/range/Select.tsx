@@ -55,12 +55,7 @@ const StaticListItem = Component.renderProp(
     const parent = Ranger.retrieveParent.useDirect({ params: { key: range.key } }).data;
     return (
       <Select.ListItem {...props} justify="between">
-        <Ranger.Breadcrumb
-          key={range.key}
-          name={range.name}
-          parent={parent}
-          level="small"
-        />
+        <Ranger.Breadcrumb key={range.key} name={range.name} parent={parent} />
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       </Select.ListItem>
     );
