@@ -203,13 +203,17 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Form.Field<string[]> required={false} path="labels">
-          {({ variant: _, ...p }) => (
+          {({ variant: _, value, onChange }) => (
             <Label.SelectMultiple
               zIndex={100}
               variant="floating"
               location="bottom"
               style={{ width: "fit-content" }}
-              {...p}
+              value={value}
+              onChange={(v) => {
+                console.log("ON CHANGE", v);
+                onChange(v);
+              }}
             />
           )}
         </Form.Field>

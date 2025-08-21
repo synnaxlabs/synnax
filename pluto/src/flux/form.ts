@@ -245,6 +245,11 @@ export const createForm =
       onHasTouched,
       mode,
     });
+    const noNotifySet = useCallback(
+      (path: string, value: unknown, options?: Form.SetOptions) =>
+        form.set(path, value, { ...options, notifyOnChange: false }),
+      [form],
+    );
     const retrieveAsync = useCallback(
       async (params: FormParams, options: FetchOptions = {}) => {
         const { signal } = options;
@@ -253,7 +258,7 @@ export const createForm =
             return setResult(nullClientResult<undefined>(name, "retrieve"));
           setResult((p) => pendingResult(name, "retrieving", p.data));
           if (signal?.aborted) return;
-          const args = { client, params, store, ...form };
+          const args = { client, params, store, ...form, set: noNotifySet };
           await retrieve(args);
           if (signal?.aborted) return;
           listeners.cleanup();
@@ -264,7 +269,7 @@ export const createForm =
           setResult(errorResult<undefined>(name, "retrieve", error));
         }
       },
-      [client, name, form, store],
+      [client, name, form, store, noNotifySet],
     );
     const memoParams = useMemoDeepEqual(params);
     useAsyncEffect(
@@ -280,12 +285,7 @@ export const createForm =
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          const modifiedSet = (
-            path: string,
-            value: unknown,
-            options?: Form.SetOptions,
-          ) => form.set(path, value, { ...options, notifyOnChange: false });
-          const args = { client, params, store, ...form, set: modifiedSet };
+          const args = { client, params, store, ...form, set: noNotifySet };
           if (!(await form.validateAsync())) return false;
           setResult(pendingResult(name, "updating", undefined));
           if ((await beforeSave?.(args)) === false) {

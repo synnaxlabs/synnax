@@ -165,7 +165,10 @@ export const Create: Layout.Renderer = (props) => {
                   zIndex={-1}
                   filter={recursiveParentFilter}
                   value={value}
-                  onChange={(v: ranger.Key) => onChange(v ?? "")}
+                  onChange={(v: ranger.Key) => {
+                    console.log("ON CHANGE", v);
+                    onChange(v ?? "");
+                  }}
                   icon={<ParentRangeIcon />}
                   allowNone
                 />
