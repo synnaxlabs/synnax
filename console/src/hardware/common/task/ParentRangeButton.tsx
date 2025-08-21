@@ -7,24 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Ontology, Ranger, Text } from "@synnaxlabs/pluto";
+import { ranger, task } from "@synnaxlabs/client";
+import { Button, Flex, Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { useKey } from "@/hardware/common/task/Form";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { useCallback, useState } from "react";
 
 export const ParentRangeButton = () => {
   const taskKey = useKey();
-  const { data: parentRangeID } = Ontology.retrieveParentID.useDirect({
-    params: { id: task.ontologyID(taskKey ?? "") },
-  });
-  const { data: parentRange } = Ranger.retrieve.useDirect({
-    params: { key: parentRangeID?.key ?? "" },
+  const [parent, setParent] = useState<ranger.Payload | null>(null);
+  Ranger.retrieveParent.useEffect({
+    params: taskKey != null ? { id: task.ontologyID(taskKey) } : undefined,
+    onChange: useCallback(
+      (p: Flux.Result<ranger.Range | null>) => setParent(p.data ?? null),
+      [],
+    ),
   });
   const placeLayout = Layout.usePlacer();
-  if (parentRange == null) return null;
-  const { key, name } = parentRange;
+  if (parent == null) return null;
+  const { key, name } = parent;
   const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
   return (
     <Flex.Box x align="center" gap="small">

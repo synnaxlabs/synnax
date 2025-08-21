@@ -184,32 +184,32 @@ export const useChildren = Flux.createList<
 });
 
 export const retrieveParent = Flux.createRetrieve<
-  { key: ranger.Key },
+  { id: ontology.ID },
   ranger.Range | null,
   SubStore
 >({
   name: "Range",
-  retrieve: async ({ client, params: { key } }) => {
-    const res = await client.ontology.retrieveParents(ranger.ontologyID(key));
+  retrieve: async ({ client, params: { id } }) => {
+    const res = await client.ontology.retrieveParents(id);
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
     return client.ranges.sugarOntologyResource(parent);
   },
-  mountListeners: ({ store, onChange, client, params: { key } }) => [
-    store.ranges.onSet((range) => {
-      onChange((prev) => {
-        if (prev == null || prev.key !== range.key) return prev;
+  mountListeners: ({ store, onChange, client, params: { id } }) => [
+    store.ranges.onSet((NextParent) => {
+      onChange((prevParent) => {
+        if (prevParent == null || prevParent.key !== NextParent.key) return prevParent;
         return client.ranges.sugarOne({
-          ...range,
-          parent: range.parent ?? prev.parent,
-          labels: range.labels ?? prev.labels,
+          ...NextParent,
+          parent: NextParent.parent ?? prevParent.parent,
+          labels: NextParent.labels ?? prevParent.labels,
         });
       });
     }),
     store.relationships.onSet(async (rel) => {
       const isParent = ontology.matchRelationship(rel, {
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ranger.ontologyID(key),
+        to: id,
       });
       if (!isParent) return;
       const parentIsRange = rel.from.type === "range";
@@ -221,12 +221,12 @@ export const retrieveParent = Flux.createRetrieve<
       const rel = ontology.relationshipZ.parse(relKey);
       const isParent = ontology.matchRelationship(rel, {
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: ranger.ontologyID(key),
+        to: id,
       });
       if (isParent) onChange(null);
       const isLabel = ontology.matchRelationship(rel, {
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: ranger.ontologyID(key),
+        to: id,
       });
       if (isLabel)
         onChange((prev) => {

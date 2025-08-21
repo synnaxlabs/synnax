@@ -115,7 +115,11 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
 export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
   PForm.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
 
-const Header = () => (
+interface HeaderProps {
+  isSnapshot: boolean;
+}
+
+const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
       <PForm.Field<string> path="name">
@@ -126,7 +130,7 @@ const Header = () => (
         <Rack />
       </Flex.Box>
     </Flex.Box>
-    <ParentRangeButton />
+    {!isSnapshot && <ParentRangeButton />}
   </>
 );
 
@@ -209,7 +213,7 @@ export const wrapForm = <
             {...form}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            {showHeader && <Header />}
+            {showHeader && <Header isSnapshot={isSnapshot} />}
             {Properties != null && (
               <Flex.Box className={CSS.B("task-properties")} x wrap>
                 <Properties />

@@ -144,7 +144,7 @@ const retrieveSingleFn = async ({
 }: Flux.RetrieveArgs<RetrieveArgs, SubStore>) => {
   let ch = store.channels.get(key);
   if (ch == null) {
-    ch = await client.channels.retrieve(key, { rangeKey });
+    ch = await client.channels.retrieve(key);
     store.channels.set(ch.key, ch);
   }
   if (rangeKey != null) {
