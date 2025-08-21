@@ -21,7 +21,7 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
@@ -125,6 +125,10 @@ const Internal = ({
     initialVars: GLOBALS,
   });
   const editorInputProps = useMemo(() => ({ globals }), [globals]);
+  const initializedRef = useRef(false);
+  if (status.variant === "success" && !initializedRef.current)
+    initializedRef.current = true;
+
   return (
     <Flex.Box
       className={CSS.B("sequence")}
@@ -132,14 +136,16 @@ const Internal = ({
       y
       empty
     >
-      <EditorField
-        path="config.script"
-        showLabel={false}
-        showHelpText={false}
-        padHelpText={false}
-        grow
-        inputProps={editorInputProps}
-      />
+      {initializedRef.current && (
+        <EditorField
+          path="config.script"
+          showLabel={false}
+          showHelpText={false}
+          padHelpText={false}
+          grow
+          inputProps={editorInputProps}
+        />
+      )}
       <Flex.Box
         pack
         y

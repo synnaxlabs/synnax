@@ -30,10 +30,11 @@ const LOADING_COMMANDS = ["start", "stop"];
 const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.keyZ,
-  onChange: async ({ store, changed, client }) => {
-    const t = await client.hardware.tasks.retrieve({ key: changed });
-    store.tasks.set(changed, t);
-  },
+  onChange: async ({ store, changed: key, client }) =>
+    store.tasks.set(
+      key,
+      await client.hardware.tasks.retrieve({ key, includeStatus: true }),
+    ),
 };
 
 const DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
