@@ -39,11 +39,11 @@ export const useTare = <C extends TareableChannel>({
     (keys: channel.Key[]) => {
       if (client == null) throw new DisconnectedError();
       if (key == null) throw new Error("Task has not been configured");
-      handleError(async () => {
-        await client.hardware.tasks.executeCommand(key, "tare", {
-          keys,
-        });
-      }, "Failed to tare channels");
+      const args = { keys };
+      handleError(
+        async () => await client.hardware.tasks.executeCommand(key, "tare", args),
+        "Failed to tare channels",
+      );
     },
     [client, key, handleError],
   );

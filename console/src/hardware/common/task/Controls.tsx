@@ -50,9 +50,10 @@ export const Controls = ({
   const handleStartStop = useCallback(() => {
     if (key == null) return;
     const command = taskStatus.details.running ? "stop" : "start";
-    handleError(async () => {
-      await client?.hardware.tasks.executeCommand(key, command);
-    }, `Failed to ${command} task`);
+    handleError(
+      async () => await client?.hardware.tasks.executeCommand(key, command),
+      `Failed to ${command} task`,
+    );
   }, [taskStatus]);
   return (
     <Flex.Box

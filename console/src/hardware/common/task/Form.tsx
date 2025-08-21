@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -53,16 +53,6 @@ export const LAYOUT: Omit<Layout, "type"> = {
   args: {},
 };
 
-export type TaskProps<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = {
-  layoutKey: string;
-  rackKey?: rack.Key;
-  task: task.Payload<Type, Config, StatusData>;
-};
-
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
   config?: unknown;
@@ -95,17 +85,6 @@ export interface WrapFormArgs<
   getInitialPayload: GetInitialValues<Type, Config, StatusData>;
 }
 
-export interface UseFormArgs<
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> extends Pick<
-    WrapFormArgs<Type, Config, StatusData>,
-    "schemas" | "onConfigure" | "type" | "getInitialPayload"
-  > {
-  layoutKey: string;
-}
-
 const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   ReturnType<typeof task.statusDetailsZ<StatusData>>
 > => ({
@@ -130,66 +109,6 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
 export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
   PForm.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
 
-export const useForm = <
-  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->({
-  layoutKey,
-  onConfigure,
-  schemas,
-  getInitialPayload,
-}: UseFormArgs<Type, Config, StatusData>): Flux.UseFormReturn<
-  Task.FormSchema<Type, Config, StatusData>
-> => {
-  const store = useStore<RootState>();
-  const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
-    store.getState(),
-    layoutKey,
-  );
-  const dispatch = useDispatch();
-  const handleUnsavedChanges = useCallback(
-    (unsavedChanges: boolean) =>
-      dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
-    [dispatch, layoutKey],
-  );
-  const initialValues = {
-    ...getInitialPayload({ deviceKey, config }),
-    key: taskKey,
-    rackKey: (rackKey ?? taskKey == null) ? 0 : task.rackKey(taskKey),
-  };
-  const confirm = useConfirm();
-  return Task.createForm({ schemas, initialValues })({
-    params: { key: taskKey },
-    onHasTouched: handleUnsavedChanges,
-    beforeSave: async ({ client, ...form }) => {
-      const { name, config } = form.value();
-      const [newConfig, rackKey] = await onConfigure(client, config, name);
-      if (primitive.isNonZero(taskKey) && rackKey != task.rackKey(taskKey)) {
-        const confirmed = await confirm({
-          message: "Device has been moved to different driver.",
-          description:
-            "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
-          confirm: { label: "Confirm", variant: "error" },
-          cancel: { label: "Cancel" },
-        });
-        if (!confirmed) return false;
-        await client.hardware.tasks.delete(taskKey);
-      }
-      if ("channels" in (newConfig as { channels: any }))
-        form.set("config.channels", (newConfig as { channels: any }).channels);
-      return true;
-    },
-    afterSave: ({ client, ...form }) => {
-      const { key, name } = form.value();
-      if (key == null) return;
-      dispatch(Layout.rename({ key: layoutKey, name }));
-      dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
-      dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
-    },
-  });
-};
-
 export const wrapForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -203,12 +122,51 @@ export const wrapForm = <
   onConfigure,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const { form, save, status } = useForm({
+    const store = useStore<RootState>();
+    const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
+      store.getState(),
       layoutKey,
-      schemas,
-      type,
-      onConfigure,
-      getInitialPayload,
+    );
+    const dispatch = useDispatch();
+    const handleUnsavedChanges = useCallback(
+      (unsavedChanges: boolean) =>
+        dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
+      [dispatch, layoutKey],
+    );
+    const initialValues = {
+      ...getInitialPayload({ deviceKey, config }),
+      key: taskKey,
+      rackKey: (rackKey ?? taskKey == null) ? 0 : task.rackKey(taskKey),
+    };
+    const confirm = useConfirm();
+    const { form, status, save } = Task.createForm({ schemas, initialValues })({
+      params: { key: taskKey },
+      onHasTouched: handleUnsavedChanges,
+      beforeSave: async ({ client, ...form }) => {
+        const { name, config } = form.value();
+        const [newConfig, rackKey] = await onConfigure(client, config, name);
+        if (primitive.isNonZero(taskKey) && rackKey != task.rackKey(taskKey)) {
+          const confirmed = await confirm({
+            message: "Device has been moved to different driver.",
+            description:
+              "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
+            confirm: { label: "Confirm", variant: "error" },
+            cancel: { label: "Cancel" },
+          });
+          if (!confirmed) return false;
+          await client.hardware.tasks.delete(taskKey);
+        }
+        if ("channels" in (newConfig as { channels: any }))
+          form.set("config.channels", (newConfig as { channels: any }).channels);
+        return true;
+      },
+      afterSave: ({ client, ...form }) => {
+        const { key, name } = form.value();
+        if (key == null) return;
+        dispatch(Layout.rename({ key: layoutKey, name }));
+        dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
+        dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
+      },
     });
     const isSnapshot = useIsSnapshot<Task.FormSchema<Type, Config, StatusData>>(form);
     return (
