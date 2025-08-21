@@ -18,6 +18,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useLayoutEffect,
 } from "react";
 
 import { type Component } from "@/component";
@@ -52,12 +53,14 @@ export interface FrameProps
 }
 
 interface State {
-  location: xlocation.XY;
+  targetCorner: xlocation.XY;
+  dialogCorner: xlocation.XY;
   style: CSSProperties;
 }
 
 const ZERO_STATE: State = {
-  location: xlocation.BOTTOM_LEFT,
+  targetCorner: xlocation.BOTTOM_LEFT,
+  dialogCorner: xlocation.BOTTOM_LEFT,
   style: {},
 };
 
@@ -79,10 +82,9 @@ const Context = createContext<ContextValue>({
   location: xlocation.BOTTOM_LEFT,
 });
 
-interface InternalContextValue {
+interface InternalContextValue
+  extends Pick<State, "targetCorner" | "dialogCorner" | "style"> {
   ref: RefCallback<HTMLDivElement>;
-  location: xlocation.XY;
-  style: CSSProperties;
 }
 
 const InternalContext = createContext<InternalContextValue | null>(null);
@@ -90,11 +92,20 @@ export const useInternalContext = () => useRequiredContext(InternalContext);
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
-const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean =>
-  prev != null &&
-  box.left(next) === box.left(prev) &&
-  box.top(next) === box.top(prev) &&
-  box.width(next) === box.width(prev);
+const positionsEqual = (
+  variant: Variant,
+  next: box.Box,
+  prev?: box.Box | null,
+): boolean => {
+  const prevNull = prev == null;
+  if (prevNull) return false;
+  const topLeftEqual =
+    Math.abs(box.left(next) - box.left(prev)) <= 1 &&
+    Math.abs(box.top(next) - box.top(prev)) <= 1;
+  if (variant === "floating") return topLeftEqual;
+  const widthEqual = Math.abs(box.width(next) - box.width(prev)) <= 1;
+  return topLeftEqual && widthEqual;
+};
 
 const PREFERENCES: LocationPreference[] = [
   {
@@ -153,19 +164,19 @@ export const Frame = ({
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
 
   const visibleRef = useSyncedRef(visible);
-  const parentRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<xlocation.XY | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [{ location, style }, setState] = useState<State>({
+  const [{ targetCorner, dialogCorner, style }, setState] = useState<State>({
     ...ZERO_STATE,
   });
 
   const calculatePosition = useCallback(() => {
-    if (parentRef.current == null || dialogRef.current == null || !visibleRef.current)
+    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
       return;
-    const target = box.construct(parentRef.current);
+    const target = box.construct(targetRef.current);
     let dialog = box.construct(dialogRef.current);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
 
@@ -178,41 +189,41 @@ export const Frame = ({
       initial: propsLocation,
       offset: 3,
     });
-    console.log(targetCorner, dialogCorner);
-    prevLocation.current = location;
+    prevLocation.current = targetCorner;
     const roundedDialog = box.round(adjustedDialog);
-    if (positionsEqual(roundedDialog, prevBox.current)) return;
+    if (positionsEqual(variant, roundedDialog, prevBox.current)) return;
     prevBox.current = roundedDialog;
     const style: CSSProperties = {};
-    if (variant !== "modal" && parentRef.current != null) {
+    if (variant !== "modal" && targetRef.current != null) {
       style.left = box.left(roundedDialog);
-      if (targetCorner.y === "bottom") style.top = box.top(roundedDialog);
-      else if (targetCorner.y === "center") style.top = box.top(roundedDialog);
-      else style.bottom = box.height(container) - box.bottom(roundedDialog);
+      if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x)
+        style.bottom = box.height(container) - box.bottom(roundedDialog);
+      else style.top = box.top(roundedDialog);
 
       if (variant === "connected") style.width = box.width(roundedDialog);
     } else if (variant === "modal") style.top = `${modalOffset}%`;
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-    setState({ location: targetCorner, style });
+    console.log(style);
+    setState({ targetCorner: targetCorner, dialogCorner: dialogCorner, style });
   }, [propsLocation, variant]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
-  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
-  const combinedParentRef = useCombinedRefs(parentRef, resizeParentRef);
+  const resizeTargetRef = useResize(calculatePosition, { enabled: visible });
+  const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
 
   const exclude = useCallback(
     (e: MouseEvent) => {
-      if (!visibleRef.current || dialogRef.current == null || parentRef.current == null)
+      if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
         return true;
       if (variant !== "modal") {
         const dialog = dialogRef.current;
         const visibleChildren = dialog.getElementsByClassName(CSS.visible(true));
         let exclude = visibleChildren != null && visibleChildren.length > 0;
         if (!exclude) {
-          const isTrigger = parentRef.current.contains(e.target as Node);
+          const isTrigger = targetRef.current.contains(e.target as Node);
           exclude = isTrigger;
         }
         const contextMenus = document.getElementsByClassName(Menu.CONTEXT_MENU_CLASS);
@@ -235,10 +246,11 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,
-      location,
+      targetCorner,
+      dialogCorner,
       style,
     }),
-    [combinedDialogRef, location, style],
+    [combinedDialogRef, targetCorner, dialogCorner, style],
   );
 
   const ctxValue = useMemo(
@@ -249,9 +261,9 @@ export const Frame = ({
       visible,
       onPointerEnter,
       variant,
-      location,
+      location: targetCorner,
     }),
-    [close, open, toggle, visible, location],
+    [close, open, toggle, visible, targetCorner],
   );
 
   return (
@@ -259,17 +271,19 @@ export const Frame = ({
       <InternalContext.Provider value={internalContextValue}>
         <Flex.Box
           {...rest}
-          ref={combinedParentRef}
+          ref={combinedTargetRef}
           className={CSS(
             className,
             CSS.BE("dialog", "frame"),
             CSS.visible(visible),
             CSS.M(variant),
-            CSS.loc(location.x),
-            CSS.loc(location.y),
+            CSS.loc(targetCorner.x),
+            CSS.loc(targetCorner.y),
+            CSS.BEM("dialog", "dialog", dialogCorner.x),
+            CSS.BEM("dialog", "dialog", dialogCorner.y),
           )}
           y
-          reverse={location.y === "top"}
+          reverse={targetCorner.y === "top"}
         >
           {children}
         </Flex.Box>
