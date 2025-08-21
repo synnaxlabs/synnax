@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
+import { Flex, type Flux, Form as PForm, Input, Task, Device } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -144,6 +144,7 @@ export const wrapForm = <
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
+  const retrieveDevice = Device.retrieve();
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
@@ -190,6 +191,10 @@ export const wrapForm = <
         dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
         dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
       },
+    });
+    retrieveDevice.useEffect({
+      onChange: (d) => form.set("rackKey", d.data?.rack),
+      params: deviceKey == null ? undefined : { key: deviceKey },
     });
     const isSnapshot = useIsSnapshot<Task.FormSchema<Type, Config, StatusData>>(form);
     return (

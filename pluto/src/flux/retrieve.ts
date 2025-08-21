@@ -151,9 +151,11 @@ export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 export interface UseEffectRetrieveArgs<
   RetrieveParams extends Params,
   Data extends state.State,
-> extends UseObservableRetrieveArgs<Data> {
+> {
+  scope?: string;
+  onChange?: (result: Result<Data>) => void;
   /** Parameters for the retrieve operation */
-  params: RetrieveParams;
+  params?: RetrieveParams;
 }
 
 /**
@@ -190,6 +192,9 @@ export interface CreateRetrieveReturn<
   useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
 }
 
+const initialResult = <Data extends state.State>(name: string): Result<Data> =>
+  pendingResult<Data>(name, "retrieving", undefined);
+
 const useStateful = <
   RetrieveParams extends Params,
   Data extends state.State,
@@ -197,9 +202,7 @@ const useStateful = <
 >(
   args: CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>,
 ): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
-  const [state, setState] = useState<Result<Data>>(
-    pendingResult<Data>(args.name, "retrieving", undefined),
-  );
+  const [state, setState] = useState<Result<Data>>(initialResult<Data>(args.name));
   return {
     ...state,
     ...useObservable({ ...args, onChange: setState }),
@@ -307,10 +310,20 @@ const useEffect = <
   ...restArgs
 }: UseEffectRetrieveArgs<RetrieveParams, Data> &
   CreateRetrieveArgs<RetrieveParams, Data, ScopedStore>): void => {
-  const { retrieveAsync } = useObservable<RetrieveParams, Data, ScopedStore>(restArgs);
+  const resultRef = useRef<Result<Data>>(initialResult<Data>(restArgs.name));
+  const { retrieveAsync } = useObservable<RetrieveParams, Data, ScopedStore>({
+    ...restArgs,
+    onChange: (setter) => {
+      resultRef.current = state.executeSetter(setter, resultRef.current);
+      restArgs.onChange?.(resultRef.current);
+    },
+  });
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
-    async (signal) => await retrieveAsync(memoParams, { signal }),
+    async (signal) => {
+      if (memoParams == null) return;
+      await retrieveAsync(memoParams, { signal });
+    },
     [retrieveAsync, memoParams],
   );
 };

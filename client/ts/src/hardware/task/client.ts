@@ -409,7 +409,17 @@ export class Client {
     return isSingle ? res[0] : res;
   }
 
-  async executeCommand(task: Key, type: string, args?: {}): Promise<string> {
+  async executeCommand(task: Key, type: string, args?: {}): Promise<string>;
+
+  async executeCommand(commands: NewCommand[]): Promise<string[]>;
+
+  async executeCommand(
+    task: Key | NewCommand[],
+    type?: string,
+    args?: {},
+  ): Promise<string | string[]> {
+    if (Array.isArray(task)) return await executeCommands(this.frameClient, task);
+    if (type == null) throw new Error("Type is required");
     return await executeCommand(this.frameClient, task, type, args);
   }
 
@@ -419,8 +429,29 @@ export class Client {
     timeout: CrudeTimeSpan,
     args?: {},
     name?: string,
+    statusDataZ?: StatusData,
+  ): Promise<Status<StatusData>>;
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+    commands: NewCommand[],
+    timeout: CrudeTimeSpan,
+    statusDataZ?: StatusData,
+  ): Promise<Status<StatusData>[]>;
+
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+    task: Key | NewCommand[],
+    type: string | CrudeTimeSpan,
+    timeout?: CrudeTimeSpan | StatusData,
+    args?: {},
+    name?: string,
     statusDataZ: StatusData = z.unknown() as unknown as StatusData,
-  ): Promise<Status<StatusData>> {
+  ): Promise<Status<StatusData> | Status<StatusData>[]> {
+    if (Array.isArray(task))
+      return await executeCommandsSync(
+        this.frameClient,
+        task,
+        type as CrudeTimeSpan,
+        statusDataZ,
+      );
     const retrieveName = async () => {
       const t = await this.retrieve({ key: task });
       return t.name;
@@ -428,8 +459,8 @@ export class Client {
     return await executeCommandSync(
       this.frameClient,
       task,
-      type,
-      timeout,
+      type as string,
+      timeout as CrudeTimeSpan,
       name ?? retrieveName,
       statusDataZ,
       args,
@@ -444,13 +475,24 @@ const executeCommand = async (
   task: Key,
   type: string,
   args?: {},
-): Promise<string> => {
+): Promise<string> => (await executeCommands(frameClient, [{ args, task, type }]))[0];
+
+export interface NewCommand {
+  task: Key;
+  type: string;
+  args?: {};
+}
+
+const executeCommands = async (
+  frameClient: framer.Client | null,
+  commands: NewCommand[],
+): Promise<string[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const key = id.create();
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
-  await w.write(COMMAND_CHANNEL_NAME, [{ args, key, task, type }]);
+  const cmds = commands.map((c) => ({ ...c, key: id.create() }));
+  await w.write(COMMAND_CHANNEL_NAME, cmds);
   await w.close();
-  return key;
+  return cmds.map((c) => c.key);
 };
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
@@ -461,24 +503,35 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
   tskName: string | (() => Promise<string>),
   statusDataZ: StatusData,
   args?: {},
-): Promise<Status<StatusData>> => {
-  if (frameClient == null) throw NOT_CREATED_ERROR;
-  const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
-  const cmdKey = await executeCommand(frameClient, task, type, args);
-  const parsedTimeout = new TimeSpan(timeout);
+): Promise<Status<StatusData>> =>
+  (
+    await executeCommandsSync(frameClient, [{ args, task, type }], timeout, statusDataZ)
+  )[0];
 
+const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>(
+  frameClient: framer.Client | null,
+  commands: NewCommand[],
+  timeout: CrudeTimeSpan,
+  statusDataZ: StatusData,
+): Promise<Status<StatusData>[]> => {
+  if (frameClient == null) throw NOT_CREATED_ERROR;
+  const cmdKeys = await executeCommands(frameClient, commands);
+  const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
+  const parsedTimeout = new TimeSpan(timeout);
+  let states: Status<StatusData>[] = [];
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
-      void (async () =>
-        reject(await formatTimeoutError(type, tskName, parsedTimeout, task)))();
+      reject(new Error("Command timed out"));
     }, parsedTimeout.milliseconds);
   });
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
       const state = statusZ(statusDataZ).parse(frame.at(-1)[STATUS_CHANNEL_NAME]);
-      if (state.key === cmdKey) return state;
+      if (!cmdKeys.includes(state.key)) continue;
+      states = [...states.filter((s) => s.key !== state.key), state];
+      if (states.length === cmdKeys.length) return states;
     }
   } finally {
     clearTimeout(timeoutID);
