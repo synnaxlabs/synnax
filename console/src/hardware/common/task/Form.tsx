@@ -9,7 +9,12 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax as Client, task } from "@synnaxlabs/client";
+import {
+  type device,
+  type rack,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
 import { Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -20,7 +25,6 @@ import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
-import { type LayoutArgs, type WrapOptions } from "@/hardware/common/task/Task";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
@@ -33,6 +37,44 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
+export interface LayoutArgs {
+  deviceKey?: device.Key;
+  taskKey?: task.Key;
+  rackKey?: rack.Key;
+  config?: unknown;
+}
+
+export interface Layout extends Layout.BaseState<LayoutArgs> {}
+
+export const LAYOUT: Omit<Layout, "type"> = {
+  name: "Configure",
+  icon: "Task",
+  location: "mosaic",
+  args: {},
+};
+
+export type TaskProps<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> = {
+  layoutKey: string;
+  rackKey?: rack.Key;
+  task: task.Payload<Type, Config, StatusData>;
+};
+
+export interface GetInitialPayloadArgs {
+  deviceKey?: device.Key;
+  config?: unknown;
+}
+
+export interface GetInitialValues<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> {
+  (args: GetInitialPayloadArgs): Task.InitialValues<Type, Config, StatusData>;
+}
 
 export interface FormProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -44,11 +86,13 @@ export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
-> extends WrapOptions<Type, Config, StatusData> {
+> {
   Properties?: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
+  schemas: task.Schemas<Type, Config, StatusData>;
+  getInitialPayload: GetInitialValues<Type, Config, StatusData>;
 }
 
 export interface UseFormArgs<
