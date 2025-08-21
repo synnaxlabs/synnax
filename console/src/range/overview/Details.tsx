@@ -210,10 +210,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               location="bottom"
               style={{ width: "fit-content" }}
               value={value}
-              onChange={(v) => {
-                console.log("ON CHANGE", v);
-                onChange(v);
-              }}
+              onChange={onChange}
             />
           )}
         </Form.Field>

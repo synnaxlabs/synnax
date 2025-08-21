@@ -326,7 +326,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   add(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() + BigInt(span.valueOf()));
+    return new TimeStamp(math.add(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -337,7 +337,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   sub(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() - BigInt(span.valueOf()));
+    return new TimeStamp(math.sub(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -823,6 +823,16 @@ export class TimeSpan
     return new TimeSpan(math.mult(this.valueOf(), value));
   }
 
+  /**
+   * Divides the TimeSpan by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new TimeSpan that is this TimeSpan divided by the provided value.
+   */
+  div(value: number): TimeSpan {
+    return new TimeSpan(math.div(this.valueOf(), value));
+  }
+
   /** @returns the decimal number of days in the TimeSpan. */
   get days(): number {
     return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
@@ -1077,6 +1087,46 @@ export class Rate
   }
 
   /**
+   * Adds another Rate to this Rate.
+   *
+   * @param other - The Rate to add.
+   * @returns A new Rate representing the sum of the two rates.
+   */
+  add(other: CrudeRate): Rate {
+    return new Rate(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Rate from this Rate.
+   *
+   * @param other - The Rate to subtract.
+   * @returns A new Rate representing the difference of the two rates.
+   */
+  sub(other: CrudeRate): Rate {
+    return new Rate(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Rate by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Rate representing this Rate multiplied by the value.
+   */
+  mult(value: number): Rate {
+    return new Rate(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Rate by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Rate representing this Rate divided by the value.
+   */
+  div(value: number): Rate {
+    return new Rate(math.div(this.valueOf(), value));
+  }
+
+  /**
    * Creates a Rate representing the given number of Hz.
    *
    * @param value - The number of Hz.
@@ -1137,6 +1187,46 @@ export class Density
    */
   size(sampleCount: number): Size {
     return new Size(sampleCount * this.valueOf());
+  }
+
+  /**
+   * Adds another Density to this Density.
+   *
+   * @param other - The Density to add.
+   * @returns A new Density representing the sum of the two densities.
+   */
+  add(other: CrudeDensity): Density {
+    return new Density(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Density from this Density.
+   *
+   * @param other - The Density to subtract.
+   * @returns A new Density representing the difference of the two densities.
+   */
+  sub(other: CrudeDensity): Density {
+    return new Density(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Density by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Density representing this Density multiplied by the value.
+   */
+  mult(value: number): Density {
+    return new Density(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Density by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Density representing this Density divided by the value.
+   */
+  div(value: number): Density {
+    return new Density(math.div(this.valueOf(), value));
   }
 
   /** Unknown/Invalid Density. */
@@ -1715,12 +1805,32 @@ export class Size
 
   /** @returns a new Size representing the sum of the two Sizes. */
   add(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() + other.valueOf());
+    return new Size(math.add(this.valueOf(), other.valueOf()));
   }
 
   /** @returns a new Size representing the difference of the two Sizes. */
   sub(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() - other.valueOf());
+    return new Size(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Size by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Size representing this Size multiplied by the value.
+   */
+  mult(value: number): Size {
+    return new Size(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Size by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Size representing this Size divided by the value.
+   */
+  div(value: number): Size {
+    return new Size(math.div(this.valueOf(), value));
   }
 
   /** @returns a new Size representing the truncated value of the Size. */
