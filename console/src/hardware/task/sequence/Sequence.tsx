@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/task/sequence/Sequence.css";
+
 import { type channel, type rack } from "@synnaxlabs/client";
 import {
   Channel,
@@ -19,12 +21,13 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
+import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
@@ -70,14 +73,14 @@ export const SELECTABLE: Selector.Selectable = {
 };
 
 interface EditorProps extends Input.Control<string> {
-  globals: UsePhantomGlobalsReturn;
+  globals?: UsePhantomGlobalsReturn;
 }
 
-const Editor = ({ value, onChange, globals }: EditorProps) => {
+const Editor = memo(({ value, onChange, globals }: EditorProps) => {
   const methods = Form.useContext();
   const onAccept = useCallback(
     (channel: channel.Payload) => {
-      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      globals?.set(channel.key.toString(), channel.name, channel.key.toString());
       methods.set(
         "config.read",
         unique.unique([
@@ -95,14 +98,25 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
     client?.channels
       .retrieve(channels)
       .then((chs) => {
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+        chs.forEach((ch) =>
+          globals?.set(ch.key.toString(), ch.name, ch.key.toString()),
+        );
       })
       .catch(console.error);
   }, [methods, globals]);
   return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
-};
+});
+Editor.displayName = "Editor";
 
-const Internal = () => {
+const EditorField = Form.fieldBuilder<string, string, EditorProps>(Editor)({
+  inputProps: {},
+});
+
+const Internal = ({
+  layoutKey,
+  onConfigure,
+  status,
+}: Common.Task.FormProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const globals = usePhantomGlobals({
@@ -110,18 +124,22 @@ const Internal = () => {
     stringifyVar: Lua.stringifyVar,
     initialVars: GLOBALS,
   });
-
+  const editorInputProps = useMemo(() => ({ globals }), [globals]);
   return (
-    <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Field<string>
+    <Flex.Box
+      className={CSS.B("sequence")}
+      style={{ padding: 0, height: "100%", minHeight: 0 }}
+      y
+      empty
+    >
+      <EditorField
         path="config.script"
         showLabel={false}
         showHelpText={false}
         padHelpText={false}
         grow
-      >
-        {(p) => <Editor {...p} globals={globals} />}
-      </Form.Field>
+        inputProps={editorInputProps}
+      />
       <Flex.Box
         pack
         y
@@ -140,6 +158,7 @@ const Internal = () => {
               path="config.rack"
               label="Location"
               padHelpText={false}
+              onChange={(v, { set }) => set("rackKey", v)}
               grow
             >
               {({ value, onChange }) => (
@@ -215,6 +234,11 @@ const Internal = () => {
             )}
           </Form.Field>
         </Flex.Box>
+        <Common.Task.Controls
+          layoutKey={layoutKey}
+          formStatus={status}
+          onConfigure={onConfigure}
+        />
       </Flex.Box>
     </Flex.Box>
   );
@@ -245,4 +269,6 @@ export const Sequence = Common.Task.wrapForm<
   getInitialValues,
   schemas: SCHEMAS,
   onConfigure: async (_, config) => [config, config.rack],
+  showHeader: false,
+  showControls: false,
 });

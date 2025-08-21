@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
+import { Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -70,7 +70,11 @@ export interface FormProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
-> extends PForm.UseReturn<Task.FormSchema<Type, Config, StatusData>> {}
+> extends PForm.UseReturn<Task.FormSchema<Type, Config, StatusData>> {
+  layoutKey: string;
+  status: Flux.Result<undefined>["status"];
+  onConfigure: () => void;
+}
 
 export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -83,6 +87,8 @@ export interface WrapFormArgs<
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
   getInitialValues: GetInitialValues<Type, Config, StatusData>;
+  showHeader?: boolean;
+  showControls?: boolean;
 }
 
 const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
@@ -109,6 +115,21 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
 export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
   PForm.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
 
+const Header = () => (
+  <>
+    <Flex.Box x justify="between">
+      <PForm.Field<string> path="name">
+        {(p) => <Input.Text variant="text" level="h2" {...p} />}
+      </PForm.Field>
+      <Flex.Box align="end" gap="small">
+        <UtilityButtons />
+        <Rack />
+      </Flex.Box>
+    </Flex.Box>
+    <ParentRangeButton />
+  </>
+);
+
 export const wrapForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -120,6 +141,8 @@ export const wrapForm = <
   type,
   getInitialValues,
   onConfigure,
+  showHeader = true,
+  showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
@@ -181,16 +204,7 @@ export const wrapForm = <
             {...form}
             mode={isSnapshot ? "preview" : "normal"}
           >
-            <Flex.Box x justify="between">
-              <PForm.Field<string> path="name">
-                {(p) => <Input.Text variant="text" level="h2" {...p} />}
-              </PForm.Field>
-              <Flex.Box align="end" gap="small">
-                <UtilityButtons />
-                <Rack />
-              </Flex.Box>
-            </Flex.Box>
-            <ParentRangeButton />
+            {showHeader && <Header />}
             {Properties != null && (
               <Flex.Box className={CSS.B("task-properties")} x wrap>
                 <Properties />
@@ -204,9 +218,16 @@ export const wrapForm = <
               grow
               empty
             >
-              <Form {...form} />
+              <Form
+                layoutKey={layoutKey}
+                status={status}
+                onConfigure={save}
+                {...form}
+              />
             </Flex.Box>
-            <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
+            {showControls && (
+              <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
+            )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>

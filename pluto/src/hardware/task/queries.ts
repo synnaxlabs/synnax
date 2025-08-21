@@ -280,11 +280,20 @@ export const createForm = <
           type: value.type,
           config: value.config,
         });
-        store.tasks.set(task.key, task);
-        const values = taskToFormValues<Type, Config, StatusData>(
+        store.tasks.set(task.key, (p) => {
+          if (p == null) return p;
+          task.status = p.status;
+          return task;
+        });
+        const updatedValues = taskToFormValues<Type, Config, StatusData>(
           task.payload as task.Payload<Type, Config, StatusData>,
         );
-        form.reset(values);
+        form.set("key", updatedValues.key);
+        form.set("name", updatedValues.name);
+        form.set("rackKey", updatedValues.rackKey);
+        form.set("type", updatedValues.type);
+        form.set("config", updatedValues.config);
+        form.set("snapshot", updatedValues.snapshot);
       },
       mountListeners: ({ store, get, reset }) => [
         store.tasks.onSet((task) => {

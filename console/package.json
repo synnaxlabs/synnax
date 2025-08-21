@@ -26,6 +26,7 @@
     "@codingame/monaco-vscode-theme-defaults-default-extension": "^14.0.6",
     "@codingame/monaco-vscode-theme-service-override": "^14.0.6",
     "@fontsource/inter": "catalog:",
+    "@monaco-editor/react": "^4.7.0",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/drift": "workspace:^",

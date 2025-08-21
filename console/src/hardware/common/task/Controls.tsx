@@ -65,7 +65,13 @@ export const Controls = ({
       {...props}
     >
       <Flex.Box className={CSS.B("task-state")} x>
-        <Status.Summary variant={stat.variant}>{stat.message}</Status.Summary>
+        <Status.Summary
+          variant={stat.variant}
+          message={stat.message}
+          description={stat.description}
+          justify="start"
+          center={false}
+        />
       </Flex.Box>
       {!isSnapshot && (
         <Flex.Box align="center" x justify="end">
