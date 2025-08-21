@@ -327,7 +327,6 @@ const ContextMenu = ({
   const isSingle = selectedTasks.length === 1;
 
   const addStatus = Status.useAdder();
-  const placeLayout = Layout.usePlacer();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
   const handleExport = Common.Task.useExport();

@@ -575,7 +575,7 @@ const formatTimeoutError = async (
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${key} timed out after ${formattedTimeout}`,
+      `${formattedType} command to task with key ${strings.naturalLanguageJoin(key)} timed out after ${formattedTimeout}`,
     );
   }
 };

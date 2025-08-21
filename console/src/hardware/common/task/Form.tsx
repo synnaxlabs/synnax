@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { Flex, type Flux, Form as PForm, Input, Task, Device } from "@synnaxlabs/pluto";
+import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
