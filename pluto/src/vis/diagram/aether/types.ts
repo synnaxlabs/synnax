@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, record, xy } from "@synnaxlabs/x";
+import { color, record, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
-import { MarkerType } from "@xyflow/react";
-import { z } from "zod/v4";
+import { z } from "zod";
+
+import { connector } from "@/vis/diagram/edge/connector";
 
 /**
  * The current viewport state of the diagram.
@@ -34,10 +35,35 @@ export const viewportZ = z.object({
  */
 export type Viewport = z.infer<typeof viewportZ>;
 
+/**
+ * Pluto specific info passed to the 'data' attribute on rf.Edge.
+ */
+export const rfEdgeDataZ = z.object({
+  /**
+   * The color of the edge.
+   */
+  color: color.crudeZ,
+
+  /**
+   * The type of the edge.
+   */
+  variant: z.string().optional(),
+
+  /**
+   * A list of segments representing the structure of the edge connector.
+   */
+  segments: z.array(connector.segmentZ),
+});
+
+/**
+ * Pluto specific info passed to the 'data' attribute on rf.Edge.
+ */
+export type RFEdgeData = z.infer<typeof rfEdgeDataZ>;
+
 /*
  * The properties for an edge within a diagram.
  */
-export const edgeZ = z.object({
+export const edgeZ = rfEdgeDataZ.extend({
   /**
    * A unique key for identifying the edge within the diagram.
    */
@@ -53,8 +79,18 @@ export const edgeZ = z.object({
    */
   target: z.string(),
 
+  segments: z.array(connector.segmentZ),
+
+  color: color.crudeZ,
+
   id: z.string(),
-  data: record.unknownZ.optional(),
+  data: z
+    .object({
+      segments: z.array(connector.segmentZ),
+      color: color.crudeZ,
+      variant: z.string().optional(),
+    })
+    .optional(),
 
   /**
    * Whether the edge is currently selected.
@@ -125,12 +161,11 @@ export const translateNodesForward = (
   }));
 
 /** Translates edges from their pluto representation to their react-flow representation. */
-export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<record.Unknown>> =>
-  edges.map(({ data, ...edge }) => ({
+export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<RFEdgeData>> =>
+  edges.map(({ segments, color, variant, ...edge }) => ({
     ...edge,
     id: edge.key,
-    data,
-    markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
+    data: { segments, color, variant },
   }));
 
 /** Translates nodes from their react-flow representation to their pluto representation. */
@@ -139,14 +174,17 @@ export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
 
 /** Translates edges from their react-flow representation to their pluto representation */
 export const translateEdgesBackward = (
-  edges: Array<rf.Edge<record.Unknown>>,
+  edges: Array<rf.Edge<RFEdgeData>>,
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
     edge.data ??= { segments: [], color: defaultColor, variant: "pipe" };
     return {
       key: edge.id,
+      segments: edge.data?.segments ?? [],
       selected: edge.selected ?? false,
+      color: edge.data?.color ?? defaultColor,
+      variant: edge.data?.variant ?? "pipe",
       ...edge,
     };
   });
@@ -174,6 +212,6 @@ export const nodeConverter = (
 
 export const edgeConverter = (
   edges: Edge[],
-  f: (edges: rf.Edge<record.Unknown>[]) => rf.Edge<record.Unknown>[],
+  f: (edges: rf.Edge<RFEdgeData>[]) => rf.Edge<RFEdgeData>[],
   color: color.Crude,
 ): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);

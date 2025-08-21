@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/edge/Edge.css";
+import "@/vis/diagram/edge/Edge.css";
 
-import { box, color, direction, location, type record, xy } from "@synnaxlabs/x";
+import { box, color, direction, location, xy } from "@synnaxlabs/x";
 import {
   type ConnectionLineComponentProps,
+  type EdgeProps as RFEdgeProps,
   type Position,
   useReactFlow,
 } from "@xyflow/react";
@@ -27,23 +28,23 @@ import { CSS } from "@/css";
 import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
-import { type Diagram } from "@/vis/diagram";
+import { connector } from "@/vis/diagram/edge/connector";
+import { DefaultPath, PATHS, type PathType } from "@/vis/diagram/edge/paths";
 import { selectNodeBox } from "@/vis/diagram/util";
-import { connector } from "@/vis/schematic/edge/connector";
-import { DefaultPath, PATHS, type PathType } from "@/vis/schematic/edge/paths";
 
 interface CurrentlyDragging {
   segments: connector.Segment[];
   index: number;
 }
 
-export interface EdgeData extends record.Unknown {
+export interface EdgeProps extends RFEdgeProps {
   segments: connector.Segment[];
+  onSegmentsChange: (segments: connector.Segment[]) => void;
   variant?: PathType;
   color?: color.Crude;
 }
 
-export const ConnectionLine = ({
+export const CustomConnectionLine = ({
   fromX,
   fromY,
   toX,
@@ -102,16 +103,13 @@ export const Edge = ({
   targetHandleId,
   targetPosition: targetOrientation,
   style,
-  data,
+  segments: propsSegments = [],
+  onSegmentsChange,
+  color = "var(--pluto-gray-l11)",
   selected = false,
-  onDataChange,
+  variant = "pipe",
   ...rest
-}: Diagram.EdgeProps<EdgeData>): ReactElement => {
-  const {
-    segments: propsSegments = [],
-    color = "var(--pluto-gray-l11)",
-    variant = "pipe",
-  } = data ?? {};
+}: EdgeProps): ReactElement => {
   const sourcePos = xy.construct(rest.sourceX, rest.sourceY);
   const sourcePosRef = useRef(sourcePos);
   const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
@@ -138,15 +136,8 @@ export const Edge = ({
   const targetOrientationRef = useRef(targetOrientation);
   const sourceOrientationRef = useRef(sourceOrientation);
 
-  const handleSegmentsChange = useCallback(
-    (segments: connector.Segment[]) => {
-      onDataChange({ ...data, segments });
-    },
-    [data, onDataChange],
-  );
-
-  const debouncedOnSegmentsChange = useDebouncedCallback(handleSegmentsChange, 100, [
-    handleSegmentsChange,
+  const debouncedOnSegmentsChange = useDebouncedCallback(onSegmentsChange, 100, [
+    onSegmentsChange,
   ]);
 
   if (!sourcePosEq || !targetPosEq) {
@@ -232,10 +223,7 @@ export const Edge = ({
       });
       setSegments(next);
     }, []),
-    onEnd: useCallback(
-      () => handleSegmentsChange(segRef.current),
-      [handleSegmentsChange],
-    ),
+    onEnd: useCallback(() => onSegmentsChange(segRef.current), [onSegmentsChange]),
   });
 
   const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);

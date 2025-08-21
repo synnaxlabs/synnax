@@ -193,8 +193,12 @@ export const { actions, reducer } = createSlice({
         const selectedEdges = edges.filter((edge) => edge.selected);
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
         copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-        selectedNodes.forEach((node) => (copyBuffer.props[node.key] = props[node.key]));
-        selectedEdges.forEach((edge) => (copyBuffer.props[edge.key] = props[edge.key]));
+        selectedNodes.forEach((node) => {
+          copyBuffer.props[node.key] = props[node.key];
+        });
+        selectedEdges.forEach((edge) => {
+          copyBuffer.props[edge.key] = props[edge.key];
+        });
       });
       const { nodes } = copyBuffer;
       if (nodes.length > 0) {
@@ -258,8 +262,12 @@ export const { actions, reducer } = createSlice({
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
-      schematic.nodes.forEach((node) => (node.selected = false));
-      schematic.edges.forEach((edge) => (edge.selected = false));
+      schematic.nodes.forEach((node) => {
+        node.selected = false;
+      });
+      schematic.edges.forEach((edge) => {
+        edge.selected = false;
+      });
       state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {

@@ -14,7 +14,7 @@ import { type annotation as aetherAnnotation } from "@/annotation/aether";
 import { Flux } from "@/flux";
 
 export interface UseListParams extends annotation.RetrieveRequest {
-  parent: ontology.ID;
+  parent?: ontology.ID;
 }
 
 export const useList = Flux.createList<
@@ -25,6 +25,7 @@ export const useList = Flux.createList<
 >({
   name: "Annotations",
   retrieve: async ({ params, client }) => {
+    if (params.parent == null) return [];
     const children = await client.ontology.retrieveChildren(params.parent, {
       types: ["annotation"],
     });
@@ -41,6 +42,7 @@ export const useList = Flux.createList<
     store.annotations.onDelete(async (key) => onDelete(key)),
     store.relationships.onSet(async (changed) => {
       if (
+        parent != null &&
         changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
         ontology.idsEqual(changed.from, parent) &&
         changed.to.type === "annotation"

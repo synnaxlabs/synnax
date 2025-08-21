@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { connector } from "@/vis/schematic/edge/connector/index";
+import { connector } from "@/vis/diagram/edge/connector/index";
 
 describe("connector", () => {
   describe("needToGoAroundSource", () => {
