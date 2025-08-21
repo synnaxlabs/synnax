@@ -69,7 +69,8 @@ export const Controls = ({
           variant={stat.variant}
           message={stat.message}
           description={stat.description}
-          justify="start"
+          justify="center"
+          align="center"
           center={false}
         />
       </Flex.Box>

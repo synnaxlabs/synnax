@@ -17,8 +17,12 @@ export interface RemoveFunc {
   (path: string): void;
 }
 
+export interface SetOptions {
+  notifyOnChange?: boolean;
+}
+
 export interface SetFunc {
-  (path: string, value: unknown): void;
+  (path: string, value: unknown, options?: SetOptions): void;
 }
 
 export interface Listener {

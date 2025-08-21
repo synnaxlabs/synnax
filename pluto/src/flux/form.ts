@@ -280,7 +280,12 @@ export const createForm =
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          const args = { client, params, store, ...form };
+          const modifiedSet = (
+            path: string,
+            value: unknown,
+            options?: Form.SetOptions,
+          ) => form.set(path, value, { ...options, notifyOnChange: false });
+          const args = { client, params, store, ...form, set: modifiedSet };
           if (!(await form.validateAsync())) return false;
           setResult(pendingResult(name, "updating", undefined));
           if ((await beforeSave?.(args)) === false) {
