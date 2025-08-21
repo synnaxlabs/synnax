@@ -138,7 +138,7 @@ const TaskForm: FC<
   </Form>
 );
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
@@ -277,6 +277,6 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: READ_SCHEMAS,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

@@ -53,7 +53,7 @@ export const LAYOUT: Omit<Layout, "type"> = {
   args: {},
 };
 
-export interface GetInitialPayloadArgs {
+export interface getInitialValuesArgs {
   deviceKey?: device.Key;
   config?: unknown;
 }
@@ -63,7 +63,7 @@ export interface GetInitialValues<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  (args: GetInitialPayloadArgs): Task.InitialValues<Type, Config, StatusData>;
+  (args: getInitialValuesArgs): Task.InitialValues<Type, Config, StatusData>;
 }
 
 export interface FormProps<
@@ -82,7 +82,7 @@ export interface WrapFormArgs<
   type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
-  getInitialPayload: GetInitialValues<Type, Config, StatusData>;
+  getInitialValues: GetInitialValues<Type, Config, StatusData>;
 }
 
 const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
@@ -118,7 +118,7 @@ export const wrapForm = <
   Form,
   schemas,
   type,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
@@ -134,7 +134,7 @@ export const wrapForm = <
       [dispatch, layoutKey],
     );
     const initialValues = {
-      ...getInitialPayload({ deviceKey, config }),
+      ...getInitialValues({ deviceKey, config }),
       key: taskKey,
       rackKey: (rackKey ?? taskKey == null) ? 0 : task.rackKey(taskKey),
     };

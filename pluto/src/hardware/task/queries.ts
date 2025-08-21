@@ -260,27 +260,29 @@ export const createForm = <
       initialValues: actualInitialValues,
       retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
         if (key == null) return;
-        const res = await retrieveByKey<Type, Config, StatusData>(
-          client,
-          store,
-          { key },
-          schemas,
+        reset(
+          taskToFormValues(
+            await retrieveByKey<Type, Config, StatusData>(
+              client,
+              store,
+              { key },
+              schemas,
+            ),
+          ),
         );
-        console.log("res", res);
-        reset(taskToFormValues(res));
       },
       update: async ({ client, params, store, ...form }) => {
-        const typedValue = form.value();
-        const rack = await client.hardware.racks.retrieve({ key: typedValue.rackKey });
+        const value = form.value();
+        const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
         const task = await rack.createTask({
           key: params.key,
-          name: typedValue.name,
-          type: typedValue.type,
-          config: typedValue.config,
+          name: value.name,
+          type: value.type,
+          config: value.config,
         });
         store.tasks.set(task.key, task);
-        const values = taskToFormValues(
-          task as unknown as task.Payload<Type, Config, StatusData>,
+        const values = taskToFormValues<Type, Config, StatusData>(
+          task.payload as task.Payload<Type, Config, StatusData>,
         );
         form.reset(values);
       },

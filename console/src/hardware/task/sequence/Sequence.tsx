@@ -127,11 +127,11 @@ const Internal = () => {
         y
         bordered={false}
         full="x"
+        background={0}
+        shrink={false}
         style={{
-          background: "var(--pluto-gray-l0)",
           boxShadow: "var(--pluto-shadow-v1)",
           borderTop: "var(--pluto-border)",
-          flexShrink: 0, // Prevent the bottom section from shrinking
         }}
       >
         <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
@@ -220,7 +220,7 @@ const Internal = () => {
   );
 };
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof typeZ,
   typeof configZ,
   typeof statusDetailsZ
@@ -242,7 +242,7 @@ export const Sequence = Common.Task.wrapForm<
 >({
   type: TYPE,
   Form: Internal,
-  getInitialPayload,
+  getInitialValues,
   schemas: SCHEMAS,
   onConfigure: async (_, config) => [config, config.rack],
 });

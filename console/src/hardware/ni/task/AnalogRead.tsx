@@ -122,7 +122,7 @@ const Form: FC<
   );
 };
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof analogReadTypeZ,
   typeof analogReadConfigZ,
   typeof analogReadStatusDataZ
@@ -227,6 +227,6 @@ export const AnalogRead = Common.Task.wrapForm({
   Form,
   schemas: ANALOG_READ_SCHEMAS,
   type: ANALOG_READ_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

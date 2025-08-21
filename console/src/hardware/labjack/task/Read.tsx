@@ -239,7 +239,7 @@ const Form: FC<
   );
 };
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
@@ -321,6 +321,6 @@ export const Read = Common.Task.wrapForm({
   Form,
   schemas: READ_SCHEMAS,
   type: READ_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

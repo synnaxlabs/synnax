@@ -280,19 +280,13 @@ export const createForm =
             setResult(nullClientResult<undefined>(name, "update"));
             return false;
           }
-          setResult(pendingResult(name, "updating", undefined));
           const args = { client, params, store, ...form };
-          if (!(await form.validateAsync())) {
-            console.log("beforeValidate", args.getStatuses());
-            setResult(successResult(name, "updated", undefined));
-            return false;
-          }
-          console.log("beforeSave", args.value());
+          if (!(await form.validateAsync())) return false;
+          setResult(pendingResult(name, "updating", undefined));
           if ((await beforeSave?.(args)) === false) {
             setResult(successResult(name, "updated", undefined));
             return false;
           }
-          console.log("beforeUpdate", args.value());
           if (signal?.aborted === true) return false;
           await update(args);
           setResult(successResult(name, "updated", undefined));

@@ -78,7 +78,7 @@ const Form: FC<
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof digitalWriteTypeZ,
   typeof digitalWriteConfigZ,
   typeof digitalWriteStatusDataZ
@@ -199,7 +199,7 @@ export const DigitalWrite = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
   type: DIGITAL_WRITE_TYPE,
 });

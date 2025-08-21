@@ -105,7 +105,7 @@ const Form: FC<
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialValues<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof analogWriteTypeZ,
   typeof analogWriteConfigZ,
   typeof analogWriteStatusDataZ
@@ -223,6 +223,6 @@ export const AnalogWrite = Common.Task.wrapForm({
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });
