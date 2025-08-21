@@ -61,7 +61,8 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
 }
 
-const ChannelListItem = ({ onTare, itemKey: path, ...rest }: ChannelListItemProps) => {
+const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
+  const path = `config.channels.${rest.itemKey}`;
   const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
   const isSnapshot = Common.Task.useIsSnapshot();
   const isRunning = Common.Task.useIsRunning();
@@ -71,7 +72,6 @@ const ChannelListItem = ({ onTare, itemKey: path, ...rest }: ChannelListItemProp
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
-      itemKey={path}
       port={port}
       canTare={canTare}
       onTare={onTare}

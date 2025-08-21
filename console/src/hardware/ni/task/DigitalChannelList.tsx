@@ -21,15 +21,12 @@ interface ListItemProps<C extends DigitalChannel>
   name: Component.RenderProp<C>;
 }
 
-const ListItem = <C extends DigitalChannel>({
-  name,
-  itemKey: path,
-  ...rest
-}: ListItemProps<C>) => {
+const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
+  const path = `config.channels.${rest.itemKey}`;
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem {...rest} itemKey={path} align="center" justify="between" full="x">
+    <Select.ListItem {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
         <Flex.Box
           pack

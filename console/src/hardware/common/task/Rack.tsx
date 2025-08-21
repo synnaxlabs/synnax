@@ -12,10 +12,11 @@ import { Form, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { useEffect } from "react";
+import { useKey } from "@/hardware/common/task/Form";
 
 export const Rack = () => {
   const { data: rack, retrieve } = PRack.retrieve.useStateful();
-  const taskKey = Form.useFieldValue<task.Key | undefined>("task");
+  const taskKey = useKey();
   useEffect(() => {
     if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
   }, [taskKey]);

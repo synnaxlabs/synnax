@@ -81,9 +81,10 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 const ChannelListItem = ({
   onTare,
   deviceModel,
-  itemKey: path,
+  itemKey,
   ...rest
 }: ChannelListItemProps) => {
+  const path = `config.channels.${itemKey}`;
   const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
   const port = PForm.useFieldValue<string>(`${path}.port`);
   const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
@@ -113,6 +114,7 @@ interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
 }
 
 const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
+  console.log(path);
   const channel = PForm.useFieldValue<InputChannel>(path);
   const Form = FORMS[channel.type];
   return (

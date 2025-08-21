@@ -57,12 +57,13 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   device: Device.Device;
 }
 
-const ChannelListItem = ({ itemKey: path, device, ...rest }: ChannelListItemProps) => {
+const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
+  const path = `config.channels.${rest.itemKey}`;
   const { set } = PForm.useContext();
   const item = PForm.useFieldValue<OutputChannel>(path);
   const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.Item {...rest} itemKey={path} full="x" justify="between">
+    <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}

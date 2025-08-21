@@ -40,6 +40,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
   formStatus,
   ...props
 }: ControlsProps) => {
+  const ctx = Form.useContext();
   const taskStatus = Form.useFieldValue<task.Status<StatusData>>("status");
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   let status: status.Status = taskStatus;

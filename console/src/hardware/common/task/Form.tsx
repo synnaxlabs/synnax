@@ -184,8 +184,8 @@ export const wrapForm = <
             >
               <Form {...form} />
             </Flex.Box>
+            <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
           </PForm.Form>
-          <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
         </Flex.Box>
       </Flex.Box>
     );

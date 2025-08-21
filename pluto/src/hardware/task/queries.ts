@@ -187,6 +187,7 @@ const createSchema = <
     name: z.string(),
     rackKey: z.number(),
     type: schemas.typeSchema,
+    snapshot: z.boolean(),
     config: schemas.configSchema,
     status: task.statusZ(schemas.statusDataSchema),
   }) as unknown as FormSchema<Type, Config, StatusData>;
@@ -254,11 +255,13 @@ export const createForm = <
   initialValues,
 }: CreateFormArgs<Type, Config, StatusData>) => {
   const schema = createSchema<Type, Config, StatusData>(schemas);
+  const actualInitialValues = taskToFormValues(initialValues);
+  console.log(actualInitialValues);
   return Flux.createForm<UseFormParams, FormSchema<Type, Config, StatusData>, SubStore>(
     {
       name: "Task",
       schema,
-      initialValues: taskToFormValues(initialValues),
+      initialValues: actualInitialValues,
       retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
         if (key == null) return;
         const res = await retrieveByKey<Type, Config, StatusData>(

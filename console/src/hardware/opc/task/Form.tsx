@@ -42,11 +42,11 @@ interface ChannelListItemProps<C extends Channel>
 }
 
 const ChannelListItem = <C extends Channel>({
-  itemKey: path,
   children,
   getChannelKeyAndID,
   ...rest
 }: ChannelListItemProps<C>) => {
+  const path = `config.channels.${rest.itemKey}`;
   const item = PForm.useFieldValue<C>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
@@ -55,13 +55,7 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <Select.ListItem
-      {...rest}
-      itemKey={path}
-      justify="between"
-      align="center"
-      rightAligned
-    >
+    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Flex.Box direction="y" gap="small">
         <ChannelName weight={500} color={10} channel={channel} id={id} />
         <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
