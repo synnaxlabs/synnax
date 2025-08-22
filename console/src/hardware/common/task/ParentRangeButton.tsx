@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, task } from "@synnaxlabs/client";
-import { Button, Flex, Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
+import { type ranger, task } from "@synnaxlabs/client";
+import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
+import { useCallback, useState } from "react";
 
 import { useKey } from "@/hardware/common/task/Form";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useCallback, useState } from "react";
 
 export const ParentRangeButton = () => {
   const taskKey = useKey();
