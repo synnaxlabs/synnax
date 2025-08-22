@@ -9,7 +9,7 @@
 
 import { type z } from "zod";
 
-import { type Layout } from "@/hardware/common/task/Task";
+import { type Layout } from "@/hardware/common/task/Form";
 import { type Import } from "@/import";
 
 export const createIngestor =

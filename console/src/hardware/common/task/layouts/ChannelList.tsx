@@ -11,6 +11,7 @@ import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
+import { Common } from "@/hardware/common";
 import {
   ChannelList as Core,
   type ChannelListProps as CoreProps,
@@ -18,40 +19,45 @@ import {
 import { type Channel } from "@/hardware/common/task/types";
 
 interface HeaderProps {
-  isSnapshot: boolean;
   onAdd: () => void;
 }
 
-const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header>
-    <PHeader.Title weight={500} color={10}>
-      Channels
-    </PHeader.Title>
-    {!isSnapshot && (
-      <PHeader.Actions>
-        <Button.Button
-          onClick={onAdd}
-          variant="text"
-          contrast={2}
-          tooltip="Add Channel"
-          sharp
-        >
-          <Icon.Add />
-        </Button.Button>
-      </PHeader.Actions>
-    )}
-  </PHeader.Header>
-);
+const Header = ({ onAdd }: HeaderProps) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <PHeader.Header>
+      <PHeader.Title weight={500} color={10}>
+        Channels
+      </PHeader.Title>
+      {!isSnapshot && (
+        <PHeader.Actions>
+          <Button.Button
+            onClick={onAdd}
+            variant="text"
+            contrast={2}
+            tooltip="Add Channel"
+            sharp
+          >
+            <Icon.Add />
+          </Button.Button>
+        </PHeader.Actions>
+      )}
+    </PHeader.Header>
+  );
+};
 
 interface EmptyContentProps extends HeaderProps {}
 
-const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
-  <EmptyAction
-    message="No channels in task"
-    action="Add a channel"
-    onClick={isSnapshot ? undefined : onAdd}
-  />
-);
+const EmptyContent = ({ onAdd }: EmptyContentProps) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <EmptyAction
+      message="No channels in task"
+      action="Add a channel"
+      onClick={isSnapshot ? undefined : onAdd}
+    />
+  );
+};
 
 export interface ChannelListProps<C extends Channel>
   extends Omit<
@@ -64,7 +70,6 @@ export interface ChannelListProps<C extends Channel>
 }
 
 export const ChannelList = <C extends Channel>({
-  isSnapshot,
   createChannel,
   createChannels,
   onSelect,
@@ -92,9 +97,8 @@ export const ChannelList = <C extends Channel>({
   );
   return (
     <Core
-      header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}
-      emptyContent={<EmptyContent isSnapshot={isSnapshot} onAdd={handleAdd} />}
-      isSnapshot={isSnapshot}
+      header={<Header onAdd={handleAdd} />}
+      emptyContent={<EmptyContent onAdd={handleAdd} />}
       path={path}
       onSelect={onSelect}
       onDuplicate={handleDuplicate}

@@ -45,8 +45,8 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     params: {},
-    afterSave: ({ form }) => {
-      if (createMore) form.reset(Channel.ZERO_FORM_VALUES);
+    afterSave: ({ reset }) => {
+      if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else onClose();
     },
   });

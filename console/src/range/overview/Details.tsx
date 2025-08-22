@@ -40,7 +40,9 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.retrieveParent.useDirect({ params: { key: rangeKey } });
+  const res = Ranger.retrieveParent.useDirect({
+    params: { id: ranger.ontologyID(rangeKey) },
+  });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;

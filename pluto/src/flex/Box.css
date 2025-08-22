@@ -276,6 +276,9 @@
     &.pluto--status-disabled {
         color: var(--pluto-gray-l8);
     }
+    &.pluto--status-loading {
+        color: var(--pluto-gray-l8);
+    }
 
     &.pluto--square {
         align-items: center;

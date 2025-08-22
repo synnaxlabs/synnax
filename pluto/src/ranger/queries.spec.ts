@@ -160,17 +160,23 @@ describe("queries", () => {
     });
 
     it("should handle pagination with limit and offset", async () => {
-      for (let i = 0; i < 5; i++)
-        await client.ranges.create({
+      const keys: ranger.Key[] = [];
+      for (let i = 0; i < 5; i++) {
+        const range = await client.ranges.create({
           name: `paginationRange${i}`,
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         });
+        keys.push(range.key);
+      }
 
-      const { result } = renderHook(() => Ranger.useList(), {
+      const { result } = renderHook(() => Ranger.useList({ initialParams: { keys } }), {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
+        result.current.retrieve(
+          { limit: 2, offset: 1, keys },
+          { signal: controller.signal },
+        );
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toHaveLength(2);

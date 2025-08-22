@@ -128,9 +128,8 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
 
 const TaskForm: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = ({ isSnapshot }) => (
+> = () => (
   <Form
-    isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
     contextMenuItems={Common.Task.readChannelContextMenuItem}
@@ -139,7 +138,7 @@ const TaskForm: FC<
   </Form>
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
@@ -278,6 +277,6 @@ export const Read = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: READ_SCHEMAS,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

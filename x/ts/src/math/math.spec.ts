@@ -73,6 +73,10 @@ describe("math", () => {
     it("should return false if a bigint and a number are not equal", () => {
       expect(math.equal(1n, 2)).toBeFalsy();
     });
+    it("should handle bigint a and decimal b correctly", () => {
+      expect(math.equal(5n, 5.5)).toBe(false);
+      expect(math.equal(5n, 5.0)).toBe(true);
+    });
   });
   describe("roundToNearestMagnitude", () => {
     it("should round to the nearest magnitude of 10", () => {
@@ -94,6 +98,10 @@ describe("math", () => {
     it("should return the minimum of a bigint and a number", () => {
       expect(math.min(1n, 2)).toBe(1n);
     });
+    it("should handle bigint a and decimal b correctly", () => {
+      expect(math.min(10n, 5.5)).toBe(6n);
+      expect(math.min(3n, 7.8)).toBe(3n);
+    });
   });
   describe("max", () => {
     it("should return the maximum of two numbers", () => {
@@ -107,6 +115,10 @@ describe("math", () => {
     });
     it("should return the maximum of a bigint and a number", () => {
       expect(math.max(1n, 2)).toBe(2n);
+    });
+    it("should handle bigint a and decimal b correctly", () => {
+      expect(math.max(3n, 5.5)).toBe(6n);
+      expect(math.max(10n, 7.8)).toBe(10n);
     });
   });
   describe("abs", () => {
@@ -130,6 +142,10 @@ describe("math", () => {
     it("should multiply a bigint and a number", () => {
       expect(math.mult(1n, 2)).toBe(2n);
     });
+    it("should handle bigint a and decimal b correctly", () => {
+      expect(math.mult(3n, 2.5)).toBe(8n);
+      expect(math.mult(4n, 0.5)).toBe(2n);
+    });
   });
 
   describe("div", () => {
@@ -144,6 +160,10 @@ describe("math", () => {
     });
     it("should divide a bigint and a number", () => {
       expect(math.div(2n, 1)).toBe(2n);
+    });
+    it("should handle bigint a and decimal b correctly", () => {
+      expect(math.div(10n, 2.5)).toBe(4n);
+      expect(math.div(8n, 0.5)).toBe(16n);
     });
   });
 });

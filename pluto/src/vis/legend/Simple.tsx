@@ -60,12 +60,11 @@ export const LegendSwatches = memo(
         .map(({ key, color, label, visible = true, axis }) => (
           <Flex.Box
             key={key}
-            style={{ cursor: "pointer", height: "3rem" }}
+            className={CSS.B("legend-swatch")}
             x
             align="center"
             gap="small"
             justify="between"
-            grow
           >
             <Flex.Box direction="x" align="center" gap="small">
               <Color.Swatch

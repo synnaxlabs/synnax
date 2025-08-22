@@ -24,7 +24,11 @@ interface SubStore extends Flux.Store {
 const SET_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.deviceZ> = {
   channel: device.SET_CHANNEL_NAME,
   schema: device.deviceZ,
-  onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
+  onChange: ({ store, changed }) =>
+    store.devices.set(changed.key, (p) => {
+      if (p == null) return changed;
+      return { ...changed, status: p.status };
+    }),
 };
 
 const DELETE_DEVICE_LISTENER: Flux.ChannelListener<SubStore, typeof device.keyZ> = {

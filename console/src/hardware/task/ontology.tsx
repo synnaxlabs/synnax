@@ -17,7 +17,7 @@ import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Common } from "@/hardware/common";
-import { type LayoutArgs } from "@/hardware/common/task/Task";
+import { type FormLayoutArgs } from "@/hardware/common/task/Form";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
@@ -156,7 +156,7 @@ const handleRename: Ontology.HandleTreeRename = {
     await client.hardware.tasks.create({ ...task, name });
     const layout = Layout.selectByFilter(
       store.getState(),
-      (l) => (l.args as LayoutArgs)?.taskKey === id.key,
+      (l) => (l.args as FormLayoutArgs)?.taskKey === id.key,
     );
     if (layout == null) return;
     store.dispatch(Layout.rename({ key: layout.key, name }));

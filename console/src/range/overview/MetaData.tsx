@@ -95,14 +95,9 @@ const MetaDataListItem = ({
     },
     sync: !isCreate,
     afterSave: useCallback(
-      ({ form }: Flux.AfterSaveArgs<Flux.Params, typeof Ranger.kvPairFormSchema>) => {
+      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Ranger.kvPairFormSchema>) => {
         onClose?.();
-        if (isCreate)
-          form.reset({
-            key: "",
-            value: "",
-            range: rangeKey,
-          });
+        if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
       [isCreate, onClose],
     ),
@@ -191,7 +186,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   useEffect(() => retrieve({ rangeKey }), [rangeKey]);
   if (status.variant === "error") return null;
   return (
-    <Flex.Box y>
+    <Flex.Box y empty className={CSS.BE("range", "metadata")}>
       <Header.Header level="h4" borderColor={5}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type Optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -29,10 +30,11 @@ const LOADING_COMMANDS = ["start", "stop"];
 const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.keyZ,
-  onChange: async ({ store, changed, client }) => {
-    const t = await client.hardware.tasks.retrieve({ key: changed });
-    store.tasks.set(changed, t);
-  },
+  onChange: async ({ store, changed: key, client }) =>
+    store.tasks.set(
+      key,
+      await client.hardware.tasks.retrieve({ key, includeStatus: true }),
+    ),
 };
 
 const DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
@@ -173,3 +175,136 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore
     store.tasks.onDelete(onDelete),
   ],
 });
+
+const createSchema = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  schemas: task.Schemas<Type, Config, StatusData>,
+): FormSchema<Type, Config, StatusData> =>
+  z.object({
+    key: task.keyZ.optional(),
+    name: z.string(),
+    rackKey: z.number(),
+    type: schemas.typeSchema,
+    snapshot: z.boolean(),
+    config: schemas.configSchema,
+    status: task.statusZ(schemas.statusDataSchema).optional().nullable(),
+  }) as unknown as FormSchema<Type, Config, StatusData>;
+
+export type FormSchema<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> = z.ZodType<{
+  key?: task.Key;
+  name: string;
+  rackKey: rack.Key;
+  type: z.infer<Type>;
+  snapshot: boolean;
+  config: z.infer<Config>;
+  status?: z.infer<ReturnType<typeof task.statusZ<StatusData>>>;
+}>;
+
+export interface CreateFormArgs<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> {
+  schemas: task.Schemas<Type, Config, StatusData>;
+  initialValues: InitialValues<Type, Config, StatusData>;
+}
+
+export interface InitialValues<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> extends Optional<task.Payload<Type, Config, StatusData>, "key"> {
+  key?: task.Key;
+}
+
+export interface UseFormParams {
+  key?: task.Key;
+}
+
+const taskToFormValues = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  t: InitialValues<Type, Config, StatusData>,
+): z.infer<FormSchema<Type, Config, StatusData>> => ({
+  key: t.key,
+  name: t.name,
+  rackKey: t.key == null ? 0 : task.rackKey(t.key),
+  type: t.type,
+  config: t.config,
+  status: t.status,
+  snapshot: t.snapshot ?? false,
+});
+
+export const createForm = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>({
+  schemas,
+  initialValues,
+}: CreateFormArgs<Type, Config, StatusData>) => {
+  const schema = createSchema<Type, Config, StatusData>(schemas);
+  const actualInitialValues = taskToFormValues<Type, Config, StatusData>(initialValues);
+  return Flux.createForm<UseFormParams, FormSchema<Type, Config, StatusData>, SubStore>(
+    {
+      name: "Task",
+      schema,
+      initialValues: actualInitialValues,
+      retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
+        if (key == null) return;
+        reset(
+          taskToFormValues(
+            await retrieveByKey<Type, Config, StatusData>(
+              client,
+              store,
+              { key },
+              schemas,
+            ),
+          ),
+        );
+      },
+      update: async ({ client, params, store, ...form }) => {
+        const value = form.value();
+        const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
+        const task = await rack.createTask({
+          key: params.key,
+          name: value.name,
+          type: value.type,
+          config: value.config,
+        });
+        store.tasks.set(task.key, (p) => {
+          if (p == null) return p;
+          task.status = p.status;
+          return task;
+        });
+        const updatedValues = taskToFormValues<Type, Config, StatusData>(
+          task.payload as task.Payload<Type, Config, StatusData>,
+        );
+        form.set("key", updatedValues.key);
+        form.set("name", updatedValues.name);
+        form.set("rackKey", updatedValues.rackKey);
+        form.set("type", updatedValues.type);
+        form.set("config", updatedValues.config);
+        form.set("snapshot", updatedValues.snapshot);
+      },
+      mountListeners: ({ store, get, reset }) => [
+        store.tasks.onSet((task) => {
+          const prevKey = get<string>("key", { optional: true })?.value;
+          if (prevKey == null || prevKey !== task.key) return;
+          reset(
+            taskToFormValues(task as unknown as task.Payload<Type, Config, StatusData>),
+          );
+        }),
+      ],
+    },
+  );
+};
