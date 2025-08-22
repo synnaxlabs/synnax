@@ -30,7 +30,6 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -82,7 +81,7 @@ export const Create: Layout.Renderer = (props) => {
       parent: "",
       ...args,
     },
-    afterSave: ({ form }) => {
+    afterSave: (form) => {
       onClose();
       const { name, key, timeRange } = form.value();
       if (key == null) return;

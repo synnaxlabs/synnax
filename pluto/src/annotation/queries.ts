@@ -96,12 +96,13 @@ export const useForm = Flux.createForm<
   name: "Annotation",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, params: { key } }) => {
+  retrieve: async ({ client, params: { key }, ...form }) => {
     if (key == null) return undefined;
     const annotation = await client.annotations.retrieve({ key });
-    return annotationToFormValues(annotation);
+    form.reset(annotationToFormValues(annotation));
   },
-  update: async ({ params, client, value, store }) => {
+  update: async ({ params, client, store, ...form }) => {
+    const value = form.value();
     if (value.parent == null) return;
     let timeRange = TimeRange.z.parse(value.timeRange);
     if (timeRange.isZero) timeRange = TimeStamp.now().spanRange(0);

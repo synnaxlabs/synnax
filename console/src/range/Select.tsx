@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ranger } from "@synnaxlabs/client";
 import {
   Component,
   Icon,
@@ -22,7 +23,7 @@ import { type ReactElement } from "react";
 
 import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
-import { DynamicRange, StaticRange } from "@/range/types";
+import { type DynamicRange, type StaticRange } from "@/range/types";
 
 interface SelectMultipleRangesProps
   extends Omit<
@@ -52,7 +53,9 @@ const DynamicListItem = Component.renderProp(
 const StaticListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: StaticRange }) => {
     const { range } = props;
-    const parent = Ranger.retrieveParent.useDirect({ params: { key: range.key } }).data;
+    const parent = Ranger.retrieveParent.useDirect({
+      params: { id: ranger.ontologyID(range.key) },
+    }).data;
     return (
       <Select.ListItem {...props} justify="between">
         <Ranger.Breadcrumb key={range.key} name={range.name} parent={parent} />
@@ -66,7 +69,7 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
   if (range == null) return null;
-  const { variant, name } = range;
+  const { variant } = range;
   if (variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
 });

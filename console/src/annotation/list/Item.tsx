@@ -26,6 +26,7 @@ import {
   Text,
   User as PUser,
 } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/annotation/list/ContextMenu";
@@ -33,7 +34,6 @@ import { CSS } from "@/css";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Triggers } from "@/triggers";
 import { User } from "@/user";
-import { location } from "@synnaxlabs/x";
 
 export interface AnnotationListItemProps extends List.ItemProps<annotation.Key> {
   parent?: ontology.ID;
@@ -66,8 +66,8 @@ export const Item = ({
     params: {},
     initialValues: values,
     sync: !isCreate,
-    afterSave: ({ form }) => {
-      if (isCreate) form.reset();
+    afterSave: ({ reset }) => {
+      if (isCreate) reset();
       else setEdit(false);
     },
   });
