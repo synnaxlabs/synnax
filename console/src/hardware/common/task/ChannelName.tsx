@@ -14,6 +14,23 @@ import { type Optional, primitive } from "@synnaxlabs/x";
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
+const CHANNEL_NAME_REGEX = /^[a-z0-9_-]+$/;
+
+const cleanChannelName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/_{2,}/g, "_")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[_-]+|[_-]+$/g, "");
+
+const validateChannelName = (name: string): boolean => {
+  const cleaned = cleanChannelName(name);
+  return cleaned.length > 0 && CHANNEL_NAME_REGEX.test(cleaned);
+};
+
 export interface ChannelNameProps
   extends Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
   channel: channel.Key;
@@ -31,12 +48,8 @@ const generatePreviewName = (
   channelType: string,
   port?: number,
   line?: number,
-): string => {
-  const deviceName = device.name;
-  const portStr = port !== undefined ? `_${port}` : "";
-  const lineStr = line !== undefined ? `_${line}` : "";
-  return `${deviceName}_${channelType}${portStr}${lineStr}`;
-};
+): string => 
+  `${device.name}_${channelType}${port !== undefined ? `_${port}` : ""}${line !== undefined ? `_${line}` : ""}`;
 
 export const ChannelName = ({
   channel,
@@ -61,76 +74,65 @@ export const ChannelName = ({
   let isPreview = false;
   let canEdit = false;
   
-  // If no channel exists yet
   if (isUnconfigured) {
+    canEdit = true;
     if (previewDevice) {
-      // Has preview information - use custom name or generate preview name
-      if (customName) {
-        name = customName;
-      } else {
-        name = generatePreviewName(previewDevice, previewChannelType!, previewPort, previewLine);
-      }
+      name = customName || generatePreviewName(previewDevice, previewChannelType!, previewPort, previewLine);
       isPreview = true;
-    } else if (customName) {
-      // No device but has custom name - use it
-      name = customName;
-    }
-    canEdit = true; // Allow editing when no channel exists (yellow preview or "No Channel" state)
+    } else if (customName) name = customName;
   }
 
   const handleChange = (newName: string) => {
-    if (isUnconfigured && onCustomNameChange) {
-      // For preview channels, update the custom name
-      onCustomNameChange(newName);
-    } else {
-      // For existing channels, rename them
-      rename(newName);
-    }
+    const cleanedName = cleanChannelName(newName);
+    if (!validateChannelName(cleanedName)) return;
+    
+    if (isUnconfigured && onCustomNameChange) onCustomNameChange(cleanedName);
+    else rename(cleanedName);
   };
 
   const handleEditClick = () => {
-    const elementId = rest.id;
-    if (elementId) {
-      Text.edit(elementId);
-    }
+    if (rest.id) Text.edit(rest.id);
   };
 
   // For unconfigured channels that can be edited, show edit icon
-  if (canEdit) {
-    return (
-      <Flex.Box direction="x" align="center" gap="small">
-        <Icon.Edit 
-          style={{
-            fontSize: "var(--pluto-small-size)",
-            color: "var(--pluto-gray-l6)",
-            cursor: "pointer",
-          }}
-          onClick={handleEditClick}
-        />
-        <Text.MaybeEditable
-          className={CSS(className, CSS.BE("task", "channel-name"))}
-          status="warning"
-          level="small"
-          value={name}
-          onChange={handleChange}
-          allowDoubleClick={true}
-          style={{ 
-            color: isPreview ? "var(--pluto-warning-m1)" : undefined,
-            ...rest.style 
-          }}
-          {...rest}
-        />
-      </Flex.Box>
-    );
-  }
+  if (canEdit) return (
+    <Flex.Box direction="x" align="center" gap="small">
+      <Icon.Edit 
+        style={{
+          fontSize: "var(--pluto-small-size)",
+          color: "var(--pluto-gray-l6)",
+          cursor: "pointer",
+        }}
+        onClick={handleEditClick}
+      />
+      <Text.MaybeEditable
+        className={CSS(className, CSS.BE("task", "channel-name"))}
+        status="warning"
+        level="small"
+        value={name}
+        onChange={handleChange}
+        allowDoubleClick={true}
+        style={{ 
+          color: isPreview ? "var(--pluto-warning-m1)" : undefined,
+          ...rest.style 
+        }}
+        {...rest}
+      />
+    </Flex.Box>
+  );
 
   // Regular configured channel
+  const handleConfiguredChange = (newName: string) => {
+    const cleanedName = cleanChannelName(newName);
+    if (validateChannelName(cleanedName)) rename(cleanedName);
+  };
+
   return (
     <Text.MaybeEditable
       className={CSS(className, CSS.BE("task", "channel-name"))}
       level="small"
       value={name}
-      onChange={rename}
+      onChange={handleConfiguredChange}
       allowDoubleClick={false}
       {...rest}
     />
