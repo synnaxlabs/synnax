@@ -15,7 +15,9 @@
     align-items: center;
     position: relative;
     cursor: pointer;
-    padding: 0;
+    &.pluto-btn {
+        padding: 0;
+    }
 
     &:focus-within {
         .pluto-input__checkbox-indicator {

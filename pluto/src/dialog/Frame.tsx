@@ -15,10 +15,10 @@ import {
   type RefCallback,
   useCallback,
   useContext as reactUseContext,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useLayoutEffect,
 } from "react";
 
 import { type Component } from "@/component";
@@ -204,8 +204,7 @@ export const Frame = ({
     } else if (variant === "modal") style.top = `${modalOffset}%`;
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-    console.log(style);
-    setState({ targetCorner: targetCorner, dialogCorner: dialogCorner, style });
+    setState({ targetCorner, dialogCorner, style });
   }, [propsLocation, variant]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
