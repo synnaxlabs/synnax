@@ -62,6 +62,12 @@ __pycache__
 *_cache/
 python_install
 
+# |||| PLAYWRIGHT ||||
+
+integration/node_modules
+integration/playwright-report
+integration/test-results
+
 # |||| LANDING SITE ||||
 
 synnax-data/**

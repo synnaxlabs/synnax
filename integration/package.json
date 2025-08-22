@@ -1,0 +1,19 @@
+{
+  "name": "@synnaxlabs/integration",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "End-to-end integration tests for Synnax platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
