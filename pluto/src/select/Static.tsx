@@ -28,7 +28,7 @@ export interface StaticProps<
     >,
     List.UseStaticDataArgs<K, E> {}
 
-const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
+export const staticListItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
   const item = List.useItem<record.Key, StaticEntry<record.Key>>(itemKey);
   if (item == null) return null;
@@ -44,7 +44,7 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
 export const Static = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data,
   filter,
-  children = listItem,
+  children = staticListItem,
   virtual = false,
   ...rest
 }: StaticProps<K, E>) => {

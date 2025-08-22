@@ -7,66 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
+import { Dialog, Flex, List, Select } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 
 import {
-  type Model,
-  type Port,
-  PORTS,
-  type PortType,
-} from "@/hardware/labjack/device/types";
+  COIL_INPUT_TYPE,
+  DISCRETE_INPUT_TYPE,
+  HOLDING_REGISTER_INPUT_TYPE,
+  type InputChannelType,
+  REGISTER_INPUT_TYPE,
+} from "@/hardware/modbus/task/types";
 
-export interface SelectPortProps
+export type InputChannelTypeEntry = record.KeyedNamed<InputChannelType>;
+
+const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
+  { key: COIL_INPUT_TYPE, name: "Coil" },
+  { key: DISCRETE_INPUT_TYPE, name: "Discrete" },
+  { key: HOLDING_REGISTER_INPUT_TYPE, name: "Holding Register" },
+  { key: REGISTER_INPUT_TYPE, name: "Register" },
+];
+
+export interface SelectInputChannelTypeProps
   extends Omit<
-      Select.SingleProps<string, Port | undefined>,
-      "resourceName" | "data" | "children"
-    >,
-    Omit<List.UseStaticDataArgs<string, Port>, "data"> {
-  model: Model;
-  portType: PortType;
+    Select.SingleProps<InputChannelType, InputChannelTypeEntry>,
+    "data" | "resourceName" | "children"
+  > {
   children?: ReactNode;
 }
 
-const listItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const port = List.useItem<string, Port>(props.itemKey);
-  if (port == null) return null;
-  const { alias, key } = port;
-  return (
-    <Select.ListItem {...props} align="center">
-      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
-      {alias != null && (
-        <Text.Text level="small" color={10}>
-          {key}
-        </Text.Text>
-      )}
-    </Select.ListItem>
-  );
-});
-
-export const SelectPort = ({
-  model,
-  portType,
+export const SelectInputChannelType = ({
   value,
   onChange,
-  children,
-  emptyContent,
-  filter,
-  triggerProps,
   variant,
+  children,
+  triggerProps,
   dialogProps,
+  emptyContent,
   ...rest
-}: SelectPortProps) => {
-  const { data, getItem, retrieve } = List.useStaticData<string, Port>({
-    data: PORTS[model][portType],
-    filter,
+}: SelectInputChannelTypeProps) => {
+  const { data, getItem, retrieve } = List.useStaticData<
+    InputChannelType,
+    InputChannelTypeEntry
+  >({
+    data: INPUT_CHANNEL_TYPES,
   });
-  const selected = getItem(value ?? "");
+  const selected = getItem(value ?? "coil_input");
   const dialogVariant = variant === "preview" ? "connected" : variant;
   const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
     <Dialog.Frame location="bottom" variant={dialogVariant} {...rest}>
-      <Select.Frame
+      <Select.Frame<InputChannelType, InputChannelTypeEntry>
         data={data}
         getItem={getItem}
         onChange={onChange}
@@ -75,17 +66,17 @@ export const SelectPort = ({
       >
         <Flex.Box pack x>
           <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
-            {selected?.alias ?? selected?.key}
+            {selected?.name}
           </Dialog.Trigger>
           {children}
         </Flex.Box>
         <Select.Dialog<string>
           onSearch={(term) => retrieve({ searchTerm: term })}
           emptyContent={emptyContent}
-          resourceName="Port"
+          resourceName="Channel Type"
           {...dialogProps}
         >
-          {listItem}
+          {Select.staticListItem}
         </Select.Dialog>
       </Select.Frame>
     </Dialog.Frame>
