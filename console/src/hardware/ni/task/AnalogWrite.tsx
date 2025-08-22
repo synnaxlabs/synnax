@@ -66,7 +66,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
   
   
   if (currentValue == null || channelIndex === -1) return null;
-  const { port, cmdChannel, stateChannel, type, enabled, customName } = currentValue;
+  const { port, cmdChannel, stateChannel, type, customName } = currentValue;
   
   // Get device from the config since AOChannel doesn't have device field yet
   const deviceKey = PForm.useFieldValue<string>("config.device");

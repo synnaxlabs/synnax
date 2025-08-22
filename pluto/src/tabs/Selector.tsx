@@ -25,6 +25,7 @@ import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
 
 export interface SelectorProps
   extends Omit<Flex.BoxProps, "children" | "contextMenu" | "onDrop"> {
@@ -232,7 +233,7 @@ const SelectorButton = ({
   const isSelected = selected === tabKey;
   const level = Text.COMPONENT_SIZE_LEVELS[size];
 
-  return (
+  const buttonElement = (
     <Button.Button
       el="div"
       size={size}
@@ -287,6 +288,15 @@ const SelectorButton = ({
         </Button.Button>
       )}
     </Button.Button>
+  );
+
+  return unsavedChanges ? (
+    <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
+      Unconfigured changes
+      {buttonElement}
+    </Tooltip.Dialog>
+  ) : (
+    buttonElement
   );
 };
 

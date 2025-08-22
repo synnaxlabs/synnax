@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Form, Tooltip } from "@synnaxlabs/pluto";
 
 export const DataSaving = () => (
-  <Form.SwitchField label="Data Saving" path="config.dataSaving" />
+  <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
+    Save task data on Synnax core
+    <Form.SwitchField label="Data Saving" path="config.dataSaving" />
+  </Tooltip.Dialog>
 );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Device as PlutoDevice, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
