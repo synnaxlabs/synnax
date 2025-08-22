@@ -118,7 +118,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
       channel={channel}
       portMaxChars={5}
       previewDevice={device}
-      previewChannelType={type}
+      previewChannelType={port}
       customName={customName}
       onCustomNameChange={handleCustomNameChange}
     />
@@ -179,8 +179,17 @@ const getOpenChannel = (
   device: Device.Device,
   channelKeyToCopy?: string,
 ) => {
-  if (channelKeyToCopy == null)
-    return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
+  if (channelKeyToCopy == null) {
+    // When adding a new channel without copying, find the next available port
+    const port = getOpenPort(channels, device.model, [Device.AI_PORT_TYPE, Device.DI_PORT_TYPE]);
+    if (port == null) return null;
+    return {
+      ...deep.copy(ZERO_INPUT_CHANNEL),
+      key: id.create(),
+      port: port.key,
+      channel: device.properties[port.type].channels[port.key] ?? 0,
+    };
+  }
   const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
   if (channelToCopy == null) return null;
   // preferredPortType is AI or DI

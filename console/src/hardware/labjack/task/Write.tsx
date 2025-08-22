@@ -143,7 +143,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           itemKey={item.key}
           stateChannel={stateChannel}
           previewDevice={device}
-          previewChannelType={type}
+          previewChannelType={port}
           customName={customName}
           onCustomNameChange={handleCustomNameChange}
         />
