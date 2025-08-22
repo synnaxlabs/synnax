@@ -18,8 +18,8 @@
     "check-types": "tsc --noEmit",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "@reduxjs/toolkit": "catalog:",
@@ -37,7 +37,7 @@
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "electron": "^36.4.0",
+    "electron": "^36.7.0",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "react": "catalog:",

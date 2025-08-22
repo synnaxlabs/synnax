@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 
 	"github.com/samber/lo"
@@ -148,6 +149,12 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
+		workDir, err := resolveWorkDir()
+		if err != nil {
+			return errors.Wrapf(err, "failed to resolve working directory")
+		}
+		ins.L.Info("using working directory", zap.String("dir", workDir))
+
 		if storageLayer, err = storage.Open(ctx, storage.Config{
 			Instrumentation: ins.Child("storage"),
 			InMemory:        config.Bool(memBacked),
@@ -212,7 +219,7 @@ func start(cmd *cobra.Command) {
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
 		sCtx.Go(
-			distributionLayer.Ontology.RunStartupSearchIndexing,
+			distributionLayer.Ontology.InitializeSearchIndex,
 			xsignal.WithKey("startup_search_indexing"),
 		)
 
@@ -253,6 +260,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			embedded.Config{
 				Enabled:         config.Bool(!noDriver),
+				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
 				Instrumentation: ins,
 				Address:         listenAddress,
@@ -264,6 +272,7 @@ func start(cmd *cobra.Command) {
 				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
 				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
 				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:   workDir,
 			},
 		); !ok(err, embeddedDriver) {
 			return err
@@ -296,4 +305,12 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 	configureStartFlags()
 	bindFlags(startCmd)
+}
+
+func resolveWorkDir() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
 }

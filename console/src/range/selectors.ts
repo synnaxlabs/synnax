@@ -14,6 +14,7 @@ import {
   type SliceState,
   type StoreState,
 } from "@/range/slice";
+import { type StaticRange } from "@/range/types";
 
 /**
  * Selects the workspace state.
@@ -59,10 +60,7 @@ export const useSelectActiveKey = (): string | null =>
  * undefined. If no key is provided, the active range key is used. If no active range is
  * set, returns null.
  */
-export const select = (
-  state: StoreState,
-  key?: string | null,
-): Range | null | undefined =>
+export const select = (state: StoreState, key?: string): Range | undefined =>
   selectByKey(selectState(state).ranges, key, selectActiveKey(state));
 
 /**
@@ -75,8 +73,21 @@ export const select = (
  * undefined. If no key is provided, the active range key is used. If no active range is
  * set, returns null.
  */
-export const useSelect = (key?: string): Range | null | undefined =>
+export const useSelect = (key?: string): Range | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const selectStatic = (
+  state: StoreState,
+  key?: string,
+): StaticRange | undefined => {
+  const range = select(state, key);
+  if (range == null) return undefined;
+  if (range.variant !== "static") return undefined;
+  return range;
+};
+
+export const useSelectStatic = (key?: string): StaticRange | undefined =>
+  useMemoSelect((state: StoreState) => selectStatic(state, key), [key]);
 
 /**
  * Selects ranges with the given keys. If no keys are provided, all ranges are selected.
@@ -111,3 +122,12 @@ export const selectKeys = (state: StoreState): string[] =>
 
 export const useSelectKeys = (): string[] =>
   useMemoSelect((state: StoreState) => selectKeys(state), []);
+
+export const selectStaticKeys = (state: StoreState): string[] =>
+  Object.keys(selectState(state).ranges).filter((key) => {
+    const range = select(state, key);
+    return range != null && range.variant === "static";
+  });
+
+export const useSelectStaticKeys = (): string[] =>
+  useMemoSelect((state: StoreState) => selectStaticKeys(state), []);

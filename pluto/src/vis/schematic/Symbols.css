@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-control-state.pluto--x {
+.pluto-control-state.pluto--direction-x {
     padding: 0;
     max-width: 12rem;
 }
 
-.pluto-control-state.pluto--y {
+.pluto-control-state.pluto--direction-y {
     padding: 0 1rem 1rem;
 }
 
@@ -40,36 +40,36 @@
         border-color: var(--pluto-primary-z);
     }
 
-    &.pluto--y {
+    &.pluto--direction-y {
         min-width: 100%;
         min-height: 3rem;
     }
-    &.pluto--x {
+    &.pluto--direction-x {
         min-width: 3rem;
         min-height: 100%;
     }
 
-    &.pluto--top {
+    &.pluto--location-top {
         top: 0;
         left: 50%;
         transform: translate(-50%, calc(-100% - var(--offset)));
     }
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         bottom: 0;
         left: 50%;
         transform: translate(-50%, calc(100% + var(--offset)));
     }
-    &.pluto--left {
+    &.pluto--location-left {
         left: 0;
         top: 50%;
         transform: translate(calc(-100% - var(--offset)), -50%);
     }
-    &.pluto--right {
+    &.pluto--location-right {
         right: 0;
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);
     }
-    &.pluto--center {
+    &.pluto--location-center {
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
@@ -89,7 +89,7 @@
     width: max-content;
     height: max-content;
     padding: 0 !important;
-    &.pluto--y {
+    &.pluto--direction-y {
         writing-mode: vertical-rl;
     }
 }

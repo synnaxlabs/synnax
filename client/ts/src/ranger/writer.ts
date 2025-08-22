@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { keyZ, nameZ, type New, newZ, type Payload, payloadZ } from "@/ranger/payload";

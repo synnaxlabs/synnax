@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate, type status } from "@synnaxlabs/x";
+import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -36,6 +36,12 @@ const ZERO_CONTEXT_VALUE: ContextValue = {
   state: Synnax.connectivity.DEFAULT,
 };
 
+const DEFAULT_RETRY_CONFIG: breaker.Config = {
+  maxRetries: 4,
+  baseInterval: TimeSpan.seconds(1),
+  scale: 2,
+};
+
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 const useContext = () => reactUse(Context);
@@ -51,7 +57,7 @@ export interface ProviderProps extends PropsWithChildren {
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
   connecting: "loading",
-  disconnected: "info",
+  disconnected: "disabled",
   failed: "error",
 };
 
@@ -70,6 +76,23 @@ const createErrorDescription = (
   nodeVersion?: string,
 ): string =>
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+
+interface TestProviderProps extends PropsWithChildren {
+  client: Synnax | null;
+}
+
+export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+  const { path } = Aether.useUnidirectional({
+    type: synnax.Provider.TYPE,
+    schema: synnax.Provider.stateZ,
+    state: { props: null, state: null },
+  });
+  return (
+    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context>
+  );
+};
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
   const [state, setState, ref] =
@@ -101,6 +124,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
       const client = new Synnax({
+        retry: DEFAULT_RETRY_CONFIG,
         ...connParams,
         connectivityPollFrequency: TimeSpan.seconds(2),
       });

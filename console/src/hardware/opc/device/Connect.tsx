@@ -9,11 +9,11 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Divider,
+  Flex,
   Form,
   Input,
   Nav,
@@ -25,10 +25,9 @@ import {
 import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { FS } from "@/fs";
 import { Common } from "@/hardware/common";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
@@ -86,13 +85,13 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const testConnectionMutation = useMutation({
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const scanTasks = await client.hardware.tasks.retrieve({
-        type: SCAN_TYPE,
+        types: [SCAN_TYPE],
         rack: rack.key,
         schemas: SCAN_SCHEMAS,
       });
@@ -110,14 +109,14 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const connectMutation = useMutation({
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
       const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
@@ -137,23 +136,30 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     },
   });
   const hasSecurity =
-    Form.useFieldValue<SecurityMode>("connection.securityMode", undefined, methods) !=
-    NO_SECURITY_MODE;
-  const isPending = testConnectionMutation.isPending || connectMutation.isPending;
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
+      "connection.securityMode",
+      { ctx: methods },
+    ) != NO_SECURITY_MODE;
+  const status =
+    testConnectionMutation.isPending || connectMutation.isPending
+      ? "loading"
+      : undefined;
   return (
-    <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
-      <Align.Space className={CSS.B("content")} grow size="small">
+    <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
+      <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
               level: "h2",
               placeholder: "OPC UA Server",
-              variant: "natural",
+              variant: "text",
             }}
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
+            {({ value, onChange }) => (
+              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
+            )}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
@@ -161,7 +167,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             )}
           </Form.Field>
           <Divider.Divider x padded="bottom" />
-          <Align.Space x justify="spaceBetween">
+          <Flex.Box x justify="between">
             <Form.Field<string> grow path="connection.username">
               {(p) => <Input.Text placeholder="admin" {...p} />}
             </Form.Field>
@@ -172,16 +178,20 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               label="Security Mode"
               path="connection.securityMode"
             >
-              {SelectSecurityMode}
+              {({ value, onChange }) => (
+                <SelectSecurityMode value={value} onChange={onChange} />
+              )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Divider.Divider x padded="bottom" />
           <Form.Field<SecurityPolicy>
             grow={!hasSecurity}
             path="connection.securityPolicy"
             label="Security Policy"
           >
-            {(p) => <SelectSecurityPolicy size="medium" {...p} />}
+            {({ value, onChange }) => (
+              <SelectSecurityPolicy value={value} onChange={onChange} />
+            )}
           </Form.Field>
           {hasSecurity && (
             <>
@@ -207,37 +217,35 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             </>
           )}
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
-        <Nav.Bar.Start size="small">
+        <Nav.Bar.Start gap="small">
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant}>
+            <Status.Summary status={connectionState.variant}>
               {connectionState.message}
-            </Status.Text>
+            </Status.Summary>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant="outlined"
-            triggers={Triggers.SAVE}
-            loading={testConnectionMutation.isPending}
-            disabled={isPending}
+            trigger={Triggers.SAVE}
+            status={status}
             onClick={() => testConnectionMutation.mutate()}
           >
             Test Connection
           </Button.Button>
           <Button.Button
-            disabled={isPending}
-            loading={connectMutation.isPending}
+            status={status}
             onClick={() => connectMutation.mutate()}
+            variant="filled"
           >
             Save
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -251,7 +259,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
-      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      const dev = await client.hardware.devices.retrieve<Properties>({
+        key: layoutKey,
+      });
       dev.properties = migrateProperties(dev.properties);
       return [
         { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
@@ -261,23 +271,20 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Text.Text center level="h4" status="loading">
         Loading Configuration from Synnax Server
-      </Status.Text.Centered>
+      </Text.Text>
     );
-  if (isError) {
-    const color = Status.VARIANT_COLORS.error;
+  if (isError)
     return (
-      <Align.Center style={{ padding: "3rem" }}>
-        <Text.Text level="h2" color={color}>
+      <Flex.Box style={{ padding: "3rem" }}>
+        <Text.Text level="h2" status="error">
           Failed to load configuration for server with key {layoutKey}
         </Text.Text>
-        <Text.Text level="p" color={color}>
-          {error.message}
-        </Text.Text>
-      </Align.Center>
+        <Text.Text status="error">{error.message}</Text.Text>
+      </Flex.Box>
     );
-  }
+
   const [initialValues, properties] = data;
   return (
     <Internal

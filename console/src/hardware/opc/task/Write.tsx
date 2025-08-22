@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { componentRenderProp, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -19,7 +19,7 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
-  type writeConfigZ,
+  writeConfigZ,
   type writeStatusDataZ,
   type writeTypeZ,
   ZERO_WRITE_PAYLOAD,
@@ -83,7 +83,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />} onClick={handleRename}>
+      <Menu.Item itemKey="rename" onClick={handleRename}>
+        <Icon.Rename />
         Rename
       </Menu.Item>
       <Menu.Divider />
@@ -91,13 +92,12 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   );
 };
 
-const contextMenuItems = componentRenderProp(ContextMenuItem);
+const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const TaskForm: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = ({ isSnapshot }) => (
+> = () => (
   <Form
-    isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
     contextMenuItems={contextMenuItems}
@@ -107,25 +107,25 @@ const TaskForm: FC<
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? writeConfigZ.parse(config) : ZERO_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   dev.properties = Device.migrateProperties(dev.properties);
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
@@ -179,6 +179,6 @@ export const Write = Common.Task.wrapForm({
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

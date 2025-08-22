@@ -29,10 +29,6 @@ body {
     width: 100%;
 }
 
-* {
-    /* & *:not(.monaco-editor) *:not(:is(.pluto-text, input, label)) {
-        user-select: none !important;
-        -webkit-user-select: none !important;
-    } */
+* :not(svg *) {
     box-sizing: border-box;
 }

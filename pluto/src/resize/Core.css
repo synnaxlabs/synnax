@@ -13,33 +13,33 @@
     --resize-panel-handle-size: calc(var(--pluto-border-width) * 5);
     position: relative;
 
-    &.pluto--left > .pluto-resize__handle {
+    &.pluto--location-left > .pluto-resize__handle {
         right: 0;
         top: 0;
     }
 
-    &.pluto--right > .pluto-resize__handle {
+    &.pluto--location-right > .pluto-resize__handle {
         left: 0;
         top: 0;
     }
 
-    &.pluto--top > .pluto-resize__handle {
+    &.pluto--location-top > .pluto-resize__handle {
         left: 0;
         bottom: 0;
     }
 
-    &.pluto--bottom > .pluto-resize__handle {
+    &.pluto--location-bottom > .pluto-resize__handle {
         left: 0;
         top: 0;
     }
 
-    &.pluto--x > .pluto-resize__handle {
+    &.pluto--direction-x > .pluto-resize__handle {
         width: var(--resize-panel-handle-size);
         height: 100%;
         cursor: col-resize;
     }
 
-    &.pluto--y > .pluto-resize__handle {
+    &.pluto--direction-y > .pluto-resize__handle {
         height: var(--resize-panel-handle-size);
         width: 100%;
         cursor: row-resize;

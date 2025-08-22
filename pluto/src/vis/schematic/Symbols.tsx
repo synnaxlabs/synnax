@@ -9,11 +9,20 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement } from "react";
+import {
+  box,
+  type color,
+  direction,
+  location,
+  type record,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
+import { type CSSProperties, type FC, type ReactElement, useMemo } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
+import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -30,7 +39,7 @@ import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
-export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
+export interface ControlStateProps extends Omit<Flex.BoxProps, "direction"> {
   show?: boolean;
   showChip?: boolean;
   showIndicator?: boolean;
@@ -45,7 +54,7 @@ export interface LabelExtensionProps {
   orientation?: location.Location;
   direction?: direction.Direction;
   maxInlineSize?: number;
-  align?: Align.Alignment;
+  align?: Flex.Alignment;
 }
 
 const labelGridItem = (
@@ -103,15 +112,15 @@ const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
   return {
     key: "control",
     element: (
-      <Align.Space
+      <Flex.Box
         direction={direction.swap(orientation)}
         align="center"
         className={CSS(CSS.B("control-state"))}
-        size="small"
+        gap="small"
       >
         {show && showChip && <Control.Chip size="small" {...chip} />}
         {show && showIndicator && <Control.Indicator {...indicator} />}
-      </Align.Space>
+      </Flex.Box>
     ),
     location: orientation,
   };
@@ -124,7 +133,12 @@ export type ToggleProps<T> = T &
     orientation?: location.Outer;
   };
 
-export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P>) => {
+export const createToggle = <P extends object = record.Unknown>(
+  BaseSymbol: FC<P>,
+  overrides?: {
+    grid?: Partial<Omit<GridProps, "editable">>;
+  },
+) => {
   const C = ({
     symbolKey,
     control,
@@ -168,6 +182,7 @@ export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P
               ToggleProps<P>
             >);
         }}
+        {...overrides?.grid}
       >
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol
@@ -391,7 +406,7 @@ export type CheckValveWithArrowProps =
   LabeledProps<Primitives.CheckValveWithArrowProps>;
 export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
-export const Switch = createToggle(Primitives.Switch);
+export const Switch = createToggle(Primitives.Switch, { grid: { allowRotate: false } });
 export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
 export const Vent = createLabeled(Primitives.Vent);
 export type VentProps = LabeledProps<Primitives.VentProps>;
@@ -703,7 +718,7 @@ export const SetpointPreview = ({
     disabled
     {...rest}
   >
-    <Text.Text level="p">10.0</Text.Text>
+    <Text.Text>10.0</Text.Text>
   </Primitives.Setpoint>
 );
 
@@ -715,7 +730,11 @@ export interface ValueProps
   color?: color.Crude;
   textColor?: color.Crude;
   tooltip?: string[];
+  redline?: CoreValue.Redline;
 }
+
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -1);
+const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Value = ({
   symbolKey,
@@ -724,17 +743,35 @@ export const Value = ({
   position,
   textColor,
   color,
-  telem,
+  telem: t,
   units,
   onChange,
   inlineSize = 70,
   selected,
   draggable,
   notation,
+  redline,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
-
+  const backgroundTelem = useMemo(() => {
+    if (t == null || redline == null) return undefined;
+    const { bounds, gradient } = redline;
+    return telem.sourcePipeline("color", {
+      connections: [
+        { from: "source", to: "scale" },
+        { from: "scale", to: "gradient" },
+      ],
+      segments: {
+        source: t,
+        scale: telem.scaleNumber({
+          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
+        }),
+        gradient: telem.colorGradient({ gradient }),
+      },
+      outlet: "gradient",
+    });
+  }, [t, redline]);
   const { width: oWidth } = CoreValue.use({
     aetherKey: symbolKey,
     color: textColor,
@@ -743,9 +780,13 @@ export const Value = ({
       height: valueBoxHeight,
       width: inlineSize,
     }),
-    telem,
+    telem: t,
+    backgroundTelem,
     minWidth: inlineSize,
     notation,
+    useWidthForBackground: true,
+    valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
+    valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
   const gridItems: GridItem[] = [];
@@ -760,17 +801,12 @@ export const Value = ({
       allowRotate={false}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({
-          label: { ...label, orientation: loc },
-        } as Partial<ValueProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Value
         color={color}
-        dimensions={{
-          height: valueBoxHeight,
-          width: oWidth,
-        }}
+        dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={Text.downLevel(level)}
@@ -781,7 +817,7 @@ export const Value = ({
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => (
   <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units="psi">
-    <Text.Text level="p">50.00</Text.Text>
+    <Text.Text>50.00</Text.Text>
   </Primitives.Value>
 );
 
@@ -819,6 +855,7 @@ export const Button = ({
           orientation: location.rotate90(orientation),
         } as Partial<ButtonProps>)
       }
+      allowRotate={false}
       editable={selected}
       symbolKey={symbolKey}
       items={gridItems}

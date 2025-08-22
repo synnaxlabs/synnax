@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { sleep } from "@/sleep";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
@@ -37,6 +37,10 @@ export class Breaker {
     this.interval = this.interval.mult(scale);
     this.retries++;
     return true;
+  }
+
+  get retryMessage(): string {
+    return `breaker triggered ${this.retries + 1}/${this.config.maxRetries} times, retrying in ${this.interval.toString()}`;
   }
 
   reset() {

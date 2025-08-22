@@ -18,7 +18,6 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(["sy_device_status"]) as s:
+with client.open_streamer(["sy_task_set"]) as s:
     for frame in s:
-        for v in frame["sy_device_status"]:
-            print(v)
+        print(frame)

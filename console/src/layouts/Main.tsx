@@ -7,17 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  channel,
-  linePlot,
-  log,
-  ranger,
-  schematic,
-  table,
-  workspace,
-} from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -50,14 +41,14 @@ const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
 ];
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
-  [channel.ONTOLOGY_TYPE]: ChannelServices.handleLink,
+  channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.handleLink,
-  [log.ONTOLOGY_TYPE]: LogServices.handleLink,
-  [ranger.ONTOLOGY_TYPE]: RangeServices.handleLink,
-  [schematic.ONTOLOGY_TYPE]: SchematicServices.handleLink,
-  [table.ONTOLOGY_TYPE]: TableServices.handleLink,
-  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.handleLink,
+  lineplot: LinePlotServices.handleLink,
+  log: LogServices.handleLink,
+  range: RangeServices.handleLink,
+  schematic: SchematicServices.handleLink,
+  table: TableServices.handleLink,
+  workspace: WorkspaceServices.handleLink,
 };
 
 const SideEffect = (): null => {
@@ -92,20 +83,15 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
-    <Align.Space
-      x
-      size="tiny"
-      grow
-      style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
-    >
+    <Flex.Box x gap="tiny" grow style={{ paddingRight: "1rem", paddingBottom: "1rem" }}>
       <Nav.Left />
-      <Align.Space size="tiny" grow style={{ width: 0 }}>
-        <Align.Space x size="tiny" grow style={{ height: 0 }}>
+      <Flex.Box gap="tiny" grow style={{ width: 0 }}>
+        <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
           <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
           <Mosaic />
-        </Align.Space>
+        </Flex.Box>
         <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   </>
 );

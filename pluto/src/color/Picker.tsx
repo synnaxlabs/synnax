@@ -13,11 +13,11 @@ import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Input } from "@/input";
@@ -58,7 +58,7 @@ export const Picker = ({
   );
 
   return (
-    <Align.Space
+    <Flex.Box
       y
       align="start"
       className={CSS.B("color-picker-container")}
@@ -66,18 +66,14 @@ export const Picker = ({
     >
       {position != null ||
         (onDelete != null && (
-          <Align.Space x justify="spaceBetween">
-            {position != null && (
-              <Text.Text level="small" shade={11}>
-                {position} %
-              </Text.Text>
-            )}
+          <Flex.Box x justify="between">
+            {position != null && <Text.Text level="small">{position} %</Text.Text>}
             {onDelete != null && (
-              <Button.Icon name="close" onClick={onDelete} size="small">
+              <Button.Button name="close" onClick={onDelete} size="small">
                 <Icon.Delete />
-              </Button.Icon>
+              </Button.Button>
             )}
-          </Align.Space>
+          </Flex.Box>
         ))}
       <SketchPicker
         className={CSS.B("color-picker")}
@@ -87,7 +83,7 @@ export const Picker = ({
         {...rest}
       />
       <Frequent onChange={baseHandleChange} />
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -98,10 +94,10 @@ interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"
 const Frequent = ({ onChange }: FrequentProps) => {
   const frequent = useFrequent();
   return (
-    <Align.Space x wrap size="tiny">
+    <Flex.Box x wrap gap="tiny">
       {frequent.map((c, i) => (
         <BaseSwatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
       ))}
-    </Align.Space>
+    </Flex.Box>
   );
 };

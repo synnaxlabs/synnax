@@ -44,7 +44,7 @@ type (
 		Parents          bool            `json:"parents" msgpack:"parents"`
 		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
-		Term             string          `json:"term" msgpack:"term"`
+		SearchTerm       string          `json:"search_term" msgpack:"search_term"`
 		Limit            int             `json:"limit" msgpack:"limit"`
 		Offset           int             `json:"offset" msgpack:"offset"`
 	}
@@ -58,8 +58,8 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (res OntologyRetrieveResponse, err error) {
 	res.Resources = []ontology.Resource{}
-	if req.Term != "" {
-		res.Resources, err = o.Ontology.Search(ctx, search.Request{Term: req.Term})
+	if req.SearchTerm != "" {
+		res.Resources, err = o.Ontology.Search(ctx, search.Request{Term: req.SearchTerm})
 		return
 	}
 	q := o.Ontology.NewRetrieve()

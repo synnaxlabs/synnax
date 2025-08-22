@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Input, Nav, type Triggers as PTrigger } from "@synnaxlabs/pluto";
+import { Button, Input, Nav } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
@@ -24,8 +24,6 @@ export const RENAME_LAYOUT_TYPE = "rename";
 
 export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
 
-const SAVE_TRIGGER: PTrigger.Trigger = ["Enter"];
-
 export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
   "Name",
   RENAME_LAYOUT_TYPE,
@@ -37,18 +35,19 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
     const [error, setError] = useState<string | undefined>(undefined);
     const footer = (
       <>
-        <Triggers.SaveHelpText action="Save" trigger={SAVE_TRIGGER} />
+        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
         <Nav.Bar.End x align="center">
           <Button.Button
             status="success"
             disabled={!allowEmpty && name.length === 0}
+            variant="filled"
             onClick={() => {
               if (allowEmpty && name.length === 0) return onFinish(null);
               if (!allowEmpty && name.length === 0)
                 return setError(`${label} is required`);
               return onFinish(name);
             }}
-            triggers={SAVE_TRIGGER}
+            trigger={Triggers.SAVE}
           >
             Create
           </Button.Button>
@@ -62,14 +61,14 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           label={label}
           required={!allowEmpty}
           helpText={error}
-          helpTextVariant={error != null ? "error" : "success"}
+          status={error != null ? "error" : "success"}
           padHelpText
         >
           <Input.Text
             autoFocus
             placeholder={label}
             level="h2"
-            variant="natural"
+            variant="text"
             value={name}
             onChange={setName}
           />

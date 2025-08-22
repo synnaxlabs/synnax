@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, unique } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { NotFoundError } from "@/errors";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Device", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
@@ -50,7 +49,8 @@ describe("Device", async () => {
       model: "dog",
       properties,
     });
-    const retrieved = await client.hardware.devices.retrieve(d.key);
+    const retrieved = await client.hardware.devices.retrieve({ key: d.key });
+    expect(retrieved.key).toEqual(d.key);
     expect(retrieved.properties).toEqual(properties);
   });
   describe("retrieve", () => {
@@ -64,7 +64,7 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.hardware.devices.retrieve(d.key);
+      const retrieved = await client.hardware.devices.retrieve({ key: d.key });
       expect(retrieved.key).toBe(d.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.make).toBe("ni");
@@ -88,26 +88,12 @@ describe("Device", async () => {
         model: "dog",
         properties: { cat: "dog" },
       });
-      const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key]);
+      const retrieved = await client.hardware.devices.retrieve({
+        keys: [d1.key, d2.key],
+      });
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
-    });
-    it("should handle ignoreNotFound option", async () => {
-      // Test multiple device retrieval
-      const results = await client.hardware.devices.retrieve(
-        ["nonexistent_key1", "nonexistent_key2"],
-        { ignoreNotFound: true },
-      );
-      expect(results).toEqual([]);
-    });
-
-    it("should throw an error when device not found and ignoreNotFound is false", async () => {
-      await expect(
-        client.hardware.devices.retrieve(["nonexistent_key"], {
-          ignoreNotFound: false,
-        }),
-      ).rejects.toThrow(NotFoundError);
     });
 
     describe("state", () => {
@@ -122,7 +108,7 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve(d.key);
+        const retrieved = await client.hardware.devices.retrieve({ key: d.key });
         expect(retrieved.status).toBeUndefined();
       });
 
@@ -139,12 +125,13 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const { status } = await client.hardware.devices.retrieve(d.key, {
+            const { status } = await client.hardware.devices.retrieve({
+              key: d.key,
               includeStatus: true,
             });
             return status != null;
           })
-          .toBeTruthy();
+          .toBe(true);
       });
 
       it("should include state for multiple devices", async () => {
@@ -170,14 +157,14 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrievedDevices = await client.hardware.devices.retrieve(
-              [d1.key, d2.key],
-              { includeStatus: true },
-            );
+            const retrievedDevices = await client.hardware.devices.retrieve({
+              keys: [d1.key, d2.key],
+              includeStatus: true,
+            });
             if (retrievedDevices.length !== 2) return false;
             return retrievedDevices.every(({ status }) => status !== undefined);
           })
-          .toBeTruthy();
+          .toBe(true);
       });
 
       it("should handle state with type-safe details", async () => {
@@ -194,7 +181,8 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.devices.retrieve(key, {
+            const retrieved = await client.hardware.devices.retrieve({
+              key,
               includeStatus: true,
             });
             return (
@@ -203,7 +191,138 @@ describe("Device", async () => {
               retrieved.status.details.device === key
             );
           })
-          .toBeTruthy();
+          .toBe(true);
+      });
+    });
+
+    describe("request object format", () => {
+      const testDevices: Array<{
+        key: string;
+        name: string;
+        make: string;
+        model: string;
+        location: string;
+      }> = [];
+
+      beforeAll(async () => {
+        const deviceConfigs = [
+          { name: "sensor1", make: "ni", model: "pxi-6281", location: "Lab1" },
+          { name: "sensor2", make: "ni", model: "pxi-6284", location: "Lab2" },
+          { name: "actuator1", make: "labjack", model: "t7", location: "Lab1" },
+          { name: "actuator2", make: "labjack", model: "t4", location: "Lab3" },
+          { name: "controller", make: "opc", model: "server", location: "Lab2" },
+        ];
+
+        for (const config of deviceConfigs) {
+          const key = id.create();
+          await client.hardware.devices.create({
+            key,
+            rack: testRack.key,
+            location: config.location,
+            name: config.name,
+            make: config.make,
+            model: config.model,
+            properties: { test: true },
+          });
+          testDevices.push({ key, ...config });
+        }
+      });
+
+      it("should retrieve devices by names", async () => {
+        const result = await client.hardware.devices.retrieve({
+          names: ["sensor1", "actuator1"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(unique.unique(result.map((d) => d.name).sort())).toEqual([
+          "actuator1",
+          "sensor1",
+        ]);
+      });
+
+      it("should retrieve devices by makes", async () => {
+        const result = await client.hardware.devices.retrieve({
+          makes: ["ni"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.make === "ni")).toBe(true);
+      });
+
+      it("should retrieve devices by models", async () => {
+        const result = await client.hardware.devices.retrieve({
+          models: ["pxi-6281", "t7"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(unique.unique(result.map((d) => d.model).sort())).toEqual([
+          "pxi-6281",
+          "t7",
+        ]);
+      });
+
+      it("should retrieve devices by locations", async () => {
+        const result = await client.hardware.devices.retrieve({
+          locations: ["Lab1"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.location === "Lab1")).toBe(true);
+      });
+
+      it("should retrieve devices by racks", async () => {
+        const result = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(5);
+        expect(result.every((d) => d.rack === testRack.key)).toBe(true);
+      });
+
+      it("should retrieve devices by search term", async () => {
+        const result = await client.hardware.devices.retrieve({
+          searchTerm: "sensor1",
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((d) => d.name.includes("sensor"))).toBe(true);
+      });
+
+      it("should support pagination with limit and offset", async () => {
+        const firstPage = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+          limit: 2,
+          offset: 0,
+        });
+        expect(firstPage).toHaveLength(2);
+
+        const secondPage = await client.hardware.devices.retrieve({
+          racks: [testRack.key],
+          limit: 2,
+          offset: 2,
+        });
+        expect(secondPage).toHaveLength(2);
+
+        const firstPageKeys = firstPage.map((d) => d.key);
+        const secondPageKeys = secondPage.map((d) => d.key);
+        expect(firstPageKeys.every((key) => !secondPageKeys.includes(key))).toBe(true);
+      });
+
+      it("should support combined filters", async () => {
+        const result = await client.hardware.devices.retrieve({
+          makes: ["ni"],
+          locations: ["Lab1", "Lab2"],
+          includeStatus: true,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(
+          result.every((d) => d.make === "ni" && ["Lab1", "Lab2"].includes(d.location)),
+        ).toBe(true);
+
+        await expect
+          .poll(async () => {
+            const devices = await client.hardware.devices.retrieve({
+              makes: ["ni"],
+              locations: ["Lab1", "Lab2"],
+              includeStatus: true,
+            });
+            return devices.every((d) => d.status !== undefined);
+          })
+          .toBe(true);
       });
     });
   });

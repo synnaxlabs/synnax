@@ -38,6 +38,7 @@ export const SINE_WAVE_TYPE = v0.SINE_WAVE_TYPE;
 export const TRIANGLE_WAVE_TYPE = v0.TRIANGLE_WAVE_TYPE;
 export const SQUARE_WAVE_TYPE = v0.SQUARE_WAVE_TYPE;
 export const SAWTOOTH_WAVE_TYPE = v0.SAWTOOTH_WAVE_TYPE;
+export const WAVE_TYPES = v0.WAVE_TYPES;
 export type WaveType = v0.WaveType;
 
 export type AIChannel = v1.AIChannel;
@@ -56,6 +57,7 @@ export type AOChannelType = v0.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
 export const ZERO_AO_CHANNELS = v0.ZERO_AO_CHANNELS;
 export const ZERO_AO_CHANNEL = v0.ZERO_AO_CHANNEL;
+export const AO_CHANNEL_TYPES = v0.AO_CHANNEL_TYPES;
 export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
 export const AO_CHANNEL_TYPE_ICONS = v0.AO_CHANNEL_TYPE_ICONS;
 

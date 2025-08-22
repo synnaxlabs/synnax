@@ -8,59 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { array, DataType, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import { DataType } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
-import { useActiveRange, useAliases } from "@/channel/AliasContext";
+import { type ListParams, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
-import { type DraggingState } from "@/haul/Haul";
+import { Component } from "@/component";
+import { type Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { type List } from "@/list";
-import { useMemoDeepEqualProps } from "@/memo";
+import { List } from "@/list";
 import { Select } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
-
-const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
-  { key: "name", name: "Name" },
-  { key: "alias", name: "Alias" },
-  { key: "rate", name: "Rate" },
-  { key: "dataType", name: "Data Type" },
-  { key: "index", name: "Index" },
-  { key: "key", name: "Key" },
-  { key: "isIndex", name: "Is Index" },
-];
-
-const canDrop = (
-  { items: entities }: DraggingState,
-  value: channel.Key[] | readonly channel.Key[],
-): boolean => {
-  const f = Haul.filterByType(HAUL_TYPE, entities);
-  return f.length > 0 && !f.every((h) => value.includes(h.key as channel.Key));
-};
-
-export interface SelectMultipleProps
-  extends Omit<
-    Select.MultipleProps<channel.Key, channel.Payload>,
-    "columns" | "searcher"
-  > {
-  columns?: string[];
-  searchOptions?: channel.RetrieveOptions;
-}
-
-const DEFAULT_FILTER = ["name", "alias"];
-
-const useColumns = (
-  filter: string[],
-): Array<List.ColumnSpec<channel.Key, channel.Payload>> => {
-  const aliases = useAliases();
-  return useMemo(() => {
-    if (filter.length === 0) return channelColumns;
-    return channelColumns.filter((column) => filter.includes(column.key));
-  }, [filter, aliases]);
-};
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
@@ -74,208 +31,99 @@ export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   return Icon.Channel;
 };
 
-const renderTag = ({
-  key,
-  ...rest
-}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => {
-  const Icon = resolveIcon(rest.entry);
-  return <Select.MultipleTag key={key} icon={<Icon />} {...rest} />;
-};
+const listItemRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
+    const item = List.useItem<channel.Key, channel.Channel>(itemKey);
+    const Icon = resolveIcon(item?.payload);
+    return (
+      <Select.ListItem itemKey={itemKey} {...rest}>
+        <Icon />
+        {item?.name}
+      </Select.ListItem>
+    );
+  },
+);
+
+export interface SelectMultipleProps
+  extends Omit<
+      Select.MultipleProps<channel.Key, channel.Channel | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
 
 export const SelectMultiple = ({
-  columns: filter = DEFAULT_FILTER,
   onChange,
-  className,
   value,
-  searchOptions,
+  emptyContent,
+  initialParams,
+  filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const client = Synnax.use();
-  const aliases = useAliases();
-  const columns = useColumns(filter);
-  const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
-  const searcher = useMemo(
-    () =>
-      client?.channels.newSearcherWithOptions({
-        rangeKey: activeRange ?? undefined,
-        internal: false,
-        ...memoSearchOptions,
-      }),
-    [client, activeRange, memoSearchOptions],
-  );
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const {
-    startDrag,
-    onDragEnd: endDrag,
-    ...dropProps
-  } = Haul.useDragAndDrop({
-    type: "Channel.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
-      ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        if (dropped.length === 0) return [];
-        const v = unique.unique([
-          ...array.toArray(value),
-          ...(dropped.map((c) => c.key) as channel.Keys),
-        ]);
-        onChange(v, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
-        return dropped;
-      },
-      [onChange, value],
-    ),
+  const { data, retrieve, getItem, subscribe, status } = useList({
+    initialParams,
+    filter,
   });
-  const dragging = Haul.useDraggingState();
-
-  const handleSuccessfulDrop = useCallback(
-    ({ dropped }: Haul.OnSuccessfulDropProps) => {
-      onChange(
-        array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        },
-      );
-    },
-    [onChange, value],
-  );
-
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: channel.Key) =>
-      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
-    [startDrag, handleSuccessfulDrop],
-  );
-
-  const entryRenderKey = useCallback(
-    (e: channel.Payload) => aliases[e.key] ?? e.name,
-    [aliases],
-  );
-
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Multiple
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
+    <Select.Multiple<channel.Key, channel.Channel | undefined>
+      resourceName="Channel"
       value={value}
-      onTagDragStart={onDragStart}
-      onTagDragEnd={endDrag}
-      searcher={searcher}
       onChange={onChange}
-      columns={columns}
+      data={data}
+      haulType={HAUL_TYPE}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={fetchMore}
+      onSearch={search}
       emptyContent={emptyContent}
-      entryRenderKey={entryRenderKey}
-      renderTag={renderTag}
-      {...dropProps}
+      status={status}
+      icon={<Icon.Channel />}
       {...rest}
-    />
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
   );
 };
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<channel.Key, channel.Payload>, "columns"> {
-  columns?: string[];
-  searchOptions?: channel.RetrieveOptions;
-}
+  extends Omit<
+      Select.SingleProps<channel.Key, channel.Channel | undefined>,
+      "data" | "getItem" | "subscribe" | "children" | "resourceName"
+    >,
+    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
 
 export const SelectSingle = ({
-  columns: filter = DEFAULT_FILTER,
   onChange,
   value,
-  className,
-  data,
-  searchOptions,
+  allowNone,
+  emptyContent,
+  initialParams,
+  filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const client = Synnax.use();
-  const aliases = useAliases();
-  const columns = useColumns(filter);
-  const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
-  const searcher = useMemo(() => {
-    if (data != null && data.length > 0) return undefined;
-    return client?.channels.newSearcherWithOptions({
-      rangeKey: activeRange ?? undefined,
-      internal: false,
-      ...memoSearchOptions,
-    });
-  }, [client, activeRange, data?.length, memoSearchOptions]);
-
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const id = useId();
-  const sourceAndTarget: Haul.Item = useMemo(
-    () => ({ key: id, type: "Channel.SelectMultiple" }),
-    [id],
-  );
-
-  const {
-    startDrag,
-    onDragEnd: endDrag,
-    ...dragProps
-  } = Haul.useDragAndDrop({
-    type: "Channel.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
-      ({ items }) => {
-        const ch = Haul.filterByType(HAUL_TYPE, items);
-        if (ch.length === 0) return [];
-        onChange(ch[0].key as channel.Key, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
-        return ch;
-      },
-      [sourceAndTarget, onChange],
-    ),
+  const { data, retrieve, getItem, subscribe, status } = useList({
+    initialParams,
+    filter,
   });
-
-  const dragging = Haul.useDraggingState();
-  const onDragStart = useCallback(
-    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
-    [startDrag, value],
-  );
-
-  const entryRenderKey = useCallback(
-    (e: channel.Payload) => aliases[e.key] ?? e.name,
-    [aliases],
-  );
-
+  const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Select.Single
-      data={data}
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
-      value={value}
-      onDragStart={onDragStart}
-      onDragEnd={endDrag}
+    <Select.Single<channel.Key, channel.Channel | undefined>
+      resourceName="Channel"
       onChange={onChange}
-      searcher={searcher}
-      columns={columns}
+      value={value}
+      allowNone={allowNone}
       emptyContent={emptyContent}
-      entryRenderKey={entryRenderKey}
-      {...dragProps}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      status={status}
+      haulType={HAUL_TYPE}
+      icon={<Icon.Channel />}
       {...rest}
-    />
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

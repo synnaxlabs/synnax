@@ -11,14 +11,14 @@ import "@/vis/log/Log.css";
 
 import { box, location, type Optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status";
 import { Canvas } from "@/vis/canvas";
 import { log } from "@/vis/log/aether";
@@ -31,7 +31,7 @@ export interface LogProps
       >,
       "visible"
     >,
-    Omit<Align.SpaceProps, "color">,
+    Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   emptyContent?: ReactElement;
 }
@@ -42,15 +42,15 @@ export const Log = ({
   className,
   visible = true,
   emptyContent = (
-    <Status.Text.Centered level="h3" variant="disabled" hideIcon>
+    <Status.Summary center level="h3" variant="disabled" hideIcon>
       Empty Log
-    </Status.Text.Centered>
+    </Status.Summary>
   ),
   color,
   telem,
   ...rest
 }: LogProps): ReactElement | null => {
-  const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
+  const memoProps = useMemoDeepEqual({ font, color, telem, visible });
   const [, { scrolling, empty }, setState] = Aether.use({
     type: log.Log.TYPE,
     schema: log.logState,
@@ -87,7 +87,7 @@ export const Log = ({
       {empty ? (
         emptyContent
       ) : (
-        <Button.Icon
+        <Button.Button
           className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
           variant="outlined"
           onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
@@ -95,7 +95,7 @@ export const Log = ({
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Dynamic />
-        </Button.Icon>
+        </Button.Button>
       )}
     </div>
   );

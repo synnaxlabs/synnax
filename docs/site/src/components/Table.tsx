@@ -11,8 +11,8 @@ import {
   bounds,
   convertRenderV,
   type direction,
-  type Key,
-  type Keyed,
+  type record,
+  type RenderableValue,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -40,7 +40,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<Key, E>): ReactElement => (
+}: TableProps<record.Key, E>): ReactElement => (
   <div style={{ overflowX: "auto", paddingLeft: 2 }}>
     <table>
       <thead>
@@ -196,7 +196,7 @@ const TableCell = <K extends record.Key, E extends record.Keyed<K>>({
   }
 
   let content: ReactElement | string | number | undefined = convertRenderV(
-    data[column.key],
+    data[column.key] as RenderableValue,
   );
   if (column.type === "code") content = <code>{content}</code>;
   if (column.type === "html")

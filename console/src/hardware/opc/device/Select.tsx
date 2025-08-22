@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Dialog, Icon } from "@synnaxlabs/pluto";
 
+import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
 import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
 import { MAKE } from "@/hardware/opc/device/types";
@@ -16,15 +17,17 @@ import { Layout } from "@/layout";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const { close } = Dialog.useContext();
   return (
-    <Align.Center>
-      <Text.Text level="p" shade={10}>
-        No OPC UA servers connected.
-      </Text.Text>
-      <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>
-        Connect a new server.
-      </Text.Link>
-    </Align.Center>
+    <EmptyAction
+      message="No OPC UA servers connected."
+      action="Connect a new server"
+      full="y"
+      onClick={() => {
+        placeLayout(CONNECT_LAYOUT);
+        close();
+      }}
+    />
   );
 };
 
@@ -34,5 +37,6 @@ export const Select = () => (
     emptyContent={<EmptyContent />}
     label="OPC UA Server"
     make={MAKE}
+    icon={<Icon.Logo.OPC />}
   />
 );

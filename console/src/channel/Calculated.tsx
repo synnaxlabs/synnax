@@ -9,25 +9,22 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Channel,
+  Flex,
   Form,
   Input,
   Nav,
-  Select,
   Status,
   Synnax,
+  Telem,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod/v4";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
-import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import {
@@ -37,66 +34,12 @@ import {
 } from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 const FAILED_TO_UPDATE_AUTOCOMPLETE =
   "Failed to update calculated channel auto-complete";
-
-const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
-
-const schema = baseFormSchema
-  .extend({
-    expression: z
-      .string()
-      .min(1, "Expression must not be empty")
-      .refine((v) => v.includes("return"), {
-        message: "Expression must contain a return statement",
-      }),
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one synnax channel",
-    path: ["requires"],
-  });
-
-type FormValues = z.infer<typeof schema>;
-
-const ZERO_FORM_VALUES: FormValues = {
-  ...ZERO_CHANNEL,
-  virtual: true,
-  expression: "return 0",
-};
-
-export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const client = Synnax.use();
-  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey) ?? DEFAULT_ARGS;
-  const res = useQuery<FormValues>({
-    queryKey: [args.channelKey, client?.key],
-    staleTime: 0,
-    queryFn: async () => {
-      if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const ch = await client.channels.retrieve(args.channelKey);
-      return { ...ch.payload, dataType: ch.dataType.toString() };
-    },
-  });
-
-  if (res.isPending) return <Text.Text level="p">Loading...</Text.Text>;
-  if (res.isError)
-    return (
-      <Align.Space y grow style={{ height: "100%" }}>
-        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
-      </Align.Space>
-    );
-
-  return <Internal onClose={onClose} initialValues={res.data} />;
-};
-
-interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
-  initialValues: FormValues;
-}
 
 const GLOBALS: Variable[] = [
   {
@@ -113,41 +56,27 @@ const GLOBALS: Variable[] = [
   },
 ];
 
-const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
+export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const client = Synnax.use();
+  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
+  const isEdit = args?.channelKey !== 0;
 
-  const methods = Form.use<typeof schema>({
-    schema,
-    values: initialValues,
-    sync: true,
+  const { form, variant, save, status } = Channel.useCalculatedForm({
+    params: { key: args?.channelKey },
+    afterSave: ({ reset }) => {
+      if (createMore) reset();
+      else onClose();
+    },
   });
 
-  const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (createMore: boolean) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate()) return;
-      const d = methods.value();
-      await client.channels.create(d);
-      if (!createMore) onClose();
-      else methods.reset(deep.copy(ZERO_FORM_VALUES));
-    },
-    onError: (error: Error) => {
-      addStatus({
-        variant: "error",
-        message: "Error creating calculated channel: ".concat(methods.value().name),
-        description: error.message,
-      });
-    },
-  });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
-    "isIndex",
-    false,
-    methods,
-  );
+  const isIndex = Form.useFieldValue<
+    boolean,
+    boolean,
+    typeof Channel.calculatedFormSchema
+  >("isIndex", { ctx: form });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -157,7 +86,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const channels = methods.get<channel.Key[]>("requires").value;
+      const channels = form.get<channel.Key[]>("requires").value;
       try {
         const chs = await client.channels.retrieve(channels);
         if (signal.aborted) return;
@@ -166,19 +95,28 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
         handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
       }
     },
-    [methods, globals, client],
+    [form, globals, client],
   );
 
+  if (variant !== "success")
+    return (
+      <Status.Summary
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
+      />
+    );
+
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
-      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form<typeof schema> {...methods}>
+    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
+        <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
@@ -198,17 +136,16 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space x>
+          <Flex.Box x>
             <Form.Field<string>
               path="dataType"
               label="Output Data Type"
               style={{ width: 150 }}
             >
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   style={{ width: 150 }}
                 />
@@ -235,33 +172,31 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             >
               {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
-        <Triggers.SaveHelpText action={initialValues.key !== 0 ? "Save" : "Create"} />
-        <Nav.Bar.End align="center" size="large">
-          {initialValues.key !== 0 && (
-            <Align.Space x align="center" size="small">
+        <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+        <Nav.Bar.End align="center" gap="large">
+          {isEdit && (
+            <Flex.Box x align="center" gap="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
-              <Text.Text level="p" shade={11}>
-                Create More
-              </Text.Text>
-            </Align.Space>
+              <Text.Text color={9}>Create More</Text.Text>
+            </Flex.Box>
           )}
-          <Align.Space x align="center">
+          <Flex.Box x align="center">
             <Button.Button
-              disabled={isPending}
-              loading={isPending}
-              onClick={() => mutate(createMore)}
-              triggers={Triggers.SAVE}
+              status={variant}
+              trigger={Triggers.SAVE}
+              variant="filled"
+              onClick={() => save()}
             >
-              {initialValues.key !== 0 ? "Save" : "Create"}
+              {isEdit ? "Save" : "Create"}
             </Button.Button>
-          </Align.Space>
+          </Flex.Box>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 

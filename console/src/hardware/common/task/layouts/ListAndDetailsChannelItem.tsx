@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { cloneElement, type JSX } from "react";
 
@@ -23,10 +23,8 @@ export interface ListAndDetailsIconProps {
   name: string;
 }
 
-export interface ListAndDetailsChannelItemProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends List.ItemProps<K, E> {
+export interface ListAndDetailsChannelItemProps<K extends record.Key>
+  extends List.ItemProps<K> {
   port: string | number;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
@@ -34,52 +32,47 @@ export interface ListAndDetailsChannelItemProps<
   channel: channel.Key;
   stateChannel?: channel.Key;
   onTare?: (channel: channel.Key) => void;
-  isSnapshot: boolean;
   path: string;
   hasTareButton: boolean;
 }
 
 const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
   level: "p",
-  shade: 9,
+  color: 9,
   weight: 450,
   style: {
     maxWidth: hasIcon ? 100 : 150,
     flexGrow: 1,
-    textOverflow: "ellipsis",
-    overflow: "hidden",
   },
-  noWrap: true,
+  overflow: "ellipsis",
 });
 
-export const ListAndDetailsChannelItem = <K extends string, E extends record.Keyed<K>>({
+export const ListAndDetailsChannelItem = <K extends string>({
   port,
   portMaxChars,
   canTare,
   onTare,
-  isSnapshot,
   path,
   hasTareButton,
   channel,
   icon,
   stateChannel,
   ...rest
-}: ListAndDetailsChannelItemProps<K, E>) => {
-  const { key } = rest.entry;
+}: ListAndDetailsChannelItemProps<K>) => {
+  const { itemKey } = rest;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
   return (
-    <List.ItemFrame
+    <Select.ListItem
       {...rest}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       style={{ padding: "1.25rem 2rem" }}
     >
-      <Align.Space direction="x" size="small" align="center">
+      <Flex.Box direction="x" gap="small" align="center">
         <Text.Text
-          level="p"
-          shade={8}
+          color={8}
           weight={500}
           style={{ width: `${portMaxChars * 1.25}rem` }}
         >
@@ -98,27 +91,27 @@ export const ListAndDetailsChannelItem = <K extends string, E extends record.Key
           </Tooltip.Dialog>
         )}
         {hasStateChannel ? (
-          <Align.Space direction="y" size="small">
+          <Flex.Box direction="y" gap="small">
             <WriteChannelNames
               cmdChannel={channel}
               stateChannel={stateChannel}
-              itemKey={key}
+              itemKey={itemKey}
             />
-          </Align.Space>
+          </Flex.Box>
         ) : (
           <ChannelName
             {...channelNameProps}
             channel={channel}
-            id={getChannelNameID(key)}
+            id={getChannelNameID(itemKey)}
           />
         )}
-      </Align.Space>
-      <Align.Pack direction="x" align="center" size="small">
+      </Flex.Box>
+      <Flex.Box pack direction="x" align="center" size="small">
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
-        <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
-      </Align.Pack>
-    </List.ItemFrame>
+        <EnableDisableButton path={`${path}.enabled`} />
+      </Flex.Box>
+    </Select.ListItem>
   );
 };

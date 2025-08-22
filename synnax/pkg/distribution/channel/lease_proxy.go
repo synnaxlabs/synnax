@@ -365,7 +365,7 @@ func (lp *leaseProxy) createGateway(
 	}
 	lp.mu.Lock()
 	count := lp.mu.externalNonVirtualSet.Size()
-	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(int(count)+len(externalCreatedKeys))); err != nil {
+	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		lp.mu.Unlock()
 		return err
 	}

@@ -50,7 +50,7 @@ var _ = Describe("Factory", func() {
 		It("Should reuse the CA and key if they already exist", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig:  cert.LoaderConfig{FS: fs},
-				AllowKeyReuse: config.Bool(true),
+				AllowKeyReuse: config.True(),
 				KeySize:       mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())

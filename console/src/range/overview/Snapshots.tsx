@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   type ontology,
   ranger,
-  schematic,
   type Synnax as Client,
-  task,
 } from "@synnaxlabs/client";
 import {
-  Align,
-  componentRenderProp,
+  Component,
+  Flex,
+  Header,
   Icon,
   List,
   Ontology,
@@ -26,7 +26,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
@@ -41,74 +40,80 @@ interface SnapshotService {
   onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
 }
 
-const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotService> = {
-  [schematic.ONTOLOGY_TYPE]: {
+const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
+  schematic: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const s = await client.workspaces.schematic.retrieve(key);
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
       );
     },
   },
-  [task.ONTOLOGY_TYPE]: {
+  task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
   },
 };
 
-const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => {
-  const { entry } = props;
+const SnapshotsListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  if (entry == null) return null;
   const { id, name } = entry;
   const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSelect = () => {
-    svc
-      .onClick(entry, { client, placeLayout })
-      .catch((e) => handleError(e, `Failed to open ${entry.name}`));
+    handleError(
+      svc.onClick(entry, { client, placeLayout }),
+      `Failed to open ${entry.name}`,
+    );
   };
   return (
-    <List.ItemFrame
+    <List.Item
       style={{ padding: "1.5rem" }}
-      size="tiny"
+      gap="tiny"
       {...props}
       onSelect={handleSelect}
     >
-      <Text.WithIcon startIcon={svc.icon} level="p" weight={450} shade={11}>
+      <Text.Text weight={450}>
+        {svc.icon}
         {name}
-      </Text.WithIcon>
-    </List.ItemFrame>
+      </Text.Text>
+    </List.Item>
   );
 };
 
-const snapshotsListItem = componentRenderProp(SnapshotsListItem);
-
-const EMPTY_LIST_CONTENT = (
-  <Text.Text level="p" weight={400} shade={10}>
-    No Snapshots.
-  </Text.Text>
-);
+const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 export interface SnapshotsProps {
   rangeKey: string;
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const snapshots = Ontology.useChildren(ranger.ontologyID(rangeKey)).filter(
-    ({ data }) => data?.snapshot === true,
-  );
+  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildren({
+    initialParams: { id: ranger.ontologyID(rangeKey) },
+    filter: (item) => item.data?.snapshot === true,
+  });
+  const { fetchMore } = List.usePager({ retrieve });
+  if (status.variant === "error") return null;
   return (
-    <Align.Space y>
-      <Text.Text level="h4" shade={10} weight={500}>
-        Snapshots
-      </Text.Text>
-      <List.List data={snapshots} emptyContent={EMPTY_LIST_CONTENT}>
-        <List.Core empty>{snapshotsListItem}</List.Core>
-      </List.List>
-    </Align.Space>
+    <Flex.Box y>
+      <Header.Header level="h4" borderColor={5}>
+        <Header.Title>Snapshots</Header.Title>
+      </Header.Header>
+      <List.Frame
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={fetchMore}
+      >
+        <List.Items>{snapshotsListItem}</List.Items>
+      </List.Frame>
+    </Flex.Box>
   );
 };

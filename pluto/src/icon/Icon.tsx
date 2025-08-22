@@ -108,6 +108,8 @@ export const createComposite = (
       <svg
         className={CSS(CSS.B("icon"), CSS.BM("icon", "composite"))}
         viewBox="0 0 24 24"
+        height="1em"
+        width="1em"
         {...rest}
       >
         <Base className={className} {...rest} size={20} x={2} y={2} />

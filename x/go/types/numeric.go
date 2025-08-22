@@ -14,13 +14,37 @@ import (
 	"strconv"
 )
 
-// Numeric represents a generic numeric value.
+// Numeric represents any numeric value.
 type Numeric interface {
-	~int | ~uint | ~float64 | ~float32 | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+		~float32 | ~float64
 }
 
+// Integer represents any integer value.
 type Integer interface {
-	~int | ~uint | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
+
+// Signed represents any numeric value that can be negative.
+type Signed interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~float32 | ~float64
+}
+
+// SignedInteger represents any integer value that can be negative.
+type SignedInteger interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+
+// UnsignedInteger represents any integer value that can only be positive.
+type UnsignedInteger interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
+
+// Floating represents any floating-point value.
+type Floating interface {
+	~float32 | ~float64
 }
 
 type StringParseableUint64 uint64

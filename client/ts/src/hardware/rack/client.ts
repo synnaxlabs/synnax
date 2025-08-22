@@ -9,24 +9,20 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { framer } from "@/framer";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
   type Payload,
   rackZ,
   type Status,
-  statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
-import { ontology } from "@/ontology";
-import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
+import { type ontology } from "@/ontology";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
@@ -34,46 +30,59 @@ const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
 export const STATUS_CHANNEL_NAME = "sy_rack_status";
+export const SET_CHANNEL_NAME = "sy_rack_set";
+export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   includeStatus: z.boolean().optional(),
 });
-
-type RetrieveRequest = z.infer<typeof retrieveReqZ>;
-
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
-const createReqZ = z.object({ racks: newZ.array() });
+const singleRetrieveArgsZ = z.union([
+  z
+    .object({
+      key: keyZ,
+      includeStatus: z.boolean().optional(),
+    })
+    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+  z
+    .object({
+      name: z.string(),
+      includeStatus: z.boolean().optional(),
+    })
+    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+]);
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
 
+const multiRetrieveArgsZ = retrieveReqZ;
+
+export type MultiRetrieveArgs = z.input<typeof multiRetrieveArgsZ>;
+
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
+const createReqZ = z.object({ racks: newZ.array() });
 const createResZ = z.object({ racks: rackZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-
 const deleteResZ = z.object({});
 
-export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
-
-export class Client implements AsyncTermSearcher<string, Key, Payload> {
-  readonly type = ONTOLOGY_TYPE;
+export class Client {
+  readonly type = "rack";
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
-  private readonly frameClient: framer.Client;
 
-  constructor(
-    client: UnaryClient,
-    taskClient: task.Client,
-    frameClient: framer.Client,
-  ) {
+  constructor(client: UnaryClient, taskClient: task.Client) {
     this.client = client;
     this.tasks = taskClient;
-    this.frameClient = frameClient;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
@@ -98,65 +107,23 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       createResZ,
     );
     const sugared = this.sugar(res.racks);
-    if (isSingle) return sugared[0];
-    return sugared;
+    return isSingle ? sugared[0] : sugared;
   }
 
-  async search(term: string): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+  async retrieve(args: SingleRetrieveArgs): Promise<Rack>;
+  async retrieve(args: MultiRetrieveArgs): Promise<Rack[]>;
+  async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
+    const isSingle = "key" in args || "name" in args;
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { search: term },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugar(res.racks);
-  }
-
-  async page(offset: number, limit: number): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugar(res.racks);
-  }
-
-  async retrieve(key: string | Key, options?: RetrieveOptions): Promise<Rack>;
-  async retrieve(keys: Key[], options?: RetrieveOptions): Promise<Rack[]>;
-  async retrieve(
-    racks: string | Key | Key[],
-    options?: RetrieveOptions,
-  ): Promise<Rack | Rack[]> {
-    const { variant, normalized, single } = analyzeParams(racks, {
-      string: "names",
-      number: "keys",
-    });
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      {
-        [variant]: normalized,
-        includeStatus: options?.includeStatus,
-      },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
     const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", racks, sugared, single);
-    return single ? sugared[0] : sugared;
-  }
-
-  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
-    return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (fr) => {
-        const data = fr.get(STATUS_CHANNEL_NAME);
-        return [data.parseJSON(statusZ), data.length > 0];
-      },
-    );
+    checkForMultipleOrNoResults("Rack", args, sugared, isSingle);
+    return isSingle ? sugared[0] : sugared;
   }
 
   sugar(payload: Payload): Rack;
@@ -166,8 +133,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const sugared = array
       .toArray(payloads)
       .map(({ key, name, status }) => new Rack(key, name, this.tasks, status));
-    if (isSingle) return sugared[0];
-    return sugared;
+    return isSingle ? sugared[0] : sugared;
   }
 }
 
@@ -216,7 +182,7 @@ export class Rack {
     );
   }
 
-  async deleteTask(task: bigint): Promise<void> {
+  async deleteTask(task: task.Key): Promise<void> {
     await this.tasks.delete([task]);
   }
 
@@ -225,5 +191,7 @@ export class Rack {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: "rack",
+  key: key.toString(),
+});

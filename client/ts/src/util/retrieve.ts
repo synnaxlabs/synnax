@@ -33,7 +33,7 @@ type TypeName<T> = T extends string
       ? "boolean"
       : T extends undefined
         ? "undefined"
-        : T extends Function
+        : T extends (...args: any[]) => any
           ? "function"
           : "object";
 

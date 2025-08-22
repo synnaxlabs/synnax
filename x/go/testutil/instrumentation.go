@@ -11,6 +11,8 @@ package testutil
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -20,7 +22,6 @@ import (
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
-	"os"
 )
 
 type InstrumentationConfig struct {
@@ -32,31 +33,26 @@ type InstrumentationConfig struct {
 	Report *bool
 }
 
-var (
-	_                            config.Config[InstrumentationConfig] = InstrumentationConfig{}
-	DefaultInstrumentationConfig                                      = InstrumentationConfig{
-		Trace:  config.Bool(false),
-		Log:    config.Bool(false),
-		Report: config.Bool(false),
-	}
-)
+var _ config.Config[InstrumentationConfig] = InstrumentationConfig{}
 
 func (c InstrumentationConfig) Validate() error { return nil }
 
-func (c InstrumentationConfig) Override(other InstrumentationConfig) InstrumentationConfig {
+func (c InstrumentationConfig) Override(
+	other InstrumentationConfig,
+) InstrumentationConfig {
 	c.Report = override.Nil(c.Report, other.Report)
 	c.Log = override.Nil(c.Log, other.Log)
 	c.Trace = override.Nil(c.Trace, other.Trace)
 	return c
 }
 
-func serviceName() string {
-	host, err := os.Hostname()
-	if err != nil {
-		panic(err)
-	}
-	return host
+var DefaultInstrumentationConfig = InstrumentationConfig{
+	Trace:  config.False(),
+	Log:    config.False(),
+	Report: config.False(),
 }
+
+func serviceName() string { return lo.Must(os.Hostname()) }
 
 const devDSN = "http://synnax_dev@localhost:14317/2"
 
@@ -78,12 +74,10 @@ func newLogger() *alamos.Logger {
 	}))
 }
 
-func newReports() *alamos.Reporter {
-	return MustSucceed(alamos.NewReporter())
-}
+func newReports() *alamos.Reporter { return MustSucceed(alamos.NewReporter()) }
 
-func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instrumentation {
-	cfg, err := config.New(DefaultInstrumentationConfig, configs...)
+func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
+	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}
@@ -97,21 +91,17 @@ func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instru
 	if *cfg.Report {
 		options = append(options, alamos.WithReporter(newReports()))
 	}
-
 	return alamos.New(key, options...)
 }
 
-// PanicLogger returns an Instrumentation instance that only contains a logger that
-// only logs above PanicLevel and panics on DPanic.
+// PanicLogger returns an Instrumentation instance that only contains a logger that only
+// logs above PanicLevel and panics on DPanic.
 func PanicLogger() alamos.Instrumentation {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level.SetLevel(zap.PanicLevel)
-	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-		ZapConfig: cfg,
-	}))
-
+	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
-		fmt.Sprintf("cesium-testing-%s", uuid.New().String()),
+		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
 		alamos.WithLogger(l),
 	)
 }

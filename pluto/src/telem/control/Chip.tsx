@@ -10,20 +10,20 @@
 import { control as clientControl } from "@synnaxlabs/client";
 import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { type ChipStatusDetails } from "@/telem/control/aether/chip";
 import { Text } from "@/text";
 
 export interface ChipProps
   extends Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,
-    Omit<Button.IconProps, "onClick" | "children"> {}
+    Omit<Button.ButtonProps, "onClick" | "children"> {}
 
 interface ChipStyle {
   message: string;
@@ -73,7 +73,7 @@ const tooltipMessage = (status: status.Status<ChipStatusDetails>): ChipStyle => 
 };
 
 export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ source, sink });
+  const memoProps = useMemoDeepEqual({ source, sink });
   const [, { status }, setState] = Aether.use({
     type: control.Chip.TYPE,
     schema: control.chipStateZ,
@@ -102,7 +102,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
   const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
 
   return (
-    <Button.Icon
+    <Button.Button
       variant="text"
       className={CSS(CSS.B("control-chip"), className)}
       disabled={disabled}
@@ -112,6 +112,6 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       {...rest}
     >
       <Icon.Circle color={chipColor} />
-    </Button.Icon>
+    </Button.Button>
   );
 };

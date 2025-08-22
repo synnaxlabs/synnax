@@ -16,23 +16,24 @@ import {
   useMemo,
 } from "react";
 
+import { type Component } from "@/component";
 import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
+import { type Theming } from "@/theming";
 
 export interface ContextValue {
   onClick: (key: string) => void;
   selected: string;
   level?: Text.Level;
-  iconSpacing?: ComponentSize;
-  shade?: Text.Shade;
+  gap?: Component.Size;
+  background?: Theming.Shade;
 }
 
 const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
 
 export interface MenuProps
   extends PropsWithChildren,
-    Pick<ContextValue, "level" | "iconSpacing" | "shade"> {
+    Pick<ContextValue, "level" | "gap" | "background"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
@@ -53,8 +54,8 @@ export const Menu = ({
   children,
   onChange,
   level,
-  iconSpacing,
-  shade = 1,
+  gap,
+  background,
   value: selected = "",
 }: MenuProps): ReactElement => {
   const onClick = useCallback(
@@ -69,10 +70,10 @@ export const Menu = ({
       onClick,
       selected,
       level,
-      iconSpacing,
-      shade,
+      gap,
+      background,
     }),
-    [selected, onClick, level, iconSpacing, shade],
+    [selected, onClick, level, gap, background],
   );
   return <Context value={ctxValue}>{children}</Context>;
 };

@@ -7,61 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type record } from "@synnaxlabs/x";
+import { caseconv, deep, type Optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
+import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import {
-  type ContextValue,
-  type FieldState,
-  useContext,
-  useField,
-  type UseFieldProps,
-} from "@/form/Form";
+import { type ContextValue, useContext } from "@/form/Context";
+import { type FieldState, type GetOptions } from "@/form/state";
+import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-interface FieldChild<I extends Input.Value, O extends Input.Value>
-  extends Input.Control<I, O> {
-  variant?: Input.Variant;
-}
+interface FieldChild<I, O>
+  extends Input.Control<I, O>,
+    Pick<UseFieldReturn<I, O>, "variant"> {}
 
-export type FieldProps<
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
-> = UseFieldProps<I, O> &
+export type FieldProps<I = string | number, O = I> = GetOptions<I> &
+  UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
+    path: string;
     children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
     hideIfNull?: boolean;
   };
 
-const defaultInput = componentRenderProp(Input.Text);
+const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
 
-export type FieldT<I extends Input.Value, O extends Input.Value = I> = (
-  props: FieldProps<I, O>,
-) => ReactElement | null;
+export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
-export const Field = <
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
->({
+export const Field = <I = string | number, O = I>({
   path,
   children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
   label,
   padHelpText = true,
   visible = true,
-  hideIfNull = false,
+  hideIfNull = true,
   optional,
   onChange,
   className,
   defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>({
-    path,
+  const field = useField<I, O>(path, {
     optional: optional ?? hideIfNull,
     onChange,
     defaultValue,
@@ -80,7 +68,7 @@ export const Field = <
     <Input.Item
       padHelpText={padHelpText}
       helpText={helpText}
-      helpTextVariant={field.status.variant}
+      status={field.status.variant}
       label={label}
       required={field.required}
       className={CSS(
@@ -95,34 +83,36 @@ export const Field = <
   );
 };
 
-export interface FieldBuilderProps<
-  I extends Input.Value,
-  O extends Input.Value,
-  P extends {},
-> {
+export interface FieldBuilderProps<I, O, P extends {}> {
   fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
-  inputProps?: Partial<P>;
+  inputProps: Omit<P, "value" | "onChange">;
 }
 
 export type BuiltFieldProps<
-  I extends Input.Value,
-  O extends Input.Value,
+  I,
+  O,
   P extends {},
+  OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
 > = FieldProps<I, O> & {
-  inputProps?: Partial<P>;
+  inputProps?: Optional<Omit<P, "value" | "onChange">, OptionalFields>;
   fieldKey?: string;
 };
 
 export const fieldBuilder =
-  <I extends Input.Value, O extends Input.Value, P extends {}>(
+  <
+    I,
+    O,
+    P extends {},
+    OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
+  >(
     Component: FC<P & Input.Control<I, O>>,
   ) =>
   ({
     fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
-  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> => {
+  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P, OptionalFields>> => {
     const C = ({
       inputProps,
       path,
@@ -142,73 +132,32 @@ export const fieldBuilder =
       </Field>
     );
     C.displayName = Component.displayName;
-    return C;
+    return C as FC<BuiltFieldProps<I, O, P, OptionalFields>>;
   };
 
 export type NumericFieldProps = BuiltFieldProps<number, number, Input.NumericProps>;
-export const buildNumericField = fieldBuilder(Input.Numeric);
-export const NumericField = buildNumericField({});
+export const buildNumericField = fieldBuilder<number, number, Input.NumericProps>(
+  Input.Numeric,
+);
+export const NumericField = buildNumericField({ inputProps: {} });
 
 export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
-export const buildTextField = fieldBuilder(Input.Text);
-export const TextField = buildTextField({});
+export const buildTextField = fieldBuilder<string, string, Input.TextProps>(Input.Text);
+export const TextField = buildTextField({ inputProps: {} });
 
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;
-export const buildSwitchField = fieldBuilder(Input.Switch);
-export const SwitchField = buildSwitchField({});
+export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps>(
+  Input.Switch,
+);
+export const SwitchField = buildSwitchField({ inputProps: {} });
 
-export type SelectSingleFieldProps<
+export type SelectFieldProps<
   K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.SingleProps<K, E>>;
-export const buildSelectSingleField = fieldBuilder(Select.Single) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.SingleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.SingleProps<K, E>>
->;
-
-export type SelectMultiFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.MultipleProps<K, E>>;
-export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.MultipleProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
->;
-
-export type DropdownButtonFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>;
-export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
->;
-
-export type ButtonSelectFieldProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = BuiltFieldProps<K, K, Select.ButtonProps<K, E>>;
-export const buildButtonSelectField = fieldBuilder(Select.Button) as <
-  K extends record.Key,
-  E extends record.Keyed<K>,
->({
-  fieldProps,
-  inputProps,
-}: FieldBuilderProps<K, K, Select.ButtonProps<K, E>>) => FC<
-  BuiltFieldProps<K, K, Select.ButtonProps<K, E>>
->;
+  E extends record.KeyedNamed<K>,
+> = BuiltFieldProps<K, K, Select.StaticProps<K, E>, "data" | "resourceName">;
+export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
+  props: FieldBuilderProps<K, K, Select.StaticProps<K, E>>,
+) =>
+  fieldBuilder<K, K, Select.StaticProps<K, E>, "data" | "resourceName">(
+    Select.Static<K, E>,
+  )(props);
