@@ -115,17 +115,18 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, SubStore>(
     color: "#000000",
   },
   schema: formSchema,
-  retrieve: async ({ client, params: { key } }) => {
-    if (key == null) return undefined;
-    const label = await client.labels.retrieve({ key });
-    return label;
+  retrieve: async ({ client, params: { key }, reset }) => {
+    if (key == null) return;
+    reset(await client.labels.retrieve({ key }));
   },
-  update: async ({ client, value, onChange }) =>
-    onChange(await client.labels.create(value)),
-  mountListeners: ({ store, params: { key }, onChange }) => [
+  update: async ({ client, value, reset }) => {
+    const updated = await client.labels.create(value());
+    reset(updated);
+  },
+  mountListeners: ({ store, params: { key }, reset }) => [
     store.labels.onSet(async (label) => {
       if (key == null || label.key !== key) return;
-      onChange(label);
+      reset(label);
     }, key),
   ],
 });

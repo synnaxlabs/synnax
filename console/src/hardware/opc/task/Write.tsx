@@ -96,9 +96,8 @@ const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const TaskForm: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = ({ isSnapshot }) => (
+> = () => (
   <Form
-    isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
     contextMenuItems={contextMenuItems}
@@ -108,7 +107,7 @@ const TaskForm: FC<
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
@@ -180,6 +179,6 @@ export const Write = Common.Task.wrapForm({
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

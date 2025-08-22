@@ -39,7 +39,9 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.retrieveParent.useDirect({ params: { key: rangeKey } });
+  const res = Ranger.retrieveParent.useDirect({
+    params: { id: ranger.ontologyID(rangeKey) },
+  });
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
@@ -203,13 +205,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Form.Field<string[]> required={false} path="labels">
-          {({ variant: _, ...p }) => (
+          {({ variant: _, value, onChange }) => (
             <Label.SelectMultiple
               zIndex={100}
               variant="floating"
               location="bottom"
               style={{ width: "fit-content" }}
-              {...p}
+              value={value}
+              onChange={onChange}
             />
           )}
         </Form.Field>

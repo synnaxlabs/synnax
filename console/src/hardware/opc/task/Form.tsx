@@ -29,7 +29,6 @@ import { type Channel } from "@/hardware/opc/task/types";
 
 export interface ExtraItemProps {
   path: string;
-  snapshot: boolean;
 }
 
 export interface ChannelKeyAndIDGetter<C extends Channel> {
@@ -43,12 +42,11 @@ interface ChannelListItemProps<C extends Channel>
 }
 
 const ChannelListItem = <C extends Channel>({
-  path,
   children,
-  isSnapshot,
   getChannelKeyAndID,
   ...rest
 }: ChannelListItemProps<C>) => {
+  const path = `config.channels.${rest.itemKey}`;
   const item = PForm.useFieldValue<C>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
@@ -66,11 +64,8 @@ const ChannelListItem = <C extends Channel>({
         </Text.Text>
       </Flex.Box>
       <Flex.Box direction="x" align="center">
-        {children({ path, snapshot: isSnapshot })}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
+        {children({ path })}
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -104,7 +99,7 @@ const filterHaulItem = (item: Haul.Item): boolean =>
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 
 interface ChannelListProps<C extends Channel>
-  extends Pick<Common.Task.ChannelListProps<C>, "isSnapshot" | "contextMenuItems"> {
+  extends Pick<Common.Task.ChannelListProps<C>, "contextMenuItems"> {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
   convertHaulItemToChannel: (item: Haul.Item) => C;
@@ -172,35 +167,35 @@ export interface FormProps<C extends Channel>
   extends Required<
     Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
   > {
-  isSnapshot: boolean;
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
 export const Form = <C extends Channel>({
-  isSnapshot,
   convertHaulItemToChannel,
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
-}: FormProps<C>) => (
-  <Common.Device.Provider<Device.Properties, Device.Make>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONNECT_LAYOUT}
-  >
-    {({ device }) => (
-      <>
-        {!isSnapshot && <Device.Browser device={device} />}
-        <ChannelList<C>
-          device={device}
-          isSnapshot={isSnapshot}
-          convertHaulItemToChannel={convertHaulItemToChannel}
-          getChannelKeyAndID={getChannelKeyAndID}
-          contextMenuItems={contextMenuItems}
-        >
-          {children}
-        </ChannelList>
-      </>
-    )}
-  </Common.Device.Provider>
-);
+}: FormProps<C>) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONNECT_LAYOUT}
+    >
+      {({ device }) => (
+        <>
+          {!isSnapshot && <Device.Browser device={device} />}
+          <ChannelList<C>
+            device={device}
+            convertHaulItemToChannel={convertHaulItemToChannel}
+            getChannelKeyAndID={getChannelKeyAndID}
+            contextMenuItems={contextMenuItems}
+          >
+            {children}
+          </ChannelList>
+        </>
+      )}
+    </Common.Device.Provider>
+  );
+};

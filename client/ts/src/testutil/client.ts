@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
+
 import Synnax, { type SynnaxProps } from "@/client";
 
 export const TEST_CLIENT_PROPS: SynnaxProps = {
@@ -14,6 +16,11 @@ export const TEST_CLIENT_PROPS: SynnaxProps = {
   port: 9090,
   username: "synnax",
   password: "seldon",
+  retry: {
+    maxRetries: 4,
+    baseInterval: TimeSpan.seconds(1),
+    scale: 1.5,
+  },
 };
 
 export const createTestClient = (props?: Partial<SynnaxProps>): Synnax =>

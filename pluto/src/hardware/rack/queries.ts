@@ -23,7 +23,10 @@ const SET_RACK_LISTENER: Flux.ChannelListener<SubStore, typeof rack.keyZ> = {
   channel: rack.SET_CHANNEL_NAME,
   schema: rack.keyZ,
   onChange: async ({ store, changed, client }) => {
-    const r = await client.hardware.racks.retrieve({ key: changed });
+    const r = await client.hardware.racks.retrieve({
+      key: changed,
+      includeStatus: true,
+    });
     store.racks.set(changed, r.payload);
   },
 };

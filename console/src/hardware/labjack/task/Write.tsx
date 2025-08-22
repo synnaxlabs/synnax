@@ -57,12 +57,8 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   device: Device.Device;
 }
 
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  device,
-  ...rest
-}: ChannelListItemProps) => {
+const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
+  const path = `config.channels.${rest.itemKey}`;
   const { set } = PForm.useContext();
   const item = PForm.useFieldValue<OutputChannel>(path);
   const { port, type, cmdChannel, stateChannel } = item;
@@ -132,10 +128,7 @@ const ChannelListItem = ({
           itemKey={item.key}
           stateChannel={stateChannel}
         />
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </List.Item>
   );
@@ -164,10 +157,9 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
 
 interface ChannelListProps {
   device: Device.Device;
-  isSnapshot: boolean;
 }
 
-const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
+const ChannelList = ({ device }: ChannelListProps) => {
   const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
@@ -180,7 +172,6 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   );
   return (
     <Common.Task.Layouts.List<OutputChannel>
-      isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Common.Task.writeChannelContextMenuItems}
@@ -190,16 +181,19 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
 
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = ({ isSnapshot }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-  >
-    {({ device }) => <ChannelList device={device} isSnapshot={isSnapshot} />}
-  </Common.Device.Provider>
-);
+> = () => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    >
+      {({ device }) => <ChannelList device={device} />}
+    </Common.Device.Provider>
+  );
+};
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
@@ -323,6 +317,6 @@ export const Write = Common.Task.wrapForm({
   Form,
   schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

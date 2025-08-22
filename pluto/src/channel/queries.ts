@@ -144,7 +144,7 @@ const retrieveSingleFn = async ({
 }: Flux.RetrieveArgs<RetrieveArgs, SubStore>) => {
   let ch = store.channels.get(key);
   if (ch == null) {
-    ch = await client.channels.retrieve(key, { rangeKey });
+    ch = await client.channels.retrieve(key);
     store.channels.set(ch.key, ch);
   }
   if (rangeKey != null) {
@@ -205,14 +205,19 @@ const retrieveManyFn = async ({
   return channels;
 };
 
-const formRetrieveFn = async (args: Flux.RetrieveArgs<FormRetrieveArgs, SubStore>) => {
-  const {
-    params: { key, rangeKey },
-  } = args;
+const formRetrieveFn = async ({
+  params: { key, rangeKey },
+  store,
+  client,
+  reset,
+}: Flux.FormRetrieveArgs<
+  FormRetrieveArgs,
+  typeof formSchema | typeof calculatedFormSchema,
+  SubStore
+>) => {
   if (key == null) return undefined;
-  return channelToFormValues(
-    await retrieveSingleFn({ ...args, params: { key, rangeKey } }),
-  );
+  const res = await retrieveSingleFn({ client, store, params: { key, rangeKey } });
+  reset(channelToFormValues(res));
 };
 
 export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>({
@@ -300,17 +305,17 @@ export const retrieveMany = Flux.createRetrieve<
 
 const updateForm = async ({
   client,
-  value,
-  onChange,
   store,
-}: Flux.UpdateArgs<
+  set,
+  value,
+}: Flux.FormUpdateArgs<
   FormRetrieveArgs,
-  z.infer<typeof formSchema | typeof calculatedFormSchema>,
+  typeof formSchema | typeof calculatedFormSchema,
   SubStore
 >) => {
-  const ch = await client.channels.create(value);
+  const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
-  onChange(channelToFormValues(ch));
+  set("key", ch.key);
 };
 
 export interface FormRetrieveArgs extends Optional<RetrieveArgs, "key"> {}
@@ -319,12 +324,11 @@ const formMountListeners: Flux.CreateFormArgs<
   FormRetrieveArgs,
   typeof formSchema | typeof calculatedFormSchema,
   SubStore
->["mountListeners"] = ({ store, onChange }) =>
+>["mountListeners"] = ({ store, get, reset }) =>
   store.channels.onSet((changed) => {
-    onChange((p) => {
-      if (p == null || p.key !== changed.key) return p;
-      return channelToFormValues(changed);
-    });
+    const key = get<channel.Key>("key").value;
+    if (key !== changed.key) return;
+    reset(channelToFormValues(changed));
   });
 
 export const useForm = Flux.createForm<FormRetrieveArgs, typeof formSchema, SubStore>({
