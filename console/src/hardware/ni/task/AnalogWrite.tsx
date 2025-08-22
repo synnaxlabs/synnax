@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -57,9 +57,30 @@ const Properties = () => (
 );
 
 const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => {
-  const item = PForm.useFieldValue<AOChannel>(itemKey);
-  if (item == null) return null;
-  const { port, cmdChannel, stateChannel, type } = item;
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<AOChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
+  const currentValue = PForm.useFieldValue<AOChannel>(path);
+  const { set } = PForm.useContext();
+  
+  
+  if (currentValue == null || channelIndex === -1) return null;
+  const { port, cmdChannel, stateChannel, type, enabled, customName } = currentValue;
+  
+  // Get device from the config since AOChannel doesn't have device field yet
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...currentValue, customName: newName });
+    },
+    [currentValue, path, set],
+  );
+  
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -71,8 +92,11 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      path={itemKey}
+      path={path}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
+      previewDevice={device}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
     />
   );
 };

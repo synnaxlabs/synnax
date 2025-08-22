@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Device as PlutoDevice, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -58,10 +58,25 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<OutputChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
   const { set } = PForm.useContext();
   const item = PForm.useFieldValue<OutputChannel>(path);
-  const { port, type, cmdChannel, stateChannel } = item;
+  
+  if (!item || channelIndex === -1) return null;
+  
+  const { port, type, cmdChannel, stateChannel, customName } = item;
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...item, customName: newName });
+    },
+    [item, path, set],
+  );
   return (
     <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
@@ -127,6 +142,10 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
+          previewDevice={device}
+          previewChannelType={type}
+          customName={customName}
+          onCustomNameChange={handleCustomNameChange}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>

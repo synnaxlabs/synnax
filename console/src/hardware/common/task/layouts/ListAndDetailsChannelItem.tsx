@@ -34,6 +34,11 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
+  previewDevice?: any;
+  previewChannelType?: string;
+  previewLine?: number;
+  customName?: string;
+  onCustomNameChange?: (name: string) => void;
 }
 
 const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
@@ -96,6 +101,12 @@ export const ListAndDetailsChannelItem = <K extends string>({
               cmdChannel={channel}
               stateChannel={stateChannel}
               itemKey={itemKey}
+              previewDevice={rest.previewDevice}
+              previewChannelType={rest.previewChannelType}
+              previewPort={typeof port === "number" ? port : undefined}
+              previewLine={rest.previewLine}
+              customName={rest.customName}
+              onCustomNameChange={rest.onCustomNameChange}
             />
           </Flex.Box>
         ) : (
@@ -103,6 +114,12 @@ export const ListAndDetailsChannelItem = <K extends string>({
             {...channelNameProps}
             channel={channel}
             id={getChannelNameID(itemKey)}
+            previewDevice={rest.previewDevice}
+            previewChannelType={rest.previewChannelType}
+            previewPort={typeof port === "number" ? port : undefined}
+            previewLine={rest.previewLine}
+            customName={rest.customName}
+            onCustomNameChange={rest.onCustomNameChange}
           />
         )}
       </Flex.Box>

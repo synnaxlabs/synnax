@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -62,13 +62,37 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<AIChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
+  const currentValue = PForm.useFieldValue<AIChannel>(path);
+  const { set } = PForm.useContext();
+  
+  
+  if (!currentValue || channelIndex === -1) return null;
+  
+  const { port, type, channel, enabled, customName } = currentValue;
   const isSnapshot = Common.Task.useIsSnapshot();
   const isRunning = Common.Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
+  
+  const { device: deviceKey } = currentValue;
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...currentValue, customName: newName });
+    },
+    [currentValue, path, set],
+  );
+  
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -80,6 +104,9 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       channel={channel}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
+      previewDevice={device}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
     />
   );
 };

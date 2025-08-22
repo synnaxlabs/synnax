@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -77,16 +77,36 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
-  const port = PForm.useFieldValue<string>(`${path}.port`);
-  const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
-  const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<InputChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
+  const currentValue = PForm.useFieldValue<InputChannel>(path);
+  const { set } = PForm.useContext();
+  
+  if (!currentValue || channelIndex === -1) return null;
+  
+  const { channel, port, enabled, type, customName } = currentValue;
   const isSnapshot = Common.Task.useIsSnapshot();
   const isRunning = Common.Task.useIsRunning();
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
+  
+  // Get device from the config
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...currentValue, customName: newName });
+    },
+    [currentValue, path, set],
+  );
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -97,6 +117,10 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
       hasTareButton={hasTareButton}
       channel={channel}
       portMaxChars={5}
+      previewDevice={device}
+      previewChannelType={type}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
     />
   );
 };

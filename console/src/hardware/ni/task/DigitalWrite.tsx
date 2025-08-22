@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -53,13 +53,42 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ cmdChannel, key, stateChannel }: DOChannel) => (
-  <Common.Task.WriteChannelNames
-    cmdChannel={cmdChannel}
-    stateChannel={stateChannel}
-    itemKey={key}
-  />
-);
+const NameComponent = ({ cmdChannel, key, stateChannel, customName, port, line, path, channelIndex }: DOChannel & { path?: string; channelIndex?: number }) => {
+  const { set, get } = PForm.useContext();
+  
+  // Get device from the config
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      if (!path || channelIndex === undefined || channelIndex === -1) return;
+      // Get the current form values at call time
+      const currentValue = get<DOChannel>(path).value;
+      set(path, { ...currentValue, customName: newName });
+    },
+    [path, channelIndex, set, get],
+  );
+  
+  // Use a unique itemKey based on the channel's unique key and index to avoid conflicts
+  const uniqueItemKey = `digital-write-${key}-${channelIndex}`;
+  
+  return (
+    <Common.Task.WriteChannelNames
+      cmdChannel={cmdChannel}
+      stateChannel={stateChannel}
+      itemKey={uniqueItemKey}
+      previewDevice={device}
+      previewChannelType="do"
+      previewPort={port}
+      previewLine={line}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
+    />
+  );
+};
 
 const name = Component.renderProp(NameComponent);
 
