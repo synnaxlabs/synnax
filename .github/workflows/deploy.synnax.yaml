@@ -117,11 +117,11 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Deps On Ubuntu
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on Macos
         if: matrix.os == 'macos-15'
