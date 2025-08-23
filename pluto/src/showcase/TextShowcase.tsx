@@ -12,6 +12,7 @@ import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 import { SubcategorySection } from "./SubcategorySection";
+import { Icon } from "@/icon";
 
 export const TextShowcase = () => (
   <Flex.Box y pack empty rounded>
@@ -110,10 +111,10 @@ export const TextShowcase = () => (
             </Text.Text>
             <Flex.Box x gap="small">
               <Text.Text variant="keyboard">
-                <Text.Symbols.Meta />
+                <Icon.Keyboard.Control />
               </Text.Text>
               <Text.Text variant="keyboard">
-                <Text.Symbols.Alt />
+                <Icon.Keyboard.Alt />
               </Text.Text>
             </Flex.Box>
           </Flex.Box>

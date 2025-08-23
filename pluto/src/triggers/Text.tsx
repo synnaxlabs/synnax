@@ -9,6 +9,8 @@
 
 import { type ReactElement } from "react";
 
+import { runtime } from "@synnaxlabs/x";
+
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text as Core } from "@/text";
@@ -18,21 +20,23 @@ export type TextProps<E extends Generic.ElementType = "p"> = Core.TextProps<E> &
   trigger: Trigger;
 };
 
-const CUSTOM_TEXT: Partial<Record<Key, (() => ReactElement) | string>> = {
-  Control: () => <Core.Symbols.Meta key="control" />,
-  Alt: () => <Core.Symbols.Alt key="alt" />,
-  Shift: () => <Icon.Keyboard.Shift key="shift" />,
-  MouseLeft: "Click",
-  MouseRight: "Click",
-  MouseMiddle: "Click",
-  Enter: () => <Icon.Keyboard.Return key="enter" />,
+const isWindows = runtime.getOS() == "Windows";
+
+const Control = isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command;
+const Alt = isWindows ? () => "Alt" : Icon.Keyboard.Option;
+
+const CUSTOM_TEXT: Partial<Record<Key, ReactElement>> = {
+  Control: <Control key="control" />,
+  Alt: <Alt key="alt" />,
+  Shift: <Icon.Keyboard.Shift key="shift" />,
+  MouseLeft: <Icon.Click key="mouse" />,
+  MouseRight: <Icon.Click key="mouse" />,
+  MouseMiddle: <Icon.Click key="mouse" />,
+  Enter: <Icon.Keyboard.Return key="enter" />,
 };
 
-const getCustomText = (trigger: Key): ReactElement | string => {
-  const t = CUSTOM_TEXT[trigger];
-  if (t != null) return typeof t === "function" ? t() : t;
-  return trigger;
-};
+const getCustomText = (trigger: Key): ReactElement | string =>
+  CUSTOM_TEXT[trigger] ?? trigger;
 
 const isMouseTrigger = (trigger: Key): boolean =>
   trigger === "MouseLeft" || trigger === "MouseRight" || trigger === "MouseMiddle";

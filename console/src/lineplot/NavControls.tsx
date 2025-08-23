@@ -71,19 +71,7 @@ export const NavControls = (): ReactElement => {
         onClick={handleZoomReset}
         variant="outlined"
         tooltipLocation={TOOLTIP_LOCATION}
-        tooltip={
-          <Flex.Box x align="center">
-            <Text.Text level="small">Reset Zoom</Text.Text>
-            <Flex.Box x empty>
-              <Text.Text level="small" variant="keyboard">
-                <Text.Symbols.Meta />
-              </Text.Text>
-              <Text.Text level="small" variant="keyboard">
-                Click
-              </Text.Text>
-            </Flex.Box>
-          </Flex.Box>
-        }
+        tooltip={<Triggers.Text trigger={triggers.zoomReset[0]} />}
         size="small"
       >
         <Icon.Expand />

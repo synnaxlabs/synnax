@@ -226,10 +226,18 @@ NodeRenderer.displayName = "NodeRenderer";
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
+const PAN_PROPS: Partial<ReactFlowProps> = {
+  panOnDrag: [Triggers.MOUSE_LEFT_NUMBER, Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
+const SELECT_PROPS: Partial<ReactFlowProps> = {
+  selectionOnDrag: true,
+  panOnDrag: [Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
 const viewPortModeToRFProps = (mode: CoreViewport.Mode): Partial<ReactFlowProps> => {
-  if (mode === "pan") return { panOnDrag: true };
-  if (mode === "select") return { selectionOnDrag: true };
-  return {};
+  if (mode === "pan") return PAN_PROPS;
+  return SELECT_PROPS;
 };
 
 const Core = ({
