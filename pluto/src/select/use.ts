@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array, type Optional, type record, unique } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef } from "react";
+import { type MouseEvent, useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
@@ -64,7 +64,7 @@ export interface UseMultipleProps<K extends record.Key>
 
 /** Return value for the {@link useMultiple} hook. */
 export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
-  onSelect: (key: K) => void;
+  onSelect: (key: K, e?: MouseEvent) => void;
   setSelected: (keys: K[]) => void;
   clear: () => void;
 }
@@ -133,7 +133,7 @@ export const useMultiple = <K extends record.Key>({
       onChange([data[0]], { clicked: data[0], clickedIndex: 0 });
   }, [autoSelectOnNone, onChange, value, data.length]);
   const onSelect = useCallback(
-    (key: K): void => {
+    (key: K, e?: MouseEvent): void => {
       const shiftValue = shiftValueRef.current;
       const data = dataRef.current;
       let nextSelected: K[] = [];
@@ -163,10 +163,12 @@ export const useMultiple = <K extends record.Key>({
         shiftValueRef.current = null;
       } else {
         shiftValueRef.current = key;
-        if (replaceOnSingle)
+        const isMouseRight = e?.button == 2;
+        if (replaceOnSingle && !isMouseRight)
           nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
-        else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
-        else nextSelected = [...value, key];
+        else if (value.includes(key)) {
+          if (!isMouseRight) nextSelected = value.filter((k) => k !== key);
+        } else nextSelected = [...value, key];
       }
       const v = unique.unique(nextSelected);
       if (v.length === 0) {

@@ -10,6 +10,7 @@
 import { array, type record } from "@synnaxlabs/x";
 import {
   createContext,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -25,6 +26,7 @@ import { List } from "@/list";
 import {
   useMultiple,
   type UseMultipleProps,
+  type UseReturn,
   useSingle,
   type UseSingleProps,
 } from "@/select/use";
@@ -53,10 +55,8 @@ const isSelected = <K extends record.Key>(
 };
 
 interface ContextValue<K extends record.Key = record.Key>
-  extends Pick<Store.UseKeyedListenersReturn<K>, "subscribe"> {
-  onSelect: (key: K) => void;
-  setSelected: (keys: K[]) => void;
-  clear: () => void;
+  extends Pick<Store.UseKeyedListenersReturn<K>, "subscribe">,
+    Omit<UseReturn<K>, "hover"> {
   getState: () => SelectionState<K>;
 }
 
@@ -135,7 +135,7 @@ const Provider = <K extends record.Key = record.Key>({
 export interface UseItemStateReturn {
   selected: boolean;
   hovered: boolean;
-  onSelect: () => void;
+  onSelect: (e?: MouseEvent) => void;
 }
 
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
@@ -150,7 +150,10 @@ enum ItemState {
 
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { getState, onSelect, subscribe } = useContext();
-  const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
+  const handleSelect = useCallback(
+    (e?: MouseEvent) => onSelect(key, e),
+    [key, onSelect],
+  );
   const selected = useSyncExternalStore(
     useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
     useCallback(() => {

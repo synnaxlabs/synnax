@@ -60,7 +60,7 @@ export const Button = <K extends record.Key = record.Key>({
   return (
     <CoreButton.Toggle
       {...rest}
-      onChange={onSelect}
+      onChange={() => onSelect()}
       value={selected}
       onContextMenu={(e) => {
         setSelected([itemKey]);
