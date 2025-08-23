@@ -10,9 +10,9 @@
 import { DataType, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("export", async () => {
   const indexChannel = await client.channels.create({
