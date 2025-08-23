@@ -52,7 +52,6 @@ export const WriteChannelContextMenuItems: React.FC<
         <Icon.Rename />
         Rename Channels
       </Menu.Item>
-      <Menu.Divider />
     </>
   );
 };

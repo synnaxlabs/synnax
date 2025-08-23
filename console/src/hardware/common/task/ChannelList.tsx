@@ -76,10 +76,15 @@ const ContextMenu = <C extends Channel>({
   const canDisable = channels.some(({ enabled }) => enabled);
   const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
+  const customContextMenuItems = contextMenuItems?.({ channels, keys });
+  const hasCustomItems = customContextMenuItems != null;
+  
   return (
     <PMenu.Menu onChange={handleSelect} level="small">
       {!isSnapshot && (
         <>
+          {customContextMenuItems}
+          {hasCustomItems && <PMenu.Divider />}
           {canDuplicate && (
             <PMenu.Item itemKey="duplicate">
               <Icon.Copy />
@@ -95,7 +100,6 @@ const ContextMenu = <C extends Channel>({
             </>
           )}
           {(canDuplicate || canRemove) && <PMenu.Divider />}
-          {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
             <PMenu.Item itemKey="disable">
               <Icon.Disable />

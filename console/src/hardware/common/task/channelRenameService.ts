@@ -38,6 +38,7 @@ export const renameReadChannel = async ({
       allowEmpty: false,
       label: "Channel Name",
       oldNames: [channelDetail.name],
+      currentNames: [channelDetail.name],
       canRenameCmdChannel: false,
       canRenameStateChannel: false,
     },
@@ -68,13 +69,15 @@ export const renameWriteChannels = async ({
   ];
   
   const channelDetails = await Promise.all(channelPromises);
-  const oldNames = channelDetails.map(ch => ch.name);
+  const currentNames = channelDetails.map(ch => ch.name);
+  const oldNames = [...currentNames];
   
   // Always include cmd_time channel in oldNames when cmd channel exists
   if (canRenameCmdChannel) {
     const cmdChannel = channelDetails[0];
     const timeChannel = await client.channels.retrieve(cmdChannel.index);
     oldNames.push(timeChannel.name);
+    currentNames.push(timeChannel.name);
   }
   
   const initialValue = channel.customName ? extractBaseName(channel.customName) : "";
@@ -85,6 +88,7 @@ export const renameWriteChannels = async ({
       allowEmpty: false,
       label: "Base Channel Name",
       oldNames,
+      currentNames,
       canRenameCmdChannel,
       canRenameStateChannel,
     },

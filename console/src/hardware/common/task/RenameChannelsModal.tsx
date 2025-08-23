@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Input, Nav, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Input, Nav, Text } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { cleanChannelName, isAllowedChannelNameCharacter } from "@/hardware/common/task/channelNameUtils";
@@ -20,6 +20,7 @@ export interface PromptRenameChannelsArgs extends BaseArgs<string> {
   initialValue?: string;
   label?: string;
   oldNames?: string[];
+  currentNames?: string[];
   canRenameCmdChannel?: boolean;
   canRenameStateChannel?: boolean;
 }
@@ -32,7 +33,7 @@ export const [useRenameChannels, RenameChannels] = createBase<string, PromptRena
   "Rename Channels",
   RENAME_CHANNELS_LAYOUT_TYPE,
   ({
-    value: { result, allowEmpty = false, label, initialValue, oldNames = [], canRenameCmdChannel = false, canRenameStateChannel = false },
+    value: { result, allowEmpty = false, label, initialValue, oldNames = [], currentNames = [], canRenameCmdChannel = false, canRenameStateChannel = false },
     onFinish,
   }) => {
     const [name, setName] = useState(result ?? initialValue ?? "");
@@ -106,18 +107,32 @@ export const [useRenameChannels, RenameChannels] = createBase<string, PromptRena
             onChange={handleNameChange}
           />
         </Input.Item>
-        {previewNames.length > 0 && (
-          <Input.Item label="Preview" grow={false}>
-            {previewNames.map((previewName, index) => (
-              <Text.Text 
-                key={index} 
-                level="p" 
-                color={hasConflict ? "var(--pluto-error-m1)" : "var(--pluto-text-m1)"}
-              >
-                • {previewName}
-              </Text.Text>
-            ))}
-          </Input.Item>
+        {(currentNames.length > 0 || previewNames.length > 0) && (
+          <Flex.Box direction="x" gap="large">
+            {currentNames.length > 0 && (
+              <Input.Item label="Current Names" grow={false} style={{ flex: 1, minWidth: 0 }}>
+                {currentNames.map((currentName, index) => (
+                  <Text.Text key={index} level="p" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    • {currentName}
+                  </Text.Text>
+                ))}
+              </Input.Item>
+            )}
+            {previewNames.length > 0 && (
+              <Input.Item label="New Names" grow={false} style={{ flex: 1, minWidth: 0 }}>
+                {previewNames.map((previewName, index) => (
+                  <Text.Text 
+                    key={index} 
+                    level="p" 
+                    color={hasConflict ? "var(--pluto-error-m1)" : "var(--pluto-text-m1)"}
+                    style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    • {previewName}
+                  </Text.Text>
+                ))}
+              </Input.Item>
+            )}
+          </Flex.Box>
         )}
       </ModalContentLayout>
     );

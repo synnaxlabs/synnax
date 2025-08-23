@@ -27,12 +27,6 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   const channel = channels.find((ch) => ch.key === key)?.channel;
   const canRename = channel != null && channel !== 0;
   
-  console.log("Debug ReadChannelContextMenuItem:", {
-    key,
-    channel,
-    canRename
-  });
-  
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const renameChannels = useRenameChannels();
@@ -52,13 +46,10 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   return (
     <>
       {canRename && (
-        <>
-          <Menu.Item itemKey="rename" onClick={() => void handleRename()}>
-            <Icon.Rename />
-            Rename
-          </Menu.Item>
-          <Menu.Divider />
-        </>
+        <Menu.Item itemKey="rename" onClick={() => void handleRename()}>
+          <Icon.Rename />
+          Rename
+        </Menu.Item>
       )}
     </>
   );
