@@ -13,6 +13,7 @@ import { RoutedWorker } from "@synnaxlabs/x";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
+import { ranger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
@@ -34,6 +35,12 @@ import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
+
+const STORE_CONFIG: flux.StoreConfig<{
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+}> = {
+  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+};
 
 export const render = (): void => {
   // @ts-expect-error - for some reason post-message can't type transfer correctly
@@ -63,7 +70,7 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
-    ...flux.REGISTRY,
+    ...flux.createRegistry({ storeConfig: STORE_CONFIG }),
   };
 
   void aether.render({

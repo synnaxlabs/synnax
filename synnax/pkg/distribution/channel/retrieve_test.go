@@ -24,6 +24,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func() {
 		mockCluster = mock.ProvisionCluster(ctx, 2)
+		for _, n := range mockCluster.Nodes {
+			Expect(n.Ontology.InitializeSearchIndex(ctx)).To(Succeed())
+		}
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())

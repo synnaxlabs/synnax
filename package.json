@@ -16,6 +16,7 @@
     "build:x": "npx turbo build --filter @synnaxlabs/x",
     "check-types": "npx turbo check-types",
     "check-types:console": "npx turbo check-types --filter @synnaxlabs/console",
+    "check-types:pluto": "npx turbo check-types --filter @synnaxlabs/pluto",
     "watch": "npx turbo watch --parallel",
     "watch:alamos": "npx turbo watch --filter @synnaxlabs/alamos",
     "watch:client": "npx turbo watch --filter @synnaxlabs/client",

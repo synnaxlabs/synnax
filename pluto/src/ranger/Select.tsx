@@ -53,7 +53,7 @@ export const ListItem = memo(
         <Flex.Box x>
           <TimeRangeChip level="small" timeRange={timeRange} />
           {showLabels && (
-            <Tag.Tags>
+            <Tag.Tags variant="text">
               {labels?.map((l) => (
                 <Tag.Tag key={l.key} color={l.color} size="small">
                   {l.name}

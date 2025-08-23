@@ -164,10 +164,7 @@ export const Editable = ({
     el.blur();
   };
 
-  const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => {
-    e.stopPropagation();
-    e.preventDefault();
-  };
+  const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
 
   useLayoutEffect(() => {
     if (ref.current == null || !editable) return;
@@ -233,13 +230,11 @@ export const MaybeEditable = ({
     return <Text {...rest}>{value}</Text>;
 
   return (
-    <>
-      <Editable
-        allowDoubleClick={allowDoubleClick}
-        onChange={onChange}
-        value={value}
-        {...rest}
-      />
-    </>
+    <Editable
+      allowDoubleClick={allowDoubleClick}
+      onChange={onChange}
+      value={value}
+      {...rest}
+    />
   );
 };

@@ -105,7 +105,7 @@ const useSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs },
+    selection: { resourceIDs, rootID },
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
@@ -135,7 +135,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <Menu.DeleteItem />
-          <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
+          <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
           <PMenu.Divider />
         </>
       )}

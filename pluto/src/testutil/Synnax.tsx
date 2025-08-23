@@ -18,6 +18,7 @@ import {
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
+import { Pluto } from "@/pluto";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -27,7 +28,7 @@ import { createAetherProvider } from "@/testutil/Aether";
 const AetherProvider = createAetherProvider({
   ...synnax.REGISTRY,
   ...status.REGISTRY,
-  ...flux.REGISTRY,
+  ...flux.createRegistry({ storeConfig: {} }),
 });
 
 interface ClientConnector {
@@ -38,17 +39,48 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const newSynnaxWrapper = (
-  client: Client | null = null,
-): FC<PropsWithChildren> => {
+const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider>{children}</Flux.Provider>
+          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
   );
   return Wrapper;
+};
+
+export interface CreateSynnaxWrapperArgs {
+  client: Client | null;
+  excludeFluxStores?: string[];
+}
+
+const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
+  const { client, excludeFluxStores } = args;
+  const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
+  if (excludeFluxStores)
+    excludeFluxStores.forEach((store) => delete storeConfig[store]);
+  return new Flux.Client({
+    client,
+    storeConfig,
+    handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
+  });
+};
+
+export const createSynnaxWrapper = ({
+  client,
+  excludeFluxStores,
+}: CreateSynnaxWrapperArgs): FC<PropsWithChildren> =>
+  newWrapper(client, createFluxClient({ client, excludeFluxStores }));
+
+export const createSynnaxWraperWithAwait = async (
+  args: CreateSynnaxWrapperArgs,
+): Promise<FC<PropsWithChildren>> => {
+  const { client } = args;
+  const fluxClient = createFluxClient(args);
+  await fluxClient.awaitInitialized();
+  return newWrapper(client, fluxClient);
 };

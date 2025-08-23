@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type direction, type location, type spatial } from "@synnaxlabs/x";
+import { type direction, type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
@@ -399,7 +399,11 @@ const splitArrangement = (
   }
 };
 
-const shallowCopyNode = (node: Node): Node => deep.copy(node);
+const shallowCopyNode = (node: Node): Node => ({
+  ...node,
+  first: node.first != null ? shallowCopyNode(node.first) : undefined,
+  last: node.last != null ? shallowCopyNode(node.last) : undefined,
+});
 
 export const mapNodes = <O>(root: Node, fn: (node: Node) => O, acc: O[] = []): O[] => {
   acc.push(fn(root));
@@ -419,8 +423,6 @@ const normalizeKeys = (node: Node, key: number): Node => {
   node = shallowCopyNode(node);
   node.key = key;
   if (node.first != null) node.first = normalizeKeys(node.first, key * 2);
-
   if (node.last != null) node.last = normalizeKeys(node.last, key * 2 + 1);
-
   return node;
 };

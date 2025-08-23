@@ -10,9 +10,9 @@
 import { id, unique } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Device", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });

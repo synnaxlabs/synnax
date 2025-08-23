@@ -31,6 +31,7 @@ func New(channels channel.Readable) (api.Transport, []fgrpc.BindableTransport) {
 		UserDelete:             fnoop.UnaryServer[api.UserDeleteRequest, types.Nil]{},
 		UserRetrieve:           fnoop.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse]{},
 		RangeRename:            fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{},
+		RangeAliasRetrieve:     fnoop.UnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse]{},
 		OntologyRetrieve:       fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{},
 		OntologyAddChildren:    fnoop.UnaryServer[api.OntologyAddChildrenRequest, types.Nil]{},
 		OntologyRemoveChildren: fnoop.UnaryServer[api.OntologyRemoveChildrenRequest, types.Nil]{},

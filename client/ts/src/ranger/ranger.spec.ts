@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { type ranger } from "@/ranger";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Ranger", () => {
   describe("create", () => {
@@ -194,7 +194,7 @@ describe("Ranger", () => {
         includeLabels: true,
       });
       expect(newRange[0].labels).toHaveLength(1);
-      expect(newRange[0].labels[0]).toEqual(label);
+      expect(newRange[0].labels?.[0]).toEqual(label);
     });
   });
 

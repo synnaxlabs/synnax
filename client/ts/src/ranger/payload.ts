@@ -11,7 +11,6 @@ import { TimeRange } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { label } from "@/label";
-import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -26,7 +25,10 @@ export const payloadZ = z.object({
   name: nameZ,
   timeRange: TimeRange.z,
   color: z.string().optional(),
-  labels: nullableArrayZ(label.labelZ),
+  labels: label.labelZ
+    .array()
+    .or(z.null().transform(() => undefined))
+    .optional(),
   get parent(): z.ZodUnion<readonly [z.ZodNull, typeof payloadZ]> {
     // Using as unknown is bad, but unfortunately resolving the output type of this
     // transform is nearly impossible.

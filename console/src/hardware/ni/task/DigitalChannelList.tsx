@@ -21,12 +21,8 @@ interface ListItemProps<C extends DigitalChannel>
   name: Component.RenderProp<C>;
 }
 
-const ListItem = <C extends DigitalChannel>({
-  name,
-  path,
-  isSnapshot,
-  ...rest
-}: ListItemProps<C>) => {
+const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
+  const path = `config.channels.${rest.itemKey}`;
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
@@ -67,10 +63,7 @@ const ListItem = <C extends DigitalChannel>({
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name(channel)}
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

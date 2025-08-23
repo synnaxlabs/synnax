@@ -32,7 +32,6 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
   channel: channel.Key;
   stateChannel?: channel.Key;
   onTare?: (channel: channel.Key) => void;
-  isSnapshot: boolean;
   path: string;
   hasTareButton: boolean;
 }
@@ -53,7 +52,6 @@ export const ListAndDetailsChannelItem = <K extends string>({
   portMaxChars,
   canTare,
   onTare,
-  isSnapshot,
   path,
   hasTareButton,
   channel,
@@ -112,7 +110,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
-        <EnableDisableButton path={`${path}.enabled`} isSnapshot={isSnapshot} />
+        <EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

@@ -76,7 +76,7 @@ const NoCluster = (): ReactElement => {
           Create a Visualization
         </Button.Button>
       </Flex.Box>
-      <Text.Text target="_blank" level="h4" onClick={handleDocs}>
+      <Text.Text variant="link" target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Text>
     </Flex.Box>

@@ -615,7 +615,7 @@ export const traverse = <T extends numeric.Value = number>(
           currentPosition,
           dir > 0 ? moveDist : -moveDist,
         ) as T;
-        remainingDist = math.sub(remainingDist, dir > 0 ? moveDist : -moveDist);
+        remainingDist = math.sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
         if (math.equal(remainingDist, 0)) return currentPosition as T;

@@ -10,27 +10,38 @@
 /** A numeric value is either a a number, or a bigint. */
 export type Numeric = number | bigint;
 
+const multiCoercedOp =
+  (func: (a: number, b: number) => Numeric) =>
+  <V extends Numeric>(a: V, b: Numeric): V => {
+    if (typeof a === "bigint") {
+      if (isInteger(b))
+        return func(a as unknown as number, BigInt(b) as unknown as number) as V;
+      const res = func(Number(a), Number(b)) as number;
+      if (typeof res === "number") return BigInt(Math.round(res)) as V;
+      return res;
+    }
+    return func(Number(a), Number(b)) as V;
+  };
+
 /**
  * @returns the product of a and b, coercing b to the type of a if necessary. */
-export const sub = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a - BigInt(b)) as V;
-  return (a - Number(b)) as V;
-};
+export const sub = multiCoercedOp((a, b) => a - b);
 
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
-export const add = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a + BigInt(b)) as V;
-  return ((a as unknown as number) + Number(b)) as V;
-};
+export const add = multiCoercedOp((a, b) => a + b);
 
 /** @returns true if a is close to b within epsilon. */
 export const closeTo = (a: number, b: number, epsilon = 0.0001): boolean =>
   Math.abs(a - b) < epsilon;
 
 /** @returns true if a is equal to b, coercing b to the type of a if necessary. */
-export const equal = <V extends Numeric>(a: V, b: Numeric): boolean => {
-  if (typeof a === "bigint") return a === BigInt(b);
-  return a === Number(b);
+export const equal = (a: Numeric, b: Numeric): boolean => {
+  const aIsBigInt = typeof a === "bigint";
+  const bIsBigInt = typeof b === "bigint";
+  if (aIsBigInt && bIsBigInt) return a === b;
+  if (aIsBigInt && isInteger(b)) return a === BigInt(b);
+  if (bIsBigInt && isInteger(a)) return b === BigInt(a);
+  return a === b;
 };
 
 /**
@@ -45,32 +56,24 @@ export const roundToNearestMagnitude = (num: number): number => {
 };
 
 /** @returns the minimum of a and b, coercing b to the type of a if necessary. */
-export const min = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (a <= b) return a;
-  if (typeof a === "bigint") return (a <= b ? a : BigInt(b)) as V;
-  return (a <= b ? a : Number(b)) as V;
+export const min = multiCoercedOp((a, b) => (a <= b ? a : b));
+
+export const isInteger = (a: Numeric): boolean => {
+  if (typeof a === "bigint") return true;
+  return Number.isInteger(a);
 };
 
 /** @returns the maximum of a and b, coercing b to the type of a if necessary. */
-export const max = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a >= b ? a : BigInt(b)) as V;
-  return (a >= b ? a : Number(b)) as V;
-};
+export const max = multiCoercedOp((a, b) => (a >= b ? a : b));
 
 /** @returns the absolute value of a. */
 export const abs = <V extends Numeric>(a: V): V => {
-  if (a < 0) return -a as V;
-  return a;
+  if (typeof a === "bigint") return (a < 0n ? -a : a) as V;
+  return (a < 0 ? -a : a) as V;
 };
 
 /** @returns the multiplication of a and b, coercing b to the type of a if necessary. */
-export const mult = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a * BigInt(b)) as V;
-  return (a * Number(b)) as V;
-};
+export const mult = multiCoercedOp((a, b) => a * b);
 
 /** @returns the division of a and b, coercing b to the type of a if necessary. */
-export const div = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a / BigInt(b)) as V;
-  return (a / Number(b)) as V;
-};
+export const div = multiCoercedOp((a, b) => a / b);

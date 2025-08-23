@@ -156,6 +156,7 @@ type Writer interface {
 	// their incoming and outgoing relationships. If any of the resources do not exist,
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error
+	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given keys. If the relationship already exists, DefineRelationship
 	// does nothing.
@@ -214,53 +215,54 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
-func (o *Ontology) RegisterService(ctx context.Context, s Service) {
-	o.L.Debug("registering service", zap.Stringer("type", s.Type()))
-	o.registrar.register(s)
-
-	if !*o.Config.EnableSearch {
-		return
-	}
-	o.search.Register(ctx, s.Type(), s.Schema())
-
-	d1 := s.OnChange(o.ResourceObserver.Notify)
-	// SetKV up a change handler to index new resources.
-	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
-		err := o.search.Index.WithTx(func(tx search.Tx) error {
-			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
-				o.L.Debug(
-					"updating search index",
-					zap.String("key", ch.Key.String()),
-					zap.Stringer("type", s.Type()),
-					zap.Stringer("variant", ch.Variant),
-				)
-				if err := tx.Apply(ch); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			o.L.Error("failed to index resource",
-				zap.Stringer("type", s.Type()),
-				zap.Error(err),
-			)
-		}
-	})
-	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
+func (o *Ontology) RegisterService(svc Service) {
+	o.L.Debug("registering service", zap.Stringer("type", svc.Type()))
+	o.registrar.register(svc)
+	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.ResourceObserver.Notify))
 }
 
-// RunStartupSearchIndexing indexes all resources from registered services into the search
+// InitializeSearchIndex indexes all resources from registered services into the search
 // index (if search is enabled). This method should be called AFTER all necessary services
 // have been registered. This method will block until all resources have been indexed,
 // so it should probably be run in a separate goroutine.
-func (o *Ontology) RunStartupSearchIndexing(ctx context.Context) error {
+func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 	if !*o.EnableSearch {
 		return nil
 	}
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
+	if *o.Config.EnableSearch {
+		for _, svc := range o.registrar {
+			o.search.Register(ctx, svc.Type(), svc.Schema())
+		}
+	}
 	for _, svc := range o.registrar {
+		if !*o.Config.EnableSearch {
+			continue
+		}
+		disconnect := svc.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
+			err := o.search.Index.WithTx(func(tx search.Tx) error {
+				for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
+					o.L.Debug(
+						"updating search index",
+						zap.String("key", ch.Key.String()),
+						zap.Stringer("type", svc.Type()),
+						zap.Stringer("variant", ch.Variant),
+					)
+					if err := tx.Apply(ch); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				o.L.Error("failed to index resource",
+					zap.Stringer("type", svc.Type()),
+					zap.Error(err),
+				)
+			}
+		})
+		o.disconnectObservers = append(o.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) error {
 			n, err := svc.OpenNexter()
 			if err != nil {

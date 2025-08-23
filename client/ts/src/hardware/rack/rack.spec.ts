@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
 import { type rack } from "@/hardware/rack";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Rack", () => {
   describe("create", () => {

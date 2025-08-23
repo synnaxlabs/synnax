@@ -63,34 +63,4 @@ data = np.sin(np.linspace(1, 10, SAMPLE_COUNT)) * 20 + np.random.randn(SAMPLE_CO
 time_channel.write(start, stamps)
 data_channel.write(start, data)
 
-
-def read_latest_n(n: int) -> sy.Frame:
-    """
-    Reads the latest n samples from time_channel and data_channel.
-
-    Args:
-        n: The number of samples to read.
-
-    Returns:
-        A frame containing the latest n samples from time_channel and data_channel
-    """
-    with client.open_iterator(
-        # Open a time range starting at the start of our write (could also be
-        # sy.TimeStamp.MIN) and ends at the end of time.
-        tr=sy.TimeRange(start, sy.TimeStamp.MAX),
-        # We'll read from both channels.
-        channels=[time_channel, data_channel],
-        # Set the chunk size to n.
-        chunk_size=n,
-    ) as i:
-        # Seek to the last sample in the iterator (i.e. the most recent sample).
-        i.seek_last()
-        # Iterate backwards using sy.AUTO_SPAN, which will iterate by the chunk_size
-        # provided.
-        if not i.prev(sy.AUTO_SPAN):
-            raise ValueError("No samples were found in either channel.")
-        # Return the current iterator value.
-        return i.value
-
-
-print(read_latest_n(10))
+print(client.read_latest(["daq_time", "ox_pt_1"], 1))

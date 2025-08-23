@@ -84,6 +84,7 @@ export const unaryWithBreaker = (
           err_ = err;
         }
         if (!Unreachable.matches(err_)) return [null, err_];
+        console.warn(`[freighter] ${brk.retryMessage}`, err_);
         if (await brk.wait()) return [null, err_];
       } while (true);
     }

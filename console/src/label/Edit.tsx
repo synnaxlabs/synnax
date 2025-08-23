@@ -51,13 +51,9 @@ const LabelListItem = ({
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({ form }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
         onClose?.();
-        if (isCreate)
-          form.reset({
-            name: "",
-            color: "#000000",
-          });
+        if (isCreate) reset({ name: "", color: "#000000" });
       },
       [isCreate, onClose],
     ),

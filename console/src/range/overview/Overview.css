@@ -38,6 +38,12 @@
     }
 }
 
+.console-range__metadata {
+    .pluto-header {
+        margin-bottom: 2rem;
+    }
+}
+
 .console-metadata__list-item {
     height: 6rem;
     max-height: 6rem;
@@ -57,10 +63,11 @@
         border: var(--pluto-border-l5);
         border-radius: var(--pluto-border-radius);
         transition:
-            height 0.2s ease,
-            min-height 0.2s ease;
+            height 0.1s ease,
+            min-height 0.1s ease;
         &.pluto--hidden {
             height: 0;
+            padding: 0;
             min-height: 0;
             flex-grow: 0;
             border: none;

@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("state", () => {
   it("should receive the initial control state from the cluster", async () => {

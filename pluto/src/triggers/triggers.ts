@@ -14,6 +14,9 @@ import { useMemoCompare } from "@/memo";
 
 /** All the mouse keys that can be used in a trigger */
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
+export const MOUSE_LEFT_NUMBER = 0;
+export const MOUSE_MIDDLE_NUMBER = 1;
+export const MOUSE_RIGHT_NUMBER = 2;
 
 export const mouseKeyZ = z.enum(MOUSE_KEYS);
 export type MouseKey = z.infer<typeof mouseKeyZ>;

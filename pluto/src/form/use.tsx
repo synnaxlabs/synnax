@@ -40,6 +40,7 @@ export interface UseArgs<Z extends z.ZodType> {
   onChange?: (props: OnChangeArgs<Z>) => void;
   onHasTouched?: (value: boolean) => void;
   schema?: Z;
+  scope?: string;
 }
 
 export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
@@ -107,12 +108,14 @@ export const use = <Z extends z.ZodType>({
     return valid;
   }, []);
 
-  const set: SetFunc = useCallback((path, value): void => {
+  const set: SetFunc = useCallback((path, value, options): void => {
+    const { notifyOnChange = true } = options ?? {};
     const prev = deep.get(ref.current.values, path, { optional: true });
     const prevHasTouched = ref.current.hasBeenTouched;
     ref.current.setValue(path, value);
     const finish = () => {
-      onChangeRef.current?.({ values: ref.current.values, path, prev, valid: true });
+      if (notifyOnChange)
+        onChangeRef.current?.({ values: ref.current.values, path, prev, valid: true });
       ref.current.notify();
       const hasTouched = ref.current.hasBeenTouched;
       if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
@@ -167,6 +170,7 @@ export const use = <Z extends z.ZodType>({
       clearStatuses,
       reset,
       setCurrentStateAsInitialValues,
+      getStatuses: () => ref.current.getStatuses(),
     }),
     [
       bind,

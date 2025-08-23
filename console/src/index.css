@@ -43,7 +43,7 @@ body {
     width: 100%;
 }
 
-*:not(:is(.pluto-text, input, label)) {
+*:not(:is(input, label)) {
     user-select: none !important;
     -webkit-user-select: none !important;
 }

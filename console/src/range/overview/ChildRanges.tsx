@@ -43,8 +43,9 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const { getItem, subscribe, data, retrieve } = Ranger.useChildren();
+  const { getItem, subscribe, data, retrieve, status } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
+  if (status.variant === "error") return null;
   return (
     <Flex.Box y>
       <Header.Header level="h4" borderColor={5}>
@@ -63,9 +64,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         data={data}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={() => {
-          retrieve({ key: rangeKey });
-        }}
+        onFetchMore={() => retrieve({ key: rangeKey })}
       >
         <List.Items>{childRangeListItem}</List.Items>
       </List.Frame>

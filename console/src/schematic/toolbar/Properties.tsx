@@ -19,7 +19,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, color, deep, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -85,9 +85,9 @@ const IndividualProperties = ({
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
-    values: structuredClone(props),
+    values: deep.copy(props),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, values),
+    onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
 
   return (

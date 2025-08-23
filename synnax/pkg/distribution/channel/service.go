@@ -128,7 +128,7 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
-		cfg.Ontology.RegisterService(ctx, s)
+		cfg.Ontology.RegisterService(s)
 	}
 	return s, nil
 }

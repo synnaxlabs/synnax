@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array, type Optional, type record, unique } from "@synnaxlabs/x";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
@@ -27,17 +27,19 @@ export interface UseOnChangeExtra<K extends record.Key = record.Key> {
 }
 
 export interface UseSingleAllowNoneProps<K extends record.Key> {
-  allowNone?: true;
   value?: K;
   onChange: (next: K | null, extra: UseOnChangeExtra<K>) => void;
+  allowNone?: true;
   closeDialogOnSelect?: boolean;
+  autoSelectOnNone?: boolean;
 }
 
 export interface UseSingleRequiredProps<K extends record.Key> {
-  allowNone: false | undefined;
   value: K;
   onChange: (next: K, extra: UseOnChangeExtra<K>) => void;
+  allowNone: false | undefined;
   closeDialogOnSelect?: boolean;
+  autoSelectOnNone?: boolean;
 }
 
 type UseSingleInternalProps<K extends record.Key> =
@@ -57,6 +59,7 @@ export interface UseMultipleProps<K extends record.Key>
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
   replaceOnSingle?: boolean;
   closeDialogOnSelect?: boolean;
+  autoSelectOnNone?: boolean;
 }
 
 /** Return value for the {@link useMultiple} hook. */
@@ -72,11 +75,16 @@ export const useSingle = <K extends record.Key>({
   value,
   closeDialogOnSelect = false,
   initialHover,
+  autoSelectOnNone = false,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { data } = List.useData<K>();
   const { close } = Dialog.useContext();
   const dataRef = useSyncedRef(data);
+  useEffect(() => {
+    if (autoSelectOnNone && value == null && data.length > 0)
+      onChange(data[0], { clicked: data[0], clickedIndex: 0 });
+  }, [autoSelectOnNone, onChange, value, data.length]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
@@ -112,6 +120,7 @@ export const useMultiple = <K extends record.Key>({
   initialHover,
   allowNone = true,
   closeDialogOnSelect = false,
+  autoSelectOnNone = false,
 }: UseMultipleProps<K>): UseReturn<K> => {
   const { data } = List.useData<K>();
   const shiftValueRef = useRef<K | null>(null);
@@ -119,6 +128,10 @@ export const useMultiple = <K extends record.Key>({
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
   const valueRef = useSyncedRef(value);
   const dataRef = useSyncedRef(data);
+  useEffect(() => {
+    if (autoSelectOnNone && value.length === 0 && data.length > 0)
+      onChange([data[0]], { clicked: data[0], clickedIndex: 0 });
+  }, [autoSelectOnNone, onChange, value, data.length]);
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;

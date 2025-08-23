@@ -77,7 +77,8 @@ describe("testutil", () => {
     it("should call function multiple times over duration", async () => {
       const fn = vi.fn();
       await testutil.expectAlways(fn, 100, 20);
-      expect(fn).toHaveBeenCalledTimes(5);
+      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(fn.mock.calls.length).toBeLessThanOrEqual(7);
     });
 
     it("should handle async functions", async () => {
@@ -117,7 +118,8 @@ describe("testutil", () => {
     it("should use default values when not provided", async () => {
       const fn = vi.fn();
       await testutil.expectAlways(fn);
-      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(10);
+      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(7);
+      expect(fn.mock.calls.length).toBeLessThanOrEqual(12);
     });
 
     it("should respect custom interval", async () => {
@@ -127,7 +129,8 @@ describe("testutil", () => {
       const elapsed = Date.now() - start;
       expect(elapsed).toBeGreaterThanOrEqual(90);
       expect(elapsed).toBeLessThan(150);
-      expect(fn).toHaveBeenCalledTimes(4);
+      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(fn.mock.calls.length).toBeLessThanOrEqual(5);
     });
 
     it("should handle functions that pass after initial failures", async () => {

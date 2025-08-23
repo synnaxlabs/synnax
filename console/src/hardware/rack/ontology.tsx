@@ -68,7 +68,8 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const status = Rack.useStatus(Number(id.key));
+  const res = Rack.retrieve.useDirect({ params: { key: Number(id.key) } });
+  const status = res.data?.status;
 
   return (
     <Tree.Item {...rest}>
@@ -91,7 +92,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection,
     state: { shape },
   } = props;
-  const { resourceIDs } = selection;
+  const { resourceIDs, rootID } = selection;
   const handleDelete = useDelete();
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
@@ -118,7 +119,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isSingle = resourceIDs.length === 1;
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} showBottomDivider />
+      <Group.MenuItem
+        resourceIDs={resourceIDs}
+        rootID={rootID}
+        shape={shape}
+        showBottomDivider
+      />
       {isSingle && (
         <>
           <Menu.RenameItem />

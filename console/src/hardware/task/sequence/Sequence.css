@@ -1,0 +1,24 @@
+.console-task-configure--sequence {
+    & > div {
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        .console-task-channel-form-container {
+            border: none;
+            width: 100%;
+            & > div {
+                width: 100%;
+            }
+        }
+    }
+    .console-sequence {
+        padding: 0;
+        height: 100%;
+        min-height: 0;
+    }
+    .console-task-controls {
+        background: var(--pluto-gray-l0);
+        border: none;
+        border-top: var(--pluto-border);
+    }
+}

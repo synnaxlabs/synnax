@@ -9,17 +9,18 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
+import { useKey } from "@/hardware/common/task/Form";
 
-interface RackProps {
-  taskKey: task.Key;
-}
-
-export const Rack = ({ taskKey }: RackProps) => {
-  const rackKey = task.rackKey(taskKey);
-  const rack = PRack.use(rackKey);
-  if (rack == null) return null;
+export const Rack = () => {
+  const { data: rack, retrieve } = PRack.retrieve.useStateful();
+  const taskKey = useKey();
+  useEffect(() => {
+    if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
+  }, [taskKey]);
+  if (rack == null) return;
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>

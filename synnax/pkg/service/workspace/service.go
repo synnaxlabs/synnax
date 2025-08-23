@@ -72,7 +72,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}

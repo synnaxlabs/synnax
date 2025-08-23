@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, status } from "@synnaxlabs/x";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -28,6 +28,7 @@ import {
   type Params,
   type Payload,
   payloadZ,
+  type Status,
 } from "@/channel/payload";
 import {
   analyzeParams,
@@ -100,7 +101,7 @@ export class Channel {
    * An alias for the channel under a specific range. This parameter is unstable and
    * should not be relied upon in the current version of Synnax.
    */
-  readonly alias: string | undefined;
+  alias: string | undefined;
   /**
    * Whether the channel is virtual. Virtual channels do not store any data in the
    * database, but can still be used for streaming purposes.
@@ -115,6 +116,10 @@ export class Channel {
    * Only used for calculated channels. Specifies the channels required for calculation
    */
   readonly requires: Key[];
+  /**
+   * The status of the channel.
+   */
+  readonly status?: Status;
 
   constructor({
     dataType,
@@ -127,9 +132,14 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
+    status: argsStatus,
     expression = "",
     requires = [],
-  }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
+  }: New & {
+    frameClient?: framer.Client;
+    density?: CrudeDensity;
+    status?: status.Crude;
+  }) {
     this.key = keyZ.parse(key);
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -141,6 +151,7 @@ export class Channel {
     this.virtual = virtual;
     this.expression = expression;
     this.requires = requires == null ? [] : keyZ.array().parse(requires);
+    if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
 
@@ -167,6 +178,7 @@ export class Channel {
       virtual: this.virtual,
       expression: this.expression,
       requires: this.requires,
+      status: this.status,
     });
   }
 
@@ -398,9 +410,13 @@ export class Client {
     );
   }
 
-  private sugar(payloads: Payload[]): Channel[] {
+  sugar(payload: Payload): Channel;
+  sugar(payloads: Payload[]): Channel[];
+  sugar(payloads: Payload | Payload[]): Channel | Channel[] {
     const { frameClient } = this;
-    return payloads.map((p) => new Channel({ ...p, frameClient }));
+    if (Array.isArray(payloads))
+      return payloads.map((p) => new Channel({ ...p, frameClient }));
+    return new Channel({ ...payloads, frameClient });
   }
 
   async retrieveGroup(): Promise<group.Group> {

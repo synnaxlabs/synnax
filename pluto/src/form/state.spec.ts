@@ -587,6 +587,140 @@ describe("State", () => {
     });
   });
 
+  describe("union validation", () => {
+    const schema = z.object({
+      a: z.union([
+        z.object({
+          type: z.literal("a"),
+          color: z.string().min(1, "Color is required"),
+        }),
+        z.object({
+          type: z.literal("b"),
+          height: z.number(),
+        }),
+      ]),
+    });
+    it("should return success when all fields are valid", () => {
+      const state = new State({ a: { type: "a", color: "red" } }, schema);
+      state.setTouched("a");
+      state.validate();
+      expect(state.getState("a").status.variant).toBe("success");
+    });
+
+    it("should return an error for the most favored union field", () => {
+      const state = new State({ a: { type: "a", color: "" } }, schema);
+      state.setTouched("a.color");
+      state.validate();
+      expect(state.getState("a.color").status.variant).toBe("error");
+    });
+  });
+
+  describe("field array touched tracking", () => {
+    it("should reset touched status when field array item is removed after modification", () => {
+      const arraySchema = z.object({
+        items: z.array(
+          z.object({
+            name: z.string(),
+            value: z.number(),
+          }),
+        ),
+      });
+
+      const initialValues = {
+        items: [
+          { name: "item1", value: 10 },
+          { name: "item2", value: 20 },
+        ],
+      };
+
+      const state = new State(initialValues, arraySchema);
+      expect(state.hasBeenTouched).toBe(false);
+
+      const newItem = { name: "item3", value: 30 };
+      const updatedItems = [...state.values.items, newItem];
+      state.setValue("items", updatedItems);
+
+      expect(state.hasBeenTouched).toBe(true);
+
+      state.setValue("items.2.name", "modified_item3");
+
+      expect(state.hasBeenTouched).toBe(true);
+      expect(state.getState("items.2.name").touched).toBe(true);
+
+      const finalItems = state.values.items.slice(0, 2);
+      state.setValue("items", finalItems);
+
+      expect(state.hasBeenTouched).toBe(false);
+    });
+
+    it("should maintain touched status for other modified fields when array item is removed", () => {
+      const arraySchema = z.object({
+        name: z.string(),
+        items: z.array(
+          z.object({
+            title: z.string(),
+          }),
+        ),
+      });
+
+      const initialValues = {
+        name: "test",
+        items: [{ title: "original" }],
+      };
+
+      const state = new State(initialValues, arraySchema);
+
+      state.setValue("name", "modified");
+      expect(state.hasBeenTouched).toBe(true);
+
+      state.setValue("items", [...state.values.items, { title: "new item" }]);
+
+      state.setValue("items.1.title", "modified new item");
+
+      state.setValue("items", [{ title: "original" }]);
+
+      expect(state.hasBeenTouched).toBe(true);
+      expect(state.getState("name").touched).toBe(true);
+    });
+
+    it("should handle nested array operations correctly", () => {
+      const nestedArraySchema = z.object({
+        groups: z.array(
+          z.object({
+            name: z.string(),
+            items: z.array(
+              z.object({
+                value: z.string(),
+              }),
+            ),
+          }),
+        ),
+      });
+
+      const initialValues = {
+        groups: [
+          {
+            name: "group1",
+            items: [{ value: "item1" }],
+          },
+        ],
+      };
+
+      const state = new State(initialValues, nestedArraySchema);
+
+      const newGroup = { name: "group2", items: [{ value: "item2" }] };
+      state.setValue("groups", [...state.values.groups, newGroup]);
+
+      state.setValue("groups.1.items.0.value", "modified_item2");
+
+      expect(state.hasBeenTouched).toBe(true);
+
+      state.setValue("groups", [{ name: "group1", items: [{ value: "item1" }] }]);
+
+      expect(state.hasBeenTouched).toBe(false);
+    });
+  });
+
   describe("edge cases", () => {
     it("should handle empty string paths correctly", () => {
       const state = new State(initialValues, basicSchema);

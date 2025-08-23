@@ -93,8 +93,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 		return nil, err
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
-	cfg.Ontology.RegisterService(ctx, &aliasOntologyService{db: cfg.DB})
+	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if cfg.Signals == nil {
 		return
 	}

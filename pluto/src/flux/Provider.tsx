@@ -7,70 +7,75 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useMemo,
   useRef,
 } from "react";
 
 import { Aether } from "@/aether";
 import { flux } from "@/flux/aether";
-import { type ListenerAdder } from "@/flux/aether/types";
-import { Context } from "@/flux/Context";
-import { useAsyncEffect } from "@/hooks";
+import { core } from "@/flux/core";
+import { useInitializerRef, useRequiredContext } from "@/hooks";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-export interface ProviderProps extends PropsWithChildren {
-  openStreamer?: framer.StreamOpener;
-  streamerRemovalDelay?: CrudeTimeSpan;
-}
+type ContextValue = core.Client;
 
-const STREAMER_REMOVAL_DELAY = TimeSpan.seconds(5);
+const Context = createContext<ContextValue | null>(null);
 
-export const Provider = ({
+export const useStore = <ScopedStore extends flux.Store>(
+  scope?: string,
+): ScopedStore => {
+  const client = useRequiredContext(Context);
+  const uniqueKey = useUniqueKey(scope);
+  return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
+};
+
+export type ProviderProps<ScopedStore extends flux.Store> = (
+  | {
+      client: core.Client<ScopedStore>;
+    }
+  | {
+      storeConfig: flux.StoreConfig<ScopedStore>;
+    }
+) &
+  PropsWithChildren;
+
+export const Provider = <ScopedStore extends flux.Store>({
   children,
-  openStreamer: propsOpenStreamer,
-  streamerRemovalDelay = STREAMER_REMOVAL_DELAY,
-}: ProviderProps): ReactElement => {
-  const client = Synnax.use();
+  ...cfg
+}: ProviderProps<ScopedStore>): ReactElement | null => {
+  const synnaxClient = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const streamerRef = useRef<flux.Streamer>(
-    new flux.Streamer({
-      handleError,
-      removalDelay: streamerRemovalDelay,
-    }),
-  );
-
+  const handleAsyncError = Status.useAsyncErrorHandler();
   const { path } = Aether.useLifecycle({
-    type: flux.Provider.TYPE,
+    type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
     initialState: {},
   });
-
-  const openStreamer = useMemo(
-    () => propsOpenStreamer ?? client?.openStreamer.bind(client),
-    [client, propsOpenStreamer],
-  );
-
-  useAsyncEffect(async () => {
-    if (openStreamer == null) return;
-    await streamerRef.current.updateStreamer(openStreamer);
-    return streamerRef.current.close.bind(streamerRef.current);
-  }, [openStreamer]);
-
-  const addListener: ListenerAdder = useCallback(
-    ({ channel, handler, onOpen }) =>
-      streamerRef.current.addListener(handler, channel, onOpen),
-    [],
-  );
+  const initializeClient = () => {
+    if ("client" in cfg) return cfg.client;
+    return new core.Client<ScopedStore>({
+      client: synnaxClient,
+      storeConfig: cfg.storeConfig,
+      handleError,
+      handleAsyncError,
+    });
+  };
+  const clientRef = useInitializerRef(initializeClient);
+  const prevSynnaxClient = useRef<SynnaxClient | null>(null);
+  if (synnaxClient?.key !== prevSynnaxClient.current?.key) {
+    prevSynnaxClient.current = synnaxClient;
+    clientRef.current = initializeClient();
+  }
   return (
     <Aether.Composite path={path}>
-      <Context value={addListener}>{children}</Context>
+      <Context value={clientRef.current}>{children}</Context>
     </Aether.Composite>
   );
 };

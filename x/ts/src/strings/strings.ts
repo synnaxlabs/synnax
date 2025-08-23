@@ -24,9 +24,10 @@
  * ```
  */
 export const naturalLanguageJoin = (
-  strings: string[],
+  strings: string | string[],
   zeroLength: string = "",
 ): string => {
+  if (typeof strings === "string") return strings;
   const length = strings.length;
   if (length === 0) return zeroLength;
   if (length === 1) return strings[0];

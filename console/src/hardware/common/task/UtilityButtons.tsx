@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
+import { useKey } from "@/hardware/common/task/Form";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface UtilityButtonProps {
@@ -33,20 +34,13 @@ const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps)
   </Button.Button>
 );
 
-export interface UtilityButtonsProps {
-  getConfig: () => unknown;
-  getName: () => string;
-  taskKey: task.Key;
-}
-
-export const UtilityButtons = ({
-  getConfig,
-  getName,
-  taskKey,
-}: UtilityButtonsProps) => {
+export const UtilityButtons = () => {
+  const ctx = Form.useContext();
+  const taskKey = useKey();
+  const getName = () => ctx.get<string>("name").value;
   const copy = useCopyToClipboard();
   const export_ = useExport();
-  const handleExport = () => export_(taskKey);
+  const handleExport = () => taskKey != null && export_(taskKey);
   const handleCopyTypeScriptCode = () => {
     const name = getName();
     copy(
@@ -57,14 +51,17 @@ export const UtilityButtons = ({
       `TypeScript code for retrieving ${name}`,
     );
   };
-  const handleCopyJSONConfig = () =>
-    copy(
-      binary.JSON_CODEC.encodeString(getConfig()),
-      `JSON configuration for ${getName()}`,
-    );
+  const handleCopyJSONConfig = () => {
+    const name = getName();
+    const config = ctx.get("config").value;
+    copy(binary.JSON_CODEC.encodeString(config), `JSON configuration for ${name}`);
+  };
   const copyLink = Cluster.useCopyLinkToClipboard();
-  const handleCopyLink = () =>
-    copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
+  const handleCopyLink = () => {
+    const name = getName();
+    if (taskKey == null) return;
+    copyLink({ name, ontologyID: task.ontologyID(taskKey) });
+  };
   const hasDisabledButtons = taskKey === "";
   return (
     <Flex.Box x empty>

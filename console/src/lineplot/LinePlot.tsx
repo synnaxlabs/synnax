@@ -253,7 +253,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
       if (client == null || key === prevKey) return;
       let newType: axis.TickType = "time";
-      if (!primitive.isZero(key)) {
+      if (primitive.isNonZero(key)) {
         const ch = await client.channels.retrieve(key);
         if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
       }

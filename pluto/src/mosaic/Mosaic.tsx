@@ -95,6 +95,7 @@ export const Mosaic = memo(
     onReorder,
     contextMenu,
     addTooltip,
+    className,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -128,7 +129,7 @@ export const Mosaic = memo(
     if (key == 1)
       extraProps = {
         ...rest,
-        className: CSS(CSS.B("mosaic")),
+        className: CSS(CSS.B("mosaic"), className),
       };
 
     let content: ReactElement | null;

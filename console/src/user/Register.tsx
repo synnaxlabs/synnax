@@ -80,6 +80,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
                 inputProps={{
                   variant: "text",
                   level: "h2",
+                  autoFocus: true,
                   placeholder: "Richard",
                   full: "x",
                 }}

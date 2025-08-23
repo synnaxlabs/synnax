@@ -18,6 +18,7 @@ import {
   Menu as PMenu,
   Select,
   Status,
+  stopPropagation,
   Synnax,
   Task,
   Text,
@@ -135,12 +136,15 @@ const Content = () => {
         if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
         return Common.Task.shouldExecuteCommand(status, command);
       });
-      const tasksToExecute = getItem(filteredKeys);
-      tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {})
-          .then((res) => addStatus({ ...res, time: TimeStamp.now() }))
-          .catch(handleError);
-      });
+      const commands: task.NewCommand[] = filteredKeys.map((k) => ({
+        task: k,
+        type: command,
+      }));
+      const statuses = await client.hardware.tasks.executeCommandSync(
+        commands,
+        TimeSpan.fromSeconds(10),
+      );
+      statuses.forEach((s) => addStatus({ ...s, time: TimeStamp.now() }));
     },
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
   }).mutate;
@@ -152,6 +156,20 @@ const Content = () => {
     (keys: string[]) => startOrStop({ command: "stop", keys }),
     [startOrStop],
   );
+  const handleEdit = useCallback(
+    (key: task.Key) => {
+      const task = getItem(key);
+      if (task == null)
+        return addStatus({
+          variant: "error",
+          message: "Failed to open task details",
+          description: `Task with key ${key} not found`,
+        });
+      const layout = createLayout(task);
+      placeLayout(layout);
+    },
+    [selected, addStatus, placeLayout],
+  );
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
       <ContextMenu
@@ -160,6 +178,7 @@ const Content = () => {
         onDelete={handleDelete}
         onStart={handleStart}
         onStop={handleStop}
+        onEdit={handleEdit}
       />
     ),
     [handleDelete, handleStart, handleStop],
@@ -200,6 +219,7 @@ const Content = () => {
                 {...p}
                 onStopStart={(command) => handleListItemStopStart(command, key)}
                 onRename={(name) => rename({ name, key })}
+                onDoubleClick={() => handleEdit(key)}
               />
             )}
           </List.Items>
@@ -234,7 +254,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
+  const handleStartStopClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
       const command = isRunning ? "stop" : "start";
@@ -269,7 +289,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
       <Button.Button
         variant="outlined"
         status={isLoading ? "loading" : undefined}
-        onClick={handleClick}
+        onClick={handleStartStopClick}
+        onDoubleClick={stopPropagation}
         tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
@@ -283,6 +304,7 @@ interface ContextMenuProps {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
+  onEdit: (key: task.Key) => void;
   tasks: task.Task[];
 }
 
@@ -292,6 +314,7 @@ const ContextMenu = ({
   onDelete,
   onStart,
   onStop,
+  onEdit,
 }: ContextMenuProps) => {
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
@@ -304,23 +327,8 @@ const ContextMenu = ({
   const isSingle = selectedTasks.length === 1;
 
   const addStatus = Status.useAdder();
-  const placeLayout = Layout.usePlacer();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleEdit = useCallback(
-    (key: task.Key) => {
-      const task = selectedTasks.find((t) => t.key === key);
-      if (task == null)
-        return addStatus({
-          variant: "error",
-          message: "Failed to open task details",
-          description: `Task with key ${key} not found`,
-        });
-      const layout = createLayout(task);
-      placeLayout(layout);
-    },
-    [selectedTasks, addStatus, placeLayout],
-  );
   const handleExport = Common.Task.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
@@ -339,7 +347,7 @@ const ContextMenu = ({
     () => ({
       start: () => onStart(keys),
       stop: () => onStop(keys),
-      edit: () => handleEdit(keys[0]),
+      edit: () => onEdit(keys[0]),
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
       export: () => handleExport(keys[0]),
@@ -352,7 +360,7 @@ const ContextMenu = ({
     [
       onStart,
       onStop,
-      handleEdit,
+      onEdit,
       handleLink,
       onDelete,
       keys,

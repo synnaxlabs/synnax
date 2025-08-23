@@ -42,7 +42,7 @@ export const Field = <I = string | number, O = I>({
   label,
   padHelpText = true,
   visible = true,
-  hideIfNull = false,
+  hideIfNull = true,
   optional,
   onChange,
   className,

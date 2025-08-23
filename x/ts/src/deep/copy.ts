@@ -7,4 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const copy = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
+export const copy = <T>(obj: T): T => {
+  try {
+    return structuredClone(obj);
+  } catch (_) {
+    console.warn(
+      "Failed to deep copy object, falling back to JSON.parse(JSON.stringify)",
+      obj,
+    );
+    console.trace();
+    return JSON.parse(JSON.stringify(obj));
+  }
+};

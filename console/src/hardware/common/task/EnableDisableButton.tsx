@@ -9,17 +9,15 @@
 
 import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
 
+import { Common } from "@/hardware/common";
+
 export interface EnableDisableButtonProps
   extends Omit<Button.ToggleProps, "onChange" | "value" | "children"> {
   path: string;
-  isSnapshot: boolean;
 }
 
-export const EnableDisableButton = ({
-  path,
-  isSnapshot,
-  ...rest
-}: EnableDisableButtonProps) => {
+export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps) => {
+  const isSnapshot = Common.Task.useIsSnapshot();
   const { get, set } = Form.useContext();
   const fs = get<boolean>(path, { optional: true });
   if (fs == null) return null;

@@ -14,11 +14,40 @@ import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
-const shouldCastToUnreachable = (err: Error): boolean =>
-  typeof err.cause === "object" &&
-  err.cause !== null &&
-  "code" in err.cause &&
-  err.cause.code === "ECONNREFUSED";
+const UNREACHABLE_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+const shouldCastToUnreachable = (err: Error): boolean => {
+  // First try Node/Undici codes
+  let code: unknown;
+  if (
+    err &&
+    typeof err === "object" &&
+    "cause" in err &&
+    err.cause &&
+    typeof err.cause === "object" &&
+    "code" in err.cause
+  )
+    code = err.cause.code;
+  else if ("code" in err) code = err.code;
+  else if ("errno" in err) code = err.errno;
+
+  if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
+
+  // Browser/Safari fallback: detect canonical network-failure TypeError messages
+  if (err.name === "TypeError") {
+    const msg = err.message.toLowerCase();
+    if (/load failed|failed to fetch|networkerror|network error/.test(msg)) return true;
+  }
+
+  return false;
+};
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 

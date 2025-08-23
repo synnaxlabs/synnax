@@ -77,17 +77,18 @@ type Transport struct {
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
 
-	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
-	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
-	RangeKVGet        freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
-	RangeKVSet        freighter.UnaryServer[RangeKVSetRequest, types.Nil]
-	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
-	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
-	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
-	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
-	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
-	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
+	RangeCreate        freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve      freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeDelete        freighter.UnaryServer[RangeDeleteRequest, types.Nil]
+	RangeKVGet         freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
+	RangeKVSet         freighter.UnaryServer[RangeKVSetRequest, types.Nil]
+	RangeKVDelete      freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
+	RangeAliasSet      freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
+	RangeAliasResolve  freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
+	RangeAliasList     freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
+	RangeAliasRetrieve freighter.UnaryServer[RangeAliasRetrieveRequest, RangeAliasRetrieveResponse]
+	RangeRename        freighter.UnaryServer[RangeRenameRequest, types.Nil]
+	RangeAliasDelete   freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
 
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -228,6 +229,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
 		t.RangeAliasList,
+		t.RangeAliasRetrieve,
 		t.RangeRename,
 		t.RangeAliasDelete,
 
@@ -326,6 +328,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeAliasSet.BindHandler(l.Range.AliasSet)
 	t.RangeAliasResolve.BindHandler(l.Range.AliasResolve)
 	t.RangeAliasList.BindHandler(l.Range.AliasList)
+	t.RangeAliasRetrieve.BindHandler(l.Range.AliasRetrieve)
 	t.RangeAliasDelete.BindHandler(l.Range.AliasDelete)
 
 	t.WorkspaceCreate.BindHandler(l.Workspace.Create)

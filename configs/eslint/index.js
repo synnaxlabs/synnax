@@ -138,6 +138,7 @@ export default [
       "bazel-out",
       "bazel-testlogs",
       "bazel-*",
+      "external",
     ],
   },
 ];

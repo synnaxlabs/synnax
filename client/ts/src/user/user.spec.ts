@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 import { type user } from "@/user";
 
 interface SortType {
@@ -20,7 +20,7 @@ interface SortType {
 
 const sort = (a: SortType, b: SortType) => a.username.localeCompare(b.username);
 
-const client = newTestClient();
+const client = createTestClient();
 
 const userOne: user.New = {
   username: id.create(),
