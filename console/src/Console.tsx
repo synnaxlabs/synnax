@@ -126,6 +126,7 @@ const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
+  Cluster.useAutoConnect();
   return (
     <Pluto.Provider
       theming={theme}
