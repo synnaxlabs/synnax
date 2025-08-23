@@ -184,6 +184,33 @@ describe("path", () => {
       expect(deep.pathsMatch("a.b.c", "")).toEqual(true);
     });
   });
+
+  describe("resolvePath", () => {
+    it("should resolve a path", () => {
+      expect(deep.resolvePath("a.b.c", { a: { b: { c: 1 } } })).toEqual("a.b.c");
+    });
+
+    it("should resolve a path with a keyed record", () => {
+      expect(deep.resolvePath("a.b.c", { a: { b: { c: 1 } } })).toEqual("a.b.c");
+    });
+
+    it("should resolve a path with a record in an array", () => {
+      expect(deep.resolvePath("a.b.c", { a: { b: [{ c: 1 }] } })).toEqual("a.b.c");
+    });
+
+    it("should resolve a path with a keyed record in an array with a key", () => {
+      expect(deep.resolvePath("a.b.0.d", { a: { b: [{ key: "c", d: 1 }] } })).toEqual(
+        "a.b.c.d",
+      );
+    });
+
+    it("should not modify a path that has a keyed record accessed by key", () => {
+      expect(deep.resolvePath("a.b.c.d", { a: { b: [{ key: "c", c: 1 }] } })).toEqual(
+        "a.b.c.d",
+      );
+    });
+  });
+
   describe("delete", () => {
     const a: TestRecord = {
       a: 1,

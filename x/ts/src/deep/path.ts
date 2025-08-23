@@ -126,6 +126,16 @@ const defaultGetter = (obj: record.Unknown, key: string): unknown => {
   return undefined;
 };
 
+export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
+  const parts = path.split(".");
+  parts.forEach((part, i) => {
+    obj = defaultGetter(obj as record.Unknown, part) as T;
+    if (obj != null && typeof obj === "object" && "key" in obj)
+      parts[i] = obj.key as string;
+  });
+  return parts.join(".");
+};
+
 /**
  * Gets the value at the given path on the object. If the path does not exist
  * and the optional flag is set to true, null will be returned. If the path does

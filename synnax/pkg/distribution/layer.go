@@ -252,8 +252,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Cluster:  l.Cluster,
 	}
 	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
-	l.Ontology.RegisterService(ctx, clusterOntologySvc)
-	l.Ontology.RegisterService(ctx, nodeOntologySvc)
+	l.Ontology.RegisterService(clusterOntologySvc)
+	l.Ontology.RegisterService(nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)
 

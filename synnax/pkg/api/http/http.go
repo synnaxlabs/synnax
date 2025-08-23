@@ -54,6 +54,7 @@ func New(router *fhttp.Router, channels channel.Readable) api.Transport {
 		RangeAliasSet:          fhttp.NewUnaryServer[api.RangeAliasSetRequest, types.Nil](router, "/api/v1/range/alias/set"),
 		RangeAliasResolve:      fhttp.NewUnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, "/api/v1/range/alias/resolve"),
 		RangeAliasList:         fhttp.NewUnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list"),
+		RangeAliasRetrieve:     fhttp.NewUnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse](router, "/api/v1/range/alias/retrieve"),
 		RangeRename:            fhttp.NewUnaryServer[api.RangeRenameRequest, types.Nil](router, "/api/v1/range/rename"),
 		RangeAliasDelete:       fhttp.NewUnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
 		OntologyRetrieve:       fhttp.NewUnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse](router, "/api/v1/ontology/retrieve"),

@@ -22,7 +22,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resourceIDs },
+    selection: { resourceIDs, rootID },
     state: { getResource, nodes, shape },
   } = props;
   const ungroup = useUngroupSelection();
@@ -32,7 +32,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const firstID = resourceIDs[0];
   const firstResource = getResource(firstID);
   const isSingle = resourceIDs.length === 1;
-  const isZeroDepth = Tree.getDepth(ontology.idToString(firstID), shape) === 0;
+  const isZeroDepth =
+    Tree.getDepth(ontology.idToString(firstID), shape) === 0 &&
+    ontology.idsEqual(rootID, ontology.ROOT_ID);
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Text.edit(ontology.idToString(firstID)),
@@ -61,7 +63,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
         </>
       )}
-      <MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {!isZeroDepth && (
         <>
           <PMenu.Item itemKey="ungroup">

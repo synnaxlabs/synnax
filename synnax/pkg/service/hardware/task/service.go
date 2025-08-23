@@ -87,7 +87,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 		return
 	}
 	s = &Service{cfg: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Signals == nil {
 		return

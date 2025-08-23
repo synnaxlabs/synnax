@@ -202,14 +202,12 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (id: ontology.ID) =>
-      handleError(async () => {
-        if (client == null) return;
-        const updated = await client.ontology.retrieve(id);
-        const prev = resourceStore.getItem(ontology.idToString(id));
-        resourceStore.setItem(updated);
-        if (updated.name !== prev?.name) setNodes((prevNodes) => [...prevNodes]);
-      }),
+    (resource: ontology.Resource) => {
+      const prev = resourceStore.getItem(ontology.idToString(resource.id));
+      resourceStore.setItem(resource);
+      // Trigger re-sort when name changes.
+      if (prev?.name !== resource.name) setNodes((prevNodes) => [...prevNodes]);
+    },
     [client, handleError, resourceStore.setItem],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);

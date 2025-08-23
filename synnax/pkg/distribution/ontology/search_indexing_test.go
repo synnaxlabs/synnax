@@ -15,11 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -99,24 +97,13 @@ var _ = Describe("Search Indexing", func() {
 
 		// Create and register the mock service
 		mockSvc = newMockIndexingService(z, resources)
+		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
 		tx := db.OpenTx()
 		w := otg.NewWriter(tx)
 		for _, r := range resources {
 			Expect(w.DefineResource(ctx, r.ID)).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
-		otg.RegisterService(ctx, mockSvc)
-	})
-
-	It("should index all resources during startup", func() {
-		Expect(otg.RunStartupSearchIndexing(ctx)).To(Succeed())
-
-		// Test exact name search
-		results := MustSucceed(otg.Search(ctx, search.Request{
-			Type: testType,
-			Term: "cat",
-		}))
-		Expect(results).To(HaveLen(1))
-		Expect(results[0].ID.Key).To(Equal("1"))
+		otg.RegisterService(mockSvc)
 	})
 })

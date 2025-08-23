@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type Destructor, type status } from "@synnaxlabs/x";
 import { createContext, use } from "react";
 import { type z } from "zod";
 
@@ -17,8 +17,12 @@ export interface RemoveFunc {
   (path: string): void;
 }
 
+export interface SetOptions {
+  notifyOnChange?: boolean;
+}
+
 export interface SetFunc {
-  (path: string, value: unknown): void;
+  (path: string, value: unknown, options?: SetOptions): void;
 }
 
 export interface Listener {
@@ -44,6 +48,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
+  getStatuses: () => status.Crude[];
 }
 
 export const Context = createContext<ContextValue>({
@@ -65,6 +70,7 @@ export const Context = createContext<ContextValue>({
   setStatus: () => {},
   clearStatuses: () => {},
   setCurrentStateAsInitialValues: () => {},
+  getStatuses: () => [],
 });
 
 export const useContext = <Z extends z.ZodType = z.ZodType>(
