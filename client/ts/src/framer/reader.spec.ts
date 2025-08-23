@@ -35,7 +35,7 @@ describe("export", async () => {
       const res = await client.read({
         keys: [indexChannel.key, dataChannel.key],
         timeRange: testTimeRange,
-        contentType: "csv",
+        responseType: "csv",
       });
       const body = await res.text();
       expect(body).toContain(`${indexChannel.name},${dataChannel.name}`);
@@ -49,7 +49,7 @@ describe("export", async () => {
       const res = await client.read({
         keys: [indexChannel.key, dataChannel.key],
         timeRange: testTimeRange,
-        contentType: "csv",
+        responseType: "csv",
         channelNames: {
           [indexChannel.key]: "index",
           [dataChannel.key]: "data",
@@ -66,7 +66,7 @@ describe("export", async () => {
     test("should allow a partial time range", async () => {
       const res = await client.read({
         keys: [indexChannel.key, dataChannel.key],
-        contentType: "csv",
+        responseType: "csv",
         timeRange: new TimeRange(2, 4),
       });
       const body = await res.text();
@@ -80,7 +80,7 @@ describe("export", async () => {
     test("should grab the index channel even if not specified", async () => {
       const res = await client.read({
         keys: [dataChannel.key],
-        contentType: "csv",
+        responseType: "csv",
         timeRange: testTimeRange,
       });
       const body = await res.text();
@@ -94,7 +94,7 @@ describe("export", async () => {
     test("should throw an error if no keys are provided", async () => {
       const res = await client.read({
         keys: [],
-        contentType: "csv",
+        responseType: "csv",
         timeRange: testTimeRange,
       });
       await expect(res.text()).rejects.toThrow();

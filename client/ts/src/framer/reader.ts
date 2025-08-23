@@ -15,35 +15,25 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type Transport } from "@/transport";
 
-const contentTypeZ = z
-  .enum(["csv", "application/sy-framer"])
-  .default("application/sy-framer");
+const responseTypeZ = z.enum(["csv"]);
 
 const readRequestZ = z.object({
   keys: channel.keyZ.array(),
   timeRange: TimeRange.z,
   channelNames: z.record(channel.keyZ, z.string()).optional(),
-  contentType: contentTypeZ,
+  responseType: responseTypeZ,
 });
 export interface ReadRequest extends z.input<typeof readRequestZ> {}
 
 export class Reader {
-  private readonly client: UnaryClient;
   private readonly csvClient: UnaryClient;
 
   constructor(transport: Transport) {
-    this.client = transport.unary;
     this.csvClient = transport.withDecoder(binary.CSV_CODEC);
   }
 
-  async read(props: ReadRequest): Promise<Response> {
-    const contentType = contentTypeZ.parse(props.contentType);
-    if (contentType === "csv") {
-      const [res, err] = await this.csvClient.send("/frame/read", props, readRequestZ);
-      if (err != null) throw err;
-      return res;
-    }
-    const [res, err] = await this.client.send("/frame/read", props, readRequestZ);
+  async read(req: ReadRequest): Promise<Response> {
+    const [res, err] = await this.csvClient.send("/frame/read", req, readRequestZ);
     if (err != null) throw err;
     return res;
   }

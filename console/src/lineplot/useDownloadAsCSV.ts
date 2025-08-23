@@ -49,7 +49,7 @@ export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
           timeRange,
           channelNames,
           keys: channelKeys,
-          contentType: "csv",
+          responseType: "csv",
         });
         if (res.body == null) throw new UnexpectedError("HTTP response body is null");
         await writeFile(savePath, res.body);
