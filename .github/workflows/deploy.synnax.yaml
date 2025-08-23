@@ -119,7 +119,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev autoconf automake libtool autoheader
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool autotools-dev
 
       - name: Install Deps on Macos
         if: matrix.os == 'macos-15'
@@ -410,4 +410,3 @@ jobs:
             docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
             docker push synnaxlabs/synnax:rc
           fi
-
