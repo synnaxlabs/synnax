@@ -13,7 +13,11 @@
 #include <utility>
 
 #include "glog/logging.h"
+#ifdef _WIN32
 #include "vendor/libmodbus/modbus/modbus.h"
+#else
+#include "modbus/modbus.h"
+#endif
 
 /// module
 #include "x/cpp/xerrors/errors.h"
