@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 import { SubcategorySection } from "./SubcategorySection";
-import { Icon } from "@/icon";
 
 export const TextShowcase = () => (
   <Flex.Box y pack empty rounded>
