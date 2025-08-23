@@ -90,8 +90,8 @@ type Service struct {
 	State  *tracker.Tracker
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New[Config](DefaultConfig, configs...)
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
