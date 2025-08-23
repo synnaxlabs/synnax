@@ -27,3 +27,24 @@
         border-top-left-radius: 1rem;
     }
 }
+
+.console-mosaic {
+    .console-mosaic-modal {
+        animation: none !important;
+    }
+    .console-mosaic-modal-bar {
+        display: none;
+        &.console-mosaic-modal-bar--focused {
+            display: flex;
+            z-index: 10;
+        }
+        & .pluto-navbar__content {
+            &.pluto--start {
+                padding-left: 2rem;
+            }
+            &.pluto--end {
+                padding-right: 1rem;
+            }
+        }
+    }
+}

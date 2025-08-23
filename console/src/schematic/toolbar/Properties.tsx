@@ -8,17 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Button,
   Color,
   Diagram,
+  Flex,
   Form,
   Icon,
   Input,
   Schematic,
   Status,
+  Text,
 } from "@synnaxlabs/pluto";
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, color, deep, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -44,9 +45,9 @@ export const PropertiesControls = memo(
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
-        <Status.Text.Centered variant="disabled" hideIcon>
+        <Text.Text status="disabled" center>
           Select a Schematic element to configure its properties.
-        </Status.Text.Centered>
+        </Text.Text>
       );
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
@@ -84,17 +85,17 @@ const IndividualProperties = ({
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
-    values: structuredClone(props),
+    values: deep.copy(props),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, values),
+    onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
 
   return (
-    <Align.Space style={{ height: "100%" }} y>
+    <Flex.Box style={{ height: "100%" }} y>
       <Form.Form<typeof nodePropsZ> {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -113,7 +114,7 @@ const EdgeProperties = ({
     dispatch(setElementProps({ layoutKey, key, props }));
   };
   return (
-    <Align.Space style={{ padding: "2rem" }} align="start" x>
+    <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.color ?? color.ZERO}
@@ -128,7 +129,7 @@ const EdgeProperties = ({
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -195,9 +196,9 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Align.Space align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x style={{ padding: "2rem" }}>
       <Input.Item label="Selection Colors" align="start">
-        <Align.Space y>
+        <Flex.Box y>
           {Object.entries(colorGroups).map(([hex, elements]) => (
             <Color.Swatch
               key={elements[0].key}
@@ -207,11 +208,11 @@ const MultiElementProperties = ({
               }}
             />
           ))}
-        </Align.Space>
+        </Flex.Box>
       </Input.Item>
       <Input.Item label="Align">
-        <Align.Space x>
-          <Button.Icon
+        <Flex.Box x>
+          <Button.Button
             tooltip="Align nodes vertically"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "x");
@@ -226,8 +227,8 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.YCenter />
-          </Button.Icon>
-          <Button.Icon
+          </Button.Button>
+          <Button.Button
             tooltip="Align nodes horizontally"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "y");
@@ -242,9 +243,9 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.XCenter />
-          </Button.Icon>
-        </Align.Space>
+          </Button.Button>
+        </Flex.Box>
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };

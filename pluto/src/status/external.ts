@@ -11,4 +11,4 @@ export * from "@/status/Aggregator";
 export * from "@/status/colors";
 export * from "@/status/Indicator";
 export * from "@/status/Notification";
-export * from "@/status/Text";
+export * from "@/status/Summary";

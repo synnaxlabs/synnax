@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { id, TimeStamp } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Task", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
@@ -74,16 +74,16 @@ describe("Task", async () => {
       expect(retrieved.config).toStrictEqual({ a: "dog" });
       expect(retrieved.type).toBe("ni");
     });
-    describe("retrieveByName", () => {
-      it("should retrieve a task by its name", async () => {
-        const name = `test-${Date.now()}-${Math.random()}`;
-        const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });
-        const retrieved = await client.hardware.tasks.retrieve({ name });
-        expect(retrieved.key).toBe(m.key);
-      });
+
+    it("should retrieve a task by its name", async () => {
+      const name = `test-${Date.now()}-${Math.random()}`;
+      const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });
+      const retrieved = await client.hardware.tasks.retrieve({ name });
+      expect(retrieved.key).toBe(m.key);
     });
-    describe("retrieve with state", () => {
-      it("should also send the tasks state", async () => {
+
+    describe("state", () => {
+      it("should include task status when requested", async () => {
         const t = await testRack.createTask({
           name: "test",
           config: { a: "dog" },
@@ -107,7 +107,161 @@ describe("Task", async () => {
             });
             return retrieved.status?.variant === communicatedStatus.variant;
           })
-          .toBeTruthy();
+          .toBe(true);
+      });
+    });
+
+    describe("request object format", () => {
+      const testTasks: Array<{ key: string; name: string; type: string }> = [];
+      let secondRack: any;
+
+      beforeAll(async () => {
+        secondRack = await client.hardware.racks.create({ name: "test-rack-2" });
+
+        const taskConfigs = [
+          { name: "sensor_task1", type: "ni", rack: testRack },
+          { name: "sensor_task2", type: "ni", rack: testRack },
+          { name: "actuator_task1", type: "labjack", rack: testRack },
+          { name: "actuator_task2", type: "labjack", rack: secondRack },
+          { name: "controller_task", type: "opc", rack: secondRack },
+        ];
+
+        for (const config of taskConfigs) {
+          const task = await config.rack.createTask({
+            name: config.name,
+            type: config.type,
+            config: { test: true },
+          });
+          testTasks.push({ key: task.key, name: config.name, type: config.type });
+        }
+      });
+
+      it("should retrieve tasks by rack", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          rack: testRack.key,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(3);
+        expect(result.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+      });
+
+      it("should retrieve tasks by multiple keys", async () => {
+        const keysToQuery = testTasks.slice(0, 2).map((t) => t.key);
+        const result = await client.hardware.tasks.retrieve({
+          keys: keysToQuery,
+        });
+        expect(result).toHaveLength(2);
+        expect(result.map((t) => t.key).sort()).toEqual(keysToQuery.sort());
+      });
+
+      it("should retrieve tasks by multiple names", async () => {
+        const namesToQuery = ["sensor_task1", "actuator_task1"];
+        const result = await client.hardware.tasks.retrieve({
+          names: namesToQuery,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((t) => namesToQuery.includes(t.name))).toBe(true);
+      });
+
+      it("should retrieve tasks by types", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          types: ["ni"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.every((t) => t.type === "ni")).toBe(true);
+      });
+
+      it("should retrieve tasks by multiple types", async () => {
+        const typesToQuery = ["ni", "labjack"];
+        const result = await client.hardware.tasks.retrieve({
+          types: typesToQuery,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(4);
+        expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
+      });
+
+      it("should support pagination with limit and offset", async () => {
+        const firstPage = await client.hardware.tasks.retrieve({
+          rack: testRack.key,
+          limit: 2,
+          offset: 0,
+        });
+        expect(firstPage.length).toBeLessThanOrEqual(2);
+
+        if (firstPage.length === 2) {
+          const secondPage = await client.hardware.tasks.retrieve({
+            rack: testRack.key,
+            limit: 2,
+            offset: 2,
+          });
+
+          const firstPageKeys = firstPage.map((t) => t.key);
+          const secondPageKeys = secondPage.map((t) => t.key);
+          expect(firstPageKeys.every((key) => !secondPageKeys.includes(key))).toBe(
+            true,
+          );
+        }
+      });
+
+      it("should support combined filters", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          rack: testRack.key,
+          types: ["ni"],
+          includeStatus: true,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(result.every((t) => t.type === "ni")).toBe(true);
+
+        await expect
+          .poll(async () => {
+            const tasks = await client.hardware.tasks.retrieve({
+              rack: testRack.key,
+              types: ["ni"],
+              includeStatus: true,
+            });
+            return tasks.every((t) => t.status !== undefined);
+          })
+          .toBe(true);
+      });
+
+      it("should handle empty results gracefully", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          types: ["nonexistent_type"],
+        });
+        expect(result).toEqual([]);
+      });
+
+      it("should combine rack and type filters", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          rack: secondRack.key,
+          types: ["labjack"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(result.every((t) => t.type === "labjack")).toBe(true);
+      });
+
+      it("should handle limit without offset", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          limit: 1,
+        });
+        expect(result).toHaveLength(1);
+      });
+
+      it("should retrieve tasks with includeStatus in request object", async () => {
+        const result = await client.hardware.tasks.retrieve({
+          rack: testRack.key,
+          includeStatus: true,
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+
+        await expect
+          .poll(async () => {
+            const tasks = await client.hardware.tasks.retrieve({
+              rack: testRack.key,
+              includeStatus: true,
+            });
+            return tasks.every((t) => t.status !== undefined);
+          })
+          .toBe(true);
       });
     });
   });
@@ -122,14 +276,6 @@ describe("Task", async () => {
       const copy = await client.hardware.tasks.copy(m.key, "New Name", false);
       expect(copy.name).toBe("New Name");
       expect(copy.config).toStrictEqual({ a: "dog" });
-    });
-  });
-
-  describe("list", () => {
-    it("should list all tasks", async () => {
-      await testRack.createTask({ name: "test", config: { a: "dog" }, type: "ni" });
-      const tasks = await client.hardware.tasks.list();
-      expect(tasks.length).toBeGreaterThan(0);
     });
   });
 
@@ -160,35 +306,6 @@ describe("Task", async () => {
         type: "ni",
       });
       await expect(t.executeCommandSync("test", 0)).rejects.toThrow("timed out");
-    });
-    it("should execute synchronously if timeout is large enough", async () => {
-      const t = await testRack.createTask({
-        name: "test",
-        config: {},
-        type: "ni",
-      });
-      const commandObs = await t.openCommandObserver();
-      const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-      commandObs.onChange((cmd) => {
-        void (async () => {
-          const status: task.Status = {
-            key: cmd.key,
-            variant: "success",
-            details: { task: cmd.task, running: false, data: { beacons: "lit" } },
-            message: "test",
-            time: TimeStamp.now(),
-          };
-          await w.write(task.STATUS_CHANNEL_NAME, [status]);
-        })();
-      });
-      const status = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
-      expect(status.variant).toBe("success");
-      expect(status.details).toMatchObject({
-        data: { beacons: "lit" },
-        running: false,
-      });
-      await w.close();
-      await commandObs.close();
     });
   });
 });

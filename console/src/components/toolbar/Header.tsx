@@ -9,22 +9,54 @@
 
 import "@/components/toolbar/Header.css";
 
-import { Header as PHeader } from "@synnaxlabs/pluto";
+import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 
-export interface HeaderProps extends Omit<PHeader.HeaderProps, "level" | "divided"> {}
+export interface ContentProps extends Flex.BoxProps {
+  disableClusterBoundary?: boolean;
+}
 
-export const Header = (props: HeaderProps): ReactElement => (
+export const Content = ({
+  disableClusterBoundary,
+  ...rest
+}: ContentProps): ReactElement => (
+  <Cluster.NoneConnectedBoundary disabled={disableClusterBoundary}>
+    <Flex.Box empty y pack full {...rest} />
+  </Cluster.NoneConnectedBoundary>
+);
+
+export interface HeaderProps extends PHeader.HeaderProps {
+  padded?: boolean;
+}
+
+export const Header = ({ padded, ...rest }: HeaderProps): ReactElement => (
   <PHeader.Header
-    className={CSS.B("toolbar-header")}
+    className={CSS(
+      CSS.BE("toolbar", "header"),
+      padded && CSS.BEM("toolbar", "header", "padded"),
+    )}
     level="h5"
     shrink={false}
-    {...props}
+    background={1}
+    {...rest}
   />
 );
 
 export const Actions = (props: PHeader.ActionsProps): ReactElement => (
-  <PHeader.Actions {...props} style={{ paddingRight: "0.5rem" }} />
+  <PHeader.Actions {...props} />
+);
+
+export interface ActionProps extends Button.ButtonProps {}
+
+export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
+  <Button.Button
+    contrast={2}
+    size="small"
+    rounded={1}
+    className={CSS(CSS.BE("toolbar", "action"), className)}
+    {...rest}
+  />
 );

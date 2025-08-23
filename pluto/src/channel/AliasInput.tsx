@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { useAlias, useAliasSetter, useName } from "@/channel/AliasContext";
+import { Channel } from "@/channel";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status";
@@ -19,20 +19,30 @@ import { Text } from "@/text";
 
 export interface AliasInputProps extends Input.TextProps {
   channelKey: channel.Key;
+  rangeKey?: string;
   shadow?: boolean;
 }
 
 export const AliasInput = ({
   channelKey,
+  rangeKey,
   shadow,
   className,
   ...rest
 }: AliasInputProps): ReactElement => {
   const { value, onChange } = rest;
   const [loading, setLoading] = useState(false);
-  const setAlias = useAliasSetter();
-  const alias = useAlias(channelKey);
-  const [name] = useName(channelKey);
+  const { update } = Channel.updateAlias.useDirect({
+    params: { rangeKey, channelKey },
+  });
+  const { data } = Channel.retrieve.useDirect({
+    params: { key: channelKey, rangeKey },
+  });
+  const setAlias = async (value: string) => {
+    update(value);
+  };
+  const alias = data?.alias;
+  const name = data?.alias ?? data?.name;
   let icon = <Icon.Rename />;
   if (loading) icon = <Icon.Loading />;
   else if (alias === value) icon = <Icon.Check />;
@@ -44,7 +54,7 @@ export const AliasInput = ({
     handleError(async () => {
       setLoading(true);
       try {
-        await setAlias(channelKey, value);
+        await setAlias(value);
         setLoading(false);
       } catch (e) {
         setLoading(false);
@@ -78,18 +88,18 @@ export const AliasInput = ({
     );
 
   return (
-    <Input.Text {...rest}>
+    <Input.Text selectOnFocus {...rest}>
       {canSetAlias && (
-        <Button.Icon
+        <Button.Button
           onClick={handleSetValueToAlias}
           tooltip={<Text.Text level="small">Set {name} as label</Text.Text>}
           tooltipLocation={{ y: "top" }}
           variant="outlined"
         >
           <Icon.Sync />
-        </Button.Icon>
+        </Button.Button>
       )}
-      <Button.Icon
+      <Button.Button
         onClick={handleSetAlias}
         disabled={!canSetAlias}
         tooltip={setAliasTooltip}
@@ -97,7 +107,7 @@ export const AliasInput = ({
         variant="outlined"
       >
         {icon}
-      </Button.Icon>
+      </Button.Button>
     </Input.Text>
   );
 };

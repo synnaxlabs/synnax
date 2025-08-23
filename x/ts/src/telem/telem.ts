@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
@@ -28,6 +28,12 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
+const dateComponentsZ = z.union([
+  z.tuple([z.int()]),
+  z.tuple([z.int(), z.int().min(1).max(12)]),
+  z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
+]);
+
 /**
  * A triple of numbers representing a date.
  *
@@ -35,7 +41,7 @@ export type TimeStampStringFormat =
  * @param month - The month.
  * @param day - The day.
  */
-export type DateComponents = [number?, number?, number?];
+export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
@@ -93,7 +99,7 @@ export class TimeStamp
       super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
-      let offset: bigint = BigInt(0);
+      let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
@@ -265,7 +271,7 @@ export class TimeStamp
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -320,7 +326,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   add(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() + BigInt(span.valueOf()));
+    return new TimeStamp(math.add(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -331,7 +337,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   sub(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() - BigInt(span.valueOf()));
+    return new TimeStamp(math.sub(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -644,11 +650,14 @@ export class TimeStamp
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(TimeStamp),
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
-    z.instanceof(TimeStamp),
+    z.bigint().transform((n) => new TimeStamp(n)),
+    z.date().transform((d) => new TimeStamp(d)),
+    z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
+    dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
   /**
@@ -811,7 +820,17 @@ export class TimeSpan
    * @returns A new TimeSpan that is this TimeSpan multiplied by the provided value.
    */
   mult(value: number): TimeSpan {
-    return new TimeSpan(this.valueOf() * BigInt(value));
+    return new TimeSpan(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides the TimeSpan by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new TimeSpan that is this TimeSpan divided by the provided value.
+   */
+  div(value: number): TimeSpan {
+    return new TimeSpan(math.div(this.valueOf(), value));
   }
 
   /** @returns the decimal number of days in the TimeSpan. */
@@ -855,7 +874,7 @@ export class TimeSpan
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -989,9 +1008,11 @@ export class TimeSpan
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
+    z.bigint().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
+    z.instanceof(TimeStamp).transform((t) => new TimeSpan(t)),
+    z.custom<Rate>((r) => r instanceof Rate).transform((r) => new TimeSpan(r)),
   ]);
 }
 
@@ -1066,6 +1087,46 @@ export class Rate
   }
 
   /**
+   * Adds another Rate to this Rate.
+   *
+   * @param other - The Rate to add.
+   * @returns A new Rate representing the sum of the two rates.
+   */
+  add(other: CrudeRate): Rate {
+    return new Rate(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Rate from this Rate.
+   *
+   * @param other - The Rate to subtract.
+   * @returns A new Rate representing the difference of the two rates.
+   */
+  sub(other: CrudeRate): Rate {
+    return new Rate(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Rate by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Rate representing this Rate multiplied by the value.
+   */
+  mult(value: number): Rate {
+    return new Rate(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Rate by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Rate representing this Rate divided by the value.
+   */
+  div(value: number): Rate {
+    return new Rate(math.div(this.valueOf(), value));
+  }
+
+  /**
    * Creates a Rate representing the given number of Hz.
    *
    * @param value - The number of Hz.
@@ -1088,7 +1149,6 @@ export class Rate
   /** A zod schema for validating and transforming rates */
   static readonly z = z.union([
     z.number().transform((n) => new Rate(n)),
-    z.instanceof(Number).transform((n) => new Rate(n)),
     z.instanceof(Rate),
   ]);
 }
@@ -1129,6 +1189,46 @@ export class Density
     return new Size(sampleCount * this.valueOf());
   }
 
+  /**
+   * Adds another Density to this Density.
+   *
+   * @param other - The Density to add.
+   * @returns A new Density representing the sum of the two densities.
+   */
+  add(other: CrudeDensity): Density {
+    return new Density(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Density from this Density.
+   *
+   * @param other - The Density to subtract.
+   * @returns A new Density representing the difference of the two densities.
+   */
+  sub(other: CrudeDensity): Density {
+    return new Density(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Density by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Density representing this Density multiplied by the value.
+   */
+  mult(value: number): Density {
+    return new Density(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Density by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Density representing this Density divided by the value.
+   */
+  div(value: number): Density {
+    return new Density(math.div(this.valueOf(), value));
+  }
+
   /** Unknown/Invalid Density. */
   static readonly UNKNOWN = new Density(0);
   /** 128 bits per value. */
@@ -1145,7 +1245,6 @@ export class Density
   /** A zod schema for validating and transforming densities */
   static readonly z = z.union([
     z.number().transform((n) => new Density(n)),
-    z.instanceof(Number).transform((n) => new Density(n)),
     z.instanceof(Density),
   ]);
 }
@@ -1703,7 +1802,9 @@ export class DataType
   ]);
 }
 
-/** The size of an element in bytes. */
+/**
+ * The Size of an element in bytes.
+ */
 export class Size
   extends primitive.ValueExtension<number>
   implements primitive.Stringer
@@ -1724,12 +1825,32 @@ export class Size
 
   /** @returns a new Size representing the sum of the two Sizes. */
   add(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() + other.valueOf());
+    return new Size(math.add(this.valueOf(), other.valueOf()));
   }
 
   /** @returns a new Size representing the difference of the two Sizes. */
   sub(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() - other.valueOf());
+    return new Size(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Size by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Size representing this Size multiplied by the value.
+   */
+  mult(value: number): Size {
+    return new Size(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Size by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Size representing this Size divided by the value.
+   */
+  div(value: number): Size {
+    return new Size(math.div(this.valueOf(), value));
   }
 
   /** @returns a new Size representing the truncated value of the Size. */
@@ -1865,31 +1986,22 @@ export class Size
 
 export type CrudeTimeStamp =
   | bigint
-  | BigInt
   | TimeStamp
   | TimeSpan
   | number
   | Date
   | string
-  | DateComponents
-  | Number;
+  | DateComponents;
 export type TimeStampT = number;
-export type CrudeTimeSpan =
-  | bigint
-  | BigInt
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Number
-  | Rate;
+export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
 export type TimeSpanT = number;
-export type CrudeRate = Rate | number | Number;
+export type CrudeRate = Rate | number;
 export type RateT = number;
-export type CrudeDensity = Density | number | Number;
+export type CrudeDensity = Density | number;
 export type DensityT = number;
 export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
-export type CrudeSize = Size | number | Number;
+export type CrudeSize = Size | number;
 export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
@@ -1958,11 +2070,11 @@ export const convertDataType = (
   target: DataType,
   value: math.Numeric,
   offset: math.Numeric = 0,
-): math.PrimitiveNumeric => {
+): math.Numeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset).valueOf();
+  return addSamples(value, -offset);
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {

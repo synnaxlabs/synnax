@@ -1,33 +1,18 @@
 .console-task-configure--modbus_read,
 .console-task-configure--modbus_write {
     .console-channel-item {
-        & > *:first-child {
+        & > *:first-child > * {
             border-top-right-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
-            &:not(.pluto--visible) button {
-                border-bottom-left-radius: var(--pluto-border-radius) !important;
-            }
         }
         & > *:nth-child(2):not(:last-child) {
             width: 15rem;
-            .pluto-input__internal {
-                border-radius: 0 !important;
-            }
+            border-radius: 0 !important;
         }
-        & > *:last-child {
+        & > *:last-child > * {
+            width: 23rem;
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
-            .pluto-input__internal {
-                border-top-left-radius: 0 !important;
-                border-bottom-left-radius: 0 !important;
-                width: 75px;
-            }
-            & button {
-                width: 150px;
-            }
-            &:not(.pluto--visible) button {
-                border-bottom-right-radius: var(--pluto-border-radius) !important;
-            }
         }
     }
 }

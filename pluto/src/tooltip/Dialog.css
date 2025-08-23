@@ -40,37 +40,37 @@
         --scale: 1;
     }
 
-    &.pluto--center {
-        &.pluto--top {
+    &.pluto--location-center {
+        &.pluto--location-top {
             --transform-x: calc(var(--pluto-pos-x) - 50%);
             --transform-y: calc(
                 var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
             );
         }
-        &.pluto--bottom {
+        &.pluto--location-bottom {
             --transform-x: calc(var(--pluto-pos-x) - 50%);
             --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
         }
-        &.pluto--left {
+        &.pluto--location-left {
             --transform-x: calc(
                 var(--pluto-pos-x) + calc(-100% - var(--translate-amount))
             );
             --transform-y: calc(var(--pluto-pos-y) - 50%);
         }
-        &.pluto--right {
+        &.pluto--location-right {
             --transform-x: calc(var(--pluto-pos-x) + var(--translate-amount));
             --transform-y: calc(var(--pluto-pos-y) - 50%);
         }
     }
 
-    &.pluto--top {
-        &.pluto--right {
+    &.pluto--location-top {
+        &.pluto--location-right {
             --transform-x: var(--pluto-pos-x);
             --transform-y: calc(
                 var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
             );
         }
-        &.pluto--left {
+        &.pluto--location-left {
             --transform-x: calc(var(--pluto-pos-x) - 100%);
             --transform-y: calc(
                 var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
@@ -78,12 +78,12 @@
         }
     }
 
-    &.pluto--bottom {
-        &.pluto--right {
+    &.pluto--location-bottom {
+        &.pluto--location-right {
             --transform-x: var(--pluto-pos-x);
             --transform-y: calc(var(--pluto-pos-y) - var(--translate-amount));
         }
-        &.pluto--left {
+        &.pluto--location-left {
             --transform-x: calc(var(--pluto-pos-x) - 100%);
             --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
         }

@@ -16,8 +16,6 @@ import {
   type OutputChannelType,
 } from "@/hardware/modbus/task/types";
 
-const COLUMNS = [{ key: "name", name: "Name" }];
-
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
 const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
@@ -27,11 +25,11 @@ const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
 
 export interface SelectOutputChannelTypeProps
   extends Omit<
-    Form.DropdownButtonFieldProps<OutputChannelType, OutputChannelTypeEntry>,
+    Form.SelectFieldProps<OutputChannelType, OutputChannelTypeEntry>,
     "data" | "entryRenderKey" | "columns"
   > {}
 
-export const SelectOutputChannelType = Form.buildDropdownButtonSelectField<
+export const SelectOutputChannelType = Form.buildSelectField<
   OutputChannelType,
   OutputChannelTypeEntry
 >({
@@ -44,8 +42,7 @@ export const SelectOutputChannelType = Form.buildDropdownButtonSelectField<
   },
   inputProps: {
     allowNone: false,
-    entryRenderKey: "name",
-    columns: COLUMNS,
+    resourceName: "Channel Type",
     data: OUTPUT_CHANNEL_TYPES,
     style: { width: "25rem" },
   },

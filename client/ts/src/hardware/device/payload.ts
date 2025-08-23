@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, record, status, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -55,6 +55,3 @@ export interface New<
   make: Make;
   model: Model;
 }
-
-export const ONTOLOGY_TYPE = "device";
-export type OntologyType = typeof ONTOLOGY_TYPE;

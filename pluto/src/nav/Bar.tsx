@@ -12,10 +12,10 @@ import "@/nav/Bar.css";
 import { direction, location, type spatial } from "@synnaxlabs/x";
 import { type FunctionComponent, type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 
-export interface BarProps extends Omit<Align.SpaceProps, "direction" | "size" | "ref"> {
+export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "ref"> {
   location?: location.Crude;
   size?: string | number;
   bordered?: boolean;
@@ -33,7 +33,7 @@ const CoreBar = ({
   const dir = location.direction(loc);
   const oppositeDir = direction.swap(dir);
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS(
         CSS.B("navbar"),
         bordered && CSS.bordered(location.swap(loc)),
@@ -53,7 +53,7 @@ const CoreBar = ({
   );
 };
 
-export interface BarContentProps extends Omit<Align.SpaceProps<"div">, "ref"> {
+export interface BarContentProps extends Omit<Flex.BoxProps<"div">, "ref"> {
   bordered?: boolean;
   className?: string;
 }
@@ -64,7 +64,7 @@ const contentFactory =
   ): FunctionComponent<BarContentProps> =>
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
-    <Align.Space
+    <Flex.Box
       className={CSS(
         CSS.BE("navbar", "content"),
         pos === "absolute-center" ? CSS.M(pos) : CSS.align(pos),

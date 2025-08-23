@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { migrate } from "@/migrate";
 
@@ -59,7 +59,7 @@ const migrations: migrate.Migrations = {
 describe("compareSemVer", () => {
   it("should return true when the major version is higher", () => {
     expect(migrate.compareSemVer("1.0.0", "0.0.0")).toBeGreaterThan(0);
-    expect(migrate.semVerNewer("3.0.0", "0.3.0")).toBeTruthy();
+    expect(migrate.semVerNewer("3.0.0", "0.3.0")).toBe(true);
   });
   describe("only check major", () => {
     it("should return equal when the major versions are equal but the minor and patch are different", () => {

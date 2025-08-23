@@ -51,7 +51,6 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
         <Triggers.SaveHelpText action={confirmLabel} />
         <Nav.Bar.End x align="center">
           <Button.Button
-            variant="outlined"
             status={cancelVariant}
             onClick={() => onFinish(false)}
             onClickDelay={cancelDelay}
@@ -59,9 +58,10 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
             {cancelLabel}
           </Button.Button>
           <Button.Button
+            variant="filled"
             status={confirmVariant}
             onClick={() => onFinish(true)}
-            triggers={Triggers.SAVE}
+            trigger={Triggers.SAVE}
             onClickDelay={confirmDelay}
           >
             {confirmLabel}
@@ -72,12 +72,10 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
 
     return (
       <ModalContentLayout footer={footer}>
-        <Text.Text level="h3" shade={11} weight={450}>
+        <Text.Text level="h3" weight={450}>
           {message}
         </Text.Text>
-        <Text.Text level="p" shade={11} weight={450}>
-          {description}
-        </Text.Text>
+        <Text.Text weight={450}>{description}</Text.Text>
       </ModalContentLayout>
     );
   },

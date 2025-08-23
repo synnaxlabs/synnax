@@ -13,32 +13,22 @@ import {
   type CrudeTimeRange,
   type CrudeTimeStamp,
   type MultiSeries,
-  type TimeRange,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
-import { Frame, ONTOLOGY_TYPE } from "@/framer/frame";
-import { Iterator, type IteratorConfig } from "@/framer/iterator";
+import { Frame } from "@/framer/frame";
+import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 
-export const ontologyID = (key: channel.Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
-
-const normalizeConfig = <T extends { channels: channel.Params }>(
-  config: T | channel.Params,
-): T => {
-  if (
-    Array.isArray(config) ||
-    typeof config !== "object" ||
-    (typeof config === "object" && "key" in config)
-  )
-    return { channels: config } as T;
-  return config;
-};
+export const ontologyID = (key: channel.Key): ontology.ID => ({
+  type: "framer",
+  key: key.toString(),
+});
 
 export class Client {
   private readonly streamClient: WebSocketClient;
@@ -78,24 +68,9 @@ export class Client {
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
    */
-  async openWriter(config: WriterConfig | channel.Params): Promise<Writer> {
-    return await Writer._open(
-      this.retriever,
-      this.streamClient,
-      normalizeConfig<WriterConfig>(config),
-    );
+  async openWriter(config: WriterConfig): Promise<Writer> {
+    return await Writer._open(this.retriever, this.streamClient, config);
   }
-
-  /***
-   * Opens a new streamer on the given channels.
-   *
-   * @param channels - A key, name, list of keys, or list of names of the channels to
-   * stream values from.
-   * @throws a QueryError if any of the given channels do not exist.
-   * @returns a new {@link Streamer} that must be closed when done streaming, otherwise
-   * a network socket will remain open.
-   */
-  async openStreamer(channels: channel.Params): Promise<Streamer>;
 
   /**
    * Opens a new streamer with the provided configuration.
@@ -108,17 +83,8 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: StreamerConfig): Promise<Streamer>;
-
-  /** Overload to provide interface compatibility with @see StreamOpener */
-  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
-
-  async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
-    return await openStreamer(
-      this.retriever,
-      this.streamClient,
-      normalizeConfig<StreamerConfig>(config),
-    );
+  async openStreamer(config: StreamerConfig): Promise<Streamer> {
+    return await openStreamer(this.retriever, this.streamClient, config);
   }
 
   async write(
@@ -202,6 +168,34 @@ export class Client {
     } finally {
       await i.close();
     }
+    return frame;
+  }
+
+  async readLatest(channel: channel.KeyOrName, n: number): Promise<MultiSeries>;
+
+  async readLatest(channels: channel.Params, n: number): Promise<Frame>;
+
+  async readLatest(
+    channels: channel.Params,
+    n: number = 1,
+  ): Promise<MultiSeries | Frame> {
+    const { single } = channel.analyzeParams(channels);
+    const fr = await this.readLatestNFrame(channels, n);
+    if (single) return fr.get(channels as channel.KeyOrName);
+    return fr;
+  }
+
+  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
+    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+    const frame = new Frame();
+    if (n > 0)
+      try {
+        await i.seekLast();
+        await i.prev(AUTO_SPAN);
+        frame.push(i.value);
+      } finally {
+        await i.close();
+      }
     return frame;
   }
 

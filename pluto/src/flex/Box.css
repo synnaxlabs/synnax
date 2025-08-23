@@ -1,0 +1,351 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-flex {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1.5rem;
+    flex-direction: column;
+
+    &.pluto--bordered {
+        border: var(--pluto-border);
+        border-color: var(--pluto-border-color);
+    }
+    &.pluto--rounded {
+        border-radius: var(--pluto-border-radius);
+    }
+    &.pluto--sharp {
+        border-radius: 0;
+    }
+    &.pluto--reverse {
+        flex-direction: column-reverse;
+    }
+    &.pluto--wrap {
+        flex-wrap: wrap;
+    }
+    &.pluto--justify-start {
+        justify-content: flex-start;
+    }
+    &.pluto--justify-center {
+        justify-content: center;
+    }
+    &.pluto--justify-end {
+        justify-content: flex-end;
+    }
+    &.pluto--justify-between {
+        justify-content: space-between;
+    }
+    &.pluto--justify-around {
+        justify-content: space-around;
+    }
+    &.pluto--justify-evenly {
+        justify-content: space-evenly;
+    }
+    &.pluto--align-start {
+        align-items: flex-start;
+    }
+    &.pluto--align-center {
+        align-items: center;
+    }
+    &.pluto--align-end {
+        align-items: flex-end;
+    }
+    &.pluto--align-stretch {
+        align-items: stretch;
+    }
+    &.pluto--direction-x {
+        flex-direction: row;
+        &.pluto--reverse {
+            flex-direction: row-reverse;
+        }
+    }
+    /* Keep this class even though this is the default, because it increases
+     * the specificity of the selector if the user explicitly sets the direction
+     * to y */
+    &.pluto--direction-y {
+        flex-direction: column;
+        &.pluto--reverse {
+            flex-direction: column-reverse;
+        }
+    }
+    &.pluto--grow {
+        flex-grow: 1;
+    }
+    &.pluto--shrink {
+        flex-shrink: 1;
+    }
+
+    &.pluto--gap-huge {
+        gap: 5rem;
+    }
+    &.pluto--gap-medium {
+        gap: 1.5rem;
+    }
+    &.pluto--gap-large {
+        gap: 4rem;
+    }
+    &.pluto--gap-small {
+        gap: 1rem;
+    }
+    &.pluto--gap-tiny {
+        gap: 0.5rem;
+    }
+    &.pluto--empty,
+    &.pluto--pack {
+        gap: 0;
+    }
+    &.pluto--full-x {
+        width: 100%;
+    }
+    &.pluto--full-y {
+        height: 100%;
+    }
+    &.pluto--full {
+        width: 100%;
+        height: 100%;
+    }
+    &.pluto--center {
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        flex-grow: 1;
+    }
+    &.pluto--height-huge {
+        min-height: var(--pluto-height-huge);
+        height: fit-content;
+    }
+
+    &.pluto--height-large {
+        min-height: var(--pluto-height-large);
+        height: fit-content;
+    }
+
+    &.pluto--height-medium {
+        min-height: var(--pluto-height-medium);
+        height: fit-content;
+    }
+
+    &.pluto--height-tiny {
+        min-height: var(--pluto-height-tiny);
+        height: fit-content;
+    }
+
+    &.pluto--height-small {
+        min-height: var(--pluto-height-small);
+        height: fit-content;
+    }
+
+    &.pluto--border-color-0 {
+        border-color: var(--pluto-gray-l0);
+    }
+
+    &.pluto--border-color-1 {
+        border-color: var(--pluto-gray-l1);
+    }
+
+    &.pluto--border-color-2 {
+        border-color: var(--pluto-gray-l2);
+    }
+
+    &.pluto--border-color-3 {
+        border-color: var(--pluto-gray-l3);
+    }
+
+    &.pluto--border-color-4 {
+        border-color: var(--pluto-gray-l4);
+    }
+
+    &.pluto--border-color-5 {
+        border-color: var(--pluto-gray-l5);
+    }
+
+    &.pluto--border-color-6 {
+        border-color: var(--pluto-gray-l6);
+    }
+
+    &.pluto--border-color-7 {
+        border-color: var(--pluto-gray-l7);
+    }
+
+    &.pluto--border-color-8 {
+        border-color: var(--pluto-gray-l8);
+    }
+
+    &.pluto--border-color-9 {
+        border-color: var(--pluto-gray-l9);
+    }
+
+    &.pluto--border-color-10 {
+        border-color: var(--pluto-gray-l10);
+    }
+
+    &.pluto--border-color-11 {
+        border-color: var(--pluto-gray-l11);
+    }
+
+    &.pluto--bg-0 {
+        background-color: var(--pluto-gray-l0);
+    }
+    &.pluto--bg-1 {
+        background-color: var(--pluto-gray-l1);
+    }
+    &.pluto--bg-2 {
+        background-color: var(--pluto-gray-l2);
+    }
+    &.pluto--bg-3 {
+        background-color: var(--pluto-gray-l3);
+    }
+    &.pluto--bg-4 {
+        background-color: var(--pluto-gray-l4);
+    }
+    &.pluto--bg-5 {
+        background-color: var(--pluto-gray-l5);
+    }
+    &.pluto--bg-6 {
+        background-color: var(--pluto-gray-l6);
+    }
+    &.pluto--bg-7 {
+        background-color: var(--pluto-gray-l7);
+    }
+    &.pluto--bg-8 {
+        background-color: var(--pluto-gray-l8);
+    }
+    &.pluto--bg-9 {
+        background-color: var(--pluto-gray-l9);
+    }
+    &.pluto--bg-10 {
+        background-color: var(--pluto-gray-l10);
+    }
+    &.pluto--bg-11 {
+        background-color: var(--pluto-gray-l11);
+    }
+    &.pluto--color-0 {
+        color: var(--pluto-gray-l0);
+    }
+    &.pluto--color-1 {
+        color: var(--pluto-gray-l1);
+    }
+    &.pluto--color-2 {
+        color: var(--pluto-gray-l2);
+    }
+    &.pluto--color-3 {
+        color: var(--pluto-gray-l3);
+    }
+    &.pluto--color-4 {
+        color: var(--pluto-gray-l4);
+    }
+    &.pluto--color-5 {
+        color: var(--pluto-gray-l5);
+    }
+    &.pluto--color-6 {
+        color: var(--pluto-gray-l6);
+    }
+    &.pluto--color-7 {
+        color: var(--pluto-gray-l7);
+    }
+    &.pluto--color-8 {
+        color: var(--pluto-gray-l8);
+    }
+    &.pluto--color-9 {
+        color: var(--pluto-gray-l9);
+    }
+    &.pluto--color-10 {
+        color: var(--pluto-gray-l10);
+    }
+    &.pluto--color-11 {
+        color: var(--pluto-gray-l11);
+    }
+    &.pluto--status-error {
+        color: var(--pluto-error-z);
+    }
+    &.pluto--status-warning {
+        color: var(--pluto-warning-z);
+    }
+    &.pluto--status-success {
+        color: var(--pluto-primary-z);
+    }
+    &.pluto--status-disabled {
+        color: var(--pluto-gray-l8);
+    }
+    &.pluto--status-loading {
+        color: var(--pluto-gray-l8);
+    }
+
+    &.pluto--square {
+        align-items: center;
+        width: fit-content;
+        justify-content: center;
+        font-weight: 400;
+
+        &.pluto--height-huge {
+            min-width: var(--pluto-height-huge);
+        }
+        &.pluto--height-large {
+            min-width: var(--pluto-height-large);
+        }
+        &.pluto--height-small {
+            min-width: var(--pluto-height-small);
+        }
+        &.pluto--height-medium {
+            min-width: var(--pluto-height-medium);
+        }
+        &.pluto--height-tiny {
+            min-width: var(--pluto-height-tiny);
+        }
+    }
+
+    &.pluto--pack {
+        &:not(.pluto--sharp) {
+            border-radius: var(--pluto-border-radius);
+        }
+        & > * {
+            border-radius: 0;
+        }
+        &.pluto--direction-x > * {
+            &:not(:first-child) {
+                margin-left: calc(-1 * var(--pluto-border-width));
+            }
+            &:first-child {
+                border-top-right-radius: 0;
+                border-bottom-right-radius: 0;
+                border-top-left-radius: inherit;
+                border-bottom-left-radius: inherit;
+            }
+            &:last-child {
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+                border-top-right-radius: inherit;
+                border-bottom-right-radius: inherit;
+            }
+            &:only-child {
+                border-radius: inherit;
+            }
+        }
+        &.pluto--direction-y > * {
+            &:not(:first-child) {
+                margin-top: calc(-1 * var(--pluto-border-width));
+            }
+            &:last-child {
+                border-top-right-radius: 0;
+                border-top-left-radius: 0;
+                border-bottom-right-radius: inherit;
+                border-bottom-left-radius: inherit;
+            }
+            &:first-child {
+                border-top-right-radius: inherit;
+                border-top-left-radius: inherit;
+                border-bottom-right-radius: 0;
+                border-bottom-left-radius: 0;
+            }
+        }
+    }
+}

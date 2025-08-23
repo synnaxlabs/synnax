@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -20,7 +20,7 @@ import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelType
 import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
-  type analogWriteConfigZ,
+  analogWriteConfigZ,
   type analogWriteStatusDataZ,
   type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
@@ -48,32 +48,30 @@ export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChannel> {}
-
-const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const {
-    entry: { port, cmdChannel, stateChannel, type },
-  } = rest;
+const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => {
+  const item = PForm.useFieldValue<AOChannel>(itemKey);
+  if (item == null) return null;
+  const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
+      itemKey={itemKey}
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      isSnapshot={isSnapshot}
-      path={path}
+      path={itemKey}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
@@ -89,8 +87,8 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
-const channelListItem = componentRenderProp(ChannelListItem);
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -98,36 +96,37 @@ const Form: FC<
     typeof analogWriteConfigZ,
     typeof analogWriteStatusDataZ
   >
-> = ({ task, isSnapshot }) => (
+> = () => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}
-    isSnapshot={isSnapshot}
-    initialChannels={task.config.channels}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof analogWriteTypeZ,
   typeof analogWriteConfigZ,
   typeof analogWriteStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_ANALOG_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_ANALOG_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_ANALOG_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? analogWriteConfigZ.parse(config)
+      : ZERO_ANALOG_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_ANALOG_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
@@ -224,6 +223,6 @@ export const AnalogWrite = Common.Task.wrapForm({
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

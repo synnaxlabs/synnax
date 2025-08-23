@@ -7,111 +7,103 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
-import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  type Flux,
+  Form,
+  Icon,
+  Status,
+  Synnax,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { type z } from "zod/v4";
 
 import { CSS } from "@/css";
-import { type Command } from "@/hardware/common/task/types";
+import { useKey, useStatus } from "@/hardware/common/task/Form";
 import { Layout } from "@/layout";
 
-export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
-  extends Align.SpaceProps {
+export interface ControlsProps extends Flex.BoxProps {
   layoutKey: string;
-  status: task.Status<StatusData>;
-  onCommand: (command: Command) => void;
+  formStatus: Flux.Result<undefined>["status"];
   onConfigure: () => void;
-  isConfiguring: boolean;
-  isSnapshot: boolean;
-  hasBeenConfigured: boolean;
 }
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const Controls = <StatusData extends z.ZodType = z.ZodType>({
-  status,
-  onCommand,
+export const Controls = ({
   layoutKey,
   onConfigure,
-  hasBeenConfigured,
-  isConfiguring,
-  isSnapshot,
+  formStatus,
   ...props
-}: ControlsProps<StatusData>) => {
-  const {
-    message,
-    variant,
-    details: { running },
-  } = status ?? {};
-  const content = isSnapshot ? (
-    <Status.Text.Centered hideIcon variant="disabled">
-      This task is a snapshot and cannot be modified or started.
-    </Status.Text.Centered>
-  ) : message != null ? (
-    <Status.Text variant={variant}>{message}</Status.Text>
-  ) : isConfiguring ? (
-    <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
-  ) : !hasBeenConfigured ? (
-    <Status.Text.Centered hideIcon variant="disabled">
-      Task must be configured to start.
-    </Status.Text.Centered>
-  ) : null;
-  const isLoading = variant === "loading";
-  const canConfigure = !isLoading && !isConfiguring && !isSnapshot;
-  const canStartOrStop =
-    !isLoading && !isConfiguring && !isSnapshot && hasBeenConfigured;
-  const hasTriggers =
-    Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
-  const handleStartStop = useCallback(
-    () => onCommand(running ? "stop" : "start"),
-    [running, onCommand],
-  );
+}: ControlsProps) => {
+  const taskStatus = useStatus();
+  const isSnapshot = Form.useFieldValue<boolean>("snapshot");
+  const handleError = Status.useErrorHandler();
+  let stat: status.Status = taskStatus;
+  if (formStatus.variant !== "success") stat = formStatus;
+  const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  const client = Synnax.use();
+  const key = useKey();
+  const handleStartStop = useCallback(() => {
+    if (key == null) return;
+    const command = taskStatus.details.running ? "stop" : "start";
+    handleError(
+      async () => await client?.hardware.tasks.executeCommand(key, command),
+      `Failed to ${command} task`,
+    );
+  }, [taskStatus]);
   return (
-    <Align.Space
+    <Flex.Box
       className={CSS.B("task-controls")}
       x
-      justify="spaceBetween"
+      justify="between"
       empty
       bordered
       {...props}
     >
-      <Align.Space className={CSS.B("task-state")} x>
-        {content}
-      </Align.Space>
+      <Flex.Box className={CSS.B("task-state")} x>
+        <Status.Summary
+          variant={stat.variant}
+          message={stat.message}
+          description={stat.description}
+          justify="center"
+          align="center"
+          center={false}
+        />
+      </Flex.Box>
       {!isSnapshot && (
-        <Align.Space align="center" x justify="end">
+        <Flex.Box align="center" x justify="end">
           <Button.Button
-            disabled={!canConfigure}
-            loading={isConfiguring}
             onClick={onConfigure}
+            status={status.filterVariant(formStatus.variant, ["loading", "disabled"])}
             size="medium"
             tooltip={
               hasTriggers ? (
-                <Align.Space x align="center" size="small">
-                  <Triggers.Text level="small" shade={11} trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small" shade={11}>
-                    To Configure
-                  </Text.Text>
-                </Align.Space>
+                <Flex.Box x align="center" gap="small">
+                  <Triggers.Text level="small" trigger={CONFIGURE_TRIGGER} />
+                  <Text.Text level="small">To Configure</Text.Text>
+                </Flex.Box>
               ) : undefined
             }
-            triggers={hasTriggers ? [CONFIGURE_TRIGGER] : undefined}
+            trigger={hasTriggers ? CONFIGURE_TRIGGER : undefined}
             variant="outlined"
           >
             Configure
           </Button.Button>
-          <Button.Icon
-            disabled={!canStartOrStop}
-            loading={isLoading}
+          <Button.Button
+            disabled={formStatus.variant !== "success"}
+            status={status.filterVariant(taskStatus.variant, "loading")}
             onClick={handleStartStop}
             size="medium"
             variant="filled"
           >
-            {running ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Icon>
-        </Align.Space>
+            {taskStatus.details.running ? <Icon.Pause /> : <Icon.Play />}
+          </Button.Button>
+        </Flex.Box>
       )}
-    </Align.Space>
+    </Flex.Box>
   );
 };

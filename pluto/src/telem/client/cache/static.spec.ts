@@ -226,7 +226,7 @@ describe("StaticReadCache", () => {
         c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read()).toHaveLength(1);
-      await expect.poll(async () => c.gc().purgedSeries === 1).toBeTruthy();
+      await expect.poll(async () => c.gc().purgedSeries === 1).toBe(true);
       expect(read()).toHaveLength(0);
     });
     it("should not garbage collect series that have a reference count greater than zero", async () => {

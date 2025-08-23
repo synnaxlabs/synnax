@@ -13,13 +13,4 @@
     .console-form {
         padding: 0 4rem;
     }
-    .console-input__port {
-        width: 20rem;
-    }
-    .console-input__host {
-        width: 20rem;
-    }
-    .console-input__password {
-        width: 100%;
-    }
 }

@@ -15,13 +15,14 @@ import { type channel } from "@/channel";
 import { Frame } from "@/framer/frame";
 import {
   HardenedStreamer,
-  parseStreamerConfig,
+  ObservableStreamer,
   type Streamer,
+  streamerConfigZ,
 } from "@/framer/streamer";
 import { newVirtualChannel } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Streamer", () => {
   describe("standard", () => {
@@ -273,55 +274,60 @@ describe("Streamer", () => {
     });
   });
 
-  describe("hardened", () => {
-    class MockStreamer implements Streamer {
-      keys: channel.Key[] = [];
-      updateMock = vi.fn();
-      readMock = vi.fn();
-      closeMock = vi.fn();
-      responses: [Frame, Error | null][] = [];
-      updateErrors: (Error | null)[] = [];
+  class MockStreamer implements Streamer {
+    keys: channel.Key[] = [];
+    updateMock = vi.fn();
+    readMock = vi.fn();
+    closeMock = vi.fn();
+    responses: [Frame, Error | null][] = [];
+    updateErrors: (Error | null)[] = [];
 
-      update(channels: channel.Params): Promise<void> {
-        if (this.updateErrors.length > 0) {
-          const err = this.updateErrors.shift()!;
-          if (err) throw err;
-        }
-        this.updateMock(channels);
-        return Promise.resolve();
-      }
-
-      close(): void {
-        this.closeMock();
-      }
-
-      async read(): Promise<Frame> {
-        this.readMock();
-        if (this.responses.length === 0) throw new EOF();
-        const [frame, err] = this.responses.shift()!;
+    update(channels: channel.Params): Promise<void> {
+      if (this.updateErrors.length > 0) {
+        const err = this.updateErrors.shift()!;
         if (err) throw err;
-        return frame;
       }
+      this.updateMock(channels);
+      return Promise.resolve();
+    }
 
-      async next(): Promise<IteratorResult<Frame, any>> {
+    close(): void {
+      this.closeMock();
+    }
+
+    async read(): Promise<Frame> {
+      this.readMock();
+      if (this.responses.length === 0) throw new EOF();
+      const [frame, err] = this.responses.shift()!;
+      if (err) throw err;
+      return frame;
+    }
+
+    async next(): Promise<IteratorResult<Frame, any>> {
+      try {
         const fr = await this.read();
         return { done: false, value: fr };
-      }
-
-      [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
-        return this;
+      } catch (err) {
+        if (EOF.matches(err)) return { done: true, value: undefined };
+        throw err;
       }
     }
 
+    [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
+      return this;
+    }
+  }
+
+  describe("hardened", () => {
     it("should correctly call the underlying streamer methods", async () => {
       const streamer = new MockStreamer();
       const openMock = vi.fn();
-      const config = { channels: [1, 2, 3] };
+      const config = { channels: [1, 2, 3], useExperimentalCodec: false };
       const fr = new Frame({ 1: new Series([1]) });
       const hardened = await HardenedStreamer.open(
         async (cfg) => {
           openMock(cfg);
-          const cfg_ = parseStreamerConfig(cfg);
+          const cfg_ = streamerConfigZ.parse(cfg);
           streamer.responses = [[fr, null]];
           streamer.keys = cfg_.channels as channel.Key[];
           return streamer;
@@ -329,7 +335,10 @@ describe("Streamer", () => {
         { channels: [1, 2, 3] },
       );
       expect(hardened.keys).toEqual([1, 2, 3]);
-      expect(openMock).toHaveBeenCalledWith(config);
+      expect(openMock).toHaveBeenCalledWith({
+        ...config,
+        downsampleFactor: 1,
+      });
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);
       const fr2 = await hardened.read();
@@ -463,6 +472,146 @@ describe("Streamer", () => {
 
       await hardened.update([2, 3]);
       expect(openerMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("observable", () => {
+    it("should notify observers when frames are received", async () => {
+      const mockStreamer = new MockStreamer();
+      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
+
+      mockStreamer.responses = [
+        [frame1, null],
+        [frame2, null],
+      ];
+      mockStreamer.keys = [1];
+
+      const observable = new ObservableStreamer(mockStreamer);
+
+      const receivedFrames: Frame[] = [];
+      observable.onChange((frame) => {
+        receivedFrames.push(frame);
+      });
+
+      await expect.poll(() => receivedFrames.length).toBe(2);
+      expect(receivedFrames[0]).toEqual(frame1);
+      expect(receivedFrames[1]).toEqual(frame2);
+
+      await observable.close();
+      expect(mockStreamer.closeMock).toHaveBeenCalled();
+    });
+
+    test("should apply transform function to frames", async () => {
+      const mockStreamer = new MockStreamer();
+      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
+
+      mockStreamer.responses = [
+        [frame1, null],
+        [frame2, null],
+      ];
+      mockStreamer.keys = [1];
+
+      const transform = (frame: Frame): [number, true] | [null, false] => {
+        try {
+          const data = Array.from(frame.get(1));
+          const firstValue = data[0] as number;
+          return [firstValue, true];
+        } catch {
+          return [null, false];
+        }
+      };
+
+      const observable = new ObservableStreamer(mockStreamer, transform);
+
+      const receivedValues: number[] = [];
+      observable.onChange((value) => {
+        if (value !== null) receivedValues.push(value);
+      });
+
+      await expect.poll(() => receivedValues.length).toBe(2);
+      expect(receivedValues[0]).toBe(1);
+      expect(receivedValues[1]).toBe(4);
+
+      await observable.close();
+    });
+
+    test("should handle multiple observers", async () => {
+      const mockStreamer = new MockStreamer();
+      const frame1 = new Frame({ 1: new Series([10, 20]) });
+
+      mockStreamer.responses = [[frame1, null]];
+      mockStreamer.keys = [1];
+
+      const observable = new ObservableStreamer(mockStreamer);
+
+      const observer1Results: Frame[] = [];
+      const observer2Results: Frame[] = [];
+
+      observable.onChange((frame) => {
+        observer1Results.push(frame);
+      });
+
+      observable.onChange((frame) => {
+        observer2Results.push(frame);
+      });
+
+      await expect.poll(() => observer1Results.length).toBe(1);
+      expect(observer2Results).toHaveLength(1);
+      expect(observer1Results[0]).toEqual(frame1);
+      expect(observer2Results[0]).toEqual(frame1);
+
+      await observable.close();
+    });
+
+    test("should update channels on underlying streamer", async () => {
+      const mockStreamer = new MockStreamer();
+      mockStreamer.keys = [1, 2];
+
+      const observable = new ObservableStreamer(mockStreamer);
+
+      await observable.update([3, 4, 5]);
+
+      expect(mockStreamer.updateMock).toHaveBeenCalledWith([3, 4, 5]);
+
+      await observable.close();
+    });
+
+    test("should handle empty frame stream gracefully", async () => {
+      const mockStreamer = new MockStreamer();
+      mockStreamer.keys = [1];
+
+      const observable = new ObservableStreamer(mockStreamer);
+
+      const receivedFrames: Frame[] = [];
+      observable.onChange((frame) => {
+        receivedFrames.push(frame);
+      });
+
+      await expect.poll(() => receivedFrames.length).toBe(0);
+      expect(receivedFrames).toHaveLength(0);
+
+      await observable.close();
+    });
+
+    test("should properly close and cleanup resources", async () => {
+      const mockStreamer = new MockStreamer();
+      const frame1 = new Frame({ 1: new Series([1]) });
+
+      mockStreamer.responses = [[frame1, null]];
+      mockStreamer.keys = [1];
+
+      const observable = new ObservableStreamer(mockStreamer);
+
+      const receivedFrames: Frame[] = [];
+      observable.onChange((frame) => {
+        receivedFrames.push(frame);
+      });
+
+      await observable.close();
+
+      expect(mockStreamer.closeMock).toHaveBeenCalled();
     });
   });
 });

@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export interface TitleProps extends Omit<Text.WithIconProps, "divided" | "level"> {
+export interface TitleProps extends Omit<Text.TextProps, "divided" | "level"> {
   level?: Text.Level;
 }
 
@@ -29,13 +29,12 @@ export const Title = ({
   level: propsLevel,
   ...rest
 }: TitleProps): ReactElement => {
-  const { level, divided } = useContext();
+  const { level } = useContext();
   return (
-    <Text.WithIcon
+    <Text.Text
       className={CSS(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
-      divided={divided}
-      size={1.5}
+      gap={1.5}
       {...rest}
     />
   );

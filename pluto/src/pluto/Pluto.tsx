@@ -13,10 +13,17 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Flux } from "@/flux";
+import { Device } from "@/hardware/device";
+import { Rack } from "@/hardware/rack";
+import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
+import { Label } from "@/label";
+import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Ranger } from "@/ranger";
+import { ranger } from "@/ranger/aether";
 import { Status } from "@/status";
-import { Sync } from "@/sync";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
@@ -25,6 +32,7 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Worker } from "@/worker";
+import { Workspace } from "@/workspace";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
@@ -37,10 +45,35 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   tooltip?: Tooltip.ConfigProps;
   triggers?: Triggers.ProviderProps;
   haul?: Haul.ProviderProps;
-  channelAlias?: Channel.AliasProviderProps;
   telem?: CanDisabledProps<Telem.ProviderProps>;
   color?: Color.ProviderProps;
 }
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [Label.FLUX_STORE_KEY]: Label.FluxStore;
+  [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
+  [Device.FLUX_STORE_KEY]: Device.FluxStore;
+  [Task.FLUX_STORE_KEY]: Task.FluxStore;
+  [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+}> = {
+  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
+  [Rack.FLUX_STORE_KEY]: Rack.STORE_CONFIG,
+  [Device.FLUX_STORE_KEY]: Device.STORE_CONFIG,
+  [Task.FLUX_STORE_KEY]: Task.STORE_CONFIG,
+  [Workspace.FLUX_STORE_KEY]: Workspace.STORE_CONFIG,
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_STORE_CONFIG,
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_STORE_CONFIG,
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
+  [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
+};
 
 export const Provider = ({
   children,
@@ -52,7 +85,6 @@ export const Provider = ({
   triggers,
   alamos,
   haul,
-  channelAlias,
   telem,
   color,
 }: ProviderProps): ReactElement => (
@@ -64,17 +96,15 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Sync.Provider>
-                    <Channel.AliasProvider {...channelAlias}>
-                      <Color.Provider {...color}>
-                        <Theming.Provider {...theming}>
-                          <CanDisableTelem {...telem}>
-                            <Control.StateProvider>{children}</Control.StateProvider>
-                          </CanDisableTelem>
-                        </Theming.Provider>
-                      </Color.Provider>
-                    </Channel.AliasProvider>
-                  </Sync.Provider>
+                  <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
+                    <Color.Provider {...color}>
+                      <Theming.Provider {...theming}>
+                        <CanDisableTelem {...telem}>
+                          <Control.StateProvider>{children}</Control.StateProvider>
+                        </CanDisableTelem>
+                      </Theming.Provider>
+                    </Color.Provider>
+                  </Flux.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

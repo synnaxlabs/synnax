@@ -11,11 +11,11 @@ import "@/telem/control/Indicator.css";
 
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -32,7 +32,7 @@ export const Indicator = ({
   colorSource,
   statusSource,
 }: IndicatorProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ colorSource, statusSource });
+  const memoProps = useMemoDeepEqual({ colorSource, statusSource });
 
   const [, { color: colorVal, status }, setState] = Aether.use({
     type: control.Indicator.TYPE,
@@ -61,7 +61,7 @@ export const Indicator = ({
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
-      <Text.Text level="p">{status.message}</Text.Text>
+      <Text.Text>{status.message}</Text.Text>
       <div
         className={CSS.B("indicator")}
         style={{

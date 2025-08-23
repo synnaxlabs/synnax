@@ -11,7 +11,7 @@ import { createMockWorkers } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type FC, type PropsWithChildren, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
@@ -88,7 +88,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
@@ -113,7 +113,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 1 });

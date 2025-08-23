@@ -18,13 +18,10 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
-
-export const ONTOLOGY_TYPE = "framer";
-export type OntologyType = typeof ONTOLOGY_TYPE;
 
 type ColumnType = "key" | "name" | null;
 

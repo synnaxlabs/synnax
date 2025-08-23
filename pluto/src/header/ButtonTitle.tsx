@@ -35,7 +35,7 @@ export const ButtonTitle = ({
   return (
     <Button.Button
       variant="text"
-      size={Text.LevelComponentSizes[level]}
+      size={Text.LEVEL_COMPONENT_SIZES[level]}
       onClick={onClick}
       className={CSS(CSS.B("header-button-title"), className)}
       sharp

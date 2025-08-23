@@ -9,33 +9,27 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
+import { useKey } from "@/hardware/common/task/Form";
 
-interface RackProps {
-  taskKey: task.Key;
-}
-
-export const Rack = ({ taskKey }: RackProps) => {
-  const rackKey = task.getRackKey(taskKey);
-  const rack = PRack.use(rackKey);
-  if (rack == null) return null;
+export const Rack = () => {
+  const { data: rack, retrieve } = PRack.retrieve.useStateful();
+  const taskKey = useKey();
+  useEffect(() => {
+    if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
+  }, [taskKey]);
+  if (rack == null) return;
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={10} weight={450}>
+      <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
-      <Text.WithIcon
-        className={CSS.B("rack-name")}
-        startIcon={<Icon.Rack />}
-        level="small"
-        shade={9}
-        weight={350}
-        style={{ paddingRight: "0.5rem" }}
-        ellipsis
-      >
+      <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
+        <Icon.Rack />
         {rack?.name}
-      </Text.WithIcon>
+      </Text.Text>
     </Tooltip.Dialog>
   );
 };

@@ -10,7 +10,7 @@
 import "@/hardware/modbus/task/Read.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon, List, Select } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -59,11 +59,11 @@ export const READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Flex.Box direction="x" grow>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
@@ -73,22 +73,19 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [HOLDING_REGISTER_INPUT_TYPE]: () => <></>,
   [REGISTER_INPUT_TYPE]: () => <></>,
 };
-
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  ...rest
-}: Common.Task.ChannelListItemProps<InputChannel>) => {
-  const { entry } = rest;
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const { type, channel } = PForm.useFieldValue<InputChannel>(path);
   return (
-    <List.ItemFrame
-      {...rest}
+    <Select.ListItem
+      {...props}
       style={{ width: "100%" }}
-      justify="spaceBetween"
+      justify="between"
       align="center"
       direction="x"
     >
-      <Align.Pack direction="x" align="center" className={CSS.B("channel-item")}>
+      <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectInputChannelTypeField
           path={path}
           onChange={(value, { get, set, path }) => {
@@ -111,8 +108,7 @@ const ChannelListItem = ({
           showHelpText={false}
           path={`${path}.address`}
         />
-        {(entry.type === REGISTER_INPUT_TYPE ||
-          entry.type === HOLDING_REGISTER_INPUT_TYPE) && (
+        {(type === REGISTER_INPUT_TYPE || type === HOLDING_REGISTER_INPUT_TYPE) && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -120,27 +116,24 @@ const ChannelListItem = ({
             hideIfNull
           >
             {({ value, onChange }) => (
-              <Select.DataType
+              <Telem.SelectDataType
                 value={value}
-                onChange={(v) => onChange(v)}
+                onChange={onChange}
                 hideVariableDensity={true}
                 location="bottom"
               />
             )}
           </PForm.Field>
         )}
-      </Align.Pack>
-      <Align.Space x align="center" grow justify="end">
+      </Flex.Box>
+      <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
-          channel={entry.channel}
-          id={Common.Task.getChannelNameID(entry.key)}
+          channel={channel}
+          id={Common.Task.getChannelNameID(itemKey)}
         />
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Space>
-    </List.ItemFrame>
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+      </Flex.Box>
+    </Select.ListItem>
   );
 };
 
@@ -161,31 +154,21 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
   };
 };
 
-const ChannelList = ({ isSnapshot }: { isSnapshot: boolean }) => {
+const listItem = Component.renderProp(ChannelListItem);
+
+const Form: FC<
+  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
+> = () => {
   const createChannel = useCallback(
     (channels: InputChannel[]) => getOpenChannel(channels),
     [],
   );
-  const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<InputChannel>) => (
-      <ChannelListItem key={key} {...p} />
-    ),
-    [],
-  );
   return (
     <Common.Task.Layouts.List<InputChannel>
-      isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
     />
   );
-};
-
-const Form: FC<
-  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
-> = (props) => {
-  const { isSnapshot } = props;
-  return <ChannelList isSnapshot={isSnapshot} />;
 };
 
 const readMapKey = (channel: InputChannel) => {
@@ -201,7 +184,7 @@ const channelName = (device: Device.Device, channel: InputChannel) => {
   return s;
 };
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
@@ -217,9 +200,9 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
     try {
@@ -283,6 +266,6 @@ export const Read = Common.Task.wrapForm({
   Form,
   schemas: READ_SCHEMAS,
   type: READ_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

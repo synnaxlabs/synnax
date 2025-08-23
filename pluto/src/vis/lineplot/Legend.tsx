@@ -11,8 +11,8 @@ import "@/vis/legend/Container.css";
 
 import { memo, type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Legend as Core } from "@/vis/legend";
 import { LegendSwatches } from "@/vis/legend/Simple";
@@ -36,25 +36,20 @@ const Fixed = ({ onLineChange }: LegendProps) => {
   const { lines } = useContext("Legend");
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
-    { key, size: lines.length > 0 ? 36 : 0, loc: "bottom", order: 5 },
+    { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "Legend",
   );
 
   return (
-    <Align.Space
-      className={CSS.BE("legend", "container")}
+    <Flex.Box
+      className={CSS(CSS.BE("legend", "container"), CSS.B("legend", "fixed"))}
       align="center"
+      justify="start"
       x
-      style={{
-        ...gridStyle,
-        padding: "0 1rem",
-        height: "var(--pluto-height-medium)",
-        margin: "1rem 0 ",
-        width: "fit-content",
-      }}
+      style={gridStyle}
     >
-      <LegendSwatches data={lines} onEntryChange={onLineChange} shade={0} />
-    </Align.Space>
+      <LegendSwatches data={lines} onEntryChange={onLineChange} background={0} />
+    </Flex.Box>
   );
 };
 

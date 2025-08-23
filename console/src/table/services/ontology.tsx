@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { ontology, type Synnax } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -26,21 +26,26 @@ import { Table } from "@/table";
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Table" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
-      if (!(await confirm(selection.resources))) throw new errors.Canceled();
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+    onMutate: async ({
+      selection,
+      removeLayout,
+      state: { nodes, setNodes, getResource },
+    }) => {
+      if (!(await confirm(getResource(selection.resourceIDs))))
+        throw new errors.Canceled();
+      const ids = ontology.parseIDs(selection.resourceIDs);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
       const next = Tree.removeNode({
         tree: nodes,
-        keys: ids.map((id) => id.toString()),
+        keys: ids.map((id) => ontology.idToString(id)),
       });
       setNodes([...next]);
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
@@ -54,27 +59,28 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection,
-    selection: { resources },
+    selection: { resourceIDs, rootID },
+    state: { getResource, shape },
   } = props;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Table.useExport();
   const group = Group.useCreateFromSelection();
+  const firstID = resourceIDs[0];
+  const first = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
-    rename: () => Tree.startRenaming(resources[0].key),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
-    export: () => handleExport(resources[0].id.key),
+    rename: () => Text.edit(ontology.idToString(firstID)),
+    link: () => handleLink({ name: first.name, ontologyID: firstID }),
+    export: () => handleExport(first.id.key),
     group: () => group(props),
   });
-  const isSingle = resources.length === 1;
+  const isSingle = resourceIDs.length === 1;
   return (
-    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={onSelect} level="small" gap="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       <PMenu.Divider />
       {isSingle && (
         <>
@@ -127,30 +133,29 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   nodeKey,
   placeLayout,
   handleError,
-}) => {
-  client.workspaces.table
-    .retrieve(id.key)
-    .then((table) => {
-      placeLayout(
-        Table.create({
-          name: table.name,
-          ...table.data,
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    })
-    .catch((e) => handleError(e, "Failed to load table"));
-};
+}) =>
+  handleError(async () => {
+    const table = await client.workspaces.table.retrieve(id.key);
+    placeLayout(
+      Table.create({
+        name: table.name,
+        ...table.data,
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  }, "Failed to load table");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: table.ONTOLOGY_TYPE,
+  type: "table",
   icon: <Icon.Table />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
+  haulItems: ({ id }) => [
+    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
+  ],
   allowRename: () => true,
   onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,

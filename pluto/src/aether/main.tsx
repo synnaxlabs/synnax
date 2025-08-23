@@ -23,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
@@ -142,7 +142,17 @@ export const Provider = ({
         const err = new Error(message);
         err.stack = stack;
         err.name = name;
-        setError(err);
+        setError((prev) => {
+          if (prev != null) {
+            console.error(`
+              [aether] - received new error after error was already set, but before
+              previous error was thrown. This likely means that multiple errors occurred
+              in succession before react could throw the first one that occurred.
+            `);
+            console.error(err);
+          }
+          return err;
+        });
         return;
       }
       const { key, state } = msg;

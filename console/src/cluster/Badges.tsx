@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/Badges.css";
-
 import { type connection } from "@synnaxlabs/client";
-import { Align, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { CSS } from "@/css";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -38,22 +35,26 @@ export const ConnectionStatusBadge = ({
 }: ConnectionStateBadgeProps): ReactElement => {
   const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
   return (
-    <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
-      <Align.Space y size="tiny">
-        <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
+    <Tooltip.Dialog location={location.BOTTOM_LEFT}>
+      <Flex.Box y gap="tiny">
+        <Text.Text status={variant} weight={650}>
           {STATUS_MESSAGES[status]}
-        </Status.Text>
+        </Text.Text>
         {message != null && (
-          <Text.Text level="p" shade={9} weight={450}>
+          <Text.Text color={9} weight={450}>
             {message}
           </Text.Text>
         )}
-      </Align.Space>
-      <Status.Text
-        variant={variant}
-        justify="center"
-        className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
-      />
+      </Flex.Box>
+      <Text.Text
+        status={variant}
+        bordered
+        borderColor={5}
+        background={variant !== "disabled" && 0}
+        size="medium"
+      >
+        <Status.Indicator variant={variant} />
+      </Text.Text>
     </Tooltip.Dialog>
   );
 };

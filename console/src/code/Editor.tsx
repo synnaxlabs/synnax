@@ -9,7 +9,7 @@
 
 import "@/code/Editor.css";
 
-import { Align, type Input, Theming, TimeSpan } from "@synnaxlabs/pluto";
+import { Flex, type Input, Theming, TimeSpan } from "@synnaxlabs/pluto";
 import { type RefObject, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
@@ -86,7 +86,6 @@ const use = ({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const theme = useTheme();
   const monaco = useMonaco();
-
   useEffect(() => {
     if (monaco == null || editorContainerRef.current == null) return;
     editorRef.current = monaco.editor.create(editorContainerRef.current, {
@@ -113,7 +112,7 @@ const use = ({
 };
 export interface EditorProps
   extends Input.Control<string>,
-    Omit<Align.SpaceProps, "value" | "onChange"> {
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   language: string;
 }
 
@@ -126,7 +125,7 @@ export const Editor = ({
 }: EditorProps) => {
   const editorContainerRef = use({ value, onChange, language });
   return (
-    <Align.Space
+    <Flex.Box
       y
       grow
       {...rest}
@@ -134,6 +133,6 @@ export const Editor = ({
       style={{ height: "100%", position: "relative", overflow: "hidden" }}
     >
       <div ref={editorContainerRef} style={{ height: "100%" }} />
-    </Align.Space>
+    </Flex.Box>
   );
 };

@@ -34,7 +34,9 @@ export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement
   const tabsProps = Tabs.useStatic({ tabs });
   return (
     <Tabs.Tabs {...tabsProps} size="large">
-      {(tab) => props[tab.tabKey]}
+      {(tab) =>
+        props[tab.tabKey as keyof PackageManagerTabsProps] as unknown as ReactElement
+      }
     </Tabs.Tabs>
   );
 };

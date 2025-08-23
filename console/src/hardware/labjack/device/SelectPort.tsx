@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type List, Select, Text } from "@synnaxlabs/pluto";
+import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
+import { type ReactNode } from "react";
 
 import {
   type Model,
@@ -18,35 +19,75 @@ import {
 
 export interface SelectPortProps
   extends Omit<
-    Select.SingleProps<string, Port>,
-    "columns" | "data" | "entryRenderKey"
-  > {
+      Select.SingleProps<string, Port | undefined>,
+      "resourceName" | "data" | "children"
+    >,
+    Omit<List.UseStaticDataArgs<string, Port>, "data"> {
   model: Model;
   portType: PortType;
+  children?: ReactNode;
 }
 
-const COLUMNS: List.ColumnSpec<string, Port>[] = [
-  { key: "port", name: "Port", stringer: ({ alias, key }) => alias ?? key },
-  {
-    key: "aliases",
-    name: "Aliases",
-    render: ({ entry: { alias, key } }) =>
-      alias != null ? (
-        <Text.Text level="small" shade={10}>
+const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+  const port = List.useItem<string, Port>(props.itemKey);
+  if (port == null) return null;
+  const { alias, key } = port;
+  return (
+    <Select.ListItem {...props} align="center">
+      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
+      {alias != null && (
+        <Text.Text level="small" color={10}>
           {key}
         </Text.Text>
-      ) : null,
-  },
-];
+      )}
+    </Select.ListItem>
+  );
+});
 
-const getEntryRenderKey = ({ alias, key }: Port) => alias ?? key;
-
-export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
-  <Select.Single<string, Port>
-    allowNone={false}
-    {...rest}
-    columns={COLUMNS}
-    data={PORTS[model][portType]}
-    entryRenderKey={getEntryRenderKey}
-  />
-);
+export const SelectPort = ({
+  model,
+  portType,
+  value,
+  onChange,
+  children,
+  emptyContent,
+  filter,
+  triggerProps,
+  variant,
+  dialogProps,
+  ...rest
+}: SelectPortProps) => {
+  const { data, getItem, retrieve } = List.useStaticData<string, Port>({
+    data: PORTS[model][portType],
+    filter,
+  });
+  const selected = getItem(value ?? "");
+  const dialogVariant = variant === "preview" ? "connected" : variant;
+  const triggerVariant = variant === "preview" ? "preview" : undefined;
+  return (
+    <Dialog.Frame location="bottom" variant={dialogVariant} {...rest}>
+      <Select.Frame
+        data={data}
+        getItem={getItem}
+        onChange={onChange}
+        value={value}
+        closeDialogOnSelect
+      >
+        <Flex.Box pack x>
+          <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
+            {selected?.alias ?? selected?.key}
+          </Dialog.Trigger>
+          {children}
+        </Flex.Box>
+        <Select.Dialog<string>
+          onSearch={(term) => retrieve({ searchTerm: term })}
+          emptyContent={emptyContent}
+          resourceName="Port"
+          {...dialogProps}
+        >
+          {listItem}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  );
+};

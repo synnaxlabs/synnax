@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 
 import { label } from "@/label";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Label", () => {
   describe("create", () => {
@@ -25,7 +25,7 @@ describe("Label", () => {
   describe("retrieve", () => {
     it("should retrieve a label by its key", async () => {
       const v = await client.labels.create({ name: "Label", color: "#E774D0" });
-      const retrieved = await client.labels.retrieve(v.key);
+      const retrieved = await client.labels.retrieve({ key: v.key });
       expect(retrieved).toEqual(v);
     });
   });
@@ -34,7 +34,9 @@ describe("Label", () => {
     it("should delete a label by its key", async () => {
       const v = await client.labels.create({ name: "Label", color: "#E774D0" });
       await client.labels.delete(v.key);
-      await expect(async () => await client.labels.retrieve(v.key)).rejects.toThrow();
+      await expect(
+        async () => await client.labels.retrieve({ key: v.key }),
+      ).rejects.toThrow();
     });
   });
 
@@ -43,7 +45,7 @@ describe("Label", () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D)" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D)" });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
-      const labels = await client.labels.retrieveFor(label.ontologyID(l1.key));
+      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
     });
@@ -52,7 +54,7 @@ describe("Label", () => {
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D)" });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
       await client.labels.label(label.ontologyID(l1.key), [l1.key], { replace: true });
-      const labels = await client.labels.retrieveFor(label.ontologyID(l1.key));
+      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l1.key);
     });

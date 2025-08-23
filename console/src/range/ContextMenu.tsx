@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Label, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { DisconnectedError, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -17,7 +17,6 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import {
   create as createLinePlot,
@@ -40,12 +39,13 @@ export const SnapshotMenuItem = ({
   range,
 }: SnapshotMenuItemProps): ReactElement | null =>
   range?.persisted === true ? (
-    <PMenu.Item itemKey="rangeSnapshot" startIcon={<Icon.Snapshot />}>
+    <PMenu.Item itemKey="rangeSnapshot">
+      <Icon.Snapshot />
       Snapshot to {range.name}
     </PMenu.Item>
   ) : null;
 
-export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+export const fromClientRange = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
   array.toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
@@ -75,7 +75,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const res = await fetchIfNotInState(store, client, key);
       placeLayout(
         createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
@@ -108,25 +108,29 @@ const useAddToActivePlot = (): ((key: string) => void) => {
 };
 
 export const deleteMenuItem = (
-  <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+  <PMenu.Item itemKey="delete">
+    <Icon.Delete />
     Delete
   </PMenu.Item>
 );
 
 export const setAsActiveMenuItem = (
-  <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+  <PMenu.Item itemKey="setAsActive" gap="small">
+    <Icon.Dynamic />
     Set as Active Range
   </PMenu.Item>
 );
 
 export const clearActiveMenuItem = (
-  <PMenu.Item itemKey="clearActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+  <PMenu.Item itemKey="clearActive" gap="small">
+    <Icon.Dynamic />
     Clear Active Range
   </PMenu.Item>
 );
 
 export const viewDetailsMenuItem = (
-  <PMenu.Item startIcon={<Icon.Details />} itemKey="details">
+  <PMenu.Item itemKey="details">
+    <Icon.Details />
     View Details
   </PMenu.Item>
 );
@@ -136,7 +140,8 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const addToNewPlotMenuItem = (
-  <PMenu.Item itemKey="addToNewPlot" startIcon={<AddToNewPlotIcon key="plot" />}>
+  <PMenu.Item itemKey="addToNewPlot">
+    <AddToNewPlotIcon key="plot" />
     Add to New Plot
   </PMenu.Item>
 );
@@ -146,7 +151,8 @@ const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const addToActivePlotMenuItem = (
-  <PMenu.Item itemKey="addToActivePlot" startIcon={<AddToActivePlotIcon key="plot" />}>
+  <PMenu.Item itemKey="addToActivePlot">
+    <AddToActivePlotIcon key="plot" />
     Add to Active Plot
   </PMenu.Item>
 );
@@ -156,12 +162,11 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 export const addChildRangeMenuItem = (
-  <PMenu.Item itemKey="addChildRange" startIcon={<CreateChildRangeIcon key="plot" />}>
+  <PMenu.Item itemKey="addChildRange">
+    <CreateChildRangeIcon key="plot" />
     Create Child Range
   </PMenu.Item>
 );
-
-export const useLabels = (key: string) => Label.use(ranger.ontologyID(key));
 
 export const useViewDetails = (): ((key: string) => void) => {
   const client = Synnax.use();
@@ -169,7 +174,7 @@ export const useViewDetails = (): ((key: string) => void) => {
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const rng = await client.ranges.retrieve(key);
       placeLayout({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
@@ -261,7 +266,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => Text.edit(`text-${key}`),
-    create: handleCreate,
+    create: () => handleCreate(),
     remove: () => rangeExists && handleRemove([rng.key]),
     delete: () => rangeExists && del.mutate(rng.key),
     details: () => rangeExists && handleViewDetails(rng.key),
@@ -276,8 +281,9 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
     clearActive: handleClearActive,
   };
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <PMenu.Item startIcon={<Icon.Add />} itemKey="create">
+    <PMenu.Menu onChange={handleSelect} level="small" gap="small">
+      <PMenu.Item itemKey="create">
+        <Icon.Add />
         Create New
       </PMenu.Item>
       {rangeExists && (
@@ -292,7 +298,8 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
           {addToNewPlotMenuItem}
           <PMenu.Divider />
-          <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
+          <PMenu.Item itemKey="remove">
+            <Icon.Close />
             Remove from List
           </PMenu.Item>
           {rng.persisted ? (
@@ -305,7 +312,8 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
             client != null && (
               <>
                 <PMenu.Divider />
-                <PMenu.Item startIcon={<Icon.Save />} itemKey="save">
+                <PMenu.Item itemKey="save">
+                  <Icon.Save />
                   Save to Synnax
                 </PMenu.Item>
               </>

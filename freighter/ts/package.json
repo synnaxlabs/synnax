@@ -18,15 +18,13 @@
     "check-types": "tsc --noEmit",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "madge": "madge --circular src"
   },
   "dependencies": {
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
-    "node-fetch": "^2.7.0",
-    "ws": "^8.18.2",
     "zod": "catalog:"
   },
   "devDependencies": {

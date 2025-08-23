@@ -9,7 +9,7 @@
 
 import { color, notation } from "@synnaxlabs/x";
 import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -33,6 +33,9 @@ const valueState = z.object({
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
   location: location.xy.optional().default({ x: "left", y: "center" }),
+  useWidthForBackground: z.boolean().optional().default(false),
+  valueBackgroundShift: xy.xy.optional().default(xy.ZERO),
+  valueBackgroundOverScan: xy.xy.optional().default(xy.ZERO),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -153,7 +156,14 @@ export class Value
       if (!isZero) {
         setDefaultFillStyle = false;
         canvas.fillStyle = color.hex(colorValue);
-        canvas.fillRect(...xy.couple(bTopLeft), bWidth, bHeight);
+        const width = this.state.useWidthForBackground
+          ? (this.state.width ?? this.state.minWidth)
+          : box.width(b);
+        canvas.fillRect(
+          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+          width + this.state.valueBackgroundOverScan.x,
+          bHeight + this.state.valueBackgroundOverScan.y,
+        );
         const textColor = color.pickByContrast(
           colorValue,
           theme.colors.gray.l0,

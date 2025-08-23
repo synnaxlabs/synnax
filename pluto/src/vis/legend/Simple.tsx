@@ -10,12 +10,14 @@
 import { type color, type Optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useState } from "react";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { type state } from "@/state";
 import { Text } from "@/text";
+import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 
 interface SimpleEntry {
@@ -25,20 +27,22 @@ interface SimpleEntry {
   visible: boolean;
 }
 
-export interface SimpleProps extends Omit<ContainerProps, "value" | "onChange"> {
+export interface SimpleProps
+  extends Omit<ContainerProps, "value" | "onChange" | "background"> {
   data?: Optional<SimpleEntry, "visible">[];
   onEntryChange?: (value: SimpleEntry) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
   allowVisibleChange?: boolean;
+  background?: Theming.Shade;
 }
 
-interface LegendSwatchesProps {
+interface LegendSwatchesProps
+  extends Pick<SimpleProps, "onEntryChange" | "background"> {
   data: Optional<SimpleEntry, "visible">[];
   onEntryChange: SimpleProps["onEntryChange"];
-  onVisibleChange?: (visible: boolean) => void;
+  onVisibleChange?: state.Setter<boolean>;
   allowVisibleChange?: boolean;
-  shade?: Text.Shade;
 }
 
 export const LegendSwatches = memo(
@@ -47,22 +51,21 @@ export const LegendSwatches = memo(
     onEntryChange,
     onVisibleChange,
     allowVisibleChange = true,
-    shade = 1,
+    background = 1,
   }: LegendSwatchesProps): ReactElement => (
     <>
       {data
         .sort((a, b) => a.label.localeCompare(b.label))
         .map(({ key, color, label, visible = true }) => (
-          <Align.Space
+          <Flex.Box
             key={key}
-            style={{ cursor: "pointer" }}
+            className={CSS.B("legend-swatch")}
             x
             align="center"
-            size="small"
-            justify="spaceBetween"
-            grow
+            gap="small"
+            justify="between"
           >
-            <Align.Space direction="x" align="center" size="small">
+            <Flex.Box direction="x" align="center" gap="small">
               <Color.Swatch
                 value={color}
                 onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
@@ -75,13 +78,13 @@ export const LegendSwatches = memo(
                 level="small"
                 value={label}
                 onChange={(l) => onEntryChange?.({ key, color, label: l, visible })}
-                noWrap
-                shade={visible ? 10 : 7}
+                overflow="nowrap"
+                color={visible ? 10 : 7}
                 onDoubleClick={(e) => e.stopPropagation()}
               />
-            </Align.Space>
+            </Flex.Box>
             {allowVisibleChange && (
-              <Button.Icon
+              <Button.Button
                 className={CSS.B("visible-toggle")}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -89,12 +92,13 @@ export const LegendSwatches = memo(
                 }}
                 onDoubleClick={(e) => e.stopPropagation()}
                 size="tiny"
-                shade={shade}
+                contrast={background}
+                variant="text"
               >
                 {visible ? <Icon.Visible /> : <Icon.Hidden />}
-              </Button.Icon>
+              </Button.Button>
             )}
-          </Align.Space>
+          </Flex.Box>
         ))}
     </>
   ),
@@ -108,6 +112,7 @@ export const Simple = ({
   position,
   onPositionChange,
   allowVisibleChange = true,
+  background = 1,
   ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState<boolean>(false);
@@ -121,13 +126,15 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      size={allowVisibleChange ? 0 : "tiny"}
+      gap={allowVisibleChange ? 0 : "small"}
+      background={background}
     >
       <LegendSwatches
         data={data}
         onEntryChange={onEntryChange}
         onVisibleChange={setPickerVisible}
         allowVisibleChange={allowVisibleChange}
+        background={background}
       />
     </Container>
   );

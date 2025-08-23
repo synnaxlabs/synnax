@@ -24,7 +24,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
 describe("error", () => {
   describe("type matching", () => {
@@ -48,13 +48,13 @@ describe("error", () => {
     ];
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {
-        expect(type.matches(error)).toBeTruthy();
+        expect(type.matches(error)).toBe(true);
       }),
     );
   });
 });
 
-const client = newTestClient();
+const client = createTestClient();
 
 test("client", async () => {
   expect.assertions(2);

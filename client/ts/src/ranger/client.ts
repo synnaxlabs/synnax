@@ -8,38 +8,44 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { array, type CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
 import { type Series } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
+import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
-import { ontology } from "@/ontology";
-import { type Alias, Aliaser } from "@/ranger/alias";
+import { type ontology } from "@/ontology";
+import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
-  ALIAS_ONTOLOGY_TYPE,
-  analyzeParams,
   type Key,
   type Keys,
   keyZ,
   type Name,
   type Names,
   type New,
-  ONTOLOGY_TYPE,
   type Params,
   type Payload,
   payloadZ,
 } from "@/ranger/payload";
 import { type CreateOptions, type Writer } from "@/ranger/writer";
-import { signals } from "@/signals";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
+
+interface RangeConstructionOptions {
+  frameClient: framer.Client;
+  kv: KV;
+  aliaser: Aliaser;
+  channels: channel.Retriever;
+  labelClient: label.Client;
+  ontologyClient: ontology.Client;
+  rangeClient: Client;
+}
 
 export class Range {
   key: string;
@@ -47,6 +53,8 @@ export class Range {
   readonly kv: KV;
   readonly timeRange: TimeRange;
   readonly color: string | undefined;
+  readonly parent: Payload | null;
+  readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
@@ -55,29 +63,30 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    name: string,
-    timeRange: TimeRange = TimeRange.ZERO,
-    key: string,
-    color: string | undefined,
-    _frameClient: framer.Client,
-    _kv: KV,
-    _aliaser: Aliaser,
-    _channels: channel.Retriever,
-    _labelClient: label.Client,
-    _ontologyClient: ontology.Client,
-    _rangeClient: Client,
+    { name, timeRange = TimeRange.ZERO, key, color, parent, labels }: Payload,
+    {
+      frameClient,
+      kv,
+      aliaser,
+      channels,
+      labelClient,
+      ontologyClient,
+      rangeClient,
+    }: RangeConstructionOptions,
   ) {
     this.key = key;
     this.name = name;
     this.timeRange = timeRange;
-    this.frameClient = _frameClient;
+    this.parent = parent;
+    this.labels = labels;
+    this.frameClient = frameClient;
     this.color = color;
-    this.kv = _kv;
-    this.aliaser = _aliaser;
-    this.channels = _channels;
-    this.labelClient = _labelClient;
-    this.ontologyClient = _ontologyClient;
-    this.rangeClient = _rangeClient;
+    this.kv = kv;
+    this.aliaser = aliaser;
+    this.channels = channels;
+    this.labelClient = labelClient;
+    this.ontologyClient = ontologyClient;
+    this.rangeClient = rangeClient;
   }
 
   get ontologyID(): ontology.ID {
@@ -85,11 +94,17 @@ export class Range {
   }
 
   get payload(): Payload {
+    let parent: Payload | null = null;
+    if (this.parent != null)
+      if ("payload" in this.parent) parent = (this.parent as Range).payload;
+      else parent = this.parent;
     return {
       key: this.key,
       name: this.name,
       timeRange: this.timeRange,
       color: this.color,
+      labels: this.labels,
+      parent,
     };
   }
 
@@ -109,10 +124,6 @@ export class Range {
 
   async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
-  }
-
-  async openAliasTracker(): Promise<signals.Observable<string, Alias>> {
-    return await this.aliaser.openChangeTracker();
   }
 
   async retrieveParent(): Promise<Range | null> {
@@ -135,8 +146,8 @@ export class Range {
     return await this.frameClient.read(this.timeRange, channels);
   }
 
-  async labels(): Promise<label.Label[]> {
-    return await this.labelClient.retrieveFor(ontologyID(this.key));
+  async retrieveLabels(): Promise<label.Label[]> {
+    return await this.labelClient.retrieve({ for: ontologyID(this.key) });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {
@@ -144,46 +155,7 @@ export class Range {
   }
 
   async removeLabel(...labels: label.Key[]): Promise<void> {
-    await this.labelClient.removeLabels(ontologyID(this.key), labels);
-  }
-
-  async openChildRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
-    const wrapper = new observe.Observer<Range[]>();
-    const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
-      const id = ontologyID(r.key);
-      return { id, key: id.toString(), name: r.name, data: r.payload };
-    });
-    const base = await this.ontologyClient.openDependentTracker({
-      target: this.ontologyID,
-      dependents: initial,
-      resourceType: "range",
-    });
-    base.onChange((r: ontology.Resource[]) =>
-      wrapper.notify(this.rangeClient.resourcesToRanges(r)),
-    );
-    wrapper.setCloser(async () => await base.close());
-    return wrapper;
-  }
-
-  async openParentRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range> | null> {
-    const wrapper = new observe.Observer<Range>();
-    const p = await this.retrieveParent();
-    if (p == null) return null;
-    const id = ontologyID(p.key);
-    const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
-    const base = await this.ontologyClient.openDependentTracker({
-      target: this.ontologyID,
-      dependents: [resourceP],
-      relationshipDirection: "to",
-    });
-    base.onChange((resources: ontology.Resource[]) => {
-      const ranges = this.rangeClient.resourcesToRanges(resources);
-      if (ranges.length === 0) return;
-      const p = ranges[0];
-      wrapper.notify(p);
-    });
-    wrapper.setCloser(async () => await base.close());
-    return wrapper;
+    await this.labelClient.remove(ontologyID(this.key), labels);
   }
 
   static sort(a: Range, b: Range): number {
@@ -191,23 +163,39 @@ export class Range {
   }
 }
 
-const retrieveReqZ = z.object({
+const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.array(z.string()).optional(),
-  term: z.string().optional(),
+  searchTerm: z.string().optional(),
   overlapsWith: TimeRange.z.optional(),
   limit: z.number().int().optional(),
   offset: z.number().int().optional(),
   hasLabels: label.keyZ.array().optional(),
+  includeLabels: z.boolean().optional(),
+  includeParent: z.boolean().optional(),
 });
 
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+const retrieveArgsZ = retrieveRequestZ
+  .or(keyZ.array().transform((keys) => ({ keys })))
+  .or(keyZ.transform((key) => ({ keys: [key] })))
+  .or(z.string().transform((name) => ({ names: [name] })))
+  .or(
+    z
+      .string()
+      .array()
+      .transform((names) => ({ names })),
+  )
+  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const RETRIEVE_ENDPOINT = "/range/retrieve";
 
 const retrieveResZ = z.object({ ranges: nullableArrayZ(payloadZ) });
 
-export class Client implements AsyncTermSearcher<string, Key, Range> {
+export class Client {
   readonly type: string = "range";
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;
@@ -250,46 +238,26 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     await this.writer.delete(array.toArray(key));
   }
 
-  async search(term: string): Promise<Range[]> {
-    return this.sugarMany(await this.execRetrieve({ term }));
-  }
-
-  async page(offset: number, limit: number): Promise<Range[]> {
-    return this.sugarMany(await this.execRetrieve({ offset, limit }));
-  }
-
-  async retrieve(range: CrudeTimeRange): Promise<Range[]>;
-  async retrieve(range: Key | Name): Promise<Range>;
-  async retrieve(range: Keys | Names): Promise<Range[]>;
-  async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
-    if (typeof ranges === "object" && "start" in ranges)
-      return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
-    const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
-    if (empty) return [];
-    const retrieved = await this.execRetrieve({ [variant]: normalized });
-    if (!single) return retrieved;
-    if (retrieved.length === 0)
-      throw new NotFoundError(`range matching ${actual as string} not found`);
-    if (retrieved.length > 1)
-      throw new MultipleFoundError(
-        `multiple ranges matching ${actual as string} found`,
-      );
-    return retrieved[0];
+  async retrieve(params: Key | Name): Promise<Range>;
+  async retrieve(params: Keys | Names): Promise<Range[]>;
+  async retrieve(params: TimeRange): Promise<Range[]>;
+  async retrieve(params: RetrieveRequest): Promise<Range[]>;
+  async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
+    const isSingle = typeof params === "string";
+    const { ranges } = await sendRequired(
+      this.unaryClient,
+      RETRIEVE_ENDPOINT,
+      params,
+      retrieveArgsZ,
+      retrieveResZ,
+    );
+    checkForMultipleOrNoResults("Range", params, ranges, isSingle);
+    if (isSingle) return this.sugarMany(ranges)[0];
+    return this.sugarMany(ranges);
   }
 
   getKV(range: Key): KV {
-    return new KV(range, this.unaryClient, this.frameClient);
-  }
-
-  private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
-    const { ranges } = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.unaryClient,
-      RETRIEVE_ENDPOINT,
-      req,
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugarMany(ranges);
+    return new KV(range, this.unaryClient);
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
@@ -304,42 +272,43 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 
+  async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.retrieve(channel);
+  }
+
+  async retrieveAliases(
+    range: Key,
+    channels: channel.Key[],
+  ): Promise<Record<channel.Key, string>> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.retrieve(channels);
+  }
+
+  async listAliases(range: Key): Promise<Record<channel.Key, string>> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    return await aliaser.list();
+  }
+
+  async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
+    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    await aliaser.set({ [channel]: alias });
+  }
+
   sugarOne(payload: Payload): Range {
-    return new Range(
-      payload.name,
-      payload.timeRange,
-      payload.key,
-      payload.color,
-      this.frameClient,
-      new KV(payload.key, this.unaryClient, this.frameClient),
-      new Aliaser(payload.key, this.frameClient, this.unaryClient),
-      this.channels,
-      this.labelClient,
-      this.ontologyClient,
-      this,
-    );
+    return new Range(payload, {
+      frameClient: this.frameClient,
+      kv: new KV(payload.key, this.unaryClient),
+      aliaser: new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      channels: this.channels,
+      labelClient: this.labelClient,
+      ontologyClient: this.ontologyClient,
+      rangeClient: this,
+    });
   }
 
   sugarMany(payloads: Payload[]): Range[] {
     return payloads.map((payload) => this.sugarOne(payload));
-  }
-
-  async openTracker(): Promise<signals.Observable<string, Range>> {
-    return await signals.openObservable<string, Range>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      (variant, data) => {
-        if (variant === "delete")
-          return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
-        const sugared = this.sugarMany(data.parseJSON(payloadZ));
-        return sugared.map((r) => ({ variant, key: r.key, value: r }));
-      },
-    );
-  }
-
-  resourcesToRanges(resources: ontology.Resource[]): Range[] {
-    return resources.map((r) => this.resourceToRange(r));
   }
 
   resourceToRange(resource: ontology.Resource): Range {
@@ -348,15 +317,18 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       name: resource.data?.name as string,
       timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
       color: resource.data?.color as string,
+      labels: [],
+      parent: null,
     });
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "range", key });
 
-export const aliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+export const aliasOntologyID = (key: Key): ontology.ID => ({
+  type: "range-alias",
+  key,
+});
 
 export const convertOntologyResourceToPayload = ({
   data,
@@ -369,5 +341,7 @@ export const convertOntologyResourceToPayload = ({
     name,
     timeRange,
     color: typeof data?.color === "string" ? data.color : undefined,
+    labels: [],
+    parent: null,
   };
 };

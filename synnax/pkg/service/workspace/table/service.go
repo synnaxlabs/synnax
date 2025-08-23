@@ -11,6 +11,7 @@ package table
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -62,7 +63,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 

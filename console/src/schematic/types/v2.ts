@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Viewport } from "@synnaxlabs/pluto";
 import { migrate, uuid } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import * as v1 from "@/schematic/types/v1";
 
@@ -22,6 +23,7 @@ export const stateZ = v1.stateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
   key: z.string(),
   type: z.literal(TYPE),
+  viewportMode: Viewport.modeZ.default("select"),
 });
 
 export interface State extends Omit<v1.State, "version"> {

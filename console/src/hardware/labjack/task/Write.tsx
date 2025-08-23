@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -21,7 +21,7 @@ import {
   type OutputChannelType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type writeConfigZ,
+  writeConfigZ,
   type writeStatusDataZ,
   type writeTypeZ,
   ZERO_OUTPUT_CHANNEL,
@@ -46,37 +46,25 @@ export const WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<OutputChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   device: Device.Device;
 }
 
-const ChannelListItem = ({
-  path,
-  isSnapshot,
-  device,
-  ...rest
-}: ChannelListItemProps) => {
-  const {
-    entry,
-    entry: { cmdChannel, key, stateChannel, type, port },
-  } = rest;
+const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
+  const path = `config.channels.${rest.itemKey}`;
   const { set } = PForm.useContext();
+  const item = PForm.useFieldValue<OutputChannel>(path);
+  const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.ItemFrame
-      {...rest}
-      style={{ width: "100%" }}
-      justify="spaceBetween"
-      align="center"
-      x
-    >
-      <Align.Pack x align="center">
+    <List.Item {...rest} full="x" justify="between">
+      <Flex.Box pack x align="center">
         <PForm.Field<string>
           path={`${path}.port`}
           showLabel={false}
@@ -87,63 +75,62 @@ const ChannelListItem = ({
               device.properties[type].channels[value] ??
               Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(path, {
-              ...entry,
+              ...item,
               cmdChannel: existingCommandStatePair.command,
               stateChannel: existingCommandStatePair.state,
               port: value,
             });
           }}
         >
-          {(p) => (
+          {({ value, onChange }) => (
             <Device.SelectPort
-              {...p}
+              value={value}
+              onChange={onChange}
               model={device.model}
               portType={type}
               allowNone={false}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 250 }}
-              actions={[
-                <PForm.Field<OutputChannelType>
-                  key="type"
-                  path={`${path}.type`}
-                  showLabel={false}
-                  hideIfNull
-                  size="large"
-                  onChange={(value) => {
-                    if (type === value) return;
-                    const port = Device.PORTS[device.model][value][0].key;
-                    const existingCommandStatePair =
-                      device.properties[value].channels[port] ??
-                      Common.Device.ZERO_COMMAND_STATE_PAIR;
-                    set(path, {
-                      ...entry,
-                      cmdChannel: existingCommandStatePair.command,
-                      stateChannel: existingCommandStatePair.state,
-                      type: value,
-                      port,
-                    });
-                  }}
-                  empty
-                >
-                  {(p) => <SelectOutputChannelType {...p} />}
-                </PForm.Field>,
-              ]}
-            />
+            >
+              <PForm.Field<OutputChannelType>
+                key="type"
+                path={`${path}.type`}
+                showLabel={false}
+                hideIfNull
+                gap="large"
+                onChange={(value) => {
+                  if (type === value) return;
+                  const port = Device.PORTS[device.model][value][0].key;
+                  const existingCommandStatePair =
+                    device.properties[value].channels[port] ??
+                    Common.Device.ZERO_COMMAND_STATE_PAIR;
+                  set(path, {
+                    ...item,
+                    cmdChannel: existingCommandStatePair.command,
+                    stateChannel: existingCommandStatePair.state,
+                    type: value,
+                    port,
+                  });
+                }}
+                empty
+              >
+                {({ value, onChange }) => (
+                  <SelectOutputChannelType value={value} onChange={onChange} />
+                )}
+              </PForm.Field>
+            </Device.SelectPort>
           )}
         </PForm.Field>
-      </Align.Pack>
-      <Align.Space x align="center" justify="spaceEvenly">
+      </Flex.Box>
+      <Flex.Box x align="center" justify="evenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
-          itemKey={key}
+          itemKey={item.key}
           stateChannel={stateChannel}
         />
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Space>
-    </List.ItemFrame>
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+      </Flex.Box>
+    </List.Item>
   );
 };
 
@@ -170,23 +157,21 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
 
 interface ChannelListProps {
   device: Device.Device;
-  isSnapshot: boolean;
 }
 
-const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
+const ChannelList = ({ device }: ChannelListProps) => {
   const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels, device),
     [device],
   );
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<OutputChannel>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem key={key} {...p} device={device} />
     ),
     [device],
   );
   return (
     <Common.Task.Layouts.List<OutputChannel>
-      isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Common.Task.writeChannelContextMenuItems}
@@ -196,32 +181,37 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
 
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = ({ isSnapshot }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
-    canConfigure={!isSnapshot}
-    configureLayout={Device.CONFIGURE_LAYOUT}
-  >
-    {({ device }) => <ChannelList device={device} isSnapshot={isSnapshot} />}
-  </Common.Device.Provider>
-);
+> = () => {
+  const isSnapshot = Common.Task.useIsSnapshot();
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+      canConfigure={!isSnapshot}
+      configureLayout={Device.CONFIGURE_LAYOUT}
+    >
+      {({ device }) => <ChannelList device={device} />}
+    </Common.Device.Provider>
+  );
+};
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
-> = ({ deviceKey }) => ({
-  ...ZERO_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-  },
-});
+> = ({ deviceKey, config }) => {
+  const cfg = config != null ? writeConfigZ.parse(config) : ZERO_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
 const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
@@ -327,6 +317,6 @@ export const Write = Common.Task.wrapForm({
   Form,
   schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });
