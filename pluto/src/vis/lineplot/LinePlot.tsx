@@ -37,7 +37,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
@@ -67,8 +67,7 @@ export const useContext = (component: string) => {
 };
 
 export const useViewport = (handle: Viewport.UseHandler): void => {
-  const ctx = useContext("Viewport");
-  const { addViewportHandler } = ctx;
+  const { addViewportHandler } = useContext("Viewport");
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 
@@ -110,7 +109,7 @@ export interface LinePlotProps
       >
     >,
     HTMLDivProps,
-    Aether.CProps {
+    Aether.ComponentProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
 }
@@ -128,7 +127,7 @@ export const LinePlot = ({
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
-  const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
   const [{ path }, { grid }, setState] = Aether.use({
     aetherKey,

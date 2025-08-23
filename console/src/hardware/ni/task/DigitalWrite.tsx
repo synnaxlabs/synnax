@@ -8,25 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
-import {
-  DigitalChannelList,
-  type NameProps,
-} from "@/hardware/ni/task/DigitalChannelList";
+import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
+  DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
-  type DigitalWriteConfig,
   digitalWriteConfigZ,
-  type DigitalWriteStateDetails,
-  type DigitalWriteType,
+  type digitalWriteStatusDataZ,
+  type digitalWriteTypeZ,
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -49,17 +45,15 @@ export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space x>
+    <Flex.Box x>
       <Common.Task.Fields.StateUpdateRate />
       <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
-    </Align.Space>
+    </Flex.Box>
   </>
 );
 
-const NameComponent = ({
-  entry: { cmdChannel, key, stateChannel },
-}: NameProps<DOChannel>) => (
+const NameComponent = ({ cmdChannel, key, stateChannel }: DOChannel) => (
   <Common.Task.WriteChannelNames
     cmdChannel={cmdChannel}
     stateChannel={stateChannel}
@@ -67,10 +61,14 @@ const NameComponent = ({
   />
 );
 
-const name = componentRenderProp(NameComponent);
+const name = Component.renderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
+  Common.Task.FormProps<
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList
     {...props}
@@ -80,29 +78,34 @@ const Form: FC<
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalWriteConfig,
-  DigitalWriteStateDetails,
-  DigitalWriteType
-> = ({ deviceKey }) => ({
-  ...ZERO_DIGITAL_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
-  },
-});
+const getInitialValues: Common.Task.GetInitialValues<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
+> = ({ deviceKey, config }) => {
+  const cfg =
+    config != null
+      ? digitalWriteConfigZ.parse(config)
+      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
 
-const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
-    config.device,
-  );
+  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
-  let shouldCreateStateIndex = primitiveIsZero(dev.properties.digitalOutput.stateIndex);
+  let shouldCreateStateIndex = primitive.isZero(
+    dev.properties.digitalOutput.stateIndex,
+  );
   if (!shouldCreateStateIndex)
     try {
       await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
@@ -195,8 +198,8 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
 export const DigitalWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalWriteConfigZ,
-  getInitialPayload,
+  schemas: DIGITAL_WRITE_SCHEMAS,
+  getInitialValues,
   onConfigure,
   type: DIGITAL_WRITE_TYPE,
 });

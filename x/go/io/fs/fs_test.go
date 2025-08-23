@@ -43,7 +43,7 @@ var _ = Describe("FS", func() {
 			AfterEach(func() {
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
 			})
-			AfterAll(func() { Expect(xfs.Default.Remove("testdata")).To(Succeed()) })
+			AfterAll(func() { Expect(xfs.Default.Remove("testData")).To(Succeed()) })
 			Describe("Open", func() {
 				Describe("Create test CREATE flag", func() {
 					It("Should create a file", func() {
@@ -238,7 +238,7 @@ var _ = Describe("FS", func() {
 						Expect(buf).To(Equal([]byte("oldoldoldnewnew")))
 						Expect(f.Close()).To(Succeed())
 
-						Expect(xfs.Default.Remove("testdata")).To(Succeed())
+						Expect(xfs.Default.Remove("testData")).To(Succeed())
 					})
 					It("Should overwrite when there is no Append flag", func() {
 						f := MustSucceed(fs.Open("test_file.txt", os.O_CREATE|os.O_WRONLY))

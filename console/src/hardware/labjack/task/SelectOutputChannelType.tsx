@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   AO_CHANNEL_TYPE,
@@ -16,25 +16,18 @@ import {
   type OutputChannelType,
 } from "@/hardware/labjack/task/types";
 
-export interface OutputChannelTypeEntry extends KeyedNamed<OutputChannelType> {}
+export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
-const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
-  { key: AO_CHANNEL_TYPE, name: "Analog" },
-  { key: DO_CHANNEL_TYPE, name: "Digital" },
-];
+const DATA: OutputChannelType[] = [AO_CHANNEL_TYPE, DO_CHANNEL_TYPE];
 
 export interface SelectOutputChannelTypeProps
-  extends Omit<
-    Select.ButtonProps<OutputChannelType, OutputChannelTypeEntry>,
-    "data" | "entryRenderKey"
-  > {}
+  extends Omit<Select.ButtonsProps<OutputChannelType>, "keys"> {}
 
 export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
-  <Select.Button<OutputChannelType, OutputChannelTypeEntry>
-    onClick={(e) => e.stopPropagation()}
-    pack={false}
-    {...props}
-    data={OUTPUT_CHANNEL_TYPES}
-    entryRenderKey="name"
-  />
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={AO_CHANNEL_TYPE} style={{ borderRadius: 0 }}>
+      Analog
+    </Select.Button>
+    <Select.Button itemKey={DO_CHANNEL_TYPE}>Digital</Select.Button>
+  </Select.Buttons>
 );

@@ -9,24 +9,27 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-control-state.pluto--x {
+.pluto-control-state.pluto--direction-x {
     padding: 0;
     max-width: 12rem;
 }
 
-.pluto-control-state.pluto--y {
+.pluto-control-state.pluto--direction-y {
     padding: 0 1rem 1rem;
 }
 
 .pluto-grid__item {
     border: var(--pluto-border);
     border-color: transparent;
+    border-width: 1px;
     width: max-content;
     height: max-content;
     position: absolute;
     --offset: 0.666rem;
     justify-content: center;
     align-items: center;
+    outline: none;
+    padding: 0.5rem;
 
     &.pluto-haul-drop-region {
         background: var(--haul-background);
@@ -37,49 +40,56 @@
         border-color: var(--pluto-primary-z);
     }
 
-    &.pluto--y {
-        padding: 0 0.5rem;
+    &.pluto--direction-y {
         min-width: 100%;
         min-height: 3rem;
     }
-    &.pluto--x {
-        padding: 0.5rem 0;
+    &.pluto--direction-x {
         min-width: 3rem;
         min-height: 100%;
     }
 
-    &.pluto--top {
+    &.pluto--location-top {
         top: 0;
         left: 50%;
         transform: translate(-50%, calc(-100% - var(--offset)));
     }
-    &.pluto--bottom {
+    &.pluto--location-bottom {
         bottom: 0;
         left: 50%;
         transform: translate(-50%, calc(100% + var(--offset)));
     }
-    &.pluto--left {
+    &.pluto--location-left {
         left: 0;
         top: 50%;
         transform: translate(calc(-100% - var(--offset)), -50%);
     }
-    &.pluto--right {
+    &.pluto--location-right {
         right: 0;
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);
+    }
+    &.pluto--location-center {
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        min-height: 5rem;
+        min-width: 5rem;
     }
 }
 
 .pluto-symbol__label {
     --offset: 0.666rem;
-    -webkit-user-select: none;
-    user-select: none;
+    &:not(:focus) {
+        -webkit-user-select: none;
+        user-select: none;
+    }
     pointer-events: none;
     overflow-wrap: break-word;
     width: max-content;
     height: max-content;
     padding: 0 !important;
-    &.pluto--y {
+    &.pluto--direction-y {
         writing-mode: vertical-rl;
     }
 }

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
 import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
-import { type Crude, Frame } from "@/framer/frame";
+import { type CrudeFrame, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
@@ -36,17 +37,20 @@ export class ReadAdapter {
     return adapter;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(channels: channel.Params): Promise<boolean> {
     const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await this.retriever.retrieve(normalized);
+    const newKeys = fetched.map((c) => c.key);
+    if (compare.uniqueUnorderedPrimitiveArrays(this.keys, newKeys) === compare.EQUAL)
+      return false;
     this.codec.update(
-      fetched.map((c) => c.key),
+      newKeys,
       fetched.map((c) => c.dataType),
     );
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized as channel.Key[];
-      return;
+      return true;
     }
     const a = new Map<channel.Key, channel.Name>();
     this.adapter = a;
@@ -56,6 +60,7 @@ export class ReadAdapter {
       a.set(channel.key, channel.name);
     });
     this.keys = Array.from(this.adapter.keys());
+    return true;
   }
 
   adapt(columnsOrData: Frame): Frame {
@@ -94,24 +99,32 @@ export class WriteAdapter {
     return adapter;
   }
 
-  async adaptObjectKeys<V>(
-    data: Record<channel.KeyOrName, V>,
-  ): Promise<Record<channel.Key, V>> {
-    const out: Record<channel.Key, V> = {};
-    for (const [k, v] of Object.entries(data)) out[await this.adaptToKey(k)] = v;
-    return out;
+  async adaptParams(data: channel.Params): Promise<channel.Keys> {
+    const arrParams = channel.paramsZ.parse(data);
+    const keys = await Promise.all(
+      arrParams.map(async (p) => await this.adaptToKey(p)),
+    );
+    return keys;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(channels: channel.Params): Promise<boolean> {
     const results = await channel.retrieveRequired(this.retriever, channels);
+    const newKeys = results.map((c) => c.key);
+    const previousKeySet = new Set(this.keys);
+    const newKeySet = new Set(newKeys);
+    const hasAddedKeys = !newKeySet.isSubsetOf(previousKeySet);
+    const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
+    const hasChanged = hasAddedKeys || hasRemovedKeys;
+    if (!hasChanged) return false;
     this.adapter = new Map<channel.Name, channel.Key>(
       results.map((c) => [c.name, c.key]),
     );
-    this.keys = results.map((c) => c.key);
+    this.keys = newKeys;
     this.codec.update(
       this.keys,
       results.map((c) => c.dataType),
     );
+    return true;
   }
 
   private async fetchChannel(
@@ -133,7 +146,7 @@ export class WriteAdapter {
   }
 
   async adapt(
-    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

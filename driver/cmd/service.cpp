@@ -16,12 +16,12 @@ int exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "[driver] " << xlog::RED() << "Failed to " << action << ": "
-                   << err << xlog::RESET();
+        LOG(ERROR) << "" << xlog::RED() << "Failed to " << action << ": " << err
+                   << xlog::RESET();
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "[driver] " << xlog::GREEN() << past_tense << " successfully"
+        LOG(INFO) << "" << xlog::GREEN() << past_tense << " successfully"
                   << xlog::RESET();
     }
     return 0;

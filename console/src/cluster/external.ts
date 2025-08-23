@@ -26,4 +26,6 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONNECT_LAYOUT_TYPE]: Connect,
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [versionOutdatedAdapter];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
+  versionOutdatedAdapter,
+];

@@ -11,7 +11,8 @@ import { channel, rack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const TYPE = "sequence";
-export type Type = typeof TYPE;
+export const typeZ = z.literal(TYPE);
+export type Type = z.infer<typeof typeZ>;
 
 export const configZ = z.object({
   rate: z.number().min(1),
@@ -34,11 +35,10 @@ export const ZERO_CONFIG: Config = {
   globals: {},
 };
 
-export const stateDetailsZ = z.object({ running: z.boolean(), message: z.string() });
-export type StateDetails = z.infer<typeof stateDetailsZ>;
+export const statusDetailsZ = z.unknown();
 
-export type Task = task.Task<Config, StateDetails, Type>;
-export type Payload = task.Payload<Config, StateDetails, Type>;
+export type Task = task.Task<typeof typeZ, typeof configZ, typeof statusDetailsZ>;
+export type Payload = task.Payload<typeof typeZ, typeof configZ, typeof statusDetailsZ>;
 
 export const ZERO_PAYLOAD: Payload = {
   key: "",

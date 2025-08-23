@@ -7,44 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithRef, type ReactNode } from "react";
+import { type ComponentPropsWithRef } from "react";
 
-import { type Align } from "@/align";
-import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
+import { type Button } from "@/button";
 
-export type Value = unknown;
-
-export interface Control<I extends Value = Value, O extends Value = I> {
+export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
 }
 
-export interface OptionalControl<I extends Value = Value, O extends Value = I>
-  extends Partial<Control<I, O>> {}
+export interface OptionalControl<I = unknown, O = I> extends Partial<Control<I, O>> {}
 
-type HTMLInputProps = Omit<
+export type HTMLInputProps = Omit<
   ComponentPropsWithRef<"input">,
-  "size" | "onChange" | "value" | "children" | "placeholder"
+  "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
+export type Variant = Exclude<Button.Variant, "filled" | "suggestion">;
 
-export interface ExtensionProps<I extends Value = Value, O extends Value = I>
-  extends Control<I, O> {
-  size?: ComponentSize;
+export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
   variant?: Variant;
-  sharp?: boolean;
-  placeholder?: ReactNode;
-  children?: ReactNode;
-  level?: Text.Level;
-  shade?: Text.Shade;
-  weight?: Text.Weight;
-  endContent?: ReactNode;
-  onlyChangeOnBlur?: boolean;
 }
-
-export interface BaseProps<I extends Value = Value, O extends Value = I>
-  extends HTMLInputProps,
-    ExtensionProps<I, O>,
-    Pick<Align.PackProps, "borderWidth" | "borderShade"> {}

@@ -33,6 +33,9 @@ const valueState = z.object({
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
   location: location.xy.optional().default({ x: "left", y: "center" }),
+  useWidthForBackground: z.boolean().optional().default(false),
+  valueBackgroundShift: xy.xy.optional().default(xy.ZERO),
+  valueBackgroundOverScan: xy.xy.optional().default(xy.ZERO),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -150,15 +153,23 @@ export class Value
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const colorValue = backgroundTelem.value();
       const isZero = color.isZero(colorValue);
-      setDefaultFillStyle = isZero;
       if (!isZero) {
-        const lower2d = renderCtx.lower2d.applyScale(viewportScale);
-        lower2d.fillStyle = color.hex(colorValue);
-        lower2d.rect(...xy.couple(bTopLeft), bWidth, bHeight);
-        lower2d.fill();
-        canvas.fillStyle = color.hex(
-          color.pickByContrast(colorValue, theme.colors.gray.l0, theme.colors.gray.l11),
+        setDefaultFillStyle = false;
+        canvas.fillStyle = color.hex(colorValue);
+        const width = this.state.useWidthForBackground
+          ? (this.state.width ?? this.state.minWidth)
+          : box.width(b);
+        canvas.fillRect(
+          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+          width + this.state.valueBackgroundOverScan.x,
+          bHeight + this.state.valueBackgroundOverScan.y,
         );
+        const textColor = color.pickByContrast(
+          colorValue,
+          theme.colors.gray.l0,
+          theme.colors.gray.l11,
+        );
+        canvas.fillStyle = color.hex(textColor);
       }
     }
     if (setDefaultFillStyle) canvas.fillStyle = color.hex(this.internal.textColor);

@@ -53,9 +53,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var (
-	errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
-)
+var errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
@@ -64,7 +62,7 @@ type Iterator struct {
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
-	idx      index.Index
+	idx      *index.Domain
 	bounds   telem.TimeRange
 	err      error
 	closed   bool
@@ -75,7 +73,10 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 		return nil, db.wrapError(ErrDBClosed)
 	}
 	// Safe to ignore error here as Validate will always return nil
-	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
+	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
 		idx:            db.index(),
@@ -163,9 +164,9 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 }
 
 // Next moves the iterator forward by span. More specifically, if the current view is
-// [start, end), after Next(span) is called, the view becomes [end, end + span).
-// After the view changes, the internal iterator moves forward and accumulates data until
-// the entire view is contained in the iterator's frame.
+// [start, end), after Next(span) is called, the view becomes [end, end + span). After
+// the view changes, the internal iterator moves forward and accumulates data until the
+// entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -205,7 +206,12 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, index.AllowDiscontinuous)
+	endApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		i.IteratorConfig.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
 	if err != nil {
 		i.err = err
 		return false
@@ -254,10 +260,69 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	return i.partiallySatisfied()
 }
 
+func (i *Iterator) autoPrev(ctx context.Context) bool {
+	i.view.End = i.view.Start
+	startApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		-i.IteratorConfig.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
+	if err != nil {
+		i.err = err
+		return false
+	}
+	if startApprox.Lower.Before(i.bounds.Start) {
+		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
+	}
+	i.view.Start = startApprox.Lower + 1
+	i.reset(i.view.BoundBy(i.bounds))
+	nRemaining := i.IteratorConfig.AutoChunkSize
+	for {
+		if !i.internal.TimeRange().OverlapsWith(i.view) {
+			if !i.internal.Prev() {
+				return false
+			}
+			continue
+		}
+		endApprox, err := i.approximateEnd(ctx)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
+		if !startApprox.Exact() && !endApprox.StartExact {
+			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
+		}
+		bytesToRead := i.Channel.DataType.Density().Size(nRemaining)
+		startOffset := endOffset - bytesToRead
+		if startOffset < 0 {
+			startOffset = 0
+			bytesToRead = endOffset
+		}
+		series, err := i.read(
+			ctx,
+			0,
+			endOffset-bytesToRead,
+			bytesToRead,
+		)
+		if err != nil && !errors.Is(err, io.EOF) {
+			i.err = err
+			return false
+		}
+		nRemaining -= series.Len()
+		i.insert(series)
+		if nRemaining <= 0 || !i.internal.Prev() {
+			break
+		}
+	}
+	return i.partiallySatisfied()
+}
+
 // Prev moves the iterator backward by span. More specifically, if the current view is
 // [start, end), after Next(span) is called, the view becomes [start - span, start).
-// After the view changes, the internal iterator moves backward and accumulates data until
-// the entire view is contained in the iterator's frame.
+// After the view changes, the internal iterator moves backward and accumulates data
+// until the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -272,6 +337,10 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
 		return
+	}
+
+	if span == AutoSpan {
+		return i.autoPrev(ctx)
 	}
 
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
@@ -302,8 +371,8 @@ func (i *Iterator) Error() error {
 	return wrap(i.err)
 }
 
-// Valid checks if an iterator has accumulated no errors and has at least one series
-// in its current frame.
+// Valid checks if an iterator has accumulated no errors and has at least one series in
+// its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 // Close closes the iterator and releases any resources it holds. As with all other
@@ -320,8 +389,8 @@ func (i *Iterator) Close() (err error) {
 	return wrap(i.internal.Close())
 }
 
-// accumulate reads the underlying data contained in the view from OS and
-// appends them to the frame. accumulate returns false if iterator must stop moving.
+// accumulate reads the underlying data contained in the view from OS and appends them
+// to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
@@ -354,7 +423,7 @@ func (i *Iterator) insert(series telem.Series) {
 func (i *Iterator) read(
 	ctx context.Context,
 	alignment telem.Alignment,
-	offset telem.Offset,
+	offset telem.Size,
 	size telem.Size,
 ) (series telem.Series, err error) {
 	series.DataType = i.Channel.DataType
@@ -364,23 +433,23 @@ func (i *Iterator) read(
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
-		return
+		return series, err
 	}
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return
+		return series, err
 	}
 	if err = r.Close(); err != nil {
-		return
+		return series, err
 	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-	return
+	return series, err
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
-	telem.Offset,
+	telem.Size,
 	telem.Alignment,
 	telem.Size,
 	error,
@@ -425,8 +494,8 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 }
 
 // approximateStart approximates the number of samples between the start of the current
-// domain and the start of the current iterator view. If the start of the current view is
-// before the start of the range, the returned value will be zero.
+// domain and the start of the current iterator view. If the start of the current view
+// is before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
 	telem.Alignment,
@@ -445,7 +514,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // after the end of the range, the returned value will be the number of samples in the
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
-	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
+	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Size())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
@@ -453,8 +522,8 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	return
 }
 
-// satisfied returns whether an iterator collected all telemetry in its view.
-// An iterator is said to be satisfied when its frame's start and end time range is
+// satisfied returns whether an iterator collected all telemetry in its view. An
+// iterator is said to be satisfied when its frame's start and end time range is
 // congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {

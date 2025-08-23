@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
+import { ranger, type Synnax } from "@synnaxlabs/client";
 import {
   bounds,
   box,
   clamp,
   color,
+  type Destructor,
   type scale,
   TimeRange,
   TimeSpan,
@@ -21,6 +22,8 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { flux } from "@/flux/aether";
+import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -45,14 +48,19 @@ interface InternalState {
   render: render.Context;
   requestRender: render.Requestor;
   draw: Draw2D;
-  tracker: signals.Observable<string, ranger.Range>;
+  runAsync: status.ErrorHandler;
+  removeListener: Destructor | null;
 }
 
-interface AnnotationProps {
+interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
   timeRange: TimeRange;
+}
+
+interface Store extends flux.Store {
+  ranges: aetherRanger.FluxStore;
 }
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
@@ -64,43 +72,52 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-    const handleError = status.useErrorHandler(ctx);
     i.requestRender = render.useRequestor(ctx);
+    i.runAsync = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
+    i.requestRender("tool");
     if (client == null) return;
     i.client = client;
-
-    if (i.tracker != null) return;
-    handleError(async () => {
-      i.tracker = await client.ranges.openTracker();
-      i.tracker.onChange((c) => {
-        c.forEach((r) => {
-          if (r.variant === "delete") i.ranges.delete(r.key);
-          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
-        });
-        i.requestRender("tool");
-        this.setState((s) => ({ ...s, count: i.ranges.size }));
-      });
+    const store = flux.useClient<Store>(ctx, this.key);
+    i.removeListener?.();
+    const removeOnSet = store.ranges.onSet((changed) => {
+      if (i.client == null) return;
+      if (color.isCrude(changed.color))
+        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
       i.requestRender("tool");
     });
-  }
-
-  private async fetchInitial(timeRange: TimeRange): Promise<void> {
-    const { internal: i } = this;
-    if (i.client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
-      return;
-    this.fetchedInitial = timeRange;
-    const ranges = await i.client.ranges.retrieve(timeRange);
-    ranges.forEach((r) => {
-      if (color.isCrude(r.color)) i.ranges.set(r.key, r);
+    const removeOnDelete = store.ranges.onDelete(async (changed) => {
+      i.ranges.delete(changed);
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+      i.requestRender("tool");
     });
-    this.setState((s) => ({ ...s, count: i.ranges.size }));
+    i.removeListener = () => {
+      removeOnSet();
+      removeOnDelete();
+    };
   }
 
-  render(props: AnnotationProps): void {
+  private fetchInitial(timeRange: TimeRange): void {
+    const { internal: i } = this;
+    const { client, runAsync } = i;
+    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
+      return;
+
+    this.fetchedInitial = timeRange;
+    runAsync(async () => {
+      const ranges = await client.ranges.retrieve(timeRange);
+      ranges.forEach((r) => {
+        if (color.isCrude(r.color)) i.ranges.set(r.key, r);
+      });
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+    }, "failed to fetch initial ranges");
+  }
+
+  render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    void this.fetchInitial(timeRange);
+    this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;
@@ -125,8 +142,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (hovered)
         hoveredState = {
           key: r.key,
+          parent: r.parent,
           name: r.name,
           color: r.color,
+          labels: r.labels,
           timeRange: r.timeRange,
           viewport: {
             lower: dataToDecimalScale

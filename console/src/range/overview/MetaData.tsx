@@ -8,206 +8,209 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Align,
   Button,
-  componentRenderProp,
+  CSS as PCSS,
   Divider,
+  Flex,
+  type Flux,
   Form,
+  Header,
+  Icon,
   Input,
   List,
+  Ranger,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useMemo } from "react";
-import { z } from "zod";
+import { type kv, link } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-interface MetaDataProps {
-  rangeKey: string;
-}
+export interface ValueInputProps extends Input.TextProps {}
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const metaDataFormSchema = z.object({
-  pairs: kv.stringPairZ.array(),
-});
-
-const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement => {
+const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   const isLink = link.is(value);
   const copyToClipboard = useCopyToClipboard();
   return (
     <Input.Text
       value={value}
-      onChange={onChange}
       style={{
         width: "unset",
         flexGrow: 2,
       }}
-      variant="shadow"
       selectOnFocus={true}
+      variant="shadow"
       resetOnBlurIfEmpty={true}
-      onlyChangeOnBlur={true}
       placeholder="Value"
-      color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
+      textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
+      {...rest}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
+      <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
-      </Button.Icon>
+      </Button.Button>
       {isLink && (
-        <Button.Link
-          variant="outlined"
+        <Button.Button
           href={value}
           target="_blank"
-          autoFormat
+          autoFormatHref
           style={{ padding: "1rem" }}
+          variant="outlined"
         >
           <Icon.LinkExternal />
-        </Button.Link>
+        </Button.Button>
       )}
     </Input.Text>
   );
 };
 
-const valueInput = componentRenderProp(ValueInput);
+export interface MetaDataListItemProps extends List.ItemProps<string> {
+  isCreate?: boolean;
+  visible?: boolean;
+  rangeKey: ranger.Key;
+  onClose?: () => void;
+}
 
-const MetaDataListItem: FC<List.ItemProps> = (props) => {
-  const { index } = props;
-  const ctx = Form.useContext();
-  const arr = Form.fieldArrayUtils(ctx, "pairs");
-  const key = ctx.get<string>(`pairs.${index}.key`, { optional: true })?.value;
+const MetaDataListItem = ({
+  isCreate = false,
+  onClose,
+  visible = true,
+  rangeKey,
+  ...rest
+}: MetaDataListItemProps) => {
+  const { itemKey } = rest;
+  const initialValues = List.useItem<string, ranger.KVPair>(itemKey);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { update: handleDelete } = Ranger.useDeleteKV.useDirect({
+    params: { rangeKey },
+  });
+  const { form, save } = Ranger.useKVPairForm({
+    params: { rangeKey },
+    autoSave: !isCreate,
+    initialValues: initialValues ?? {
+      key: "",
+      value: "",
+      range: rangeKey,
+    },
+    sync: !isCreate,
+    afterSave: useCallback(
+      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Ranger.kvPairFormSchema>) => {
+        onClose?.();
+        if (isCreate) reset({ key: "", value: "", range: rangeKey });
+      },
+      [isCreate, onClose],
+    ),
+  });
+  useEffect(() => {
+    if (isCreate) inputRef.current?.focus();
+  }, [isCreate, visible]);
   return (
-    <List.ItemFrame
-      style={{ padding: "0.5rem", border: "none" }}
-      className={CSS.BE("metadata", "item")}
-      allowSelect={false}
-      {...props}
+    <List.Item
+      className={CSS(
+        CSS.BE("metadata", "list-item"),
+        isCreate && CSS.M("create"),
+        PCSS.visible(visible),
+      )}
+      preventClick
+      {...rest}
     >
-      <Form.TextField
-        path={`pairs.${index}.key`}
-        showLabel={false}
-        showHelpText={false}
-        hideIfNull
-        inputProps={{
-          style: {
-            flexBasis: "30%",
-            width: 250,
-          },
-          variant: "shadow",
-          selectOnFocus: true,
-          resetOnBlurIfEmpty: true,
-          onlyChangeOnBlur: true,
-          placeholder: "Add Key",
-          weight: 500,
-        }}
-        onChange={(value, ctx) => {
-          const v = ctx.get<string>(`pairs.${index}.value`).value;
-          const pairsLength = ctx.get<kv.Pair[]>("pairs").value.length;
-          if (v.length === 0 && value.length > 0 && index === pairsLength - 1)
-            arr.push({ key: "", value: "" });
-        }}
-      />
-      <Divider.Divider y />
-
-      {key != null && key.length !== 0 && (
-        <>
-          <Form.Field<string>
-            path={`pairs.${index}.value`}
+      <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
+        {isCreate ? (
+          <Form.TextField
+            style={{ flexBasis: "30%", width: 250 }}
+            path={"key"}
+            inputProps={{
+              ref: inputRef,
+              autoFocus: isCreate,
+              selectOnFocus: true,
+              resetOnBlurIfEmpty: true,
+              onlyChangeOnBlur: !isCreate,
+              placeholder: "Add Key",
+              variant: "shadow",
+              weight: 500,
+            }}
             showLabel={false}
-            showHelpText={false}
             hideIfNull
-          >
-            {valueInput}
-          </Form.Field>
-          <Button.Icon
+          />
+        ) : (
+          <Text.Text style={{ flexBasis: "30%", width: 250 }}>
+            {initialValues?.key}
+          </Text.Text>
+        )}
+        <Divider.Divider y />
+        <Form.Field<string> path={"value"} showLabel={false} hideIfNull>
+          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+        </Form.Field>
+        {isCreate ? (
+          <Flex.Box pack>
+            <Button.Button
+              variant="filled"
+              size="small"
+              onClick={() => save()}
+              trigger={visible ? ["Enter"] : undefined}
+            >
+              <Icon.Check />
+            </Button.Button>
+            <Button.Button variant="outlined" size="small" onClick={onClose}>
+              <Icon.Close />
+            </Button.Button>
+          </Flex.Box>
+        ) : (
+          <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="text"
-            onClick={() => {
-              arr.remove(index);
-            }}
+            variant="shadow"
+            onClick={() => handleDelete(itemKey)}
           >
             <Icon.Delete style={{ color: "var(--pluto-gray-l10)" }} />
-          </Button.Icon>
-        </>
-      )}
-    </List.ItemFrame>
+          </Button.Button>
+        )}
+      </Form.Form>
+    </List.Item>
   );
 };
 
-const metaDataItem = componentRenderProp(MetaDataListItem);
+export interface MetaDataProps {
+  rangeKey: ranger.Key;
+}
 
-const sortF: compare.CompareF<kv.Pair> = (a, b) => {
-  if (a.key === "") return 1;
-  if (b.key === "") return -1;
-  return compare.stringsWithNumbers(a.key, b.key);
-};
+const sort = (a: kv.Pair, b: kv.Pair) => a.key.localeCompare(b.key);
 
-export const MetaData = ({ rangeKey }: MetaDataProps) => {
-  const formCtx = Form.useSynced<
-    typeof metaDataFormSchema,
-    change.Change<string, ranger.KVPair>[]
-  >({
-    values: { pairs: [] },
-    name: "Range Metadata",
-    key: ["range", rangeKey, "metadata"],
-    queryFn: async ({ client }) => {
-      const kv = client.ranges.getKV(rangeKey);
-      const res = await kv.list();
-      const pairs = Object.entries(res).map(([key, value]) => ({ key, value }));
-      pairs.push({ key: "", value: "" });
-      return { pairs };
-    },
-    openObservable: async (client) => await client.ranges.getKV(rangeKey).openTracker(),
-    applyObservable: ({ changes, ctx }) => {
-      const existingPairs = ctx.get<kv.Pair[]>("pairs").value;
-      const fu = Form.fieldArrayUtils<kv.Pair>(ctx, "pairs");
-      changes
-        .filter((c) => c.value?.range === rangeKey)
-        .map((c) => {
-          const pos = existingPairs.findIndex((p) => p.key === c.value?.key);
-          if (c.variant === "set") {
-            if (pos === -1)
-              return fu.push({ key: c.value.key, value: c.value.value }, sortF);
-            if (existingPairs[pos].value == c.value.value) return;
-            ctx.set(`pairs.${pos}.value`, c.value.value);
-          } else if (c.variant === "delete" && pos !== -1) ctx.remove(`pairs.${pos}`);
-        });
-    },
-    applyChanges: async ({ client, values, path, prev }) => {
-      if (path === "") return;
-      const kv = client.ranges.getKV(rangeKey);
-      if (path === "pairs") {
-        const tPrev = prev as kv.Pair[];
-        if (values.pairs.length >= tPrev.length) return;
-        // a key was removed, take the difference and delete the key
-        const newKeys = values.pairs.map((v) => v.key);
-        const diff = tPrev.filter((p) => !newKeys.includes(p.key));
-        if (diff.length === 0) return;
-        await kv.delete(diff[0].key);
-        return;
-      }
-      const split = path.split(".").slice(0, -1).join(".");
-      const pair = deep.get<kv.Pair<string>>(values, split, { optional: true });
-      if (pair == null || pair.key === "") return;
-      if (path.includes("key")) await kv.delete(prev as string);
-      await kv.set(pair.key, pair.value);
-    },
+export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
+  const [newFormVisible, setNewFormVisible] = useState(false);
+  const { data, getItem, subscribe, retrieve, status } = Ranger.useListKV({
+    initialParams: { rangeKey },
+    sort,
   });
-  const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
-  const sorted = useMemo(() => arr.value.sort(), [arr.value]);
+  useEffect(() => retrieve({ rangeKey }), [rangeKey]);
+  if (status.variant === "error") return null;
   return (
-    <Align.Space y>
-      <Text.Text level="h4" shade={11} weight={450}>
-        Metadata
-      </Text.Text>
-      <Form.Form<typeof metaDataFormSchema> {...formCtx}>
-        <List.List<string, kv.Pair> data={sorted}>
-          <List.Core>{metaDataItem}</List.Core>
-        </List.List>
-      </Form.Form>
-    </Align.Space>
+    <Flex.Box y empty className={CSS.BE("range", "metadata")}>
+      <Header.Header level="h4" borderColor={5}>
+        <Header.Title>Metadata</Header.Title>
+        <Header.Actions>
+          <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>
+            <Icon.Add />
+          </Button.Button>
+        </Header.Actions>
+      </Header.Header>
+      <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
+        <MetaDataListItem
+          key="new"
+          index={0}
+          itemKey=""
+          rangeKey={rangeKey}
+          isCreate
+          visible={newFormVisible}
+          onClose={() => setNewFormVisible(false)}
+        />
+        <List.Items<string, kv.Pair>>
+          {({ key, ...rest }) => (
+            <MetaDataListItem key={key} rangeKey={rangeKey} {...rest} />
+          )}
+        </List.Items>
+      </List.Frame>
+    </Flex.Box>
   );
 };

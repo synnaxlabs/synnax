@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package unary_test
 
 import (
@@ -12,7 +21,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("DB Metadata Operations", func() {
@@ -103,10 +111,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 					It("Should return an error when attempting to set an index key that is different than the channel key", func() {
 						newIndexKey := testutil.GenerateChannelKey()
-						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(MatchError(validate.FieldError{
-							Field:   "index",
-							Message: "index channel cannot be indexed by another channel",
-						}))
+						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
 					})
 				})
 

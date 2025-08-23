@@ -11,10 +11,10 @@ import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
 
+import { removeProps } from "@/component/removeProps";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
-import { removeProps } from "@/util/removeProps";
 import {
   BoxForm,
   ButtonForm,
@@ -38,8 +38,6 @@ import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   DEFAULT_POLYGON_SIDE_LENGTH,
-  TextBox,
-  type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
@@ -179,6 +177,7 @@ import {
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
+  type PreviewProps,
   PropellerAgitator,
   type PropellerAgitatorProps,
   Pump,
@@ -214,7 +213,9 @@ import {
   Tank,
   TankPreview,
   type TankProps,
+  TextBox,
   TextBoxPreview,
+  type TextBoxProps,
   ThreeWayBallValve,
   type ThreeWayBallValveProps,
   ThreeWayValve,
@@ -235,14 +236,15 @@ import {
   Vent,
   type VentProps,
 } from "@/vis/schematic/Symbols";
+import { Value as CoreValue } from "@/vis/value";
 
-export interface Spec<P extends object> {
+export interface Spec<P extends object = object> {
   key: Variant;
   name: string;
   Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<SymbolProps<P>>;
+  Preview: FC<PreviewProps<P>>;
   zIndex: number;
 }
 
@@ -1012,6 +1014,7 @@ const value: Spec<ValueProps> = {
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
+    redline: CoreValue.ZERO_READLINE,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -1026,6 +1029,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    mode: "fire",
     onClickDelay: 0,
     scale: null,
   }),
@@ -1258,7 +1262,7 @@ const textBox: Spec<TextBoxProps> = {
     ...ZERO_PROPS,
     ...ZERO_BOX_PROPS,
     level: "p",
-    text: "Text Box",
+    value: "Text Box",
     width: 75,
   }),
   Preview: TextBoxPreview,

@@ -20,7 +20,7 @@ export interface TaskContextMenuItemConfig {
 }
 
 export interface ContextMenuItemsProps
-  extends Pick<Ontology.TreeContextMenuProps, "selection"> {
+  extends Pick<Ontology.TreeContextMenuProps, "selection" | "state"> {
   children?: ReactElement;
   configureLayout: Layout.BaseState;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
@@ -29,15 +29,16 @@ export interface ContextMenuItemsProps
 export const ContextMenuItems = ({
   children,
   configureLayout,
-  selection: { resources },
+  state: { getResource },
+  selection: { resourceIDs },
   taskContextMenuItemConfigs,
 }: ContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
-  if (resources.length !== 1) return null;
-  const key = resources[0].id.key;
+  const firstID = resourceIDs[0];
+  const first = getResource(firstID);
+  const key = first.id.key;
   const maybeConfigure = () => {
-    if (resources[0].data?.configured !== true)
-      placeLayout({ ...configureLayout, key });
+    if (first.data?.configured !== true) placeLayout({ ...configureLayout, key });
   };
   return (
     <>

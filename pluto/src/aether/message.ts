@@ -7,35 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface MainUpdate {
+import { type errors } from "@synnaxlabs/x";
+
+import { type state } from "@/state";
+
+/** A message from the main thread to update or create an aether component. */
+export interface MainUpdateMessage {
   variant: "update";
+  /** The path of the component to update. */
   path: string[];
+  /** The type of the component to update. */
   type: string;
-  state: any;
+  /** The state of the component to update. */
+  state: state.State;
 }
 
-export interface MainDelete {
+/** A message from the main thread to delete an aether component. */
+export interface MainDeleteMessage {
   variant: "delete";
+  /** The type of the component to delete. */
   type: string;
+  /** The path of the component to delete. */
   path: string[];
 }
 
-export interface WorkerUpdate {
+/** A message from the aether thread to update an aether component. */
+export interface AetherUpdateMessage {
   variant: "update";
+  /** The key of the component to update. */
   key: string;
-  state: any;
+  /** The state of the component to update. */
+  state: state.State;
 }
 
-export interface ErrorObject {
-  name: string;
-  message: string;
-  stack?: string;
-}
-
-export interface WorkerError {
+/** A message from the aether thread to send an error to the main thread. */
+export interface AetherErrorMessage {
   variant: "error";
-  error: ErrorObject;
+  error: errors.NativePayload;
 }
 
-export type WorkerMessage = WorkerUpdate | WorkerError;
-export type MainMessage = MainUpdate | MainDelete;
+/** A message from the aether thread to the main thread. */
+export type AetherMessage = AetherUpdateMessage | AetherErrorMessage;
+
+/** A message from the main thread to the aether thread. */
+export type MainMessage = MainUpdateMessage | MainDeleteMessage;

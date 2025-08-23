@@ -12,6 +12,11 @@ package cmd
 import (
 	"encoding/base64"
 	"time"
+
+	"github.com/samber/lo"
+	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/x/address"
 )
 
 const (
@@ -60,7 +65,7 @@ func configureStartFlags() {
 		dataFlag,
 		"d",
 		"synnax-data",
-		"Dirname where the synnax node will store its data.",
+		"ParentDirname where the synnax node will store its data.",
 	)
 
 	startCmd.Flags().BoolP(
@@ -115,4 +120,24 @@ func configureStartFlags() {
 		"",
 		string(decodedUsage),
 	)
+}
+
+func parseIntegrationsFlag() []string {
+	enabled := viper.GetStringSlice(enableIntegrationsFlag)
+	disabled := viper.GetStringSlice(disableIntegrationsFlag)
+	if len(enabled) > 0 {
+		return enabled
+	}
+	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
+}
+
+func parsePeerAddressFlag() []address.Address {
+	peerStrings := viper.GetStringSlice(peersFlag)
+	peerAddresses := make([]address.Address, len(peerStrings))
+	for i, listenString := range peerStrings {
+		peerAddresses[i] = address.Address(listenString)
+	}
+	return peerAddresses
 }

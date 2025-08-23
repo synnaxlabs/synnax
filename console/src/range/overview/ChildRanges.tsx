@@ -7,105 +7,67 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  componentRenderProp,
-  List,
-  Ranger,
-  Status,
-  Synnax,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
-import { type FC, useState } from "react";
+import { type ranger } from "@synnaxlabs/client";
+import { Button, Component, Flex, Header, Icon, List, Ranger } from "@synnaxlabs/pluto";
+import { type FC } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
-export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
-  const { entry } = props;
+export const ChildRangeListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = List.useItem<string, ranger.Range>(itemKey);
   const placeLayout = Layout.usePlacer();
+  if (entry == null) return null;
   return (
-    <List.ItemFrame
+    <Ranger.ListItem
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
       x
-      size="tiny"
-      justify="spaceBetween"
+      showParent={false}
+      gap="tiny"
+      justify="between"
       align="center"
       style={{ padding: "1.5rem" }}
       {...props}
-    >
-      <Text.WithIcon
-        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l11)" }} />}
-        level="p"
-        weight={450}
-        shade={11}
-        size="small"
-      >
-        {entry.name}
-      </Text.WithIcon>
-      <Align.Space x size="small">
-        <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
-      </Align.Space>
-    </List.ItemFrame>
+    />
   );
 };
 
-const childRangeListItem = componentRenderProp(ChildRangeListItem);
+const childRangeListItem = Component.renderProp(ChildRangeListItem);
 
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const client = Synnax.use();
+  const { getItem, subscribe, data, retrieve, status } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
-  const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const handleError = Status.useErrorHandler();
-
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveChildren();
-      childRanges.sort(ranger.sort);
-      setChildRanges(childRanges);
-      const tracker = await rng.openChildRangeTracker();
-      tracker.onChange((ranges) => setChildRanges(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, `Failed to retrieve child ranges`);
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
-
+  if (status.variant === "error") return null;
   return (
-    <Align.Space y>
-      <Text.Text level="h4" shade={11} weight={450}>
-        Child Ranges
-      </Text.Text>
-      <List.List data={childRanges}>
-        <List.Core empty>{childRangeListItem}</List.Core>
-      </List.List>
-      <Button.Button
-        size="medium"
-        shade={10}
-        weight={500}
-        startIcon={<Icon.Add />}
-        style={{ width: "fit-content" }}
-        iconSpacing="small"
-        variant="text"
-        onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+    <Flex.Box y>
+      <Header.Header level="h4" borderColor={5}>
+        <Header.Title weight={450}>Child Ranges</Header.Title>
+        <Header.Actions>
+          <Button.Button
+            variant="text"
+            contrast={0}
+            onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+          >
+            <Icon.Add />
+          </Button.Button>
+        </Header.Actions>
+      </Header.Header>
+      <List.Frame
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={() => retrieve({ key: rangeKey })}
       >
-        Add Child Range
-      </Button.Button>
-    </Align.Space>
+        <List.Items>{childRangeListItem}</List.Items>
+      </List.Frame>
+    </Flex.Box>
   );
 };

@@ -14,12 +14,13 @@ import {
 } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Control,
   Diagram,
+  Flex,
   Haul,
+  Icon,
   type Legend,
   Menu as PMenu,
   Schematic as Core,
@@ -30,7 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, xy } from "@synnaxlabs/x";
+import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -39,17 +40,19 @@ import {
   useRef,
   useState,
 } from "react";
-import { v4 as uuid } from "uuid";
+import { useDispatch } from "react-redux";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
-  select,
   selectHasPermission,
-  useSelect,
+  selectOptional,
+  selectRequired,
+  useSelectEditable,
   useSelectHasPermission,
   useSelectNodeProps,
+  useSelectRequired,
   useSelectVersion,
   useSelectViewportMode,
 } from "@/schematic/selectors";
@@ -70,6 +73,7 @@ import {
   setNodes,
   setRemoteCreated,
   setViewport,
+  setViewportMode,
   type State,
   toggleControl,
   ZERO_STATE,
@@ -94,7 +98,7 @@ const useSyncComponent = (
     async (ws, store, client) => {
       const storeState = store.getState();
       if (!selectHasPermission(storeState)) return;
-      const data = select(storeState, layoutKey);
+      const data = selectOptional(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
       if (data.snapshot) {
@@ -122,7 +126,6 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  draggable,
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
@@ -153,7 +156,6 @@ const SymbolRenderer = ({
       symbolKey={symbolKey}
       position={position}
       selected={selected}
-      draggable={draggable}
       onChange={handleChange}
       {...rest}
     />
@@ -161,7 +163,7 @@ const SymbolRenderer = ({
 };
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
+  <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
   </PMenu.Menu>
 );
@@ -169,11 +171,11 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const schematic = useSelect(layoutKey);
-
-  const dispatch = useSyncComponent(layoutKey);
+  const schematic = useSelectRequired(layoutKey);
+  const dispatch = useDispatch();
+  const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
-    (state: RootState) => select(state, layoutKey),
+    (state: RootState) => selectRequired(state, layoutKey),
     [layoutKey],
   );
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
@@ -188,12 +190,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, dispatch]);
+    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
+  }, [name, prevName, layoutKey, syncDispatch]);
 
+  const isEditable = useSelectEditable(layoutKey);
   const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && schematic.editable)
-    dispatch(setEditable({ key: layoutKey, editable: false }));
+  useEffect(() => {
+    if (!canBeEditable && isEditable)
+      syncDispatch(setEditable({ key: layoutKey, editable: false }));
+  }, [canBeEditable, isEditable, layoutKey, syncDispatch]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -205,38 +210,40 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       // @ts-expect-error - Sometimes, the nodes do have dragging
       if (nodes.some((n) => n.dragging) || changes.some((c) => c.type === "select"))
         // don't remember dragging a node or selecting an element
-        dispatch(setNodes({ key: layoutKey, nodes }));
+        syncDispatch(setNodes({ key: layoutKey, nodes }));
       else undoableDispatch(setNodes({ key: layoutKey, nodes }));
     },
-    [layoutKey, dispatch, undoableDispatch],
+    [layoutKey, syncDispatch, undoableDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
-    (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
-    [layoutKey, dispatch],
+    (vp) => syncDispatch(setViewport({ key: layoutKey, viewport: vp })),
+    [layoutKey, syncDispatch],
   );
 
   const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
-    (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
-    [layoutKey, dispatch],
+    (cbk) => syncDispatch(setEditable({ key: layoutKey, editable: cbk })),
+    [layoutKey, syncDispatch],
   );
 
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) =>
-      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
-    [layoutKey, dispatch],
+      syncDispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
+    [layoutKey, syncDispatch],
   );
 
   const handleControlStatusChange = useCallback(
     (control: Control.Status) =>
-      dispatch(setControlStatus({ key: layoutKey, control })),
-    [layoutKey, dispatch],
+      syncDispatch(setControlStatus({ key: layoutKey, control })),
+    [layoutKey, syncDispatch],
   );
 
   const acquireControl = useCallback(
     (v: boolean) =>
-      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" })),
-    [layoutKey, dispatch],
+      syncDispatch(
+        toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }),
+      ),
+    [layoutKey, syncDispatch],
   );
 
   const elRenderer = useCallback(
@@ -315,23 +322,23 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           triggers.some((t) => t.includes("Control")) &&
           triggers.some((t) => t.includes("Shift"));
         const pos = calculatePos(region, cursor, viewportRef.current);
-        if (copy) dispatch(copySelection({ pos }));
-        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
+        if (copy) syncDispatch(copySelection({ pos }));
+        else if (isClear) syncDispatch(clearSelection({ key: layoutKey }));
         else if (isUndo) undo();
         else if (isRedo) redo();
-        else if (isAll) dispatch(selectAll({ key: layoutKey }));
+        else if (isAll) syncDispatch(selectAll({ key: layoutKey }));
         else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
       },
-      [layoutKey, undoableDispatch, undo, redo, dispatch],
+      [layoutKey, undoableDispatch, undo, redo, syncDispatch],
     ),
   });
 
   const handleDoubleClick = useCallback(() => {
     if (!schematic.editable) return;
-    dispatch(
+    syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [windowKey, schematic.editable, dispatch]);
+  }, [windowKey, schematic.editable, syncDispatch]);
 
   const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
     schematic.legend.position,
@@ -339,8 +346,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const storeLegendPosition = useCallback(
     (position: Legend.StickyXY) =>
-      dispatch(setLegend({ key: layoutKey, legend: { position } })),
-    [layoutKey, dispatch],
+      syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
+    [layoutKey, syncDispatch],
   );
 
   const handleLegendPositionChange = useCallback(
@@ -352,6 +359,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
+
+  const handleViewportModeChange = useCallback(
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
+    [dispatch],
+  );
 
   return (
     <div
@@ -367,6 +379,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       >
         <Diagram.Diagram
           onViewportChange={handleViewportChange}
+          viewportMode={mode}
+          onViewportModeChange={handleViewportModeChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
           // Turns out that setting the zoom value to 1 here doesn't have any negative
@@ -382,33 +396,40 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
+          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
-            {canEditSchematic && (
-              <Diagram.ToggleEditControl disabled={schematic.control === "acquired"} />
-            )}
+            <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
-            {!schematic.snapshot && (
-              <Button.ToggleIcon
-                value={schematic.control === "acquired"}
-                onChange={acquireControl}
-                tooltipLocation={location.BOTTOM_LEFT}
-                variant="outlined"
-                size="small"
-                tooltip={
-                  <Text.Text level="small">
-                    {schematic.control === "acquired"
-                      ? "Release control"
-                      : "Acquire control"}
-                  </Text.Text>
-                }
-              >
-                <Icon.Circle />
-              </Button.ToggleIcon>
-            )}
+            <Flex.Box x pack>
+              {canEditSchematic && (
+                <Diagram.ToggleEditControl
+                  disabled={schematic.control === "acquired"}
+                />
+              )}
+              {!schematic.snapshot && (
+                <Button.Toggle
+                  value={schematic.control === "acquired"}
+                  onChange={acquireControl}
+                  tooltipLocation={location.BOTTOM_LEFT}
+                  uncheckedVariant="outlined"
+                  checkedVariant="filled"
+                  size="small"
+                  tooltip={
+                    <Text.Text level="small">
+                      {schematic.control === "acquired"
+                        ? "Release control"
+                        : "Acquire control"}
+                    </Text.Text>
+                  }
+                >
+                  <Icon.Circle />
+                </Button.Toggle>
+              )}
+            </Flex.Box>
           </Diagram.Controls>
         </Diagram.Diagram>
         <Control.Legend
@@ -455,7 +476,7 @@ export const create =
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

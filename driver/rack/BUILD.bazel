@@ -7,23 +7,23 @@ config_setting(
 
 cc_library(
     name = "rack",
-    hdrs = ["rack.h"],
     srcs = [
         "args.cpp",
         "env.cpp",
+        "factories.cpp",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-        "factories.cpp",
     ],
+    hdrs = ["rack.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/labjack",
         "//driver/modbus",
         "//driver/ni",
         "//driver/opc",
-        "//driver/rack/state",
+        "//driver/rack/status",
         "//driver/sequence",
         "//driver/task",
         "//driver/task/common",

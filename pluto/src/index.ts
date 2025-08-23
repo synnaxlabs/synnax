@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
-export { Align } from "@/align";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
 export { Color } from "@/color";
+export { Component } from "@/component";
 export * from "@/css";
 export { Dialog } from "@/dialog";
+export { Direction } from "@/direction";
 export { Divider } from "@/divider";
-export { Dropdown } from "@/dropdown";
+export { Flex } from "@/flex";
+export { Flux } from "@/flux";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";
 export { Rack } from "@/hardware/rack";
+export { Task } from "@/hardware/task";
 export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";
@@ -32,11 +34,11 @@ export { Label } from "@/label";
 export { List } from "@/list";
 export * from "@/memo";
 export { Menu } from "@/menu";
-export { Modal } from "@/modal";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";
 export { Observe } from "@/observe";
+export { Ontology } from "@/ontology";
 export { OS } from "@/os";
 export { Override } from "@/override";
 export { Pluto } from "@/pluto";
@@ -62,9 +64,7 @@ export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
-export { type ComponentSize } from "@/util/component";
 export * from "@/util/event";
-export * from "@/util/renderProp";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
 export { axis } from "@/vis/axis";
@@ -77,11 +77,11 @@ export { LinePlot } from "@/vis/lineplot";
 export { Range } from "@/vis/lineplot/range";
 export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
-export { Performance } from "@/vis/performance";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
+export { Workspace } from "@/workspace";
 export {
   type CrudeDataType,
   type CrudeDensity,

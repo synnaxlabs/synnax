@@ -15,7 +15,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
@@ -108,7 +109,7 @@ func (writerResponseTranslator) Backward(
 	return writer.Response{
 		Command:    writer.Command(res.Command),
 		SeqNum:     int(res.SeqNum),
-		NodeKey:    dcore.NodeKey(res.NodeKey),
+		NodeKey:    cluster.NodeKey(res.NodeKey),
 		Authorized: res.Authorized,
 		End:        telem.TimeStamp(res.End),
 	}, nil
@@ -169,7 +170,7 @@ func (iteratorResponseTranslator) Backward(
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: dcore.NodeKey(res.NodeKey),
+		NodeKey: cluster.NodeKey(res.NodeKey),
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),

@@ -7,60 +7,115 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x/toArray";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { ALLOW_ALL_ONTOLOGY_TYPE, ONTOLOGY_TYPE } from "@/access/policy/ontology";
-import { type Key, type New, type Policy } from "@/access/policy/payload";
-import { Retriever } from "@/access/policy/retriever";
-import { Writer } from "@/access/policy/writer";
+import {
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  type Policy,
+  policyZ,
+} from "@/access/policy/payload";
 import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
+
+const retrieveRequestZ = z.object({
+  keys: keyZ.array().optional(),
+  subjects: ontology.idZ.array().optional(),
+});
+
+const keyRetrieveRequestZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+
+const listRetrieveArgsZ = z.union([
+  z
+    .object({ for: ontology.idZ })
+    .transform(({ for: forId }) => ({ subjects: [forId] })),
+  z
+    .object({ for: ontology.idZ.array() })
+    .transform(({ for: forIds }) => ({ subjects: forIds })),
+  retrieveRequestZ,
+]);
+
+export type SingleRetrieveArgs = z.input<typeof keyRetrieveRequestZ>;
+export type ListRetrieveArgs = z.input<typeof listRetrieveArgsZ>;
+
+const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
+const retrieveResZ = z.object({ policies: nullableArrayZ(policyZ) });
+
+const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
+const createResZ = z.object({ policies: policyZ.array() });
+const deleteReqZ = z.object({ keys: keyZ.array() });
+const deleteResZ = z.object({});
+
+const RETRIEVE_ENDPOINT = "/access/policy/retrieve";
+const CREATE_ENDPOINT = "/access/policy/create";
+const DELETE_ENDPOINT = "/access/policy/delete";
 
 export class Client {
-  private readonly retriever: Retriever;
-  private readonly writer: Writer;
+  private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
-    this.retriever = new Retriever(client);
-    this.writer = new Writer(client);
+    this.client = client;
   }
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
   async create(policies: New | New[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const createdPolicies = await this.writer.create(policies);
-    return isMany ? createdPolicies : createdPolicies[0];
+    const parsedPolicies = newZ.array().parse(array.toArray(policies));
+    const req = parsedPolicies.map((policy) => ({
+      objects: array.toArray(policy.objects),
+      actions: array.toArray(policy.actions),
+      subjects: array.toArray(policy.subjects),
+    }));
+    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+      this.client,
+      CREATE_ENDPOINT,
+      { policies: req },
+      createReqZ,
+      createResZ,
+    );
+    return isMany ? res.policies : res.policies[0];
   }
 
-  async retrieve(key: Key): Promise<Policy>;
-  async retrieve(keys: Key[]): Promise<Policy[]>;
-  async retrieve(keys: Key | Key[]): Promise<Policy | Policy[]> {
-    const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve({ keys: toArray(keys) });
-    return isMany ? res : res[0];
-  }
-
-  async retrieveFor(subject: ontology.CrudeID): Promise<Policy[]>;
-  async retrieveFor(subjects: ontology.CrudeID[]): Promise<Policy[]>;
-  async retrieveFor(
-    subjects: ontology.CrudeID | ontology.CrudeID[],
-  ): Promise<Policy[]> {
-    const newIds = toArray(subjects).map((id) => new ontology.ID(id).payload);
-    return await this.retriever.retrieve({ subjects: newIds });
+  async retrieve(args: SingleRetrieveArgs): Promise<Policy>;
+  async retrieve(args: ListRetrieveArgs): Promise<Policy[]>;
+  async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
+    const isSingle = "key" in args;
+    const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      args,
+      retrieveArgsZ,
+      retrieveResZ,
+    );
+    return isSingle ? res.policies[0] : res.policies;
   }
 
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await this.writer.delete(keys);
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      DELETE_ENDPOINT,
+      { keys: array.toArray(keys) },
+      deleteReqZ,
+      deleteResZ,
+    );
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "policy", key });
 
-export const ALLOW_ALL_ONTOLOGY_ID = new ontology.ID({
-  type: ALLOW_ALL_ONTOLOGY_TYPE,
+export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
+  type: "allow_all",
   key: "",
-});
+};

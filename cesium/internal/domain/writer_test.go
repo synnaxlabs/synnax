@@ -45,6 +45,16 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
+func fileSizes(info []os.FileInfo) (sizes []telem.Size) {
+	return lo.Map(info, func(info os.FileInfo, _ int) (sz telem.Size) { return telem.Size(info.Size()) })
+}
+
+func filterDataFiles(info []os.FileInfo) []os.FileInfo {
+	return lo.Filter(info, func(item os.FileInfo, _ int) bool {
+		return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
+	})
+}
+
 var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
@@ -118,7 +128,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        10 * telem.ByteSize,
+							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
 						}))
 
@@ -130,7 +140,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
 						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting that it should not switch file when the file is not oversize")
@@ -140,7 +150,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(11)))
+						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
 						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting that it should switch files when the file is oversize")
@@ -151,17 +161,18 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(2))
-						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
+						sizes := lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })
+						Expect(sizes).To(ConsistOf(int64(telem.Byte*11), int64(telem.Byte*3)))
 
 						By("Asserting the data is stored as expected")
 						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
-						Expect(i.Len()).To(Equal(int64(11)))
+						Expect(i.Size()).To(Equal(telem.Byte * 11))
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
-						Expect(i.Len()).To(Equal(int64(3)))
+						Expect(i.Size()).To(Equal(telem.Byte * 3))
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())
@@ -174,7 +185,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        5 * telem.ByteSize,
+							FileSize:        5 * telem.Byte,
 							Instrumentation: PanicLogger(),
 						}))
 
@@ -186,7 +197,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
 						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting that it should switch files when the file is oversize")
@@ -203,11 +214,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
-						Expect(i.Len()).To(Equal(int64(5)))
+						Expect(i.Size()).To(Equal(telem.Byte * 5))
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((5*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
-						Expect(i.Len()).To(Equal(int64(3)))
+						Expect(i.Size()).To(Equal(telem.Byte * 3))
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())
@@ -222,7 +233,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        10 * telem.ByteSize,
+							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
 						}))
 
@@ -230,42 +241,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
 						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
-						l := MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l := filterDataFiles(MustSucceed(fs2.List("")))
 						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 5)))
 
 						By("Asserting that it should not switch file when the file is not oversize")
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
-						l = MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(fs2.List("")))
 						Expect(l).To(HaveLen(1))
-						Expect(l[0].Size()).To(Equal(int64(11)))
+						Expect(l[0].Size()).To(Equal(int64(telem.Byte * 11)))
 						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting that it should switch files when the file is oversize")
 						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-						l = MustSucceed(fs2.List(""))
-						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
-						})
+						l = filterDataFiles(MustSucceed(fs2.List("")))
 						Expect(l).To(HaveLen(2))
-						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
+						Expect(fileSizes(l)).To(ConsistOf(telem.Byte*11, telem.Byte*3))
 
 						By("Asserting the data is stored as expected")
 						i := db2.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
-						Expect(i.Len()).To(Equal(int64(11)))
+						Expect(i.Size()).To(Equal(telem.Byte * 11))
 
 						Expect(i.Next()).To(BeTrue())
 						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(100 * telem.SecondTS)))
-						Expect(i.Len()).To(Equal(int64(3)))
+						Expect(i.Size()).To(Equal(telem.Byte * 3))
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())

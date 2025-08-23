@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
 
 import {
   NO_SECURITY_MODE,
@@ -17,24 +16,21 @@ import {
   SIGN_SECURITY_MODE,
 } from "@/hardware/opc/device/types";
 
-interface SecurityModeInfo extends KeyedNamed<SecurityMode> {}
-
-const SECURITY_MODES: SecurityModeInfo[] = [
-  { key: NO_SECURITY_MODE, name: "None" },
-  { key: SIGN_SECURITY_MODE, name: "Sign" },
-  { key: SIGN_AND_ENCRYPT_SECURITY_MODE, name: "Sign And Encrypt" },
+const DATA: SecurityMode[] = [
+  NO_SECURITY_MODE,
+  SIGN_SECURITY_MODE,
+  SIGN_AND_ENCRYPT_SECURITY_MODE,
 ];
 
 export interface SelectSecurityModeProps
-  extends Omit<
-    Select.ButtonProps<SecurityMode, SecurityModeInfo>,
-    "data" | "entryRenderKey"
-  > {}
+  extends Omit<Select.ButtonsProps<SecurityMode>, "keys"> {}
 
 export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
-  <Select.Button<SecurityMode, SecurityModeInfo>
-    {...props}
-    data={SECURITY_MODES}
-    entryRenderKey="name"
-  />
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={NO_SECURITY_MODE}>None</Select.Button>
+    <Select.Button itemKey={SIGN_SECURITY_MODE}>Sign</Select.Button>
+    <Select.Button itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>
+      Sign And Encrypt
+    </Select.Button>
+  </Select.Buttons>
 );

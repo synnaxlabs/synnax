@@ -31,13 +31,13 @@ var _ = Describe("HttpRedirect", func() {
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
 			KeySize:      mock.SmallKeySize,
-			Insecure:     config.Bool(false),
+			Insecure:     config.False(),
 		}))
 		received := false
-		b := MustSucceed(server.Open(server.Config{
+		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.Bool(false),
+				Insecure: config.False(),
 				TLS:      prov.TLS(),
 			},
 			Branches: []server.Branch{

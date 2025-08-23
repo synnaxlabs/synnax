@@ -13,24 +13,20 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type ReactElement,
-  useEffect,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 
 import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
-import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
-export type EditableProps<L extends text.Level = "h1"> = Omit<
-  TextProps<L>,
-  "children" | "onChange"
-> &
+export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
@@ -43,6 +39,9 @@ const BASE_CLASS = CSS.BM("text", "editable");
 const MAX_EDIT_RETRIES = 10;
 const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
+const START_EDITING_EVENT_NAME = "start-editing";
+
+const escapeCharacters = (id: string): string => id.replace(/:/g, "\\:");
 
 export const edit = (
   id: string,
@@ -51,18 +50,19 @@ export const edit = (
   let currRetry = 0;
   const tryEdit = (): void => {
     currRetry++;
-    const d = document.getElementById(id);
-    if (d == null || !d.classList.contains(BASE_CLASS)) {
+    const el = document.querySelector(`#${escapeCharacters(id)}.${BASE_CLASS}`);
+    if (el == null || !el.classList.contains(BASE_CLASS)) {
       if (currRetry < MAX_EDIT_RETRIES) setTimeout(() => tryEdit(), 100);
       else throw new Error(`Could not find element with id ${id}`);
       return;
     }
-    d.setAttribute("contenteditable", "true");
+    el.dispatchEvent(new Event(START_EDITING_EVENT_NAME));
+    el.setAttribute("contenteditable", "true");
     if (onChange == null) return;
-    d.addEventListener(RENAMED_EVENT_NAME, (e) =>
+    el.addEventListener(RENAMED_EVENT_NAME, (e) =>
       onChange(getInnerText(e.target as HTMLElement), true),
     );
-    d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
+    el.addEventListener(ESCAPED_EVENT_NAME, (e) =>
       onChange(getInnerText(e.target as HTMLElement), false),
     );
   };
@@ -90,7 +90,7 @@ const compareStylesToTriggerReflow = (
   return a.maxInlineSize === b.maxInlineSize;
 };
 
-export const Editable = <L extends text.Level = text.Level>({
+export const Editable = ({
   onChange,
   value,
   className,
@@ -101,7 +101,7 @@ export const Editable = <L extends text.Level = text.Level>({
   style,
   outline = true,
   ...rest
-}: EditableProps<L>): ReactElement => {
+}: EditableProps): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
   // Sometimes the onBlur event fires right after the user hits
@@ -126,9 +126,7 @@ export const Editable = <L extends text.Level = text.Level>({
     valueRef.current = value;
   }
 
-  const handleDoubleClick = (
-    e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
-  ): void => {
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (allowDoubleClick) {
       setEditable(true);
       triggerReflow(ref.current as HTMLElement);
@@ -153,7 +151,7 @@ export const Editable = <L extends text.Level = text.Level>({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (ref.current == null) return;
     triggerReflow(ref.current);
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key)) return;
@@ -166,10 +164,7 @@ export const Editable = <L extends text.Level = text.Level>({
     el.blur();
   };
 
-  const handleKeyUp = (e: KeyboardEvent<HTMLParagraphElement>): void => {
-    e.stopPropagation();
-    e.preventDefault();
-  };
+  const handleKeyUp = (e: KeyboardEvent<HTMLDivElement>): void => e.preventDefault();
 
   useLayoutEffect(() => {
     if (ref.current == null || !editable) return;
@@ -185,23 +180,16 @@ export const Editable = <L extends text.Level = text.Level>({
 
   if (ref.current !== null && !editable) ref.current.innerHTML = value;
 
-  useEffect(() => {
-    if (ref.current == null) return;
-    const m = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName !== "contenteditable") return;
-        const t = mutation.target as HTMLElement;
-        const makeEditable = t.contentEditable === "true";
-        if (makeEditable) setEditable(true);
-      });
-    });
-    m.observe(ref.current as Node, { attributes: true });
+  const refCallback = useCallback((el: HTMLElement) => {
+    if (el == null) return;
+    el.addEventListener(START_EDITING_EVENT_NAME, () => setEditable(true));
   }, []);
 
+  const combinedRef = useCombinedRefs(ref, refCallback);
+
   return (
-    // @ts-expect-error - TODO: generic element behavior is funky
-    <Text<L>
-      ref={ref}
+    <Text
+      ref={combinedRef}
       className={CSS(
         className,
         CSS.BM("text", "editable"),
@@ -226,34 +214,27 @@ export const Editable = <L extends text.Level = text.Level>({
   );
 };
 
-export type MaybeEditableProps<L extends text.Level = "h1"> = Omit<
-  EditableProps<L>,
-  "onChange"
-> & {
-  onChange?: EditableProps<L>["onChange"] | boolean;
+export type MaybeEditableProps = Omit<EditableProps, "onChange"> & {
+  onChange?: EditableProps["onChange"] | boolean;
   disabled?: boolean;
 };
 
-export const MaybeEditable = <L extends text.Level = text.Level>({
+export const MaybeEditable = ({
   onChange,
   disabled = false,
   value,
   allowDoubleClick,
   ...rest
-}: MaybeEditableProps<L>): ReactElement => {
+}: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || typeof onChange === "boolean")
-    // @ts-expect-error - generic component errors
-    return <Text<L> {...rest}>{value}</Text>;
+    return <Text {...rest}>{value}</Text>;
 
   return (
-    <>
-      {/* @ts-expect-error - generic component errors */}
-      <Editable<L>
-        allowDoubleClick={allowDoubleClick}
-        onChange={onChange}
-        value={value}
-        {...rest}
-      />
-    </>
+    <Editable
+      allowDoubleClick={allowDoubleClick}
+      onChange={onChange}
+      value={value}
+      {...rest}
+    />
   );
 };

@@ -5,25 +5,24 @@
 
 import "@/hardware/modbus/device/Connect.css";
 
-import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Form,
   Input,
   Nav,
   Rack,
   Status,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
 import {
   type ConnectionConfig,
@@ -34,10 +33,10 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
 import {
+  SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandState,
-  type TestConnectionCommandStateDetails,
+  type TestConnectionStatus,
 } from "@/hardware/modbus/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -69,33 +68,36 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
+  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
 
   const testConnectionMutation = useMutation({
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
 
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
 
-      const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        types: [SCAN_TYPE],
+        rack: rack.key,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
 
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandStateDetails>(
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
+        TimeSpan.seconds(10),
         {
           connection: methods.get("connection").value,
         },
-        TimeSpan.seconds(10),
       );
-
       setConnectionState(state);
     },
   });
@@ -103,7 +105,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const connectMutation = useMutation({
     onError: (e) => handleError(e, "Failed to connect to Modbus Server"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate()) throw new Error("Invalid configuration");
 
       // Test connection before saving
@@ -111,10 +113,10 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
 
-      const rack = await client.hardware.racks.retrieve(
-        methods.get<rack.Key>("rack").value,
-      );
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
+      const rack = await client.hardware.racks.retrieve({
+        key: methods.get<rack.Key>("rack").value,
+      });
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
 
       await client.hardware.devices.create<Properties>({
         key,
@@ -137,53 +139,53 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const isPending = testConnectionMutation.isPending || connectMutation.isPending;
 
   return (
-    <Align.Space align="start" className={CSS.B("modbus-connect")} justify="center">
-      <Align.Space className={CSS.B("content")} grow size="small">
+    <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
+      <Flex.Box className={CSS.B("content")} grow size="small">
         <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
               level: "h2",
               placeholder: "Modbus Server",
-              variant: "natural",
+              variant: "text",
             }}
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
-            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
+            {({ value, onChange }) => <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />}
           </Form.Field>
-          <Align.Space direction="x" justify="spaceBetween">
+          <Flex.Box direction="x" justify="between">
             <Form.Field<string> grow path="connection.host">
               {(p) => <Input.Text autoFocus placeholder="localhost" {...p} />}
             </Form.Field>
             <Form.Field<number> path="connection.port">
               {(p) => <Input.Numeric placeholder="502" {...p} />}
             </Form.Field>
-          </Align.Space>
-          <Align.Space direction="x" justify="spaceBetween">
+          </Flex.Box>
+          <Flex.Box direction="x" justify="start">
             <Form.Field<boolean> path="connection.swapBytes" label="Swap Bytes">
               {(p) => <Input.Switch {...p} />}
             </Form.Field>
             <Form.Field<boolean> path="connection.swapWords" label="Swap Words">
               {(p) => <Input.Switch {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
-              {connectionState.details?.message}
-            </Status.Text>
+            <Text.Text level="p" status={connectionState.variant}>
+              {connectionState.message}
+            </Text.Text>
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            triggers={Triggers.SAVE}
-            loading={testConnectionMutation.isPending}
+            trigger={Triggers.SAVE}
+            status={testConnectionMutation.isPending ? "loading" : undefined}
             disabled={isPending}
             onClick={() => testConnectionMutation.mutate()}
           >
@@ -191,14 +193,14 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           </Button.Button>
           <Button.Button
             disabled={isPending}
-            loading={connectMutation.isPending}
+            status={connectMutation.isPending ? "loading" : undefined}
             onClick={() => connectMutation.mutate()}
           >
             Save
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -212,7 +214,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           { name: "Modbus Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
-      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      const dev = await client.hardware.devices.retrieve<Properties>({key: layoutKey});
       return [
         { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
         dev.properties,

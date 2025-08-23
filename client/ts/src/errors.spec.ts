@@ -7,31 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, id } from "@synnaxlabs/x";
-import { v4 as uuid } from "uuid";
+import { type errors, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
   AuthError,
   ContiguityError,
   ControlError,
-  FieldError,
   InvalidTokenError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
   UnauthorizedError,
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { createTestClient } from "@/testutil/client";
 
 describe("error", () => {
   describe("type matching", () => {
     const ERRORS: [string, Error, errors.Matchable][] = [
       [ValidationError.TYPE, new ValidationError(), ValidationError],
-      [FieldError.TYPE, new FieldError("field", "message"), FieldError],
+      [
+        PathError.TYPE,
+        new PathError("field", new ValidationError("message")),
+        PathError,
+      ],
       [AuthError.TYPE, new AuthError(), AuthError],
       [InvalidTokenError.TYPE, new InvalidTokenError(), InvalidTokenError],
       [UnexpectedError.TYPE, new UnexpectedError("message"), UnexpectedError],
@@ -45,13 +48,13 @@ describe("error", () => {
     ];
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {
-        expect(type.matches(error)).toBeTruthy();
+        expect(type.matches(error)).toBe(true);
       }),
     );
   });
 });
 
-const client = newClient();
+const client = createTestClient();
 
 test("client", async () => {
   expect.assertions(2);
@@ -61,7 +64,7 @@ test("client", async () => {
     expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
-    await client.workspaces.schematic.retrieve(uuid());
+    await client.workspaces.schematic.retrieve(uuid.create());
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }

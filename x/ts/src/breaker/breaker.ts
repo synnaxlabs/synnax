@@ -39,19 +39,23 @@ export class Breaker {
     return true;
   }
 
+  get retryMessage(): string {
+    return `breaker triggered ${this.retries + 1}/${this.config.maxRetries} times, retrying in ${this.interval.toString()}`;
+  }
+
   reset() {
     this.retries = 0;
     this.interval = this.config.baseInterval;
   }
 }
 
-export const breakerConfig = z.object({
+export const breakerConfigZ = z.object({
   baseInterval: TimeSpan.z.optional(),
   maxRetries: z.number().optional(),
   scale: z.number().optional(),
 });
 
-export interface Config extends Omit<z.infer<typeof breakerConfig>, "baseInterval"> {
+export interface Config extends Omit<z.infer<typeof breakerConfigZ>, "baseInterval"> {
   baseInterval?: CrudeTimeSpan;
   maxRetries?: number;
   scale?: number;

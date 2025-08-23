@@ -13,11 +13,13 @@ import { TimeStamp, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useLayoutEffect } from "react";
 
 import { CSS } from "@/css";
-import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
-import { Text } from "@/input/Text";
-import { type BaseProps } from "@/input/types";
+import { DragButton } from "@/input/DragButton";
+import { Text, type TextProps } from "@/input/Text";
+import { type Control } from "@/input/types";
 
-export interface DateProps extends BaseProps<number>, DragButtonExtraProps {
+export interface DateProps
+  extends Omit<TextProps, "type" | "value" | "onChange">,
+    Control<number> {
   showDragHandle?: boolean;
 }
 

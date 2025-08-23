@@ -14,7 +14,7 @@ import { range } from "@/vis/lineplot/range/aether";
 
 interface AnnotationProps
   extends z.input<typeof range.annotationStateZ>,
-    Aether.CProps {}
+    Aether.ComponentProps {}
 
 export const Annotation = ({ aetherKey, ...rest }: AnnotationProps): null => {
   Aether.use({

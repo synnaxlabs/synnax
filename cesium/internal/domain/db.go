@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package domain implements a database for reading and writing chunks of data (called
+// domains) to and from an underlying file system. For information on how to use
+// a database, see the DB struct and Open function.
 package domain
 
 import (

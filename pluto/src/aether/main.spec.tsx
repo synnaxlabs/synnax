@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -62,7 +62,7 @@ const REGISTRY: aether.ComponentRegistry = {
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
   const root = aether.render({ comms: a.route("vis"), registry: REGISTRY });
-  const worker = b.route<MainMessage, WorkerMessage>("vis");
+  const worker = b.route<MainMessage, AetherMessage>("vis");
   return [
     (props: PropsWithChildren) => (
       <Aether.Provider worker={worker} workerKey="vis" {...props} />
@@ -88,7 +88,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
@@ -113,7 +113,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await expect.poll(async () => root.children.length === 1).toBeTruthy();
+      await expect.poll(async () => root.children.length === 1).toBe(true);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 1 });

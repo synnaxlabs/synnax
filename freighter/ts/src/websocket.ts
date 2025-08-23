@@ -7,25 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type binary,
-  buildQueryString,
-  errors,
-  runtime,
-  type URL,
-} from "@synnaxlabs/x";
+import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
-
-const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
-  if (runtime.RUNTIME !== "node") return (t) => new WebSocket(t);
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
-};
 
 const wsMessageZ = z.object({
   type: z.enum(["data", "close", "open"]),
@@ -45,7 +33,7 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   implements Stream<RQ, RS>
 {
   private readonly codec: binary.Codec;
@@ -77,7 +65,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   /** Implements the Stream protocol */
-  send(req: z.input<RQ>): Error | null {
+  send(req: z.input<RQ> | z.infer<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
@@ -85,12 +73,13 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[z.output<RS>, null] | [null, Error]> {
+  async receive(): Promise<[z.infer<RS>, null] | [null, Error]> {
     if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
       this.serverClosed = errors.decode(msg.error);
+      if (this.serverClosed == null) throw new Error("Message error must be defined");
       return [null, this.serverClosed];
     }
     return [this.resSchema.parse(msg.payload), null];
@@ -181,17 +170,16 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   /** Implements the StreamClient interface. */
-  async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<Stream<RQ, RS>> {
-    const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | null]> => {
-        const ws = SocketConstructor(this.buildURL(target, ctx));
+        const ws = new WebSocket(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
@@ -215,7 +203,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return this.baseUrl.child(target).toString() + qs;
   }
 
-  private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     ws: WebSocket,
     reqSchema: RQ,
     resSchema: RS,

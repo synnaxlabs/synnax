@@ -27,8 +27,8 @@ import (
 )
 
 // Open opens a Cesium database on the specified directory. If the directory is not
-// empty, Open attempts to parse its subdirectories into Cesium channels. If any of
-// the subdirectories are not in the Cesium format, an error is logged and Open continues
+// empty, Open attempts to parse its subdirectories into Cesium channels. If any of the
+// subdirectories are not in the Cesium format, an error is logged and Open continues
 // execution.
 func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
@@ -105,14 +105,14 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 		Channel:         ch,
 		Instrumentation: db.options.Instrumentation,
 		FileSize:        db.options.fileSize,
-		GCThreshold:     db.options.gcCfg.GCThreshold,
+		GCThreshold:     db.options.gcCfg.Threshold,
 	})
 	if err != nil {
 		return err
 	}
-	// In the case where we index the data using a separate index database, we
-	// need to set the index on the unary database. Otherwise, we assume the database
-	// is self-indexing.
+	// In the case where we index the data using a separate index database, we need to
+	// set the index on the unary database. Otherwise, we assume the database is
+	// self-indexing.
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.unaryDBs[u.Channel().Index]
 		if !ok {
@@ -120,10 +120,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 				return err
 			}
 			if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
-				return validate.FieldError{
-					Field:   "index",
-					Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
-				}
+				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
 			}
 		}
 		u.SetIndex(idxDB.Index())
@@ -141,10 +138,10 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		err = db.openUnary(ctx, ch, fs)
 	}
-	// For legacy, rate-based channels (V1), attempting to open a unary DB on them
-	// will return a meta.ErrIgnoreChannel error, which tells us to just ignore
-	// and not open that directory as an actual channel. This is a better alternative
-	// to deleting the channel, as we don't want to risk losing user data.
+	// For legacy, rate-based channels (V1), attempting to open a unary DB on them will
+	// return a meta.ErrIgnoreChannel error, which tells us to just ignore and not open
+	// that directory as an actual channel. This is a better alternative to deleting the
+	// channel, as we don't want to risk losing user data.
 	return errors.Skip(err, meta.ErrIgnoreChannel)
 }
 

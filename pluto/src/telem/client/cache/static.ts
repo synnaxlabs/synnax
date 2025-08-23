@@ -11,7 +11,6 @@ import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
   MultiSeries,
-  type Required,
   type Series,
   Size,
   TimeRange,
@@ -148,7 +147,7 @@ export class Static {
         cacheContents: this.data.map((s) => s.data.digest),
       });
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
-    series = series.slice(removeBefore, series.data.length - Number(removeAfter));
+    series = series.slice(removeBefore, series.data.length - removeAfter);
     // This means we executed a redundant read.
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   COIL_INPUT_TYPE,
@@ -18,9 +18,7 @@ import {
   REGISTER_INPUT_TYPE,
 } from "@/hardware/modbus/task/types";
 
-const COLUMNS = [{ key: "name", name: "Name" }];
-
-export interface InputChannelTypeEntry extends KeyedNamed<InputChannelType> {}
+export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
 const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
   { key: COIL_INPUT_TYPE, name: "Coil" },
@@ -31,11 +29,11 @@ const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
 
 export interface SelectInputChannelTypeFieldProps
   extends Omit<
-    Form.DropdownButtonFieldProps<InputChannelType, InputChannelTypeEntry>,
+    Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
     "data" | "entryRenderKey" | "columns"
   > {}
 
-export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
+export const SelectInputChannelTypeField = Form.buildSelectField<
   InputChannelType,
   InputChannelTypeEntry
 >({
@@ -48,8 +46,7 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   },
   inputProps: {
     allowNone: false,
-    entryRenderKey: "name",
-    columns: COLUMNS,
+    resourceName: "Channel Type",
     data: INPUT_CHANNEL_TYPES,
     style: { width: "25rem" },
   },

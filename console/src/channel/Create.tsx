@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Channel,
+  Flex,
   Form,
   Input,
   Nav,
-  Select,
-  Synnax,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -44,98 +41,49 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const baseFormSchema = channel.newZ
-  .extend({
-    name: z.string().min(1, "Name must not be empty"),
-    dataType: DataType.z.transform((v) => v.toString()),
-  })
-  .refine(
-    (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
-    {
-      message: "Index channel must have data type TIMESTAMP",
-      path: ["dataType"],
-    },
-  )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-    message: "Data channel must have an index",
-    path: ["index"],
-  })
-  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
-    message: "Persisted channels must have a fixed-size data type",
-    path: ["dataType"],
-  });
-
-const createFormSchema = baseFormSchema;
-
-type Schema = typeof createFormSchema;
-
-export const ZERO_CHANNEL: z.infer<Schema> = {
-  key: 0,
-  name: "",
-  index: 0,
-  dataType: DataType.FLOAT32.toString(),
-  internal: false,
-  isIndex: false,
-  leaseholder: 0,
-  virtual: false,
-  expression: "",
-  requires: [],
-};
-
 export const Create: Layout.Renderer = ({ onClose }) => {
-  const client = Synnax.use();
-  const methods = Form.use<Schema>({
-    schema: createFormSchema,
-    values: { ...ZERO_CHANNEL },
-  });
   const [createMore, setCreateMore] = useState(false);
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (createMore: boolean) => {
-      if (!methods.validate() || client == null) return;
-      const d = methods.value();
-      d.dataType = d.dataType.toString();
-      await client.channels.create(methods.value());
-      if (!createMore) onClose();
-      else methods.reset({ ...ZERO_CHANNEL });
+  const { form, variant, save } = Channel.useForm({
+    params: {},
+    afterSave: ({ reset }) => {
+      if (createMore) reset(Channel.ZERO_FORM_VALUES);
+      else onClose();
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, Schema>(
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "isIndex",
-    false,
-    methods,
+    { ctx: form },
   );
-  const isVirtual = Form.useFieldValue<boolean, boolean, Schema>(
+  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "virtual",
-    false,
-    methods,
+    { ctx: form },
   );
 
   return (
-    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
-      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form<typeof createFormSchema> {...methods}>
+    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
+        <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Name"
                 {...p}
               />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Flex.Box x gap="large">
             <Form.SwitchField
               path="virtual"
               label="Virtual"
               inputProps={{ disabled: isIndex }}
               onChange={(v, ctx) => {
                 if (!v) {
-                  const dType = ctx.get<string>("dataType").value;
-                  if (new DataType(dType).isVariable)
+                  const dataType = ctx.get<string>("dataType").value;
+                  if (new DataType(dataType).isVariable)
                     ctx.set("dataType", DataType.FLOAT32.toString());
                   return;
                 }
@@ -155,50 +103,47 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             />
             <Form.Field<string> path="dataType" label="Data Type" grow>
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   hideVariableDensity={!isVirtual}
+                  full="x"
                 />
               )}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
           <Form.Field<channel.Key> path="index" label="Index">
-            {(p) => (
+            {({ value, onChange }) => (
               <Channel.SelectSingle
-                placeholder="Select Index"
-                searchOptions={{ isIndex: true }}
+                value={value}
+                onChange={onChange}
+                initialParams={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
-                maxHeight="small"
                 allowNone={false}
                 zIndex={100}
-                {...p}
               />
             )}
           </Form.Field>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText />
-        <Nav.Bar.End align="center" size="large">
-          <Align.Space x align="center" size="small">
+        <Nav.Bar.End align="center" gap="large">
+          <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text level="p" shade={11}>
-              Create More
-            </Text.Text>
-          </Align.Space>
+            <Text.Text color={9}>Create More</Text.Text>
+          </Flex.Box>
           <Button.Button
-            disabled={isPending}
-            loading={isPending}
-            onClick={() => mutate(createMore)}
-            triggers={[Triggers.SAVE]}
+            status={variant}
+            variant="filled"
+            onClick={() => save()}
+            trigger={Triggers.SAVE}
           >
             Create
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

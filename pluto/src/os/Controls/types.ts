@@ -9,12 +9,12 @@
 
 import { type runtime } from "@synnaxlabs/x";
 
-import { type Align } from "@/align";
-import { type Text } from "@/text";
+import { type Flex } from "@/flex";
+import { type Theming } from "@/theming";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 
-export interface InternalControlsProps extends Align.SpaceProps {
+export interface InternalControlsProps extends Flex.BoxProps {
   forceOS?: runtime.OS;
   disabled?: ControlsAction[];
   focused?: boolean;
@@ -22,5 +22,5 @@ export interface InternalControlsProps extends Align.SpaceProps {
   onMaximize?: () => void;
   onFullscreen?: () => void;
   onClose?: () => void;
-  shade?: Text.Shade;
+  contrast?: Theming.Shade;
 }

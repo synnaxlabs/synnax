@@ -10,8 +10,8 @@
 import { type ReactNode } from "react";
 import { z } from "zod";
 
+import { type RenderProp as BaseRenderProp } from "@/component/renderProp";
 import { type Icon } from "@/icon";
-import { type RenderProp as BaseRenderProp } from "@/util/renderProp";
 
 export const specZ = z.object({
   tabKey: z.string(),
@@ -25,7 +25,7 @@ export const specZ = z.object({
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
-  icon?: Icon.Element | string | unknown;
+  icon?: Icon.ReactElement | string | unknown;
 }
 export const tabZ = specZ.extend({
   content: z.unknown().optional(),

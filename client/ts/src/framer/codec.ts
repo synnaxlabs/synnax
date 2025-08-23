@@ -15,17 +15,13 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ZodSchema } from "zod";
+import { type z } from "zod";
 
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, type WriteRequest } from "@/framer/writer";
-
-// For detailed information about the specifications,
-// please refer to the official RFC 0016 document.
-// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
 
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
@@ -356,7 +352,7 @@ export class WSWriterCodec implements binary.Codec {
     return data;
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PER_SPECIAL_CHAR)
@@ -364,7 +360,7 @@ export class WSWriterCodec implements binary.Codec {
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
     v.payload = { command: WriterCommand.Write, frame };
-    return v as P;
+    return v as z.infer<P>;
   }
 }
 
@@ -382,7 +378,7 @@ export class WSStreamerCodec implements binary.Codec {
     return this.lowPerfCodec.encode(payload);
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PER_SPECIAL_CHAR)
@@ -391,6 +387,6 @@ export class WSStreamerCodec implements binary.Codec {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
     };
-    return v as P;
+    return v as z.infer<P>;
   }
 }

@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useAsyncEffect } from "@synnaxlabs/pluto";
 import type * as monaco from "monaco-editor";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useMonaco } from "@/code/Provider";
 
@@ -50,7 +49,7 @@ export const usePhantomGlobals = ({
     modelRef.current?.setValue(vars);
   }, []);
 
-  useAsyncEffect(async () => {
+  useEffect(() => {
     if (modelRef.current != null || monaco == null) return;
     modelRef.current = monaco.editor.createModel("", language);
     syncVars();
@@ -58,7 +57,7 @@ export const usePhantomGlobals = ({
   }, [monaco]);
 
   const set = useCallback(
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       if (args.length === 1 && !Array.isArray(args[0])) {
         const variable = args[0] as Variable;
         varsRef.current.set(variable.key, variable);
@@ -66,6 +65,12 @@ export const usePhantomGlobals = ({
         const variables = args[0] as Variable[];
         variables.forEach((variable) => varsRef.current.set(variable.key, variable));
       } else if (args.length >= 3) {
+        if (!args.every((arg) => typeof arg === "string"))
+          throw new Error(
+            `every argument to phantom globals must be a string, received: ${args
+              .map((arg) => typeof arg)
+              .join(", ")}`,
+          );
         const [key, name, value, docs] = args;
         varsRef.current.set(key, { key, name, value, docs });
       }

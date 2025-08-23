@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax } from "@synnaxlabs/pluto";
+import { Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -21,36 +19,28 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery({
     queryKey: [client?.key, "workspace-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
-      const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
-        includeSchema: false,
-      });
-      return res?.filter((r) => r.name === "Workspaces")[0].id;
+      if (client == null) return null;
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+      return res.filter((r) => r.name === "Workspaces")[0].id;
     },
   });
   const placeLayout = Layout.usePlacer();
 
   return (
-    <Cluster.NoneConnectedBoundary>
-      <Align.Space empty style={{ height: "100%" }}>
-        <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
-          <Toolbar.Actions>
-            {[
-              {
-                key: "create",
-                children: <Icon.Add />,
-                onClick: () => placeLayout(CREATE_LAYOUT),
-              },
-            ]}
-          </Toolbar.Actions>
-        </Toolbar.Header>
-        <Ontology.Tree root={group.data} />
-      </Align.Space>
-    </Cluster.NoneConnectedBoundary>
+    <Toolbar.Content>
+      <Toolbar.Header padded>
+        <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
+        <Toolbar.Actions>
+          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+            <Icon.Add />
+          </Toolbar.Action>
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Ontology.Tree root={group.data} />
+    </Toolbar.Content>
   );
 };
 

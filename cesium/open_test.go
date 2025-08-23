@@ -5,12 +5,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-
-	"github.com/synnaxlabs/cesium"
 )
 
 var _ = Describe("Open", func() {
@@ -46,7 +45,7 @@ var _ = Describe("Open", func() {
 					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
 					Expect(db).To(BeNil())
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("field must be set"))
+					Expect(err.Error()).To(ContainSubstring("required"))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func() {
@@ -71,11 +70,11 @@ var _ = Describe("Open", func() {
 
 					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key},
-						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5)},
+						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 					Expect(db.Close()).To(Succeed())
 				})
 
@@ -100,7 +99,7 @@ var _ = Describe("Open", func() {
 					})).To(Succeed())
 					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{indexKey, key},
-						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
 
 					By("Closing the db")
@@ -123,7 +122,7 @@ var _ = Describe("Open", func() {
 					By("Asserting that writes to the db still occurs normally")
 					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key, indexKey},
-						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSecondsTSV(11, 12, 13, 14, 15)},
+						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))

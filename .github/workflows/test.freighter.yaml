@@ -1,27 +1,39 @@
-name: Test - Freighter
+name: Test - Freighter (Python & TypeScript)
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/test.freighter.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - freighter/go/**
+      - freighter/integration/**
+      - freighter/py/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/check-gofmt.sh
+      - turbo.json
+      - x/go/**
+      - x/ts/**
   push:
     branches:
       - main
       - rc
-  pull_request:
-    branches:
-      - main
-      - rc
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
 
 jobs:
   changes:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
-      cpp: ${{ steps.filter.outputs.cpp }}
-      go: ${{ steps.filter.outputs.go }}
       integration: ${{ steps.filter.outputs.integration }}
       py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
@@ -35,105 +47,41 @@ jobs:
         with:
           base: ${{ github.ref }}
           filters: |
-            shared: &shared
+            server: &server
               - .github/workflows/test.freighter.yaml
-            cpp:
-              - *shared
-              - freighter/cpp/**
-            go: &go
-              - *shared
               - alamos/go/**
               - freighter/go/**
-              - x/go/**
-            integration: &integration
-              - *go
               - freighter/integration/**
+              - go.work
+              - go.work.sum
               - x/go/**
+            integration:
+              - *server
+              - scripts/check-gofmt.sh
             py:
-              - *shared
-              - *integration
+              - *server
               - alamos/py/**
               - freighter/py/**
             ts:
-              - *shared
-              - *integration
+              - *server
               - alamos/ts/**
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
               - freighter/ts/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
               - x/ts/**
 
-  cpp:
-    name: C++ (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.cpp == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Check Formatting
-        if: matrix.format
-        run: bash scripts/check-clang-format.sh freighter/cpp
-
-      - name: Test
-        run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results
-  go:
-    name: Go (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
-      - name: Check Formatting
-        if: matrix.format
-        run: bash scripts/check-gofmt.sh freighter/go
-
-      - name: Install Ginkgo
-        run: go install github.com/onsi/ginkgo/v2/ginkgo
-
-      - name: Test
-        run: ginkgo ./...
-        working-directory: freighter/go
-
-  integration:
+  server:
+    name: Server
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.integration == 'true'
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    permissions:
+      packages: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -147,10 +95,21 @@ jobs:
 
       - name: Download Earthly
         uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
         run: earthly --push +docker
         working-directory: freighter/integration
+
+  integration:
+    name: Test - Integration
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.integration == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -159,11 +118,11 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
-        run: bash scripts/check-gofmt.sh freighter/integration
+        run: ./scripts/check-gofmt.sh freighter/integration
 
   py:
-    name: Python
-    needs: [changes, integration]
+    name: Test - Python
+    needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
     services:
@@ -208,8 +167,8 @@ jobs:
         working-directory: freighter/py
 
   ts:
-    name: TypeScript
-    needs: [changes, integration]
+    name: Test - TypeScript
+    needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     services:

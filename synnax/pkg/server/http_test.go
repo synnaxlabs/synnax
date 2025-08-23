@@ -36,12 +36,12 @@ var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
 		r := fhttp.NewRouter()
 		integerServer{}.BindTo(r)
-		b := MustSucceed(server.Open(server.Config{
+		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.Bool(true),
+				Insecure: config.True(),
 			},
-			Debug: config.Bool(true),
+			Debug: config.True(),
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
 					Transports: []fhttp.BindableTransport{r},

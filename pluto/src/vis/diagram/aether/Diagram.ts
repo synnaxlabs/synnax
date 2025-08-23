@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, scale, xy } from "@synnaxlabs/x";
+import { box, color, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -32,8 +32,8 @@ export interface Element extends aether.Component {
 
 interface InternalState {
   renderCtx: render.Context;
-  addStatus: status.Adder;
   viewportScale: scale.XY;
+  handleError: status.ErrorHandler;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -49,7 +49,7 @@ export class Diagram extends aether.Composite<
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
-    this.internal.addStatus = status.useAdder(ctx);
+    this.internal.handleError = status.useErrorHandler(ctx);
     render.control(ctx, () => {
       if (!this.state.visible) return;
       this.requestRender("low");
@@ -67,7 +67,7 @@ export class Diagram extends aether.Composite<
 
   render(): render.Cleanup | undefined {
     if (this.deleted) return undefined;
-    const { renderCtx, addStatus, viewportScale } = this.internal;
+    const { renderCtx, handleError, viewportScale } = this.internal;
     const region = box.construct(this.state.region);
     if (!this.state.visible)
       return () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
@@ -75,17 +75,20 @@ export class Diagram extends aether.Composite<
     try {
       this.children.forEach((child) => child.render?.({ viewportScale }));
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
-      addStatus({
-        variant: "error",
-        message: "Failed to render diagram",
-        description: e.message,
-      });
+      handleError(e, "failed to render diagram");
     } finally {
       clearScissor();
     }
     const eraseRegion = box.copy(this.state.region);
-    return () => renderCtx.erase(eraseRegion, this.state.clearOverScan, ...CANVASES);
+    return () => {
+      renderCtx.lower2d.fillStyle = color.hex(color.BLACK);
+      renderCtx.lower2d.fillRect(
+        ...xy.couple(box.topLeft(eraseRegion)),
+        box.width(eraseRegion),
+        box.height(eraseRegion),
+      );
+      renderCtx.erase(eraseRegion, this.state.clearOverScan, ...CANVASES);
+    };
   }
 
   private requestRender(priority: render.Priority): void {

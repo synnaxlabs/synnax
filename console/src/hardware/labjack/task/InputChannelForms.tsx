@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form as PForm, Select } from "@synnaxlabs/pluto";
-import { deep, type Keyed, type KeyedNamed } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
+import { deep, type Optional, type record } from "@synnaxlabs/x";
+import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";
 import {
@@ -47,9 +47,9 @@ const MaxVoltageField = PForm.buildNumericField({
   inputProps: { endContent: "V" },
 });
 
-const SelectScaleTypeField = PForm.buildDropdownButtonSelectField<
+const SelectScaleTypeField = PForm.buildSelectField<
   ScaleType,
-  KeyedNamed<ScaleType>
+  Select.StaticEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -67,21 +67,20 @@ const SelectScaleTypeField = PForm.buildDropdownButtonSelectField<
     },
   },
   inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
+    resourceName: "Scale Type",
     data: [
-      { key: NO_SCALE_TYPE, name: "None" },
-      { key: LINEAR_SCALE_TYPE, name: "Linear" },
+      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
+      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
     ],
   },
 });
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
-    <Align.Space x>
+    <Flex.Box x>
       <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
-    </Align.Space>
+    </Flex.Box>
   ),
   [NO_SCALE_TYPE]: () => null,
 };
@@ -102,16 +101,14 @@ const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   );
 };
 
-const ThermocoupleTypeField = PForm.buildDropdownButtonSelectField<
+const ThermocoupleTypeField = PForm.buildSelectField<
   ThermocoupleType,
-  KeyedNamed<ThermocoupleType>
+  record.KeyedNamed<ThermocoupleType>
 >({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
-    hideColumnHeader: true,
+    resourceName: "Thermocouple Type",
     data: [
       { key: B_TC_TYPE, name: "B" },
       { key: E_TC_TYPE, name: "E" },
@@ -126,15 +123,14 @@ const ThermocoupleTypeField = PForm.buildDropdownButtonSelectField<
   },
 });
 
-const TemperatureUnitsField = PForm.buildDropdownButtonSelectField<
+const TemperatureUnitsField = PForm.buildSelectField<
   TemperatureUnits,
-  KeyedNamed<TemperatureUnits>
+  record.KeyedNamed<TemperatureUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
+    resourceName: "Temperature Units",
     data: [
       { key: CELSIUS_UNIT, name: "Celsius" },
       { key: FAHRENHEIT_UNIT, name: "Fahrenheit" },
@@ -143,28 +139,32 @@ const TemperatureUnitsField = PForm.buildDropdownButtonSelectField<
   },
 });
 
-interface CJCSourceEntry extends Keyed<string> {}
+interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
-interface SelectCJCSourceFieldProps extends Select.SingleProps<string, CJCSourceEntry> {
+interface SelectCJCSourceFieldProps
+  extends Optional<
+    Select.StaticProps<string, CJCSourceEntry>,
+    "data" | "resourceName"
+  > {
   model: Device.Model;
 }
 
-const COLUMNS = [{ key: "key", name: "CJC Source" }];
 const DEFAULT_CJC_SOURCE_ENTRIES: CJCSourceEntry[] = [
-  { key: DEVICE_CJC_SOURCE },
-  { key: AIR_CJC_SOURCE },
+  { key: DEVICE_CJC_SOURCE, name: "Device" },
+  { key: AIR_CJC_SOURCE, name: "Air" },
 ];
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
-  const data = [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
+  const data = useMemo(() => {
+    const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
+    return [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
+  }, [model]);
   return (
-    <Select.Single<string, CJCSourceEntry>
+    <Select.Static<string, CJCSourceEntry>
       data={data}
-      columns={COLUMNS}
       allowNone={false}
-      entryRenderKey="key"
       {...rest}
+      resourceName="CJC Source"
     />
   );
 };
@@ -186,11 +186,11 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
       <Divider.Divider x padded="bottom" />
-      <Align.Space x>
+      <Flex.Box x>
         <ThermocoupleTypeField path={path} grow />
         <TemperatureUnitsField path={path} grow />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <PForm.NumericField
           fieldKey="posChan"
           path={path}
@@ -203,19 +203,25 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
           label="Negative Channel"
           grow
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <PForm.Field<string>
           path={`${path}.cjcSource`}
           grow
           hideIfNull
           label="CJC Source"
         >
-          {(p) => <SelectCJCSourceField {...p} model={deviceModel} />}
+          {({ value, onChange }) => (
+            <SelectCJCSourceField
+              value={value}
+              onChange={onChange}
+              model={deviceModel}
+            />
+          )}
         </PForm.Field>
         <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC Slope" grow />
         <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC Offset" grow />
-      </Align.Space>
+      </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />
     </>

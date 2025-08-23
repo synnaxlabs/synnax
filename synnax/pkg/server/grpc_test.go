@@ -21,12 +21,12 @@ import (
 
 var _ = Describe("Grpc", func() {
 	It("Should start a grpc server", func() {
-		b := MustSucceed(server.Open(server.Config{
+		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.Bool(true),
+				Insecure: config.True(),
 			},
-			Debug: config.Bool(true),
+			Debug: config.True(),
 			Branches: []server.Branch{
 				&server.GRPCBranch{},
 			},

@@ -12,7 +12,6 @@ package validate_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,7 +53,7 @@ var _ = Describe("Validate", func() {
 
 		It("Should include the field name in the error", func() {
 			v.Ternaryf("myField", true, "invalid value")
-			Expect(v.Error().Error()).To(ContainSubstring("myField"))
+			Expect(v.Error().Error()).To(ContainSubstring("my_field"))
 		})
 	})
 
@@ -168,38 +167,6 @@ var _ = Describe("Validate", func() {
 			})
 		})
 
-		Describe("Map Validations", func() {
-			var testMap map[string]int
-
-			BeforeEach(func() {
-				testMap = map[string]int{"key": 42}
-			})
-
-			Describe("MapDoesNotContainF", func() {
-				It("Should validate when key is not present", func() {
-					Expect(validate.MapDoesNotContainF(v, "missing", testMap, "key exists")).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch when key is present", func() {
-					Expect(validate.MapDoesNotContainF(v, "key", testMap, "key exists")).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("MapContainsf", func() {
-				It("Should validate when key is present", func() {
-					Expect(validate.MapContainsf(v, "key", testMap, "key missing")).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch when key is not present", func() {
-					Expect(validate.MapContainsf(v, "missing", testMap, "key missing")).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-		})
-
 		Describe("Zeroable", func() {
 
 			It("Should validate non-zero zeroables", func() {
@@ -213,16 +180,6 @@ var _ = Describe("Validate", func() {
 				Expect(validate.NonZeroable(v, "field", z)).To(BeTrue())
 				Expect(v.Error()).To(HaveOccurred())
 			})
-		})
-	})
-
-	Describe("Error Handling", func() {
-		It("Should implement proper error interfaces", func() {
-			v.Ternary("field", true, "error")
-			var fieldErr validate.FieldError
-			Expect(errors.As(v.Error(), &fieldErr)).To(BeTrue())
-			Expect(fieldErr.Field).To(Equal("field"))
-			Expect(fieldErr.Error()).To(ContainSubstring("error"))
 		})
 	})
 })

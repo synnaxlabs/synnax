@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Icon, type IconProps } from "@synnaxlabs/media";
-import { type FC, type JSX } from "react";
-import { type core, z } from "zod";
+import { Icon } from "@synnaxlabs/pluto";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 
@@ -143,8 +142,8 @@ export type Units = z.infer<typeof unitsZ>;
 export const LINEAR_SCALE_TYPE = "linear";
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().finite(),
-  yIntercept: z.number().finite(),
+  slope: z.number(),
+  yIntercept: z.number(),
   preScaledUnits: unitsZ,
   scaledUnits: z.string(),
 });
@@ -161,10 +160,10 @@ export const MAP_SCALE_TYPE = "map";
 const mapScaleZ = z
   .object({
     type: z.literal(MAP_SCALE_TYPE),
-    preScaledMin: z.number().finite(),
-    preScaledMax: z.number().finite(),
-    scaledMin: z.number().finite(),
-    scaledMax: z.number().finite(),
+    preScaledMin: z.number(),
+    preScaledMax: z.number(),
+    scaledMin: z.number(),
+    scaledMax: z.number(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -191,8 +190,8 @@ export const TABLE_SCALE_TYPE = "table";
 const tableScaleZ = z
   .object({
     type: z.literal(TABLE_SCALE_TYPE),
-    preScaledVals: z.number().finite().array(),
-    scaledVals: z.number().finite().array(),
+    preScaledVals: z.number().array(),
+    scaledVals: z.number().array(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -752,7 +751,7 @@ const aiThrmcplChanWithBuiltInCJCSourceZ = baseAIThrmcplChanZ.extend({
 });
 const aiThrmcplChanWithConstCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CONST_VAL),
-  cjcVal: z.number().finite(),
+  cjcVal: z.number(),
 });
 const aiThrmcplChanWithChanCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CHAN),
@@ -932,7 +931,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, FC<IconProps>> = {
+export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_ACCEL_CHAN_TYPE]: Icon.Units.Acceleration,
   [AI_BRIDGE_CHAN_TYPE]: Icon.Bridge,
   [AI_CURRENT_CHAN_TYPE]: Icon.Units.Current,
@@ -981,21 +980,18 @@ export const SINE_WAVE_TYPE = "Sine";
 export const TRIANGLE_WAVE_TYPE = "Triangle";
 export const SQUARE_WAVE_TYPE = "Square";
 export const SAWTOOTH_WAVE_TYPE = "Sawtooth";
-export type WaveType =
-  | typeof SINE_WAVE_TYPE
-  | typeof TRIANGLE_WAVE_TYPE
-  | typeof SQUARE_WAVE_TYPE
-  | typeof SAWTOOTH_WAVE_TYPE;
+export const WAVE_TYPES = [
+  SINE_WAVE_TYPE,
+  TRIANGLE_WAVE_TYPE,
+  SQUARE_WAVE_TYPE,
+  SAWTOOTH_WAVE_TYPE,
+] as const;
+export type WaveType = (typeof WAVE_TYPES)[number];
 
 const aoFuncGenChanZ = baseAOChanZ.extend({
   type: z.literal(AO_FUNC_GEN_CHAN_TYPE),
   // note that waveType is called type in DAQmx, but this conflicts with our convention
-  waveType: z.enum([
-    SINE_WAVE_TYPE,
-    SQUARE_WAVE_TYPE,
-    TRIANGLE_WAVE_TYPE,
-    SAWTOOTH_WAVE_TYPE,
-  ]),
+  waveType: z.enum(WAVE_TYPES),
   frequency: z.number(),
   amplitude: z.number(),
   offset: z.number(),
@@ -1036,16 +1032,22 @@ export const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
   [AO_VOLTAGE_CHAN_TYPE]: aoVoltageChanZ,
 };
 
+export const AO_CHANNEL_TYPES = [
+  AO_CURRENT_CHAN_TYPE,
+  AO_FUNC_GEN_CHAN_TYPE,
+  AO_VOLTAGE_CHAN_TYPE,
+] as const;
+
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_CURRENT_CHAN_TYPE]: "Current",
   [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, JSX.Element> = {
-  [AO_CURRENT_CHAN_TYPE]: <Icon.Units.Current />,
-  [AO_FUNC_GEN_CHAN_TYPE]: <Icon.Function />,
-  [AO_VOLTAGE_CHAN_TYPE]: <Icon.Units.Voltage />,
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
+  [AO_CURRENT_CHAN_TYPE]: Icon.Units.Current,
+  [AO_FUNC_GEN_CHAN_TYPE]: Icon.Function,
+  [AO_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
 export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
@@ -1107,7 +1109,7 @@ const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
 const validateAnalogPorts = ({
   value: channels,
   issues,
-}: core.ParsePayload<{ port: number }[]>) => {
+}: z.core.ParsePayload<{ port: number }[]>) => {
   const portsToIndexMap = new Map<number, number>();
   channels.forEach(({ port }, i) => {
     if (!portsToIndexMap.has(port)) {
@@ -1125,7 +1127,7 @@ const validateAnalogPorts = ({
 const validateDigitalPortsAndLines = ({
   value: channels,
   issues,
-}: core.ParsePayload<DigitalChannel[]>) => {
+}: z.core.ParsePayload<DigitalChannel[]>) => {
   const portLineToIndexMap = new Map<string, number>();
   channels.forEach(({ line, port }, i) => {
     const key = `${port}/${line}`;
@@ -1135,15 +1137,11 @@ const validateDigitalPortsAndLines = ({
     }
     const index = portLineToIndexMap.get(key) as number;
     const code = "custom";
-    const msg = `Port ${port}, line ${line} has already been used on another channel`;
-    issues.push({ code, message: msg, path: [index, "line"], input: channels[index] });
-    issues.push({ code, message: msg, path: [i, "line"], input: channels[i] });
+    const message = `Port ${port}, line ${line} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "line"], input: channels[index] });
+    issues.push({ code, message, path: [i, "line"], input: channels[i] });
   });
 };
-
-export interface BaseStateDetails {
-  running: boolean;
-}
 
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
   channels: z
@@ -1161,17 +1159,24 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-export interface AnalogReadStateDetails extends BaseStateDetails {
-  message: string;
-  errors?: { message: string; path: string }[];
-}
-export interface AnalogReadState extends task.State<AnalogReadStateDetails> {}
+export const analogReadStatusDataZ = z
+  .object({
+    errors: z.array(z.object({ message: z.string(), path: z.string() })),
+  })
+  .or(z.null());
+
+export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
-export type AnalogReadType = typeof ANALOG_READ_TYPE;
+export const analogReadTypeZ = z.literal(ANALOG_READ_TYPE);
+export type AnalogReadType = z.infer<typeof analogReadTypeZ>;
 
 interface AnalogReadPayload
-  extends task.Payload<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType> {}
+  extends task.Payload<
+    typeof analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof analogReadStatusDataZ
+  > {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
   name: "NI Analog Read Task",
@@ -1191,14 +1196,18 @@ const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
   channels: [],
 };
 
-export interface AnalogWriteStateDetails extends BaseStateDetails {}
-export interface AnalogWriteState extends task.State<AnalogWriteStateDetails> {}
+export const analogWriteStatusDataZ = z.unknown();
 
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
-export type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
+export const analogWriteTypeZ = z.literal(ANALOG_WRITE_TYPE);
+export type AnalogWriteType = z.infer<typeof analogWriteTypeZ>;
 
 export interface AnalogWritePayload
-  extends task.Payload<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
+  extends task.Payload<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  > {}
 export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   key: "",
   name: "NI Analog Write Task",
@@ -1207,9 +1216,13 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
 };
 
 export interface AnalogWriteTask
-  extends task.Task<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
+  extends task.Task<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  > {}
 export interface NewAnalogWriteTask
-  extends task.New<AnalogWriteConfig, AnalogWriteType> {}
+  extends task.New<typeof analogWriteTypeZ, typeof analogWriteConfigZ> {}
 
 export const digitalReadConfigZ = baseReadConfigZ
   .extend({
@@ -1225,14 +1238,19 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   channels: [],
 };
 
-export interface DigitalReadStateDetails extends BaseStateDetails {}
-export interface DigitalReadState extends task.State<DigitalReadStateDetails> {}
+export const digitalReadStatusDataZ = z.unknown();
+export type DigitalReadStatusDetails = task.Status<typeof digitalReadStatusDataZ>;
 
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
-export type DigitalReadType = typeof DIGITAL_READ_TYPE;
+export const digitalReadTypeZ = z.literal(DIGITAL_READ_TYPE);
+export type DigitalReadType = z.infer<typeof digitalReadTypeZ>;
 
 export interface DigitalReadPayload
-  extends task.Payload<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
+  extends task.Payload<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  > {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   name: "NI Digital Read Task",
@@ -1241,9 +1259,13 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 };
 
 export interface DigitalReadTask
-  extends task.Task<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
+  extends task.Task<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  > {}
 export interface NewDigitalReadTask
-  extends task.New<DigitalReadConfig, DigitalReadType> {}
+  extends task.New<typeof digitalReadTypeZ, typeof digitalReadConfigZ> {}
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1257,17 +1279,18 @@ const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
   channels: [],
 };
 
-export interface DigitalWriteStateDetails extends BaseStateDetails {}
-export interface DigitalWriteState extends task.State<DigitalWriteStateDetails> {}
+export const digitalWriteStatusDataZ = z.unknown();
+export type DigitalWriteStatusDetails = task.Status<typeof digitalWriteStatusDataZ>;
 
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
-export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
+export const digitalWriteTypeZ = z.literal(DIGITAL_WRITE_TYPE);
+export type DigitalWriteType = z.infer<typeof digitalWriteTypeZ>;
 
 export interface DigitalWritePayload
   extends task.Payload<
-    DigitalWriteConfig,
-    DigitalWriteStateDetails,
-    DigitalWriteType
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
   > {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
@@ -1277,23 +1300,29 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 };
 
 export interface DigitalWriteTask
-  extends task.Task<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType> {}
+  extends task.Task<
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
+  > {}
 export interface NewDigitalWriteTask
-  extends task.New<DigitalWriteConfig, DigitalWriteType> {}
+  extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
 
-export type ScanConfig = { enabled: boolean };
-
-export interface ScanStateDetails {
-  error?: string;
-  message?: string;
-}
-export interface ScanState extends task.State<ScanStateDetails> {}
+export const scanStatusDataZ = z.unknown();
+export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;
 
 export const SCAN_TYPE = `${PREFIX}_scanner`;
-export type ScanType = typeof SCAN_TYPE;
+export const scanTypeZ = z.literal(SCAN_TYPE);
+export type ScanType = z.infer<typeof scanTypeZ>;
+
+export const scanConfigZ = z.object({
+  enabled: z.boolean(),
+});
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export interface ScanPayload
-  extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
+  extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
 
-export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}
-export interface NewScanTask extends task.New<ScanConfig, ScanType> {}
+export interface ScanTask
+  extends task.Task<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}

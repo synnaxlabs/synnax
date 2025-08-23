@@ -15,7 +15,7 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -24,11 +24,15 @@ export interface IndicatorProps
   extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
     PropsWithChildren {}
 
+export interface StatusDetails {
+  color?: string;
+}
+
 export const Indicator = ({
   colorSource,
   statusSource,
 }: IndicatorProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ colorSource, statusSource });
+  const memoProps = useMemoDeepEqual({ colorSource, statusSource });
 
   const [, { color: colorVal, status }, setState] = Aether.use({
     type: control.Indicator.TYPE,
@@ -39,6 +43,7 @@ export const Indicator = ({
         variant: "warning",
         message: "No chip connected.",
         time: TimeStamp.now(),
+        details: { color: undefined },
       },
     },
     schema: control.indicatorStateZ,
@@ -49,13 +54,14 @@ export const Indicator = ({
   }, [memoProps, setState]);
 
   let parsedColor: color.Crude;
-  if (status.data?.color != null) parsedColor = color.colorZ.parse(status.data.color);
+  if (status.details?.color != null)
+    parsedColor = color.colorZ.parse(status.details.color);
   else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
-      <Text.Text level="p">{status.message}</Text.Text>
+      <Text.Text>{status.message}</Text.Text>
       <div
         className={CSS.B("indicator")}
         style={{

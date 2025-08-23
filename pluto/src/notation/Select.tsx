@@ -7,23 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type KeyedNamed, type notation } from "@synnaxlabs/x";
+import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/select/Button";
-
-const DATA: KeyedNamed<notation.Notation>[] = [
-  { key: "standard", name: "Standard" },
-  { key: "scientific", name: "Scientific" },
-  { key: "engineering", name: "Engineering" },
-];
+import { Select as CoreSelect } from "@/select";
 
 export interface SelectNotationProps
-  extends Omit<
-    ButtonProps<notation.Notation, KeyedNamed<notation.Notation>>,
-    "data" | "entryRenderKey"
-  > {}
+  extends Omit<CoreSelect.ButtonsProps<notation.Notation>, "keys"> {}
 
 export const Select = (props: SelectNotationProps): ReactElement => (
-  <Button {...props} entryRenderKey="name" data={DATA} />
+  <CoreSelect.Buttons {...props} keys={notation.NOTATIONS}>
+    <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
+    <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
+    <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
+  </CoreSelect.Buttons>
 );

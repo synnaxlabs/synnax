@@ -12,6 +12,10 @@ import { z } from "zod";
 
 import { Tabs } from "@/tabs";
 
+/**
+ * Base interface for a mosaic node in the tree. Used to make sure that
+ * zod type inference works correctly with recursive types.
+ */
 interface BaseNode {
   key: number;
   tabs?: Tabs.Tab[];
@@ -22,7 +26,11 @@ interface BaseNode {
   last?: BaseNode;
 }
 
-export const nodeZ: z.ZodType<BaseNode> = z.interface({
+/**
+ * Zod schema for a mosaic node. Used to validate the data for a node in the Mosaic
+ * binary tree. See the `Node` interface for more information.
+ */
+export const nodeZ: z.ZodType<BaseNode> = z.object({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),

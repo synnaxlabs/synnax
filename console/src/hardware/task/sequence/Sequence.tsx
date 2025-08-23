@@ -7,34 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, rack, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import "@/hardware/task/sequence/Sequence.css";
+
+import { type channel, type rack } from "@synnaxlabs/client";
 import {
-  Align,
   Channel,
+  Flex,
   Form,
+  Icon,
   type Input,
   Rack,
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
+import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
-import { Controls } from "@/hardware/common/task/Controls";
-import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
-  type Config,
   configZ,
-  type StateDetails,
+  statusDetailsZ,
   TYPE,
-  type Type,
+  typeZ,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Modals } from "@/modals";
@@ -73,14 +73,14 @@ export const SELECTABLE: Selector.Selectable = {
 };
 
 interface EditorProps extends Input.Control<string> {
-  globals: UsePhantomGlobalsReturn;
+  globals?: UsePhantomGlobalsReturn;
 }
 
-const Editor = ({ value, onChange, globals }: EditorProps) => {
+const Editor = memo(({ value, onChange, globals }: EditorProps) => {
   const methods = Form.useContext();
   const onAccept = useCallback(
     (channel: channel.Payload) => {
-      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      globals?.set(channel.key.toString(), channel.name, channel.key.toString());
       methods.set(
         "config.read",
         unique.unique([
@@ -98,169 +98,183 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
     client?.channels
       .retrieve(channels)
       .then((chs) => {
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+        chs.forEach((ch) =>
+          globals?.set(ch.key.toString(), ch.name, ch.key.toString()),
+        );
       })
       .catch(console.error);
   }, [methods, globals]);
   return <Code.Editor language={Lua.LANGUAGE} value={value} onChange={onChange} />;
-};
+});
+Editor.displayName = "Editor";
 
-const schema = configZ.extend({
-  rack: rack.keyZ.min(1, "Location is required"),
+const EditorField = Form.fieldBuilder<string, string, EditorProps>(Editor)({
+  inputProps: {},
 });
 
 const Internal = ({
-  task: base,
   layoutKey,
-  rackKey,
-}: Common.Task.TaskProps<Config, StateDetails, Type>) => {
-  const client = Synnax.use();
+  onConfigure,
+  status,
+}: Common.Task.FormProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
-  const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
-    useForm({
-      task: {
-        ...base,
-        config: {
-          ...base.config,
-          rack: rackKey ?? task.getRackKey(base.key ?? "0"),
-        },
-      },
-      layoutKey,
-      configSchema: schema,
-      type: TYPE,
-      onConfigure: async (_, config) => [config, config.rack],
-    });
-  const { configured, isSnapshot, methods } = formProps;
-
+  const client = Synnax.use();
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
     initialVars: GLOBALS,
   });
+  const editorInputProps = useMemo(() => ({ globals }), [globals]);
+  const initializedRef = useRef(false);
+  if (status.variant === "success" && !initializedRef.current)
+    initializedRef.current = true;
 
   return (
-    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<FormSchema<Config>> {...methods}>
-        <Form.Field<string>
+    <Flex.Box
+      className={CSS.B("sequence")}
+      style={{ padding: 0, height: "100%", minHeight: 0 }}
+      y
+      empty
+    >
+      {initializedRef.current && (
+        <EditorField
           path="config.script"
           showLabel={false}
           showHelpText={false}
           padHelpText={false}
           grow
-        >
-          {(p) => <Editor {...p} globals={globals} />}
-        </Form.Field>
-        <Align.Pack
-          y
-          bordered={false}
-          style={{
-            width: "100%",
-            background: "var(--pluto-gray-l0)",
-            boxShadow: "var(--pluto-shadow-v1)",
-            borderTop: "var(--pluto-border)",
-            flexShrink: 0, // Prevent the bottom section from shrinking
-          }}
-        >
-          <Align.Space
-            y
-            style={{ padding: "2rem", paddingBottom: "3rem" }}
-            size="medium"
-          >
-            <Align.Space x>
-              <Form.Field<rack.Key>
-                path="config.rack"
-                label="Location"
-                padHelpText={false}
-                grow
-              >
-                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
-              </Form.Field>
-              <Form.NumericField
-                label="Loop Rate"
-                path="config.rate"
-                padHelpText={false}
-                style={{ width: 120 }}
-                inputProps={{
-                  endContent: "Hz",
-                  bounds: { lower: 1, upper: 1001 },
-                  dragScale: { x: 1, y: 1 },
-                }}
-              />
-            </Align.Space>
-            <Form.Field<channel.Key[]>
-              path="config.read"
-              label="Read From"
+          inputProps={editorInputProps}
+        />
+      )}
+      <Flex.Box
+        pack
+        y
+        bordered={false}
+        full="x"
+        background={0}
+        shrink={false}
+        style={{
+          boxShadow: "var(--pluto-shadow-v1)",
+          borderTop: "var(--pluto-border)",
+        }}
+      >
+        <Flex.Box y style={{ padding: "2rem", paddingBottom: "3rem" }} gap="medium">
+          <Flex.Box x>
+            <Form.Field<rack.Key>
+              path="config.rack"
+              label="Location"
               padHelpText={false}
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("config.read").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
-              }}
+              onChange={(v, { set }) => set("rackKey", v)}
+              grow
             >
               {({ value, onChange }) => (
-                <Channel.SelectMultiple
+                <Rack.SelectSingle
+                  allowNone={false}
                   value={value}
                   onChange={onChange}
-                  location="top"
                 />
               )}
             </Form.Field>
-            <Form.Field<channel.Key[]>
-              path="config.write"
-              label="Write To"
+            <Form.NumericField
+              label="Loop Rate"
+              path="config.rate"
               padHelpText={false}
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("config.write").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
+              style={{ width: 120 }}
+              inputProps={{
+                endContent: "Hz",
+                bounds: { lower: 1, upper: 1001 },
+                dragScale: { x: 1, y: 1 },
               }}
-            >
-              {({ value, onChange }) => (
-                <Channel.SelectMultiple
-                  value={value}
-                  onChange={onChange}
-                  location="top"
-                />
-              )}
-            </Form.Field>
-          </Align.Space>
-          <Controls
-            layoutKey={layoutKey}
-            state={state}
-            isConfiguring={isConfiguring}
-            onStartStop={handleStartOrStop}
-            onConfigure={handleConfigure}
-            isSnapshot={isSnapshot}
-            hasBeenConfigured={configured}
-            style={{
-              padding: "2rem",
-              border: "none",
-              borderTop: "var(--pluto-border)",
+            />
+          </Flex.Box>
+          <Form.Field<channel.Key[]>
+            path="config.read"
+            label="Read From"
+            padHelpText={false}
+            onChange={(v, extra) => {
+              if (client == null) return;
+              handleError(
+                async () =>
+                  await bindChannelsAsGlobals(
+                    client,
+                    extra.get<channel.Key[]>("config.read").value,
+                    v,
+                    globals,
+                  ),
+                FAILED_TO_UPDATE_AUTOCOMPLETE,
+              );
             }}
-          />
-        </Align.Pack>
-      </Form.Form>
-    </Align.Space>
+          >
+            {({ value, onChange }) => (
+              <Channel.SelectMultiple
+                value={value}
+                onChange={onChange}
+                location="top"
+              />
+            )}
+          </Form.Field>
+          <Form.Field<channel.Key[]>
+            path="config.write"
+            label="Write To"
+            padHelpText={false}
+            onChange={(v, extra) => {
+              if (client == null) return;
+              handleError(
+                async () =>
+                  await bindChannelsAsGlobals(
+                    client,
+                    extra.get<channel.Key[]>("config.write").value,
+                    v,
+                    globals,
+                  ),
+                FAILED_TO_UPDATE_AUTOCOMPLETE,
+              );
+            }}
+          >
+            {({ value, onChange }) => (
+              <Channel.SelectMultiple
+                value={value}
+                onChange={onChange}
+                location="top"
+              />
+            )}
+          </Form.Field>
+        </Flex.Box>
+        <Common.Task.Controls
+          layoutKey={layoutKey}
+          formStatus={status}
+          onConfigure={onConfigure}
+        />
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 
-export const Sequence = Common.Task.wrap(Internal, {
-  getInitialPayload: () => ZERO_PAYLOAD,
+const getInitialValues: Common.Task.GetInitialValues<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+> = ({ config }) => {
+  const cfg = config != null ? configZ.parse(config) : ZERO_PAYLOAD.config;
+  return { ...ZERO_PAYLOAD, config: cfg };
+};
+
+const SCHEMAS = {
+  typeSchema: typeZ,
   configSchema: configZ,
+  statusDataSchema: statusDetailsZ,
+};
+
+export const Sequence = Common.Task.wrapForm<
+  typeof typeZ,
+  typeof configZ,
+  typeof statusDetailsZ
+>({
+  type: TYPE,
+  Form: Internal,
+  getInitialValues,
+  schemas: SCHEMAS,
+  onConfigure: async (_, config) => [config, config.rack],
+  showHeader: false,
+  showControls: false,
 });

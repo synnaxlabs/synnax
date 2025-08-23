@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
+import { Icon, Menu } from "@synnaxlabs/pluto";
 
 export interface CreateMenuItemProps extends Omit<Menu.ItemProps, "startIcon"> {}
 
-export const CreateMenuItem = (props: CreateMenuItemProps) => (
-  <Menu.Item
-    {...props}
-    startIcon={
-      <PIcon.Create>
-        <Icon.Task />
-      </PIcon.Create>
-    }
-  />
+const CreateTaskIcon = Icon.createComposite(Icon.Task, { topRight: Icon.Add });
+
+export const CreateMenuItem = ({ children, ...rest }: CreateMenuItemProps) => (
+  <Menu.Item {...rest}>
+    <CreateTaskIcon />
+    {children}
+  </Menu.Item>
 );

@@ -264,7 +264,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 	ptr := pointer{
 		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
-		length:    uint32(length),
+		size:      uint32(length),
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
@@ -300,7 +300,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end,
 // and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
-	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
+	// fc.Config.FileSize is the nominal file size to not exceed, in reality, this value
 	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
 	// once we write to over 1.25 * that nominal value.
 	if w.fileSize >= w.fc.realFileSizeCap() {

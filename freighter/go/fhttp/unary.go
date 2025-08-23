@@ -86,10 +86,10 @@ func (u *unaryClient[RQ, RS]) Send(
 			Protocol: unaryReporter.Protocol,
 			Target:   target,
 		},
-		freighter.FinalizerFunc(func(iMD freighter.Context) (oMD freighter.Context, err error) {
-			b, err := u.codec.Encode(iMD, req)
+		freighter.FinalizerFunc(func(inCtx freighter.Context) (outCtx freighter.Context, err error) {
+			b, err := u.codec.Encode(inCtx, req)
 			if err != nil {
-				return oMD, err
+				return outCtx, err
 			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
@@ -98,25 +98,25 @@ func (u *unaryClient[RQ, RS]) Send(
 				bytes.NewReader(b),
 			)
 			if err != nil {
-				return oMD, err
+				return outCtx, err
 			}
-			setRequestCtx(httpReq, iMD)
+			setRequestCtx(httpReq, inCtx)
 			httpReq.Header.Set(fiber.HeaderContentType, u.codec.ContentType())
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
-			oMD = parseResponseCtx(httpRes, target)
+			outCtx = parseResponseCtx(httpRes, target)
 			if err != nil {
-				return oMD, err
+				return outCtx, err
 			}
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
 				if err := u.codec.DecodeStream(nil, httpRes.Body, &pld); err != nil {
-					return oMD, err
+					return outCtx, err
 				}
-				return oMD, errors.Decode(ctx, pld)
+				return outCtx, errors.Decode(ctx, pld)
 			}
-			return oMD, u.codec.DecodeStream(nil, httpRes.Body, &res)
+			return outCtx, u.codec.DecodeStream(nil, httpRes.Body, &res)
 		}),
 	)
 	return res, err

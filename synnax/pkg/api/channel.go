@@ -15,10 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
@@ -32,21 +32,21 @@ type ChannelKey = channel.Key
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key         channel.Key          `json:"key" msgpack:"key"`
-	Name        string               `json:"name" msgpack:"name"`
-	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
-	Density     telem.Density        `json:"density" msgpack:"density"`
-	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key          `json:"index" msgpack:"index"`
-	Alias       string               `json:"alias" msgpack:"alias"`
-	Virtual     bool                 `json:"virtual" msgpack:"virtual"`
-	Internal    bool                 `json:"internal" msgpack:"internal"`
-	Requires    channel.Keys         `json:"requires" msgpack:"requires"`
-	Expression  string               `json:"expression" msgpack:"expression"`
+	Key         channel.Key     `json:"key" msgpack:"key"`
+	Name        string          `json:"name" msgpack:"name"`
+	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	DataType    telem.DataType  `json:"data_type" msgpack:"data_type"`
+	Density     telem.Density   `json:"density" msgpack:"density"`
+	IsIndex     bool            `json:"is_index" msgpack:"is_index"`
+	Index       channel.Key     `json:"index" msgpack:"index"`
+	Alias       string          `json:"alias" msgpack:"alias"`
+	Virtual     bool            `json:"virtual" msgpack:"virtual"`
+	Internal    bool            `json:"internal" msgpack:"internal"`
+	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
+	Expression  string          `json:"expression" msgpack:"expression"`
 }
 
-// ChannelService is the central API for all things Channel related.
+// ChannelService is the central service for all things Channel related.
 type ChannelService struct {
 	dbProvider
 	accessProvider
@@ -57,8 +57,8 @@ type ChannelService struct {
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		accessProvider: p.access,
-		internal:       p.Config.Channel,
-		ranger:         p.Config.Ranger,
+		internal:       p.Distribution.Channel,
+		ranger:         p.Service.Ranger,
 		dbProvider:     p.db,
 	}
 }
@@ -107,13 +107,13 @@ func (s *ChannelService) Create(
 // from the cluster.
 type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node Name.
-	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `json:"search" msgpack:"search"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 	// Limit limits the number of results returned.
@@ -150,7 +150,7 @@ func (s *ChannelService) Retrieve(
 		q               = s.internal.NewRetrieve().Entries(&resChannels)
 		hasNames        = len(req.Names) > 0
 		hasKeys         = len(req.Keys) > 0
-		hasSearch       = len(req.Search) > 0
+		hasSearch       = len(req.SearchTerm) > 0
 		hasDataTypes    = len(req.DataTypes) > 0
 		hasNotDataTypes = len(req.NotDataTypes) > 0
 	)
@@ -164,7 +164,7 @@ func (s *ChannelService) Retrieve(
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
-			keys, err := resRng.SearchAliases(ctx, req.Search)
+			keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
 			if err != nil {
 				return ChannelRetrieveResponse{}, err
 			}
@@ -182,7 +182,7 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereNames(req.Names...)
 	}
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.SearchTerm)
 	}
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
@@ -220,7 +220,7 @@ func (s *ChannelService) Retrieve(
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
 		for i, ch := range resChannels {
-			al, err := resRng.GetAlias(ctx, ch.Key())
+			al, err := resRng.RetrieveAlias(ctx, ch.Key())
 			if err == nil {
 				oChannels[i].Alias = al
 			}
@@ -256,8 +256,8 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	return translated
 }
 
-// translateChannelsBackward translates a slice of a API channel structs to a slice of
-// the internal channel structs.
+// translateChannelsBackward translates a slice of api channel structs to a slice of
+// internal channel structs.
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
@@ -348,8 +348,7 @@ func (s *ChannelService) Rename(
 	})
 }
 
-type ChannelRetrieveGroupRequest struct {
-}
+type ChannelRetrieveGroupRequest struct{}
 
 type ChannelRetrieveGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`

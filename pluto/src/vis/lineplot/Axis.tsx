@@ -20,10 +20,10 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoDeepEqualProps as useMemoDeepEqual } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -37,8 +37,8 @@ import { useGridEntry } from "@/vis/lineplot/LinePlot";
 export interface AxisProps
   extends PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
-    Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Omit<Flex.BoxProps, "color">,
+    Aether.ComponentProps {
   label?: string;
   labelLevel?: Text.Level;
   labelDirection?: direction.Direction;
@@ -136,7 +136,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     return (
       <>
-        <Align.Space
+        <Flex.Box
           className={CSS(className, CSS.B("axis"), CSS.B(cssClass), CSS.loc(location))}
           style={{ ...style, ...gridStyle }}
           align="center"
@@ -152,7 +152,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
               level={labelLevel}
             />
           )}
-        </Align.Space>
+        </Flex.Box>
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </>
     );

@@ -17,9 +17,10 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -47,7 +48,7 @@ type Config struct {
 	Transport Transport
 	// HostResolver is used to retrieve information about the host node.
 	// [REQUIRED]
-	HostResolver core.HostResolver
+	HostResolver cluster.HostResolver
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
@@ -72,7 +73,7 @@ type Config struct {
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
-	// [OPTIONAL: Default is 1000 or 72 KB]
+	// [OPTIONAL: Default is 1000 (equivalent 72 kB of data)]
 	ResponseBufferSize int
 	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
 	// This value should be relatively small.
@@ -87,7 +88,7 @@ var (
 	// Config for more information.
 	DefaultConfig = Config{
 		SlowConsumerTimeout: time.Millisecond * 20,
-		// 72 B * 1000 = 72 KB
+		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
 	}
@@ -110,14 +111,14 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostProvider", c.HostResolver)
-	validate.NotNil(v, "TS", c.TS)
-	validate.NotNil(v, "FreeWrites", c.FreeWrites)
-	validate.NotNil(v, "ChannelReader", c.ChannelReader)
-	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
-	validate.Positive(v, "ResponseBufferSize", c.ResponseBufferSize)
-	validate.Positive(v, "DemandBufferSize", c.DemandBufferSize)
+	validate.NotNil(v, "transport", c.Transport)
+	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "ts", c.TS)
+	validate.NotNil(v, "free_writers", c.FreeWrites)
+	validate.NotNil(v, "channels", c.ChannelReader)
+	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
+	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
+	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)
 	return v.Error()
 }
 

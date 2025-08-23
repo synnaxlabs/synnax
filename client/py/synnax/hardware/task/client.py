@@ -12,19 +12,20 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Any, Protocol, overload
+from typing import Protocol, overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
-from synnax.hardware.task.payload import TaskPayload, TaskState
+from synnax.hardware.task.payload import TaskPayload, TaskStatus
+from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -45,7 +46,7 @@ class _RetrieveRequest(Payload):
     keys: list[int] | None = None
     names: list[str] | None = None
     types: list[str] | None = None
-    include_state: bool = False
+    include_status: bool = False
 
 
 class _RetrieveResponse(Payload):
@@ -56,7 +57,7 @@ _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
 
-_TASK_STATE_CHANNEL = "sy_task_state"
+_TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
@@ -66,6 +67,7 @@ class Task:
     type: str = ""
     config: str = ""
     snapshot: bool = False
+    status: TaskStatus | None = None
     _frame_client: FrameClient | None = None
 
     def __init__(
@@ -77,6 +79,7 @@ class Task:
         type: str = "",
         config: str = "",
         snapshot: bool = False,
+        status: TaskStatus | None = None,
         _frame_client: FrameClient | None = None,
     ):
         if key == 0:
@@ -86,6 +89,7 @@ class Task:
         self.type = type
         self.config = config
         self.snapshot = snapshot
+        self.status = status
         self._frame_client = _frame_client
 
     def to_payload(self) -> TaskPayload:
@@ -126,7 +130,7 @@ class Task:
         type_: str,
         args: dict | None = None,
         timeout: float | TimeSpan = 5,
-    ) -> str:
+    ) -> TaskStatus:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
 
@@ -147,9 +151,9 @@ class Task:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    state = TaskState.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if state.key == key:
-                        return state
+                    status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                    if status.key == key:
+                        return status
                 except ValidationError as e:
                     raise UnexpectedError(
                         f"""
@@ -204,7 +208,7 @@ class StarterStopperMixin:
 
 class JSONConfigMixin(MetaTask):
     _internal: Task
-    config: Any
+    config: BaseModel
 
     @property
     def name(self) -> str:
@@ -318,14 +322,13 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                state = frame["sy_task_state"][0]
-                if int(state["task"]) != task.key:
+                status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                if status.details.task != task.key:
                     continue
-                variant = state["variant"]
-                if variant == "success":
+                if status.variant == SUCCESS_VARIANT:
                     break
-                if variant == "error":
-                    raise ConfigurationError(state["details"]["message"])
+                if status.variant == ERROR_VARIANT:
+                    raise ConfigurationError(status.message)
         return task
 
     def delete(self, keys: int | list[int]):

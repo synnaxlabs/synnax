@@ -11,33 +11,31 @@ package tracker_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/config"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/config"
 )
 
 var (
-	ctx  = context.Background()
-	_b   *mock.Builder
-	dist distribution.Distribution
+	ctx         = context.Background()
+	mockCluster *mock.Cluster
+	dist        mock.Node
 )
 
 var _ = BeforeSuite(func() {
-	_b = mock.NewBuilder(distribution.Config{Ontology: ontology.Config{EnableSearch: config.False()}})
-	dist = _b.New(ctx)
+	mockCluster = mock.NewCluster(distribution.Config{EnableSearch: config.False()})
+	dist = mockCluster.Provision(ctx)
 })
 
 var _ = AfterSuite(func() {
-	Expect(_b.Close()).To(Succeed())
-	Expect(_b.Cleanup()).To(Succeed())
+	Expect(mockCluster.Close()).To(Succeed())
 })
 
-func TestState(t *testing.T) {
+func TestTracker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "State Suite")
+	RunSpecs(t, "Tracker Suite")
 }

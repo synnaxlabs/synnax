@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { toArray, unique } from "@synnaxlabs/x";
+import { array, unique } from "@synnaxlabs/x";
 import {
   MultiSeries,
   Series,
@@ -23,15 +23,12 @@ import { z } from "zod";
 import { type channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
 
-export const ONTOLOGY_TYPE = "framer";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 type ColumnType = "key" | "name" | null;
 
 export interface Digest extends Record<channel.KeyOrName, SeriesDigest[]> {}
 
 const columnType = (columns: channel.PrimitiveParams): ColumnType => {
-  const arrKeys = toArray(columns);
+  const arrKeys = array.toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
   if (!isNaN(parseInt(arrKeys[0]))) return "key";
@@ -42,7 +39,7 @@ const validateMatchedColsAndSeries = (
   columns: channel.PrimitiveParams,
   series: Series[],
 ): void => {
-  const colsArr = toArray(columns);
+  const colsArr = array.toArray(columns);
   if (colsArr.length === series.length) return;
   const colType = columnType(columns);
   if (columnType === null)
@@ -55,7 +52,7 @@ const validateMatchedColsAndSeries = (
   );
 };
 
-export type Crude =
+export type CrudeFrame =
   | Frame
   | CrudePayload
   | Map<channel.KeyOrName, Series[] | Series>
@@ -101,7 +98,7 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData: channel.PrimitiveParams | Crude = [],
+    columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {
@@ -112,7 +109,7 @@ export class Frame {
 
     // Construction from a map.
     if (columnsOrData instanceof Map) {
-      columnsOrData.forEach((v, k) => this.push(k, ...toArray(v)));
+      columnsOrData.forEach((v, k) => this.push(k, ...array.toArray(v)));
       return;
     }
 
@@ -130,8 +127,8 @@ export class Frame {
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k);
-          if (!isNaN(key)) return this.push(key, ...toArray(v));
-          this.push(k, ...toArray(v));
+          if (!isNaN(key)) return this.push(key, ...array.toArray(v));
+          this.push(k, ...array.toArray(v));
         });
       return;
     }
@@ -141,8 +138,8 @@ export class Frame {
       Array.isArray(columnsOrData) ||
       ["string", "number"].includes(typeof columnsOrData)
     ) {
-      const data_ = toArray(series);
-      const cols = toArray(columnsOrData) as channel.Keys | channel.Names;
+      const data_ = array.toArray(series);
+      const cols = array.toArray(columnsOrData) as channel.Keys | channel.Names;
       validateMatchedColsAndSeries(cols, data_);
       data_.forEach((d, i) => this.push(cols[i], d));
       return;
@@ -429,7 +426,7 @@ export class Frame {
     let str = `Frame{\n`;
     this.uniqueColumns.forEach((c) => {
       str += `  ${c}: ${this.get(c)
-        .series.map((c) => c.toString())
+        .series.map((s) => s.toString())
         .join(",")}\n`;
     });
     str += "}";
@@ -439,16 +436,16 @@ export class Frame {
 
 export const frameZ = z.object({
   keys: z.union([
-    z.null().transform(() => [] as number[]),
+    z.null().transform<number[]>(() => []),
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof Series.crudeZ>>),
+    z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
     Series.crudeZ.array().optional().default([]),
   ]),
 });
 
-export interface Payload extends z.output<typeof frameZ> {}
+export interface Payload extends z.infer<typeof frameZ> {}
 
 export interface CrudePayload extends z.input<typeof frameZ> {}
 

@@ -8,17 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type observe, type Primitive } from "@synnaxlabs/x";
+import { type observe, type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import {
-  type ContextValue,
-  type OnChangeProps,
-  use,
-  type UseProps,
-  type UseReturn,
-} from "@/form/Form";
+import { type ContextValue } from "@/form/Context";
+import { type OnChangeArgs, use, type UseArgs, type UseReturn } from "@/form/use";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoPrimitiveArray } from "@/memo";
 import { Observe } from "@/observe";
@@ -29,25 +24,25 @@ interface QueryFnProps {
   client: Client;
 }
 
-interface ApplyObservableProps<Z extends z.ZodTypeAny, O = Z> {
+interface ApplyObservableProps<Z extends z.ZodType, O = Z> {
   changes: O;
   ctx: ContextValue<Z>;
 }
 
-interface SyncLocalProps<Z extends z.ZodTypeAny> extends OnChangeProps<Z> {
+interface SyncLocalProps<Z extends z.ZodType> extends OnChangeArgs<Z> {
   client: Client;
 }
 
-interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> extends UseProps<Z> {
+interface UseSyncedProps<Z extends z.ZodType, O = Z> extends UseArgs<Z> {
   name: string;
-  key: Primitive[];
-  queryFn: (props: QueryFnProps) => Promise<z.output<Z>>;
+  key: primitive.Value[];
+  queryFn: (props: QueryFnProps) => Promise<z.infer<Z>>;
   openObservable?: (client: Client) => Promise<observe.ObservableAsyncCloseable<O>>;
   applyObservable?: (props: ApplyObservableProps<Z, O>) => void;
   applyChanges?: (props: SyncLocalProps<Z>) => Promise<void>;
 }
 
-export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
+export const useSynced = <Z extends z.ZodType, O = Z>({
   key,
   name,
   queryFn,

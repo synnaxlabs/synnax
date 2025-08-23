@@ -227,10 +227,9 @@ describe("deepMerge", () => {
     const schema = z.object({
       a: z.number(),
     });
-    const extension = z.object({
+    const extendedSchema = schema.extend({
       b: z.string(),
     });
-    const extendedSchema = schema.extend(extension);
     const base = {
       a: 1,
     };

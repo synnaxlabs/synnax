@@ -27,7 +27,7 @@ from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame
-from synnax.framer.iterator import Iterator
+from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.ontology import ID
@@ -261,10 +261,51 @@ class Client:
             )
         return series
 
+    def read_latest(
+        self,
+        channels: ChannelKey | ChannelName,
+        n: int = 1,
+    ) -> MultiSeries: ...
+
+    def read_latest(
+        self,
+        channels: ChannelKeys | ChannelNames,
+        n: int = 1,
+    ) -> Frame: ...
+
+    def read_latest(
+        self,
+        channels: ChannelParams,
+        n: int = 1,
+    ) -> Frame:
+        """
+        Reads the latest n samples from time_channel and data_channel.
+
+        Args:
+            n: The number of samples to read.
+
+        Returns:
+            A frame containing the latest n samples from time_channel and data_channel
+        """
+        normal = normalize_channel_params(channels)
+        aggregate = Frame()
+        if n > 0:
+            with self.open_iterator(
+                tr=TimeRange.MAX,
+                channels=channels,
+                chunk_size=n,
+            ) as i:
+                i.seek_last()
+                i.prev(AUTO_SPAN)
+                aggregate.append(i.value)
+        if len(normal.channels) > 1:
+            return aggregate
+        return aggregate.get(normal.channels[0], MultiSeries([]))
+
     def open_streamer(
         self,
         channels: ChannelParams,
-        down_sample_factor: int = 1,
+        downsample_factor: int = 1,
         use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -273,26 +314,26 @@ class Client:
         :param channels: The channels to stream from. This can be a single channel name,
         a list of channel names, a single channel key, or a list of channel keys.
 
-        :param down_sample_factor: The downsample factor to use for the streamer.
+        :param downsample_factor: The downsample factor to use for the streamer.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
             client=self.__stream_client,
-            down_sample_factor=down_sample_factor,
+            downsample_factor=downsample_factor,
             use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, down_sample_factor: int = 1
+        self, channels: ChannelParams, downsample_factor: int = 1
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         s = AsyncStreamer(
             adapter=adapter,
             client=self.__async_client,
-            down_sample_factor=down_sample_factor,
+            downsample_factor=downsample_factor,
         )
         await s._open()
         return s

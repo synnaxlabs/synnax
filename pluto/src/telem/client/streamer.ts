@@ -10,13 +10,12 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
 import {
+  array,
   compare,
   type CrudeTimeSpan,
   type Destructor,
   MultiSeries,
-  nullToArr,
   type Replace,
-  type Required,
   type Series,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -63,10 +62,10 @@ export class Streamer {
   /** Implements StreamClient. */
   async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
     const { cache, instrumentation: ins } = this.props;
-
+    if (this.closed) return () => {};
     // Make sure that the cache has entries for all relevant channels. This will also
     // do a check to make sure that the channels actually exist.
-    if (!(await cache.populateMissing(keys)) || this.closed) return () => {};
+    await cache.populateMissing(keys);
 
     return await this.mu.runExclusive(async () => {
       ins.L.debug("adding stream handler", { keys });
@@ -79,7 +78,7 @@ export class Streamer {
       const dynamicBuffers: Map<channel.Key, MultiSeries> = new Map(
         keys.map((key) => {
           const unary = cache.get(key);
-          return [key, new MultiSeries(nullToArr<Series>(unary.leadingBuffer))];
+          return [key, new MultiSeries(array.toArray<Series>(unary.leadingBuffer))];
         }),
       );
       handler(dynamicBuffers);
@@ -144,13 +143,13 @@ export class Streamer {
 
       await this.streamer.update(arrKeys);
     } catch (e) {
-      console.error("failed to update streamer", { error: e });
+      ins.L.error("failed to update streamer", { error: e });
       throw e;
     }
   }
 
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
-    const { cache } = this.props;
+    const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
         const changed: Map<channel.Key, MultiSeries> = new Map();
@@ -164,17 +163,18 @@ export class Streamer {
           this.listeners.forEach(({ valid }, handler) => valid && handler(changed));
       }
     } catch (e) {
-      console.error("streamer run loop failed", { error: e }, true);
+      ins.L.error("streamer run loop failed", { error: e }, true);
       throw e;
     }
   }
 
   async close(): Promise<void> {
+    const { instrumentation: ins } = this.props;
     try {
       this.streamer?.close();
       if (this.streamerRunLoop != null) await this.streamerRunLoop;
     } catch (e) {
-      console.error("failed to close streamer", { error: e });
+      ins.L.error("failed to close streamer", { error: e });
     }
     this.closed = true;
   }

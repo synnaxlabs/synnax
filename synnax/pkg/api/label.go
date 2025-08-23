@@ -28,7 +28,7 @@ type LabelService struct {
 
 func NewLabelService(p Provider) *LabelService {
 	return &LabelService{
-		internal:       p.Config.Label,
+		internal:       p.Service.Label,
 		dbProvider:     p.db,
 		accessProvider: p.access,
 	}
@@ -72,12 +72,12 @@ func (s *LabelService) Create(
 
 type LabelRetrieveRequest struct {
 	// Keys are the keys of the labels to retrieve.
-	Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names  []string    `json:"names" msgpack:"names"`
-	For    ontology.ID `json:"for" msgpack:"for"`
-	Search string      `json:"search" msgpack:"search"`
-	Limit  int         `json:"limit" msgpack:"limit"`
-	Offset int         `json:"offset" msgpack:"offset"`
+	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+	Names      []string    `json:"names" msgpack:"names"`
+	For        ontology.ID `json:"for" msgpack:"for"`
+	SearchTerm string      `json:"search_term" msgpack:"search_term"`
+	Limit      int         `json:"limit" msgpack:"limit"`
+	Offset     int         `json:"offset" msgpack:"offset"`
 }
 
 type LabelRetrieveResponse struct {
@@ -96,8 +96,8 @@ func (s *LabelService) Retrieve(
 
 	q := s.internal.NewRetrieve()
 
-	if req.Search != "" {
-		q = q.Search(req.Search)
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
 	}
 	if req.Limit != 0 {
 		q = q.Limit(req.Limit)

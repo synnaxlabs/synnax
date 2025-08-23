@@ -11,12 +11,12 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
-import { newClient } from "@/setupspecs";
-import { newIndexedPair } from "@/testutil/indexedPair";
+import { newIndexedPair } from "@/testutil/channels";
+import { createTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Iterator", () => {
   test("happy path", async () => {
@@ -50,7 +50,7 @@ describe("Iterator", () => {
     );
 
     try {
-      expect(await iter.seekFirst()).toBeTruthy();
+      expect(await iter.seekFirst()).toBe(true);
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
@@ -78,24 +78,24 @@ describe("Iterator", () => {
     const iter = await client.openIterator(TimeRange.MAX, channels, { chunkSize: 4 });
 
     try {
-      expect(await iter.seekFirst()).toBeTruthy();
+      expect(await iter.seekFirst()).toBe(true);
 
-      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(1, 4).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(5, 4).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBeTruthy();
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(9, 2).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBeFalsy();
+      expect(await iter.next(AUTO_SPAN)).toBe(false);
     } finally {
       await iter.close();
     }

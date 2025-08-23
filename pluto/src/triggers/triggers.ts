@@ -326,13 +326,13 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * the triggers will be considered equal.
  * @returns a comparison function that determines if two triggers are semantically equal.
  */
-const compareF = (opts?: MatchOptions): compare.CompareF<Trigger> => {
+const compareF = (opts?: MatchOptions): compare.Comparator<Trigger> => {
   if (opts?.loose === true) return _looseCompare;
   if (opts?.double === true) return compare.uniqueUnorderedPrimitiveArrays;
   return compare.unorderedPrimitiveArrays;
 };
 
-const _looseCompare: compare.CompareF<Trigger> = (a, b) =>
+const _looseCompare: compare.Comparator<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */

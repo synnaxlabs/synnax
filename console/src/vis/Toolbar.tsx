@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Status, Text } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -37,19 +36,17 @@ const NoVis = (): ReactElement => {
     placeLayout(createSelectorLayout());
   };
   return (
-    <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
+    <Toolbar.Content disableClusterBoundary>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
-      <Align.Center x size="small">
-        <Status.Text level="p" variant="disabled" hideIcon>
-          No visualization selected. Select a visualization or
-        </Status.Text>
-        <Text.Link level="p" onClick={handleCreateNewVisualization}>
-          create a new one.
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
+      <EmptyAction
+        x
+        message="No visualization selected. Select a visualization or"
+        action="create a new one."
+        onClick={handleCreateNewVisualization}
+      />
+    </Toolbar.Content>
   );
 };
 

@@ -34,7 +34,7 @@ export const linePlotStateZ = z.object({
 
 interface InternalState {
   instrumentation: Instrumentation;
-  aggregate: status.Adder;
+  handleError: status.ErrorHandler;
   renderCtx: render.Context;
 }
 
@@ -60,9 +60,8 @@ export class LinePlot extends aether.Composite<
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
-    this.internal.aggregate = status.useAdder(ctx);
+    this.internal.handleError = status.useErrorHandler(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    status.useInterceptor(ctx, () => null);
     render.control(ctx, (r) => {
       if (!this.state.visible) return;
       this.requestRender("low", r);
@@ -157,21 +156,20 @@ export class LinePlot extends aether.Composite<
   }
 
   private render(canvases: render.CanvasVariant[]): render.Cleanup | undefined {
-    const { renderCtx } = this.internal;
-    const { instrumentation } = this.internal;
+    const { instrumentation: ins, renderCtx, handleError } = this.internal;
     if (this.deleted) {
-      instrumentation.L.debug("deleted, skipping render", { key: this.key });
+      ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
     if (!this.state.visible) {
-      instrumentation.L.debug("not visible, skipping render", { key: this.key });
+      ins.L.debug("not visible, skipping render", { key: this.key });
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
 
     const plot = this.calculatePlot();
 
-    instrumentation.L.debug("rendering", {
+    ins.L.debug("rendering", {
       key: this.key,
       viewport: this.state.viewport,
       container: this.state.container,
@@ -199,19 +197,12 @@ export class LinePlot extends aether.Composite<
       this.renderMeasures(plot);
       this.renderBounds();
     } catch (e) {
-      const err = e as Error;
-      // TODO: Remove this temp fix after we resolve actual error.
-      if (err.message.toLowerCase().includes("bigint")) return;
-      this.internal.aggregate({
-        key: `${this.type}-${this.key}`,
-        variant: "error",
-        message: (e as Error).message,
-      });
+      handleError(e, "failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();
     }
-    instrumentation.L.debug("rendered", { key: this.key });
+    ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 
     return ({ canvases }) =>

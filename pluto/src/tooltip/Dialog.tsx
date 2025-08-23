@@ -31,11 +31,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { isRenderProp, type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef } from "@/hooks";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
-import { isRenderProp, type RenderProp } from "@/util/renderProp";
 
 interface ChildProps {
   id?: string;
@@ -277,10 +277,8 @@ export const Dialog = ({
               loadCLS,
             )}
             style={{
-              // @ts-expect-error - css
-              "--pos-x": CSS.px(state.position.x),
-              "--pos-y": CSS.px(state.position.y),
-              "--el-width": CSS.px(state.triggerDims.width),
+              [CSS.var("pos-x")]: CSS.px(state.position.x),
+              [CSS.var("pos-y")]: CSS.px(state.position.y),
             }}
           >
             {isRenderProp(tip) ? tip(state) : formatTip(tip)}

@@ -9,7 +9,7 @@
 
 import "@/selector/Selector.css";
 
-import { Align, Button, Eraser, type Icon, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, Flex, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -24,7 +24,7 @@ export interface SelectableCreateArgs {
 export interface Selectable {
   key: string;
   title: string;
-  icon: Icon.Element;
+  icon: Icon.ReactElement;
   create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
 }
 
@@ -43,16 +43,17 @@ export const Selector = ({
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Align.Center className={CSS.B("vis-layout-selector")} size="large" wrap>
-        <Text.Text level="h4" shade={10} weight={400}>
+      <Flex.Box className={CSS.B("vis-layout-selector")} gap="large" wrap center>
+        <Text.Text level="h4" color={10} weight={400}>
           {text}
         </Text.Text>
-        <Align.Space
+        <Flex.Box
           x
           wrap
-          style={{ maxWidth: "500px", width: "100%" }}
+          style={{ maxWidth: "500px" }}
+          full="x"
           justify="center"
-          size={2.5}
+          gap={2.5}
         >
           {selectables.map(({ key, title, icon, create }) => (
             <Button.Button
@@ -64,14 +65,14 @@ export const Selector = ({
                   if (layout != null) place(layout);
                 }, `Failed to create ${title}`)
               }
-              startIcon={icon}
               style={{ flexBasis: "185px" }}
             >
+              {icon}
               {title}
             </Button.Button>
           ))}
-        </Align.Space>
-      </Align.Center>
+        </Flex.Box>
+      </Flex.Box>
     </Eraser.Eraser>
   );
 };

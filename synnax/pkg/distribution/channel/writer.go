@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -25,11 +26,12 @@ type Writer interface {
 	DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error
 	Rename(ctx context.Context, key Key, newName string, allowInternal bool) error
 	RenameMany(ctx context.Context, keys []Key, newNames []string, allowInternal bool) error
+	MapRename(ctx context.Context, names map[string]string, allowInternal bool) error
 }
 
 type writer struct {
-	proxy *leaseProxy
-	tx    gorp.Tx
+	svc *service
+	tx  gorp.Tx
 }
 
 var _ Writer = writer{}
@@ -65,7 +67,7 @@ func (w writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), o)
+	return w.svc.proxy.create(ctx, w.tx, applyManyAdjustments(channels), o)
 }
 
 func (w writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
@@ -73,7 +75,7 @@ func (w writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 }
 
 func (w writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	return w.proxy.delete(ctx, w.tx, keys, allowInternal)
+	return w.svc.proxy.delete(ctx, w.tx, keys, allowInternal)
 }
 
 func (w writer) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
@@ -81,7 +83,21 @@ func (w writer) DeleteByName(ctx context.Context, name string, allowInternal boo
 }
 
 func (w writer) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
-	return w.proxy.deleteByName(ctx, w.tx, names, allowInternal)
+	return w.svc.proxy.deleteByName(ctx, w.tx, names, allowInternal)
+}
+
+func (w writer) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
+	oldNames := lo.Keys(names)
+	oldChannels := make([]Channel, 0, len(oldNames))
+	if err := w.svc.NewRetrieve().WhereNames(oldNames...).Entries(&oldChannels).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	newNames := make([]string, 0, len(oldChannels))
+	for _, oldChannel := range oldChannels {
+		newName := names[oldChannel.Name]
+		newNames = append(newNames, newName)
+	}
+	return w.RenameMany(ctx, KeysFromChannels(oldChannels), newNames, allowInternal)
 }
 
 func (w writer) Rename(
@@ -99,7 +115,7 @@ func (w writer) RenameMany(
 	newNames []string,
 	allowInternal bool,
 ) error {
-	return w.proxy.rename(ctx, w.tx, keys, newNames, allowInternal)
+	return w.svc.proxy.rename(ctx, w.tx, keys, newNames, allowInternal)
 }
 
 func applyAdjustments(c Channel) Channel {

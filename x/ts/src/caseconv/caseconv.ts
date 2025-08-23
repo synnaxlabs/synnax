@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord } from "@/record";
+import { type record } from "@/record";
 
 const snakeToCamelStr = (str: string): string => {
   const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
@@ -31,26 +31,26 @@ const createConverter = (
     if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
     if (!isValidObject(obj)) return obj;
     opt = validateOptions(opt);
-    const res: UnknownRecord = {};
-    const anyObj = obj as UnknownRecord;
+    const res: record.Unknown = {};
+    const anyObj = obj as record.Unknown;
+    if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
+      return converter(anyObj.toJSON(), opt);
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);
       if (opt.recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value, opt.keepTypesOnRecursion))
-            value = converter(value, opt);
+          if (!belongToTypes(value)) value = converter(value, opt);
         } else if (opt.recursiveInArray && isArrayObject(value))
           value = [...(value as unknown[])].map((v) => {
             let ret = v;
             if (isValidObject(v)) {
               // object in array
-              if (!belongToTypes(ret, opt.keepTypesOnRecursion))
-                ret = converter(v, opt);
+              if (!belongToTypes(ret)) ret = converter(v, opt);
             } else if (isArrayObject(v)) {
               // array in array
               // workaround by using an object holding array value
-              const temp: UnknownRecord = converter({ key: v }, opt);
+              const temp: record.Unknown = converter({ key: v }, opt);
               ret = temp.key;
             }
             return ret;
@@ -115,8 +115,9 @@ export const capitalize = (str: string): string => {
 export interface Options {
   recursive: boolean;
   recursiveInArray?: boolean;
-  keepTypesOnRecursion?: any[];
 }
+
+const keepTypesOnRecursion = [Number, String, Uint8Array];
 
 /**
  * Default options for convert function. This option is not recursive.
@@ -124,7 +125,6 @@ export interface Options {
 const defaultOptions: Options = {
   recursive: true,
   recursiveInArray: true,
-  keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
 const validateOptions = (opt: Options = defaultOptions): Options => {
@@ -133,13 +133,13 @@ const validateOptions = (opt: Options = defaultOptions): Options => {
   return opt;
 };
 
-const isArrayObject = (obj: any): boolean => obj != null && Array.isArray(obj);
+const isArrayObject = (obj: unknown): boolean => obj != null && Array.isArray(obj);
 
-const isValidObject = (obj: any): boolean =>
+const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-const belongToTypes = (obj: any, types?: any[]): boolean =>
-  (types || []).some((Type) => obj instanceof Type);
+const belongToTypes = (obj: unknown): boolean =>
+  keepTypesOnRecursion.some((type) => obj instanceof type);
 
 /**
  * Converts a string to kebab-case.

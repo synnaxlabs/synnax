@@ -11,10 +11,10 @@ import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { NotFoundError, PathError } from "@/errors";
+import { createTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Channel", () => {
   describe("create", () => {
@@ -26,7 +26,7 @@ describe("Channel", () => {
       });
       expect(channel.name, "test").toEqual("test");
       expect(channel.leaseholder).toEqual(1);
-      expect(channel.virtual).toBeTruthy();
+      expect(channel.virtual).toBe(true);
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     }, 80000);
 
@@ -49,6 +49,24 @@ describe("Channel", () => {
       expect(calculatedCH.virtual).toEqual(true);
       expect(calculatedCH.expression).toEqual("test * 2");
       expect(calculatedCH.requires).toEqual([chOne.key]);
+    });
+
+    test("create calculated, missing required channel", async () => {
+      try {
+        await client.channels.create({
+          name: "test",
+          virtual: true,
+          dataType: DataType.FLOAT32,
+          expression: "test * 2",
+          requires: [],
+        });
+      } catch (e) {
+        expect(PathError.matches(e)).toBe(true);
+        expect((e as PathError).path).toEqual(["requires"]);
+        expect((e as PathError).error.message).contain(
+          "calculated channels must require at least one channel",
+        );
+      }
     });
 
     test("create index and indexed pair", async () => {
@@ -112,7 +130,7 @@ describe("Channel", () => {
         });
         expect(channel.virtual).toEqual(true);
         const retrieved = await client.channels.retrieve(channel.key);
-        expect(retrieved.virtual).toBeTruthy();
+        expect(retrieved.virtual).toBe(true);
       });
     });
 
@@ -270,7 +288,7 @@ describe("Channel", () => {
     });
   });
 
-  describe("update", () => {
+  describe("update calculations", () => {
     let idxCH: Channel;
     beforeAll(async () => {
       idxCH = await client.channels.create({

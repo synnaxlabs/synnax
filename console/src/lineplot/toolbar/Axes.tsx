@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
-  Align,
   Button,
   compareArrayDeps,
+  Direction,
+  Flex,
+  Icon,
   Input,
   Select,
   Tabs,
@@ -68,12 +69,12 @@ export interface LinePlotAxisControlsProps {
   layoutKey: string;
 }
 
-export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children"> {
+export interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
   enabled: boolean;
 }
 
 const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
-  <Button.Icon
+  <Button.Button
     {...rest}
     variant="outlined"
     disabled={enabled}
@@ -82,7 +83,7 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
     }
   >
     <Icon.Auto />
-  </Button.Icon>
+  </Button.Button>
 );
 
 export const LinePlotAxisControls = ({
@@ -146,8 +147,8 @@ export const LinePlotAxisControls = ({
   };
 
   return (
-    <Align.Space y style={{ padding: "2rem" }} size="small">
-      <Align.Space x>
+    <Flex.Box y style={{ padding: "2rem" }} gap="small">
+      <Flex.Box x>
         <Input.Item label="Lower Bound" y grow>
           <Input.Numeric
             value={axis.bounds.lower}
@@ -184,8 +185,8 @@ export const LinePlotAxisControls = ({
             endContent="px"
           />
         </Input.Item>
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Input.Item label="Label" grow>
           <Input.Text
             placeholder={axisKey.toUpperCase()}
@@ -195,7 +196,7 @@ export const LinePlotAxisControls = ({
         </Input.Item>
         {axis.key.startsWith("y") && (
           <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
-            <Select.Direction
+            <Direction.Select
               value={axis.labelDirection}
               onChange={handleLabelDirectionChange}
             />
@@ -207,8 +208,8 @@ export const LinePlotAxisControls = ({
             onChange={handleLabelLevelChange}
           />
         </Input.Item>
-      </Align.Space>
-    </Align.Space>
+      </Flex.Box>
+    </Flex.Box>
   );
 };
 

@@ -14,15 +14,22 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
-#include <sys/select.h>
 #include <thread>
-#include <unistd.h>
 #include <unordered_map>
 
-/// network headers
+/// platform-specific headers
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <io.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/select.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#endif
 
 /// external
 #include "modbus/modbus.h"

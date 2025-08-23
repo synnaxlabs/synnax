@@ -55,6 +55,8 @@ func LValueFromSeries(s telem.Series, i int) lua.LValue {
 	}
 }
 
+// LValueFromMultiSeriesAlignment gets the value in the multi-series at the given
+// alignment and converts it into an LValue with the correct data type.
 func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment) lua.LValue {
 	switch series.DataType() {
 	case telem.Int8T:
@@ -90,32 +92,32 @@ func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment)
 func SetLValueOnSeries(
 	v lua.LValue,
 	series telem.Series,
-	index int64,
+	index int,
 ) telem.Series {
 	switch v.Type() {
 	case lua.LTNumber:
 		num := float64(v.(lua.LNumber))
 		switch series.DataType {
 		case telem.Int8T:
-			telem.SetValueAt[int8](series, index, int8(num))
+			telem.SetValueAt(series, index, int8(num))
 		case telem.Int16T:
-			telem.SetValueAt[int16](series, index, int16(num))
+			telem.SetValueAt(series, index, int16(num))
 		case telem.Int32T:
-			telem.SetValueAt[int32](series, index, int32(num))
+			telem.SetValueAt(series, index, int32(num))
 		case telem.Int64T:
-			telem.SetValueAt[int64](series, index, int64(num))
+			telem.SetValueAt(series, index, int64(num))
 		case telem.Uint8T:
-			telem.SetValueAt[uint8](series, index, uint8(num))
+			telem.SetValueAt(series, index, uint8(num))
 		case telem.Uint16T:
-			telem.SetValueAt[uint16](series, index, uint16(num))
+			telem.SetValueAt(series, index, uint16(num))
 		case telem.Uint32T:
-			telem.SetValueAt[uint32](series, index, uint32(num))
+			telem.SetValueAt(series, index, uint32(num))
 		case telem.Uint64T:
-			telem.SetValueAt[uint64](series, index, uint64(num))
+			telem.SetValueAt(series, index, uint64(num))
 		case telem.Float32T:
-			telem.SetValueAt[float32](series, index, float32(num))
+			telem.SetValueAt(series, index, float32(num))
 		case telem.Float64T:
-			telem.SetValueAt[float64](series, index, float64(num))
+			telem.SetValueAt(series, index, float64(num))
 		}
 	default:
 		return series
@@ -129,8 +131,6 @@ var luaOptions = lua.Options{
 	// Keep a fixed size stack to keep CPU overhead low.
 	MinimizeStackMemory: false,
 }
-
-var _ error = &lua.ApiError{}
 
 func parseSyntaxError(err error) error {
 	if err == nil {
@@ -153,6 +153,8 @@ func parseSyntaxError(err error) error {
 		pErr.Message,
 	)
 }
+
+var RuntimeError = errors.Newf("runtime error")
 
 // Open creates a new calculator with the given expression as the calculation.
 func Open(expr string) (calc *Calculator, err error) {
@@ -179,7 +181,7 @@ func (c *Calculator) Set(name string, value lua.LValue) { c.luaState.SetGlobal(n
 // during evaluation, the error is returned.
 func (c *Calculator) Run() (result lua.LValue, err error) {
 	if err = c.luaState.CallByParam(lua.P{Fn: c.compiledExpr, NRet: 1, Protect: true}); err != nil {
-		return
+		return result, errors.Join(RuntimeError, err)
 	}
 	result = c.luaState.Get(-1)
 	c.luaState.Pop(1)

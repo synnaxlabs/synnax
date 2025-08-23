@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, color, deep, type KeyedNamed, scale } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { color } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback } from "react";
 
-import { Align } from "@/align";
 import { Color } from "@/color";
+import { Flex } from "@/flex";
 import { Form } from "@/form";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type ButtonProps } from "@/select/Button";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
 import { type Text } from "@/text";
@@ -25,25 +25,37 @@ export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
 
+const valueFormStyle = { padding: "2rem" };
+
+const ValueFormWrapper = (props: PropsWithChildren) => (
+  <Flex.Box {...props} style={valueFormStyle} y />
+);
+
+const valueTabs = [
+  { tabKey: "style", name: "Style" },
+  { tabKey: "telem", name: "Telemetry" },
+  { tabKey: "redline", name: "Redline" },
+];
+
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
+          <ValueFormWrapper>
             <Value.TelemForm path="" />
-          </Align.Space>
+          </ValueFormWrapper>
         );
       case "redline":
         return (
-          <Align.Space y style={{ padding: "2rem" }}>
-            <RedlineForm />
-          </Align.Space>
+          <ValueFormWrapper>
+            <Value.RedlineForm path="redline" />
+          </ValueFormWrapper>
         );
       default:
         return (
-          <Align.Space y grow empty style={{ padding: "2rem" }}>
-            <Align.Space x>
+          <ValueFormWrapper>
+            <Flex.Box x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
               </Input.Item>
@@ -69,100 +81,41 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 hideIfNull
                 padHelpText={false}
               >
-                {(p) => <Select.Text.Level {...p} />}
+                {({ value, onChange, variant: _, ...rest }) => (
+                  <Select.Text.Level value={value} onChange={onChange} {...rest} />
+                )}
               </Form.Field>
-            </Align.Space>
-          </Align.Space>
+            </Flex.Box>
+          </ValueFormWrapper>
         );
     }
   }, []);
-  const tabsProps = Tabs.useStatic({
-    tabs: [
-      { tabKey: "style", name: "Style" },
-      { tabKey: "telem", name: "Telemetry" },
-      { tabKey: "redline", name: "Redline" },
-    ],
-    content,
-  });
-  return <Tabs.Tabs {...tabsProps} />;
+  const tabsProps = Tabs.useStatic({ tabs: valueTabs, content });
+  return <Tabs.Tabs {...tabsProps} size="small" />;
 };
 
-const RedlineForm = (): ReactElement => {
-  const { set, get } = Form.useContext();
-  const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
-  const s = scale.Scale.scale<number>(0, 1).scale(b);
-  return (
-    <Align.Space x grow>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Lower"
-        path="redline.bounds.lower"
-      />
-      <Form.Field<color.Gradient>
-        path="redline.gradient"
-        label="Gradient"
-        align="start"
-        padHelpText={false}
-      >
-        {({ value, onChange }) => (
-          <Color.GradientPicker
-            value={deep.copy(value)}
-            scale={s}
-            onChange={(v) => {
-              const prevB = get<bounds.Bounds>("redline.bounds").value;
-              const nextBounds = { ...prevB };
-              const positions = v.map((c) => c.position);
-              const highestPos = s.pos(Math.max(...positions));
-              const lowestPos = s.pos(Math.min(...positions));
-              const highestGreater = highestPos > nextBounds.upper;
-              const lowestLower = lowestPos < nextBounds.lower;
-              if (highestGreater) {
-                v[v.length - 1].position = 1;
-                nextBounds.upper = highestPos;
-              }
-              if (lowestLower) {
-                v[0].position = 0;
-                nextBounds.lower = lowestPos;
-              }
-              const grad = v.map((c) => ({
-                ...c,
-                color: color.hex(c.color),
-              }));
-              if (highestGreater || lowestLower)
-                set("redline", {
-                  bounds: nextBounds,
-                  gradient: grad,
-                });
-              else onChange(v.map((c) => ({ ...c, color: color.hex(c.color) })));
-            }}
-          />
-        )}
-      </Form.Field>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Upper"
-        path="redline.bounds.upper"
-      />
-    </Align.Space>
-  );
-};
+const textFormStyle = { padding: "2rem" };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Align.Space x grow style={{ padding: "2rem" }}>
+  <Flex.Box x grow style={textFormStyle}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {(p) => <Select.Text.Level {...p} />}
+      {({ value, onChange, variant: _, ...rest }) => (
+        <Select.Text.Level value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<Text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {(p) => <Select.Text.Weight {...p} />}
+      {({ value, onChange, variant: _, ...rest }) => (
+        <Select.Text.Weight value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
-    <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
-      {(p) => <Select.TextAlignment {...p} />}
+    <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
+      {({ value, onChange, variant: _, ...rest }) => (
+        <Flex.SelectAlignment value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<color.Crude>
       path="backgroundColor"
@@ -172,27 +125,17 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     >
       {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
     </Form.Field>
-  </Align.Space>
+  </Flex.Box>
 );
 
-type VariantEntry = KeyedNamed<Variant>;
-
-const VARIANT_DATA: VariantEntry[] = [
-  { key: "text", name: "Text" },
-  { key: "value", name: "Value" },
+const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
+  { key: "text", name: "Text", icon: <Icon.Text /> },
+  { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-interface SelectVariantProps
-  extends Omit<
-    ButtonProps<Variant, VariantEntry>,
-    "data" | "entryRenderKey" | "allowMultiple"
-  > {}
+export interface SelectVariantProps
+  extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
 
-const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Button<Variant, VariantEntry>
-    {...props}
-    data={VARIANT_DATA}
-    allowMultiple={false}
-    entryRenderKey="name"
-  />
+export const SelectVariant = (props: SelectVariantProps) => (
+  <Select.Static {...props} data={VARIANT_DATA} resourceName="Variant" />
 );

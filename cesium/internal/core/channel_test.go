@@ -12,6 +12,7 @@ package core_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -52,4 +53,28 @@ var _ = Describe("Channel", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+	DescribeTable("Validation", func(substring string, ch core.Channel) {
+		Expect(ch.Validate()).To(MatchError(ContainSubstring(substring)))
+	},
+		Entry("ChannelKey has no datatype",
+			"data_type: required",
+			cesium.Channel{Name: "cat", Key: 9990, IsIndex: true},
+		),
+		Entry("ChannelKey IsIndex - Non Int64 Series Variant",
+			"data_type: index channel must be of type timestamp",
+			cesium.Channel{Name: "Richard", Key: 9993, IsIndex: true, DataType: telem.Float32T},
+		),
+		Entry("ChannelKey IsIndex - LocalIndex non-zero",
+			"index: index channel cannot be indexed by another channel",
+			cesium.Channel{Name: "Feynman", Key: 9995, IsIndex: true, Index: 500, DataType: telem.TimeStampT},
+		),
+		Entry("ChannelKey has no index",
+			"index: non-indexed channel must have an index",
+			cesium.Channel{Name: "Steinbeck", Key: 9998, DataType: telem.Float32T},
+		),
+		Entry("Virtual channel has an index",
+			"index: virtual channel cannot be indexed",
+			cesium.Channel{Name: "Steinbeck", Key: 9998, Virtual: true, Index: 123, DataType: telem.Float32T},
+		),
+	)
 })

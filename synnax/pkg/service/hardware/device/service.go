@@ -11,14 +11,15 @@ package device
 
 import (
 	"context"
+	"io"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for creating a Service.
@@ -70,7 +71,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 	s = &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	if err := s.migrateDeviceParents(ctx); err != nil {
 		return s, err
 	}

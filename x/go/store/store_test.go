@@ -44,7 +44,7 @@ var _ = Describe("Store", func() {
 			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
 				Store:     store.New(copyState),
 				Transform: store.PassthroughTransform[state],
-				GoNotify:  config.Bool(false),
+				GoNotify:  config.False(),
 			}))
 			var changedState state
 			s.OnChange(func(ctx context.Context, s state) { changedState = s })

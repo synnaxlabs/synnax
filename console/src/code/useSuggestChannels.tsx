@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type Synnax } from "@synnaxlabs/client";
-import { Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/pluto";
 import type * as monaco from "monaco-editor";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { Lua } from "@/code/lua";
 import { type UsePhantomGlobalsReturn } from "@/code/phantom";
@@ -22,7 +21,7 @@ const ID = "onCommandSuggestionAccepted";
 const suggestChannelNames = (
   mon: Pick<typeof monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod" | "languages">,
   onAccept: (channel: channel.Payload) => void,
-  searcher?: AsyncTermSearcher<string, channel.Key, channel.Payload>,
+  searcher?: channel.Client,
 ) => {
   const disposables: monaco.IDisposable[] = [];
   disposables.push(
@@ -51,7 +50,7 @@ const suggestChannelNames = (
         const beforeWord = lineContent.substring(0, word.startColumn - 1);
         const isInSetCall = /set\s*\($/.test(beforeWord.trim());
 
-        const channels = await searcher.search(word.word);
+        const channels = await searcher.retrieve({ searchTerm: word.word });
         const filteredChannels = IS_DEV
           ? channels
           : channels.filter(({ internal }) => !internal);
@@ -80,9 +79,9 @@ const suggestChannelNames = (
 
 export const useSuggestChannels = (onAccept: (channel: channel.Payload) => void) => {
   const monaco = useMonaco();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const disposables = useRef<monaco.IDisposable[]>([]);
-  useAsyncEffect(async () => {
+  useEffect(() => {
     if (monaco == null || client == null) return;
     disposables.current = suggestChannelNames(monaco, onAccept, client.channels);
     return () => disposables.current.forEach((d) => d.dispose());
@@ -90,7 +89,7 @@ export const useSuggestChannels = (onAccept: (channel: channel.Payload) => void)
 };
 
 export const bindChannelsAsGlobals = async (
-  client: Synnax,
+  client: Client,
   prev: channel.Key[],
   current: channel.Key[],
   globals: UsePhantomGlobalsReturn,

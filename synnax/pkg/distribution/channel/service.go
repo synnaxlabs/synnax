@@ -12,11 +12,12 @@ package channel
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -46,8 +47,8 @@ type ReadWriteable interface {
 	Readable
 }
 
-// service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
-// and retrieving channels.
+// service is central entity for managing channels within delta's distribution layer. It
+// provides facilities for creating and retrieving channels.
 type service struct {
 	*gorp.DB
 	Writer
@@ -58,25 +59,36 @@ type service struct {
 
 var _ Service = (*service)(nil)
 
+type IntOverflowChecker = func(types.Uint20) error
+
+func FixedOverflowChecker(limit int) IntOverflowChecker {
+	return func(count types.Uint20) error {
+		if count > types.Uint20(limit) {
+			return errors.New("channel limit exceeded")
+		}
+		return nil
+	}
+}
+
 type ServiceConfig struct {
-	HostResolver     core.HostResolver
+	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
 	Transport        Transport
 	Ontology         *ontology.Ontology
 	Group            *group.Service
-	IntOverflowCheck func(ctx context.Context, count types.Uint20) error
+	IntOverflowCheck IntOverflowChecker
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
-	validate.NotNil(v, "HostProvider", c.HostResolver)
-	validate.NotNil(v, "ClusterDB", c.ClusterDB)
-	validate.NotNil(v, "TSChannel", c.TSChannel)
-	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
+	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "cluster_db", c.ClusterDB)
+	validate.NotNil(v, "ts_channel", c.TSChannel)
+	validate.NotNil(v, "transport", c.Transport)
+	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
 	return v.Error()
 }
 
@@ -93,16 +105,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-const groupName = "Channels"
-
-func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	var g group.Group
 	if cfg.Group != nil {
-		if g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID); err != nil {
+		if g, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); err != nil {
 			return nil, err
 		}
 	}
@@ -118,13 +128,13 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
-		cfg.Ontology.RegisterService(ctx, s)
+		cfg.Ontology.RegisterService(s)
 	}
 	return s, nil
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
+	return writer{svc: s, tx: s.DB.OverrideTx(tx)}
 }
 
 func (s *service) Group() group.Group { return s.group }
@@ -138,18 +148,20 @@ func (s *service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
-	res = make([]Channel, 0, len(channels))
+func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
+	res := make([]Channel, 0, len(channels))
+	s.proxy.mu.RLock()
+	defer s.proxy.mu.RUnlock()
 	for i, key := range KeysFromChannels(channels) {
-		if s.proxy.externalNonVirtualSet.Contains(key) {
-			channelNumber := s.proxy.externalNonVirtualSet.NumLessThan(key) + 1
-			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(channelNumber)); err != nil {
-				return
+		if s.proxy.mu.externalNonVirtualSet.Contains(key) {
+			channelNumber := s.proxy.mu.externalNonVirtualSet.NumLessThan(key) + 1
+			if err := s.proxy.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+				return nil, err
 			}
 		}
 		res = append(res, channels[i])
 	}
-	return
+	return res, nil
 }
 
 func TryToRetrieveStringer(ctx context.Context, readable Readable, key Key) string {
@@ -157,7 +169,7 @@ func TryToRetrieveStringer(ctx context.Context, readable Readable, key Key) stri
 	if readable == nil {
 		return key.String()
 	}
-	if err := readable.NewRetrieve().WhereKeys(key).Exec(ctx, nil); err != nil {
+	if err := readable.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

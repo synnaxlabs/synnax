@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -75,7 +75,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg, group: g}
-	cfg.Ontology.RegisterService(ctx, s)
+	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 

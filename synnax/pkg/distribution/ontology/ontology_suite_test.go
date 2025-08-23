@@ -11,16 +11,19 @@ package ontology_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 func TestOntology(t *testing.T) {
@@ -28,36 +31,37 @@ func TestOntology(t *testing.T) {
 	RunSpecs(t, "Ontology Suite")
 }
 
-type emptyService struct {
-	observe.Noop[iter.Nexter[schema.Change]]
+type sampleService struct {
+	observe.Noop[iter.Nexter[ontology.Change]]
 }
 
-var _ ontology.Service = (*emptyService)(nil)
+var _ ontology.Service = (*sampleService)(nil)
 
-const emptyType ontology.Type = "empty"
+const sampleType ontology.Type = "sample"
 
-func newEmptyID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: emptyType}
+type Sample struct {
+	Key string
 }
 
-func (s *emptyService) Schema() *ontology.Schema {
-	return &ontology.Schema{
-		Type: emptyType,
-		Fields: map[string]schema.Field{
-			"key": {Type: schema.String},
-		},
-	}
+func newSampleType(key string) ontology.ID {
+	return ontology.ID{Key: key, Type: sampleType}
 }
 
-func (s *emptyService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	e := schema.NewResource(s.Schema(), newEmptyID(key), "empty")
-	schema.Set(e, "key", key)
-	return e, nil
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key": zyn.String(),
+})
+
+func (s *sampleService) Type() ontology.Type { return sampleType }
+
+func (s *sampleService) Schema() zyn.Schema { return schema }
+
+func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
+	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
 }
 
-func (s *emptyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+func (s *sampleService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All([]ontology.Resource{
-		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
+		lo.Must(s.RetrieveResource(ctx, "", nil)),
 	})), nil
 }
 
@@ -71,7 +75,7 @@ var (
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	otg.RegisterService(ctx, &emptyService{})
+	otg.RegisterService(&sampleService{})
 })
 
 var _ = AfterSuite(func() {

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
-export interface CopyLinkToolbarButtonProps extends Omit<Button.IconProps, "children"> {
+export interface CopyLinkToolbarButtonProps
+  extends Omit<Button.ButtonProps, "children"> {
   name: string;
-  ontologyID: ontology.IDPayload;
+  ontologyID: ontology.ID;
 }
 
 export const CopyLinkToolbarButton = ({
@@ -30,15 +30,16 @@ export const CopyLinkToolbarButton = ({
     [copyLink, name, ontologyID],
   );
   return (
-    <Button.Icon
+    <Button.Button
       tooltip="Copy link"
       sharp
       size="medium"
+      variant="text"
       style={{ height: "100%", width: "var(--pluto-height-medium)" }}
       onClick={handleClick}
       {...rest}
     >
       <Icon.Link />
-    </Button.Icon>
+    </Button.Button>
   );
 };

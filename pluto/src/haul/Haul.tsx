@@ -9,14 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import {
-  type Destructor,
-  type Key,
-  type Optional,
-  type UnknownRecord,
-  unknownRecordZ,
-  xy,
-} from "@synnaxlabs/x";
+import { type Destructor, type Optional, record, xy } from "@synnaxlabs/x";
 import React, {
   createContext,
   type DragEvent,
@@ -39,15 +32,15 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: unknownRecordZ.optional(),
+  data: record.unknownZ.optional(),
 });
 
 // Item represents a draggable item.
 export interface Item {
-  key: Key;
+  key: record.Key;
   type: string;
   elementID?: string;
-  data?: UnknownRecord;
+  data?: record.Unknown;
 }
 
 export const draggingStateZ = z.object({ source: itemZ, items: z.array(itemZ) });
@@ -201,7 +194,7 @@ export interface UseDragReturn {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  onDragEnd: (e: DragEvent) => void;
+  onDragEnd: (e: DragEvent | MouseEvent) => void;
 }
 
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
@@ -212,7 +205,8 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const { start, end } = ctx;
   return {
     startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
-    onDragEnd: (e: DragEvent) => end(xy.construct({ x: e.screenX, y: e.screenY })),
+    onDragEnd: (e: DragEvent | MouseEvent) =>
+      end(xy.construct({ x: e.screenX, y: e.screenY })),
   };
 };
 
@@ -312,6 +306,16 @@ export const canDropOfType =
 
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
+
+export const useFilterByTypeCallback = (
+  type: string,
+  fn: OnDrop,
+  deps: unknown[],
+): OnDrop =>
+  useCallback(
+    (props) => fn({ ...props, items: filterByType(type, props.items) }),
+    deps,
+  );
 
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
   onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];

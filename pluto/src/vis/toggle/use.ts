@@ -11,7 +11,7 @@ import { useCallback, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { toggle } from "@/vis/toggle/aether";
 
 export interface UseProps
@@ -20,12 +20,12 @@ export interface UseProps
 }
 
 export interface UseReturn
-  extends Pick<z.output<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
+  extends Pick<z.infer<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
   toggle: () => void;
 }
 
 export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqualProps({ source, sink });
+  const memoProps = useMemoDeepEqual({ source, sink });
   const [, { triggered, enabled }, setState] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,

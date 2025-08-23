@@ -17,6 +17,7 @@ export { control } from "@/control";
 export {
   AuthError,
   ContiguityError,
+  DisconnectedError,
   MultipleFoundError,
   NotFoundError,
   QueryError,
@@ -34,7 +35,7 @@ export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
-export { signals } from "@/signals";
+export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
 export { linePlot } from "@/workspace/lineplot";

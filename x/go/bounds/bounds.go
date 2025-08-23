@@ -24,7 +24,7 @@ type Bounds[V types.Numeric] struct {
 	Upper V
 }
 
-// Contains returns true if the bounds contains the given value i.e. the v is greater
+// Contains returns true if the bounds contain the given value i.e., the v is greater
 // than or equal to b.Lower and strictly less than b.Upper.
 func (b Bounds[V]) Contains(v V) bool {
 	return b.Lower <= v && v < b.Upper
@@ -33,3 +33,7 @@ func (b Bounds[V]) Contains(v V) bool {
 // String implements fmt.Stringer to return a nicely formatted string representation
 // of the bounds.
 func (b Bounds[V]) String() string { return fmt.Sprintf("Bounds[%v, %v)", b.Lower, b.Upper) }
+
+func (b Bounds[V]) Span() V {
+	return b.Upper - b.Lower
+}

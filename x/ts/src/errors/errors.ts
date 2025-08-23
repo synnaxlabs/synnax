@@ -11,55 +11,56 @@ import { z } from "zod";
 
 import { singleton } from "@/singleton";
 
+const ERROR_DISCRIMINATOR = "sy_x_error";
+
 /**
  * @returns general function that returns true if an error matches a set of
  * abstracted criteria
  */
-export type Matcher = (e: string | Error | unknown) => boolean;
+export type Matcher = (e: unknown) => boolean;
 
-/** @description an error type that can match against other errors. */
+/** an error type that can match against other errors. */
 export interface Matchable {
   /**
-   * @returns a function that matches errors of the given type. Returns true if
-   * the provided instance of Error or a string message contains the provided error type.
+   * @returns true if the provided error matches the matchable.
    */
   matches: Matcher;
 }
 
 /**
- * @description an error that has a network-portable type, allowing it to be encoded/
- * decoded by freighter. Also allows for simpler matching using @method matches instead
- * of using instanceof, which has a number of caveats.
+ * An error that has a network-portable type, allowing it to be encoded/decoded into
+ * a JSON representation. Also allows for simpler matching using @method matches instead of using
+ * instanceof, which has a number of caveats.
  */
 export interface Typed extends Error, Matchable {
-  discriminator: "FreighterError";
+  discriminator: typeof ERROR_DISCRIMINATOR;
   /**
-   * @description Returns a unique type identifier for the error. Freighter uses this to
-   * determine the correct decoder to use on the other end of the freighter.
+   * Returns a unique type identifier for the error. The errors package uses this to
+   *  determine the correct decoder to use when encoding/decoding errors.
    */
   type: string;
 }
 
 /**
- * @description a class that, when constructed, implements the TypedError interface.
- * Also provides utilities for matching and creating subclasses.
+ * a class that, when constructed, implements the TypedError interface. Also provides
+ * utilities for matching and creating subclasses.
  */
 export interface TypedClass extends Matchable {
   /**
-   * @description constructs a new TypedError. Identical to the Error constructor.
+   * constructs a new TypedError. Identical to the Error constructor.
    * @param message - the error message.
    * @param options - the error options.
    * @returns a new TypedError.
    */
   new (message?: string, options?: ErrorOptions): Typed;
   /**
-   * @description the type of the error.
+   * the type of the error.
    */
   TYPE: string;
   /**
-   * @description creates a new subclass of the error that extends its type. So if
-   * the type of this class is `dog` and subType is `labrador`, the type of the new
-   * class will be `dog.labrador`.
+   * creates a new subclass of the error that extends its type. So if the type of this
+   * class is `dog` and subType is `labrador`, the type of the new class will be
+   * `dog.labrador`.
    * @param subType - the type of the new error.
    * @returns a new TypedErrorClass.
    */
@@ -92,7 +93,7 @@ const createTypeMatcher =
  */
 export const createTyped = (type: string): TypedClass =>
   class Internal extends Error implements Typed {
-    static readonly discriminator = "FreighterError";
+    static readonly discriminator = ERROR_DISCRIMINATOR;
     readonly discriminator = Internal.discriminator;
 
     static readonly TYPE = type;
@@ -111,50 +112,67 @@ export const createTyped = (type: string): TypedClass =>
   };
 
 /**
- * @description Function that decodes an encoded error payload back into an error object
+ * Function that decodes an encoded error payload back into an error object
  * @param encoded - The encoded error payload to decode
- * @returns The decoded error object or null if the decoder cannot handle this error type
+ * @returns The decoded error object or null if the decoder cannot handle this error
+ * type
  */
 export type Decoder = (encoded: Payload) => Error | null;
 
 /**
- * @description Function that encodes a typed error into a network-portable payload
+ * Function that encodes a typed error into a network-portable payload
  * @param error - The typed error to encode
  * @returns The encoded error payload or null if the encoder cannot handle this error type
  */
 export type Encoder = (error: Typed) => Payload | null;
 
 /**
- * @description Checks if an unknown value is a TypedError
+ * Checks if an unknown value is a TypedError
  * @param error - The value to check
  * @returns True if the value is a TypedError, false otherwise
  */
 export const isTyped = (error: unknown): error is Typed => {
   if (error == null || typeof error !== "object") return false;
   const typedError = error as Typed;
-  if (typedError.discriminator !== "FreighterError") return false;
+  if (typedError.discriminator !== ERROR_DISCRIMINATOR) return false;
   if (!("type" in typedError))
     throw new Error(
-      `Freighter error is missing its type property: ${JSON.stringify(typedError)}`,
+      `X Error is missing its type property: ${JSON.stringify(typedError)}`,
     );
   return true;
 };
 
-/** @description Constant representing an unknown error type */
+/** Constant representing an unknown error type */
 export const UNKNOWN = "unknown";
 
-/** @description Constant representing no error (null) */
+/** Constant representing no error (null) */
 export const NONE = "nil";
 
-interface provider {
+/**
+ * provides custom encoding/decoding mechanisms for specific error
+ * categories.
+ */
+interface Provider {
+  /**
+   * Encodes an error into a primitive payload that can be sent over the network or stored
+   * on disk.
+   * @param error - The error to encode.
+   * @returns The encoded error.
+   */
   encode: Encoder;
+  /**
+   * Decodes an error from a primitive payload that can be sent over the network or stored
+   * on disk.
+   * @param payload - The encoded error.
+   * @returns The decoded error.
+   */
   decode: Decoder;
 }
 
 class Registry {
-  private readonly providers: provider[] = [];
+  private readonly providers: Provider[] = [];
 
-  register(provider: provider): void {
+  register(provider: Provider): void {
     this.providers.push(provider);
   }
 
@@ -195,17 +213,12 @@ const getRegistry = singleton.define("synnax-error-registry", () => new Registry
  * @param encode - A function that encodes the error into a string.
  * @param decode - A function that decodes the error from a string.
  */
-export const register = ({
-  encode,
-  decode,
-}: {
-  encode: Encoder;
-  decode: Decoder;
-}): void => getRegistry().register({ encode, decode });
+export const register = ({ encode, decode }: Provider): void =>
+  getRegistry().register({ encode, decode });
 
 /**
- * Encodes an error into a payload that can be sent between a freighter server
- * and client.
+ * Encodes an error into a primitive payload that can be sent over the network or stored
+ * on disk.
  * @param error - The error to encode.
  * @returns The encoded error.
  */
@@ -225,17 +238,28 @@ export const decode = (payload?: Payload | null): Error | null => {
 };
 
 /**
- * @description Generic error for representing unknown errors
+ * Generic error for representing unknown errors
  */
 export class Unknown extends createTyped("unknown") {}
 
-/** @description Zod schema for validating error payloads */
+/** Zod schema for validating error payloads */
 export const payloadZ = z.object({ type: z.string(), data: z.string() });
 
-/** @description Network-portable representation of an error */
+/** Network-portable representation of an error */
 export type Payload = z.infer<typeof payloadZ>;
 
-/** @description Error for representing the cancellation of an operation */
+/** Error for representing the cancellation of an operation */
 export class Canceled extends createTyped("canceled") {}
 
-export type Return<T> = [T, null] | [null, Error];
+/** A payload representing a native JavaScript Error */
+export interface NativePayload {
+  /** The name of the error */
+  name: string;
+  /** The message of the error */
+  message: string;
+  /** The stack trace of the error */
+  stack?: string;
+}
+
+/** Error for representing a method that is not implemented */
+export class NotImplemented extends createTyped("not_implemented") {}

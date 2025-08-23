@@ -13,10 +13,10 @@ import { box, position, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
-import { type RenderProp } from "@/util/renderProp";
 
 interface ContextMenuState {
   visible: boolean;
@@ -56,6 +56,7 @@ const INITIAL_STATE: ContextMenuState = {
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
 export const CONTEXT_TARGET = CSS.BE("context", "target");
+export const CONTEXT_MENU_CLASS = CSS.B("menu-context");
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const findTarget = (target: HTMLElement): HTMLElement | null => {
@@ -72,10 +73,10 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
 const findSelected = (target_: HTMLElement): HTMLElement[] => {
   const target = findTarget(target_);
   if (target == null) return [];
-  const selected = Array.from(
+  const selected: HTMLElement[] = Array.from(
     target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
   );
-  if (selected.includes(target)) return selected as HTMLElement[];
+  if (selected.includes(target)) return selected;
   return [target];
 };
 
@@ -142,7 +143,7 @@ export interface ContextMenuMenuProps {
 
 export interface ContextMenuProps
   extends Omit<UseContextMenuReturn, "className">,
-    Omit<Align.SpaceProps, "ref"> {
+    Omit<Flex.BoxProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
@@ -161,16 +162,16 @@ const Internal = ({
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
   return createPortal(
-    <Align.Space
-      className={CSS(CSS.B("menu-context"), CSS.bordered())}
+    <Flex.Box
+      className={CSS(CONTEXT_MENU_CLASS, CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={close}
-      size="tiny"
+      gap="tiny"
       {...rest}
     >
       {menu?.({ keys })}
-    </Align.Space>,
+    </Flex.Box>,
     document.body,
   );
 };

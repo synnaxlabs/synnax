@@ -13,7 +13,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type color } from "@synnaxlabs/x";
 import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
@@ -42,6 +42,7 @@ export interface BaseLineProps {
   strokeWidth?: number;
   label?: string;
   downsample?: number;
+  downsampleMode?: telem.DownsampleMode;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -98,7 +99,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   // Annotation
-  annotationProvider?: Range.ProviderProps;
+  rangeAnnotationProvider?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -132,7 +133,7 @@ export const LinePlot = ({
   legendVariant,
   onViewportChange,
   viewportTriggers,
-  annotationProvider,
+  rangeAnnotationProvider: annotationProvider,
   onSelectRule,
   children,
   ...rest
@@ -141,11 +142,12 @@ export const LinePlot = ({
   const ref = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
   const prevHold = usePrevious(rest.hold);
-  if (
+  const shouldResetViewport =
     (prevLinesLength === 0 && lines.length !== 0) ||
-    (prevHold === true && rest.hold === false)
-  )
-    ref.current?.reset();
+    (prevHold === true && rest.hold === false);
+  useEffect(() => {
+    if (shouldResetViewport) ref.current?.reset();
+  }, [shouldResetViewport]);
   return (
     <Core.LinePlot {...rest}>
       {xAxes.map((a, i) => {
@@ -250,6 +252,7 @@ const XAxis = ({
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {yAxes.map((a, i) => {
         const yLines = lines.filter((l) => l.axes.y === a.key);
@@ -335,6 +338,7 @@ const YAxis = ({
       axisKey={key}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
         <Line key={lineKey(l)} line={l} />
@@ -384,7 +388,7 @@ const DynamicLine = ({
     });
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };
 
 const StaticLine = ({
@@ -407,5 +411,5 @@ const StaticLine = ({
     });
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return <Core.Line key={key} aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
 };

@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package stringer_test
 
 import (
@@ -7,8 +16,8 @@ import (
 	"github.com/synnaxlabs/x/stringer"
 )
 
-var _ = Describe("Slice", func() {
-	Describe("TruncateSlice", func() {
+var _ = Describe("Stringer Slice", func() {
+	Describe("TruncateAndFormatSlice", func() {
 		It("should return the full slice if its length is less than maxDisplayValues", func() {
 			slice := []int{1, 2, 3}
 			result := stringer.TruncateAndFormatSlice(slice, 5)

@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Select } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
+import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -22,11 +21,11 @@ import {
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
   type OutputChannelType,
+  WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteConfig,
-  writeConfigZ,
-  type WriteStateDetails,
-  type WriteType,
+  type writeConfigZ,
+  type writeStatusDataZ,
+  type writeTypeZ,
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/modbus/task/types";
@@ -53,22 +52,13 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<OutputChannel> {
-  path: string;
-  isSnapshot: boolean;
-}
-
-const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const { entry } = rest;
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const { type, channel } = PForm.useFieldValue<OutputChannel>(path);
   return (
-    <List.ItemFrame
-      {...rest}
-      style={{ width: "100%" }}
-      justify="spaceBetween"
-      align="center"
-      direction="x"
-    >
-      <Align.Pack direction="x" align="center" className={CSS.B("channel-item")}>
+    <Select.ListItem {...props} justify="between" align="center" direction="x" full="x">
+      <Flex.Box x pack className={CSS.B("channel-item")}>
         <SelectOutputChannelType
           path={path}
           onChange={(value, { get, set, path }) => {
@@ -91,7 +81,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
           showHelpText={false}
           path={`${path}.address`}
         />
-        {entry.type === HOLDING_REGISTER_OUTPUT_TYPE && (
+        {type === HOLDING_REGISTER_OUTPUT_TYPE && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -99,26 +89,23 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
             hideIfNull
           >
             {({ value, onChange }) => (
-              <Select.DataType
+              <Telem.SelectDataType
                 value={value}
-                onChange={(v) => onChange(v)}
-                hideVariableDensity={true}
+                onChange={onChange}
+                hideVariableDensity
               />
             )}
           </PForm.Field>
         )}
-      </Align.Pack>
-      <Align.Space x align="center" grow justify="end">
+      </Flex.Box>
+      <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
-          channel={entry.channel}
-          id={Common.Task.getChannelNameID(entry.key)}
+          channel={channel}
+          id={Common.Task.getChannelNameID(itemKey)}
         />
-        <Common.Task.EnableDisableButton
-          path={`${path}.enabled`}
-          isSnapshot={isSnapshot}
-        />
-      </Align.Space>
-    </List.ItemFrame>
+        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+      </Flex.Box>
+    </Select.ListItem>
   );
 };
 
@@ -139,22 +126,17 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
   };
 };
 
-const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
-  isSnapshot,
-}) => {
+const listItem = Component.renderProp(ChannelListItem);
+
+const Form: FC<
+  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
+> = () => {
   const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels),
     [],
   );
-  const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<OutputChannel>) => (
-      <ChannelListItem key={key} {...p} />
-    ),
-    [],
-  );
   return (
     <Common.Task.Layouts.List<OutputChannel>
-      isSnapshot={isSnapshot}
       createChannel={createChannel}
       listItem={listItem}
     />
@@ -164,10 +146,10 @@ const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>>
 const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
 
-const getInitialPayload: Common.Task.GetInitialPayload<
-  WriteConfig,
-  WriteStateDetails,
-  WriteType
+const getInitialValues: Common.Task.GetInitialValues<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
@@ -176,12 +158,19 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+  client,
+  config,
+) => {
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+    key: config.device,
+  });
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing = dev.properties.write.channels[key];
+    const existing =
+      dev.properties.write.channels[key] ??
+      dev.properties.write.channels[caseconv.snakeToCamel(key)];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -218,7 +207,9 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: dev.properties.write.channels[writeMapKey(c)],
+    channel:
+      dev.properties.write.channels[writeMapKey(c)] ??
+      dev.properties.write.channels[caseconv.snakeToCamel(writeMapKey(c))],
   }));
 
   return [config, dev.rack];
@@ -227,8 +218,8 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: writeConfigZ,
+  schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

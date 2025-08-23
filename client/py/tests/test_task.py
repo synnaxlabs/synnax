@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 
 
 @pytest.mark.task
@@ -46,19 +47,21 @@ class TestTaskClient:
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=1)
                     cmd = f["sy_task_cmd"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
-                            {
-                                "key": cmd["key"],
-                                "task": cmd["task"],
-                                "variant": "success",
-                                "details": {"message": "Command executed."},
-                            }
+                            sy.TaskStatus(
+                                key=cmd["key"],
+                                variant=SUCCESS_VARIANT,
+                                message="Command executed.",
+                                details=sy.TaskStatusDetails(
+                                    task=int(cmd["task"]),
+                                ),
+                            ).model_dump(),
                         ],
                     )
 
@@ -75,18 +78,18 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=2)
                     key = f["sy_task_set"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
-                            {
-                                "task": int(key),
-                                "variant": "success",
-                                "details": {"message": "Task configured."},
-                            }
+                            sy.TaskStatus(
+                                variant=SUCCESS_VARIANT,
+                                message="Task configured.",
+                                details=sy.TaskStatusDetails(task=int(key)),
+                            ).model_dump(),
                         ],
                     )
 
@@ -103,18 +106,18 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=1)
                     key = f["sy_task_set"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
-                            {
-                                "task": int(key),
-                                "variant": "error",
-                                "details": {"message": "Invalid Configuration."},
-                            }
+                            sy.TaskStatus(
+                                variant=ERROR_VARIANT,
+                                message="Invalid Configuration.",
+                                details=sy.TaskStatusDetails(task=int(key)),
+                            ).model_dump(),
                         ],
                     )
 

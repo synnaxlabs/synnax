@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Text } from "@synnaxlabs/pluto";
-
 import { Common } from "@/hardware/common";
 import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
 import { MAKE } from "@/hardware/modbus/device/types";
 import { Layout } from "@/layout";
 
+import { EmptyAction } from "../../../components";
+
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Center>
-      <Text.Text level="p" shade={6}>
-        No Modbus servers connected.
-      </Text.Text>
-      <Text.Link level="p" onClick={() => placeLayout(CONNECT_LAYOUT)}>
-        Connect a new server.
-      </Text.Link>
-    </Align.Center>
+    <EmptyAction
+      message="No Modbus servers connected."
+      action="Connect a Modbus Server"
+      onClick={() => placeLayout(CONNECT_LAYOUT)}
+    />
   );
 };
 

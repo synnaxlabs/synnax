@@ -15,7 +15,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/change"
@@ -83,8 +84,8 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 	c.Observable = override.Nil(c.Observable, other.Observable)
 	c.SetChannel.Virtual = true
 	c.DeleteChannel.Virtual = true
-	c.SetChannel.Leaseholder = core.Free
-	c.DeleteChannel.Leaseholder = core.Free
+	c.SetChannel.Leaseholder = cluster.Free
+	c.DeleteChannel.Leaseholder = cluster.Free
 	return c
 }
 
@@ -97,7 +98,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	channels := []channel.Channel{cfg.SetChannel, cfg.DeleteChannel}
-	if err := s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(true)); err != nil {
+	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(true)); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)

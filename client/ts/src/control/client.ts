@@ -10,7 +10,7 @@
 import { StateTracker } from "@/control/state";
 import { framer } from "@/framer";
 
-const CONTROL_STATE_KEY = "sy_node_1_control";
+export const CONTROL_STATE_CHANNEL_NAME = "sy_node_1_control";
 
 export class Client {
   private readonly framer: framer.Client;
@@ -21,8 +21,8 @@ export class Client {
 
   async openStateTracker(): Promise<StateTracker> {
     const stream = await framer.HardenedStreamer.open(
-      async () => await this.framer.openStreamer(CONTROL_STATE_KEY),
-      CONTROL_STATE_KEY,
+      async (p) => await this.framer.openStreamer(p),
+      CONTROL_STATE_CHANNEL_NAME,
     );
     return new StateTracker(stream);
   }

@@ -9,7 +9,7 @@
 
 import { box, type Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/dimensions";
+import { dimensionsFromMetrics } from "@/text/core/dimensions";
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 
@@ -91,6 +91,17 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.textRendering = value;
   }
 
+  private checkAtlasFillStyle(
+    useAtlas: boolean = false,
+  ): [true, string] | [false, null] {
+    if (useAtlas && typeof this.fillStyle === "string") return [true, this.fillStyle];
+    if (useAtlas)
+      console.warn(
+        "attempted to use a text atlas with a gradient fill style. This is not supported. Falling back to default canvas fill.",
+      );
+    return [false, null];
+  }
+
   reset(): void {
     this.wrapped.reset();
   }
@@ -157,25 +168,6 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.strokeStyle = value;
   }
 
-  drawImage(image: CanvasImageSource, dx: number, dy: number): void;
-  drawImage(
-    image: CanvasImageSource,
-    dx: number,
-    dy: number,
-    dw: number,
-    dh: number,
-  ): void;
-  drawImage(
-    image: CanvasImageSource,
-    sx: number,
-    sy: number,
-    sw: number,
-    sh: number,
-    dx: number,
-    dy: number,
-    dw: number,
-    dh: number,
-  ): void;
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;
   drawImage(
     image: CanvasImageSource,
@@ -606,13 +598,9 @@ export class SugaredOffscreenCanvasRenderingContext2D
     maxWidth?: number | undefined,
     options: FillTextOptions = {},
   ): void {
-    const { useAtlas } = options;
-    if (useAtlas == true) {
-      const atlas = this.atlasRegistry.get({
-        font: this.font,
-        textColor: this.fillStyle as string,
-        dpr: this.dpr,
-      });
+    const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
+    if (useAtlas) {
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       atlas.fillText(this, text, x, y);
       return;
     }
@@ -624,25 +612,17 @@ export class SugaredOffscreenCanvasRenderingContext2D
     );
   }
 
-  private atlasMeasureText(text: string): dimensions.Dimensions {
-    const atlas = this.atlasRegistry.get({
-      font: this.font,
-      textColor: this.fillStyle as string,
-      dpr: this.dpr,
-    });
-    return atlas.measureText(text);
-  }
-
   measureText(text: string): TextMetrics {
     return this.wrapped.measureText(text);
   }
 
   textDimensions(text: string, options: FillTextOptions = {}): dimensions.Dimensions {
-    const { useAtlas } = options;
-    let result: dimensions.Dimensions;
-    if (useAtlas) result = this.atlasMeasureText(text);
-    else result = dimensionsFromMetrics(this.measureText(text));
-    return result;
+    const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
+    if (useAtlas) {
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
+      return atlas.measureText(text);
+    }
+    return dimensionsFromMetrics(this.measureText(text));
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {

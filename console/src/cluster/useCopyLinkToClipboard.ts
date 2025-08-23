@@ -16,7 +16,7 @@ import { Link } from "@/link";
 
 export interface CopyLinkToClipboardArgs {
   name: string;
-  ontologyID: ontology.IDPayload;
+  ontologyID: ontology.ID;
 }
 
 export interface CopyLinkToClipboard {

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type change } from "@synnaxlabs/x";
 import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { type ranger } from "@/ranger";
-import { newClient } from "@/setupspecs";
+import { createTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Ranger", () => {
   describe("create", () => {
@@ -143,25 +142,6 @@ describe("Ranger", () => {
     });
   });
 
-  describe("page", () => {
-    it("should page through ranges", async () => {
-      await client.ranges.create({
-        name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
-      await client.ranges.create({
-        name: "My New Two Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-      });
-      const ranges = await client.ranges.page(0, 1);
-      expect(ranges.length).toEqual(1);
-      const keys = ranges.map((r) => r.key);
-      const next = await client.ranges.page(1, 1);
-      expect(next.length).toEqual(1);
-      expect(next.map((r) => r.key)).not.toContain(keys[0]);
-    });
-  });
-
   describe("KV", () => {
     it("should set, get, and delete a single key", async () => {
       const rng = await client.ranges.create({
@@ -196,43 +176,44 @@ describe("Ranger", () => {
       const res = await rng.kv.list();
       expect(res).toEqual({ foo: "bar", baz: "qux" });
     });
+  });
 
-    describe("observable", () => {
-      it("should listen to key-value sets on the range", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        const obs = await rng.kv.openTracker();
-        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
-          obs.onChange((pair) => resolve(pair));
-        });
-        await rng.kv.set("foo", "bar");
-        const pair = await res;
-        expect(pair.length).toBeGreaterThan(0);
-        expect(pair[0].value?.range).toEqual(rng.key);
-        expect(pair[0].value?.key).toEqual("foo");
-        expect(pair[0].value?.value).toEqual("bar");
+  describe("label", () => {
+    it("should set and get a label for the range", async () => {
+      const rng = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      it("should listen to key-value deletes on the range", async () => {
-        const rng = await client.ranges.create({
-          name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        });
-        await rng.kv.set("foo", "bar");
-        const obs = await rng.kv.openTracker();
-        const res = new Promise<change.Change<string, ranger.KVPair>[]>((resolve) => {
-          obs.onChange((changes) => {
-            if (changes.every((c) => c.variant === "delete")) resolve(changes);
-          });
-        });
-        await rng.kv.delete("foo");
-        const pair = await res;
-        expect(pair.length).toBeGreaterThan(0);
-        expect(pair[0].value?.range).toEqual(rng.key);
-        expect(pair[0].value?.key).toEqual("foo");
-        expect(pair[0].value?.value).toHaveLength(0);
+      const label = await client.labels.create({
+        name: "My New Label",
+        color: "#E774D0",
       });
+      await rng.addLabel(label.key);
+      const newRange = await client.ranges.retrieve({
+        keys: [rng.key],
+        includeLabels: true,
+      });
+      expect(newRange[0].labels).toHaveLength(1);
+      expect(newRange[0].labels?.[0]).toEqual(label);
+    });
+  });
+
+  describe("parent", () => {
+    it("should set and get a parent for the range", async () => {
+      const parent = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const child = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
+      const newParent = await client.ranges.retrieve({
+        keys: [child.key],
+        includeParent: true,
+      });
+      expect(newParent[0].parent).toEqual(parent.payload);
     });
   });
 

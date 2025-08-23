@@ -9,7 +9,7 @@
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export const clusterNav: PageNavNode = {
+export const CLUSTER_NAV: PageNavNode = {
   key: "cluster",
   name: "Cluster",
   children: [

@@ -8,18 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   box,
   color,
   type Destructor,
   type dimensions,
   direction,
   location,
-  toArray,
   xy,
 } from "@synnaxlabs/x";
 
 import { type text } from "@/text/core";
-import { dimensions as textDimensions } from "@/text/dimensions";
+import { dimensions as textDimensions } from "@/text/core/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
@@ -189,7 +189,7 @@ export class Draw2D {
         ctx.stroke();
       }
     else
-      toArray(location).forEach((loc) => {
+      array.toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
         ctx.beginPath();
         ctx.moveTo(...xy.couple(start));

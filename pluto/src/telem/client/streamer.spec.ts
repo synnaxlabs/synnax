@@ -114,7 +114,7 @@ describe("Streamer", () => {
 
       const responses: Map<channel.Key, MultiSeries>[] = [];
       const disconnect = await streamer.stream((d) => responses.push(d), [1]);
-      await expect.poll(() => responses.length > 5).toBeTruthy();
+      await expect.poll(() => responses.length > 5).toBe(true);
       disconnect();
 
       // We should only ever get data for that particular channel.

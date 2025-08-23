@@ -14,6 +14,6 @@ cc_test(
     deps = [
         "//driver/modbus/util",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

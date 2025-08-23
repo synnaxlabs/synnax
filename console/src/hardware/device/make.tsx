@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { type Icon as PIcon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -40,7 +39,7 @@ export const getIconString = (make: Make | null): string => {
 export const hasIdentifier = (make: Make | null): boolean =>
   make === LabJack.Device.MAKE || make === NI.Device.MAKE;
 
-const MAKE_ICONS: Record<Make, PIcon.Element> = {
+const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
   [OPC.Device.MAKE]: <Icon.Logo.OPC />,

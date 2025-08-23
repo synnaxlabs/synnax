@@ -10,7 +10,7 @@
 import { type z } from "zod";
 
 import { deep } from "@/deep";
-import { type UnknownRecord } from "@/record";
+import { type record } from "@/record";
 
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
@@ -29,18 +29,20 @@ const sourceTypeGetter = (obj: unknown, key: string): z.ZodAny | null => {
     const sourceType = (
       obj as { sourceType: () => z.ZodObject<z.ZodRawShape> }
     ).sourceType();
-    return (sourceType as unknown as UnknownRecord)[key] as z.ZodAny | null;
+    return (sourceType as unknown as record.Unknown)[key] as z.ZodAny | null;
   }
   return v;
 };
 
-export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
-  schema: z.ZodTypeAny,
+export const getFieldSchema: deep.TypedGet<z.ZodType, z.ZodType> = ((
+  schema: z.ZodType,
   path: string,
   options?: Omit<deep.GetOptions, "getter">,
-): z.ZodTypeAny | null =>
-  deep.get<z.ZodTypeAny, z.ZodTypeAny>(
+): z.ZodType | null => {
+  if (path === "") return schema;
+  return deep.get<z.ZodType, z.ZodType>(
     sourceTypeGetter(schema, "shape") as unknown as z.ZodObject<z.ZodRawShape>,
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
-  )) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
+  );
+}) as deep.TypedGet<z.ZodType, z.ZodType>;

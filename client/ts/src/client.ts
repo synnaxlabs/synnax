@@ -40,11 +40,11 @@ export const synnaxPropsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
   name: z.string().optional(),
-  retry: breaker.breakerConfig.optional(),
+  retry: breaker.breakerConfigZ.optional(),
 });
 
 export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}
-export interface ParsedSynnaxProps extends z.output<typeof synnaxPropsZ> {}
+export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -132,7 +132,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, this, this.ontology);
+    this.labels = new label.Client(this.transport.unary);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -144,14 +144,14 @@ export default class Synnax extends framer.Client {
     this.access = new access.Client(this.transport.unary);
     this.user = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(this.transport.unary, this);
+    const devices = new device.Client(this.transport.unary);
     const tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
     );
-    const racks = new rack.Client(this.transport.unary, tasks, this);
+    const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
   }
 

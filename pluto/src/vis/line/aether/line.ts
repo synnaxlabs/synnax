@@ -41,7 +41,8 @@ export const stateZ = z.object({
   label: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
-  downsample: z.number().min(1).max(50).optional().default(1),
+  downsample: z.number().min(1).max(50).default(1),
+  downsampleMode: telem.downsampleModeZ.default("decimate"),
   visible: z.boolean().optional().default(true),
 });
 
@@ -55,7 +56,7 @@ const safelyGetDataValue = (
 };
 
 export type State = z.input<typeof stateZ>;
-export type ParsedState = z.output<typeof stateZ>;
+export type ParsedState = z.infer<typeof stateZ>;
 
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
@@ -270,6 +271,9 @@ interface InternalState {
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: Destructor;
   requestRender: render.Requestor;
+
+  xDownsampler: telem.SeriesDownsampler;
+  yDownsampler: telem.SeriesDownsampler;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -291,6 +295,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
     i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
     i.requestRender("layout");
+    if (
+      i.xDownsampler?.props.mode !== this.state.downsampleMode ||
+      i.xDownsampler?.props.windowSize !== this.state.downsample
+    ) {
+      i.xDownsampler = new telem.SeriesDownsampler({
+        mode: this.state.downsampleMode,
+        windowSize: this.state.downsample,
+      });
+      i.yDownsampler = new telem.SeriesDownsampler({
+        mode: this.state.downsampleMode,
+        windowSize: this.state.downsample,
+      });
+    }
   }
 
   afterDelete(): void {
@@ -310,7 +327,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const [, xData] = xTelem.value();
+    let [, xData] = xTelem.value();
+    xData = this.internal.xDownsampler.transform(xData);
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -336,7 +354,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
-    const [, yData] = yTelem.value();
+    let [, yData] = yTelem.value();
+    yData = this.internal.yDownsampler.transform(yData);
     const ySeries = yData.series.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
@@ -357,10 +376,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
-    const { xTelem, yTelem, lineCtx: ctx } = this.internal;
+    const { xTelem, yTelem, lineCtx: ctx, xDownsampler, yDownsampler } = this.internal;
 
     const { dataToDecimalScale, exposure } = props;
-    const [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
+    let [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
+    xData = xDownsampler.transform(xData);
+    yData = yDownsampler.transform(yData);
     xData.updateGLBuffer(ctx.gl);
     yData.updateGLBuffer(ctx.gl);
     if (xData.length === 0 || yData.length === 0) return;
@@ -370,6 +391,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       yData,
       exposure,
       downsample,
+      this.state.downsampleMode,
       DEFAULT_OVERLAP_THRESHOLD,
     );
     this.internal.instrumentation.L.debug("render", () => ({
@@ -444,6 +466,7 @@ export const buildDrawOperations = (
   ySeries: MultiSeries,
   exposure: number,
   userSpecifiedDownSampling: number,
+  downsampleMode: telem.DownsampleMode,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
@@ -459,11 +482,12 @@ export const buildDrawOperations = (
       else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
       const count = Math.min(x.length - xOffset, y.length - yOffset);
       if (count === 0) return;
-      const downsample = clamp(
+      let downsample = clamp(
         Math.round(exposure * 4 * count),
         userSpecifiedDownSampling,
         51,
       );
+      if (downsampleMode !== "decimate") downsample = 1;
       ops.push({ x, y, xOffset, yOffset, count, downsample });
     }),
   );

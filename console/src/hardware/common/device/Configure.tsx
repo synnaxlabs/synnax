@@ -9,16 +9,14 @@
 
 import "@/hardware/common/device/Configure.css";
 
-import { type device } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
+import { type device, DisconnectedError } from "@synnaxlabs/client";
+import { Button, Flex, Form, Icon, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 import { Triggers } from "@/triggers";
@@ -31,7 +29,7 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
 };
 
 interface InternalProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Pick<Layout.RendererProps, "onClose"> {
@@ -43,7 +41,7 @@ const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ 
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const Internal = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({
@@ -66,7 +64,7 @@ const Internal = <
   const { isPending, mutate } = useMutation<void, Error, void>({
     onError: (e) => handleError(e, `Failed to configure ${name}`),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -92,47 +90,47 @@ const Internal = <
     },
   });
   return (
-    <Align.Space align="stretch" className={CSS.B("configure")} empty>
+    <Flex.Box align="stretch" className={CSS.B("configure")} empty>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
-        <Align.Space
+        <Flex.Box
           align="stretch"
           justify="center"
           grow
-          size="large"
+          gap="large"
           style={{ padding: "5rem" }}
         >
           {isNameStep ? (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
               <Form.TextField
                 autoFocus
-                inputProps={{ autoFocus: true, level: "h2", variant: "natural" }}
+                inputProps={{ autoFocus: true, level: "h2", variant: "text" }}
                 label="Name"
                 path="name"
               />
             </>
           ) : (
             <>
-              <Text.Text level="p" shade={11}>
+              <Text.Text>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
                 channels associated with this device. We've given you some suggestions
                 below.
               </Text.Text>
-              <Align.Space size="small">
+              <Flex.Box gap="small">
                 <Form.TextField
                   autoFocus
                   label="Identifier"
-                  inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
+                  inputProps={{ level: "h2", ref: identifierRef, variant: "text" }}
                   path="identifier"
                 />
-                <Align.Space x>
-                  <Button.Icon disabled size="small" variant="text">
+                <Flex.Box x>
+                  <Button.Button disabled size="small" variant="text">
                     <Icon.Bolt />
-                  </Button.Icon>
+                  </Button.Button>
                   {recommendedIds.map((id) => (
                     <Button.Button
                       key={id}
@@ -146,39 +144,39 @@ const Internal = <
                       {id}
                     </Button.Button>
                   ))}
-                </Align.Space>
-              </Align.Space>
+                </Flex.Box>
+              </Flex.Box>
             </>
           )}
-        </Align.Space>
+        </Flex.Box>
       </Form.Form>
       <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
-            disabled={isPending}
-            loading={isPending}
+            status={isPending ? "loading" : undefined}
             onClick={() => mutate()}
-            triggers={Triggers.SAVE}
+            variant="filled"
+            trigger={Triggers.SAVE}
             type="submit"
           >
             {triggerAction}
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
 export interface ConfigureProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({
@@ -189,28 +187,28 @@ export const Configure = <
   const { data, error, isError, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      return await client.hardware.devices.retrieve<Properties, Make, Model>(layoutKey);
+      if (client == null) throw new DisconnectedError();
+      return await client.hardware.devices.retrieve<Properties, Make, Model>({
+        key: layoutKey,
+      });
     },
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Summary center level="h4" variant="loading">
         Fetching device from server
-      </Status.Text.Centered>
+      </Status.Summary>
     );
-  if (isError) {
-    const color = Status.VARIANT_COLORS.error;
+  if (isError)
     return (
-      <Align.Space align="center" grow justify="center">
-        <Text.Text color={color} level="h2">
-          Failed to load data for device with key {layoutKey}
-        </Text.Text>
-        <Text.Text color={color} level="p">
-          {error.message}
-        </Text.Text>
-      </Align.Space>
+      <Status.Summary
+        center
+        level="h4"
+        variant="error"
+        message={`Failed to load data for device with key ${layoutKey}`}
+        description={error.message}
+      />
     );
-  }
+
   return <Internal device={data} {...rest} />;
 };

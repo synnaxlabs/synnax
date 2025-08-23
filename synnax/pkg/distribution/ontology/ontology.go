@@ -28,7 +28,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -39,23 +39,40 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
 type (
-	// Schema is a set of definitions that describe the structure of a resource.
-	Schema = schema.Schema
 	// Resource is the underlying data structure of a resource.
-	Resource = schema.Resource
-	ID       = schema.ID
+	Resource = core.Resource
+	ID       = core.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)
-	Type = schema.Type
+	Type   = core.Type
+	Change = core.Change
 )
+
+func ParseID(s string) (ID, error) { return core.ParseID(s) }
+
+func ResourceIDs(resources []Resource) []ID {
+	ids := make([]ID, 0, len(resources))
+	for _, r := range resources {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// NewResource creates a new entity with the given schema and name and an empty set of
+// field data. NewResource panics if the provided data value does not fit the ontology
+// schema.
+func NewResource(schema zyn.Schema, id ID, name string, data any) core.Resource {
+	return core.NewResource(schema, id, name, data)
+}
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	Config
-	ResourceObserver     observe.Observer[iter.Nexter[schema.Change]]
+	ResourceObserver     observe.Observer[iter.Nexter[Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	search               struct {
 		*search.Index
@@ -102,9 +119,9 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	o := &Ontology{
 		Config:               cfg,
-		ResourceObserver:     observe.New[iter.Nexter[schema.Change]](),
+		ResourceObserver:     observe.New[iter.Nexter[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
-		registrar:            serviceRegistrar{BuiltIn: &builtinService{}},
+		registrar:            serviceRegistrar{BuiltInType: &builtinService{}},
 	}
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
@@ -139,6 +156,7 @@ type Writer interface {
 	// their incoming and outgoing relationships. If any of the resources do not exist,
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error
+	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given keys. If the relationship already exists, DefineRelationship
 	// does nothing.
@@ -197,53 +215,54 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
-func (o *Ontology) RegisterService(ctx context.Context, s Service) {
-	o.L.Debug("registering service", zap.Stringer("type", s.Schema().Type))
-	o.registrar.register(s)
-
-	if !*o.Config.EnableSearch {
-		return
-	}
-	o.search.Register(ctx, *s.Schema())
-
-	d1 := s.OnChange(o.ResourceObserver.Notify)
-	// SetKV up a change handler to index new resources.
-	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
-		err := o.search.Index.WithTx(func(tx search.Tx) error {
-			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
-				o.L.Debug(
-					"updating search index",
-					zap.String("key", ch.Key.String()),
-					zap.String("type", string(s.Schema().Type)),
-					zap.Stringer("variant", ch.Variant),
-				)
-				if err := tx.Apply(ch); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			o.L.Error("failed to index resource",
-				zap.String("type", string(s.Schema().Type)),
-				zap.Error(err),
-			)
-		}
-	})
-	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
+func (o *Ontology) RegisterService(svc Service) {
+	o.L.Debug("registering service", zap.Stringer("type", svc.Type()))
+	o.registrar.register(svc)
+	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.ResourceObserver.Notify))
 }
 
-// RunStartupSearchIndexing indexes all resources from registered services into the search
+// InitializeSearchIndex indexes all resources from registered services into the search
 // index (if search is enabled). This method should be called AFTER all necessary services
 // have been registered. This method will block until all resources have been indexed,
 // so it should probably be run in a separate goroutine.
-func (o *Ontology) RunStartupSearchIndexing(ctx context.Context) error {
+func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 	if !*o.EnableSearch {
 		return nil
 	}
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
+	if *o.Config.EnableSearch {
+		for _, svc := range o.registrar {
+			o.search.Register(ctx, svc.Type(), svc.Schema())
+		}
+	}
 	for _, svc := range o.registrar {
+		if !*o.Config.EnableSearch {
+			continue
+		}
+		disconnect := svc.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
+			err := o.search.Index.WithTx(func(tx search.Tx) error {
+				for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
+					o.L.Debug(
+						"updating search index",
+						zap.String("key", ch.Key.String()),
+						zap.Stringer("type", svc.Type()),
+						zap.Stringer("variant", ch.Variant),
+					)
+					if err := tx.Apply(ch); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				o.L.Error("failed to index resource",
+					zap.Stringer("type", svc.Type()),
+					zap.Error(err),
+				)
+			}
+		})
+		o.disconnectObservers = append(o.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) error {
 			n, err := svc.OpenNexter()
 			if err != nil {
@@ -251,14 +270,14 @@ func (o *Ontology) RunStartupSearchIndexing(ctx context.Context) error {
 			}
 			err = o.search.Index.WithTx(func(tx search.Tx) error {
 				for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
-					if err := tx.Index(r); err != nil {
+					if err = tx.Index(r); err != nil {
 						return err
 					}
 				}
 				return nil
 			})
 			return errors.Combine(err, n.Close())
-		}, signal.WithKeyf("startup-indexing-%s", svc.Schema().Type))
+		}, signal.WithKeyf("startup-indexing-%s", svc.Type()))
 	}
 	return oCtx.Wait()
 }

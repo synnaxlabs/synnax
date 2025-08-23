@@ -9,14 +9,7 @@
 
 import "@/table/cells/Cells.css";
 
-import {
-  bounds,
-  type box,
-  color,
-  location,
-  scale,
-  type UnknownRecord,
-} from "@synnaxlabs/x";
+import { type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -38,7 +31,7 @@ export const textPropsZ = z.object({
 });
 export type TextProps = z.infer<typeof textPropsZ>;
 
-export type CellProps<P extends object = UnknownRecord> = P & {
+export type CellProps<P extends object = record.Unknown> = P & {
   cellKey: string;
   box: box.Box;
   selected: boolean;
@@ -90,10 +83,7 @@ export const VALUE_TYPE = "value";
 export type ValueType = typeof VALUE_TYPE;
 export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
-  redline: z.object({
-    bounds: bounds.bounds,
-    gradient: color.gradientZ,
-  }),
+  redline: CoreValue.redlineZ,
   level: CoreText.levelZ,
   color: z.string(),
   units: z.string(),

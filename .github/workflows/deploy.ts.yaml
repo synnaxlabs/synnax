@@ -31,7 +31,6 @@ jobs:
       - name: Configure npm
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - name: Build
         run: pnpm build:console-vite
 

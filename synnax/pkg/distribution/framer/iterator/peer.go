@@ -14,7 +14,8 @@ import (
 
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -47,7 +48,7 @@ func (s *Service) openManyPeers(
 	ctx context.Context,
 	bounds telem.TimeRange,
 	chunkSize int64,
-	targets map[core.NodeKey][]channel.Key,
+	targets map[cluster.NodeKey][]channel.Key,
 	generateSeqNums bool,
 ) (*peerSender, []*freightfluence.Receiver[Response], error) {
 	var (
@@ -55,7 +56,7 @@ func (s *Service) openManyPeers(
 		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
 	)
 	for nodeKey, keys := range targets {
-		target, err := s.HostResolver.Resolve(nodeKey)
+		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -70,7 +71,7 @@ func (s *Service) openManyPeers(
 }
 
 func (s *Service) openPeerClient(ctx context.Context, target address.Address, cfg Config) (ClientStream, error) {
-	client, err := s.Transport.Client().Stream(ctx, target)
+	client, err := s.cfg.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}

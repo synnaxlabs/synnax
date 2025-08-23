@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import { NotFoundError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { type rack } from "@/hardware/rack";
+import { createTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Rack", () => {
   describe("create", () => {
@@ -35,21 +34,21 @@ describe("Rack", () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.hardware.racks.retrieve(r.key);
+      const retrieved = await client.hardware.racks.retrieve({ key: r.key });
       expect(retrieved.name).toBe("updated");
     });
   });
   describe("retrieve", () => {
     it("should retrieve a rack by its key", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
-      const retrieved = await client.hardware.racks.retrieve(r.key);
+      const retrieved = await client.hardware.racks.retrieve({ key: r.key });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toBe("test");
     });
     it("should retrieve a rack by its name", async () => {
       const name = `TimeStamp.now().toString()}-${Math.random()}`;
       const r = await client.hardware.racks.create({ name });
-      const retrieved = await client.hardware.racks.retrieve(name);
+      const retrieved = await client.hardware.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
     });
@@ -60,46 +59,40 @@ describe("Rack", () => {
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
     });
-    it("should throw an error if a task cannot be found by name", async () => {
-      const r = await client.hardware.racks.create({ name: "test" });
-      await expect(
-        async () => await r.retrieveTaskByName("nonexistent"),
-      ).rejects.toThrow(NotFoundError);
-    });
   });
-  describe("state", () => {
-    it("should include state when includeState is true", async () => {
+  describe("status", () => {
+    it("should include the rack's status when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
+      let status: rack.Status | undefined;
       await expect
         .poll(async () => {
-          const retrieved = await client.hardware.racks.retrieve(r.key, {
-            includeState: true,
+          const retrieved = await client.hardware.racks.retrieve({
+            key: r.key,
+            includeStatus: true,
           });
-          return (
-            retrieved.state !== undefined &&
-            retrieved.state.lastReceived instanceof TimeStamp &&
-            retrieved.state.key === r.key
-          );
+          status = retrieved.status;
+          return status;
         })
-        .toBeTruthy();
+        .toBeDefined();
+      expect(status?.details?.rack).toBe(r.key);
     });
-    it("should include state for multiple racks", async () => {
+    it("should include the status for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
       const r2 = await client.hardware.racks.create({ name: "test2" });
-
+      let statuses: (rack.Status | undefined)[] = [];
       await expect
         .poll(async () => {
-          const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
-            includeState: true,
+          const retrieved = await client.hardware.racks.retrieve({
+            keys: [r1.key, r2.key],
+            includeStatus: true,
           });
-          return retrieved.every(
-            (rack) =>
-              rack.state !== undefined &&
-              rack.state.lastReceived instanceof TimeStamp &&
-              rack.state.key === rack.key,
-          );
+          statuses = retrieved.map((r) => r.status);
+          return statuses.every((s) => s != null);
         })
-        .toBeTruthy();
+        .toBe(true);
+      expect(statuses).toHaveLength(2);
+      expect(statuses[0]?.details?.rack).toBe(r1.key);
+      expect(statuses[1]?.details?.rack).toBe(r2.key);
     });
   });
 });

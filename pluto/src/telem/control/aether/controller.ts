@@ -11,15 +11,19 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
+  DisconnectedError,
   type framer,
   type Synnax,
   TimeStamp,
+  ValidationError,
 } from "@synnaxlabs/client";
 import {
+  color,
   compare,
   control as xControl,
   type CrudeSeries,
   type Destructor,
+  type status as xstatus,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -27,7 +31,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
-import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -51,6 +54,7 @@ interface InternalState {
   instrumentation: Instrumentation;
   stateProv: StateProvider;
   addStatus: status.Adder;
+  runAsync: status.ErrorHandler;
   theme: theming.Theme;
   prevTrigger: number;
   telemCtx: telem.Context;
@@ -78,6 +82,8 @@ export class Controller
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx);
+    i.addStatus = status.useAdder(ctx);
+    i.runAsync = status.useErrorHandler(ctx);
     if (
       i.prevTrigger == null ||
       Math.abs(this.state.acquireTrigger - i.prevTrigger) > 1
@@ -85,25 +91,19 @@ export class Controller
       i.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(ctx);
     const nextStateProv = StateProvider.use(ctx);
-    const runAsync = status.useErrorHandler(ctx);
-    runAsync(async () => {
-      i.client = nextClient;
+    i.stateProv = nextStateProv;
+    i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
+    i.client = nextClient;
+    i.runAsync(async () => {
       if (i.client == null) await this.release();
-      i.stateProv = nextStateProv;
-      i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
-      i.addStatus = status.useAdder(ctx);
-
-      // Acquire or release control if necessary.
       if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
       else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
-    });
+    }, "failed to acquire control");
   }
 
-  afterDelete(ctx: aether.Context): void {
-    const runAsync = status.useErrorHandler(ctx);
-    runAsync(async () => {
-      await this.release();
-    });
+  afterDelete(): void {
+    const { internal: i } = this;
+    i.runAsync(async () => await this.release(), "failed to release control");
   }
 
   private async updateNeedsControlOf(): Promise<void> {
@@ -185,7 +185,7 @@ export class Controller
   }
 
   async set(
-    frame: framer.Crude | Record<channel.KeyOrName, CrudeSeries>,
+    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
@@ -212,10 +212,11 @@ export class Controller
 
   /** @implements telem.Factory to create telemetry that is bound to this controller. */
   create<T>(spec: telem.Spec): T | null {
+    const { internal: i } = this;
     const f = (): T | null => {
       switch (spec.type) {
         case SetChannelValue.TYPE: {
-          const sink = new SetChannelValue(this, spec.props);
+          const sink = new SetChannelValue(this, i.runAsync, spec.props);
           this.registry.set(sink, null);
           return sink as T;
         }
@@ -225,7 +226,7 @@ export class Controller
           return source as T;
         }
         case AcquireChannelControl.TYPE: {
-          const sink = new AcquireChannelControl(this, spec.props);
+          const sink = new AcquireChannelControl(this, i.runAsync, spec.props);
           return sink as T;
         }
         default:
@@ -251,11 +252,13 @@ export class SetChannelValue
   static readonly TYPE = "controlled-numeric-telem-sink";
 
   private readonly controller: Controller;
+  private readonly runAsync: status.ErrorHandler;
   schema = setChannelValuePropsZ;
 
-  constructor(controller: Controller, props: unknown) {
+  constructor(controller: Controller, runAsync: status.ErrorHandler, props: unknown) {
     super(props);
     this.controller = controller;
+    this.runAsync = runAsync;
   }
 
   invalidate(): void {}
@@ -272,18 +275,23 @@ export class SetChannelValue
     return keys;
   }
 
-  set(value: number): void {
-    void (async () => {
+  set(...values: number[]): void {
+    this.runAsync(async () => {
       const { client } = this.controller.internal;
-      if (client == null) return;
+      if (client == null) throw new DisconnectedError("No cluster connected");
+      if (this.props.channel === 0)
+        throw new ValidationError("No command channel specified for actuator");
       const ch = await client.channels.retrieve(this.props.channel);
-      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: value };
+      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
       if (ch.index !== 0) {
         const index = await client.channels.retrieve(ch.index);
-        fr[index.key] = TimeStamp.now();
+        const now = TimeStamp.now();
+        fr[index.key] = Array.from({ length: values.length }, (_, i) =>
+          now.add(TimeSpan.nanoseconds(i)),
+        );
       }
       await this.controller.set(fr);
-    })();
+    }, "Failed to command channel");
   }
 }
 
@@ -307,11 +315,13 @@ export class AcquireChannelControl
 {
   static readonly TYPE = "acquire-channel-control";
   private readonly controller: Controller;
+  private readonly runAsync: status.ErrorHandler;
   schema = acquireChannelControlPropsZ;
 
-  constructor(controller: Controller, props: unknown) {
+  constructor(controller: Controller, runAsync: status.ErrorHandler, props: unknown) {
     super(props);
     this.controller = controller;
+    this.runAsync = runAsync;
   }
 
   cleanup(): void {
@@ -326,7 +336,7 @@ export class AcquireChannelControl
   }
 
   set(acquire: boolean): void {
-    void (async () => {
+    this.runAsync(async () => {
       const { controller } = this;
       const { client } = controller.internal;
       if (client == null) return;
@@ -335,7 +345,7 @@ export class AcquireChannelControl
       if (ch.index !== 0) keys.push(ch.index);
       if (!acquire) await this.controller.releaseAuthority(keys);
       else await this.controller.setAuthority(keys, this.props.authority);
-    })();
+    }, "failed to set channel authority");
   }
 }
 
@@ -354,9 +364,17 @@ export const authoritySourceProps = z.object({
 
 export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
 
+export const authoritySourceDetailsZ = z.object({
+  valid: z.boolean(),
+  color: color.colorZ.optional(),
+  authority: z.number(),
+});
+
+export type AuthoritySourceDetails = z.infer<typeof authoritySourceDetailsZ>;
+
 export class AuthoritySource
   extends telem.AbstractSource<typeof authoritySourceProps>
-  implements telem.StatusSource, AetherControllerTelem
+  implements telem.StatusSource<AuthoritySourceDetails>, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";
   private readonly prov: StateProvider;
@@ -387,7 +405,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): status.Spec {
+  value(): xstatus.Status<AuthoritySourceDetails> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();
@@ -397,7 +415,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "No Channel",
         time,
-        data: { valid: false, authority: 0 },
+        details: { valid: false, authority: 0 },
       };
 
     const state = this.prov.get(this.props.channel);
@@ -408,7 +426,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "Uncontrolled",
         time,
-        data: { valid: true, color: undefined, authority: 0 },
+        details: { valid: true, color: undefined, authority: 0 },
       };
 
     return {
@@ -416,7 +434,7 @@ export class AuthoritySource
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      data: { valid: true, color: state.subjectColor, authority: state.authority },
+      details: { valid: true, color: state.subjectColor, authority: state.authority },
     };
   }
 

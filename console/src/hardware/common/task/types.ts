@@ -8,23 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { type core, z } from "zod";
+import { z } from "zod";
 
 import { Device } from "@/hardware/common/device";
 
-export const START_COMMAND = "start";
-export type StartCommand = typeof START_COMMAND;
-export const STOP_COMMAND = "stop";
-export type StopCommand = typeof STOP_COMMAND;
-export type StartOrStopCommand = StartCommand | StopCommand;
-
-export const RUNNING_STATUS = "running";
-export type RunningStatus = typeof RUNNING_STATUS;
-export const PAUSED_STATUS = "paused";
-export type PausedStatus = typeof PAUSED_STATUS;
-export const LOADING_STATUS = "loading";
-export type LoadingStatus = typeof LOADING_STATUS;
-export type Status = RunningStatus | PausedStatus | LoadingStatus;
+export type Command = "start" | "stop";
 
 export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
@@ -33,7 +21,7 @@ export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
 export const validateChannels = ({
   value: channels,
   issues,
-}: core.ParsePayload<Channel[]>) => {
+}: z.core.ParsePayload<Channel[]>) => {
   const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {
@@ -42,9 +30,9 @@ export const validateChannels = ({
     }
     const index = keyToIndexMap.get(key) as number;
     const code = "custom";
-    const msg = `Key ${key} is used for multiple channels`;
-    issues.push({ code, message: msg, path: [index, "key"], input: channels });
-    issues.push({ code, message: msg, path: [i, "key"], input: channels });
+    const message = `Key ${key} is used for multiple channels`;
+    issues.push({ code, message, path: [index, "key"], input: channels });
+    issues.push({ code, message, path: [i, "key"], input: channels });
   });
 };
 
@@ -58,7 +46,7 @@ export const ZERO_READ_CHANNEL: ReadChannel = {
   ...READ_CHANNEL_OVERRIDE,
 };
 
-export const validateReadChannels = (ctx: core.ParsePayload<ReadChannel[]>) => {
+export const validateReadChannels = (ctx: z.core.ParsePayload<ReadChannel[]>) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelToIndexMap = new Map<channel.Key, number>();
@@ -70,9 +58,9 @@ export const validateReadChannels = (ctx: core.ParsePayload<ReadChannel[]>) => {
     }
     const index = channelToIndexMap.get(channel) as number;
     const code = "custom";
-    const msg = `Synnax channel with key ${channel} is used for multiple channels`;
-    issues.push({ code, message: msg, path: [index, "channel"], input: channels });
-    issues.push({ code, message: msg, path: [i, "channel"], input: channels });
+    const message = `Synnax channel with key ${channel} is used for multiple channels`;
+    issues.push({ code, message, path: [index, "channel"], input: channels });
+    issues.push({ code, message, path: [i, "channel"], input: channels });
   });
 };
 
@@ -95,7 +83,7 @@ interface IndexAndType {
   type: WriteChannelType;
 }
 
-export const validateWriteChannels = (ctx: core.ParsePayload<WriteChannel[]>) => {
+export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
@@ -104,27 +92,27 @@ export const validateWriteChannels = (ctx: core.ParsePayload<WriteChannel[]>) =>
       if (channelsToIndexMap.has(cmdChannel)) {
         const { index, type } = channelsToIndexMap.get(cmdChannel) as IndexAndType;
         const code = "custom";
-        const msg = `Synnax channel with key ${cmdChannel} is used on multiple channels`;
+        const message = `Synnax channel with key ${cmdChannel} is used on multiple channels`;
         issues.push({
           code,
-          message: msg,
+          message,
           path: [index, `${type}Channel`],
           input: channels,
         });
-        issues.push({ code, message: msg, path: [i, "cmdChannel"], input: channels });
+        issues.push({ code, message, path: [i, "cmdChannel"], input: channels });
       } else channelsToIndexMap.set(cmdChannel, { index: i, type: "cmd" });
     if (stateChannel === 0) return;
     if (channelsToIndexMap.has(stateChannel)) {
       const { index, type } = channelsToIndexMap.get(stateChannel) as IndexAndType;
       const code = "custom";
-      const msg = `Synnax channel with key ${stateChannel} is used for multiple channels`;
+      const message = `Synnax channel with key ${stateChannel} is used for multiple channels`;
       issues.push({
         code,
-        message: msg,
+        message,
         path: [index, `${type}Channel`],
         input: channels,
       });
-      issues.push({ code, message: msg, path: [i, "stateChannel"], input: channels });
+      issues.push({ code, message, path: [i, "stateChannel"], input: channels });
     } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
   });
 };
@@ -146,7 +134,7 @@ interface ConfigWithSampleRateAndStreamRate {
   streamRate: number;
 }
 export const validateStreamRate = (
-  ctx: core.ParsePayload<ConfigWithSampleRateAndStreamRate>,
+  ctx: z.core.ParsePayload<ConfigWithSampleRateAndStreamRate>,
 ) => {
   const {
     value: { sampleRate, streamRate },

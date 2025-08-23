@@ -11,36 +11,36 @@ import {
   bounds,
   convertRenderV,
   type direction,
-  type Key,
-  type Keyed,
+  type record,
+  type RenderableValue,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-export interface TableColumn<K extends Key, E extends Keyed<K>> {
+export interface TableColumn<K extends record.Key, E extends record.Keyed<K>> {
   key: keyof E;
   name?: string;
   width?: number;
   type?: "code" | "html";
 }
 
-export interface TableHighlight<K extends Key, E extends Keyed<K>> {
+export interface TableHighlight<K extends record.Key, E extends record.Keyed<K>> {
   key: string;
   columns?: Array<keyof E>;
   rows?: bounds.Bounds;
   color: string;
 }
 
-export interface TableProps<K extends Key, E extends Keyed<K>> {
+export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   columns: Array<TableColumn<K, E>>;
   data: E[];
   highlights?: Array<TableHighlight<K, E>>;
 }
 
-export const Table = <K extends Key, E extends Keyed<K>>({
+export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<Key, E>): ReactElement => (
+}: TableProps<record.Key, E>): ReactElement => (
   <div style={{ overflowX: "auto", paddingLeft: 2 }}>
     <table>
       <thead>
@@ -68,7 +68,7 @@ export const Table = <K extends Key, E extends Keyed<K>>({
   </div>
 );
 
-interface TableRowProps<K extends Key, E extends Keyed<K>> {
+interface TableRowProps<K extends record.Key, E extends record.Keyed<K>> {
   index: number;
   dataLength: number;
   columns: Array<TableColumn<K, E>>;
@@ -76,7 +76,7 @@ interface TableRowProps<K extends Key, E extends Keyed<K>> {
   highlights: Array<TableHighlight<K, E>>;
 }
 
-const TableRow = <K extends Key, E extends Keyed<K>>({
+const TableRow = <K extends record.Key, E extends record.Keyed<K>>({
   index,
   dataLength,
   columns,
@@ -97,7 +97,7 @@ const TableRow = <K extends Key, E extends Keyed<K>>({
   </tr>
 );
 
-interface TableCellProps<K extends Key, E extends Keyed<K>> {
+interface TableCellProps<K extends record.Key, E extends record.Keyed<K>> {
   index: number;
   dataLength: number;
   highlights: Array<TableHighlight<K, E>>;
@@ -105,7 +105,7 @@ interface TableCellProps<K extends Key, E extends Keyed<K>> {
   column: TableColumn<K, E>;
 }
 
-const TableCell = <K extends Key, E extends Keyed<K>>({
+const TableCell = <K extends record.Key, E extends record.Keyed<K>>({
   index,
   dataLength,
   highlights,
@@ -196,7 +196,7 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
   }
 
   let content: ReactElement | string | number | undefined = convertRenderV(
-    data[column.key],
+    data[column.key] as RenderableValue,
   );
   if (column.type === "code") content = <code>{content}</code>;
   if (column.type === "html")

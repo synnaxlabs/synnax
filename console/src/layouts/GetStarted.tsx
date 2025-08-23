@@ -10,12 +10,13 @@
 import "@/layouts/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Eraser, Synnax, Text } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Button, Eraser, Flex, Icon, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
+import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { Vis } from "@/vis";
@@ -53,7 +54,7 @@ const NoCluster = (): ReactElement => {
     [placeLayout, dispatch, windowKey],
   );
 
-  const handleDocs = useCallback<NonNullable<Text.LinkProps["onClick"]>>(
+  const handleDocs = useCallback<NonNullable<Text.TextProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
       placeLayout(Docs.LAYOUT);
@@ -62,29 +63,23 @@ const NoCluster = (): ReactElement => {
   );
 
   return (
-    <Align.Center className="console-get-started" align="center" size={6}>
+    <Flex.Box className={CSS.B("get-started")} gap={4} full align="center">
       <Logo variant="title" className="console-get-started__logo" />
       <Text.Text level="h1">Get Started</Text.Text>
-      <Align.Space x size="large" justify="center" wrap>
-        <Button.Button
-          startIcon={<Icon.Cluster />}
-          onClick={handleCluster}
-          size="large"
-        >
+      <Flex.Box x gap="large" justify="center" wrap>
+        <Button.Button onClick={handleCluster} size="large" variant="filled">
+          <Icon.Cluster />
           Connect a Cluster
         </Button.Button>
-        <Button.Button
-          startIcon={<Icon.Visualize />}
-          onClick={handleVisualize}
-          size="large"
-        >
+        <Button.Button onClick={handleVisualize} size="large" variant="filled">
+          <Icon.Visualize />
           Create a Visualization
         </Button.Button>
-      </Align.Space>
-      <Text.Link target="_blank" level="h4" onClick={handleDocs}>
+      </Flex.Box>
+      <Text.Text variant="link" target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
-      </Text.Link>
-    </Align.Center>
+      </Text.Text>
+    </Flex.Box>
   );
 };
 
@@ -96,30 +91,21 @@ const Overview = (): ReactElement => {
   );
   return (
     <Eraser.Eraser>
-      <Align.Center
-        className="console-get-started"
-        size={6}
-        y
-        style={{ padding: "200px" }}
-      >
+      <Flex.Box y full className={CSS.B("get-started")} align="center">
         <Logo variant="title" className="console-get-started__logo" />
-        <Align.Space x style={{ width: "100%" }} justify="center" size={30} wrap>
-          <Align.Space y>
+        <Flex.Box x full="x" justify="center" gap={30} wrap>
+          <Flex.Box y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
-            <Workspace.Recent />
-            <Button.Button
-              startIcon={<Icon.Add />}
-              onClick={handleWorkspace}
-              style={{ width: "fit-content" }}
-            >
+            <Button.Button onClick={handleWorkspace} style={{ width: "fit-content" }}>
+              <Icon.Add />
               Create a Workspace
             </Button.Button>
-          </Align.Space>
-          <Align.Space y align="center">
+          </Flex.Box>
+          <Flex.Box y align="center">
             <Text.Text level="h1">Recent Ranges</Text.Text>
-          </Align.Space>
-        </Align.Space>
-      </Align.Center>
+          </Flex.Box>
+        </Flex.Box>
+      </Flex.Box>
     </Eraser.Eraser>
   );
 };

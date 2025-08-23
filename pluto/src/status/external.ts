@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/status/aether/types";
 export * from "@/status/Aggregator";
-export * from "@/status/Circle";
 export * from "@/status/colors";
+export * from "@/status/Indicator";
 export * from "@/status/Notification";
-export * from "@/status/Text";
+export * from "@/status/Summary";

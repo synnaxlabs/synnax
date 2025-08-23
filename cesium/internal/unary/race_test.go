@@ -41,22 +41,24 @@ var _ = Describe("Unary racing", func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
 						DataType: telem.TimeStampT,
 					},
-					FileSize:        1 * telem.ByteSize,
+					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Jimmy",
 						Key:      dataKey,
 						DataType: telem.Int64T,
 						Index:    indexKey,
 					},
-					FileSize:        1 * telem.ByteSize,
+					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				},
 				))
@@ -70,7 +72,7 @@ var _ = Describe("Unary racing", func() {
 
 			Describe("Multiple deletes", func() {
 				Specify("Overlapping regions – index", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 
 					var wg sync.WaitGroup

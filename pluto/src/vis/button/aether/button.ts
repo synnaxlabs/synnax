@@ -10,12 +10,17 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+
+export const MODES = ["fire", "momentary", "pulse"] as const;
+export const modeZ = z.enum(MODES);
+
+export type Mode = z.infer<typeof modeZ>;
 
 export const buttonStateZ = z.object({
   trigger: z.number(),
   sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
+  mode: modeZ.optional().default("fire"),
 });
 
 interface InternalState {
@@ -23,22 +28,29 @@ interface InternalState {
   prevTrigger: number;
 }
 
+export const MOUSE_DOWN_INCREMENT = 2;
+export const MOUSE_UP_INCREMENT = 1;
+
 export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
   static readonly TYPE = "Button";
 
   schema = buttonStateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    const { sink: sinkProps } = this.state;
-    this.internal.prevTrigger ??= this.state.trigger;
-    this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
-    const prevTrigger = this.internal.prevTrigger;
-    this.internal.prevTrigger = this.state.trigger;
-    if (this.state.trigger <= prevTrigger) return;
-    const runAsync = status.useErrorHandler(ctx);
-    runAsync(async () => {
-      this.internal.sink.set(true);
-    });
+    const { sink: sinkProps, mode, trigger } = this.state;
+    const { internal: i } = this;
+    i.prevTrigger ??= trigger;
+    i.sink = telem.useSink(ctx, sinkProps, i.sink);
+    const prevTrigger = i.prevTrigger;
+    i.prevTrigger = trigger;
+    const isMouseDown = trigger === prevTrigger + MOUSE_DOWN_INCREMENT;
+    const isMouseUp = trigger === prevTrigger + MOUSE_UP_INCREMENT;
+    if (isMouseUp) {
+      if (mode == "fire") this.internal.sink.set(true);
+      else if (mode == "momentary") this.internal.sink.set(false);
+    } else if (isMouseDown)
+      if (mode == "momentary") this.internal.sink.set(true);
+      else if (mode == "pulse") this.internal.sink.set(true, false);
   }
 
   afterDelete(): void {
@@ -46,6 +58,4 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
   }
 }
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Button.TYPE]: Button,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Button.TYPE]: Button };

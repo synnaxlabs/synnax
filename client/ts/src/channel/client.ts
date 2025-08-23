@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { array, status } from "@synnaxlabs/x";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -17,18 +17,17 @@ import {
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  channelZ,
   type Key,
   type KeyOrName,
   type Name,
   type New,
-  ONTOLOGY_TYPE,
   type Params,
   type Payload,
+  payloadZ,
+  type Status,
 } from "@/channel/payload";
 import {
   analyzeParams,
@@ -37,17 +36,21 @@ import {
   DebouncedBatchRetriever,
   type RetrieveOptions,
   type Retriever,
+  type RetrieveRequest,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
 }
+
+export const SET_CHANNEL_NAME = "sy_channel_set";
+export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
@@ -97,7 +100,7 @@ export class Channel {
    * An alias for the channel under a specific range. This parameter is unstable and
    * should not be relied upon in the current version of Synnax.
    */
-  readonly alias: string | undefined;
+  alias: string | undefined;
   /**
    * Whether the channel is virtual. Virtual channels do not store any data in the
    * database, but can still be used for streaming purposes.
@@ -112,6 +115,10 @@ export class Channel {
    * Only used for calculated channels. Specifies the channels required for calculation
    */
   readonly requires: Key[];
+  /**
+   * The status of the channel.
+   */
+  readonly status?: Status;
 
   constructor({
     dataType,
@@ -124,9 +131,14 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
+    status: argsStatus,
     expression = "",
     requires = [],
-  }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
+  }: New & {
+    frameClient?: framer.Client;
+    density?: CrudeDensity;
+    status?: status.Crude;
+  }) {
     this.key = key;
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -138,6 +150,7 @@ export class Channel {
     this.virtual = virtual;
     this.expression = expression;
     this.requires = requires ?? [];
+    if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
 
@@ -153,7 +166,7 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return channelZ.parse({
+    return payloadZ.parse({
       key: this.key,
       name: this.name,
       dataType: this.dataType.valueOf(),
@@ -164,6 +177,7 @@ export class Channel {
       virtual: this.virtual,
       expression: this.expression,
       requires: this.requires,
+      status: this.status,
     });
   }
 
@@ -200,6 +214,8 @@ export class Channel {
   }
 }
 
+export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
+
 const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 
 const retrieveGroupReqZ = z.object({});
@@ -211,8 +227,8 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * cluster. This class should not be instantiated directly, and instead should be used
  * through the `channels` property of an {@link Synnax} client.
  */
-export class Client implements AsyncTermSearcher<string, Key, Channel> {
-  readonly type = ONTOLOGY_TYPE;
+export class Client {
+  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -298,7 +314,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = toArray(channels);
+    let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
       const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
@@ -313,7 +329,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   /**
    * Retrieves a channel from the database using the given key or name.
    *
-   * @param channel - The key or name of the channel to retrieve.
+   * @param params - The key or name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
    * type.
@@ -332,13 +348,13 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+  async retrieve(params: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
 
   /**
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    *
-   * @param channels - The keys or the names of the channels to retrieve. Note that
+   * @param params - The keys or the names of the channels to retrieve. Note that
    * this method does not support mixing keys and names in the same call.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
@@ -346,7 +362,9 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
+  async retrieve(params: Params, options?: RetrieveOptions): Promise<Channel[]>;
+
+  async retrieve(params: RetrieveRequest): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -356,25 +374,24 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(
-    channels: Params,
+    params: Params | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    const isSingle = !Array.isArray(channels);
-    const res = this.sugar(await this.retriever.retrieve(channels, options));
-    checkForMultipleOrNoResults("channel", channels, res, isSingle);
-    return isSingle ? res[0] : res;
-  }
+    if (typeof params === "object" && !Array.isArray(params))
+      return this.sugar(await this.retriever.retrieve(params));
 
-  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term, options));
+    const isSingle = !Array.isArray(params);
+    const res = this.sugar(await this.retriever.retrieve(params, options));
+    checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
+    return isSingle ? res[0] : res;
   }
 
   /***
    * Deletes channels from the database using the given keys or names.
-   * @param channels - The keys or names of the channels to delete.
+   * @param params - The keys or names of the channels to delete.
    */
-  async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
+  async delete(params: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(params);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });
@@ -383,27 +400,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async rename(key: Key, name: string): Promise<void>;
   async rename(keys: Key[], names: string[]): Promise<void>;
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
-    return await this.writer.rename(toArray(keys), toArray(names));
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Channel> {
-    return {
-      type: this.type,
-      search: async (term: string) => await this.search(term, options),
-      retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
-      page: async (offset: number, limit: number) =>
-        await this.page(offset, limit, options),
-    };
-  }
-
-  async page(
-    offset: number,
-    limit: number,
-    options?: Omit<RetrieveOptions, "limit" | "offset">,
-  ): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit, options));
+    return await this.writer.rename(array.toArray(keys), array.toArray(names));
   }
 
   createDebouncedBatchRetriever(deb: number = 10): Retriever {
@@ -412,9 +409,13 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     );
   }
 
-  private sugar(payloads: Payload[]): Channel[] {
+  sugar(payload: Payload): Channel;
+  sugar(payloads: Payload[]): Channel[];
+  sugar(payloads: Payload | Payload[]): Channel | Channel[] {
     const { frameClient } = this;
-    return payloads.map((p) => new Channel({ ...p, frameClient }));
+    if (Array.isArray(payloads))
+      return payloads.map((p) => new Channel({ ...p, frameClient }));
+    return new Channel({ ...payloads, frameClient });
   }
 
   async retrieveGroup(): Promise<group.Group> {
@@ -453,5 +454,7 @@ export const resolveCalculatedIndex = async (
   return null;
 };
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: "channel",
+  key: key.toString(),
+});

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type direction, type KeyedNamed, xy } from "@synnaxlabs/x";
+import { color, type direction, type record, xy } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type FC, type ReactElement } from "react";
 
@@ -25,7 +25,7 @@ const Pipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElement =>
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.hex(pathColor),
+      stroke: color.cssString(pathColor),
     }}
     {...rest}
   />
@@ -39,7 +39,7 @@ const ElectricSignalPipe = ({
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.hex(pathColor),
+      stroke: color.cssString(pathColor),
       strokeDasharray: "12,4",
     }}
     {...rest}
@@ -54,7 +54,7 @@ const SecondaryPipe = ({
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.hex(pathColor),
+      stroke: color.cssString(pathColor),
       strokeDasharray: "12,4,4",
     }}
     {...rest}
@@ -65,7 +65,7 @@ const JackedPipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElem
   const miters = xy.calculateMiters(points, 6);
   const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
   const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
-  const stroke = color.hex(pathColor);
+  const stroke = color.cssString(pathColor);
   const opacity = 0.7;
   return (
     <>
@@ -132,7 +132,7 @@ const HydraulicLSymbol = ({
   return (
     <path
       d={pathData}
-      stroke={color.hex(colorVal)}
+      stroke={color.cssString(colorVal)}
       fill="none"
       strokeWidth={2}
       transform={`translate(${position.x},${position.y}) rotate(${rotationAngle})`}
@@ -160,7 +160,7 @@ const ContinuousPneumaticSignalSymbol = ({
     <>
       <path
         d={pathData}
-        stroke={color.hex(colorVal)}
+        stroke={color.cssString(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${position.x},${position.y}) rotate(${rotate})`}
@@ -168,7 +168,7 @@ const ContinuousPneumaticSignalSymbol = ({
       />
       <path
         d={pathData}
-        stroke={color.hex(colorVal)}
+        stroke={color.cssString(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
@@ -184,7 +184,7 @@ const DataLinkSymbol = ({ color: colorVal, position }: SymbolProps): ReactElemen
     cy={position.y}
     r={3}
     fill="var(--pluto-gray-l0)"
-    stroke={color.hex(colorVal)}
+    stroke={color.cssString(colorVal)}
     strokeWidth={2}
   />
 );
@@ -195,7 +195,7 @@ const createSymbolLine = (C: FC<SymbolProps>) => {
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...rest} style={{ stroke: color.hex(colorVal) }} />
+        <BaseEdge path={path} {...rest} style={{ stroke: color.cssString(colorVal) }} />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={colorVal} />
         ))}
@@ -252,7 +252,7 @@ export const PATHS: Record<PathType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-export const PATH_TYPES: KeyedNamed<PathType>[] = [
+const DATA: record.KeyedNamed<PathType>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -263,14 +263,8 @@ export const PATH_TYPES: KeyedNamed<PathType>[] = [
 ];
 
 export interface SelectPathTypeProps
-  extends Omit<Select.DropdownButtonProps<PathType, KeyedNamed<PathType>>, "data"> {}
+  extends Omit<Select.StaticProps<PathType>, "data" | "resourceName"> {}
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
-  <Select.DropdownButton
-    columns={[{ key: "name", name: "Type" }]}
-    data={PATH_TYPES}
-    style={{ width: 200 }}
-    entryRenderKey="name"
-    {...props}
-  />
+  <Select.Static data={DATA} {...props} resourceName="Path Type" />
 );

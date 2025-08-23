@@ -16,7 +16,7 @@ export const difference = (
 ): Record<string, PathValueTuple> => {
   const diffMap: Record<string, PathValueTuple> = {};
 
-  const compare = (a: any, b: any, currentPath: string): void => {
+  const compare = (a: unknown, b: unknown, currentPath: string): void => {
     if (typeof a !== typeof b || a === null || b === null) {
       diffMap[currentPath] = [a, b];
       return;
@@ -32,7 +32,11 @@ export const difference = (
       } else {
         const keys = new Set([...Object.keys(a as {}), ...Object.keys(b as {})]);
         keys.forEach((key) => {
-          compare(a[key], b[key], currentPath !== "" ? `${currentPath}.${key}` : key);
+          compare(
+            a[key as keyof typeof a],
+            b[key as keyof typeof b],
+            currentPath !== "" ? `${currentPath}.${key}` : key,
+          );
         });
       }
     else if (a !== b) diffMap[currentPath] = [a, b];

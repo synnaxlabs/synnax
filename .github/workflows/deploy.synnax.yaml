@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - rc
+      - sy-2178-modbus-integration
+
   pull_request:
     branches:
       - main
@@ -14,6 +16,9 @@ on:
 permissions:
   contents: write
   packages: write
+
+env:
+  CACHE_SCOPE: deploy-synnax
 
 jobs:
   setup:
@@ -87,7 +92,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS, Ubuntu for NI Linux RT, Ubuntu Latest, and Windows Latest
         os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -106,18 +110,18 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-autoconf
-            mingw-w64-x86_64-automake
-            mingw-w64-x86_64-libtool
+            autoconf
+            automake
+            libtool
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Deps On Ubuntu
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on Macos
         if: matrix.os == 'macos-15'
@@ -125,10 +129,10 @@ jobs:
           brew install autoconf automake libtool
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
           repository-cache: true
 
       - name: Build Driver
@@ -143,6 +147,19 @@ jobs:
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
+      
+      - name: Download relic for Windows signing
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path relic-bin
+          Move-Item -Force relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Determine OS
         id: os
@@ -168,6 +185,73 @@ jobs:
             echo "EXECUTABLE=" >> $GITHUB_OUTPUT
           fi
 
+      - name: Import Apple Developer Certificate
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Sign macOS Driver Binary
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        run: |
+          # Create entitlements file to disable library validation for LabJack support
+          cat > driver-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
+          codesign --verify --verbose bazel-bin/driver/driver
+
+      - name: Sign Windows Driver Binary
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          # Path to Bazel output
+          $bin = "bazel-bin\driver\driver.exe"
+
+          # Give any AV/indexers a moment to release handles
+          Start-Sleep -Seconds 2
+
+          # Clear Windows file attributes first; Bazel marks outputs read-only
+          attrib -R -S -H -A $bin
+
+          # (Optional) ensure ownership + broad write perms; attrib is the key piece
+          takeown /F $bin | Out-Null
+          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null  # Everyone:F via well-known SID
+
+          # Retry a few times in case something still has a transient lock
+          $max = 5
+          for ($i = 1; $i -le $max; $i++) {
+            try {
+              relic sign --file $bin --key azure --config relic.conf
+              break
+            } catch {
+              if ($i -eq $max) { throw }
+              Start-Sleep -Seconds 3
+            }
+          }
+
       - name: Upload and Move Driver Binary
         if: github.event_name == 'push'
         shell: bash
@@ -186,7 +270,7 @@ jobs:
             mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
-      - name: Create Driver Install Script
+      - name: Create Driver Install Script for NI Linux RT
         if: matrix.os == 'ubuntu-22.04' && github.event_name == 'push'
         shell: bash
         run: |
@@ -217,32 +301,70 @@ jobs:
         run: |
           go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
+      - name: Sign macOS Server Binary
+        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        working-directory: synnax
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+          codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
+      - name: Sign Windows Server Binary
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
+
       - name: Upload Release Asset
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         shell: powershell
         run: |
+          # Ensure EnVar.dll is present in the correct plugin path
+          $pluginPath = "${env:ProgramFiles(x86)}\NSIS\Plugins\x86-unicode"
+          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
+
+          # Prepare the binary for packaging
           Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+
+          # Build the installer
           & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"
               exit 1
           }
 
+      - name: Sign Windows Installer
+        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+
       - name: Upload Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Download Latest Earthly
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
         uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'

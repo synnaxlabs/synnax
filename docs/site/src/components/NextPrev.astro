@@ -1,44 +1,43 @@
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Text } from "@synnaxlabs/pluto";
+import { Divider, Icon, Text, Flex } from "@synnaxlabs/pluto";
 const { next, prev, nextURL, prevURL } = Astro.props;
 ---
 
-<Align.Space className="next-prev" empty>
+<Flex.Box className="next-prev" empty>
     {(next != null || prev != null) && <Divider.Divider direction="x" />}
-    <Align.Space direction="x" justify="spaceBetween">
-        <Align.Space direction="x" el="a" className="link" href={prevURL}>
+    <Flex.Box direction="x" justify="between">
+        <Flex.Box direction="x" el="a" className="link" href={prevURL}>
             {
                 prev != null && (
                     <>
                         <Icon.Caret.Left />
-                        <Align.Space direction="y" size="small">
-                            <Text.Text level="small" shade={7} weight={400}>
+                        <Flex.Box direction="y" gap="small">
+                            <Text.Text level="small" color={7} weight={400}>
                                 Previous
                             </Text.Text>
-                            <Text.Text level="p">{prev}</Text.Text>
-                        </Align.Space>
+                            <Text.Text>{prev}</Text.Text>
+                        </Flex.Box>
                     </>
                 )
             }
-        </Align.Space>
-        <Align.Space direction="x" el="a" className="link" href={nextURL}>
+        </Flex.Box>
+        <Flex.Box direction="x" el="a" className="link" href={nextURL}>
             {
                 next != null && (
                     <>
-                        <Align.Space direction="y" size="small">
-                            <Text.Text level="small" shade={8} weight={400}>
+                        <Flex.Box direction="y" gap="small">
+                            <Text.Text level="small" color={8} weight={400}>
                                 Next
                             </Text.Text>
-                            <Text.Text level="p">{next}</Text.Text>
-                        </Align.Space>
+                            <Text.Text>{next}</Text.Text>
+                        </Flex.Box>
                         <Icon.Caret.Right />
                     </>
                 )
             }
-        </Align.Space>
-    </Align.Space>
-</Align.Space>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .next-prev {
@@ -51,7 +50,7 @@ const { next, prev, nextURL, prevURL } = Astro.props;
                 .pluto-text {
                     color: var(--pluto-gray-l10);
                 }
-                .synnax-icon {
+                .pluto-icon {
                     color: var(--pluto-gray-l10);
                     transform: scale(1.2) !important;
                 }
@@ -62,7 +61,7 @@ const { next, prev, nextURL, prevURL } = Astro.props;
             color: var(--pluto-gray-l9);
             font-weight: 400;
         }
-        .synnax-icon {
+        .pluto-icon {
             transition: all 0.2s ease;
             color: var(--pluto-gray-l9);
             width: 3rem;

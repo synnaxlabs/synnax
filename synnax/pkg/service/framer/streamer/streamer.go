@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,23 +34,39 @@ type (
 type Config struct {
 	Keys             channel.Keys `json:"keys" msgpack:"keys"`
 	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
-	DownSampleFactor int          `json:"down_sample_factor" msgpack:"down_sample_factor"`
-	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
+	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Validate implements config.Config.
+func (cfg Config) Validate() error {
+	v := validate.New("streamer.config")
+	validate.GreaterThanEq(v, "downsample_factor", cfg.DownsampleFactor, 0)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (cfg Config) Override(other Config) Config {
+	cfg.Keys = override.Slice(cfg.Keys, other.Keys)
+	cfg.SendOpenAck = other.SendOpenAck
+	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
+	return cfg
 }
 
 func (cfg Config) distribution() framer.StreamerConfig {
-	return framer.StreamerConfig{
-		Keys:        cfg.Keys,
-		SendOpenAck: &cfg.SendOpenAck,
-	}
+	return framer.StreamerConfig{Keys: cfg.Keys, SendOpenAck: &cfg.SendOpenAck}
 }
 
 // ServiceConfig is the configuration for opening a new streamer service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Calculation *calculation.Service `json:"calculation" msgpack:"calculation"`
-	Channel     channel.Readable     `json:"channel" msgpack:"channel"`
-	Framer      *framer.Service      `json:"framer" msgpack:"framer"`
+	Calculation *calculation.Service
+	Channel     channel.Readable
+	DistFramer  *framer.Service
 }
 
 var (
@@ -63,7 +78,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Calculation = override.Nil(cfg.Calculation, other.Calculation)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
+	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
 	return cfg
 }
 
@@ -71,7 +86,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
 	validate.NotNil(v, "calculation", cfg.Calculation)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "framer", cfg.Framer)
+	validate.NotNil(v, "dist_framer", cfg.DistFramer)
 	return v.Error()
 }
 
@@ -81,14 +96,16 @@ type Service struct {
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
-	return &Service{cfg: cfg}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
 }
 
 var (
 	distAddr       address.Address = "distribution"
 	utAddr         address.Address = "updater_transform"
-	downSampleAddr address.Address = "down_sample"
-	throttleAddr   address.Address = "throttle"
+	downsampleAddr address.Address = "downsample"
 )
 
 const (
@@ -96,29 +113,28 @@ const (
 	requestBufferSize  = 10
 )
 
-func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
+func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	p := plumber.New()
-	dist, err := s.cfg.Framer.NewStreamer(ctx, cfg.distribution())
+	dist, err := s.cfg.DistFramer.NewStreamer(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
 	}
 	plumber.SetSegment(p, distAddr, dist)
-	ut, err := s.newUpdaterTransform(ctx, cfg)
+	ut, err := s.newCalculationUpdaterTransform(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	plumber.SetSegment(p, utAddr, ut)
 	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
 	var routeOutletFrom = distAddr
-	if cfg.ThrottleRate > 0 {
-		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, responseBufferSize)
-		routeOutletFrom = throttleAddr
-	}
-	if cfg.DownSampleFactor > 1 {
-		plumber.SetSegment(p, downSampleAddr, newDownSampler(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, downSampleAddr, responseBufferSize)
-		routeOutletFrom = downSampleAddr
+	if cfg.DownsampleFactor > 1 {
+		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
+		plumber.MustConnect[Response](p, routeOutletFrom, downsampleAddr, responseBufferSize)
+		routeOutletFrom = downsampleAddr
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
@@ -127,7 +143,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
 	}, nil
 }
 
-func (s *Service) newUpdaterTransform(
+func (s *Service) newCalculationUpdaterTransform(
 	ctx context.Context,
 	cfg Config,
 ) (confluence.Segment[Request, framer.StreamerRequest], error) {

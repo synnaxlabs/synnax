@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// <reference types="vite/client" />
+
 declare const IS_DEV: boolean;
 
 interface MonacoEnvironment {

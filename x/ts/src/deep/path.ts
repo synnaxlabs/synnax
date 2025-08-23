@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Join } from "@/join";
-import { type UnknownRecord } from "@/record";
+import { type record } from "@/record";
 
 type Prev = [
   never,
@@ -53,7 +53,7 @@ export type Key<T, D extends number = 5> = [D] extends [never]
 /** Options for the get function. */
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
-  getter?: (obj: UnknownRecord, key: string) => unknown;
+  getter?: (obj: record.Unknown, key: string) => unknown;
   separator?: string;
 }
 
@@ -69,12 +69,12 @@ export interface GetOptions<O extends boolean | undefined = boolean | undefined>
  * @returns the value at the given path on the object.
  */
 export interface Get {
-  <V = unknown, T = UnknownRecord>(
+  <V = record.Unknown, T = record.Unknown>(
     obj: T,
     path: string,
     options?: GetOptions<false>,
   ): V;
-  <V = unknown, T = UnknownRecord>(
+  <V = record.Unknown, T = record.Unknown>(
     obj: T,
     path: string,
     options?: GetOptions<boolean | undefined>,
@@ -82,7 +82,7 @@ export interface Get {
 }
 
 /** A strongly typed version of the @link Get function. */
-export interface TypedGet<V = unknown, T = UnknownRecord> {
+export interface TypedGet<V = record.Unknown, T = record.Unknown> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
 }
@@ -116,6 +116,26 @@ export const transformPath = (
   return result.join(separator);
 };
 
+const defaultGetter = (obj: record.Unknown, key: string): unknown => {
+  if (!Array.isArray(obj)) return obj[key];
+  const res = obj[key];
+  if (res != null || obj.length == 0) return res;
+  const first = obj[0];
+  if (typeof first === "object" && "key" in first)
+    return obj.find((o) => o.key === key);
+  return undefined;
+};
+
+export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
+  const parts = path.split(".");
+  parts.forEach((part, i) => {
+    obj = defaultGetter(obj as record.Unknown, part) as T;
+    if (obj != null && typeof obj === "object" && "key" in obj)
+      parts[i] = obj.key as string;
+  });
+  return parts.join(".");
+};
+
 /**
  * Gets the value at the given path on the object. If the path does not exist
  * and the optional flag is set to true, null will be returned. If the path does
@@ -127,23 +147,23 @@ export const transformPath = (
  * @param opts.getter a custom getter function to use on each part of the path.
  * @returns the value at the given path on the object.
  */
-export const get = (<V = unknown, T = UnknownRecord>(
+export const get = (<V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,
   opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
   opts.separator ??= ".";
-  const { optional, getter = (obj, key) => (obj)[key] } = opts;
+  const { optional, getter = defaultGetter } = opts;
   const parts = path.split(opts.separator);
-  if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
-  let result: UnknownRecord = obj as UnknownRecord;
+  if (parts.length === 1 && parts[0] === "") return obj as record.Unknown as V;
+  let result: record.Unknown = obj as record.Unknown;
   for (const part of parts) {
     const v = getter(result, part);
     if (v == null) {
       if (optional) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);
     }
-    result = v as UnknownRecord;
+    result = v as record.Unknown;
   }
   return result as V;
 }) as Get;
@@ -157,14 +177,32 @@ export const get = (<V = unknown, T = UnknownRecord>(
  */
 export const set = <V>(obj: V, path: string, value: unknown): void => {
   const parts = path.split(".");
-  let result: UnknownRecord = obj as UnknownRecord;
+  let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    result[part] ??= {};
-    result = result[part] as UnknownRecord;
+    const v = defaultGetter(result, part);
+    if (v == null) throw new Error(`Path ${path} does not exist. ${part} is null`);
+    result = v as record.Unknown;
   }
   try {
-    result[parts[parts.length - 1]] = value;
+    if (!Array.isArray(result)) {
+      result[parts[parts.length - 1]] = value;
+      return;
+    }
+    if (result.length === 0) return;
+    const index = parseInt(parts[parts.length - 1]);
+    if (isNaN(index)) {
+      const first = result[0];
+      if (typeof first === "object" && "key" in first) {
+        const objIndex = result.findIndex((o) => o.key === parts[parts.length - 1]);
+        if (objIndex !== -1) {
+          result[objIndex] = value;
+          return;
+        }
+      }
+      return;
+    }
+    result[index] = value;
   } catch (e) {
     console.error("failed to set value", value, "at path", path, "on object", obj);
     throw e;
@@ -179,11 +217,11 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
  */
 export const remove = <V>(obj: V, path: string): void => {
   const parts = path.split(".");
-  let result: UnknownRecord = obj as UnknownRecord;
+  let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
     if (result[part] == null) return;
-    result = result[part] as UnknownRecord;
+    result = result[part] as record.Unknown;
   }
   // if its an array, we need to splice it
   if (Array.isArray(result)) {
@@ -213,7 +251,10 @@ export const element = (path: string, index: number): string => {
  * @param path the path to check
  * @returns whether the path exists in the object
  */
-export const has = <V = unknown, T = UnknownRecord>(obj: T, path: string): boolean => {
+export const has = <V = record.Unknown, T = record.Unknown>(
+  obj: T,
+  path: string,
+): boolean => {
   try {
     get<V, T>(obj, path);
     return true;
