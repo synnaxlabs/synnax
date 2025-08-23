@@ -557,7 +557,7 @@ func (f Frame[K]) WriteCSV(w io.Writer) error {
 	return nil
 }
 
-type cellWriter func(s Series, row int, w io.Writer) error
+type cellWriter func(Series, int, io.Writer) error
 
 func allocateCellWriter(dt DataType, buf [36]byte) (cellWriter, error) {
 	switch dt {

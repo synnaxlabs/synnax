@@ -143,15 +143,19 @@ func (s *FrameService) Read(
 			indexKeys[i] = c.Index()
 		}
 		allKeys = append(keys, indexKeys...).Unique()
-		if err := s.
+		if err := s.access.Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Action:  access.Retrieve,
+			Objects: framer.OntologyIDs(allKeys),
+		}); err != nil {
+			return err
+		}
+		return s.
 			channel.
 			NewRetrieve().
 			WhereKeys(allKeys...).
 			Entries(&channels).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		return nil
+			Exec(ctx, tx)
 	}); err != nil {
 		return nil, err
 	}
@@ -283,7 +287,12 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true})
+	if err := srv.Send(
+		framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true},
+	); err != nil {
+		return nil, err
+	}
+	return iter, nil
 }
 
 type (
