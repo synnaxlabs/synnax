@@ -532,6 +532,8 @@ export const Controls = (props: ControlsProps): ReactElement => (
 export interface ToggleEditControlProps
   extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
 
+const CONTROL_TOOLTIP_LOCATION = location.BOTTOM_LEFT;
+
 export const ToggleEditControl = ({
   onClick,
   ...rest
@@ -543,7 +545,7 @@ export const ToggleEditControl = ({
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.BOTTOM_LEFT}
+      tooltipLocation={CONTROL_TOOLTIP_LOCATION}
       size="small"
       tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
@@ -582,6 +584,8 @@ export const FitViewControl = ({
 };
 
 export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
+const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
+const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 
 export const SelectViewportModeControl = (): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
@@ -591,10 +595,20 @@ export const SelectViewportModeControl = (): ReactElement => {
       value={viewportMode}
       onChange={onViewportModeChange}
     >
-      <Select.Button itemKey="pan" size="small">
+      <Select.Button
+        itemKey="pan"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
         <Icon.Pan />
       </Select.Button>
-      <Select.Button itemKey="select" size="small">
+      <Select.Button
+        itemKey="select"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
         <Icon.Selection />
       </Select.Button>
     </Select.Buttons>

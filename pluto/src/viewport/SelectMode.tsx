@@ -13,10 +13,10 @@ import { type ReactElement, useMemo } from "react";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
+import { type Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
-import { Tooltip } from "@/tooltip";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
@@ -25,7 +25,7 @@ interface TooltipProps {
   triggers: Trigger[];
 }
 
-const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
+export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
   <Text.Text level="small">
     {caseconv.capitalize(mode)}
     <Triggers.Text trigger={triggers[0]} el="span" />
