@@ -351,7 +351,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
@@ -362,7 +362,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		calculatedCH.Expression = "return base * 3"
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
 		series = res.Frame.SeriesAt(0)
