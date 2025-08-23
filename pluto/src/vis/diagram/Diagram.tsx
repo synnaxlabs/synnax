@@ -226,10 +226,18 @@ NodeRenderer.displayName = "NodeRenderer";
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
+const PAN_PROPS: Partial<ReactFlowProps> = {
+  panOnDrag: [Triggers.MOUSE_LEFT_NUMBER, Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
+const SELECT_PROPS: Partial<ReactFlowProps> = {
+  selectionOnDrag: true,
+  panOnDrag: [Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
 const viewPortModeToRFProps = (mode: CoreViewport.Mode): Partial<ReactFlowProps> => {
-  if (mode === "pan") return { panOnDrag: true };
-  if (mode === "select") return { selectionOnDrag: true };
-  return {};
+  if (mode === "pan") return PAN_PROPS;
+  return SELECT_PROPS;
 };
 
 const Core = ({
@@ -524,6 +532,8 @@ export const Controls = (props: ControlsProps): ReactElement => (
 export interface ToggleEditControlProps
   extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
 
+const CONTROL_TOOLTIP_LOCATION = location.BOTTOM_LEFT;
+
 export const ToggleEditControl = ({
   onClick,
   ...rest
@@ -535,7 +545,7 @@ export const ToggleEditControl = ({
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.BOTTOM_LEFT}
+      tooltipLocation={CONTROL_TOOLTIP_LOCATION}
       size="small"
       tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
@@ -574,6 +584,8 @@ export const FitViewControl = ({
 };
 
 export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
+const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
+const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 
 export const SelectViewportModeControl = (): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
@@ -583,10 +595,20 @@ export const SelectViewportModeControl = (): ReactElement => {
       value={viewportMode}
       onChange={onViewportModeChange}
     >
-      <Select.Button itemKey="pan" size="small">
+      <Select.Button
+        itemKey="pan"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
         <Icon.Pan />
       </Select.Button>
-      <Select.Button itemKey="select" size="small">
+      <Select.Button
+        itemKey="select"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
         <Icon.Selection />
       </Select.Button>
     </Select.Buttons>
