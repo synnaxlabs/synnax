@@ -157,18 +157,20 @@ export const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 5,
 };
 
-export const readStatusDataZ = z.object({
-  running: z.boolean(),
-  message: z.string(),
-  errors: z
-    .array(
-      z.object({
-        message: z.string(),
-        path: z.string(),
-      }),
-    )
-    .optional(),
-});
+export const readStatusDataZ = z
+  .object({
+    running: z.boolean(),
+    message: z.string(),
+    errors: z
+      .array(
+        z.object({
+          message: z.string(),
+          path: z.string(),
+        }),
+      )
+      .optional(),
+  })
+  .or(z.null());
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -256,18 +258,20 @@ export const ZERO_WRITE_CONFIG: WriteConfig = {
   channels: [],
 };
 
-export const writeStatusDataZ = z.object({
-  running: z.boolean(),
-  message: z.string(),
-  errors: z
-    .array(
-      z.object({
-        message: z.string(),
-        path: z.string(),
-      }),
-    )
-    .optional(),
-});
+export const writeStatusDataZ = z
+  .object({
+    running: z.boolean(),
+    message: z.string(),
+    errors: z
+      .array(
+        z.object({
+          message: z.string(),
+          path: z.string(),
+        }),
+      )
+      .optional(),
+  })
+  .or(z.null());
 export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;

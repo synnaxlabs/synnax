@@ -110,9 +110,7 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            autoconf
-            automake
-            libtool
+            autoconf automake libtool
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -121,7 +119,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsystemd-dev autoconf automake libtool
+          sudo apt-get install -y libsystemd-dev autoconf automake libtool autoheader
 
       - name: Install Deps on Macos
         if: matrix.os == 'macos-15'
@@ -146,8 +144,10 @@ jobs:
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
-      
+        run:
+          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
+          --announce_rc //driver
+
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         run: |
@@ -213,7 +213,7 @@ jobs:
           </dict>
           </plist>
           EOF
-          
+
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
@@ -410,3 +410,4 @@ jobs:
             docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
             docker push synnaxlabs/synnax:rc
           fi
+
