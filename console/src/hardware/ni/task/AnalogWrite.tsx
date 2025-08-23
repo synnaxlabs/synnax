@@ -66,7 +66,6 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...props}
-      itemKey={itemKey}
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
