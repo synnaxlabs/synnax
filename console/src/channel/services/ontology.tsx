@@ -27,9 +27,12 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Group } from "@/group";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
+import { renameReadChannel, renameWriteChannelsByPattern } from "@/hardware/common/task/channelRenameService";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
+import { useRenameChannels } from "@/modals";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
@@ -115,6 +118,37 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
+// Helper function to detect if a channel is part of a write channel group
+const detectWriteChannelGroup = (channelName: string, channelKey: number) => {
+  let baseName = "";
+  let cmdChannel = 0;
+  let stateChannel = 0;
+
+  if (channelName.endsWith("_cmd")) {
+    baseName = extractBaseName(channelName);
+    cmdChannel = channelKey;
+    stateChannel = 0; // Will be discovered by renameWriteChannels
+  } else if (channelName.endsWith("_state")) {
+    baseName = extractBaseName(channelName);
+    stateChannel = channelKey;
+    cmdChannel = 0; // Will be discovered by renameWriteChannels
+  } else if (channelName.endsWith("_cmd_time")) {
+    baseName = channelName.slice(0, -9); // Remove "_cmd_time"
+    cmdChannel = 0; // Will be discovered by renameWriteChannels
+    stateChannel = 0; // Will be discovered by renameWriteChannels
+  } else 
+    // Not a write channel, return null
+    return null;
+
+  return {
+    enabled: true,
+    key: `write_${baseName}`, // Generate a unique key for the write channel group
+    cmdChannel,
+    stateChannel,
+    customName: baseName,
+  };
+};
+
 export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({
     type: "Channel",
@@ -184,8 +218,10 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
-export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const renameChannels = useRenameChannels();
+  
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
     mutationFn: async ({
       client,
@@ -193,22 +229,41 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state: { getResource },
     }) => {
       const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
-      );
-      if (!renamed) return;
-      await client.channels.rename(Number(resources[0].id.key), value);
+      if (resources.length !== 1) return;
+      
+      const resource = resources[0];
+      const channelKey = Number(resource.id.key);
+      const channelName = resource.name;
+      
+      // Check if this is part of a write channel group
+      const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+      
+      if (writeChannelGroup)
+        await renameWriteChannelsByPattern({
+          client,
+          baseName: writeChannelGroup.customName,
+          renameChannels,
+        });
+      else
+        // Use read channel renaming for regular channels
+        await renameReadChannel({ 
+          client, 
+          channelKey, 
+          renameChannels 
+        });
     },
     onError: (
       e: Error,
       { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
       prevNodes,
     ) => {
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       const first = getResource(resourceIDs[0]);
       handleError(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
+};
 
 export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
