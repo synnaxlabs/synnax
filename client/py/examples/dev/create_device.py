@@ -11,7 +11,13 @@ import uuid
 
 import synnax as sy
 
-client = sy.Synnax()
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+    secure=False,
+)
 
 rack = client.hardware.racks.create(name="NI / LabJack Test Rack")
 

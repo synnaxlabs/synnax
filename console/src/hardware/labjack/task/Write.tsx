@@ -12,8 +12,8 @@ import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RENAME_CHANNELS_LAYOUT_TYPE, RenameChannels } from "@/hardware/common/task/RenameChannelsModal";
+import { RENAME_CHANNELS_LAYOUT_TYPE, RenameChannels } from "@/channel/services/channelRenameModal";
 import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
@@ -16,7 +16,7 @@ export {
   type PromptRenameChannels,
   type PromptRenameChannelsArgs,
   useRenameChannels,
-} from "@/hardware/common/task/RenameChannelsModal";
+} from "@/channel/services/channelRenameModal";
 export * from "@/modals/BottomNavBar";
 export {
   type PromptConfirm,

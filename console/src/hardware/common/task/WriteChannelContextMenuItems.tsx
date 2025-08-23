@@ -10,8 +10,8 @@
 import { Component, Icon, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { renameWriteChannels } from "@/channel/services/channelRenameService";
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
-import { renameWriteChannels } from "@/hardware/common/task/channelRenameService";
 import { type WriteChannel } from "@/hardware/common/task/types";
 import { useRenameChannels } from "@/modals";
 

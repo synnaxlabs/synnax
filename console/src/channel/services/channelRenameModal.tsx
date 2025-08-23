@@ -10,7 +10,7 @@
 import { Button, Input, Nav, Text } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { cleanChannelName, isAllowedChannelNameCharacter } from "@/hardware/common/task/channelNameUtils";
+import { cleanChannelName, isAllowedChannelNameCharacter } from "@/channel/services/channelNameUtils";
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";

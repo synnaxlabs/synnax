@@ -12,8 +12,8 @@ import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@sy
 import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
 import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";

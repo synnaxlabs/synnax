@@ -24,11 +24,11 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
+import { extractBaseName } from "@/channel/services/channelNameUtils";
+import { renameReadChannel, renameWriteChannelsByPattern } from "@/channel/services/channelRenameService";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
-import { renameReadChannel, renameWriteChannelsByPattern } from "@/hardware/common/task/channelRenameService";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";

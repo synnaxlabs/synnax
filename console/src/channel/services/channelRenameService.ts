@@ -9,7 +9,7 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 
-import { cleanChannelName, extractBaseName } from "@/hardware/common/task/channelNameUtils";
+import { cleanChannelName, extractBaseName } from "@/channel/services/channelNameUtils";
 import { type WriteChannel } from "@/hardware/common/task/types";
 import { type useRenameChannels } from "@/modals";
 
