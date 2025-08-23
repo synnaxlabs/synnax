@@ -10,13 +10,13 @@
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
+import { Tooltip } from "@/tooltip";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
@@ -25,16 +25,16 @@ interface TooltipProps {
   triggers: Trigger[];
 }
 
-const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Flex.Box x align="center">
-    <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Flex.Box empty x align="center">
-      <Triggers.Text trigger={triggers[0]} level="small" />
-    </Flex.Box>
-  </Flex.Box>
+const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
+  <Text.Text level="small">
+    {caseconv.capitalize(mode)}
+    <Triggers.Text trigger={triggers[0]} el="span" />
+  </Text.Text>
 );
 
-export interface SelectModeProps extends Omit<Select.ButtonsProps<Mode>, "keys"> {
+export interface SelectModeProps
+  extends Omit<Select.ButtonsProps<Mode>, "keys">,
+    Omit<Tooltip.WrapProps, "tooltip"> {
   triggers: UseTriggers;
   disable?: Mode[];
 }
@@ -44,29 +44,38 @@ export const SelectMode = ({
   value,
   onChange,
   disable = ["zoomReset", "click", "cancel"],
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: SelectModeProps): ReactElement => {
   const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
+  const commonProps: Partial<Select.ButtonProps<Mode>> = {
+    tooltipDelay,
+    tooltipLocation,
+    hideTooltip,
+    size: "small",
+  };
   return (
     <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
       <Select.Button
         itemKey="zoom"
-        tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
-        size="small"
+        tooltip={<TooltipText mode="zoom" triggers={triggers.zoom} />}
+        {...commonProps}
       >
         <Icon.Zoom />
       </Select.Button>
       <Select.Button
         itemKey="pan"
-        tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
-        size="small"
+        tooltip={<TooltipText mode="pan" triggers={triggers.pan} />}
+        {...commonProps}
       >
         <Icon.Pan />
       </Select.Button>
       <Select.Button
         itemKey="select"
-        tooltip={<Tooltip mode="select" triggers={triggers.select} />}
-        size="small"
+        tooltip={<TooltipText mode="select" triggers={triggers.select} />}
+        {...commonProps}
       >
         <Icon.Selection />
       </Select.Button>
