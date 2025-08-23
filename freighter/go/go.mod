@@ -80,5 +80,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/grpc/examples v0.0.0-20230224211313-3775f633ce20 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
