@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DELETE_CHANNELS_LAYOUT_TYPE, DeleteChannels } from "@/channel/services/channelDeleteModal";
 import { RENAME_CHANNELS_LAYOUT_TYPE, RenameChannels } from "@/channel/services/channelRenameModal";
 import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
 
+export {
+  type PromptDeleteChannels,
+  type PromptDeleteChannelsArgs,
+  useDeleteChannels,
+} from "@/channel/services/channelDeleteModal";
 export {
   type PromptRenameChannels,
   type PromptRenameChannelsArgs,
@@ -31,6 +37,7 @@ export {
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONFIRM_LAYOUT_TYPE]: Confirm,
+  [DELETE_CHANNELS_LAYOUT_TYPE]: DeleteChannels,
   [RENAME_LAYOUT_TYPE]: Rename,
   [RENAME_CHANNELS_LAYOUT_TYPE]: RenameChannels,
 };
