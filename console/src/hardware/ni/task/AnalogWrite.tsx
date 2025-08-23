@@ -56,14 +56,16 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => {
-  const item = PForm.useFieldValue<AOChannel>(itemKey);
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<AOChannel>(path);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
-      {...rest}
+      {...props}
       itemKey={itemKey}
       port={port}
       hasTareButton={false}
