@@ -51,7 +51,7 @@ export const streamerConfigZ = intermediateStreamerConfigZ.or(
 );
 
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
-type ParsedStreamerConfig = z.output<typeof streamerConfigZ>;
+type ParsedStreamerConfig = z.infer<typeof streamerConfigZ>;
 
 /**
  * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.

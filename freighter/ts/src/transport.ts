@@ -15,9 +15,9 @@ import { type Middleware } from "@/middleware";
  */
 export interface Transport {
   /**
-   * Use registers middleware that will be executed in order when the transport
+   * Use registers middleware that will be executed in order when the transport is used.
    *
-   * @param middlewares - The middleware to register.
+   * @param middleware - The middleware to register.
    */
-  use: (...middlewares: Middleware[]) => void;
+  use: (...middleware: Middleware[]) => void;
 }

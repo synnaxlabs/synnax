@@ -153,9 +153,9 @@ export class Client {
   ): Promise<MultiSeries | Frame | Response> {
     if ("start" in tr) {
       if (channels == null) throw new UnexpectedError("channels are required");
-      const { single } = channel.analyzeParams(channels);
-      const fr = await this.readFrame(tr, channels);
-      if (single) return fr.get(channels as channel.KeyOrName);
+      const res = channel.analyzeParams(channels);
+      const fr = await this.readFrame(tr, res.normalized);
+      if (res.single) return fr.get(res.normalized[0]);
       return fr;
     }
     return this.reader.read(tr);

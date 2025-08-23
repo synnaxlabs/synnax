@@ -71,7 +71,7 @@ export class Writer {
   }
 
   async delete(props: DeleteProps): Promise<void> {
-    const keys = props.keys?.map((k) => keyZ.parse(k)) ?? [];
+    const keys = props.keys == null ? [] : keyZ.array().parse(props.keys);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
