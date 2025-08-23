@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DisconnectedError } from "@synnaxlabs/client";
+import { type channel, DisconnectedError, UnexpectedError } from "@synnaxlabs/client";
 import { type Channel, Status, Synnax } from "@synnaxlabs/pluto";
 import { type TimeRange } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -51,16 +51,8 @@ export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
           keys: channelKeys,
           contentType: "csv",
         });
-        // Ideally, we would pass `res.body` directly to `writeFile`, that way we avoid
-        // loading the data for the CSV into memory. However, there are currently bugs
-        // in Tauri's implementation of `writeFile` that prevent this from working for
-        // passing in `ReadableStream<Uint8Array>`s:
-        // https://github.com/tauri-apps/plugins-workspace/issues/2835
-        //
-        // Loading into memory is a workaround for now:
-        // https://linear.app/synnax/issue/SY-2656/dont-load-csv-data-into-memory
-        const data = await res.bytes();
-        await writeFile(savePath, data);
+        if (res.body == null) throw new UnexpectedError("HTTP response body is null");
+        await writeFile(savePath, res.body);
       }, `Failed to download CSV for ${name}`),
     [client, handleError],
   );

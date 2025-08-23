@@ -9,6 +9,9 @@ catalogs:
     '@eslint/compat':
       specifier: ^1.3.1
       version: 1.3.1
+    '@fontsource/geist-mono':
+      specifier: ^5.2.6
+      version: 5.2.6
     '@fontsource/inter':
       specifier: ^5.2.6
       version: 5.2.6
@@ -16,11 +19,17 @@ catalogs:
       specifier: ^2.8.2
       version: 2.8.2
     '@tauri-apps/api':
-      specifier: ^2.7.0
-      version: 2.7.0
+      specifier: ^2.8.0
+      version: 2.8.0
     '@testing-library/react':
       specifier: ^16.3.0
       version: 16.3.0
+    '@types/node':
+      specifier: ^24.0.12
+      version: 24.0.12
+    '@types/offscreencanvas':
+      specifier: ^2019.7.3
+      version: 2019.7.3
     '@types/react':
       specifier: ^19.1.8
       version: 19.1.8
@@ -30,9 +39,15 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: ^4.6.0
       version: 4.6.0
+    '@vitest/coverage-v8':
+      specifier: ^3.2.4
+      version: 3.2.4
     async-mutex:
       specifier: ^0.5.0
       version: 0.5.0
+    clsx:
+      specifier: ^2.1.1
+      version: 2.1.1
     compromise:
       specifier: ^14.14.4
       version: 14.14.4
@@ -45,6 +60,9 @@ catalogs:
     madge:
       specifier: ^8.0.0
       version: 8.0.0
+    prettier:
+      specifier: ^3.6.2
+      version: 3.6.2
     proxy-memoize:
       specifier: 2.0.3
       version: 2.0.3
@@ -281,16 +299,16 @@ importers:
         version: 5.82.0(react@19.1.0)
       '@tauri-apps/api':
         specifier: 'catalog:'
-        version: 2.7.0
+        version: 2.8.0
       '@tauri-apps/plugin-deep-link':
-        specifier: ^2.4.1
-        version: 2.4.1
+        specifier: ^2.4.2
+        version: 2.4.2
       '@tauri-apps/plugin-dialog':
-        specifier: ^2.3.2
-        version: 2.3.2
+        specifier: ^2.3.3
+        version: 2.3.3
       '@tauri-apps/plugin-fs':
-        specifier: ^2.4.1
-        version: 2.4.1
+        specifier: ^2.4.2
+        version: 2.4.2
       '@tauri-apps/plugin-process':
         specifier: ^2.3.0
         version: 2.3.0
@@ -298,8 +316,8 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0
       '@tauri-apps/plugin-store':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@tauri-apps/plugin-updater':
         specifier: ^2.9.0
         version: 2.9.0
@@ -538,7 +556,7 @@ importers:
         version: link:../x/ts
       '@tauri-apps/api':
         specifier: 'catalog:'
-        version: 2.7.0
+        version: 2.8.0
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
@@ -2625,8 +2643,8 @@ packages:
   '@tanstack/virtual-core@3.13.6':
     resolution: {integrity: sha512-cnQUeWnhNP8tJ4WsGcYiX24Gjkc9ALstLbHcBj1t3E7EimN6n6kHH+DPV4PpDnuw00NApQp+ViojMj1GRdwYQg==}
 
-  '@tauri-apps/api@2.7.0':
-    resolution: {integrity: sha512-v7fVE8jqBl8xJFOcBafDzXFc8FnicoH3j8o8DNNs0tHuEBmXUDqrCOAzMRX0UkfpwqZLqvrvK0GNQ45DfnoVDg==}
+  '@tauri-apps/api@2.8.0':
+    resolution: {integrity: sha512-ga7zdhbS2GXOMTIZRT0mYjKJtR9fivsXzsyq5U3vjDL0s6DTMwYRm0UHNjzTY5dh4+LSC68Sm/7WEiimbQNYlw==}
 
   '@tauri-apps/cli-darwin-arm64@2.7.1':
     resolution: {integrity: sha512-j2NXQN6+08G03xYiyKDKqbCV2Txt+hUKg0a8hYr92AmoCU8fgCjHyva/p16lGFGUG3P2Yu0xiNe1hXL9ZuRMzA==}
@@ -2699,14 +2717,14 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@tauri-apps/plugin-deep-link@2.4.1':
-    resolution: {integrity: sha512-I8Bo+spcAKGhIIJ1qN/gapp/Ot3mosQL98znxr975Zn2ODAkUZ++BQ9FnTpR7PDwfIl5ANSGdIW/YU01zVTcJw==}
+  '@tauri-apps/plugin-deep-link@2.4.2':
+    resolution: {integrity: sha512-og3F/wNrTKh1vdgnGr5fG/vJYHvok114PIZy2zjx753GKqHAaZpngaNc6aP3pKnSqvUp3sjgBbPn/DeJ+CXwrA==}
 
-  '@tauri-apps/plugin-dialog@2.3.2':
-    resolution: {integrity: sha512-cNLo9YeQSC0MF4IgXnotHsqEgJk72MBZLXmQPrLA95qTaaWiiaFQ38hIMdZ6YbGUNkr3oni3EhU+AD5jLHcdUA==}
+  '@tauri-apps/plugin-dialog@2.3.3':
+    resolution: {integrity: sha512-cWXB9QJDbLIA0v7I5QY183awazBEQNPhp19iPvrMZoJRX8SbFkhWFx1/q7zy7xGpXXzxz29qtq6z21Ho7W5Iew==}
 
-  '@tauri-apps/plugin-fs@2.4.1':
-    resolution: {integrity: sha512-vJlKZVGF3UAFGoIEVT6Oq5L4HGDCD78WmA4uhzitToqYiBKWAvZR61M6zAyQzHqLs0ADemkE4RSy/5sCmZm6ZQ==}
+  '@tauri-apps/plugin-fs@2.4.2':
+    resolution: {integrity: sha512-YGhmYuTgXGsi6AjoV+5mh2NvicgWBfVJHHheuck6oHD+HC9bVWPaHvCP0/Aw4pHDejwrvT8hE3+zZAaWf+hrig==}
 
   '@tauri-apps/plugin-process@2.3.0':
     resolution: {integrity: sha512-0DNj6u+9csODiV4seSxxRbnLpeGYdojlcctCuLOCgpH9X3+ckVZIEj6H7tRQ7zqWr7kSTEWnrxtAdBb0FbtrmQ==}
@@ -2714,8 +2732,8 @@ packages:
   '@tauri-apps/plugin-shell@2.3.0':
     resolution: {integrity: sha512-6GIRxO2z64uxPX4CCTuhQzefvCC0ew7HjdBhMALiGw74vFBDY95VWueAHOHgNOMV4UOUAFupyidN9YulTe5xlA==}
 
-  '@tauri-apps/plugin-store@2.3.0':
-    resolution: {integrity: sha512-mre8er0nXPhyEWQzWCpUd+UnEoBQYcoA5JYlwpwOV9wcxKqlXTGfminpKsE37ic8NUb2BIZqf0QQ9/U3ib2+/A==}
+  '@tauri-apps/plugin-store@2.4.0':
+    resolution: {integrity: sha512-PjBnlnH6jyI71MGhrPaxUUCsOzc7WO1mbc4gRhME0m2oxLgCqbksw6JyeKQimuzv4ysdpNO3YbmaY2haf82a3A==}
 
   '@tauri-apps/plugin-updater@2.9.0':
     resolution: {integrity: sha512-j++sgY8XpeDvzImTrzWA08OqqGqgkNyxczLD7FjNJJx/uXxMZFz5nDcfkyoI/rCjYuj2101Tci/r/HFmOmoxCg==}
@@ -9330,14 +9348,14 @@ snapshots:
       '@remotion/media-parser': 4.0.323
       '@remotion/studio': 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      css-loader: 5.2.7(webpack@5.96.1)
+      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.25.0))
       esbuild: 0.25.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-refresh: 0.9.0
       remotion: 4.0.323(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.96.1)
+      style-loader: 4.0.0(webpack@5.96.1(esbuild@0.25.0))
       webpack: 5.96.1(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -9695,7 +9713,7 @@ snapshots:
 
   '@tanstack/virtual-core@3.13.6': {}
 
-  '@tauri-apps/api@2.7.0': {}
+  '@tauri-apps/api@2.8.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.7.1':
     optional: true
@@ -9744,33 +9762,33 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.7.1
       '@tauri-apps/cli-win32-x64-msvc': 2.7.1
 
-  '@tauri-apps/plugin-deep-link@2.4.1':
+  '@tauri-apps/plugin-deep-link@2.4.2':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
-  '@tauri-apps/plugin-dialog@2.3.2':
+  '@tauri-apps/plugin-dialog@2.3.3':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
-  '@tauri-apps/plugin-fs@2.4.1':
+  '@tauri-apps/plugin-fs@2.4.2':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
   '@tauri-apps/plugin-process@2.3.0':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
   '@tauri-apps/plugin-shell@2.3.0':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
-  '@tauri-apps/plugin-store@2.3.0':
+  '@tauri-apps/plugin-store@2.4.0':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
   '@tauri-apps/plugin-updater@2.9.0':
     dependencies:
-      '@tauri-apps/api': 2.7.0
+      '@tauri-apps/api': 2.8.0
 
   '@testing-library/dom@10.4.0':
     dependencies:
@@ -11024,7 +11042,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1):
+  css-loader@5.2.7(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.6)
       loader-utils: 2.0.4
@@ -14378,7 +14396,7 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  style-loader@4.0.0(webpack@5.96.1):
+  style-loader@4.0.0(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       webpack: 5.96.1(esbuild@0.25.0)
 
