@@ -13,7 +13,7 @@
 #include <utility>
 
 #include "glog/logging.h"
-#include "modbus/modbus.h"
+#include "vendor/libmodbus/modbus/modbus.h"
 
 /// module
 #include "x/cpp/xerrors/errors.h"
@@ -182,7 +182,7 @@ public:
             return {nullptr, err};
         }
 
-        auto dev = std::make_shared<Device>(ctx);
+        auto dev = std::shared_ptr<Device>(new Device(ctx));
         devices[config.host] = dev;
 
         return {dev, xerrors::NIL};

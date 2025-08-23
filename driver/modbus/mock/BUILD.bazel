@@ -10,6 +10,10 @@ cc_library(
 cc_binary(
     name = "mock_slave",
     srcs = ["main.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//driver/modbus/mock",
         "//driver/modbus/util",
