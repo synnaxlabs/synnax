@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/freighter/integration
 
-go 1.24.4
+go 1.25.0
 
 replace (
 	github.com/synnaxlabs/alamos => ../../alamos/go
