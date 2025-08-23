@@ -151,7 +151,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
-            {({ value, onChange }) => <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />}
+            {({ value, onChange }) => (
+              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
+            )}
           </Form.Field>
           <Flex.Box direction="x" justify="between">
             <Form.Field<string> grow path="connection.host">
@@ -183,7 +185,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant="outlined"
+            variant="text"
             trigger={Triggers.SAVE}
             status={testConnectionMutation.isPending ? "loading" : undefined}
             disabled={isPending}
@@ -195,6 +197,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             disabled={isPending}
             status={connectMutation.isPending ? "loading" : undefined}
             onClick={() => connectMutation.mutate()}
+            variant="filled"
           >
             Save
           </Button.Button>
@@ -214,7 +217,9 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           { name: "Modbus Server", connection: { ...ZERO_CONNECTION_CONFIG }, rack: 0 },
           deep.copy(ZERO_PROPERTIES),
         ];
-      const dev = await client.hardware.devices.retrieve<Properties>({key: layoutKey});
+      const dev = await client.hardware.devices.retrieve<Properties>({
+        key: layoutKey,
+      });
       return [
         { name: dev.name, rack: dev.rack, connection: dev.properties.connection },
         dev.properties,
