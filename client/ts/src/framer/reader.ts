@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeRange } from "@synnaxlabs/x";
 import { binary } from "@synnaxlabs/x/binary";
 import { z } from "zod";
@@ -32,9 +32,7 @@ export class Reader {
     this.csvClient = transport.withDecoder(binary.CSV_CODEC);
   }
 
-  async read(req: ReadRequest): Promise<Response> {
-    const [res, err] = await this.csvClient.send("/frame/read", req, readRequestZ);
-    if (err != null) throw err;
-    return res;
+  async read(request: ReadRequest): Promise<Response> {
+    return sendRequired(this.csvClient, "/frame/read", request, readRequestZ);
   }
 }

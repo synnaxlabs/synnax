@@ -92,13 +92,37 @@ export const unaryWithBreaker = (
   return new WithBreaker(base);
 };
 
-export const sendRequired = async <RQ extends z.ZodType, RS extends z.ZodType>(
+export type SendRequired = {
+  <RQ extends z.ZodType>(
+    client: UnaryClient,
+    target: string,
+    req: z.input<RQ>,
+    reqSchema: RQ,
+  ): Promise<Response>;
+  <RQ extends z.ZodType, RS extends z.ZodType>(
+    client: UnaryClient,
+    target: string,
+    req: z.input<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
+  ): Promise<z.infer<RS>>;
+};
+
+export const sendRequired: SendRequired = async <
+  RQ extends z.ZodType,
+  RS extends z.ZodType,
+>(
   client: UnaryClient,
   target: string,
   req: z.input<RQ>,
   reqSchema: RQ,
-  resSchema: RS,
-): Promise<z.infer<RS>> => {
+  resSchema?: RS,
+): Promise<z.infer<RS> | Response> => {
+  if (resSchema == null) {
+    const [res, err] = await client.send(target, req, reqSchema);
+    if (err != null) throw err;
+    return res;
+  }
   const [res, err] = await client.send(target, req, reqSchema, resSchema);
   if (err != null) throw err;
   return res;
