@@ -41,7 +41,8 @@ const intermediateStreamerConfigZ = z.object({
   channels: paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.number().optional().default(1),
-  /** Whether to use the synnax high performance framing flight protoco. */
+  /** useHighPerformanceCodec sets whether the writer will use the synnax frame
+  /* encoder as opposed to the standard JSON encoding mechanisms for frames. */
   useHighPerformanceCodec: z.boolean().optional().default(true),
 });
 

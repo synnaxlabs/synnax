@@ -55,31 +55,40 @@ const writerModeZ = z.enum(WriterMode).or(
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
-  // start sets the starting timestamp for the first sample in the writer.
+  /** start sets the starting timestamp for the first sample in the writer. */
   start: TimeStamp.z.optional(),
-  // controlSubject sets the control subject of the writer.
+  /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
-  // authorities set the control authority to set for each channel on the writer.
-  // Defaults to absolute authority. If not working with concurrent control,
-  // it's best to leave this as the default.
+  /** authorities set the control authority to set for each channel on the writer.
+   * Defaults to absolute authority. If not working with concurrent control,
+   * it's best to leave this as the default.
+   */
   authorities: z
     .union([control.authorityZ.transform((a) => [a]), control.authorityZ.array()])
     .default([control.ABSOLUTE_AUTHORITY]),
-  // mode sets the persistence and streaming mode of the writer. The default
-  // mode is WriterModePersistStream.
+  /** mode sets the persistence and streaming mode of the writer. The default
+   * mode is WriterModePersistStream.
+   */
   mode: writerModeZ.default(WriterMode.PersistStream),
-  // errOnUnauthorized sets whether the writer raises an error when it attempts to write
-  // to a channel without permission.
+  /**
+   * errOnUnauthorized sets whether the writer raises an error when it attempts to write
+   * to a channel without permission.
+   */
   errOnUnauthorized: z.boolean().default(false),
-  // enableAutoCommit determines whether the writer will automatically commit.
-  // If enableAutoCommit is true, then the writer will commit after each write, and
-  // will flush that commit to index after the specified autoIndexPersistInterval.
+  /**
+   * enableAutoCommit determines whether the writer will automatically commit.
+   * If enableAutoCommit is true, then the writer will commit after each write, and
+   * will flush that commit to index after the specified autoIndexPersistInterval.
+   */
   enableAutoCommit: z.boolean().default(false),
-  // autoIndexPersistInterval sets the interval at which commits to the index will be
+  /** autoIndexPersistInterval sets the interval at which commits will be flushed to
+   * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
-  // useHighPerformanceCodec sets whether the writer will use the synnax flight
-  // protocol for high performance frame transfer.
-  useHighPerformanceCodec: z.boolean().default(false),
+  /*
+   * useHighPerformanceCodec sets whether the writer will use the synnax frame
+   * encoder as opposed to the standard JSON encoding mechanisms for frames.
+   */
+  useHighPerformanceCodec: z.boolean().default(true),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
