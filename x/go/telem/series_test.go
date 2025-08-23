@@ -491,81 +491,6 @@ var _ = Describe("Series", func() {
 				fmt.Sprintf("[%s %s %s]", u1, u2, u3),
 			),
 		)
-		Describe("AsCSVStrings", func() {
-			It("Should return the data as a string slice for a string series", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
-				Expect(s.AsCSVStrings()).To(Equal([]string{"a", "b", "c"}))
-			})
-			It("should return the data as a string slice for a json series", func() {
-				s := telem.NewSeriesStaticJSONV(
-					map[string]any{"a": 1, "b": 2, "c": 3},
-					map[string]any{"d": 4, "e": 5, "f": 6},
-				)
-				Expect(s.AsCSVStrings()).
-					To(Equal([]string{`{"a":1,"b":2,"c":3}`, `{"d":4,"e":5,"f":6}`}))
-			})
-			It("should return the data as a string slice for an int8", func() {
-				s := telem.NewSeriesV[int8](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for an int16", func() {
-				s := telem.NewSeriesV[int16](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for an int32", func() {
-				s := telem.NewSeriesV[int32](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for an int64", func() {
-				s := telem.NewSeriesV[int64](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for a uint8", func() {
-				s := telem.NewSeriesV[uint8](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for a uint16", func() {
-				s := telem.NewSeriesV[uint16](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for a uint32", func() {
-				s := telem.NewSeriesV[uint32](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for a uint64", func() {
-				s := telem.NewSeriesV[uint64](1, 2, 3)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2", "3"}))
-			})
-			It("should return the data as a string slice for a float32", func() {
-				s := telem.NewSeriesV[float32](1.0, 2.1, 3.2)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2.1", "3.2"}))
-			})
-			It("should return the data as a string slice for a float64", func() {
-				s := telem.NewSeriesV(1.0, 2.1, 3.2)
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "2.1", "3.2"}))
-			})
-			It("should return the data as a string slice for a timestamp series", func() {
-				s := telem.NewSeriesSecondsTSV(1, 2, 3)
-				Expect(s.AsCSVStrings()).
-					To(Equal([]string{"1000000000", "2000000000", "3000000000"}))
-			})
-			It("should return the data as a string slice for a uuid", func() {
-				u1, u2, u3 := uuid.New(), uuid.New(), uuid.New()
-				s := telem.NewSeriesUUIDsV(u1, u2, u3)
-				Expect(s.AsCSVStrings()).
-					To(Equal([]string{u1.String(), u2.String(), u3.String()}))
-			})
-			It("should return the data as a string for a byte slice", func() {
-				s := telem.NewSeriesBytesV([]byte("1"), []byte("hey jude"), []byte("3"))
-				Expect(s.DataType).To(Equal(telem.BytesT))
-				Expect(s.AsCSVStrings()).To(Equal([]string{"1", "hey jude", "3"}))
-			})
-			It("should panic if the data type is unknown", func() {
-				s := telem.Series{DataType: telem.UnknownT}
-				Expect(func() { s.AsCSVStrings() }).To(Panic())
-			})
-		})
-
 		Context("Long Series", func() {
 			It("Should truncate series with > 14 elements", func() {
 				values := make([]int64, 20)
@@ -615,7 +540,6 @@ var _ = Describe("Series", func() {
 			})
 		})
 	})
-
 	Describe("Downsample", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should correctly downsample a series with a factor of 2", func() {

@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
 	xslices "github.com/synnaxlabs/x/slices"
@@ -241,69 +240,6 @@ func (s Series) DataString() string {
 		return truncateAndFormatSlice(UnmarshalUUIDs(s.Data))
 	default:
 		return fmt.Sprintf("%v", s.Data)
-	}
-}
-
-// AsCSVStrings returns a slice of strings representing the series as a CSV column. If
-// the series is a variable density series, the strings will be the values of the
-// series. If the series is a fixed density series, the strings will be the values of
-// the series as strings. If the series is a time stamp series, the strings will be the
-// value of the underlying int64 values.
-func (s Series) AsCSVStrings() []string {
-	if s.DataType.IsVariable() {
-		return UnmarshalStrings(s.Data)
-	}
-	switch s.DataType {
-	case Float64T:
-		return lo.Map(UnmarshalSeries[float64](s), func(v float64, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Float32T:
-		return lo.Map(UnmarshalSeries[float32](s), func(v float32, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Int64T:
-		return lo.Map(UnmarshalSeries[int64](s), func(v int64, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Int32T:
-		return lo.Map(UnmarshalSeries[int32](s), func(v int32, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Int16T:
-		return lo.Map(UnmarshalSeries[int16](s), func(v int16, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Int8T:
-		return lo.Map(UnmarshalSeries[int8](s), func(v int8, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Uint64T:
-		return lo.Map(UnmarshalSeries[uint64](s), func(v uint64, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Uint32T:
-		return lo.Map(UnmarshalSeries[uint32](s), func(v uint32, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Uint16T:
-		return lo.Map(UnmarshalSeries[uint16](s), func(v uint16, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case Uint8T:
-		return lo.Map(UnmarshalSeries[uint8](s), func(v uint8, _ int) string {
-			return fmt.Sprintf("%v", v)
-		})
-	case TimeStampT:
-		return lo.Map(UnmarshalSeries[TimeStamp](s), func(v TimeStamp, _ int) string {
-			return fmt.Sprintf("%v", int64(v))
-		})
-	case UUIDT:
-		return lo.Map(UnmarshalUUIDs(s.Data), func(v uuid.UUID, _ int) string {
-			return v.String()
-		})
-	default:
-		panic(fmt.Sprintf("unsupported data type: %v", s.DataType))
 	}
 }
 
