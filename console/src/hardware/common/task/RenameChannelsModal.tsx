@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Input, Nav, Text } from "@synnaxlabs/pluto";
+import { Button, Input, Nav, Text } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { cleanChannelName, isAllowedChannelNameCharacter } from "@/hardware/common/task/channelNameUtils";
@@ -20,7 +20,6 @@ export interface PromptRenameChannelsArgs extends BaseArgs<string> {
   initialValue?: string;
   label?: string;
   oldNames?: string[];
-  currentNames?: string[];
   canRenameCmdChannel?: boolean;
   canRenameStateChannel?: boolean;
 }
@@ -33,7 +32,7 @@ export const [useRenameChannels, RenameChannels] = createBase<string, PromptRena
   "Rename Channels",
   RENAME_CHANNELS_LAYOUT_TYPE,
   ({
-    value: { result, allowEmpty = false, label, initialValue, oldNames = [], currentNames = [], canRenameCmdChannel = false, canRenameStateChannel = false },
+    value: { result, allowEmpty = false, label, initialValue, oldNames = [], canRenameCmdChannel = false, canRenameStateChannel = false },
     onFinish,
   }) => {
     const [name, setName] = useState(result ?? initialValue ?? "");
@@ -52,35 +51,21 @@ export const [useRenameChannels, RenameChannels] = createBase<string, PromptRena
       ...(canRenameStateChannel ? [`${cleanedName}_state`] : [])
     ];
     
-    const hasConflict = oldNames.some(oldName => previewNames.includes(oldName));
-    const isEmpty = cleanedName === "";
-    const canSubmit = !isEmpty && !hasConflict;
-    
-    const handleSubmit = () => {
-      if (!canSubmit) {
-        if (isEmpty && !allowEmpty)
-          setError("Channel name cannot be empty");
-        else if (hasConflict)
-          setError("Channel name conflicts with existing channels");
-        return;
-      }
-      onFinish(cleanedName);
-    };
-
     const footer = (
       <>
-        <Triggers.SaveHelpText action="Rename" trigger={Triggers.SAVE} />
-        <Nav.Bar.End>
+        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
+        <Nav.Bar.End x align="center">
           <Button.Button
-            onClick={() => onFinish(null)}
-            variant="outlined"
-          >
-            Cancel
-          </Button.Button>
-          <Button.Button
-            onClick={handleSubmit}
+            status="success"
+            disabled={!allowEmpty && name.length === 0}
             variant="filled"
-            disabled={!canSubmit}
+            onClick={() => {
+              if (name.length === 0) {
+                if (allowEmpty) return onFinish(null);
+                return setError(`${label} is required`);
+              }
+              return onFinish(cleanedName);
+            }}
             trigger={Triggers.SAVE}
           >
             Rename
@@ -91,48 +76,60 @@ export const [useRenameChannels, RenameChannels] = createBase<string, PromptRena
 
     return (
       <ModalContentLayout footer={footer}>
-        <Input.Item
-          label={label ?? "Base Channel Name"}
-          required={!allowEmpty}
-          helpText={error}
-          status={error != null ? "error" : "success"}
-          padHelpText
-        >
-          <Input.Text
-            autoFocus
-            placeholder="Enter base name"
-            level="h2"
-            variant="text"
-            value={name}
-            onChange={handleNameChange}
-          />
-        </Input.Item>
-        {(currentNames.length > 0 || previewNames.length > 0) && (
-          <Flex.Box direction="x" gap="large">
-            {currentNames.length > 0 && (
-              <Input.Item label="Current Names" grow={false} style={{ flex: 1, minWidth: 0 }}>
-                {currentNames.map((currentName, index) => (
-                  <Text.Text key={index} level="p" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    • {currentName}
+        <div style={{ marginTop: oldNames.length === 1 ? "-8rem" : "-3rem" }}>
+          <Input.Item
+            label={label}
+            required={!allowEmpty}
+            helpText={error}
+            status={error != null ? "error" : "success"}
+          >
+            <Input.Text
+              autoFocus
+              placeholder={label}
+              level="h2"
+              variant="text"
+              value={name}
+              onChange={handleNameChange}
+            />
+          </Input.Item>
+        </div>
+        
+        {oldNames.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "200px 200px", gap: "2rem", marginBottom: "-5rem" }}>
+            <div>
+              <Text.Text level="h4" weight={500}>Current {oldNames.length === 1 ? "Name" : "Names"}:</Text.Text>
+              {oldNames.map((oldName, index) => (
+                <Text.Text key={index} level="small" color={7}>
+                  {oldName}
+                </Text.Text>
+              ))}
+            </div>
+            
+            <div>
+              <Text.Text level="h4" weight={500}>New {previewNames.length <= 1 ? "Name" : "Names"}:</Text.Text>
+              {(() => {
+                if (previewNames.length > 0 && cleanedName)
+                  return previewNames.map((newName, index) => (
+                    <Text.Text key={index} level="small" color={7}>
+                      {newName}
+                    </Text.Text>
+                  ));
+                
+                if (!canRenameCmdChannel && !canRenameStateChannel && cleanedName)
+                  return (
+                    <Text.Text level="small" color={7}>
+                      {cleanedName}
+                    </Text.Text>
+                  );
+                
+                return (
+                  <Text.Text level="small" color={7} style={{ fontStyle: "italic" }}>
+                    {!canRenameCmdChannel && !canRenameStateChannel ? "Enter name" : "Enter a base name to see preview"}
                   </Text.Text>
-                ))}
-              </Input.Item>
-            )}
-            {previewNames.length > 0 && (
-              <Input.Item label="New Names" grow={false} style={{ flex: 1, minWidth: 0 }}>
-                {previewNames.map((previewName, index) => (
-                  <Text.Text 
-                    key={index} 
-                    level="p" 
-                    color={hasConflict ? "var(--pluto-error-m1)" : "var(--pluto-text-m1)"}
-                    style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  >
-                    • {previewName}
-                  </Text.Text>
-                ))}
-              </Input.Item>
-            )}
-          </Flex.Box>
+                );
+              })()}
+            </div>
+          </div>
         )}
       </ModalContentLayout>
     );
