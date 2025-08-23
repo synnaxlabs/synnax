@@ -77,8 +77,9 @@ const baseWriterConfigZ = z.object({
   enableAutoCommit: z.boolean().default(false),
   // autoIndexPersistInterval sets the interval at which commits to the index will be
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
-  // useExperimentalCodec sets whether the writer will use the experimental codec.
-  useExperimentalCodec: z.boolean().default(false),
+  // useHighPerformanceCodec sets whether the writer will use the synnax flight
+  // protocol for high performance frame transfer.
+  useHighPerformanceCodec: z.boolean().default(false),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
@@ -198,7 +199,7 @@ export class Writer {
   ): Promise<Writer> {
     const cfg = writerConfigZ.parse(config);
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
-    if (cfg.useExperimentalCodec)
+    if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
