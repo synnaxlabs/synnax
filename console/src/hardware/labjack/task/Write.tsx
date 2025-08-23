@@ -13,6 +13,7 @@ import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
 import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
@@ -161,16 +162,13 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
   const port = getOpenPort(channels, device.model, [last.type, backupType]);
   if (port == null) return null;
-  const existingCommandStatePair =
-    device.properties[port.type].channels[port.key] ??
-    Common.Device.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
     type: port.type,
     key: id.create(),
     port: port.key,
-    cmdChannel: existingCommandStatePair.command,
-    stateChannel: existingCommandStatePair.state,
+    cmdChannel: 0,
+    stateChannel: 0,
   };
 };
 
@@ -279,11 +277,14 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (stateChannelsToCreate.length > 0) {
     modified = true;
     const stateChannels = await client.channels.create(
-      stateChannelsToCreate.map(({ port, type }) => ({
-        name: `${dev.properties.identifier}_${port}_state`,
-        index: dev.properties.writeStateIndex,
-        dataType: type === "AO" ? "float32" : "uint8",
-      })),
+      stateChannelsToCreate.map(({ port, type, customName }) => {
+        const baseName = customName ? extractBaseName(customName) : "";
+        return {
+          name: customName ? `${baseName}_state` : `${dev.properties.identifier}_${port.toLowerCase()}_state`,
+          index: dev.properties.writeStateIndex,
+          dataType: type === "AO" ? "float32" : "uint8",
+        };
+      }),
     );
     stateChannels.forEach((c, i) => {
       const statesToCreateC = stateChannelsToCreate[i];
@@ -300,17 +301,20 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandChannelsToCreate.map(({ port }) => ({
-        name: `${dev.properties.identifier}_${port}_cmd_time`,
+        name: `${dev.properties.identifier}_${port.toLowerCase()}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
-      commandChannelsToCreate.map(({ port, type }, i) => ({
-        name: `${dev.properties.identifier}_${port}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: type === "AO" ? "float32" : "uint8",
-      })),
+      commandChannelsToCreate.map(({ port, type, customName }, i) => {
+        const baseName = customName ? extractBaseName(customName) : "";
+        return {
+          name: customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${port.toLowerCase()}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: type === "AO" ? "float32" : "uint8",
+        };
+      }),
     );
     commandChannels.forEach((c, i) => {
       const cmdToCreate = commandChannelsToCreate[i];

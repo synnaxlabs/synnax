@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * as Modals from "@/modals/external";
+export * from "@/modals/external";

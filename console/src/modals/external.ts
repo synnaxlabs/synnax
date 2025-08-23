@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { RENAME_CHANNELS_LAYOUT_TYPE, RenameChannels } from "@/hardware/common/task/RenameChannelsModal";
 import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
 
+export {
+  type PromptRenameChannels,
+  type PromptRenameChannelsArgs,
+  useRenameChannels,
+} from "@/hardware/common/task/RenameChannelsModal";
 export * from "@/modals/BottomNavBar";
 export {
   type PromptConfirm,
@@ -26,4 +32,5 @@ export {
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONFIRM_LAYOUT_TYPE]: Confirm,
   [RENAME_LAYOUT_TYPE]: Rename,
+  [RENAME_CHANNELS_LAYOUT_TYPE]: RenameChannels,
 };

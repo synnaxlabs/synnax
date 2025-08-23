@@ -45,10 +45,11 @@ export interface ChannelNameProps
 
 const generatePreviewName = (
   device: device.Device,
-  channelType: string,
+  channelType?: string,
   port?: number,
   line?: number,
 ): string => {
+  if (!channelType) return "";
   const identifier = (device.properties as any)?.identifier || device.name;
   const portStr = port !== undefined ? `_${port}` : "";
   const lineStr = line !== undefined ? `_${line}` : "";
@@ -79,17 +80,19 @@ const generatePreviewName = (
   
   if (isLabJack) {
     // LabJack naming: dev2_ain0, dev2_dio4, etc.
-    // Use the actual port name from LabJack (e.g., "AIN0" → "ain0", "DIO4" → "dio4")
-    const labjackPortName = baseChannelType.toLowerCase();
+    // Convert LabJack port names: "AIN0"→"ain0", "FIO4"→"dio4", "AO0"→"ao0"
+    let labjackPortName = baseChannelType.toLowerCase();
+    if (labjackPortName.startsWith('fio'))
+      labjackPortName = labjackPortName.replace('fio', 'dio');
     
     channelName = suffix 
       ? `${identifier}_${labjackPortName}${suffix}`
       : `${identifier}_${labjackPortName}`;
   } else
-    // NI naming: dev1_ai_0, dev1_0_cmd, etc.
+    // NI naming: dev1_0_cmd, dev1_0_state (remove ao/ai/do/di from names)
     channelName = suffix 
       ? `${identifier}${portStr}${lineStr}${suffix}`
-      : `${identifier}_${baseChannelType}${portStr}${lineStr}`;
+      : `${identifier}${portStr}${lineStr}`;
   
   return cleanChannelName(channelName);
 };
@@ -120,7 +123,7 @@ export const ChannelName = ({
   if (isUnconfigured) {
     canEdit = true;
     if (previewDevice) {
-      name = customName || generatePreviewName(previewDevice, previewChannelType!, previewPort, previewLine);
+      name = customName || generatePreviewName(previewDevice, previewChannelType, previewPort, previewLine);
       isPreview = true;
     } else if (customName) name = customName;
   }

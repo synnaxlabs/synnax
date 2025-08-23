@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
-import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
+import { renameReadChannel } from "@/hardware/common/task/channelRenameService";
 import { type ReadChannel } from "@/hardware/common/task/types";
+import { useRenameChannels } from "@/modals";
 
 export interface ReadChannelContextMenuItemProps
   extends ContextMenuItemProps<ReadChannel> {}
@@ -23,15 +25,41 @@ export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProp
   if (keys.length !== 1) return null;
   const key = keys[0];
   const channel = channels.find((ch) => ch.key === key)?.channel;
-  if (channel == null || channel == 0) return null;
-  const handleRename = () => Text.edit(getChannelNameID(key));
+  const canRename = channel != null && channel !== 0;
+  
+  console.log("Debug ReadChannelContextMenuItem:", {
+    key,
+    channel,
+    canRename
+  });
+  
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const renameChannels = useRenameChannels();
+
+  const handleRename = useCallback(async () => {
+    if (!canRename || !client) return;
+    
+    try {
+      await renameReadChannel({ client, channelKey: channel, renameChannels });
+    } catch (error) {
+      if (error instanceof Error) 
+        handleError(error, "Failed to rename channel");
+      
+    }
+  }, [canRename, channel, client, renameChannels, handleError]);
+
   return (
     <>
-      <Menu.Item itemKey="rename" onClick={handleRename}>
-        <Icon.Rename />
-        Rename
-      </Menu.Item>
-      <Menu.Divider />
+      {canRename && (
+        <>
+          <Menu.Item itemKey="rename" onClick={() => void handleRename()}>
+            <Icon.Rename />
+            Rename
+          </Menu.Item>
+          <Menu.Divider />
+        </>
+      )}
     </>
   );
 };

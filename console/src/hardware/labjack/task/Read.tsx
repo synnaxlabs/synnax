@@ -13,6 +13,7 @@ import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
@@ -187,7 +188,7 @@ const getOpenChannel = (
       ...deep.copy(ZERO_INPUT_CHANNEL),
       key: id.create(),
       port: port.key,
-      channel: device.properties[port.type].channels[port.key] ?? 0,
+      channel: 0,
     };
   }
   const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
@@ -214,7 +215,7 @@ const getOpenChannel = (
     ),
     key: id.create(),
     port: port.key,
-    channel: device.properties[port.type].channels[port.key] ?? 0,
+    channel: 0,
   };
 };
 
@@ -329,7 +330,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_${c.port}`,
+        name: c.customName || `${dev.properties.identifier}_${c.port.toLowerCase()}`,
         dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
         index: dev.properties.readIndex,
       })),

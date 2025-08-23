@@ -13,6 +13,7 @@ import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { createAIChannel } from "@/hardware/ni/task/createChannel";
@@ -105,6 +106,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
       previewDevice={device}
+      previewChannelType={type}
       customName={customName}
       onCustomNameChange={handleCustomNameChange}
     />
@@ -204,7 +206,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
     if (shouldCreateIndex) {
       modified = true;
       const aiIndex = await client.channels.create({
-        name: `${dev.properties.identifier}_ai_time`,
+        name: `${dev.properties.identifier}_time`,
         dataType: "timestamp",
         isIndex: true,
       });
@@ -229,7 +231,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: `${dev.properties.identifier}_ai_${c.port}`,
+          name: c.customName || `${dev.properties.identifier}_${c.port}`,
           dataType: "float32",
           index: dev.properties.analogInput.index,
         })),

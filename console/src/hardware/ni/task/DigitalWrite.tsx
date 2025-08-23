@@ -13,6 +13,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
 import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
@@ -145,7 +146,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_do_state_time`,
+      name: `${dev.properties.identifier}_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -179,11 +180,14 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   if (statesToCreate.length > 0) {
     modified = true;
     const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_state`,
-        index: dev.properties.digitalOutput.stateIndex,
-        dataType: "uint8",
-      })),
+      statesToCreate.map((c) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_state` : `${dev.properties.identifier}_${c.port}_${c.line}_state`,
+          index: dev.properties.digitalOutput.stateIndex,
+          dataType: "uint8",
+        };
+      }),
     );
     states.forEach((s, i) => {
       const key = getDigitalChannelDeviceKey(statesToCreate[i]);
@@ -196,17 +200,20 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd_time`,
+        name: `${dev.properties.identifier}_${c.port}_${c.line}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "uint8",
-      })),
+      commandsToCreate.map((c, i) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${c.port}_${c.line}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "uint8",
+        };
+      }),
     );
     commands.forEach((s, i) => {
       const key = getDigitalChannelDeviceKey(commandsToCreate[i]);

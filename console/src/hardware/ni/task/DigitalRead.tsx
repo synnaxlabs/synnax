@@ -13,6 +13,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
 import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
@@ -143,7 +144,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   if (shouldCreateIndex) {
     modified = true;
     const aiIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_di_time`,
+      name: `${dev.properties.identifier}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -168,7 +169,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+        name: c.customName || `${dev.properties.identifier}_${c.port}_${c.line}`,
         dataType: "uint8",
         index: dev.properties.digitalInput.index,
       })),

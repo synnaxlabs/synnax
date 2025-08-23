@@ -13,6 +13,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
+import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { createAOChannel } from "@/hardware/ni/task/createChannel";
@@ -165,7 +166,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_ao_state_time`,
+      name: `${dev.properties.identifier}_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -198,11 +199,14 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   if (statesToCreate.length > 0) {
     modified = true;
     const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_state`,
-        index: dev.properties.analogOutput.stateIndex,
-        dataType: "float32",
-      })),
+      statesToCreate.map((c) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_state` : `${dev.properties.identifier}_${c.port}_state`,
+          index: dev.properties.analogOutput.stateIndex,
+          dataType: "float32",
+        };
+      }),
     );
     states.forEach((s, i) => {
       const key = statesToCreate[i].port.toString();
@@ -215,17 +219,20 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd_time`,
+        name: `${dev.properties.identifier}_${c.port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "float32",
-      })),
+      commandsToCreate.map((c, i) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${c.port}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "float32",
+        };
+      }),
     );
     commands.forEach((s, i) => {
       const key = commandsToCreate[i].port.toString();
