@@ -13,7 +13,6 @@ import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { createAIChannel } from "@/hardware/ni/task/createChannel";

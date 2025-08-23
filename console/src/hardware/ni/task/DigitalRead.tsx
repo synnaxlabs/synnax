@@ -13,7 +13,6 @@ import { primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
 import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";

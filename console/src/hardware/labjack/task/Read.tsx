@@ -13,7 +13,6 @@ import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { extractBaseName } from "@/hardware/common/task/channelNameUtils";
 import { Device } from "@/hardware/labjack/device";
 import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
