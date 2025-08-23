@@ -108,18 +108,13 @@ TEST_F(ModbusUtilTest, testByteAndWordSwapping) {
 
 TEST_F(ModbusUtilTest, testInvalidDataType) {
     uint16_t registers[4] = {0};
-    ASSERT_OCCURRED_AS_P(util::parse_register_value(
-        registers,
-        telem::UNKNOWN_T,
-        false,
-        false
-    ), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(
+        util::parse_register_value(registers, telem::UNKNOWN_T, false, false),
+        xerrors::VALIDATION
+    );
 
-    ASSERT_OCCURRED_AS_P(util::format_register(
-        0,
-        registers,
-        telem::UNKNOWN_T,
-        false,
-        false
-    ), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(
+        util::format_register(0, registers, telem::UNKNOWN_T, false, false),
+        xerrors::VALIDATION
+    );
 }

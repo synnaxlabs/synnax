@@ -108,7 +108,7 @@ export const ZERO_INPUT_CHANNELS: Record<InputChannelType, InputChannel> = {
 
 export const INPUT_CHANNEL_SCHEMAS: Record<
   InputChannelType,
-  z.ZodSchema<InputChannel>
+  z.ZodType<InputChannel>
 > = {
   [COIL_INPUT_TYPE]: coilInputZ,
   [DISCRETE_INPUT_TYPE]: discreteInputZ,
@@ -309,7 +309,7 @@ export const WRITE_SCHEMAS: task.Schemas<
 
 export const OUTPUT_CHANNEL_SCHEMAS: Record<
   OutputChannelType,
-  z.ZodSchema<OutputChannel>
+  z.ZodType<OutputChannel>
 > = {
   [COIL_OUTPUT_TYPE]: coilOutputZ,
   [HOLDING_REGISTER_OUTPUT_TYPE]: holdingRegisterOutputZ,

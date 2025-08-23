@@ -9,9 +9,6 @@
 
 // ReSharper disable CppUseStructuredBinding
 
-/// std
-#include <utility>
-
 /// external
 #include "gtest/gtest.h"
 
@@ -45,6 +42,6 @@ TEST(ScanTask, testConnection) {
     auto first = ctx->states[0];
     EXPECT_EQ(first.variant, "success");
     EXPECT_EQ(first.key, cmd.key);
-    EXPECT_EQ(first.task, t.key);
-    EXPECT_EQ(first.details["message"], "Connection successful");
+    EXPECT_EQ(first.details.task, t.key);
+    EXPECT_EQ(first.message, "Connection successful");
 }

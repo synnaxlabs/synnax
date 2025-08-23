@@ -91,7 +91,6 @@ protected:
         if (type == "holding_register_input" || type == "register_input") {
             cfg["data_type"] = channel.data_type.name();
         }
-
         return cfg;
     }
 };
@@ -142,7 +141,8 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto discrete_ch = ASSERT_NIL_P(
         sy->channels.create("discrete", telem::UINT8_T, true)
     );
-    auto holding_ch = ASSERT_NIL_P(sy->channels.create("holding", telem::UINT16_T, true)
+    auto holding_ch = ASSERT_NIL_P(
+        sy->channels.create("holding", telem::UINT16_T, true)
     );
     auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
 
@@ -243,16 +243,16 @@ TEST(ReadTask, testBasicReadTask) {
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.variant, "success");
-    EXPECT_EQ(first_state.task, tsk.key);
-    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    EXPECT_EQ(first_state.details.task, tsk.key);
+    EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens, 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.variant, "success");
-    EXPECT_EQ(second_state.task, tsk.key);
-    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(second_state.details.task, tsk.key);
+    EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(factory->writes->size(), 1);
     auto &fr = factory->writes->at(0);
@@ -384,7 +384,8 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     auto discrete_ch = ASSERT_NIL_P(
         sy->channels.create("discrete", telem::UINT8_T, true)
     );
-    auto holding_ch = ASSERT_NIL_P(sy->channels.create("holding", telem::UINT16_T, true)
+    auto holding_ch = ASSERT_NIL_P(
+        sy->channels.create("holding", telem::UINT16_T, true)
     );
     auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
 
