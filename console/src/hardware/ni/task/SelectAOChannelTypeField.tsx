@@ -29,11 +29,20 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Ent
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AOChannelType>(path).value;
+      const prevTypeResult = get<AOChannelType>(path);
+      const prevType = prevTypeResult.value;
       if (prevType === value) return;
       const next = deep.copy(ZERO_AO_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AOChannel>(parentPath).value;
+      const prevParentResult = get<AOChannel>(parentPath);
+      const prevParent = prevParentResult.value;
+      
+      // If the parent channel doesn't exist, create a new channel with the selected type
+      if (prevParent == null) {
+        set(parentPath, { ...next, type: value });
+        return;
+      }
+      
       const schema = AO_CHANNEL_SCHEMAS[value];
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),

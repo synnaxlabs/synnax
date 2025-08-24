@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useEffect } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -68,11 +68,28 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const allChannels = PForm.useFieldValue<AIChannel[]>("config.channels");
   const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
   const path = `config.channels.${channelIndex}`;
-  const currentValue = PForm.useFieldValue<AIChannel>(path);
+  const currentValue = PForm.useFieldValue<AIChannel>(path, { optional: true });
   const { set } = PForm.useContext();
   
   
-  if (!currentValue || channelIndex === -1) return null;
+  if (channelIndex === -1) return null;
+  
+  // Initialize unconfigured channels with default values
+  useEffect(() => {
+    if (currentValue == null) {
+      const defaultChannel = { 
+        ...ZERO_AI_CHANNEL, 
+        key: itemKey,
+        port: 0,
+        channel: 0,
+        enabled: false,
+      };
+      set(path, defaultChannel);
+    }
+  }, [currentValue, itemKey, path, set]);
+  
+  // Return null while the channel is being initialized
+  if (currentValue == null) return null;
   
   const { port, type, channel, enabled, customName } = currentValue;
   const isSnapshot = Common.Task.useIsSnapshot();
@@ -81,7 +98,8 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   
-  const { device: deviceKey } = currentValue;
+  // Get device from the config since we might not have it in the channel yet
+  const deviceKey = currentValue.device ?? PForm.useFieldValue<string>("config.device");
   const { data: device } = PlutoDevice.retrieve().useDirect({ 
     params: { key: deviceKey || "" },
   });
@@ -113,11 +131,11 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`, { optional: true });
   return (
     <>
       <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AIChannelForm type={type} prefix={path} />
+      {type != null && <AIChannelForm type={type} prefix={path} />}
     </>
   );
 };

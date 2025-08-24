@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useEffect } from "react";
 
 import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
@@ -29,6 +29,7 @@ import {
   type AOChannel,
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
+  ZERO_AO_CHANNEL,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
 
@@ -62,11 +63,29 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
   const allChannels = PForm.useFieldValue<AOChannel[]>("config.channels");
   const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
   const path = `config.channels.${channelIndex}`;
-  const currentValue = PForm.useFieldValue<AOChannel>(path);
+  const currentValue = PForm.useFieldValue<AOChannel>(path, { optional: true });
   const { set } = PForm.useContext();
   
   
-  if (currentValue == null || channelIndex === -1) return null;
+  if (channelIndex === -1) return null;
+  
+  // Initialize unconfigured channels with default values
+  useEffect(() => {
+    if (currentValue == null) {
+      const defaultChannel = { 
+        ...ZERO_AO_CHANNEL, 
+        key: itemKey,
+        port: 0,
+        cmdChannel: 0,
+        stateChannel: 0,
+      };
+      set(path, defaultChannel);
+    }
+  }, [currentValue, itemKey, path, set]);
+  
+  // Return null while the channel is being initialized
+  if (currentValue == null) return null;
+  
   const { port, cmdChannel, stateChannel, type, customName } = currentValue;
   
   // Get device from the config since AOChannel doesn't have device field yet
@@ -103,16 +122,12 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
-  const channel = PForm.useFieldValue<AOChannel | null>(path);
-  
-  // Return null if channel doesn't exist yet (race condition during channel creation)
-  if (channel == null) return null;
+  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`, { optional: true });
   
   return (
     <>
       <SelectAOChannelTypeField path={path} />
-      <AOChannelForm type={type} path={path} />
+      {type != null && <AOChannelForm type={type} path={path} />}
     </>
   );
 };
