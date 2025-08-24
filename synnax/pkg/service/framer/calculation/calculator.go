@@ -82,7 +82,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		if v, ok := c.required[k]; ok {
 			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
 			c.required[k] = v
-			if c.highWaterMark.alignment == 0 {
+			if c.highWaterMark.alignment == 0 || c.highWaterMark.alignment.DomainIndex() != v.data.AlignmentBounds().Lower.DomainIndex() {
 				c.highWaterMark.alignment = v.data.AlignmentBounds().Lower
 				c.highWaterMark.timestamp = v.data.TimeRange().Start
 			}
