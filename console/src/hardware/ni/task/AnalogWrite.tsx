@@ -58,35 +58,12 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => {
-  // Get all channels to find the index of this channel
-  const allChannels = PForm.useFieldValue<AOChannel[]>("config.channels");
-  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
-  const path = `config.channels.${channelIndex}`;
-  const currentValue = PForm.useFieldValue<AOChannel>(path, { optional: true });
-  const { set } = PForm.useContext();
-  
-  
-  if (channelIndex === -1) return null;
-  
-  // Initialize unconfigured channels with default values
-  useEffect(() => {
-    if (currentValue == null) {
-      const defaultChannel = { 
-        ...ZERO_AO_CHANNEL, 
-        key: itemKey,
-        port: 0,
-        cmdChannel: 0,
-        stateChannel: 0,
-      };
-      set(path, defaultChannel);
-    }
-  }, [currentValue, itemKey, path, set]);
-  
-  // Return null while the channel is being initialized
-  if (currentValue == null) return null;
-  
-  const { port, cmdChannel, stateChannel, type, customName } = currentValue;
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey, ...rest } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<AOChannel>(path);
+  if (item == null) return null;
+  const { port, cmdChannel, stateChannel, type, customName } = item;
   
   // Get device from the config since AOChannel doesn't have device field yet
   const deviceKey = PForm.useFieldValue<string>("config.device");
@@ -94,18 +71,18 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
     params: { key: deviceKey || "" },
   });
   
+  const { set } = PForm.useContext();
+  
   const handleCustomNameChange = useCallback(
     (newName: string) => {
-      set(path, { ...currentValue, customName: newName });
+      set(path, { ...item, customName: newName });
     },
-    [currentValue, path, set],
+    [item, path, set],
   );
-  
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
-      {...rest}
-      itemKey={itemKey}
+      {...props}
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
