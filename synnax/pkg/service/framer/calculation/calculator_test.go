@@ -396,6 +396,265 @@ var _ = Describe("Calculator", func() {
 			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
 			Expect(outSeries).To(telem.MatchSeriesDataV[float32](12, 15))
 		})
+
+		It("Should handle empty frames without affecting high water mark", func() {
+			// First frame with data
+			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
+			inSeries1.Alignment = 0
+			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
+			inSeries2.Alignment = 0
+			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			outSeries := MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33))
+
+			// Empty frame
+			emptyFrame := core.Frame{}
+			outSeries = MustSucceed(calc.Next(emptyFrame))
+			Expect(outSeries.Len()).To(Equal(int64(0)))
+
+			// Third frame after empty - should continue from high water mark
+			inSeries1 = telem.NewSeriesV[float32](4, 5)
+			inSeries1.Alignment = 3
+			inSeries1.TimeRange = telem.NewRangeSeconds(3, 5)
+
+			inSeries2 = telem.NewSeriesV[float32](40, 50)
+			inSeries2.Alignment = 3
+			inSeries2.TimeRange = telem.NewRangeSeconds(3, 5)
+
+			outSeries = MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(2)))
+			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](44, 55))
+		})
+
+		It("Should handle zero-length series", func() {
+			// First frame with zero-length series
+			emptySeriesCh1 := telem.NewSeriesV[float32]()
+			emptySeriesCh1.Alignment = 0
+			emptySeriesCh1.TimeRange = telem.TimeRangeZero
+
+			emptySeriesCh2 := telem.NewSeriesV[float32]()
+			emptySeriesCh2.Alignment = 0
+			emptySeriesCh2.TimeRange = telem.TimeRangeZero
+
+			outSeries := MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{emptySeriesCh1, emptySeriesCh2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(0)))
+
+			// Second frame with actual data
+			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
+			inSeries1.Alignment = 0
+			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
+			inSeries2.Alignment = 0
+			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			outSeries = MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33))
+		})
+
+		It("Should handle backwards alignment (data arriving out of order)", func() {
+			// First frame with alignment 5-8
+			inSeries1 := telem.NewSeriesV[float32](5, 6, 7, 8)
+			inSeries1.Alignment = 5
+			inSeries1.TimeRange = telem.NewRangeSeconds(5, 9)
+
+			inSeries2 := telem.NewSeriesV[float32](50, 60, 70, 80)
+			inSeries2.Alignment = 5
+			inSeries2.TimeRange = telem.NewRangeSeconds(5, 9)
+
+			outSeries := MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			// Should calculate all 4 samples
+			Expect(outSeries.Len()).To(Equal(int64(4)))
+			Expect(outSeries.Alignment).To(Equal(telem.Alignment(5)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](55, 66, 77, 88))
+
+			// Second frame with earlier alignment (2-4) - should be ignored
+			inSeries1 = telem.NewSeriesV[float32](2, 3, 4)
+			inSeries1.Alignment = 2
+			inSeries1.TimeRange = telem.NewRangeSeconds(2, 5)
+
+			inSeries2 = telem.NewSeriesV[float32](20, 30, 40)
+			inSeries2.Alignment = 2
+			inSeries2.TimeRange = telem.NewRangeSeconds(2, 5)
+
+			outSeries = MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			// Should return empty series as data is before high water mark
+			Expect(outSeries.Len()).To(Equal(int64(0)))
+
+			// Third frame continuing from alignment 9
+			inSeries1 = telem.NewSeriesV[float32](9, 10)
+			inSeries1.Alignment = 9
+			inSeries1.TimeRange = telem.NewRangeSeconds(9, 11)
+
+			inSeries2 = telem.NewSeriesV[float32](90, 100)
+			inSeries2.Alignment = 9
+			inSeries2.TimeRange = telem.NewRangeSeconds(9, 11)
+
+			outSeries = MustSucceed(calc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(2)))
+			Expect(outSeries.Alignment).To(Equal(telem.Alignment(9)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](99, 110))
+		})
+
+		It("Should handle very large alignment jumps", func() {
+			// Create a fresh calculator for this test
+			localCalc := MustSucceed(calculation.OpenCalculator(
+				out,
+				[]channel.Channel{inCh1, inCh2},
+			))
+			defer localCalc.Close()
+
+			// First frame
+			inSeries1 := telem.NewSeriesV[float32](1, 2)
+			inSeries1.Alignment = 0
+			inSeries1.TimeRange = telem.NewRangeSeconds(0, 2)
+
+			inSeries2 := telem.NewSeriesV[float32](10, 20)
+			inSeries2.Alignment = 0
+			inSeries2.TimeRange = telem.NewRangeSeconds(0, 2)
+
+			outSeries := MustSucceed(localCalc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(2)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22))
+
+			// Second frame with huge alignment jump (different domain)
+			largeAlignment := telem.Alignment(1) << 32 // Different domain index
+			inSeries1 = telem.NewSeriesV[float32](3, 4)
+			inSeries1.Alignment = largeAlignment
+			inSeries1.TimeRange = telem.NewRangeSeconds(1000000, 1000002)
+
+			inSeries2 = telem.NewSeriesV[float32](30, 40)
+			inSeries2.Alignment = largeAlignment
+			inSeries2.TimeRange = telem.NewRangeSeconds(1000000, 1000002)
+
+			outSeries = MustSucceed(localCalc.Next(core.MultiFrame(
+				[]channel.Key{inCh1.Key(), inCh2.Key()},
+				[]telem.Series{inSeries1, inSeries2},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(2)))
+			Expect(outSeries.Alignment).To(Equal(largeAlignment))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](33, 44))
+		})
+
+		It("Should handle channels with no data requirement (constants only)", func() {
+			constOut := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    5,
+				Name:        "const_out",
+				DataType:    telem.Float32T,
+				Expression:  "return 42.0",
+			}
+			constCalc := MustSucceed(calculation.OpenCalculator(
+				constOut,
+				[]channel.Channel{}, // No input channels
+			))
+			defer constCalc.Close()
+
+			// Send empty frame - should still produce no output since no inputs
+			emptyFrame := core.Frame{}
+			outSeries := MustSucceed(constCalc.Next(emptyFrame))
+			Expect(outSeries.Len()).To(Equal(int64(0)))
+		})
+
+		It("Should handle mixed data types in multi-channel calculation", func() {
+			intCh := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    10,
+				Name:        "int_ch",
+				DataType:    telem.Int32T,
+			}
+			floatCh := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    11,
+				Name:        "float_ch",
+				DataType:    telem.Float32T,
+			}
+			mixedOut := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    12,
+				Name:        "mixed_out",
+				DataType:    telem.Float32T,
+				Expression:  "return int_ch + float_ch",
+			}
+			mixedCalc := MustSucceed(calculation.OpenCalculator(
+				mixedOut,
+				[]channel.Channel{intCh, floatCh},
+			))
+			defer mixedCalc.Close()
+
+			intSeries := telem.NewSeriesV[int32](1, 2, 3)
+			intSeries.Alignment = 0
+			intSeries.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			floatSeries := telem.NewSeriesV[float32](0.5, 1.5, 2.5)
+			floatSeries.Alignment = 0
+			floatSeries.TimeRange = telem.NewRangeSeconds(0, 3)
+
+			outSeries := MustSucceed(mixedCalc.Next(core.MultiFrame(
+				[]channel.Key{intCh.Key(), floatCh.Key()},
+				[]telem.Series{intSeries, floatSeries},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](1.5, 3.5, 5.5))
+
+			// Test high water mark with mixed types
+			intSeries = telem.NewSeriesV[int32](4, 5)
+			intSeries.Alignment = 3
+			intSeries.TimeRange = telem.NewRangeSeconds(3, 5)
+
+			floatSeries = telem.NewSeriesV[float32](3.5, 4.5)
+			floatSeries.Alignment = 3
+			floatSeries.TimeRange = telem.NewRangeSeconds(3, 5)
+
+			outSeries = MustSucceed(mixedCalc.Next(core.MultiFrame(
+				[]channel.Key{intCh.Key(), floatCh.Key()},
+				[]telem.Series{intSeries, floatSeries},
+			)))
+
+			Expect(outSeries.Len()).To(Equal(int64(2)))
+			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](7.5, 9.5))
+		})
 	})
 
 	Describe("Error Handling", func() {

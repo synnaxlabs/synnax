@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type requiredInfo struct {
+type cacheEntry struct {
 	ch   channel.Channel
 	data telem.MultiSeries
 }
@@ -33,10 +33,10 @@ type Calculator struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
-	// required is a map of required channels and an accumulated buffer of data. Data
+	// cache is a map of cache channels and an accumulated buffer of data. Data
 	// is accumulated for each channel until a calculation can be performed, and is
 	// then flushed.
-	required map[channel.Key]requiredInfo
+	cache map[channel.Key]cacheEntry
 }
 
 // OpenCalculator opens a new calculator that evaluates the Expression of the provided
@@ -52,14 +52,14 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	required := make(map[channel.Key]requiredInfo, len(requiredChannels))
+	required := make(map[channel.Key]cacheEntry, len(requiredChannels))
 	for _, requiredCh := range requiredChannels {
-		required[requiredCh.Key()] = requiredInfo{ch: requiredCh}
+		required[requiredCh.Key()] = cacheEntry{ch: requiredCh}
 	}
 	return &Calculator{
-		base:     base,
-		ch:       ch,
-		required: required,
+		base:  base,
+		ch:    ch,
+		cache: required,
 	}, nil
 }
 
@@ -74,15 +74,23 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 //
 // Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
+	// Handle calculations with no cache channels (constants only)
+	if len(c.cache) == 0 {
+		return telem.Series{DataType: c.ch.DataType}, nil
+	}
+
 	for rawI, s := range fr.RawSeries() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		k := fr.RawKeyAt(rawI)
-		if v, ok := c.required[k]; ok {
+		if v, ok := c.cache[k]; ok {
 			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
-			c.required[k] = v
-			if c.highWaterMark.alignment == 0 || c.highWaterMark.alignment.DomainIndex() != v.data.AlignmentBounds().Lower.DomainIndex() {
+			c.cache[k] = v
+			// The first case means we've never initialized a high-water mark, and second
+			// case mean's we've switched domains. In both, reset the high water-mark.
+			if c.highWaterMark.alignment == 0 ||
+				c.highWaterMark.alignment.DomainIndex() != v.data.AlignmentBounds().Lower.DomainIndex() {
 				c.highWaterMark.alignment = v.data.AlignmentBounds().Lower
 				c.highWaterMark.timestamp = v.data.TimeRange().Start
 			}
@@ -90,13 +98,14 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	}
 	minAlignment := telem.MaxAlignment
 	minTimeStamp := telem.TimeStamp(0)
-	for _, v := range c.required {
+	for _, v := range c.cache {
 		if v.data.AlignmentBounds().Upper < minAlignment {
 			minAlignment = v.data.AlignmentBounds().Upper
 			minTimeStamp = v.data.TimeRange().End
 		}
 	}
-	if minAlignment <= c.highWaterMark.alignment {
+	// Return early if there's no data to process
+	if minAlignment == telem.MaxAlignment || minAlignment <= c.highWaterMark.alignment {
 		return telem.Series{DataType: c.ch.DataType}, nil
 	}
 	var (
@@ -110,7 +119,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	os.Alignment = startAlign
 	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
 	for a := startAlign; a < endAlign; a++ {
-		for _, v := range c.required {
+		for _, v := range c.cache {
 			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
 		}
 		v, err := c.base.Run()

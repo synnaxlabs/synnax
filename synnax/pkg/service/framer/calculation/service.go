@@ -43,7 +43,7 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	// Framer is the underlying frame service to stream required channel values and write
+	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
