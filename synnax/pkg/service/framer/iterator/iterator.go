@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
@@ -33,12 +33,15 @@ import (
 // ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
+	//
 	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DistFramer is the distribution layer frame service to extend.
+	//
 	// [REQUIRED]
 	DistFramer *framer.Service
 	// Channel is used to retrieve information about channels.
+	//
 	// [REQUIRED]
 	Channel channel.Readable
 }
@@ -150,8 +153,8 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
-		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
+		calculated = make(map[channel.Key]channel.Channel)
+		required   = set.New[channel.Key]()
 	)
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
@@ -170,23 +173,26 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return nil, nil
 	}
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculated.Contains(item)
+		_, ok := calculated[item]
+		return !ok
 	})
-	cfg.Keys = append(cfg.Keys, required.Keys()...)
+	cfg.Keys = append(cfg.Keys, required.Elements()...)
 	var requiredCh []channel.Channel
 	err := s.cfg.Channel.NewRetrieve().
-		WhereKeys(required.Keys()...).
+		WhereKeys(required.Elements()...).
 		Entries(&requiredCh).
 		Exec(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	calculators := make([]*calculation.Calculator, len(calculated))
-	for i, v := range calculated.Values() {
+	i := 0
+	for _, v := range calculated {
 		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 		if err != nil {
 			return nil, err
 		}
+		i++
 	}
 	return newCalculationTransform(calculators), nil
 }
@@ -199,45 +205,45 @@ type Iterator struct {
 	value     []Response
 }
 
-// Next reads all channel data occupying the next span of time. Returns true
-// if the current IteratorServer.View is pointing to any valid segments.
+// Next reads all channel data occupying the next span of time. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Next, Span: span})
 }
 
-// Prev reads all channel data occupying the previous span of time. Returns true
-// if the current IteratorServer.View is pointing to any valid segments.
+// Prev reads all channel data occupying the previous span of time. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Prev, Span: span})
 }
 
-// SeekFirst seeks the Iterator the start of the Iterator range.
-// Returns true if the current IteratorServer.View is pointing to any valid segments.
+// SeekFirst seeks the Iterator the start of the Iterator range. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekFirst})
 }
 
-// SeekLast seeks the Iterator the end of the Iterator range.
-// Returns true if the current IteratorServer.View is pointing to any valid segments.
+// SeekLast seeks the Iterator the end of the Iterator range. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLast})
 }
 
-// SeekLE seeks the Iterator to the first whose timestamp is less than or equal
-// to the given timestamp. Returns true if the current IteratorServer.View is pointing
-// to any valid segments.
+// SeekLE seeks the Iterator to the first whose timestamp is less than or equal to the
+// given timestamp. Returns true if the current IteratorServer.View is pointing to any
+// valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
-// SeekGE seeks the Iterator to the first whose timestamp is greater than the
-// given timestamp. Returns true if the current IteratorServer.View is pointing to
-// any valid segments.
+// SeekGE seeks the Iterator to the first whose timestamp is greater than the given
+// timestamp. Returns true if the current IteratorServer.View is pointing to any valid
+// segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekGE, Stamp: stamp})
@@ -254,9 +260,9 @@ func (i *Iterator) Error() error {
 	return err
 }
 
-// Close closes the Iterator, ensuring that all in-progress reads complete
-// before closing the Source outlet. All iterators must be Closed, or the
-// distribution layer will panic.
+// Close closes the Iterator, ensuring that all in-progress reads complete before
+// closing the Source outlet. All iterators must be Closed, or the distribution layer
+// will panic.
 func (i *Iterator) Close() error {
 	defer i.shutdown()
 	i.requests.Close()
@@ -268,12 +274,12 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: SetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() core.Frame {
-	frames := make([]core.Frame, len(i.value))
+func (i *Iterator) Value() frame.Frame {
+	frames := make([]frame.Frame, len(i.value))
 	for i, v := range i.value {
 		frames[i] = v.Frame
 	}
-	return core.MergeFrames(frames)
+	return frame.Merge(frames)
 }
 
 func (i *Iterator) exec(req Request) bool {

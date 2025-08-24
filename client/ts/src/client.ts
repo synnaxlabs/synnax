@@ -117,7 +117,7 @@ export default class Synnax extends framer.Client {
       new channel.ClusterRetriever(transport.unary),
     );
     const chCreator = new channel.Writer(transport.unary, chRetriever);
-    super(transport.stream, transport.unary, chRetriever);
+    super(transport, chRetriever);
     this.createdAt = TimeStamp.now();
     this.props = props;
     this.auth = auth_;

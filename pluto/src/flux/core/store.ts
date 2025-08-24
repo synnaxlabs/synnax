@@ -176,7 +176,7 @@ export type ChannelListenerArgs<
   Z extends z.ZodType = z.ZodType,
 > = {
   /** The parsed and validated data that changed */
-  changed: z.output<Z>;
+  changed: z.infer<Z>;
   /** The Synnax client instance for making additional API calls */
   client: Synnax;
   /** The store instance available to the listener */

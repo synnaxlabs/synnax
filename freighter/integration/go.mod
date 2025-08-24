@@ -10,6 +10,9 @@ replace (
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/onsi/ginkgo/v2 v2.25.1
+	github.com/onsi/gomega v1.38.1
+	github.com/samber/lo v1.51.0
 	github.com/synnaxlabs/freighter v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	go.uber.org/zap v1.27.0
@@ -42,12 +45,9 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/onsi/ginkgo/v2 v2.25.1 // indirect
-	github.com/onsi/gomega v1.38.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/samber/lo v1.51.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20250408102913-196191ec6287 // indirect
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000 // indirect
 	github.com/uptrace/uptrace-go v1.37.0 // indirect

@@ -38,7 +38,7 @@ func (p CleanUpParam) ToTSCommand(_ string) string {
 	panic("unimplemented")
 }
 
-var _ NodeParams = &CleanUpParam{}
+var _ NodeParams = (*CleanUpParam)(nil)
 
 func runCleanUp(p CleanUpParam, verbose bool) error {
 	if p == (CleanUpParam{}) {

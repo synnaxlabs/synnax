@@ -10,24 +10,21 @@
 package calculation_test
 
 import (
-	"time"
-
 	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/status"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -91,7 +88,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
@@ -99,18 +96,18 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	It("Handle undefined symbols", func() {
-		baseCH := channel.Channel{
+		baseCh := channel.Channel{
 			Name:     "base",
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
+			Requires:    []channel.Key{baseCh.Key()},
 			Expression:  "return base * fake",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
@@ -119,7 +116,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
-			Keys:  []channel.Key{baseCH.Key()},
+			Keys:  []channel.Key{baseCh.Key()},
 		}))
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        []channel.Key{calculatedCH.Key()},
@@ -128,7 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 		Expect(w.Close()).To(Succeed())
 	})
@@ -163,7 +160,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(core.UnaryFrame(
+		MustSucceed(w.Write(frame.NewUnary(
 			baseCH.Key(),
 			telem.NewSeriesV[int64](1, 2),
 		)))
@@ -227,7 +224,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2CH.Key()}))
@@ -298,7 +295,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
 		time.Sleep(5 * time.Millisecond)
-		MustSucceed(w.Write(core.UnaryFrame(
+		MustSucceed(w.Write(frame.NewUnary(
 			baseCH.Key(),
 			telem.NewSeriesV[int64](1, 2),
 		)))
@@ -354,7 +351,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
@@ -365,7 +362,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		calculatedCH.Expression = "return base * 3"
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
 		series = res.Frame.SeriesAt(0)

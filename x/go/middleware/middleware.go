@@ -9,44 +9,61 @@
 
 package middleware
 
-// Middleware is a function that can act on a request of type I, pass it on to the
-// next middleware, and process a response of type O.
-type Middleware[I, O any] interface {
-	// Exec executes the middleware. It receives a context and a request. It also receives
-	// a next function that can be used to execute the next middleware in the chain.
-	Exec(in I, next func(I) (O, error)) (out O, err error)
-}
+// Handler is a function that can process a request of type I and returns a response of
+// type O or an error.
+type Handler[I, O any] func(I) (O, error)
 
-// Finalizer is the final middleware in a chain, and is expected to execute the request.
-type Finalizer[I, O any] interface {
-	// Finalize is a special middleware that is executed after the middleware chain
-	// has completed. It receives the context and the request that was sent.
-	Finalize(in I) (out O, err error)
+// Middleware is a function that can act on a request of type I, pass it on to the next
+// middleware, and process a response of type O.
+type Middleware[I, O any] interface {
+	// Exec executes the middleware. It receives an input value and a function that can
+	// be used to execute the next middleware in the chain.
+	Exec(I, Handler[I, O]) (O, error)
 }
 
 // Chain is a chain of middleware that can be executed sequentially.
 type Chain[I, O any] []Middleware[I, O]
 
-// Exec executes the middleware chain sequentially given a value. The first
-// middleware will be the first to receive the incoming, and the last to receive the outgoing value.
-func (c Chain[I, O]) Exec(in I, finalizer Finalizer[I, O]) (out O, err error) {
+var _ Middleware[any, any] = Chain[any, any]{}
+
+// Exec executes the middleware chain sequentially given a value. The first middleware
+// will be the first to receive the incoming, and the last to receive the outgoing
+// value.
+func (c Chain[I, O]) Exec(in I, finalizer Handler[I, O]) (O, error) {
 	var (
-		i    = 0
-		next func(I) (O, error)
+		i    int
+		next Handler[I, O]
 	)
-	next = func(_in I) (out O, err error) {
+	next = func(in I) (O, error) {
 		if i == len(c) {
-			return finalizer.Finalize(_in)
+			return finalizer(in)
 		}
-		_m := c[i]
+		m := c[i]
 		i++
-		return _m.Exec(_in, next)
+		return m.Exec(in, next)
 	}
 	return next(in)
 }
 
-// Collector allows middleware to be collected and executed in a chain.
-type Collector[I, O any] struct{ Chain[I, O] }
+// Collector provides a utility for constructing middleware chains.
+type Collector[I, O any] struct{ chain Chain[I, O] }
 
-// Use adds middleware to the collector.
-func (p *Collector[I, O]) Use(m ...Middleware[I, O]) { p.Chain = append(p.Chain, m...) }
+var _ Middleware[any, any] = (*Collector[any, any])(nil)
+
+// Exec executes the middleware chain with the provided input and finalizer.
+func (c *Collector[I, O]) Exec(in I, finalizer Handler[I, O]) (O, error) {
+	return c.chain.Exec(in, finalizer)
+}
+
+// Use adds the provided middleware to the chain.
+func (c *Collector[I, O]) Use(middleware ...Middleware[I, O]) {
+	c.chain = append(c.chain, middleware...)
+}
+
+// Func is an adapter that allows ordinary functions to be used as Middleware.
+type Func[I, O any] func(I, Handler[I, O]) (O, error)
+
+var _ Middleware[any, any] = (*Func[any, any])(nil)
+
+// Exec calls f(in, next)
+func (f Func[I, O]) Exec(in I, next Handler[I, O]) (O, error) { return f(in, next) }

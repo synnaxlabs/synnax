@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -29,7 +29,7 @@ import (
 )
 
 type (
-	Frame            = core.Frame
+	Frame            = frame.Frame
 	Iterator         = iterator.Iterator
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response
@@ -92,6 +92,10 @@ func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConf
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (StreamWriter, error) {
 	return s.Framer.NewStreamWriter(ctx, cfg)
+}
+
+func (s *Service) OpenWriter(ctx context.Context, cfg framer.WriterConfig) (*Writer, error) {
+	return s.Framer.OpenWriter(ctx, cfg)
 }
 
 func (s *Service) NewDeleter() framer.Deleter {

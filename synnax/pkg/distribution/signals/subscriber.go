@@ -86,10 +86,10 @@ func decodeChanges(
 
 func (s *Provider) Subscribe(
 	ctx context.Context,
-	configs ...ObservableSubscriberConfig,
+	cfgs ...ObservableSubscriberConfig,
 ) (observe.Observable[[]change.Change[[]byte, struct{}]], io.Closer, error) {
 	var err error
-	cfg, err := config.New(DefaultObservableSubscriberConfig, configs...)
+	cfg, err := config.New(DefaultObservableSubscriberConfig, cfgs...)
 	if err != nil {
 		return nil, nil, err
 	}

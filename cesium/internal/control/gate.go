@@ -16,16 +16,16 @@ import (
 
 // Gate controls access to a resource for a given region of time.
 type Gate[R Resource] struct {
-	// subject is the subject attempting to control the resource that the gate
-	// is guarding access to.
+	// subject is the subject attempting to control the resource that the gate is
+	// guarding access to.
 	subject control.Subject
 	// authority is the authority that the subject has over the resource.
 	authority control.Authority
 	// region is the control region in time for the resource
 	region *region[R]
-	// position is the number of gates that had been opened in the region before
-	// this gate. Gates with a lower position yet equal authority take precedence
-	// over this gate. This position is constant for the lifetime of the gate.
+	// position is the number of gates that had been opened in the region before this
+	// gate. Gates with a lower position yet equal authority take precedence over this
+	// gate. This position is constant for the lifetime of the gate.
 	position uint
 }
 
@@ -52,13 +52,15 @@ func (g *Gate[R]) PeekResource() R {
 	return g.region.resource
 }
 
-// Authorize authorizes the gate's access to the resource. If another gate has precedence,
-// Authorize will return a control.ErrUnauthorized error, and the zero value for the resource.
-// If the gate has control over the resource, returns the resource and a nil error.
-func (g *Gate[R]) Authorize() (r R, err error) {
+// Authorize authorizes the gate's access to the resource. If another gate has
+// precedence, Authorize will return a control.ErrUnauthorized error, and the zero value
+// for the resource. If the gate has control over the resource, returns the resource and
+// a nil error.
+func (g *Gate[R]) Authorize() (R, error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
 	if g.region == nil || g.region.curr == nil {
+		var r R
 		return r, errors.Wrapf(
 			control.ErrUnauthorized,
 			"%s has no control authority - gate was already released",
@@ -74,6 +76,7 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	} else if g.authority >= g.region.curr.authority {
 		return g.region.resource, nil
 	}
+	var r R
 	return r, errors.Wrapf(
 		control.ErrUnauthorized,
 		"%s has no control authority - it is currently held by %s",
@@ -82,10 +85,10 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	)
 }
 
-// Release releases the gate's access to the resource. If the gate is the last gate in
-// a region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
+// Release releases the gate's access to the resource. If the gate is the last gate in a
+// region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
 // the zero value of the resource will be returned.
-func (g *Gate[R]) Release() (resource R, transfer Transfer) { return g.region.release(g) }
+func (g *Gate[R]) Release() (R, Transfer) { return g.region.release(g) }
 
 // SetAuthority changes the gate's authority, returning any transfer of control that
 // may have occurred as a result.

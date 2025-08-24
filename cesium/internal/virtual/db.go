@@ -71,26 +71,26 @@ var (
 )
 
 // Validate implements config.Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("cesium.virtual")
-	validate.NotNil(v, "FS", cfg.FS)
-	validate.NotNil(v, "MetaCodec", cfg.MetaCodec)
+	validate.NotNil(v, "fs", c.FS)
+	validate.NotNil(v, "meta_codec", c.MetaCodec)
 	return v.Error()
 }
 
 // Override implements config.Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.FS = override.Nil(cfg.FS, other.FS)
-	if cfg.Channel.Key == 0 {
-		cfg.Channel = other.Channel
+func (c Config) Override(other Config) Config {
+	c.FS = override.Nil(c.FS, other.FS)
+	if c.Channel.Key == 0 {
+		c.Channel = other.Channel
 	}
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
-	return cfg
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.MetaCodec = override.Nil(c.MetaCodec, other.MetaCodec)
+	return c
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

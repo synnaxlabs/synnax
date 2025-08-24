@@ -60,8 +60,8 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate implements [config.Config].
 func (f FactoryConfig) Validate() error {
 	v := validate.New("cert.Factory")
-	validate.Positive(v, "KeySize", f.KeySize)
-	validate.NotNil(v, "AllowKeyReuse", f.AllowKeyReuse)
+	validate.Positive(v, "key_size", f.KeySize)
+	validate.NotNil(v, "allow_key_reuse", f.AllowKeyReuse)
 	v.Exec(f.LoaderConfig.Validate)
 	return v.Error()
 }
@@ -73,8 +73,8 @@ type Factory struct {
 }
 
 // NewFactory creates a new Factory.
-func NewFactory(configs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.New(DefaultFactoryConfig, configs...)
+func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ package kv_test
 
 import (
 	"encoding/binary"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xkv "github.com/synnaxlabs/x/kv"
@@ -19,9 +20,7 @@ import (
 )
 
 var _ = Describe("Iterator", func() {
-	var (
-		kv xkv.DB
-	)
+	var kv xkv.DB
 	BeforeEach(func() {
 		kv = memkv.New()
 	})

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { migrate } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
@@ -97,13 +97,13 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(
+      const res = await sendRequired(
+        this.client,
         Checker.ENDPOINT,
         {},
         z.object({}),
         responseZ,
       );
-      if (err != null) throw err;
       const nodeVersion = res.nodeVersion;
       const clientVersion = this.clientVersion;
       const warned = this.versionWarned;

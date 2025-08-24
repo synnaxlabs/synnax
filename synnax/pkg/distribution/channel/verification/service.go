@@ -91,7 +91,7 @@ type Service struct {
 	shutdown io.Closer
 }
 
-var _ io.Closer = &Service{}
+var _ io.Closer = (*Service)(nil)
 
 var (
 	useFreeLog = fmt.Sprintf(

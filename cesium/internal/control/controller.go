@@ -203,7 +203,7 @@ func (c *Controller[R]) unsafeInsertNewRegion(
 ) *region[R] {
 	r := &region[R]{
 		resource:   resource,
-		gates:      make(set.Set[*Gate[R]]),
+		gates:      set.New[*Gate[R]](),
 		timeRange:  t,
 		controller: c,
 	}

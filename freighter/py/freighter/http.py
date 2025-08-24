@@ -30,9 +30,7 @@ class HTTPClient(MiddlewareCollector):
     UnaryClient protocol.
     """
 
-    __ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
     __ERROR_ENCODING_HEADER_VALUE = "freighter"
-    __CONTENT_TYPE_HEADER_KEY = "Content-Type"
     __pool: PoolManager
     __endpoint: URL
     __codec: Codec
@@ -76,8 +74,9 @@ class HTTPClient(MiddlewareCollector):
     @property
     def __headers(self) -> dict[str, str]:
         return {
-            self.__CONTENT_TYPE_HEADER_KEY: self.__codec.content_type(),
-            self.__ERROR_ENCODING_HEADER_KEY: self.__ERROR_ENCODING_HEADER_VALUE,
+            "Content-Type": self.__codec.content_type(),
+            "Error-Encoding": self.__ERROR_ENCODING_HEADER_VALUE,
+            "Accept": self.__codec.content_type(),
         }
 
     def request(

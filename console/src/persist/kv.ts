@@ -101,7 +101,7 @@ class LocalStorageKV implements SugaredKV {
 export const openSugaredKV = (dir: string): SugaredKV => {
   switch (RUNTIME) {
     case "tauri":
-      return new TauriKV(new LazyStore(dir, { autoSave: true }));
+      return new TauriKV(new LazyStore(dir, { autoSave: true, defaults: {} }));
     case "web":
       return new LocalStorageKV(dir);
   }

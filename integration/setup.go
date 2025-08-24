@@ -48,7 +48,7 @@ func (p SetUpParam) ToTSCommand(_ string) string {
 	)
 }
 
-var _ NodeParams = &SetUpParam{}
+var _ NodeParams = (*SetUpParam)(nil)
 
 func runSetUp(p SetUpParam, verbose bool) error {
 	if p == (SetUpParam{}) {

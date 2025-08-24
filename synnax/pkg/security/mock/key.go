@@ -12,11 +12,15 @@ package mock
 import (
 	"crypto"
 	"crypto/rsa"
+
+	"github.com/synnaxlabs/synnax/pkg/security"
 )
 
-// KeyProvider is a mock implementation of security.KeyProvider
-// that wraps an RSA private key.
+// KeyProvider is a mock implementation of security.KeyProvider that wraps an RSA
+// private key.
 type KeyProvider struct{ Key *rsa.PrivateKey }
+
+var _ security.KeyProvider = KeyProvider{}
 
 // NodePrivate implements security.KeyProvider.
 func (m KeyProvider) NodePrivate() crypto.PrivateKey { return m.Key }

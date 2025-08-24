@@ -73,20 +73,18 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 
 func (g GorpPublisherConfig[K, E]) Validate() error {
 	v := validate.New("cdc.GorpPublisherConfig")
-	validate.NotEmptyString(v, "SetName", g.SetName)
-	validate.NotEmptyString(v, "DeleteName", g.DeleteName)
-	validate.NotNil(v, "DB", g.DB)
-	validate.NotEmptyString(v, "SetDataType", g.SetDataType)
-	validate.NotEmptyString(v, "DeleteDataType", g.DeleteDataType)
-	validate.NotNil(v, "MarshalSet", g.MarshalSet)
-	validate.NotNil(v, "MarshalDelete", g.MarshalDelete)
+	validate.NotEmptyString(v, "set_name", g.SetName)
+	validate.NotEmptyString(v, "delete_name", g.DeleteName)
+	validate.NotNil(v, "db", g.DB)
+	validate.NotEmptyString(v, "set_data_type", g.SetDataType)
+	validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
+	validate.NotNil(v, "marshal_set", g.MarshalSet)
+	validate.NotNil(v, "marshal_delete", g.MarshalDelete)
 	return v.Error()
 }
 
-var jsonEcd = binary.JSONCodec{}
-
 func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
-	b, err := jsonEcd.Encode(context.TODO(), e)
+	b, err := binary.JSONCodec.Encode(context.TODO(), e)
 	if err != nil {
 		return nil, err
 	}

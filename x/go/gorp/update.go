@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -38,7 +39,7 @@ func (u Update[K, E]) Change(f func(E) E) Update[K, E] {
 }
 
 func (u Update[K, E]) ChangeErr(f func(E) (E, error)) Update[K, E] {
-	addChange[K, E](u.retrieve.Params, f)
+	addChange(u.retrieve.Params, f)
 	return u
 }
 

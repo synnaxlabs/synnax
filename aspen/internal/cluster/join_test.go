@@ -10,6 +10,8 @@
 package cluster_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
-	"time"
 )
 
 var _ = Describe("Open", func() {
@@ -138,7 +139,7 @@ var _ = Describe("Open", func() {
 					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
-					Codec:                &binary.MsgPackCodec{},
+					Codec:                binary.MsgPackCodec,
 				}
 				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())

@@ -67,7 +67,7 @@ type Config struct {
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// GCThreshold is the minimum tombstone proportion of the FileSize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -94,11 +94,11 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.Positive(v, "fileSize", c.FileSize)
-	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
+	validate.Positive(v, "file_size", c.FileSize)
+	validate.Positive(v, "max_descriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
-	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
-	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)
+	validate.GreaterThanEq(v, "gc_threshold", c.GCThreshold, 0)
+	validate.LessThanEq(v, "gc_threshold", c.GCThreshold, 1)
 	return v.Error()
 }
 
@@ -117,8 +117,8 @@ func (c Config) Override(other Config) Config {
 
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
-func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

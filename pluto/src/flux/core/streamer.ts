@@ -91,7 +91,7 @@ export const openStreamer = async <ScopedStore extends Store>({
           if (listeners == null) continue;
           for (const { onChange, schema } of listeners)
             await handleError(async () => {
-              let parsed: z.output<typeof schema>[];
+              let parsed: z.infer<typeof schema>[];
               if (!series.dataType.equals(DataType.JSON))
                 parsed = Array.from(series).map((s) => schema.parse(s));
               else parsed = series.parseJSON(schema);

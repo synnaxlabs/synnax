@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -26,11 +26,11 @@ type calculationUpdaterTransform struct {
 	alamos.Instrumentation
 	c        *calculation.Service
 	readable channel.Readable
-	closer   xio.MultiCloser
+	closer   io.MultiCloser
 	confluence.LinearTransform[Request, framer.StreamerRequest]
 }
 
-var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}
+var _ confluence.Segment[Request, framer.StreamerRequest] = (*calculationUpdaterTransform)(nil)
 
 func (t *calculationUpdaterTransform) update(ctx context.Context, keys []channel.Key) error {
 	if err := t.closer.Close(); err != nil {

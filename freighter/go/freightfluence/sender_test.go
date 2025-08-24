@@ -63,7 +63,7 @@ var _ = Describe("Sender", func() {
 		})
 		Describe("Sender", func() {
 			It("Should operate correctly", func() {
-				sCtx, cancel := signal.WithCancel(context.TODO())
+				sCtx, cancel := signal.WithCancel(context.Background())
 				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.Sender[int]{Sender: client}
@@ -82,7 +82,7 @@ var _ = Describe("Sender", func() {
 		})
 		Describe("TransformSender", func() {
 			It("Should transform values before sending them", func() {
-				sCtx, cancel := signal.WithCancel(context.TODO())
+				sCtx, cancel := signal.WithCancel(context.Background())
 				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.TransformSender[int, int]{}
@@ -101,7 +101,7 @@ var _ = Describe("Sender", func() {
 				Expect(ok).To(BeFalse())
 			})
 			It("Should exit when the transform returns an error", func() {
-				sCtx, cancel := signal.WithCancel(context.TODO())
+				sCtx, cancel := signal.WithCancel(context.Background())
 				defer cancel()
 				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("Sender", func() {
 			clientSender    freightfluence.MapTargetedSender[int]
 		)
 		BeforeEach(func() {
-			sCtx, cancel = signal.WithCancel(context.TODO())
+			sCtx, cancel = signal.WithCancel(context.Background())
 			senderStream = confluence.NewStream[int](nStreams)
 			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)

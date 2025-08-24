@@ -72,14 +72,14 @@ func (s ProviderConfig) Override(other ProviderConfig) ProviderConfig {
 // Validate implements Properties.
 func (s ProviderConfig) Validate() error {
 	v := validate.New("security.OtelProvider")
-	validate.NotNil(v, "Insecure", s.Insecure)
+	validate.NotNil(v, "insecure", s.Insecure)
 	v.Exec(s.LoaderConfig.Validate)
 	return v.Error()
 }
 
 // NewProvider opens a new security Provider using the given configuration.
-func NewProvider(configs ...ProviderConfig) (Provider, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func NewProvider(cfgs ...ProviderConfig) (Provider, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

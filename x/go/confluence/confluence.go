@@ -101,21 +101,21 @@ type Segment[I, O Value] interface {
 // runtime context or behavior.
 type Flow interface {
 	// Flow starts the Flow process under the provided signal.Context.
-	Flow(ctx signal.Context, opts ...Option)
+	Flow(signal.Context, ...Option)
 }
 
 // Sink is an interface that accepts values from a set of Outlet(sink). The user of a Sink
 // should be unaware of what occurs internally, and should only pass values through
 // the Outlet interfaces.
 type Sink[O Value] interface {
-	InFrom(outlets ...Outlet[O])
+	InFrom(...Outlet[O])
 	Flow
 }
 
 // Source is an interface that sends values to a set of Inlet(sink). The user of a Source
 // should be unaware of what occurs internally, and should only pass values through // the Inlet interfaces.
 type Source[I Value] interface {
-	OutTo(inlets ...Inlet[I])
+	OutTo(...Inlet[I])
 	Flow
 }
 
@@ -146,7 +146,7 @@ type Closable interface {
 	// Close closes the Closable.
 	Close()
 	// Acquire acquires the Closable.
-	Acquire(n int32)
+	Acquire(int32)
 }
 
 // Outlet is the end of a Stream that emits values and can be addressed.

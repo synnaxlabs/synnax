@@ -14,7 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -43,9 +43,9 @@ func newControlStateSender(
 	return c
 }
 
-func (c *controlStateSender) getControlUpdateFrame(ctx context.Context) core.Frame {
+func (c *controlStateSender) getControlUpdateFrame(ctx context.Context) frame.Frame {
 	u := c.db.ControlUpdateToFrame(ctx, c.db.ControlStates())
-	return core.NewFrameFromStorage(u)
+	return frame.NewFromStorage(u)
 }
 
 func (c *controlStateSender) Flow(ctx signal.Context, opts ...confluence.Option) {

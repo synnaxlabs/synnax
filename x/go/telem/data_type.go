@@ -80,9 +80,9 @@ const (
 	TimeStampT = DataType("timestamp")
 	// UUIDT is a data type for a UUID V4.
 	UUIDT = DataType("uuid")
-	// Float64T is a data type for a 64-bit IEE754 floating point number.
+	// Float64T is a data type for a 64-bit IEEE 754 floating point number.
 	Float64T DataType = "float64"
-	// Float32T is a data type for a 32-bit IEE754 floating point number.
+	// Float32T is a data type for a 32-bit IEEE 754 floating point number.
 	Float32T DataType = "float32"
 	// Int64T is a data type for a 64-bit integer.
 	Int64T DataType = "int64"

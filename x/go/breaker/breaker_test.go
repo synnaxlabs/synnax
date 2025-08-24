@@ -35,6 +35,7 @@ var _ = Describe("Breaker", func() {
 			cancel()
 		}()
 		go func() {
+			defer GinkgoRecover()
 			Expect(b.Wait()).To(BeFalse())
 			done <- struct{}{}
 		}()

@@ -10,6 +10,10 @@
 package telem_test
 
 import (
+	"bytes"
+	"encoding/csv"
+
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
@@ -515,10 +519,7 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Encode + Decode", func() {
-		codecs := []binary.Codec{
-			&binary.JSONCodec{},
-			&binary.MsgPackCodec{},
-		}
+		codecs := []binary.Codec{binary.JSONCodec, binary.MsgPackCodec}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func() {
 				original := telem.MultiFrame(
@@ -565,6 +566,16 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5),
 				})
 			Expect(fr.Len()).To(Equal(int64(3)))
+		})
+		It("Should return a combined length when a key is repeated", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 1},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2),
+					telem.NewSeriesV[int32](3, 4, 5),
+					telem.NewSeriesV[int32](6, 7),
+				})
+			Expect(fr.Len()).To(Equal(int64(4)))
 		})
 	})
 
@@ -1294,7 +1305,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 10)
 			for i := range 10 {
 				keys[i] = i + 1
-				series[i] = telem.NewSeriesV[int32](int32(i + 1))
+				series[i] = telem.NewSeriesV(int32(i + 1))
 			}
 
 			fr := telem.MultiFrame(keys, series)
@@ -1310,6 +1321,102 @@ var _ = Describe("Frame", func() {
 			Expect(filtered.ShouldExcludeRaw(7)).To(BeTrue())
 			Expect(filtered.ShouldExcludeRaw(8)).To(BeTrue())
 			Expect(filtered.ShouldExcludeRaw(9)).To(BeFalse())
+		})
+	})
+	Describe("WriteCSV", func() {
+		It("Should return a CSV representation of the frame", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			w := bytes.NewBuffer(nil)
+			Expect(fr.WriteCSV(w)).To(Succeed())
+			reader := csv.NewReader(w)
+			records := MustSucceed(reader.ReadAll())
+			Expect(records).To(Equal([][]string{
+				{"1", "4", "7"},
+				{"2", "5", "8"},
+				{"3", "6", "9"},
+			}))
+		})
+		It("should work with various data types", func() {
+			u1, u2, u3 := uuid.New(), uuid.New(), uuid.New()
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3, 4},
+				[]telem.Series{
+					telem.NewSeriesV[uint8](1, 2, 3),
+					telem.NewSeriesV[float32](1.1, 2.2, 3.3),
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesUUIDsV(u1, u2, u3),
+				})
+			w := bytes.NewBuffer(nil)
+			Expect(fr.WriteCSV(w)).To(Succeed())
+			reader := csv.NewReader(w)
+			records := MustSucceed(reader.ReadAll())
+			Expect(records).To(Equal([][]string{
+				{"1", "1.1", "1000000000", u1.String()},
+				{"2", "2.2", "2000000000", u2.String()},
+				{"3", "3.3", "3000000000", u3.String()},
+			}))
+		})
+		It("should respect filters", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{1, 3})
+			w := bytes.NewBuffer(nil)
+			Expect(filtered.WriteCSV(w)).To(Succeed())
+			reader := csv.NewReader(w)
+			records := MustSucceed(reader.ReadAll())
+			Expect(records).To(Equal([][]string{
+				{"1", "7"},
+				{"2", "8"},
+				{"3", "9"},
+			}))
+		})
+		It("should work if series have different lengths", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1),
+					telem.NewSeriesV[int32](2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+				})
+			w := bytes.NewBuffer(nil)
+			Expect(fr.WriteCSV(w)).To(Succeed())
+			reader := csv.NewReader(w)
+			// fmt.Println(w.String())
+			records := MustSucceed(reader.ReadAll())
+			Expect(records).To(Equal([][]string{
+				{"1", "2", "4"},
+				{"", "3", "5"},
+				{"", "", "6"},
+			}))
+		})
+		It("should work if the keys in the frame are repeated", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 3, 1},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			w := bytes.NewBuffer(nil)
+			Expect(fr.WriteCSV(w)).To(Succeed())
+			reader := csv.NewReader(w)
+			records := MustSucceed(reader.ReadAll())
+			Expect(records).To(Equal([][]string{
+				{"1", "4", "7"},
+				{"2", "5", "8"},
+				{"3", "6", "9"},
+			}))
 		})
 	})
 })

@@ -47,9 +47,7 @@ var _ = Describe("Control", func() {
 			})
 
 			Describe("Nominal", func() {
-				var (
-					db *cesium.DB
-				)
+				var db *cesium.DB
 				BeforeAll(func() {
 					db = openDBOnFS(fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
@@ -99,7 +97,7 @@ var _ = Describe("Control", func() {
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Writing to the first writer")
-						Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
+						Expect(MustSucceed(w1.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -108,7 +106,7 @@ var _ = Describe("Control", func() {
 						)))).To(BeTrue())
 
 						By("Failing to write to the second writer")
-						w2Frame := telem.MultiFrame[cesium.ChannelKey](
+						w2Frame := telem.MultiFrame(
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(12, 13, 14),
@@ -206,7 +204,7 @@ var _ = Describe("Control", func() {
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,
-							Frame: telem.MultiFrame[cesium.ChannelKey](
+							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -236,7 +234,7 @@ var _ = Describe("Control", func() {
 						By("Writing to the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,
-							Frame: telem.MultiFrame[cesium.ChannelKey](
+							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(13, 14, 15),

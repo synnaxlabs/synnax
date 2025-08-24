@@ -9,34 +9,32 @@
 
 package freighter
 
-import (
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
-)
-
-var (
-	// Unreachable is returned when a target cannot be reached.
-	Unreachable = errors.New("[freighter] - target unreachable")
-	// SecurityError is returned  when a security error occurs.
-	SecurityError = errors.New("[freighter] - security error")
-)
+import "github.com/synnaxlabs/alamos"
 
 // Payload represents a piece of data that can be sent over the freighter.
 type Payload = any
 
+// Transport is a type that can be used to send and receive data over a network.
 type Transport interface {
 	alamos.ReportProvider
 	Use(...Middleware)
 }
 
+// Reporter is a type that can be used to report the protocol and encodings of a
+// transport.
 type Reporter struct {
-	Protocol  string
+	// Protocol is the protocol that the transport uses (e.g. HTTP, gRPC, etc.).
+	Protocol string
+	// Encodings are the encodings that the transport uses (e.g. JSON, Protobuf, etc.).
 	Encodings []string
 }
 
-func (t Reporter) Report() alamos.Report {
+var _ alamos.ReportProvider = Reporter{}
+
+// Report returns a report containing the protocol and encodings of the transport.
+func (r Reporter) Report() alamos.Report {
 	rep := make(alamos.Report)
-	rep["protocol"] = t.Protocol
-	rep["encodings"] = t.Encodings
+	rep["protocol"] = r.Protocol
+	rep["encodings"] = r.Encodings
 	return rep
 }
