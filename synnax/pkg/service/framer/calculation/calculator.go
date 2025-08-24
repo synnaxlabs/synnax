@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/computron"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -30,8 +31,9 @@ type Calculator struct {
 	ch channel.Channel
 	// highWaterMark is the high-water mark of the sample that we've run the calculation on.
 	highWaterMark struct {
-		alignment telem.Alignment
-		timestamp telem.TimeStamp
+		initialized bool
+		alignment   telem.Alignment
+		timestamp   telem.TimeStamp
 	}
 	// cache is a map of required channels and an accumulated buffer of data. Data
 	// is accumulated for each channel until a calculation can be performed, and is
@@ -56,15 +58,39 @@ func OpenCalculator(
 	for _, requiredCh := range requiredChannels {
 		required[requiredCh.Key()] = cacheEntry{ch: requiredCh}
 	}
-	return &Calculator{
+	c := &Calculator{
 		base:  base,
 		ch:    ch,
 		cache: required,
-	}, nil
+	}
+	c.resetCache()
+	return c, nil
 }
 
 // Channel returns information about the channel being calculated.
 func (c *Calculator) Channel() channel.Channel { return c.ch }
+
+func (c *Calculator) resetCache() {
+	c.highWaterMark.timestamp = 0
+	c.highWaterMark.alignment = 0
+	c.highWaterMark.initialized = false
+	for k, e := range c.cache {
+		e.data = telem.MultiSeries{}
+		c.cache[k] = e
+	}
+}
+
+func (c *Calculator) emptySeries() telem.Series {
+	return telem.Series{DataType: c.ch.DataType}
+}
+
+func cacheMisalignmentError(requested telem.Alignment, actualBounds telem.AlignmentBounds) error {
+	return errors.Newf(
+		`attempted to run calculation on alignment %s, but cache
+with alignment bounds %s did not contain data for requested alignment. Fixing issue by resetting cache.`,
+		requested, actualBounds,
+	)
+}
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned
@@ -85,15 +111,17 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		}
 		k := fr.RawKeyAt(rawI)
 		if v, ok := c.cache[k]; ok {
-			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
-			c.cache[k] = v
 			// The first case means we've never initialized a high-water mark, and second
 			// case mean's we've switched domains. In both, reset the high water-mark.
-			if c.highWaterMark.alignment == 0 ||
-				c.highWaterMark.alignment.DomainIndex() != v.data.AlignmentBounds().Lower.DomainIndex() {
-				c.highWaterMark.alignment = v.data.AlignmentBounds().Lower
-				c.highWaterMark.timestamp = v.data.TimeRange().Start
+			if !c.highWaterMark.initialized ||
+				c.highWaterMark.alignment.DomainIndex() != s.AlignmentBounds().Lower.DomainIndex() {
+				c.resetCache()
+				c.highWaterMark.initialized = true
+				c.highWaterMark.alignment = s.AlignmentBounds().Lower
+				c.highWaterMark.timestamp = s.TimeRange.Start
 			}
+			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
+			c.cache[k] = v
 		}
 	}
 	minAlignment := telem.MaxAlignment
@@ -106,7 +134,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	}
 	// Return early if there's no data to process
 	if minAlignment == telem.MaxAlignment || minAlignment <= c.highWaterMark.alignment {
-		return telem.Series{DataType: c.ch.DataType}, nil
+		return c.emptySeries(), nil
 	}
 	var (
 		startAlign = c.highWaterMark.alignment
@@ -120,11 +148,15 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
 	for a := startAlign; a < endAlign; a++ {
 		for _, v := range c.cache {
+			if !v.data.AlignmentBounds().Contains(a) {
+				c.resetCache()
+				return c.emptySeries(), cacheMisalignmentError(a, v.data.AlignmentBounds())
+			}
 			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
 		}
 		v, err := c.base.Run()
 		if err != nil {
-			return telem.Series{DataType: c.ch.DataType}, err
+			return c.emptySeries(), err
 		}
 		computron.SetLValueOnSeries(v, os, int(a-startAlign))
 	}

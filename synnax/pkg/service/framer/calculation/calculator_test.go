@@ -336,11 +336,11 @@ var _ = Describe("Calculator", func() {
 
 			// Second frame with new domain index (simulating time jump)
 			inSeries1 = telem.NewSeriesV[float32](4, 5, 6)
-			inSeries1.Alignment = telem.Alignment(1 << 32) // Different domain index
+			inSeries1.Alignment = telem.NewAlignment(1, 0)
 			inSeries1.TimeRange = telem.NewRangeSeconds(100, 103)
 
 			inSeries2 = telem.NewSeriesV[float32](40, 50, 60)
-			inSeries2.Alignment = telem.Alignment(1 << 32)
+			inSeries2.Alignment = telem.NewAlignment(1, 0)
 			inSeries2.TimeRange = telem.NewRangeSeconds(100, 103)
 
 			outSeries = MustSucceed(calc.Next(core.MultiFrame(
@@ -556,7 +556,7 @@ var _ = Describe("Calculator", func() {
 			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22))
 
 			// Second frame with huge alignment jump (different domain)
-			largeAlignment := telem.Alignment(1) << 32 // Different domain index
+			largeAlignment := telem.NewAlignment(1, 0)
 			inSeries1 = telem.NewSeriesV[float32](3, 4)
 			inSeries1.Alignment = largeAlignment
 			inSeries1.TimeRange = telem.NewRangeSeconds(1000000, 1000002)
