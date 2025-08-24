@@ -58,7 +58,7 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 // response body streaming to the client.
 type UnaryReadable interface {
 	// Read reads the next value from the response to be encoded.
-	Read() (any, error)
+	Read(context.Context) (any, error)
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -149,15 +149,22 @@ func (us *unaryServer[RQ, RS]) encodeAndWrite(ctx *fiber.Ctx, v any) error {
 	if uReader, ok := v.(UnaryReadable); ok {
 		r, w := io.Pipe()
 		go func() {
+			defer w.Close()
 			for {
-				v, err := uReader.Read()
-				if err != nil {
-					w.CloseWithError(err)
+				select {
+				case <-reqCtx.Done():
+					w.CloseWithError(reqCtx.Err())
 					return
-				}
-				if err := encoder.EncodeStream(reqCtx, w, v); err != nil {
-					w.CloseWithError(err)
-					return
+				default:
+					v, err := uReader.Read(reqCtx)
+					if err != nil {
+						w.CloseWithError(err)
+						return
+					}
+					if err := encoder.EncodeStream(reqCtx, w, v); err != nil {
+						w.CloseWithError(err)
+						return
+					}
 				}
 			}
 		}()

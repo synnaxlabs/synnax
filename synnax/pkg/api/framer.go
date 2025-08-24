@@ -16,6 +16,7 @@ import (
 	"go/types"
 	"io"
 	"reflect"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -80,24 +81,54 @@ type FrameReadRequest struct {
 type FrameReadResponse = fhttp.UnaryReadable
 
 type frameUnaryReadable struct {
-	metaData        frameReadMetadata
-	frameChannel    chan Frame
-	errorChannel    chan error
-	metaDataWritten bool
+	metaData frameReadMetadata
+	frames   chan Frame
+	mu       sync.Mutex
+	err      error
+	once     sync.Once
+	mdOnce   sync.Once
 }
 
 var _ fhttp.UnaryReadable = (*frameUnaryReadable)(nil)
 
-func (r *frameUnaryReadable) Read() (any, error) {
-	if !r.metaDataWritten {
-		r.metaDataWritten = true
-		return r.metaData, nil
+func (r *frameUnaryReadable) finish(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.once.Do(func() {
+		r.err = err
+		close(r.frames)
+	})
+}
+
+func (r *frameUnaryReadable) error() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.err
+}
+
+func (r *frameUnaryReadable) getMetaData() any {
+	var out any
+	r.mdOnce.Do(func() {
+		out = r.metaData
+	})
+	return out
+}
+
+func (r *frameUnaryReadable) Read(ctx context.Context) (any, error) {
+	if v := r.getMetaData(); v != nil {
+		return v, nil
 	}
 	select {
-	case frame := <-r.frameChannel:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case frame, ok := <-r.frames:
+		if !ok {
+			if err := r.error(); err != nil {
+				return nil, err
+			}
+			return nil, io.EOF
+		}
 		return frame, nil
-	case err := <-r.errorChannel:
-		return nil, err
 	}
 }
 
@@ -164,29 +195,35 @@ func (s *FrameService) Read(
 		channels:     channels,
 		channelNames: req.ChannelNames,
 	}
-	response.frameChannel = make(chan Frame, 1)
-	response.errorChannel = make(chan error, 1)
+	response.frames = make(chan Frame, 20)
 	go func() {
+		defer func() {
+			response.finish(nil)
+		}()
 		iter, err := s.internal.Iterator.Open(ctx, framer.IteratorConfig{
 			Keys:   allKeys,
 			Bounds: req.TimeRange,
 		})
 		if err != nil {
-			response.errorChannel <- err
-			close(response.frameChannel)
-			close(response.errorChannel)
+			response.finish(err)
 			return
 		}
+		defer func() {
+			if err := iter.Close(); err != nil {
+				response.finish(err)
+			}
+		}()
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
-			response.frameChannel <- iter.Value()
+			select {
+			case <-ctx.Done():
+				response.finish(ctx.Err())
+				return
+			case response.frames <- iter.Value():
+			}
 		}
 		if err := iter.Error(); err != nil {
-			response.errorChannel <- err
-		} else {
-			response.errorChannel <- io.EOF
+			response.finish(err)
 		}
-		close(response.frameChannel)
-		close(response.errorChannel)
 	}()
 	return response, nil
 }
