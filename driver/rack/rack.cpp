@@ -38,7 +38,9 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
             cfg.new_client(),
             cfg.new_factory()
         );
-        err = this->task_manager->run();
+        err = this->task_manager->run([this]() {
+            this->breaker.reset();
+        });
         if (err && this->should_exit(err, on_shutdown)) return;
     }
     if (this->task_manager != nullptr) this->task_manager->stop();
