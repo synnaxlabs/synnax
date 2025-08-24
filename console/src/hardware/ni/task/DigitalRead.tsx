@@ -10,12 +10,11 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useEffect } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
@@ -54,8 +53,12 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ channel, key, customName, port, line, path, channelIndex }: DIChannel & { path?: string; channelIndex?: number }) => {
-  const { set, get } = PForm.useContext();
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<DIChannel>(path);
+  if (item == null) return null;
+  const { port, line, channel, customName } = item;
   
   // Get device from the config
   const deviceKey = PForm.useFieldValue<string>("config.device");
@@ -63,23 +66,24 @@ const NameComponent = ({ channel, key, customName, port, line, path, channelInde
     params: { key: deviceKey || "" },
   });
   
+  const { set } = PForm.useContext();
+  
   const handleCustomNameChange = useCallback(
     (newName: string) => {
-      if (!path || channelIndex === undefined || channelIndex === -1) return;
-      // Get the current form values at call time
-      const currentValue = get<DIChannel>(path).value;
-      set(path, { ...currentValue, customName: newName });
+      set(path, { ...item, customName: newName });
     },
-    [path, channelIndex, set, get],
+    [item, path, set],
   );
   
-  // Use a unique ID based on the channelIndex to avoid conflicts
-  const uniqueId = `digital-read-${key}-${channelIndex}`;
-  
   return (
-    <Common.Task.ChannelName 
-      channel={channel} 
-      id={uniqueId}
+    <Common.Task.Layouts.ListAndDetailsChannelItem
+      {...props}
+      port={`${port}/${line}`}
+      portMaxChars={4}
+      hasTareButton={false}
+      channel={channel}
+      canTare={false}
+      path={path}
       previewDevice={device}
       previewChannelType="di"
       previewPort={port}
@@ -90,7 +94,25 @@ const NameComponent = ({ channel, key, customName, port, line, path, channelInde
   );
 };
 
-const name = Component.renderProp(NameComponent);
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
+  return (
+    <>
+      <PForm.NumericField
+        path={`${path}.port`}
+        label="Port"
+        inputProps={{ showDragHandle: false }}
+      />
+      <PForm.NumericField
+        path={`${path}.line`}
+        label="Line"
+        inputProps={{ showDragHandle: false }}
+      />
+    </>
+  );
+};
+
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -98,11 +120,11 @@ const Form: FC<
     typeof digitalReadConfigZ,
     typeof digitalReadStatusDataZ
   >
-> = (props) => (
-  <DigitalChannelList<DIChannel>
-    {...props}
+> = () => (
+  <Common.Task.Layouts.ListAndDetails
+    listItem={channelListItem}
+    details={channelDetails}
     createChannel={createDIChannel}
-    name={name}
     contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );

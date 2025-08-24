@@ -10,13 +10,12 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useEffect } from "react";
 
 import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_SCHEMAS,
@@ -54,8 +53,12 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ cmdChannel, key, stateChannel, customName, port, line, path, channelIndex }: DOChannel & { path?: string; channelIndex?: number }) => {
-  const { set, get } = PForm.useContext();
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<DOChannel>(path);
+  if (item == null) return null;
+  const { port, line, cmdChannel, stateChannel, customName } = item;
   
   // Get device from the config
   const deviceKey = PForm.useFieldValue<string>("config.device");
@@ -63,24 +66,25 @@ const NameComponent = ({ cmdChannel, key, stateChannel, customName, port, line, 
     params: { key: deviceKey || "" },
   });
   
+  const { set } = PForm.useContext();
+  
   const handleCustomNameChange = useCallback(
     (newName: string) => {
-      if (!path || channelIndex === undefined || channelIndex === -1) return;
-      // Get the current form values at call time
-      const currentValue = get<DOChannel>(path).value;
-      set(path, { ...currentValue, customName: newName });
+      set(path, { ...item, customName: newName });
     },
-    [path, channelIndex, set, get],
+    [item, path, set],
   );
   
-  // Use a unique itemKey based on the channel's unique key and index to avoid conflicts
-  const uniqueItemKey = `digital-write-${key}-${channelIndex}`;
-  
   return (
-    <Common.Task.WriteChannelNames
-      cmdChannel={cmdChannel}
+    <Common.Task.Layouts.ListAndDetailsChannelItem
+      {...props}
+      port={`${port}/${line}`}
+      portMaxChars={4}
+      hasTareButton={false}
+      channel={cmdChannel}
       stateChannel={stateChannel}
-      itemKey={uniqueItemKey}
+      canTare={false}
+      path={path}
       previewDevice={device}
       previewChannelType="do"
       previewPort={port}
@@ -91,7 +95,25 @@ const NameComponent = ({ cmdChannel, key, stateChannel, customName, port, line, 
   );
 };
 
-const name = Component.renderProp(NameComponent);
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
+  return (
+    <>
+      <PForm.NumericField
+        path={`${path}.port`}
+        label="Port"
+        inputProps={{ showDragHandle: false }}
+      />
+      <PForm.NumericField
+        path={`${path}.line`}
+        label="Line"
+        inputProps={{ showDragHandle: false }}
+      />
+    </>
+  );
+};
+
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -99,11 +121,11 @@ const Form: FC<
     typeof digitalWriteConfigZ,
     typeof digitalWriteStatusDataZ
   >
-> = (props) => (
-  <DigitalChannelList
-    {...props}
+> = () => (
+  <Common.Task.Layouts.ListAndDetails
+    listItem={channelListItem}
+    details={channelDetails}
     createChannel={createDOChannel}
-    name={name}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
