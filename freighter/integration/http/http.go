@@ -130,7 +130,7 @@ func newUnaryTextResponse(req Message) *UnaryTextResponse {
 	}
 }
 
-func (u *UnaryTextResponse) Read() (any, error) {
+func (u *UnaryTextResponse) Read(context.Context) (any, error) {
 	switch u.readingEnum {
 	case readingID:
 		u.readingEnum = readingMessage
