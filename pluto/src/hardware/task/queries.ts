@@ -289,21 +289,12 @@ export const createForm = <
         const updatedValues = taskToFormValues<Type, Config, StatusData>(
           task.payload as task.Payload<Type, Config, StatusData>,
         );
-        form.set("key", updatedValues.key);
-        form.set("name", updatedValues.name);
-        form.set("rackKey", updatedValues.rackKey);
-        form.set("type", updatedValues.type);
-        form.set("config", updatedValues.config);
-        form.set("snapshot", updatedValues.snapshot);
+        // Reset form with updated values to clear touched state and remove yellow dot
+        form.reset(updatedValues);
       },
-      mountListeners: ({ store, get, reset }) => [
-        store.tasks.onSet((task) => {
-          const prevKey = get<string>("key", { optional: true })?.value;
-          if (prevKey == null || prevKey !== task.key) return;
-          reset(
-            taskToFormValues(task as unknown as task.Payload<Type, Config, StatusData>),
-          );
-        }),
+      mountListeners: () => [
+        // Disabled automatic form reset to prevent unconfigured channels from disappearing
+        // Form will only reset when user explicitly saves via Configure button
       ],
     },
   );

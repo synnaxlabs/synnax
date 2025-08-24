@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useEffect } from "react";
+import { type FC, useCallback } from "react";
 
 import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
@@ -29,7 +29,6 @@ import {
   type AOChannel,
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
-  ZERO_AO_CHANNEL,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
 
@@ -59,7 +58,7 @@ const Properties = () => (
 );
 
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
-  const { itemKey, ...rest } = props;
+  const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
   if (item == null) return null;
