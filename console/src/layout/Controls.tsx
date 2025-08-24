@@ -18,6 +18,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useRemover } from "@/layout/useRemover";
+import { RUNTIME } from "@/runtime";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
@@ -43,6 +44,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const handleMinimize = useCallback(() => {
     dispatch(setWindowMinimized({ value: true }));
   }, [dispatch]);
+  if (RUNTIME !== "tauri") return;
   return window?.fullscreen === true ? null : (
     <OS.Controls
       disabled={disabled}

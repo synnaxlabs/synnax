@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { detectServingCluster } from "@/cluster/autoConnect";
-import { useSelectMany, useSelectActiveKey } from "@/cluster/selectors";
+import { useSelectActiveKey, useSelectMany } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
 import { Modals } from "@/modals";
 
@@ -33,18 +33,6 @@ export const useAutoConnect = (): void => {
     const servingCluster = detectServingCluster();
     if (servingCluster == null) return;
 
-    // // Check if this cluster already exists in the store
-    // const existingCluster = clusters.find(
-    //   (cluster) =>
-    //     cluster.host === servingCluster.host && cluster.port === servingCluster.port,
-    // );
-
-    // if (existingCluster != null) {
-    //   // Cluster exists, just set it as active
-    //   dispatch(setActive(existingCluster.key));
-    //   return;
-    // }
-
     // Need to prompt for credentials and create a new cluster
     const connectWithCredentials = async () => {
       console.log("connectWithCredentials");
@@ -60,7 +48,6 @@ export const useAutoConnect = (): void => {
         username: credentials.username,
         password: credentials.password,
       };
-
       dispatch(set(clusterWithCredentials));
       dispatch(setActive(clusterWithCredentials.key));
     };

@@ -44,7 +44,7 @@ export const Top = (): ReactElement => {
       </Nav.Bar.Center>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         <Version.Badge />
-        <Cluster.Dropdown />
+        <Cluster.ConnectionStatus />
         <Docs.OpenButton />
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>

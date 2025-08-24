@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 )
 
-//go:embed assets/*
+//go:embed dist/*
 var embeddedAssets embed.FS
 
 // Service serves the web-based console UI.
@@ -36,7 +36,7 @@ var _ fhttp.BindableTransport = (*Service)(nil)
 // NewService creates a new console UI service with embedded assets.
 func NewService() *Service {
 	// Strip the "assets" prefix from the embedded filesystem
-	subFS, _ := fs.Sub(embeddedAssets, "assets")
+	subFS, _ := fs.Sub(embeddedAssets, "dist")
 	return &Service{
 		fs: subFS,
 	}

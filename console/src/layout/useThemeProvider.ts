@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
 import { RUNTIME } from "@/runtime";
+import { isMainWindow } from "@/isMainWindow";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
@@ -31,8 +32,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 
   useAsyncEffect(
     async (signal) => {
-      if (RUNTIME !== "tauri") return;
-      if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
+      if (!isMainWindow()) return;
       await setInitialTheme(dispatch);
       if (signal.aborted) return;
       return await synchronizeWithOS(dispatch);
@@ -50,10 +50,26 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>) =>
+const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>) => {
+  if (RUNTIME !== "tauri")
+    return window.addEventListener("themeChanged", (e) => {
+      const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+      dispatch(setActiveTheme(matchThemeChange(theme)));
+    });
   await getCurrentWindow().onThemeChanged(({ payload }) =>
     dispatch(setActiveTheme(matchThemeChange(payload))),
   );
+};
 
-const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
+const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> => {
+  if (RUNTIME !== "tauri") {
+    const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+    dispatch(setActiveTheme(matchThemeChange(theme)));
+    return;
+  }
   dispatch(setActiveTheme(matchThemeChange(await getCurrentWindow().theme())));
+};
