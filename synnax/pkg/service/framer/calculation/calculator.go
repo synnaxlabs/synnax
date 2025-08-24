@@ -33,7 +33,7 @@ type Calculator struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
-	// cache is a map of cache channels and an accumulated buffer of data. Data
+	// cache is a map of required channels and an accumulated buffer of data. Data
 	// is accumulated for each channel until a calculation can be performed, and is
 	// then flushed.
 	cache map[channel.Key]cacheEntry
