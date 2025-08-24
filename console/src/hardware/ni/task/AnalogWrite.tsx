@@ -104,6 +104,11 @@ const ChannelListItem = ({ itemKey, ...rest }: Common.Task.ChannelListItemProps)
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
+  const channel = PForm.useFieldValue<AOChannel | null>(path);
+  
+  // Return null if channel doesn't exist yet (race condition during channel creation)
+  if (channel == null) return null;
+  
   return (
     <>
       <SelectAOChannelTypeField path={path} />

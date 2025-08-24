@@ -34,7 +34,7 @@ export const deleteReadChannel = async ({
   client,
   channelKey,
   deleteChannels,
-}: DeleteReadChannelParams): Promise<void> => {
+}: DeleteReadChannelParams): Promise<boolean> => {
   const channelDetail = await client.channels.retrieve(channelKey);
   
   const confirmed = await deleteChannels(
@@ -48,9 +48,10 @@ export const deleteReadChannel = async ({
     }
   );
   
-  if (!confirmed) return;
+  if (!confirmed) return false;
   
   await client.channels.delete(channelKey);
+  return true;
 };
 
 export interface DeleteWriteChannelsByPatternParams {
@@ -110,7 +111,7 @@ export const deleteWriteChannels = async ({
   client,
   channel,
   deleteChannels,
-}: DeleteWriteChannelParams): Promise<void> => {
+}: DeleteWriteChannelParams): Promise<boolean> => {
   const cmdChannel = channel.cmdChannel;
   const stateChannel = channel.stateChannel;
   
@@ -161,7 +162,7 @@ export const deleteWriteChannels = async ({
       // cmd_time channel not found
     }
   
-  if (channelKeysToDelete.length === 0) return;
+  if (channelKeysToDelete.length === 0) return false;
 
   const confirmed = await deleteChannels(
     {
@@ -174,9 +175,10 @@ export const deleteWriteChannels = async ({
     }
   );
   
-  if (!confirmed) return;
+  if (!confirmed) return false;
   
   await client.channels.delete(channelKeysToDelete);
+  return true;
 };
 
 export const deleteMultipleChannels = async ({

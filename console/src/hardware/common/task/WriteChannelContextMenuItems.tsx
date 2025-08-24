@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Icon, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Component, Form, Icon, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import { deleteWriteChannels } from "@/channel/services/channelDeleteService";
 import { renameWriteChannels } from "@/channel/services/channelRenameService";
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { type WriteChannel } from "@/hardware/common/task/types";
-import { useRenameChannels } from "@/modals";
+import { useDeleteChannels, useRenameChannels } from "@/modals";
 
 export interface WriteChannelContextMenuItemsProps
   extends ContextMenuItemProps<WriteChannel> {}
@@ -33,6 +35,10 @@ export const WriteChannelContextMenuItems: React.FC<
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const renameChannels = useRenameChannels();
+  const deleteChannels = useDeleteChannels();
+  const { set } = Form.useContext();
+  const currentChannels = Form.useFieldValue<WriteChannel[]>("config.channels");
+  const queryClient = useQueryClient();
 
   const handleRenameChannels = useCallback(async () => {
     if (!client) return;
@@ -46,11 +52,49 @@ export const WriteChannelContextMenuItems: React.FC<
     }
   }, [client, channel, renameChannels, handleError]);
 
+  const handleDeleteChannels = useCallback(async () => {
+    if (!client) return;
+    
+    try {
+      // Delete channels from backend
+      const wasDeleted = await deleteWriteChannels({ client, channel, deleteChannels });
+      
+      // Only update UI if deletion was actually confirmed and completed
+      if (wasDeleted) {
+        // Update form to show "No Channel" immediately after successful deletion
+        const updatedChannels = currentChannels.map(ch => {
+          if (ch.key === channel.key)
+            return {
+              ...ch,
+              cmdChannel: 0,
+              stateChannel: 0,
+            };
+          return ch;
+        });
+        set("config.channels", updatedChannels);
+        
+        // Invalidate all channel queries to refresh Resources pane
+        await queryClient.invalidateQueries({ queryKey: ["channel"] });
+        await queryClient.invalidateQueries({ queryKey: ["ontology"] });
+      }
+      
+    } catch (error) {
+      // If deletion fails due to error, don't update the form
+      if (error instanceof Error) 
+        handleError(error, "Failed to delete channel(s)");
+      
+    }
+  }, [client, channel, deleteChannels, handleError, currentChannels, set, queryClient]);
+
   return (
     <>
       <Menu.Item itemKey="renameChannels" onClick={() => void handleRenameChannels()}>
         <Icon.Rename />
         Rename Channels
+      </Menu.Item>
+      <Menu.Item itemKey="deleteChannels" onClick={() => void handleDeleteChannels()}>
+        <Icon.Delete />
+        Delete Channels
       </Menu.Item>
     </>
   );
