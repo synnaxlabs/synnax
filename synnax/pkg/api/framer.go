@@ -213,7 +213,8 @@ func (s *FrameService) Read(
 				response.finish(err)
 			}
 		}()
-		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
+		for ok := iter.SeekFirst() &&
+			iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
 			select {
 			case <-ctx.Done():
 				response.finish(ctx.Err())
