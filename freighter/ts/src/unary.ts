@@ -92,7 +92,7 @@ export const unaryWithBreaker = (
   return new WithBreaker(base);
 };
 
-export type SendRequired = {
+export interface SendRequired {
   <RQ extends z.ZodType>(
     client: UnaryClient,
     target: string,
@@ -106,7 +106,7 @@ export type SendRequired = {
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<z.infer<RS>>;
-};
+}
 
 export const sendRequired: SendRequired = async <
   RQ extends z.ZodType,
