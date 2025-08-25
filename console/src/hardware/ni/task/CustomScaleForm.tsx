@@ -107,18 +107,17 @@ export interface CustomScaleFormProps {
   prefix: string;
 }
 
+const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
+  <Flex.Box x>
+    <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} grow />
+    <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} grow />
+  </Flex.Box>
+);
+
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <Flex.Box x>
-        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
-        <Form.TextField
-          fieldKey="scaledUnits"
-          label="Scaled Units"
-          path={prefix}
-          grow
-        />
-      </Flex.Box>
+      <CustomScaleUnitsFields prefix={prefix} />
       <Flex.Box x>
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
         <Form.NumericField
@@ -132,7 +131,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   ),
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
+      <CustomScaleUnitsFields prefix={prefix} />
       <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
@@ -213,7 +212,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
 
     return (
       <>
-        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
+        <CustomScaleUnitsFields prefix={prefix} />
         <Input.Item label="Table CSV" padHelpText>
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}

@@ -696,7 +696,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_strain_gauge: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <StrainConfig path={prefix} grow />
+      <StrainConfig path={prefix} />
       <Flex.Box x>
         <ExcitSourceField
           path={prefix}
@@ -921,7 +921,16 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           label="Sensitivity"
           inputProps={{
             children: (
-              <SensitivityUnits path={prefix} showLabel={false} showHelpText={false} />
+              <SensitivityUnits
+                path={prefix}
+                showLabel={false}
+                showHelpText={false}
+                inputProps={{
+                  triggerProps: {
+                    style: { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
+                  },
+                }}
+              />
             ),
           }}
         />
@@ -930,6 +939,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
             path={prefix}
             fieldKey="currentExcitSource"
             label="Current Excitation Source"
+            grow
           />
           <Form.NumericField
             path={`${prefix}.currentExcitVal`}
