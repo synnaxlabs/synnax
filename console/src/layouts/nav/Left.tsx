@@ -10,12 +10,12 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Nav, OS } from "@synnaxlabs/pluto";
+import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { Menu } from "@/layouts/nav/Menu";
 import { LOGO_LOCATION } from "@/layouts/nav/logo";
+import { Menu } from "@/layouts/nav/Menu";
 
 export const Left = (): ReactElement => (
   <Layout.Nav.Bar location="left" size="8rem">

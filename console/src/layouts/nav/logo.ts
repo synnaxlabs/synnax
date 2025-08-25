@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RUNTIME } from "@/runtime";
 import { runtime } from "@synnaxlabs/x";
+
+import { RUNTIME } from "@/runtime";
 
 export const LOGO_LOCATION =
   runtime.getOS() !== "Windows" && RUNTIME === "tauri" ? "left" : "top";

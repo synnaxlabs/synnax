@@ -9,8 +9,8 @@
 
 import { type ReactElement } from "react";
 
-import { Dropdown } from "@/cluster/Dropdown";
 import { ConnectionBadge } from "@/cluster/Badges";
+import { Dropdown } from "@/cluster/Dropdown";
 import { RUNTIME } from "@/runtime";
 
 export const Connection = (): ReactElement => {

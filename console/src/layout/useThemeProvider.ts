@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type UnknownAction } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
 import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
+import { isMainWindow } from "@/isMainWindow";
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
 import { RUNTIME } from "@/runtime";
-import { isMainWindow } from "@/isMainWindow";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
@@ -52,7 +51,7 @@ const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THE
 
 const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>) => {
   if (RUNTIME !== "tauri")
-    return window.addEventListener("themeChanged", (e) => {
+    return window.addEventListener("themeChanged", () => {
       const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { detectServingConnection } from "@/cluster/autoConnect";
 import { LoginScreen } from "@/cluster/LoginScreen";
 import { useSelect } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
-import { Cluster } from "@/cluster/types";
-import z from "zod";
+import { type Cluster } from "@/cluster/types";
 
 interface AuthGuardProps {
   children: ReactElement;

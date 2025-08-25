@@ -16,11 +16,10 @@ import { type ReactElement } from "react";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
+import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Palette } from "@/palette";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
-import { RUNTIME } from "@/runtime";
-import { LOGO_LOCATION } from "@/layouts/nav/logo";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
   command: [["Control", "Shift", "P"]],

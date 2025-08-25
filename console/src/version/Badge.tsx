@@ -13,10 +13,10 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
+import { RUNTIME } from "@/runtime";
 import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
-import { RUNTIME } from "@/runtime";
 
 export const Badge = (): ReactElement => {
   const version = useSelectVersion();

@@ -9,16 +9,17 @@
 
 import "@/cluster/LoginScreen.css";
 
-import { z } from "zod";
-import { id, status } from "@synnaxlabs/x";
-import { Logo } from "@synnaxlabs/media";
 import { Synnax as Client } from "@synnaxlabs/client";
+import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Form, Status } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
-import { set as setVersion } from "@/version/slice";
+import { z } from "zod";
+
 import { type ConnectionParams } from "@/cluster/autoConnect";
-import { Cluster } from "@/cluster/types";
+import { type Cluster } from "@/cluster/types";
+import { set as setVersion } from "@/version/slice";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),

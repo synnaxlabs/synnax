@@ -9,7 +9,6 @@
 
 import { type Layout } from "@/layout";
 import { Confirm, CONFIRM_LAYOUT_TYPE } from "@/modals/Confirm";
-import { Credentials, CREDENTIALS_LAYOUT_TYPE } from "@/modals/Credentials";
 import { Rename, RENAME_LAYOUT_TYPE } from "@/modals/Rename";
 
 export * from "@/modals/BottomNavBar";
@@ -19,12 +18,6 @@ export {
   useConfirm,
 } from "@/modals/Confirm";
 export {
-  type Credentials as CredentialsType,
-  type PromptCredentials,
-  type PromptCredentialsLayoutArgs,
-  useCredentials,
-} from "@/modals/Credentials";
-export {
   type PromptRename,
   type PromptRenameLayoutArgs,
   useRename,
@@ -32,6 +25,5 @@ export {
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONFIRM_LAYOUT_TYPE]: Confirm,
-  [CREDENTIALS_LAYOUT_TYPE]: Credentials,
   [RENAME_LAYOUT_TYPE]: Rename,
 };
