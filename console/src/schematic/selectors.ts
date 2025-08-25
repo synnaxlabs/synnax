@@ -155,7 +155,15 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node") return element.props.label?.label ?? null;
+    if (
+      element.type === "node" &&
+      "label" in element.props &&
+      typeof element.props.label === "object" &&
+      element.props.label != null &&
+      "label" in element.props.label &&
+      typeof element.props.label.label === "string"
+    )
+      return element.props.label.label;
     return null;
   });
 };
@@ -197,10 +205,11 @@ export const useSelectRequiredNodeProps = (layoutKey: string, key: string): Node
     [layoutKey, key],
   );
 
-export const selectToolbar = (state: StoreState): ToolbarState =>
-  selectSliceState(state).toolbar;
+export const selectRequiredToolbar = (state: StoreState, key: string): ToolbarState =>
+  selectRequired(state, key).toolbar;
 
-export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
+export const useSelectRequiredToolbar = (key: string): ToolbarState =>
+  useMemoSelect((state: StoreState) => selectRequiredToolbar(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
   selectOptional(state, key)?.editable;
@@ -208,11 +217,13 @@ export const selectEditable = (state: StoreState, key: string): boolean | undefi
 export const useSelectEditable = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
-export const selectViewportMode = (state: StoreState): Viewport.Mode =>
-  selectSliceState(state).mode;
+export const selectRequiredViewportMode = (
+  state: StoreState,
+  key: string,
+): Viewport.Mode => selectRequired(state, key).mode;
 
-export const useSelectViewportMode = (): Viewport.Mode =>
-  useMemoSelect(selectViewportMode, []);
+export const useSelectRequiredViewportMode = (key: string): Viewport.Mode =>
+  useMemoSelect((state: StoreState) => selectRequiredViewportMode(state, key), [key]);
 
 export const selectViewport = (
   state: StoreState,
