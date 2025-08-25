@@ -12,17 +12,19 @@ import { RUNTIME } from "@/runtime";
 
 export interface ConnectionParams extends Pick<Cluster, "host" | "port" | "secure"> {}
 
+const DEV_CONNECTION: ConnectionParams = {
+  host: "localhost",
+  port: 9090,
+  secure: false,
+};
+
 export const detectServingConnection = (): ConnectionParams | null => {
   if (RUNTIME === "tauri") return null;
-  let host = "localhost";
-  let port = 9090;
-  let secure = false;
-  console.log(IS_DEV);
-  if (!IS_DEV) {
-    const url = new URL(window.location.origin);
-    host = url.hostname;
-    port = url.port ? parseInt(url.port) : url.protocol === "https:" ? 443 : 80;
-    secure = url.protocol === "https:";
-  }
-  return { host, port, secure };
+  if (IS_DEV) return DEV_CONNECTION;
+  const url = new URL(window.location.origin);
+  return {
+    host: url.hostname,
+    port: url.port ? parseInt(url.port) : url.protocol === "https:" ? 443 : 80,
+    secure: url.protocol === "https:",
+  };
 };

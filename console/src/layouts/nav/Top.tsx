@@ -32,7 +32,7 @@ const TopPalette = (): ReactElement => (
   <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
 );
 
-export const Top = (): ReactElement => {
+export const Top = (): ReactElement | null => {
   const os = OS.use();
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">

@@ -32,7 +32,7 @@ export interface Credentials {
 
 export interface LoginScreenProps {
   connection: ConnectionParams;
-  onSuccess: (cluster: Cluster) => Promise<void>;
+  onSuccess: (cluster: Cluster) => void;
 }
 
 export const LoginScreen = ({
@@ -79,7 +79,7 @@ export const LoginScreen = ({
       return;
     }
     if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
-    await onSuccess({
+    onSuccess({
       key: state.clusterKey,
       name: "Cluster",
       ...connection,

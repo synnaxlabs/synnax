@@ -11,10 +11,9 @@ import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { detectServingConnection } from "@/cluster/autoConnect";
-import { Credentials, LoginScreen } from "@/cluster/LoginScreen";
+import { LoginScreen } from "@/cluster/LoginScreen";
 import { useSelect } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
-import { SynnaxProps, synnaxPropsZ } from "@synnaxlabs/client";
 import { Cluster } from "@/cluster/types";
 import z from "zod";
 
@@ -22,27 +21,16 @@ interface AuthGuardProps {
   children: ReactElement;
 }
 
-export const AuthGuard = ({ children }: AuthGuardProps): ReactElement => {
+export const AuthGuard = ({ children }: AuthGuardProps): ReactElement | null => {
   const dispatch = useDispatch();
-  const [isAuthenticating, setIsAuthenticating] = useState(true);
   const activeCluster = useSelect();
   const serving = detectServingConnection();
-
-  useEffect(
-    () => setIsAuthenticating(serving != null && activeCluster == null),
-    [activeCluster],
-  );
-
-  const handleConnect = async (cluster: Cluster): Promise<void> => {
-    if (serving == null) return;
+  const initialAuthState = serving != null && activeCluster == null;
+  const handleConnect = (cluster: Cluster): void => {
     dispatch(set(cluster));
     dispatch(setActive(cluster.key));
-    console.log(cluster);
-    setIsAuthenticating(false);
   };
-  console.log(serving, isAuthenticating);
-
-  if (serving != null && isAuthenticating)
+  if (serving != null && initialAuthState)
     return <LoginScreen connection={serving} onSuccess={handleConnect} />;
   return children;
 };
