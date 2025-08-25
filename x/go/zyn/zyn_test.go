@@ -79,12 +79,12 @@ var _ = Describe("Zyn", func() {
 			for _, t := range zyn.DataTypes {
 				It(fmt.Sprintf("Should parse %s successfully", t), func() {
 					var dest zyn.DataType
-					Expect(zyn.DataTypeSchema.Parse(t, &dest)).To(Succeed())
+					Expect(zyn.AnyDataTypeSchema.Parse(t, &dest)).To(Succeed())
 				})
 			}
 			It("Should fail on a random string", func() {
 				var dest zyn.DataType
-				Expect(zyn.DataTypeSchema.Parse("dog", &dest)).To(MatchError(ContainSubstring("invalid enum value")))
+				Expect(zyn.AnyDataTypeSchema.Parse("dog", &dest)).To(MatchError(ContainSubstring("invalid enum value")))
 			})
 		})
 	})

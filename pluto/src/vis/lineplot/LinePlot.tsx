@@ -96,6 +96,7 @@ export interface LineSpec {
   color: color.Crude;
   label: string;
   visible: boolean;
+  axis?: string;
 }
 
 type LineState = LineSpec[];

@@ -60,9 +60,9 @@ const (
 	Uint64T DataType = "uint64"
 
 	// Float32T represents a float32 type in the schema.
-	Float32T DataType = "float"
+	Float32T DataType = "float32"
 	// Float64T represents a float64 type in the schema.
-	Float64T DataType = "double"
+	Float64T DataType = "float64"
 )
 
 var (
@@ -109,14 +109,14 @@ var (
 	NumericTypeSchema = Enum(NumericTypes...)
 	PrimitiveTypes    = slices.Concat(
 		[]DataType{StringT, BoolT, UUIDT},
-		IntegerTypes,
+		NumericTypes,
 	)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
 	DataTypes           = slices.Concat(
 		[]DataType{ObjectT},
-		IntegerTypes,
+		PrimitiveTypes,
 	)
-	DataTypeSchema = Enum(DataTypes...)
+	AnyDataTypeSchema = Enum(DataTypes...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }

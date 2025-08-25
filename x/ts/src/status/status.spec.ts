@@ -19,7 +19,7 @@ describe("status", () => {
       const s = status.create({ variant: "success", message: "test" });
       expect(s.key).toHaveLength(id.LENGTH);
       expect(s.time).toBeInstanceOf(TimeStamp);
-      expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
+      expect(s.time.beforeEq(TimeStamp.now())).toBeTruthy();
     });
   });
 });

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -110,7 +111,8 @@ type Layer struct {
 	Hardware *hardware.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
-	Framer *framer.Service
+	Framer     *framer.Service
+	Annotation *annotation.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -225,5 +227,16 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
+	if l.Annotation, err = annotation.OpenService(
+		ctx,
+		annotation.ServiceConfig{
+			DB:       cfg.Distribution.DB,
+			Ontology: cfg.Distribution.Ontology,
+			Signals:  cfg.Distribution.Signals,
+		},
+	); !ok(err, l.Annotation) {
+		return nil, err
+	}
+
 	return l, nil
 }

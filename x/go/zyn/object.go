@@ -198,7 +198,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() != reflect.Map {
-		return NewInvalidDestinationTypeError("map[string]any", destVal)
+		return NewInvalidDestinationTypeError("map[string]any", dataVal)
 	}
 
 	dataMap, ok := data.(map[string]any)

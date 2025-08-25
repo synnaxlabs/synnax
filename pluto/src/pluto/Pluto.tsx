@@ -11,6 +11,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
+import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
@@ -19,7 +20,7 @@ import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
 import { Label } from "@/label";
-import { Ontology } from "@/ontology";
+import { ontology as aetherOntology } from "@/ontology/aether";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
@@ -51,25 +52,28 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
 
 export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.FluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
   [Device.FLUX_STORE_KEY]: Device.FluxStore;
   [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
   [Rack.FLUX_STORE_KEY]: Rack.STORE_CONFIG,
   [Device.FLUX_STORE_KEY]: Device.STORE_CONFIG,
   [Task.FLUX_STORE_KEY]: Task.STORE_CONFIG,
   [Workspace.FLUX_STORE_KEY]: Workspace.STORE_CONFIG,
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_STORE_CONFIG,
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_STORE_CONFIG,
+  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]:
+    aetherOntology.RELATIONSHIP_STORE_CONFIG,
+  [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.RESOURCE_STORE_CONFIG,
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
   [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,

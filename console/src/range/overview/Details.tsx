@@ -30,6 +30,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { rename } from "@/layout/slice";
+import { FavoriteButton } from "@/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 interface ParentRangeButtonProps {
@@ -45,12 +46,14 @@ const ParentRangeButton = ({
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
+  const Icon = Ranger.STAGE_ICONS[parent.stage];
   return (
     <Flex.Box x gap="small" align="center">
       <Text.Text weight={450} color={9}>
         Child Range of
       </Text.Text>
       <Button.Button
+        color={8}
         variant="text"
         weight={400}
         gap="small"
@@ -59,7 +62,7 @@ const ParentRangeButton = ({
           placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
         }
       >
-        <Icon.Range />
+        <Icon />
         {parent.name}
       </Button.Button>
     </Flex.Box>
@@ -74,10 +77,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
   const dispatch = useDispatch();
+  const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
   const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
+      stage: "to_do",
       name: "",
       timeRange: { start: 0, end: 0 },
       labels: [],
@@ -166,16 +171,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 variant="text"
                 onClick={handleCopyPythonCode}
+                textColor={9}
               >
-                <Icon.Python color={9} />
+                <Icon.Python />
               </Button.Button>
               <Button.Button
                 variant="text"
                 tooltip={`Copy TypeScript code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
+                textColor={9}
               >
-                <Icon.TypeScript color={9} />
+                <Icon.TypeScript />
               </Button.Button>
             </Flex.Box>
             <Divider.Divider y />
@@ -184,9 +191,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
+              textColor={9}
             >
               <Icon.Link color={10} />
             </Button.Button>
+            <Divider.Divider y />
+            {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
@@ -195,27 +205,39 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Text.Text className={CSS.B("time-range-divider")} level="h4">
-            <Icon.Arrow.Right />
-          </Text.Text>
+          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
             )}
           </Form.Field>
         </Flex.Box>
-        <Form.Field<string[]> required={false} path="labels">
-          {({ variant: _, value, onChange }) => (
-            <Label.SelectMultiple
-              zIndex={100}
-              variant="floating"
-              location="bottom"
-              style={{ width: "fit-content" }}
-              value={value}
-              onChange={onChange}
-            />
-          )}
-        </Form.Field>
+        <Flex.Box x>
+          <Form.Field<ranger.Stage> path="stage" required={false}>
+            {({ onChange, value }) => (
+              <Ranger.SelectStage
+                onChange={onChange}
+                value={value}
+                allowNone={false}
+                triggerProps={{ variant: "text", hideCaret: true }}
+                variant="floating"
+                location="bottom"
+              />
+            )}
+          </Form.Field>
+
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                zIndex={100}
+                variant="floating"
+                location="bottom"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
+            )}
+          </Form.Field>
+        </Flex.Box>
       </Flex.Box>
     </Form.Form>
   );

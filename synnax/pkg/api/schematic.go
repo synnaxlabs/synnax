@@ -110,9 +110,8 @@ type (
 )
 
 func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRequest) (res SchematicRetrieveResponse, err error) {
-	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.Schematics).Exec(ctx, nil)
-	if err != nil {
+	if err = s.internal.NewRetrieve().
+		WhereKeys(req.Keys...).Entries(&res.Schematics).Exec(ctx, nil); err != nil {
 		return SchematicRetrieveResponse{}, err
 	}
 	if err = s.access.Enforce(ctx, access.Request{

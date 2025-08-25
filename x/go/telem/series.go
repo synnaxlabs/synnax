@@ -109,6 +109,11 @@ func (s Series) At(i int) []byte {
 	return s.Data[i*den : (i+1)*den]
 }
 
+func (s Series) AtAny(i int) any {
+	d := s.At(i)
+	return UnmarshalAnyF(s.DataType)(d)
+}
+
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
@@ -379,4 +384,35 @@ func (m MultiSeries) Data() []byte {
 		data = append(data, s.Data...)
 	}
 	return data
+}
+
+// At returns the binary representation of the sample at the given index across the MultiSeries.
+// It supports negative indices, which will be wrapped around the end of the MultiSeries.
+func (m MultiSeries) At(i int) []byte {
+	if len(m.Series) == 0 {
+		return nil
+	}
+
+	totalLen := int(m.Len())
+	if i < 0 {
+		i += totalLen
+	}
+
+	if i < 0 || i >= totalLen {
+		return nil
+	}
+
+	for _, s := range m.Series {
+		seriesLen := int(s.Len())
+		if i < seriesLen {
+			return s.At(i)
+		}
+		i -= seriesLen
+	}
+
+	return nil
+}
+
+func (m MultiSeries) AtAny(i int) any {
+	return UnmarshalAnyF(m.DataType())(m.At(i))
 }

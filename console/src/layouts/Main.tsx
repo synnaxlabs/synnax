@@ -33,6 +33,7 @@ import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
+import { User } from "@/user";
 
 const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,
@@ -65,7 +66,8 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useFetchPermissions();
+  // Permissions.useSync();
+  User.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };

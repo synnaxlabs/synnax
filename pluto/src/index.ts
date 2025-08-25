@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { Aether } from "@/aether";
+export { Annotation } from "@/annotation";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
@@ -64,6 +65,7 @@ export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
+export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";

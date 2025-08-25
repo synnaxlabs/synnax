@@ -17,17 +17,19 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
+import { Annotations } from "@/range/overview/Annotations";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Flex.Box
     y
     style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
-    gap="medium"
+    gap="large"
   >
     <Details rangeKey={layoutKey} />
-    <MetaData rangeKey={layoutKey} />
     <ChildRanges rangeKey={layoutKey} />
+    <MetaData rangeKey={layoutKey} />
+    <Annotations rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
 );

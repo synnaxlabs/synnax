@@ -79,7 +79,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
     if (client == null) return;
     i.client = client;
-    const store = flux.useClient<Store>(ctx, this.key);
+    const store = flux.useStore<Store>(ctx, this.key);
     i.removeListener?.();
     const removeOnSet = store.ranges.onSet((changed) => {
       if (i.client == null) return;
@@ -144,6 +144,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           key: r.key,
           parent: r.parent,
           name: r.name,
+          stage: r.stage,
           color: r.color,
           labels: r.labels,
           timeRange: r.timeRange,

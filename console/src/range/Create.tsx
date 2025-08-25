@@ -30,7 +30,6 @@ import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
@@ -46,7 +45,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   icon: "Range",
   window: {
     resizable: false,
-    size: { height: 370, width: 700 },
+    size: { height: 440, width: 700 },
     navTop: true,
   },
 };
@@ -77,23 +76,26 @@ export const Create: Layout.Renderer = (props) => {
       key: uuid.create(),
       name: "",
       labels: [],
+      stage: "to_do",
       timeRange: { start: now, end: now },
       parent: "",
       ...args,
     },
-    afterSave: () => {
+    afterSave: (form) => {
       onClose();
-      const value = form.value();
-      if (value.key == null) return;
+      const { name, key, timeRange } = form.value();
+      if (key == null) return;
       dispatch(
         add({
-          ranges: fromClientRange({
-            ...value,
-            key: value.key ?? "",
-            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end),
-            labels: [],
-            parent: null,
-          }),
+          ranges: [
+            {
+              name,
+              key,
+              persisted: true,
+              variant: "static",
+              timeRange,
+            },
+          ],
         }),
       );
     },
@@ -143,6 +145,16 @@ export const Create: Layout.Renderer = (props) => {
                 variant="text"
                 placeholder="Range Name"
                 {...p}
+              />
+            )}
+          </Form.Field>
+          <Form.Field<ranger.Stage> path="stage" required={false}>
+            {({ value, onChange }) => (
+              <Ranger.SelectStage
+                value={value}
+                onChange={onChange}
+                style={{ width: 150 }}
+                triggerProps={{ variant: "outlined" }}
               />
             )}
           </Form.Field>

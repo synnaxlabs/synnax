@@ -24,7 +24,7 @@ const (
 type PBPayload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          string                 `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
-	Data          string                 `protobuf:"bytes,2,opt,name=Data,proto3" json:"Data,omitempty"`
+	Data          string                 `protobuf:"bytes,2,opt,name=Config,proto3" json:"Config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

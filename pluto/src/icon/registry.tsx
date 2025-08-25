@@ -32,6 +32,7 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
+  BsStars,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -50,7 +51,7 @@ import {
   FaWind,
   FaWindows,
 } from "react-icons/fa";
-import { FaBridge, FaGaugeHigh, FaGear } from "react-icons/fa6";
+import { FaBridge, FaCheck, FaGaugeHigh, FaGear, FaXmark } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -66,6 +67,7 @@ import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
+  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTerminal,
@@ -84,6 +86,7 @@ import {
   MdBlurLinear,
   MdBook,
   MdCalendarToday,
+  MdComment,
   MdCommit,
   MdDataArray,
   MdDataObject,
@@ -111,6 +114,7 @@ import {
   MdKeyboardTab,
   MdLabel,
   MdLink,
+  MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
@@ -146,6 +150,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -154,7 +159,14 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
+import {
+  RiProgress1Line,
+  RiProgress4Line,
+  RiProgress8Line,
+  RiSettings3Fill as RiSettingsFill,
+  RiWeightFill,
+} from "react-icons/ri";
+import { RxComponentBoolean } from "react-icons/rx";
 import {
   SiGooglenearby,
   SiNpm,
@@ -169,6 +181,7 @@ import {
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
+  TbArrowsSplit,
   TbArrowUp,
   TbCircleDashed,
   TbCircleLetterAFilled,
@@ -430,7 +443,7 @@ export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
 export const Text = wrapSVGIcon(MdTextFields, "text");
-export const Value = wrapSVGIcon(GoNumber, "value");
+export const Number = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
@@ -465,13 +478,25 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
-export const Map = wrapSVGIcon(MdOutlineMap, "map");
-export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
-export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Map = wrapSVGIcon(MdOutlineMap, "map");
+export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
+export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const Effect = wrapSVGIcon(BsStars, "effect");
+export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
+export const Select = wrapSVGIcon(TbArrowsSplit, "select");
+export const Notification = wrapSVGIcon(IoNotifications, "notification");
+export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
+export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
+export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
+export const True = wrapSVGIcon(FaCheck, "true");
+export const False = wrapSVGIcon(FaXmark, "false");
+export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
+export const Annotation = wrapSVGIcon(MdComment, "annotation");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
@@ -579,7 +604,7 @@ const icons = {
   Tare,
   Rotate,
   Text,
-  Value,
+  Value: Number,
   Calendar,
   Release,
   OpenExternal,
@@ -608,6 +633,15 @@ const icons = {
   None,
   Constant,
   Terminal,
+  Effect,
+  Slate,
+  Select,
+  Notification,
+  InProgress,
+  Completed,
+  ToDo,
+  Boolean,
+  Annotation,
 };
 
 export const resolve = ((

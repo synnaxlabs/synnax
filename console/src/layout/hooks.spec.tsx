@@ -227,7 +227,7 @@ describe("layout hooks", () => {
 
       expect(result.current.activeItem).toBeUndefined();
       expect(result.current.menuItems).toHaveLength(mockItems.length);
-      expect(result.current.hover).toBe(false);
+      expect(result.current.hover).toBeFalsy();
     });
 
     it("should handle item selection and collapsing", () => {
@@ -268,19 +268,19 @@ describe("layout hooks", () => {
       act(() => {
         result.current.onStartHover("channel");
       });
-      expect(result.current.hover).toBe(true);
+      expect(result.current.hover).toBeTruthy();
       expect(result.current.activeItem).toEqual(mockItems[0]);
 
       act(() => {
         result.current.onStartHover("range");
       });
-      expect(result.current.hover).toBe(true);
+      expect(result.current.hover).toBeTruthy();
       expect(result.current.activeItem?.key).toBe("range");
 
       act(() => {
         result.current.onStopHover();
       });
-      expect(result.current.hover).toBe(false);
+      expect(result.current.hover).toBeFalsy();
       expect(result.current.activeItem).toBeUndefined();
     });
 

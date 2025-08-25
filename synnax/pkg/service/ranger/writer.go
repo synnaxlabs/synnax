@@ -59,6 +59,9 @@ func (w Writer) CreateWithParent(
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
+	if r.Stage == "" {
+		r.Stage = ToDo
+	}
 	if err = w.validate(*r); err != nil {
 		return
 	}
