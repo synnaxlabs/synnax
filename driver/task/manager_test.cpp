@@ -107,7 +107,9 @@ protected:
         std::promise<void> started_promise;
         const auto started_future = started_promise.get_future();
         task_thread = std::thread([&] {
-            const auto t_err = task_manager->run(&started_promise);
+            const auto t_err = task_manager->run([&started_promise]() {
+                started_promise.set_value();
+            });
             ASSERT_FALSE(t_err) << t_err.message();
         });
         const auto status = started_future.wait_for(std::chrono::seconds(5));

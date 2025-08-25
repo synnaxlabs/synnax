@@ -50,11 +50,12 @@ export const Summary = ({
     </BaseText.Text>
   );
   if (!hasDescription) return baseText;
-  const descriptionText = (
-    <BaseText.Text level="small" color={8}>
-      {description}
-    </BaseText.Text>
-  );
+  const descriptionText =
+    description.length === 0 ? null : (
+      <BaseText.Text level="small" color={8}>
+        {description}
+      </BaseText.Text>
+    );
   return (
     <Flex.Box y align="start" gap="small" center {...rest}>
       {baseText}

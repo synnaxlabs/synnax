@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate, type status } from "@synnaxlabs/x";
+import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -34,6 +34,12 @@ export interface ContextValue extends synnax.ContextValue {
 const ZERO_CONTEXT_VALUE: ContextValue = {
   ...synnax.ZERO_CONTEXT_VALUE,
   state: Synnax.connectivity.DEFAULT,
+};
+
+const DEFAULT_RETRY_CONFIG: breaker.Config = {
+  maxRetries: 4,
+  baseInterval: TimeSpan.seconds(1),
+  scale: 2,
 };
 
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
@@ -118,6 +124,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
       const client = new Synnax({
+        retry: DEFAULT_RETRY_CONFIG,
         ...connParams,
         connectivityPollFrequency: TimeSpan.seconds(2),
       });

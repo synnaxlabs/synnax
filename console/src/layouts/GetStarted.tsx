@@ -94,7 +94,7 @@ const Overview = (): ReactElement => {
       <Flex.Box y full className={CSS.B("get-started")} align="center">
         <Logo variant="title" className="console-get-started__logo" />
         <Flex.Box x full="x" justify="center" gap={30} wrap>
-          <Flex.Box y>
+          <Flex.Box y align="center">
             <Text.Text level="h1">Your Workspaces</Text.Text>
             <Button.Button onClick={handleWorkspace} style={{ width: "fit-content" }}>
               <Icon.Add />

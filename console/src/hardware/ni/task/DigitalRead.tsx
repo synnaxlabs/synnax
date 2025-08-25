@@ -75,7 +75,7 @@ const Form: FC<
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof digitalReadTypeZ,
   typeof digitalReadConfigZ,
   typeof digitalReadStatusDataZ
@@ -158,7 +158,7 @@ export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
   type: DIGITAL_READ_TYPE,
 });

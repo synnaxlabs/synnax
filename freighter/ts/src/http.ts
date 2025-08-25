@@ -16,11 +16,38 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
-const shouldCastToUnreachable = (err: Error): boolean =>
-  typeof err.cause === "object" &&
-  err.cause !== null &&
-  "code" in err.cause &&
-  err.cause.code === "ECONNREFUSED";
+const UNREACHABLE_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+export const shouldCastToUnreachable = (err: Error): boolean => {
+  // First try Node/Undici codes
+  const code = (err as any)?.cause?.code ?? (err as any)?.code ?? (err as any)?.errno;
+  if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
+
+  // Browser/Safari fallback: detect canonical network-failure TypeError messages
+  if (err.name === "TypeError") {
+    const msg = String(err.message || "").toLowerCase();
+    if (/load failed|failed to fetch|networkerror|network error/.test(msg)) {
+      // Optionally gate on being online:
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+      // If you want to be conservative, return false here and treat generically.
+      // If you want parity with Node for user messaging, you can return true.
+      return true;
+    }
+  }
+
+  // Abort should not be "unreachable"
+  if ((err as any)?.name === "AbortError" || (err as any)?.code === "ABORT_ERR")
+    return false;
+
+  return false;
+};
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 

@@ -18,6 +18,6 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(["sy_channel_set"]) as s:
+with client.open_streamer(["sy_task_set"]) as s:
     for frame in s:
         print(frame)
