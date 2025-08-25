@@ -117,16 +117,16 @@ const EdgeProperties = ({
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edge.color ?? color.ZERO}
+          value={edge.data?.color ?? color.ZERO}
           onChange={(v: color.Color) => {
             onChange(edge.key, { color: color.hex(v) });
           }}
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
-        <Diagram.SelectPathType
-          value={edge.variant as Diagram.PathType}
-          onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
+        <Schematic.SelectEdgeType
+          value={edge.data?.variant as Schematic.EdgeType}
+          onChange={(variant: Schematic.EdgeType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
     </Flex.Box>

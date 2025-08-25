@@ -18,6 +18,7 @@ import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
+import { effect } from "@/effect";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
@@ -27,6 +28,7 @@ import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { slate } from "@/slate";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -70,6 +72,8 @@ export default class Synnax extends framer.Client {
   readonly hardware: hardware.Client;
   readonly control: control.Client;
   readonly annotations: annotation.Client;
+  readonly effects: effect.Client;
+  readonly slates: slate.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -156,6 +160,8 @@ export default class Synnax extends framer.Client {
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
     this.annotations = new annotation.Client(this.transport.unary);
+    this.effects = new effect.Client(this.transport.unary, this);
+    this.slates = new slate.Client(this.transport.unary);
   }
 
   get key(): string {

@@ -12,6 +12,7 @@ import { ontology } from "@synnaxlabs/client";
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
+import { EffectServices } from "@/effect/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
@@ -50,4 +51,6 @@ export const SERVICES: Ontology.Services = {
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   annotation: createEmptyService("annotation"),
+  slate: createEmptyService("slate"),
+  effect: EffectServices.ONTOLOGY_SERVICE,
 };

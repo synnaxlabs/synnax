@@ -16,6 +16,7 @@ import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Button,
+  Component,
   Control,
   Diagram,
   Flex,
@@ -141,14 +142,10 @@ const SymbolRenderer = ({
   );
 
   if (props == null) return null;
-
   const C = Core.SYMBOLS[key as Core.Variant];
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
-  // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;
-
   return (
     <C.Symbol
       key={key}
@@ -162,6 +159,8 @@ const SymbolRenderer = ({
   );
 };
 
+const edgeRenderer = Component.renderProp(Core.Edge);
+
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <PMenu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
@@ -172,6 +171,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelectRequired(layoutKey);
+
   const dispatch = useDispatch();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
@@ -181,7 +181,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    30, // roughly the right time needed to prevent actions that get dispatch
+    // automatically by Diagram.tsx, like setNodes immediately following addElement
   );
   const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 
@@ -246,7 +247,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-  const elRenderer = useCallback(
+  const nodeRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
@@ -358,12 +359,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
-  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
-
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
     [dispatch],
   );
+
+  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
 
   return (
     <div
@@ -377,7 +378,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         acquireTrigger={schematic.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Diagram.Diagram
+        <Core.Schematic
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
@@ -396,10 +397,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
-          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+          <Diagram.NodeRenderer>{nodeRenderer}</Diagram.NodeRenderer>
+          <Diagram.EdgeRenderer<Core.EdgeData>
+            connectionLineComponent={Core.ConnectionLine}
+          >
+            {edgeRenderer}
+          </Diagram.EdgeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
             <Diagram.SelectViewportModeControl />
@@ -431,7 +436,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               )}
             </Flex.Box>
           </Diagram.Controls>
-        </Diagram.Diagram>
+        </Core.Schematic>
         <Control.Legend
           position={legendPosition}
           onPositionChange={handleLegendPositionChange}

@@ -153,6 +153,14 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	// EFFECT
+	EffectCreate   freighter.UnaryServer[EffectCreateRequest, EffectCreateResponse]
+	EffectDelete   freighter.UnaryServer[EffectDeleteRequest, types.Nil]
+	EffectRetrieve freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
+	// SLATE
+	SlateCreate   freighter.UnaryServer[SlateCreateRequest, SlateCreateResponse]
+	SlateDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
+	SlateRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
 	// ANNOTATION
 	AnnotationCreate   freighter.UnaryServer[AnnotationCreateRequest, AnnotationCreateResponse]
 	AnnotationRetrieve freighter.UnaryServer[AnnotationRetrieveRequest, AnnotationRetrieveResponse]
@@ -179,6 +187,8 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
+	Effect       *EffectService
+	Slate        *SlateService
 	Annotation   *AnnotationService
 }
 
@@ -246,7 +256,6 @@ func (a *Layer) BindTo(t Transport) {
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
 		t.RangeAliasList,
-		t.RangeAliasRetrieve,
 		t.RangeRename,
 		t.RangeAliasDelete,
 
@@ -311,6 +320,16 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
 
+		// EFFECT
+		t.EffectCreate,
+		t.EffectDelete,
+		t.EffectRetrieve,
+
+		// SLATE
+		t.SlateCreate,
+		t.SlateDelete,
+		t.SlateRetrieve,
+
 		// ANNOTATION
 		t.AnnotationCreate,
 		t.AnnotationDelete,
@@ -364,7 +383,6 @@ func (a *Layer) BindTo(t Transport) {
 	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
 	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
 	t.RangeAliasList.BindHandler(a.Range.AliasList)
-	t.RangeAliasRetrieve.BindHandler(a.Range.AliasRetrieve)
 	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
 
 	// WORKSPACE
@@ -427,6 +445,16 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 
+	// EFFECT
+	t.EffectCreate.BindHandler(a.Effect.CreateEffect)
+	t.EffectDelete.BindHandler(a.Effect.DeleteEffect)
+	t.EffectRetrieve.BindHandler(a.Effect.RetrieveEffect)
+
+	// SLATE
+	t.SlateCreate.BindHandler(a.Slate.Create)
+	t.SlateDelete.BindHandler(a.Slate.Delete)
+	t.SlateRetrieve.BindHandler(a.Slate.Retrieve)
+
 	// ANNOTATION
 	t.AnnotationCreate.BindHandler(a.Annotation.Create)
 	t.AnnotationDelete.BindHandler(a.Annotation.Delete)
@@ -456,6 +484,8 @@ func New(configs ...Config) (*Layer, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
+	api.Effect = NewEffectService(api.provider)
+	api.Slate = NewSlateService(api.provider)
 	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

@@ -1,0 +1,85 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package effect
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/gorp"
+)
+
+// Writer is used to create, update, and delete effects within Synnax. The writer
+// executes all operations within the transaction provided to the Service.NewWriter
+// method. If no transaction is provided, the writer will execute operations directly
+// on the database.
+type Writer struct {
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	label     *label.Service
+}
+
+// Create creates the given effect. If the effect does not have a key,
+// a new key will be generated.
+func (w Writer) Create(
+	ctx context.Context,
+	c *Effect,
+) (err error) {
+	var exists bool
+	if c.Key == uuid.Nil {
+		c.Key = uuid.New()
+	} else {
+		exists, err = gorp.NewRetrieve[uuid.UUID, Effect]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		if err != nil {
+			return
+		}
+	}
+	if err = gorp.NewCreate[uuid.UUID, Effect]().Entry(c).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	if exists {
+		return
+	}
+	otgID := OntologyID(c.Key)
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		return
+	}
+
+	// Create labels if provided
+	if len(c.Labels) > 0 {
+		labelKeys := lo.Map(c.Labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
+		labelWriter := w.label.NewWriter(w.tx)
+		if err = labelWriter.Label(ctx, otgID, labelKeys); err != nil {
+			return
+		}
+	}
+
+	return nil
+}
+
+// Delete deletes the effects with the given keys.
+func (w Writer) Delete(
+	ctx context.Context,
+	keys ...uuid.UUID,
+) (err error) {
+	if err = gorp.NewDelete[uuid.UUID, Effect]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	for _, key := range keys {
+		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return
+		}
+	}
+	return
+}

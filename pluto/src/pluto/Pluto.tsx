@@ -14,6 +14,7 @@ import { Alamos } from "@/alamos";
 import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Effect } from "@/effect";
 import { Flux } from "@/flux";
 import { Device } from "@/hardware/device";
 import { Rack } from "@/hardware/rack";
@@ -63,6 +64,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Effect.FLUX_STORE_KEY]: Effect.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
   [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
@@ -77,6 +79,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
   [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
+  [Effect.FLUX_STORE_KEY]: Effect.STORE_CONFIG,
 };
 
 export const Provider = ({

@@ -107,6 +107,16 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
 
+	// EFFECT
+	a.EffectCreate = fnoop.UnaryServer[api.EffectCreateRequest, api.EffectCreateResponse]{}
+	a.EffectDelete = fnoop.UnaryServer[api.EffectDeleteRequest, types.Nil]{}
+	a.EffectRetrieve = fnoop.UnaryServer[api.EffectRetrieveRequest, api.EffectRetrieveResponse]{}
+
+	// SLATE
+	a.SlateCreate = fnoop.UnaryServer[api.SlateCreateRequest, api.SlateCreateResponse]{}
+	a.SlateDelete = fnoop.UnaryServer[api.SlateDeleteRequest, types.Nil]{}
+	a.SlateRetrieve = fnoop.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse]{}
+
 	// ANNOTATION
 	a.AnnotationCreate = fnoop.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse]{}
 	a.AnnotationDelete = fnoop.UnaryServer[api.AnnotationDeleteRequest, types.Nil]{}

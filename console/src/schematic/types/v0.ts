@@ -32,7 +32,7 @@ export const nodePropsZ = z.looseObject({
   color: color.crudeZ.optional(),
 });
 
-export interface EdgeProps extends Pick<Diagram.Edge, "color" | "variant"> {}
+export interface EdgeProps extends Pick<Diagram.Edge, "data"> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),
