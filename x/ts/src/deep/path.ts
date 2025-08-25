@@ -169,6 +169,7 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
 }) as Get;
 
 const getIndex = (part: string): number | null => {
+  // in order to be considered an index, all characters must be numbers
   for (const char of part) if (isNaN(parseInt(char))) return null;
   return parseInt(part);
 };
@@ -196,7 +197,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
     }
     if (result.length === 0) return;
     const index = getIndex(parts[parts.length - 1]);
-    // in order to be considered an index, all characters must be numbers
+    // If we can't parse an index, try to interpret it as an object key.
     if (index == null) {
       const first = result[0];
       if (typeof first === "object" && "key" in first) {
