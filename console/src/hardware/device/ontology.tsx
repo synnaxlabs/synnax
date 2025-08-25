@@ -199,7 +199,9 @@ const Item = ({
           id={itemKey}
           className={CSS.B("name")}
           allowDoubleClick={false}
-          value={resource.name}
+          value={resource.data?.make === "LabJack" || resource.data?.make === "NI" ? 
+            (typeof resource.data?.location === "string" ? resource.data.location : "") : 
+            resource.name}
           onChange={onRename}
           overflow="ellipsis"
         />
@@ -209,7 +211,9 @@ const Item = ({
           className={CSS.B("location")}
           overflow="nowrap"
         >
-          {typeof resource.data?.location === "string" ? resource.data.location : ""}
+          {resource.data?.make === "LabJack" || resource.data?.make === "NI" ? 
+            resource.name : 
+            (typeof resource.data?.location === "string" ? resource.data.location : "")}
         </Text.Text>
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />

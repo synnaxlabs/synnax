@@ -24,14 +24,16 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
+import { extractBaseName } from "@/channel/services/channelNameUtils";
+import { renameReadChannel, renameWriteChannelsByPattern } from "@/channel/services/channelRenameService";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
+import { useDeleteChannels, useRenameChannels } from "@/modals";
 import { Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -115,28 +117,232 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
+// Helper function to detect if a channel is part of a write channel group
+const detectWriteChannelGroup = (channelName: string, channelKey: number) => {
+  let baseName = "";
+  let cmdChannel = 0;
+  let stateChannel = 0;
+
+  if (channelName.endsWith("_cmd")) {
+    baseName = extractBaseName(channelName);
+    cmdChannel = channelKey;
+    stateChannel = 0; // Will be discovered by renameWriteChannels
+  } else if (channelName.endsWith("_state")) {
+    baseName = extractBaseName(channelName);
+    stateChannel = channelKey;
+    cmdChannel = 0; // Will be discovered by renameWriteChannels
+  } else if (channelName.endsWith("_cmd_time")) {
+    baseName = channelName.slice(0, -9); // Remove "_cmd_time"
+    cmdChannel = 0; // Will be discovered by renameWriteChannels
+    stateChannel = 0; // Will be discovered by renameWriteChannels
+  } else 
+    // Not a write channel, return null
+    return null;
+
+  return {
+    enabled: true,
+    key: `write_${baseName}`, // Generate a unique key for the write channel group
+    cmdChannel,
+    stateChannel,
+    customName: baseName,
+  };
+};
+
 export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({
-    type: "Channel",
-  });
+  const deleteChannels = useDeleteChannels();
+  
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
       state: { nodes, setNodes, getResource },
       selection: { resourceIDs },
+      client,
     }) => {
       const prevNodes = Tree.deepCopy(nodes);
       const resources = getResource(resourceIDs);
-      if (!(await confirm(resources))) throw new errors.Canceled();
+      
+      // For write channel groups, we need to find all related channels to remove from UI
+      let channelsToRemoveFromUI = resources.map(({ id }) => ontology.idToString(id));
+      
+      // Handle confirmation with custom modal for write channel groups or regular deletion
+      if (resources.length === 1) {
+        const resource = resources[0];
+        const channelKey = Number(resource.id.key);
+        const channelName = resource.name;
+        
+        // Check if this is part of a write channel group
+        const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+        
+        if (writeChannelGroup) {
+          // Find all related channels that exist to remove from UI
+          const channelNames = [`${writeChannelGroup.customName}_cmd`, `${writeChannelGroup.customName}_state`, `${writeChannelGroup.customName}_cmd_time`];
+          const relatedChannelIds: string[] = [];
+          
+          for (const name of channelNames)
+            try {
+              const channel = await client.channels.retrieve(name);
+              relatedChannelIds.push(ontology.idToString({ type: "channel", key: channel.key.toString() }));
+            } catch (_e) {
+              // Channel doesn't exist, skip it
+            }
+          
+          channelsToRemoveFromUI = relatedChannelIds;
+          
+          // Use write channel deletion with custom modal
+          const confirmed = await deleteChannels(
+            {
+              message: `Are you sure you want to delete ${writeChannelGroup.customName}?`,
+              channelNames: channelNames.filter(name => name !== `${writeChannelGroup.customName}_cmd_time` || channelName.endsWith('_cmd')), // Only show cmd_time if we're deleting via cmd channel
+            },
+            {
+              icon: "Delete",
+              name: "Delete Channels",
+            }
+          );
+          if (!confirmed) throw new errors.Canceled();
+        } else {
+          // Regular single channel deletion with custom modal
+          const confirmed = await deleteChannels(
+            {
+              message: `Are you sure you want to delete ${channelName}?`,
+              channelNames: [channelName],
+            },
+            {
+              icon: "Delete",
+              name: "Delete Channel",
+            }
+          );
+          if (!confirmed) throw new errors.Canceled();
+        }
+      } else {
+        // Multiple channel deletion - check for write channel groups in selection
+        const allChannelsToRemove: string[] = [];
+        const channelNamesForModal: string[] = [];
+        const processedWriteGroups = new Set<string>();
+        
+        for (const resource of resources) {
+          const channelKey = Number(resource.id.key);
+          const channelName = resource.name;
+          const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+          
+          if (writeChannelGroup) {
+            // Only process each write group once
+            if (!processedWriteGroups.has(writeChannelGroup.customName)) {
+              processedWriteGroups.add(writeChannelGroup.customName);
+              
+              // This is part of a write channel group - find all related channels
+              const relatedNames = [`${writeChannelGroup.customName}_cmd`, `${writeChannelGroup.customName}_state`, `${writeChannelGroup.customName}_cmd_time`];
+              channelNamesForModal.push(`${writeChannelGroup.customName} (write group)`);
+              
+              for (const name of relatedNames)
+                try {
+                  const channel = await client.channels.retrieve(name);
+                  allChannelsToRemove.push(ontology.idToString({ type: "channel", key: channel.key.toString() }));
+                } catch (_e) {
+                  // Channel doesn't exist, skip it
+                }
+            }
+          } else {
+            // Regular read channel
+            allChannelsToRemove.push(ontology.idToString(resource.id));
+            channelNamesForModal.push(channelName);
+          }
+        }
+        
+        channelsToRemoveFromUI = allChannelsToRemove;
+        
+        const totalChannelCount = allChannelsToRemove.length;
+        const channelWord = totalChannelCount === 1 ? 'channel' : 'channels';
+        const confirmed = await deleteChannels(
+          {
+            message: `Are you sure you want to delete ${totalChannelCount} ${channelWord}?`,
+            channelNames: channelNamesForModal,
+          },
+          {
+            icon: "Delete",
+            name: "Delete Channels",
+          }
+        );
+        if (!confirmed) throw new errors.Canceled();
+      }
+      
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => ontology.idToString(id)),
+          keys: channelsToRemoveFromUI,
         }),
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ client, selection: { resourceIDs } }) =>
-      await client.channels.delete(resourceIDs.map(({ key }) => Number(key))),
+    mutationFn: async ({ client, selection: { resourceIDs }, state: { getResource } }) => {
+      const resources = getResource(resourceIDs);
+      
+      // Handle single channel deletion with write channel group logic
+      if (resources.length === 1) {
+        const resource = resources[0];
+        const channelKey = Number(resource.id.key);
+        const channelName = resource.name;
+        
+        // Check if this is part of a write channel group
+        const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+        
+        if (writeChannelGroup) {
+          // Delete write channel group
+          const channelNames = [`${writeChannelGroup.customName}_cmd`, `${writeChannelGroup.customName}_state`, `${writeChannelGroup.customName}_cmd_time`];
+          const channelsToDelete: number[] = [];
+          
+          for (const name of channelNames)
+            try {
+              const channel = await client.channels.retrieve(name);
+              channelsToDelete.push(channel.key);
+            } catch (_e) {
+              // Channel doesn't exist, skip it
+            }
+          
+          if (channelsToDelete.length > 0)
+            await client.channels.delete(channelsToDelete);
+        } else 
+          // Regular single channel deletion
+          await client.channels.delete(channelKey);
+      } else {
+        // Multiple channel deletion - handle mixed write groups and regular channels
+        const channelsToDelete: number[] = [];
+        const processedWriteGroups = new Set<string>();
+        
+        for (const resourceID of resourceIDs) {
+          const resource = resources.find(r => r.id.key === resourceID.key);
+          if (!resource) continue;
+          
+          const channelKey = Number(resource.id.key);
+          const channelName = resource.name;
+          const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+          
+          if (writeChannelGroup) {
+            // Only process each write group once
+            if (!processedWriteGroups.has(writeChannelGroup.customName)) {
+              processedWriteGroups.add(writeChannelGroup.customName);
+              
+              // Delete all related write channels
+              const relatedNames = [`${writeChannelGroup.customName}_cmd`, `${writeChannelGroup.customName}_state`, `${writeChannelGroup.customName}_cmd_time`];
+              
+              for (const name of relatedNames)
+                try {
+                  const channel = await client.channels.retrieve(name);
+                  channelsToDelete.push(channel.key);
+                } catch (_e) {
+                  // Channel doesn't exist, skip it
+                }
+            }
+          } else 
+            // Regular channel deletion
+            channelsToDelete.push(channelKey);
+        }
+        
+        // Remove duplicates and delete
+        const uniqueChannelKeys = [...new Set(channelsToDelete)];
+        if (uniqueChannelKeys.length > 0)
+          await client.channels.delete(uniqueChannelKeys);
+      }
+    },
     onError: (
       e,
       { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
@@ -184,8 +390,10 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
   }).mutate;
 
-export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const renameChannels = useRenameChannels();
+  
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: ({ state: { nodes } }) => Tree.deepCopy(nodes),
     mutationFn: async ({
       client,
@@ -193,22 +401,41 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state: { getResource },
     }) => {
       const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(
-        ontology.idToString(resourceIDs[0]),
-      );
-      if (!renamed) return;
-      await client.channels.rename(Number(resources[0].id.key), value);
+      if (resources.length !== 1) return;
+      
+      const resource = resources[0];
+      const channelKey = Number(resource.id.key);
+      const channelName = resource.name;
+      
+      // Check if this is part of a write channel group
+      const writeChannelGroup = detectWriteChannelGroup(channelName, channelKey);
+      
+      if (writeChannelGroup)
+        await renameWriteChannelsByPattern({
+          client,
+          baseName: writeChannelGroup.customName,
+          renameChannels,
+        });
+      else
+        // Use read channel renaming for regular channels
+        await renameReadChannel({ 
+          client, 
+          channelKey, 
+          renameChannels 
+        });
     },
     onError: (
       e: Error,
       { selection: { resourceIDs }, handleError, state: { setNodes, getResource } },
       prevNodes,
     ) => {
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       const first = getResource(resourceIDs[0]);
       handleError(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
+};
 
 export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({

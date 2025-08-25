@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
@@ -61,7 +62,22 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
   if (item == null) return null;
-  const { port, cmdChannel, stateChannel, type } = item;
+  const { port, cmdChannel, stateChannel, type, customName } = item;
+  
+  // Get device from the config since AOChannel doesn't have device field yet
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const { set } = PForm.useContext();
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...item, customName: newName });
+    },
+    [item, path, set],
+  );
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -72,18 +88,22 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      path={itemKey}
+      path={path}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
+      previewDevice={device}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
     />
   );
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AOChannelType>(`${path}.type`, { optional: true });
+  
   return (
     <>
       <SelectAOChannelTypeField path={path} />
-      <AOChannelForm type={type} path={path} />
+      {type != null && <AOChannelForm type={type} path={path} />}
     </>
   );
 };
@@ -142,7 +162,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_ao_state_time`,
+      name: `${dev.properties.identifier}_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -175,11 +195,14 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   if (statesToCreate.length > 0) {
     modified = true;
     const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_state`,
-        index: dev.properties.analogOutput.stateIndex,
-        dataType: "float32",
-      })),
+      statesToCreate.map((c) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_state` : `${dev.properties.identifier}_${c.port}_state`,
+          index: dev.properties.analogOutput.stateIndex,
+          dataType: "float32",
+        };
+      }),
     );
     states.forEach((s, i) => {
       const key = statesToCreate[i].port.toString();
@@ -192,17 +215,20 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd_time`,
+        name: `${dev.properties.identifier}_${c.port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "float32",
-      })),
+      commandsToCreate.map((c, i) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${c.port}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "float32",
+        };
+      }),
     );
     commands.forEach((s, i) => {
       const key = commandsToCreate[i].port.toString();

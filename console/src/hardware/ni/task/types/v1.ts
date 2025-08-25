@@ -35,9 +35,15 @@ const validateAnalogPorts = ({
   });
 };
 
-const aiChanExtensionShape = { device: Common.Device.keyZ };
+const aiChanExtensionShape = { 
+  device: Common.Device.keyZ,
+  customName: z.string().optional(),
+};
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
-const ZERO_AI_CHAN_EXTENSION: AIChanExtension = { device: "" };
+const ZERO_AI_CHAN_EXTENSION: AIChanExtension = { 
+  device: "", 
+  customName: undefined,
+};
 
 const aiAccelChanZ = v0.aiAccelChanZ.extend(aiChanExtensionShape);
 interface AIAccelChan extends z.infer<typeof aiAccelChanZ> {}

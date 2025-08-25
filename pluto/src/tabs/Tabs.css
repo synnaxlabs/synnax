@@ -163,9 +163,11 @@
             & svg {
                 fill: var(--pluto-gray-l8);
             }
+            /* Indicates unconfigured changes */
             .pluto-icon--circle {
                 height: 0.9em;
                 width: 0.9em;
+                fill: var(--pluto-warning-m1);
             }
             &:has(.pluto-icon--circle) {
                 opacity: 1;

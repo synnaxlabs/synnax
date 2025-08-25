@@ -9,9 +9,11 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback } from "react";
 
+import { ZERO_PROPERTIES as LABJACK_ZERO_PROPERTIES } from "@/hardware/labjack/device/types";
+import { ZERO_PROPERTIES as NI_ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { Layout } from "@/layout";
 
 export interface SelectProps {
@@ -38,9 +40,38 @@ export const Select = ({
     (key: device.Key, { set }: Form.ContextValue) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured, rack } = await client.hardware.devices.retrieve({ key });
+        const device = await client.hardware.devices.retrieve({ key });
+        const { configured, rack } = device;
         set("rackKey", rack);
         if (configured) return;
+        
+        // Auto-configure LabJack and NI devices without showing popup
+        //
+        // May be able to completely remove popup related code if/when 
+        // we migrate away from the naming conventions used to match 
+        // using the  location as the immutable identifier. 
+        //
+        // Changing the name/location should be a command request
+        // to the respective device service registry. 
+
+        // TODO: Reduce complexity after device handling refactor
+
+        if (device.make === "LabJack" || device.make === "NI") {
+          const identifier = device.location.toLowerCase();
+          const initialProperties = device.make === "LabJack" ? LABJACK_ZERO_PROPERTIES : NI_ZERO_PROPERTIES;
+          
+          await client.hardware.devices.create({
+            ...device,
+            configured: true,
+            properties: {
+              ...deep.copy(initialProperties),
+              ...device.properties,
+              identifier,
+            },
+          });
+          return;
+        }
+
         placeLayout({ ...configureLayout, key });
       }, "Failed to retrieve device");
     },

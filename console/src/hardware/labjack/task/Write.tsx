@@ -12,6 +12,7 @@ import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
@@ -58,10 +59,25 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<OutputChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
   const { set } = PForm.useContext();
   const item = PForm.useFieldValue<OutputChannel>(path);
-  const { port, type, cmdChannel, stateChannel } = item;
+  
+  if (!item || channelIndex === -1) return null;
+  
+  const { port, type, cmdChannel, stateChannel, customName } = item;
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...item, customName: newName });
+    },
+    [item, path, set],
+  );
   return (
     <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
@@ -127,6 +143,10 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
+          previewDevice={device}
+          previewChannelType={port}
+          customName={customName}
+          onCustomNameChange={handleCustomNameChange}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
@@ -142,16 +162,13 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;
   const port = getOpenPort(channels, device.model, [last.type, backupType]);
   if (port == null) return null;
-  const existingCommandStatePair =
-    device.properties[port.type].channels[port.key] ??
-    Common.Device.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
     type: port.type,
     key: id.create(),
     port: port.key,
-    cmdChannel: existingCommandStatePair.command,
-    stateChannel: existingCommandStatePair.state,
+    cmdChannel: 0,
+    stateChannel: 0,
   };
 };
 
@@ -260,11 +277,14 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (stateChannelsToCreate.length > 0) {
     modified = true;
     const stateChannels = await client.channels.create(
-      stateChannelsToCreate.map(({ port, type }) => ({
-        name: `${dev.properties.identifier}_${port}_state`,
-        index: dev.properties.writeStateIndex,
-        dataType: type === "AO" ? "float32" : "uint8",
-      })),
+      stateChannelsToCreate.map(({ port, type, customName }) => {
+        const baseName = customName ? extractBaseName(customName) : "";
+        return {
+          name: customName ? `${baseName}_state` : `${dev.properties.identifier}_${port.toLowerCase()}_state`,
+          index: dev.properties.writeStateIndex,
+          dataType: type === "AO" ? "float32" : "uint8",
+        };
+      }),
     );
     stateChannels.forEach((c, i) => {
       const statesToCreateC = stateChannelsToCreate[i];
@@ -281,17 +301,20 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandChannelsToCreate.map(({ port }) => ({
-        name: `${dev.properties.identifier}_${port}_cmd_time`,
+        name: `${dev.properties.identifier}_${port.toLowerCase()}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
-      commandChannelsToCreate.map(({ port, type }, i) => ({
-        name: `${dev.properties.identifier}_${port}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: type === "AO" ? "float32" : "uint8",
-      })),
+      commandChannelsToCreate.map(({ port, type, customName }, i) => {
+        const baseName = customName ? extractBaseName(customName) : "";
+        return {
+          name: customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${port.toLowerCase()}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: type === "AO" ? "float32" : "uint8",
+        };
+      }),
     );
     commandChannels.forEach((c, i) => {
       const cmdToCreate = commandChannelsToCreate[i];

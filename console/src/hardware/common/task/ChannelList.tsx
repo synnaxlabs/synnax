@@ -27,6 +27,8 @@ import { type Channel } from "@/hardware/common/task/types";
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];
   channels: C[];
+  remove?: (keys: string[]) => [string[], C[]];
+  onSelect?: (keys: string[]) => void;
 }
 
 interface ContextMenuProps<C extends Channel>
@@ -76,10 +78,20 @@ const ContextMenu = <C extends Channel>({
   const canDisable = channels.some(({ enabled }) => enabled);
   const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
+  const customContextMenuItems = contextMenuItems?.({ 
+    channels, 
+    keys, 
+    remove: (keys: string[]) => [keys, channels] as [string[], C[]],
+    onSelect 
+  });
+  const hasCustomItems = customContextMenuItems != null;
+  
   return (
     <PMenu.Menu onChange={handleSelect} level="small">
       {!isSnapshot && (
         <>
+          {customContextMenuItems}
+          {hasCustomItems && <PMenu.Divider />}
           {canDuplicate && (
             <PMenu.Item itemKey="duplicate">
               <Icon.Copy />
@@ -95,7 +107,6 @@ const ContextMenu = <C extends Channel>({
             </>
           )}
           {(canDuplicate || canRemove) && <PMenu.Divider />}
-          {contextMenuItems?.({ channels, keys }) ?? null}
           {canDisable && (
             <PMenu.Item itemKey="disable">
               <Icon.Disable />

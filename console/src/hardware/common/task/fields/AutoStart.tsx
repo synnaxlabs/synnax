@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Form, Tooltip } from "@synnaxlabs/pluto";
 
 export const AutoStart = () => (
-  <Form.SwitchField label="Auto Start" path="config.autoStart" hideIfNull />
+  <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
+    Automatically start the task when configured
+    <Form.SwitchField label="Auto Start" path="config.autoStart" hideIfNull />
+  </Tooltip.Dialog>
 );
