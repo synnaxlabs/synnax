@@ -26,6 +26,7 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { AuthGuard } from "@/cluster/AuthGuard";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
@@ -137,11 +138,13 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
-        <Vis.Canvas>
-          <Layout.Window />
-        </Vis.Canvas>
-      </Code.Provider>
+      <AuthGuard>
+        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+          <Vis.Canvas>
+            <Layout.Window />
+          </Vis.Canvas>
+        </Code.Provider>
+      </AuthGuard>
     </Pluto.Provider>
   );
 };

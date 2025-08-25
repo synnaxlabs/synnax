@@ -9,6 +9,9 @@ catalogs:
     '@eslint/compat':
       specifier: ^1.3.1
       version: 1.3.1
+    '@fontsource/geist-mono':
+      specifier: ^5.2.6
+      version: 5.2.6
     '@fontsource/inter':
       specifier: ^5.2.6
       version: 5.2.6
@@ -21,6 +24,12 @@ catalogs:
     '@testing-library/react':
       specifier: ^16.3.0
       version: 16.3.0
+    '@types/node':
+      specifier: ^24.0.12
+      version: 24.0.12
+    '@types/offscreencanvas':
+      specifier: ^2019.7.3
+      version: 2019.7.3
     '@types/react':
       specifier: ^19.1.8
       version: 19.1.8
@@ -30,9 +39,15 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: ^4.6.0
       version: 4.6.0
+    '@vitest/coverage-v8':
+      specifier: ^3.2.4
+      version: 3.2.4
     async-mutex:
       specifier: ^0.5.0
       version: 0.5.0
+    clsx:
+      specifier: ^2.1.1
+      version: 2.1.1
     compromise:
       specifier: ^14.14.4
       version: 14.14.4
@@ -45,6 +60,9 @@ catalogs:
     madge:
       specifier: ^8.0.0
       version: 8.0.0
+    prettier:
+      specifier: ^3.6.2
+      version: 3.6.2
     proxy-memoize:
       specifier: 2.0.3
       version: 2.0.3
@@ -376,6 +394,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 4.6.0(vite@7.0.4(@types/node@24.0.12)(terser@5.43.1)(tsx@4.20.3)(yaml@2.8.0))
+      cross-env:
+        specifier: ^10.0.0
+        version: 10.0.0
       eslint:
         specifier: 'catalog:'
         version: 9.30.1
@@ -1729,6 +1750,9 @@ packages:
 
   '@emnapi/runtime@1.4.4':
     resolution: {integrity: sha512-hHyapA4A3gPaDCNfiqyZUStTMqIkKRshqPIuDOXv1hcBnD4U3l8cP0T1HMCfGRxQ6V64TGCcoswChANyOAwbQg==}
+
+  '@epic-web/invariant@1.0.0':
+    resolution: {integrity: sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==}
 
   '@esbuild/aix-ppc64@0.25.0':
     resolution: {integrity: sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ==}
@@ -3665,6 +3689,11 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  cross-env@10.0.0:
+    resolution: {integrity: sha512-aU8qlEK/nHYtVuN4p7UQgAwVljzMg8hB4YK5ThRqD2l/ziSnryncPNn7bMLt5cFYsKVKBh8HqLqyCoTupEUu7Q==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   cross-fetch@3.2.0:
     resolution: {integrity: sha512-Q+xVJLoGOeIMXZmbUK4HYk+69cQH6LudR0Vu/pRm2YlU/hDV9CiS0gKUMaWY5f2NeUH9C1nV3bsTlCo0FsTV1Q==}
@@ -6188,6 +6217,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
@@ -8865,6 +8895,8 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@epic-web/invariant@1.0.0': {}
+
   '@esbuild/aix-ppc64@0.25.0':
     optional: true
 
@@ -10999,6 +11031,11 @@ snapshots:
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.8.3
+
+  cross-env@10.0.0:
+    dependencies:
+      '@epic-web/invariant': 1.0.0
+      cross-spawn: 7.0.6
 
   cross-fetch@3.2.0:
     dependencies:

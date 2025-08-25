@@ -10,27 +10,25 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Nav, OS } from "@synnaxlabs/pluto";
+import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
+import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Menu } from "@/layouts/nav/Menu";
 
-export const Left = (): ReactElement => {
-  const os = OS.use({});
-  return (
-    <Layout.Nav.Bar location="left" size="8rem">
-      {os !== "Windows" && (
-        <Nav.Bar.Start bordered>
-          <Logo />
-        </Nav.Bar.Start>
-      )}
-      <Nav.Bar.Content>
-        <Menu location="left" />
-      </Nav.Bar.Content>
-      <Nav.Bar.End bordered>
-        <Menu location="bottom" />
-      </Nav.Bar.End>
-    </Layout.Nav.Bar>
-  );
-};
+export const Left = (): ReactElement => (
+  <Layout.Nav.Bar location="left" size="8rem">
+    {LOGO_LOCATION === "left" && (
+      <Nav.Bar.Start bordered>
+        <Logo />
+      </Nav.Bar.Start>
+    )}
+    <Nav.Bar.Content>
+      <Menu location="left" />
+    </Nav.Bar.Content>
+    <Nav.Bar.End bordered>
+      <Menu location="bottom" />
+    </Nav.Bar.End>
+  </Layout.Nav.Bar>
+);
