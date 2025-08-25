@@ -9,11 +9,13 @@
 
 import { customAlphabet } from "nanoid/non-secure";
 
-const ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const ALPHANUMERIC = `0123456789${ALPHABET}`;
 
 export const LENGTH = 11;
 
-const createInternal = customAlphabet(ALPHANUMERIC, LENGTH);
+const createPrefix = customAlphabet(ALPHABET, 1);
+const createInternal = customAlphabet(ALPHANUMERIC, LENGTH - 1);
 
 /**
  * Creates a unique alphanumeric string of length 11. The returned id always begins
@@ -22,4 +24,4 @@ const createInternal = customAlphabet(ALPHANUMERIC, LENGTH);
  *
  * @returns {string} A unique alphanumeric string.
  */
-export const create = (): string => `k${createInternal()}`;
+export const create = (): string => `${createPrefix()}${createInternal()}`;
