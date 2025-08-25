@@ -672,7 +672,6 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <Divider.Divider x padded="bottom" />
-      <UnitsField path={prefix} />
       <ResistanceConfigField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <Flex.Box x>
@@ -734,64 +733,51 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       </>
     );
   },
-  ai_strain_gauge: ({ prefix }) => {
-    const StrainUnitsField = Form.buildSelectField({
-      fieldKey: "units",
-      fieldProps: { label: "Strain Units" },
-      inputProps: {
-        resourceName: "Strain Units",
-        data: [{ key: "Strain", name: "Strain" }],
-      },
-    });
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <Flex.Box x>
-          <StrainConfig path={prefix} grow />
-          <StrainUnitsField path={prefix} />
-        </Flex.Box>
-        <Flex.Box x>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-          />
-        </Flex.Box>
-        <Flex.Box x>
-          <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
-          <Form.NumericField
-            path={`${prefix}.initialBridgeVoltage`}
-            label="Initial Bridge Voltage"
-            grow
-          />
-        </Flex.Box>
-        <Flex.Box x>
-          <Form.NumericField
-            path={`${prefix}.nominalGageResistance`}
-            label="Nominal Gage Resistance"
-            grow
-          />
+  ai_strain_gauge: ({ prefix }) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <StrainConfig path={prefix} grow />
+      <Flex.Box x>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Flex.Box>
+      <Flex.Box x>
+        <Form.NumericField path={`${prefix}.gageFactor`} label="Gage Factor" grow />
+        <Form.NumericField
+          path={`${prefix}.initialBridgeVoltage`}
+          label="Initial Bridge Voltage"
+          grow
+        />
+      </Flex.Box>
+      <Flex.Box x>
+        <Form.NumericField
+          path={`${prefix}.nominalGageResistance`}
+          label="Nominal Gage Resistance"
+          grow
+        />
 
-          <Form.NumericField
-            path={`${prefix}.poissonRatio`}
-            label="Poisson's Ratio"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.leadWireResistance`}
-            label="Lead Wire Resistance"
-            grow
-          />
-        </Flex.Box>
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+        <Form.NumericField
+          path={`${prefix}.poissonRatio`}
+          label="Poisson's Ratio"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.leadWireResistance`}
+          label="Lead Wire Resistance"
+          grow
+        />
+      </Flex.Box>
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
   ai_thermocouple: ({ prefix }) => {
     const CJCSourceField = Form.buildSelectField({

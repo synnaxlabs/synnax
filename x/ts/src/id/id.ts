@@ -16,8 +16,10 @@ export const LENGTH = 11;
 const createInternal = customAlphabet(ALPHANUMERIC, LENGTH);
 
 /**
- * Creates a unique alphanumeric string of length 11.
+ * Creates a unique alphanumeric string of length 11. The returned id always begins
+ * with a letter to disambiguate from values that can be potentially interpreted as
+ * numbers.
  *
  * @returns {string} A unique alphanumeric string.
  */
-export const create = (): string => createInternal();
+export const create = (): string => `k${createInternal()}`;
