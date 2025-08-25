@@ -33,7 +33,6 @@ export * from "@/math";
 export * from "@/migrate";
 export * from "@/notation";
 export * from "@/observe";
-export * from "@/omit";
 export * from "@/optional";
 export * from "@/primitive";
 export * from "@/record";

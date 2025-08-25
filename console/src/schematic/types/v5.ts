@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Viewport } from "@synnaxlabs/pluto";
-import { migrate, omit } from "@synnaxlabs/x";
+import { migrate, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -24,7 +24,7 @@ export const stateZ = v4.stateZ.omit({ version: true, type: true }).extend({
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
-  ...omit(v4.ZERO_STATE, "type"),
+  ...record.omit(v4.ZERO_STATE, "type"),
   version: VERSION,
   mode: v4.ZERO_SLICE_STATE.mode,
   toolbar: v0.ZERO_TOOLBAR_STATE,
@@ -43,7 +43,7 @@ export const ZERO_SLICE_STATE: SliceState = {
 export const stateMigration = migrate.createMigration<v4.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => ({
-    ...omit(state, "type"),
+    ...record.omit(state, "type"),
     version: VERSION,
     mode: v4.ZERO_SLICE_STATE.mode,
     toolbar: { ...v4.ZERO_SLICE_STATE.toolbar },
