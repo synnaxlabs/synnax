@@ -43,7 +43,7 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	// Framer is the underlying frame service to stream required channel values and write
+	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
@@ -343,7 +343,7 @@ func (s *Service) startCalculation(
 			calculation: streamerRequests,
 			shutdown:    signal.NewHardShutdown(sCtx, cancel),
 		}
-		p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
 		return s.releaseEntryCloser(key), nil
 	}()

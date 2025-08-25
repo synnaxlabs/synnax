@@ -105,7 +105,7 @@ bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     return false;
 }
 
-xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
+xerrors::Error task::Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return xerrors::NIL;
@@ -118,7 +118,7 @@ xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
     }
     if (const auto err = this->open_streamer()) return err;
     LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
-    if (started_promise != nullptr) started_promise->set_value();
+    if (on_started) on_started();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()
         // and read() concurrently.

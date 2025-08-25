@@ -56,7 +56,12 @@ import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import {
+  HiCursorClick,
+  HiDownload,
+  HiLightningBolt,
+  HiOutlinePlus,
+} from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
@@ -492,6 +497,10 @@ export const True = wrapSVGIcon(FaCheck, "true");
 export const False = wrapSVGIcon(FaXmark, "false");
 export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
 export const Annotation = wrapSVGIcon(MdComment, "annotation");
+export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
+export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Click = wrapSVGIcon(HiCursorClick, "click");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 

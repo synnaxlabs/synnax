@@ -41,8 +41,9 @@ const intermediateStreamerConfigZ = z.object({
   channels: paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.number().optional().default(1),
-  /** Whether to use the experimental codec for streaming. Defaults to true. */
-  useExperimentalCodec: z.boolean().optional().default(false),
+  /** useHighPerformanceCodec sets whether the writer will use the synnax frame
+  /* encoder as opposed to the standard JSON encoding mechanisms for frames. */
+  useHighPerformanceCodec: z.boolean().optional().default(true),
 });
 
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
@@ -103,7 +104,7 @@ export const createStreamOpener =
   async (config) => {
     const cfg = streamerConfigZ.parse(config);
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
-    if (cfg.useExperimentalCodec)
+    if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new CoreStreamer(stream, adapter);
