@@ -10,36 +10,41 @@
 import "@/cluster/LoginScreen.css";
 
 import { z } from "zod";
-import { status } from "@synnaxlabs/x";
+import { id, status } from "@synnaxlabs/x";
 import { Logo } from "@synnaxlabs/media";
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Button, Flex, Form, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { set as setVersion } from "@/version/slice";
+import { type ConnectionParams } from "@/cluster/autoConnect";
+import { Cluster } from "@/cluster/types";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
+export interface Credentials {
+  username: string;
+  password: string;
+}
+
 export interface LoginScreenProps {
-  host: string;
-  port: string | number;
-  secure: boolean;
-  onSuccess: (credentials: { username: string; password: string }) => void;
+  connection: ConnectionParams;
+  onSuccess: (cluster: Cluster) => Promise<void>;
 }
 
 export const LoginScreen = ({
-  host,
-  port,
-  secure,
+  connection,
   onSuccess,
 }: LoginScreenProps): ReactElement => {
-  const [status, setStatus] = useState<status.Status>({
-    variant: "disabled",
-    message: "",
-  });
+  const [stat, setStatus] = useState<status.Status>(() =>
+    status.create({
+      variant: "disabled",
+      message: "",
+    }),
+  );
   const dispatch = useDispatch();
 
   const methods = Form.use<typeof loginSchema>({
@@ -48,37 +53,37 @@ export const LoginScreen = ({
     onChange: () => {
       const usernameField = methods.get("username");
       const passwordField = methods.get("password");
-      setStatus({
-        variant:
-          usernameField.touched && passwordField.touched ? "success" : "disabled",
-        message: "",
-      });
+      setStatus(
+        status.create({
+          variant:
+            usernameField.touched && passwordField.touched ? "success" : "disabled",
+          message: "",
+        }),
+      );
     },
   });
 
   const handleSubmit = async (): Promise<void> => {
     if (!methods.validate()) return;
-    const data = methods.value();
-    setStatus({ variant: "loading", message: "Connecting..." });
-    const client = new Client({
-      host,
-      port,
-      username: data.username,
-      password: data.password,
-      secure,
-    });
+    const credentials = methods.value();
+    setStatus(status.create({ variant: "loading", message: "Connecting..." }));
+    const client = new Client({ ...connection, ...credentials });
     const state = await client.connectivity.check();
-    dispatch(setVersion(state.nodeVersion));
     if (state.status !== "connected") {
-      setStatus({
-        variant: "error",
-        message: state.message,
-      });
+      setStatus(
+        status.create({
+          variant: "error",
+          message: state.message ?? "Unknown error",
+        }),
+      );
       return;
     }
-    onSuccess({
-      username: data.username,
-      password: data.password,
+    if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
+    await onSuccess({
+      key: state.clusterKey,
+      name: "Cluster",
+      ...connection,
+      ...credentials,
     });
   };
 
@@ -91,23 +96,23 @@ export const LoginScreen = ({
         <Form.Form<typeof loginSchema> {...methods}>
           <Flex.Box y empty align="center" grow>
             <Flex.Box y grow full="x" empty>
-              <Form.TextField<string>
+              <Form.TextField
                 path="username"
                 inputProps={{ placeholder: "synnax", autoFocus: true, size: "large" }}
               />
-              <Form.TextField<string>
+              <Form.TextField
                 path="password"
                 inputProps={{ placeholder: "seldon", type: "password", size: "large" }}
               />
             </Flex.Box>
             <Flex.Box style={{ height: "5rem" }}>
-              {status.message !== "" && (
-                <Status.Summary variant={status.variant} message={status.message} />
+              {stat.message !== "" && (
+                <Status.Summary variant={stat.variant} message={stat.message} />
               )}
             </Flex.Box>
             <Button.Button
               onClick={() => void handleSubmit()}
-              status={status.variant}
+              status={stat.variant}
               trigger={["Enter"]}
               variant="filled"
               size="large"

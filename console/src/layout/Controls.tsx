@@ -44,7 +44,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const handleMinimize = useCallback(() => {
     dispatch(setWindowMinimized({ value: true }));
   }, [dispatch]);
-  if (RUNTIME !== "tauri") return;
+  if (RUNTIME !== "tauri") return null;
   return window?.fullscreen === true ? null : (
     <OS.Controls
       disabled={disabled}

@@ -24,7 +24,6 @@ export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
 export * from "@/cluster/useCopyLinkToClipboard";
 export * from "@/cluster/useSyncClusterKey";
-export * from "@/cluster/useAutoConnect";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONNECT_LAYOUT_TYPE]: Connect,

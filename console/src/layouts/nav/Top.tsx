@@ -19,6 +19,8 @@ import { Layout } from "@/layout";
 import { Palette } from "@/palette";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
+import { RUNTIME } from "@/runtime";
+import { LOGO_LOCATION } from "@/layouts/nav/logo";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
   command: [["Control", "Shift", "P"]],
@@ -36,7 +38,7 @@ export const Top = (): ReactElement => {
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region>
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
-        {os === "Windows" && <Logo variant="icon" />}
+        {LOGO_LOCATION === "top" && <Logo variant="icon" />}
         <Workspace.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
@@ -44,7 +46,7 @@ export const Top = (): ReactElement => {
       </Nav.Bar.Center>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         <Version.Badge />
-        <Cluster.ConnectionStatus />
+        <Cluster.Connection />
         <Docs.OpenButton />
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>

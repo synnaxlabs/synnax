@@ -16,6 +16,7 @@ import { Layout } from "@/layout";
 import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
+import { RUNTIME } from "@/runtime";
 
 export const Badge = (): ReactElement => {
   const version = useSelectVersion();
@@ -24,6 +25,7 @@ export const Badge = (): ReactElement => {
   return (
     <Button.Button
       onClick={() => placeLayout(INFO_LAYOUT)}
+      preventClick={RUNTIME !== "tauri"}
       variant="text"
       size="small"
       level="small"

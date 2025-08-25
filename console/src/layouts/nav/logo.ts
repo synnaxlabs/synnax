@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
-import { Dropdown } from "@/cluster/Dropdown";
-import { ConnectionBadge } from "@/cluster/Badges";
 import { RUNTIME } from "@/runtime";
+import { runtime } from "@synnaxlabs/x";
 
-export const Connection = (): ReactElement => {
-  if (RUNTIME === "tauri") return <Dropdown />;
-  return <ConnectionBadge />;
-};
+export const LOGO_LOCATION =
+  runtime.getOS() !== "Windows" && RUNTIME === "tauri" ? "left" : "top";
