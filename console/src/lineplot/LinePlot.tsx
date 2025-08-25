@@ -351,7 +351,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
-  }, [windowKey, dispatch]);
+  }, [windowKey, dispatch, layoutKey]);
 
   const props = PMenu.useContextMenu();
 

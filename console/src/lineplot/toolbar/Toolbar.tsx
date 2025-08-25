@@ -72,7 +72,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ key: layoutKey, tab: tabKey as ToolbarTab }));
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
   if (state == null) return null;
   return (
