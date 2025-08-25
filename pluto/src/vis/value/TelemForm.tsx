@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type notation } from "@synnaxlabs/x";
+import { color, type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { telem } from "@/ether";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
@@ -73,8 +74,11 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handlePrecisionChange = (precision: number): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
 
-  const handleTimeOutChange = (timeout: number): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, timeout }) });
+  const handleTimeOutChange = (staleness_timeout: number): void =>
+    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, staleness_timeout }) });
+
+  const handleStalenessColorChange = (staleness_color: color.Color): void =>
+    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, staleness_color }) });
 
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
@@ -110,11 +114,17 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
-        <Input.Item label="Timeout" align="start">
+        <Input.Item label="Staleness Timeout" align="start">
           <Input.Numeric
-            value={stringifier.timeout ?? 2}
+            value={stringifier.staleness_timeout ?? 2}
             bounds={{ lower: 0, upper: 61 }}
             onChange={handleTimeOutChange}
+          />
+        </Input.Item>
+        <Input.Item label="Staleness Color" align="start">
+          <Color.Swatch
+            value={stringifier.staleness_color ?? color.ZERO}
+            onChange={handleStalenessColorChange}
           />
         </Input.Item>
       </Flex.Box>

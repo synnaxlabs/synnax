@@ -21,7 +21,6 @@ import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
-const STALENESS_COLOR: [number, number, number, number] = [50, 50, 255, 1];
 
 const valueState = z.object({
   box: box.box,
@@ -30,7 +29,8 @@ const valueState = z.object({
   level: text.levelZ.optional().default("p"),
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
-  timeout: z.number().optional().default(5),
+  staleness_timeout: z.number().optional().default(5),
+  staleness_color: color.colorZ.optional().default(color.ZERO),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
@@ -76,7 +76,7 @@ export class Value
 
     // Initialize with stale color and timed_out = true
     if (i.isInitialized === undefined) {
-      i.textColor = STALENESS_COLOR;
+      i.textColor = this.state.staleness_color;
       i.timed_out = true;
       i.isInitialized = false;
     }
@@ -86,9 +86,10 @@ export class Value
       const stringifierSegment = pipelineProps.segments.stringifier;
       if (stringifierSegment?.type === "stringify-number") {
         const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
-        if (stringifierProps.timeout !== this.state.timeout)
-          this.setState(prev => ({ ...prev, timeout: stringifierProps.timeout }));
-          i.timed_out = true;
+        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout)
+          this.setState(prev => ({ ...prev, staleness_timeout: stringifierProps.staleness_timeout }));
+        if (stringifierProps.staleness_color !== this.state.staleness_color)
+          this.setState(prev => ({ ...prev, staleness_color: stringifierProps.staleness_color }));
       }
     }
 
@@ -133,9 +134,9 @@ export class Value
     if (i.staleTimeout) clearTimeout(i.staleTimeout);
     // Needs the initial quick timeout bc when the val renders,
     // it always goes "unstale", so the init timeout kicks it back.
-    const timeoutDuration = i.isInitialized ? this.state.timeout * 1000 : 20;
+    const timeoutDuration = i.isInitialized ? this.state.staleness_timeout * 1000 : 20;
     i.staleTimeout = setTimeout(() => {
-      i.textColor = STALENESS_COLOR;
+      i.textColor = this.state.staleness_color;
       i.timed_out = true;
       i.isInitialized = true;
       this.requestRender();
