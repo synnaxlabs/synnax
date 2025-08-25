@@ -23,12 +23,12 @@ interface ValueTelemFormT {
   tooltip: string[];
 }
 
-export const VALUE_CONNECTIONS: telem.Connection[] = [
+const VALUE_CONNECTIONS: telem.Connection[] = [
   { from: "valueStream", to: "rollingAverage" },
   { from: "rollingAverage", to: "stringifier" },
 ];
 
-interface TelemFormProps {
+export interface TelemFormProps {
   path: string;
 }
 
@@ -76,16 +76,18 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
 
-  const [c] = Channel.useName(source.channel as number);
-  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
+  if (typeof source.channel != "number")
+    throw new Error("Must pass in a channel by key to Value.TelemForm");
 
+  const { data } = Channel.retrieve.useDirect({ params: { key: source.channel } });
+  useEffect(() => {
+    if (data == null) return;
+    onChange({ ...value, tooltip: [data.name] });
+  }, [data?.name, onChange]);
   return (
     <>
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
-        />
+        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
         <Input.Item label="Notation">

@@ -45,7 +45,7 @@ export const SnapshotMenuItem = ({
     </PMenu.Item>
   ) : null;
 
-export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+export const fromClientRange = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
   array.toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
@@ -266,7 +266,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => Text.edit(`text-${key}`),
-    create: handleCreate,
+    create: () => handleCreate(),
     remove: () => rangeExists && handleRemove([rng.key]),
     delete: () => rangeExists && del.mutate(rng.key),
     details: () => rangeExists && handleViewDetails(rng.key),

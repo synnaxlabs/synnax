@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -63,7 +64,7 @@ func (c Config) Validate() error {
 }
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
-type Service struct{ 
+type Service struct {
 	Config
 	Symbol *symbol.Service
 }
@@ -77,8 +78,8 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	cfg.Ontology.RegisterService(ctx, s)
-	
+	cfg.Ontology.RegisterService(s)
+
 	if s.Symbol, err = symbol.NewService(ctx, symbol.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
@@ -87,7 +88,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
-	
+
 	return s, nil
 }
 

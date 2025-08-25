@@ -10,7 +10,9 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type FetchOptions, type Params } from "@/flux/aether/params";
+import { type FetchOptions, type Params } from "@/flux/core/params";
+import { type Store } from "@/flux/core/store";
+import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   nullClientResult,
@@ -27,7 +29,11 @@ import { Synnax } from "@/synnax";
  * @template UpdateParams The type of parameters for the update operation
  * @template Data The type of data being updated
  */
-export interface UpdateArgs<UpdateParams extends Params, Data extends state.State> {
+export interface UpdateArgs<
+  UpdateParams extends Params,
+  Data extends state.State,
+  ScopedStore extends Store = {},
+> {
   /** The data to be updated */
   value: Data;
   /** Parameters for the update operation */
@@ -36,6 +42,8 @@ export interface UpdateArgs<UpdateParams extends Params, Data extends state.Stat
   client: Client;
   /** Function to update the form state with new data */
   onChange: state.PureSetter<Data>;
+  /** The store to update */
+  store: ScopedStore;
 }
 
 /**
@@ -47,11 +55,12 @@ export interface UpdateArgs<UpdateParams extends Params, Data extends state.Stat
 export interface CreateUpdateArgs<
   UpdateParams extends Params,
   Data extends state.State,
+  ScopedStore extends Store = {},
 > {
   /** The name of the resource being updated (used for status messages) */
   name: string;
   /** Function that performs the actual update operation */
-  update: (args: UpdateArgs<UpdateParams, Data>) => Promise<void>;
+  update: (args: UpdateArgs<UpdateParams, Data, ScopedStore>) => Promise<void>;
 }
 
 /**
@@ -63,7 +72,7 @@ export interface UseObservableUpdateReturn<Data extends state.State> {
   /** Function to trigger an update (fire-and-forget) */
   update: (value: Data, opts?: FetchOptions) => void;
   /** Function to trigger an update and await the result */
-  updateAsync: (value: Data, opts?: FetchOptions) => Promise<void>;
+  updateAsync: (value: Data, opts?: FetchOptions) => Promise<boolean>;
 }
 
 /**
@@ -77,9 +86,26 @@ export interface UseObservableUpdateArgs<
   Data extends state.State,
 > {
   /** Callback function to handle state changes */
-  onChange: state.Setter<Result<Data | null>>;
+  onChange: state.Setter<Result<Data | undefined>>;
   /** Parameters for the update operation */
   params: UpdateParams;
+  /** The scope to use for the update operation */
+  scope?: string;
+  /** Function to run before the update operation. If the function returns undefined,
+   * the update will be cancelled. */
+  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | undefined>;
+  /** Function to run after the update operation. */
+  afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
+}
+
+export interface BeforeUpdateArgs<Data extends state.State> {
+  client: Client;
+  value: Data;
+}
+
+export interface AfterUpdateArgs<Data extends state.State> {
+  client: Client;
+  value: Data;
 }
 
 /**
@@ -97,7 +123,7 @@ export interface UseDirectUpdateArgs<UpdateParams extends Params> {
  *
  * @template Data The type of data being updated
  */
-export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | null> &
+export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | undefined> &
   UseObservableUpdateReturn<Data>;
 
 /**
@@ -122,36 +148,58 @@ export interface CreateUpdateReturn<
  * Internal hook for observable updates with external state management.
  * @internal
  */
-const useObservable = <UpdateParams extends Params, Data extends state.State>({
+const useObservable = <
+  UpdateParams extends Params,
+  Data extends state.State,
+  ScopedStore extends Store = {},
+>({
   onChange,
   params,
   update,
   name,
+  scope,
+  beforeUpdate,
+  afterUpdate,
 }: UseObservableUpdateArgs<UpdateParams, Data> &
-  CreateUpdateArgs<UpdateParams, Data>): UseObservableUpdateReturn<Data> => {
+  CreateUpdateArgs<
+    UpdateParams,
+    Data,
+    ScopedStore
+  >): UseObservableUpdateReturn<Data> => {
   const client = Synnax.use();
+  const store = useStore<ScopedStore>(scope);
   const handleUpdate = useCallback(
-    async (value: Data, opts: FetchOptions = {}) => {
+    async (value: Data, opts: FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
       try {
-        if (client == null)
-          return onChange((p) => nullClientResult(name, "update", p.listenersMounted));
-        onChange((p) => pendingResult(name, "updating", p.data, p.listenersMounted));
+        if (client == null) {
+          onChange(nullClientResult(name, "update"));
+          return false;
+        }
+        onChange((p) => pendingResult(name, "updating", p.data));
         let updated = false;
+        if (beforeUpdate != null) {
+          const updatedValue = await beforeUpdate({ client, value });
+          if (updatedValue == null) return false;
+          value = updatedValue;
+        }
         await update({
           client,
           onChange: (value) => {
             updated = true;
-            onChange((p) => successResult(name, "updated", value, p.listenersMounted));
+            onChange(successResult(name, "updated", value));
           },
           value,
           params,
+          store,
         });
-        if (signal?.aborted || updated) return;
-        onChange((p) => successResult(name, "updated", value, p.listenersMounted));
+        if (signal?.aborted === true) return false;
+        if (!updated) onChange(successResult(name, "updated", value));
+        if (afterUpdate != null) await afterUpdate({ client, value });
+        return true;
       } catch (error) {
-        if (signal?.aborted) return;
-        onChange((p) => errorResult(name, "update", error, p.listenersMounted));
+        if (signal?.aborted !== true) onChange(errorResult(name, "update", error));
+        return false;
       }
     },
     [name, params],
@@ -170,16 +218,20 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
  * Internal hook for direct updates with internal state management.
  * @internal
  */
-const useDirect = <UpdateParams extends Params, Data extends state.State>({
+const useDirect = <
+  UpdateParams extends Params,
+  Data extends state.State,
+  ScopedStore extends Store = {},
+>({
   params,
   name,
   ...restArgs
 }: UseDirectUpdateArgs<UpdateParams> &
-  CreateUpdateArgs<UpdateParams, Data>): UseDirectUpdateReturn<Data> => {
-  const [result, setResult] = useState<Result<Data | null>>(
-    successResult(name, "updated", null, false),
+  CreateUpdateArgs<UpdateParams, Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
+  const [result, setResult] = useState<Result<Data | undefined>>(
+    successResult(name, "updated", undefined),
   );
-  const methods = useObservable<UpdateParams, Data>({
+  const methods = useObservable<UpdateParams, Data, ScopedStore>({
     ...restArgs,
     name,
     onChange: setResult,
@@ -236,11 +288,15 @@ const useDirect = <UpdateParams extends Params, Data extends state.State>({
  * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
  * ```
  */
-export const createUpdate = <UpdateParams extends Params, Data extends state.State>(
-  createArgs: CreateUpdateArgs<UpdateParams, Data>,
+export const createUpdate = <
+  UpdateParams extends Params,
+  Data extends state.State,
+  ScopedStore extends Store = {},
+>(
+  createArgs: CreateUpdateArgs<UpdateParams, Data, ScopedStore>,
 ): CreateUpdateReturn<UpdateParams, Data> => ({
   useObservable: (args: UseObservableUpdateArgs<UpdateParams, Data>) =>
-    useObservable({ ...args, ...createArgs }),
+    useObservable<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
   useDirect: (args: UseDirectUpdateArgs<UpdateParams>) =>
-    useDirect({ ...args, ...createArgs }),
+    useDirect<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
 });

@@ -109,6 +109,78 @@ describe("TimeStamp", () => {
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });
 
+  describe("schema", () => {
+    it("should parse bigint", () => {
+      const ts = TimeStamp.z.parse(1000000000n);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(1000000000n);
+    });
+
+    it("should parse Date object", () => {
+      const date = new Date("2024-01-15T10:30:00.000Z");
+      const ts = TimeStamp.z.parse(date);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(BigInt(date.getTime()) * 1000000n);
+    });
+
+    it("should parse TimeSpan", () => {
+      const span = new TimeSpan(5000000000n);
+      const ts = TimeStamp.z.parse(span);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(5000000000n);
+    });
+
+    it("should parse DateComponents array", () => {
+      const ts = TimeStamp.z.parse([2024, 3, 15]);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      const expected = new TimeStamp([2024, 3, 15]);
+      expect(ts.valueOf()).toBe(expected.valueOf());
+    });
+
+    it("should parse DateComponents with missing elements", () => {
+      const ts1 = TimeStamp.z.parse([2024]);
+      expect(ts1).toBeInstanceOf(TimeStamp);
+      expect(ts1.valueOf()).toBe(new TimeStamp([2024, 1, 1]).valueOf());
+
+      const ts2 = TimeStamp.z.parse([2024, 6]);
+      expect(ts2).toBeInstanceOf(TimeStamp);
+      expect(ts2.valueOf()).toBe(new TimeStamp([2024, 6, 1]).valueOf());
+    });
+
+    it("should parse string representation of bigint", () => {
+      const ts = TimeStamp.z.parse("123456789000");
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(123456789000n);
+    });
+
+    it("should parse number", () => {
+      const ts = TimeStamp.z.parse(987654321);
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(987654321n);
+    });
+
+    it("should parse object with value property", () => {
+      const ts = TimeStamp.z.parse({ value: 555555555n });
+      expect(ts).toBeInstanceOf(TimeStamp);
+      expect(ts.valueOf()).toBe(555555555n);
+    });
+
+    it("should pass through existing TimeStamp instance", () => {
+      const original = new TimeStamp(777777777n);
+      const ts = TimeStamp.z.parse(original);
+      expect(ts).toBe(original);
+      expect(ts.valueOf()).toBe(777777777n);
+    });
+
+    it("should handle edge cases", () => {
+      const ts1 = TimeStamp.z.parse(0);
+      expect(ts1.valueOf()).toBe(0n);
+
+      const ts2 = TimeStamp.z.parse(Number.MAX_SAFE_INTEGER);
+      expect(ts2.valueOf()).toBe(BigInt(Number.MAX_SAFE_INTEGER));
+    });
+  });
+
   test("span", () => {
     const ts = new TimeStamp(0);
     expect(ts.span(new TimeStamp(1000)).equals(TimeSpan.microseconds())).toBe(true);
@@ -177,6 +249,50 @@ describe("TimeStamp", () => {
   test("sub", () => {
     const ts = new TimeStamp(TimeSpan.microseconds());
     expect(ts.sub(TimeSpan.microseconds()).equals(new TimeStamp(0))).toBe(true);
+  });
+
+  describe("arithmetic operations", () => {
+    test("add with TimeSpan", () => {
+      const ts = new TimeStamp(1000);
+      const result = ts.add(TimeSpan.microseconds(500));
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(501000n);
+    });
+
+    test("add with number", () => {
+      const ts = new TimeStamp(1000);
+      const result = ts.add(500);
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(1500n);
+    });
+
+    test("add with bigint", () => {
+      const ts = new TimeStamp(1000n);
+      const result = ts.add(500n);
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(1500n);
+    });
+
+    test("sub with TimeSpan", () => {
+      const ts = new TimeStamp(1000);
+      const result = ts.sub(TimeSpan.nanoseconds(300));
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(700n);
+    });
+
+    test("sub with number", () => {
+      const ts = new TimeStamp(1000);
+      const result = ts.sub(300);
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(700n);
+    });
+
+    test("sub with bigint", () => {
+      const ts = new TimeStamp(1000n);
+      const result = ts.sub(300n);
+      expect(result).toBeInstanceOf(TimeStamp);
+      expect(result.valueOf()).toBe(700n);
+    });
   });
 
   describe("fString", () => {
@@ -436,6 +552,94 @@ describe("TimeSpan", () => {
     expect(TimeSpan.seconds(1).sub(TimeSpan.SECOND).isZero).toBe(true);
   });
 
+  describe("arithmetic operations", () => {
+    test("add with TimeSpan", () => {
+      const ts1 = new TimeSpan(1000);
+      const ts2 = new TimeSpan(500);
+      const result = ts1.add(ts2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(1500n);
+    });
+
+    test("add with number", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.add(500);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(1500n);
+    });
+
+    test("add with bigint", () => {
+      const ts = new TimeSpan(1000n);
+      const result = ts.add(500n);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(1500n);
+    });
+
+    test("sub with TimeSpan", () => {
+      const ts1 = new TimeSpan(1000);
+      const ts2 = new TimeSpan(300);
+      const result = ts1.sub(ts2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(700n);
+    });
+
+    test("sub with number", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.sub(300);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(700n);
+    });
+
+    test("sub with bigint", () => {
+      const ts = new TimeSpan(1000n);
+      const result = ts.sub(300n);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(700n);
+    });
+
+    test("mult", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.mult(2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(2000n);
+    });
+
+    test("mult with decimal", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.mult(0.5);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(500n);
+    });
+
+    test("mult with negative", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.mult(-2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(-2000n);
+    });
+
+    test("div", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.div(2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(500n);
+    });
+
+    test("div with decimal", () => {
+      const ts = new TimeSpan(1000);
+      const result = ts.div(0.5);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(2000n);
+    });
+
+    test("div resulting in fractional nanoseconds truncates", () => {
+      const ts = new TimeSpan(1001);
+      const result = ts.div(2);
+      expect(result).toBeInstanceOf(TimeSpan);
+      expect(result.valueOf()).toBe(500n); // 1001/2 = 500.5, truncated to 500
+    });
+  });
+
   const TRUNCATE_TESTS = [
     [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
     [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
@@ -487,6 +691,63 @@ describe("TimeSpan", () => {
       expect(ts.toString()).toEqual(expected);
     });
   });
+
+  describe("schema", () => {
+    it("should parse bigint", () => {
+      const ts = TimeSpan.z.parse(1000000000n);
+      expect(ts).toBeInstanceOf(TimeSpan);
+      expect(ts.valueOf()).toBe(1000000000n);
+    });
+
+    it("should parse number", () => {
+      const ts = TimeSpan.z.parse(987654321);
+      expect(ts).toBeInstanceOf(TimeSpan);
+      expect(ts.valueOf()).toBe(987654321n);
+    });
+
+    it("should parse string representation of bigint", () => {
+      const ts = TimeSpan.z.parse("123456789000");
+      expect(ts).toBeInstanceOf(TimeSpan);
+      expect(ts.valueOf()).toBe(123456789000n);
+    });
+
+    it("should parse object with value property", () => {
+      const ts = TimeSpan.z.parse({ value: 555555555n });
+      expect(ts).toBeInstanceOf(TimeSpan);
+      expect(ts.valueOf()).toBe(555555555n);
+    });
+
+    it("should pass through existing TimeSpan instance", () => {
+      const original = new TimeSpan(777777777n);
+      const ts = TimeSpan.z.parse(original);
+      expect(ts).toStrictEqual(original);
+      expect(ts.valueOf()).toBe(777777777n);
+    });
+
+    it("should parse TimeStamp", () => {
+      const timestamp = new TimeStamp(999999999n);
+      const ts = TimeSpan.z.parse(timestamp);
+      expect(ts).toBeInstanceOf(TimeSpan);
+      expect(ts.valueOf()).toBe(999999999n);
+    });
+
+    it("should parse Rate", () => {
+      const rate = new Rate(100);
+      const ts = TimeSpan.z.parse(rate);
+      expect(ts).toBeInstanceOf(TimeSpan);
+      // The schema transforms Rate to TimeSpan using new TimeSpan(rate)
+      // which uses rate.valueOf() directly (100) as nanoseconds
+      expect(ts.valueOf()).toBe(100n);
+    });
+
+    it("should handle edge cases", () => {
+      const ts1 = TimeSpan.z.parse(0);
+      expect(ts1.valueOf()).toBe(0n);
+
+      const ts2 = TimeSpan.z.parse(Number.MAX_SAFE_INTEGER);
+      expect(ts2.valueOf()).toBe(BigInt(Number.MAX_SAFE_INTEGER));
+    });
+  });
 });
 
 describe("Rate", () => {
@@ -513,6 +774,96 @@ describe("Rate", () => {
 
   test("Hz", () => expect(Rate.hz(1).equals(1)).toBe(true));
   test("KHz", () => expect(Rate.khz(1).equals(1e3)).toBe(true));
+
+  describe("schema", () => {
+    it("should parse number", () => {
+      const rate = Rate.z.parse(50);
+      expect(rate).toBeInstanceOf(Rate);
+      expect(rate.valueOf()).toBe(50);
+    });
+
+    it("should pass through existing Rate instance", () => {
+      const original = new Rate(100);
+      const rate = Rate.z.parse(original);
+      expect(rate).toBe(original);
+      expect(rate.valueOf()).toBe(100);
+    });
+
+    const testCases = [
+      { input: 1, expected: 1 },
+      { input: 0.5, expected: 0.5 },
+      { input: 1000, expected: 1000 },
+      { input: 0, expected: 0 },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      it(`should parse ${input} to Rate with value ${expected}`, () => {
+        const rate = Rate.z.parse(input);
+        expect(rate).toBeInstanceOf(Rate);
+        expect(rate.valueOf()).toBe(expected);
+      });
+    });
+  });
+
+  describe("arithmetic operations", () => {
+    test("add", () => {
+      const r1 = new Rate(100);
+      const r2 = new Rate(50);
+      const result = r1.add(r2);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(150);
+    });
+
+    test("add with number", () => {
+      const r1 = new Rate(100);
+      const result = r1.add(50);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(150);
+    });
+
+    test("sub", () => {
+      const r1 = new Rate(100);
+      const r2 = new Rate(30);
+      const result = r1.sub(r2);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(70);
+    });
+
+    test("sub with number", () => {
+      const r1 = new Rate(100);
+      const result = r1.sub(30);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(70);
+    });
+
+    test("mult", () => {
+      const r1 = new Rate(100);
+      const result = r1.mult(2);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(200);
+    });
+
+    test("mult with decimal", () => {
+      const r1 = new Rate(100);
+      const result = r1.mult(0.5);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(50);
+    });
+
+    test("div", () => {
+      const r1 = new Rate(100);
+      const result = r1.div(2);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(50);
+    });
+
+    test("div with decimal", () => {
+      const r1 = new Rate(100);
+      const result = r1.div(0.5);
+      expect(result).toBeInstanceOf(Rate);
+      expect(result.valueOf()).toBe(200);
+    });
+  });
 });
 
 describe("TimeRange", () => {
@@ -700,6 +1051,151 @@ describe("TimeRange", () => {
       expect(bounds.upper).toBe(tr.end.nanoseconds);
     });
   });
+
+  describe("schema", () => {
+    it("should parse object with start and end TimeStamps", () => {
+      const tr = TimeRange.z.parse({
+        start: new TimeStamp(1000),
+        end: new TimeStamp(2000),
+      });
+      expect(tr).toBeInstanceOf(TimeRange);
+      expect(tr.start.valueOf()).toBe(1000n);
+      expect(tr.end.valueOf()).toBe(2000n);
+    });
+
+    it("should pass through existing TimeRange instance", () => {
+      const original = new TimeRange(new TimeStamp(1000), new TimeStamp(2000));
+      const tr = TimeRange.z.parse(original);
+      expect(tr).toStrictEqual(original);
+      expect(tr.start.valueOf()).toBe(1000n);
+      expect(tr.end.valueOf()).toBe(2000n);
+    });
+
+    it("should parse object with various timestamp formats", () => {
+      const tr = TimeRange.z.parse({
+        start: 1000,
+        end: "2000",
+      });
+      expect(tr).toBeInstanceOf(TimeRange);
+      expect(tr.start.valueOf()).toBe(1000n);
+      expect(tr.end.valueOf()).toBe(2000n);
+    });
+
+    const testCases = [
+      {
+        input: { start: 0, end: 1000 },
+        expectedStart: 0n,
+        expectedEnd: 1000n,
+      },
+      {
+        input: { start: new Date("2024-01-01"), end: new Date("2024-01-02") },
+        expectedStart: BigInt(new Date("2024-01-01").getTime()) * 1000000n,
+        expectedEnd: BigInt(new Date("2024-01-02").getTime()) * 1000000n,
+      },
+    ];
+
+    testCases.forEach(({ input, expectedStart, expectedEnd }, i) => {
+      it(`should parse test case ${i + 1}`, () => {
+        const tr = TimeRange.z.parse(input);
+        expect(tr).toBeInstanceOf(TimeRange);
+        expect(tr.start.valueOf()).toBe(expectedStart);
+        expect(tr.end.valueOf()).toBe(expectedEnd);
+      });
+    });
+  });
+});
+
+describe("Density", () => {
+  describe("schema", () => {
+    it("should parse number", () => {
+      const density = Density.z.parse(8);
+      expect(density).toBeInstanceOf(Density);
+      expect(density.valueOf()).toBe(8);
+    });
+
+    it("should pass through existing Density instance", () => {
+      const original = new Density(4);
+      const density = Density.z.parse(original);
+      expect(density).toBe(original);
+      expect(density.valueOf()).toBe(4);
+    });
+
+    const testCases = [
+      { input: 1, expected: 1 },
+      { input: 2, expected: 2 },
+      { input: 4, expected: 4 },
+      { input: 8, expected: 8 },
+      { input: 0, expected: 0 },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      it(`should parse ${input} to Density with value ${expected}`, () => {
+        const density = Density.z.parse(input);
+        expect(density).toBeInstanceOf(Density);
+        expect(density.valueOf()).toBe(expected);
+      });
+    });
+  });
+
+  describe("arithmetic operations", () => {
+    test("add", () => {
+      const d1 = new Density(8);
+      const d2 = new Density(4);
+      const result = d1.add(d2);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(12);
+    });
+
+    test("add with number", () => {
+      const d1 = new Density(8);
+      const result = d1.add(4);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(12);
+    });
+
+    test("sub", () => {
+      const d1 = new Density(8);
+      const d2 = new Density(3);
+      const result = d1.sub(d2);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(5);
+    });
+
+    test("sub with number", () => {
+      const d1 = new Density(8);
+      const result = d1.sub(3);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(5);
+    });
+
+    test("mult", () => {
+      const d1 = new Density(4);
+      const result = d1.mult(2);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(8);
+    });
+
+    test("mult with decimal", () => {
+      const d1 = new Density(8);
+      const result = d1.mult(0.5);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(4);
+    });
+
+    test("div", () => {
+      const d1 = new Density(8);
+      const result = d1.div(2);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(4);
+    });
+
+    test("div with decimal", () => {
+      const d1 = new Density(4);
+      const result = d1.div(0.5);
+      expect(result).toBeInstanceOf(Density);
+      expect(result.valueOf()).toBe(8);
+    });
+  });
 });
 
 describe("DataType", () => {
@@ -784,6 +1280,47 @@ describe("DataType", () => {
       }),
     );
   });
+
+  describe("schema", () => {
+    it("should parse string", () => {
+      const dt = DataType.z.parse("int32");
+      expect(dt).toBeInstanceOf(DataType);
+      expect(dt.toString()).toBe("int32");
+    });
+
+    it("should pass through existing DataType instance", () => {
+      const original = DataType.INT32;
+      const dt = DataType.z.parse(original);
+      expect(dt).toBe(original);
+      expect(dt.toString()).toBe("int32");
+    });
+
+    const testCases = [
+      { input: "int8", expected: "int8" },
+      { input: "int16", expected: "int16" },
+      { input: "int32", expected: "int32" },
+      { input: "int64", expected: "int64" },
+      { input: "uint8", expected: "uint8" },
+      { input: "uint16", expected: "uint16" },
+      { input: "uint32", expected: "uint32" },
+      { input: "uint64", expected: "uint64" },
+      { input: "float32", expected: "float32" },
+      { input: "float64", expected: "float64" },
+      { input: "string", expected: "string" },
+      { input: "boolean", expected: "boolean" },
+      { input: "timestamp", expected: "timestamp" },
+      { input: "uuid", expected: "uuid" },
+      { input: "json", expected: "json" },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      it(`should parse "${input}" to DataType with value "${expected}"`, () => {
+        const dt = DataType.z.parse(input);
+        expect(dt).toBeInstanceOf(DataType);
+        expect(dt.toString()).toBe(expected);
+      });
+    });
+  });
 });
 
 describe("Size", () => {
@@ -815,6 +1352,97 @@ describe("Size", () => {
   test("truncate", () => {
     TRUNCATE_TESTS.forEach(([size, unit, expected]) => {
       expect(size.truncate(unit).valueOf()).toEqual(expected.valueOf());
+    });
+  });
+
+  describe("schema", () => {
+    it("should parse number", () => {
+      const size = Size.z.parse(1024);
+      expect(size).toBeInstanceOf(Size);
+      expect(size.valueOf()).toBe(1024);
+    });
+
+    it("should pass through existing Size instance", () => {
+      const original = new Size(2048);
+      const size = Size.z.parse(original);
+      expect(size).toBe(original);
+      expect(size.valueOf()).toBe(2048);
+    });
+
+    const testCases = [
+      { input: 0, expected: 0 },
+      { input: 1, expected: 1 },
+      { input: 1024, expected: 1024 },
+      { input: 1048576, expected: 1048576 },
+      { input: 1073741824, expected: 1073741824 },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      it(`should parse ${input} to Size with value ${expected}`, () => {
+        const size = Size.z.parse(input);
+        expect(size).toBeInstanceOf(Size);
+        expect(size.valueOf()).toBe(expected);
+      });
+    });
+  });
+
+  describe("arithmetic operations", () => {
+    test("add", () => {
+      const s1 = Size.kilobytes(10);
+      const s2 = Size.kilobytes(5);
+      const result = s1.add(s2);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(15000);
+    });
+
+    test("add with number", () => {
+      const s1 = Size.bytes(100);
+      const result = s1.add(50);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(150);
+    });
+
+    test("sub", () => {
+      const s1 = Size.kilobytes(10);
+      const s2 = Size.kilobytes(3);
+      const result = s1.sub(s2);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(7000);
+    });
+
+    test("sub with number", () => {
+      const s1 = Size.bytes(100);
+      const result = s1.sub(30);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(70);
+    });
+
+    test("mult", () => {
+      const s1 = Size.kilobytes(5);
+      const result = s1.mult(2);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(10000);
+    });
+
+    test("mult with decimal", () => {
+      const s1 = Size.kilobytes(10);
+      const result = s1.mult(0.5);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(5000);
+    });
+
+    test("div", () => {
+      const s1 = Size.kilobytes(10);
+      const result = s1.div(2);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(5000);
+    });
+
+    test("div with decimal", () => {
+      const s1 = Size.kilobytes(5);
+      const result = s1.div(0.5);
+      expect(result).toBeInstanceOf(Size);
+      expect(result.valueOf()).toBe(10000);
     });
   });
 });

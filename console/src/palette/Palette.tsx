@@ -78,7 +78,7 @@ export const Palette = ({
           size="medium"
           justify="center"
           contrast={2}
-          color={9}
+          textColor={9}
           gap="small"
           full="x"
         >
@@ -107,13 +107,14 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const commandEmptyContent = (
-  <Text.Text status="disabled" center>
+  <Text.Text status="disabled" center level="h4">
+    <Icon.Terminal />
     No commands found
   </Text.Text>
 );
 
 const resourceEmptyContent = (
-  <Text.Text status="disabled" center>
+  <Text.Text status="disabled" center level="h4">
     <Icon.Resources />
     No resources found
   </Text.Text>
@@ -150,6 +151,7 @@ const DialogContent = ({
       itemHeight={36}
       virtual={false}
       initialHover={0}
+      closeDialogOnSelect
     >
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}

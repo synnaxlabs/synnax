@@ -9,13 +9,15 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Status } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 export const useListenForChanges = () => {
   const addStatus = Status.useAdder();
+  const alreadyNotified = useRef<Set<device.Key>>(new Set());
   const handleSet = useCallback(
     (dev: device.Device) => {
-      if (dev.configured) return;
+      if (dev.configured || alreadyNotified.current.has(dev.key)) return;
+      alreadyNotified.current.add(dev.key);
       addStatus<device.Device>({
         variant: "info",
         message: `New ${dev.model} connected`,

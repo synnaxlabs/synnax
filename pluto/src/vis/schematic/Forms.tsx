@@ -17,7 +17,7 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useEffect } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -541,7 +541,14 @@ export const CircleForm = (): ReactElement => (
 const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },
   { tabKey: "telemetry", name: "Telemetry" },
+  { tabKey: "redline", name: "Redline" },
 ];
+
+const valueWidthInputProps = {
+  dragScale: { x: 1, y: 0.25 },
+  bounds: { lower: 40, upper: 500 },
+  endContent: "px",
+} as const;
 
 export const ValueForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
@@ -552,7 +559,12 @@ export const ValueForm = (): ReactElement => {
             <Value.TelemForm path="" />;
           </FormWrapper>
         );
-
+      case "redline":
+        return (
+          <FormWrapper y empty>
+            <Value.RedlineForm path="redline" />
+          </FormWrapper>
+        );
       default:
         return (
           <FormWrapper x>
@@ -572,11 +584,7 @@ export const ValueForm = (): ReactElement => {
                   path="inlineSize"
                   label="Value Width"
                   hideIfNull
-                  inputProps={{
-                    dragScale: { x: 1, y: 0.25 },
-                    bounds: { lower: 40, upper: 500 },
-                    endContent: "px",
-                  }}
+                  inputProps={valueWidthInputProps}
                 />
                 <Form.Field<Text.Level>
                   path="level"
@@ -638,10 +646,6 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     });
     onChange({ ...value, source: t });
   };
-
-  const [c] = Channel.useName(source.channel as number);
-
-  useEffect(() => onChange({ ...value }), [c]);
 
   return (
     <FormWrapper x align="stretch">

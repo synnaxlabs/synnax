@@ -27,7 +27,12 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import {
+  BsBorderWidth,
+  BsFillInfoSquareFill,
+  BsLightbulbFill,
+  BsShiftFill,
+} from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -50,7 +55,12 @@ import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import {
+  HiCursorClick,
+  HiDownload,
+  HiLightningBolt,
+  HiOutlinePlus,
+} from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
@@ -58,6 +68,7 @@ import {
   IoCopy,
   IoNotificationsOff,
   IoShapes,
+  IoTerminal,
   IoTime,
 } from "react-icons/io5";
 import {
@@ -70,6 +81,7 @@ import {
   MdAreaChart,
   MdArrowOutward,
   MdAutoAwesome,
+  MdBlurLinear,
   MdBook,
   MdCalendarToday,
   MdCommit,
@@ -170,7 +182,12 @@ import {
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
-import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import {
+  VscSplitHorizontal,
+  VscSplitVertical,
+  VscSymbolConstant,
+  VscSymbolString,
+} from "react-icons/vsc";
 
 import { CSS } from "@/css";
 import {
@@ -451,6 +468,11 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
+export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Click = wrapSVGIcon(HiCursorClick, "click");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -584,6 +606,8 @@ const icons = {
   Map,
   Linear,
   None,
+  Constant,
+  Terminal,
 };
 
 export const resolve = ((

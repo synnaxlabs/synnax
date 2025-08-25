@@ -36,7 +36,7 @@ export const ContextMenuItems = ({
   const placeLayout = Layout.usePlacer();
   const firstID = resourceIDs[0];
   const first = getResource(firstID);
-  const key = first.key;
+  const key = first.id.key;
   const maybeConfigure = () => {
     if (first.data?.configured !== true) placeLayout({ ...configureLayout, key });
   };

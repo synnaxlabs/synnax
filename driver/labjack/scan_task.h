@@ -28,6 +28,10 @@ namespace labjack {
 /// @brief the default rate for scanning devices
 const auto DEFAULT_SCAN_RATE = telem::Rate(0.5);
 
+const std::vector SCAN_SKIP_ERRORS = {
+    ljm::LJME_AUTO_IPS_FILE_NOT_FOUND,
+};
+
 /// @brief configuration for the scan task
 struct ScanTaskConfig {
     /// @brief the rate at which to scan for devices
@@ -117,7 +121,7 @@ class Scanner final : public common::Scanner {
         if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0)
             err = this->scan_for(LJM_ctTCP, devs);
-        return {devs, err};
+        return {devs, err.skip(SCAN_SKIP_ERRORS)};
     }
 
 public:

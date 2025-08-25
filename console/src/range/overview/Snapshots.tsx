@@ -16,6 +16,7 @@ import {
 import {
   Component,
   Flex,
+  Header,
   Icon,
   List,
   Ontology,
@@ -89,28 +90,29 @@ const SnapshotsListItem = (props: List.ItemProps<string>) => {
 
 const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
-const EMPTY_LIST_CONTENT = (
-  <Text.Text weight={400} color={10}>
-    No Snapshots.
-  </Text.Text>
-);
-
 export interface SnapshotsProps {
   rangeKey: string;
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { data, getItem, subscribe } = Ontology.useChildren({
+  const { data, getItem, subscribe, retrieve, status } = Ontology.useChildren({
     initialParams: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
+  const { fetchMore } = List.usePager({ retrieve });
+  if (status.variant === "error") return null;
   return (
     <Flex.Box y>
-      <Text.Text level="h4" color={10} weight={500}>
-        Snapshots
-      </Text.Text>
-      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
-        <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
+      <Header.Header level="h4" borderColor={5}>
+        <Header.Title>Snapshots</Header.Title>
+      </Header.Header>
+      <List.Frame
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={fetchMore}
+      >
+        <List.Items>{snapshotsListItem}</List.Items>
       </List.Frame>
     </Flex.Box>
   );

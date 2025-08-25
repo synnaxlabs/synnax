@@ -107,7 +107,7 @@
             box-shadow: 0 4px 8px var(--pluto-gray-l8);
         }
 
-        &--selected {
+        &.console--selected {
             transform: translate(-50%, -50%) scale(1.1);
             box-shadow: 0 4px 8px var(--pluto-primary-l8);
         }

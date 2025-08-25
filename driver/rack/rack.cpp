@@ -20,6 +20,10 @@ bool rack::Rack::should_exit(
     return !breaker_ok;
 }
 
+rack::Rack::~Rack() {
+    stop();
+}
+
 void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdown) {
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
@@ -34,7 +38,7 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
             cfg.new_client(),
             cfg.new_factory()
         );
-        err = this->task_manager->run();
+        err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (err && this->should_exit(err, on_shutdown)) return;
     }
     if (this->task_manager != nullptr) this->task_manager->stop();
@@ -43,9 +47,8 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
 
 void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
     this->breaker.start();
-    this->run_thread = std::thread([this, &args, callback = std::move(on_shutdown)] {
-        this->run(args, callback);
-    });
+    this->run_thread = std::thread([this, args, callback = std::move(on_shutdown)](
+                                   ) mutable { this->run(args, callback); });
 }
 
 xerrors::Error rack::Rack::stop() {

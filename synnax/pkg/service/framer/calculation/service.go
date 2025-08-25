@@ -43,7 +43,7 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	// Framer is the underlying frame service to stream required channel values and write
+	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
@@ -210,10 +210,12 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	delete(s.mu.entries, ch.Key())
 	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		// Even if the operation is not successful, we still want to store the
+		// latest requirements and expression in the entry.
+		e.ch.Requires = ch.Requires
+		e.ch.Expression = ch.Expression
+		s.mu.entries[ch.Key()] = e
 	}
-	e.ch.Requires = ch.Requires
-	e.ch.Expression = ch.Expression
-	s.mu.entries[ch.Key()] = e
 }
 
 func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
@@ -341,7 +343,7 @@ func (s *Service) startCalculation(
 			calculation: streamerRequests,
 			shutdown:    signal.NewHardShutdown(sCtx, cancel),
 		}
-		p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
 		return s.releaseEntryCloser(key), nil
 	}()

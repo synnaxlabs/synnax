@@ -113,38 +113,47 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      <PNav.Bar
-        location="top"
-        size="5rem"
-        style={{ display: focused ? "flex" : "none" }}
-        bordered
-      >
-        {/*
-         * We do this to reduce the number of mounted DOM nodes. For some reason removing
-         * the entire bar causes react to crash, so we just hide its children.
-         */}
-        {focused && (
-          <>
-            <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb>
-                <Breadcrumb.Segment>
-                  {Icon.resolve(layout.icon)}
-                  {layout.name}
-                </Breadcrumb.Segment>
-              </Breadcrumb.Breadcrumb>
-            </PNav.Bar.Start>
-            <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-              <Button.Button onClick={handleOpenInNewWindow} size="small">
-                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Button>
-              <Button.Button onClick={handleClose} size="small">
-                <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Button>
-            </PNav.Bar.End>
-          </>
-        )}
-      </PNav.Bar>
-      <Portal.Out node={node} />
+      <Dialog.Dialog passthrough full className={CSS.B("mosaic-modal")}>
+        <PNav.Bar
+          location="top"
+          size="5rem"
+          className={CSS(
+            CSS.B("mosaic-modal-bar"),
+            focused && CSS.BM("mosaic-modal-bar", "focused"),
+          )}
+          bordered
+        >
+          {/*
+           * We do this to reduce the number of mounted DOM nodes. For some reason removing
+           * the entire bar causes react to crash, so we just hide its children.
+           */}
+          {focused && (
+            <>
+              <PNav.Bar.Start>
+                <Breadcrumb.Breadcrumb>
+                  <Breadcrumb.Segment>
+                    {Icon.resolve(layout.icon)}
+                    {layout.name}
+                  </Breadcrumb.Segment>
+                </Breadcrumb.Breadcrumb>
+              </PNav.Bar.Start>
+              <PNav.Bar.End pack>
+                <Button.Button
+                  onClick={handleOpenInNewWindow}
+                  size="small"
+                  textColor={9}
+                >
+                  <Icon.OpenInNewWindow />
+                </Button.Button>
+                <Button.Button onClick={handleClose} size="small" textColor={9}>
+                  <Icon.Subtract />
+                </Button.Button>
+              </PNav.Bar.End>
+            </>
+          )}
+        </PNav.Bar>
+        <Portal.Out node={node} />
+      </Dialog.Dialog>
     </Dialog.Frame>
   );
 };
@@ -309,6 +318,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         activeTab={activeTab ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"
+        className={CSS.B("mosaic")}
       >
         {renderProp}
       </Core.Mosaic>

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, newTestClient } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { createTestClient, type label } from "@synnaxlabs/client";
+import { testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
   key: z.string(),
@@ -26,7 +26,8 @@ interface Params {
   key?: string;
 }
 
-const client = newTestClient();
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -53,7 +54,7 @@ describe("useForm", () => {
             retrieve,
             update,
           })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -69,14 +70,17 @@ describe("useForm", () => {
 
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
-      const retrieve = vi.fn().mockReturnValue({
-        key: "123",
-        name: "Apple Cat",
-        age: 30,
-      });
+      const retrieve = vi.fn(
+        async ({ reset }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+          reset({
+            key: "123",
+            name: "Apple Cat",
+            age: 30,
+          }),
+      );
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues: {
               key: "",
               name: "",
@@ -87,7 +91,7 @@ describe("useForm", () => {
             retrieve,
             update: vi.fn(),
           })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
@@ -116,7 +120,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newSynnaxWrapper(client) },
+      { wrapper },
     );
 
     act(() => {
@@ -144,7 +148,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newSynnaxWrapper(client) },
+      { wrapper },
     );
     act(() => {
       result.current.save({ signal: controller.signal });
@@ -176,7 +180,7 @@ describe("useForm", () => {
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
           })({ params: {}, afterSave }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.save({ signal: controller.signal });
@@ -201,14 +205,10 @@ describe("useForm", () => {
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn().mockRejectedValue(new Error("Update failed")),
           })({ params: {}, afterSave }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
-      act(() => {
-        result.current.save({ signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(afterSave).not.toHaveBeenCalled();
-      });
+      act(() => result.current.save({ signal: controller.signal }));
+      await testutil.expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
     });
 
     it("should not call afterSave if the form is not valid", async () => {
@@ -226,7 +226,7 @@ describe("useForm", () => {
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
           })({ params: {}, afterSave }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.save({ signal: controller.signal });
@@ -254,7 +254,7 @@ describe("useForm", () => {
             retrieve,
             update,
           })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -293,7 +293,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newSynnaxWrapper(client) },
+      { wrapper },
     );
     act(() => {
       result.current.form.set("name", "Jane Doe");
@@ -320,9 +320,9 @@ describe("useForm", () => {
             schema: formSchema,
             name: "test",
             retrieve,
-            update: ({ value }) => update(value.name),
+            update: ({ get }) => update(get("name").value),
           })({ params: {}, autoSave: true }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.form.set("name", "Jane Doe");
@@ -354,7 +354,7 @@ describe("useForm", () => {
             retrieve,
             update: ({ value }) => update(value.name),
           })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
@@ -363,27 +363,34 @@ describe("useForm", () => {
     });
   });
 
+  interface SubStore extends Flux.Store {
+    labels: Flux.UnaryStore<label.Key, label.Label>;
+  }
+
   describe("listeners", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
-      const ch = await client.labels.create({
+      const label = await client.labels.create({
         name: "Initial Name",
         color: "#000000",
       });
 
       const initialValues = {
-        key: ch.key.toString(),
+        key: label.key.toString(),
         name: "Initial Name",
         age: 25,
       };
 
-      const retrieve = vi.fn().mockReturnValue(initialValues);
+      const retrieve = async ({
+        reset,
+      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+        reset(initialValues);
       const update = vi.fn();
 
       const { result } = renderHook(
         () =>
-          Flux.createForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema, SubStore>({
             initialValues: {
-              key: ch.key.toString(),
+              key: label.key.toString(),
               name: "",
               age: 0,
             },
@@ -391,34 +398,20 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-            listeners: [
-              {
-                channel: label.SET_CHANNEL_NAME,
-                onChange: Flux.parsedHandler(
-                  label.labelZ,
-                  async ({ params, onChange, changed }) => {
-                    if (changed.key !== params.key) return;
-                    onChange((prev) => {
-                      if (prev == null) return prev;
-                      return { ...prev, name: changed.name };
-                    });
-                  },
-                ),
-              },
-            ],
-          })({ params: { key: ch.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+            mountListeners: ({ store, set }) =>
+              store.labels.onSet((changed) => set("name", changed.name), label.key),
+          })({ params: { key: label.key } }),
+        { wrapper },
       );
 
       await waitFor(() => {
         expect(result.current.form.value()).toEqual(initialValues);
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
       });
 
       await act(async () => {
         await client.labels.create({
-          ...ch,
+          ...label,
           name: "Updated Label Name",
         });
       });
@@ -426,64 +419,6 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("Updated Label Name");
         expect(result.current.variant).toEqual("success");
-      });
-    });
-
-    it("should move the form into an error state when the listener throws an error", async () => {
-      const signalChannelName = `signal_${uuid.create()}`;
-      await client.channels.create({
-        name: signalChannelName,
-        virtual: true,
-        dataType: "float32",
-      });
-
-      const initialValues = {
-        key: "12",
-        name: "Initial Name",
-        age: 25,
-      };
-
-      const retrieve = vi.fn().mockReturnValue(initialValues);
-      const update = vi.fn();
-
-      const { result } = renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema>({
-            initialValues,
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update,
-            listeners: [
-              {
-                channel: signalChannelName,
-                onChange: async () => {
-                  throw new Error("Listener error");
-                },
-              },
-            ],
-          })({ params: {} }),
-        { wrapper: newSynnaxWrapper(client) },
-      );
-
-      await waitFor(() => {
-        expect(result.current.form.value()).toEqual(initialValues);
-        expect(
-          result.current.variant,
-          `${result.current.status.message}:${result.current.status.description}`,
-        ).toEqual("success");
-        expect(result.current.listenersMounted).toEqual(true);
-      });
-
-      await act(async () => {
-        const writer = await client.openWriter(signalChannelName);
-        await writer.write(signalChannelName, 12);
-        await writer.close();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.description).toEqual("Listener error");
       });
     });
   });

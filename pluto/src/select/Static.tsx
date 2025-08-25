@@ -45,12 +45,13 @@ export const Static = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data,
   filter,
   children = listItem,
+  virtual = false,
   ...rest
 }: StaticProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { search } = List.usePager({ retrieve });
   return (
-    <Single<K, E> {...rest} {...listProps} onFetchMore={fetchMore} onSearch={search}>
+    <Single<K, E> {...rest} {...listProps} onSearch={search} virtual={virtual}>
       {children}
     </Single>
   );

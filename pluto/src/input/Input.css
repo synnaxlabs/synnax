@@ -40,6 +40,7 @@
         padding: 0 1.5rem;
         font-size: inherit;
         line-height: inherit;
+        color: inherit;
 
         &::placeholder,
         &::-webkit-input-placeholder {
@@ -49,12 +50,21 @@
     }
 
     .pluto-input__placeholder,
-    .pluto-input__end-content {
+    .pluto-input__end-content,
+    .pluto-input__start-content {
         display: flex;
         align-items: center;
         pointer-events: none;
         white-space: nowrap;
+    }
+
+    .pluto-input__placeholder,
+    .pluto-input__end-content {
         color: var(--pluto-gray-l8);
+    }
+
+    .pluto-input__start-content {
+        padding-left: 1rem;
     }
 
     .pluto-input__placeholder {
@@ -97,5 +107,22 @@
 
     input[type="number"]::-webkit-inner-spin-button {
         -webkit-appearance: none;
+    }
+}
+
+.pluto-input__container:has(.pluto-btn--shadow) {
+    .pluto-btn--outlined,
+    .pluto-btn--text {
+        opacity: 0;
+    }
+    &:hover {
+        & .pluto-btn--outlined,
+        & .pluto-btn--text {
+            opacity: 1;
+        }
+        & .pluto-btn--shadow {
+            border-color: var(--pluto-hover-border-color);
+            background: var(--pluto-hover-bg);
+        }
     }
 }

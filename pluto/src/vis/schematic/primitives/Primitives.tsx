@@ -1959,7 +1959,12 @@ export const Value = ({
     >
       <div
         className={CSS.BE("value", "content")}
-        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize }}
+        style={{
+          flexGrow: 1,
+          minWidth: dimensions?.width,
+          inlineSize,
+          maxWidth: dimensions?.width,
+        }}
       >
         {children}
       </div>

@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, newTestClient, ontology } from "@synnaxlabs/client";
+import { createTestClient, type group, ontology } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Ontology } from "@/ontology";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
-const client = newTestClient();
+import { createSynnaxWrapper } from "@/testutil/Synnax";
+
+const client = createTestClient();
+const wrapper = createSynnaxWrapper({ client });
 
 describe("Ontology Queries", () => {
   describe("useChildren", async () => {
@@ -34,7 +36,7 @@ describe("Ontology Queries", () => {
           Ontology.useChildren({
             initialParams: { id: parent.ontologyID },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({ id: parent.ontologyID });
@@ -46,29 +48,29 @@ describe("Ontology Queries", () => {
 
     it("should update the query when a child is added to the parent", async () => {
       const parent = await client.ontology.groups.create(ontology.ROOT_ID, "parent");
-      const child1 = await client.ontology.groups.create(parent.ontologyID, "child1");
-      const child2 = await client.ontology.groups.create(parent.ontologyID, "child2");
-      await client.ontology.addChildren(
-        parent.ontologyID,
-        child1.ontologyID,
-        child2.ontologyID,
-      );
+      await client.ontology.groups.create(parent.ontologyID, "child1");
+      await client.ontology.groups.create(parent.ontologyID, "child2");
       const { result } = renderHook(
         () =>
           Ontology.useChildren({
             initialParams: { id: parent.ontologyID },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({ id: parent.ontologyID });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
-        expect(result.current.listenersMounted).toBe(true);
       });
-      const child3 = await client.ontology.groups.create(parent.ontologyID, "child3");
-      await client.ontology.addChildren(parent.ontologyID, child3.ontologyID);
+      await act(async () => {
+        const alternateParent = await client.ontology.groups.create(
+          ontology.ROOT_ID,
+          "alternateParent",
+        );
+        await client.ontology.groups.create(parent.ontologyID, "child3");
+        await client.ontology.groups.create(alternateParent.ontologyID, "child4");
+      });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(3);
       });
@@ -88,14 +90,13 @@ describe("Ontology Queries", () => {
           Ontology.useChildren({
             initialParams: { id: parent.ontologyID },
           }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       act(() => {
         result.current.retrieve({ id: parent.ontologyID });
       });
       await waitFor(() => {
         expect(result.current.data).toHaveLength(2);
-        expect(result.current.listenersMounted).toBe(true);
       });
       await client.ontology.removeChildren(parent.ontologyID, child1.ontologyID);
       await waitFor(() => {
@@ -110,7 +111,7 @@ describe("Ontology Queries", () => {
       await client.ontology.groups.create(ontology.ROOT_ID, "group2");
 
       const { result } = renderHook(() => Ontology.useResourceList({}), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -140,7 +141,7 @@ describe("Ontology Queries", () => {
             filter: (r) => groupIDStrings.includes(ontology.idToString(r.id)),
           }),
         {
-          wrapper: newSynnaxWrapper(client),
+          wrapper,
         },
       );
 
@@ -163,7 +164,7 @@ describe("Ontology Queries", () => {
       await client.ontology.groups.create(ontology.ROOT_ID, "different-name");
 
       const { result } = renderHook(() => Ontology.useResourceList({}), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -182,7 +183,7 @@ describe("Ontology Queries", () => {
 
     it("should update when a new resource is created", async () => {
       const { result } = renderHook(() => Ontology.useResourceList({}), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -190,7 +191,7 @@ describe("Ontology Queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.listenersMounted).toBe(true);
+        expect(result.current.variant).toEqual("success");
       });
 
       const newGroupName = id.create();
@@ -200,7 +201,7 @@ describe("Ontology Queries", () => {
       );
 
       await waitFor(() => {
-        const item = result.current.getItem(newGroup.key);
+        const item = result.current.getItem(ontology.idToString(newGroup.ontologyID));
         expect(item?.name).toBe(newGroupName);
       });
     });

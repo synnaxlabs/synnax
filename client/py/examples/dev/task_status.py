@@ -18,14 +18,6 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(
-    ["sy_ontology_relationship_set", "sy_ontology_relationship_delete"]
-) as s:
+with client.open_streamer(["sy_task_set"]) as s:
     for frame in s:
-        sets = frame["sy_ontology_relationship_set"]
-        deletes = frame["sy_ontology_relationship_delete"]
-        if len(sets) > 0:
-            print("sets", sets)
-        if len(deletes) > 0:
-            print("deletes", deletes)
-        print("--------------------------------")
+        print(frame)

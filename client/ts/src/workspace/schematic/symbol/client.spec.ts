@@ -11,9 +11,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { ontology } from "@/ontology";
 import { type group } from "@/ontology/group";
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Symbol Client", () => {
   let group: group.Group;

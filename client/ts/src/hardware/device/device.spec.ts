@@ -10,9 +10,9 @@
 import { id, unique } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { newTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil/client";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("Device", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
@@ -276,7 +276,7 @@ describe("Device", async () => {
 
       it("should retrieve devices by search term", async () => {
         const result = await client.hardware.devices.retrieve({
-          searchTerm: "sensor",
+          searchTerm: "sensor1",
         });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((d) => d.name.includes("sensor"))).toBe(true);

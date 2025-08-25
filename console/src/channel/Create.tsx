@@ -45,23 +45,19 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     params: {},
-    afterSave: ({ form }) => {
-      if (createMore) form.reset();
+    afterSave: ({ reset }) => {
+      if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else onClose();
     },
   });
 
   const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "isIndex",
-    {
-      ctx: form,
-    },
+    { ctx: form },
   );
   const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "virtual",
-    {
-      ctx: form,
-    },
+    { ctx: form },
   );
 
   return (
@@ -136,7 +132,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text>Create More</Text.Text>
+            <Text.Text color={9}>Create More</Text.Text>
           </Flex.Box>
           <Button.Button
             status={variant}

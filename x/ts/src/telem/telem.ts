@@ -28,6 +28,12 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
+const dateComponentsZ = z.union([
+  z.tuple([z.int()]),
+  z.tuple([z.int(), z.int().min(1).max(12)]),
+  z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
+]);
+
 /**
  * A triple of numbers representing a date.
  *
@@ -35,7 +41,7 @@ export type TimeStampStringFormat =
  * @param month - The month.
  * @param day - The day.
  */
-export type DateComponents = [number?, number?, number?];
+export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
@@ -320,7 +326,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   add(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() + BigInt(span.valueOf()));
+    return new TimeStamp(math.add(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -331,7 +337,7 @@ export class TimeStamp
    *   TimeSpan.
    */
   sub(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() - BigInt(span.valueOf()));
+    return new TimeStamp(math.sub(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
   /**
@@ -644,10 +650,14 @@ export class TimeStamp
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(TimeStamp),
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.number().transform((n) => new TimeStamp(n)),
-    z.instanceof(TimeStamp),
+    z.bigint().transform((n) => new TimeStamp(n)),
+    z.date().transform((d) => new TimeStamp(d)),
+    z.custom<TimeSpan>((v) => v instanceof TimeSpan).transform((v) => new TimeStamp(v)),
+    dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
   /**
@@ -810,7 +820,17 @@ export class TimeSpan
    * @returns A new TimeSpan that is this TimeSpan multiplied by the provided value.
    */
   mult(value: number): TimeSpan {
-    return new TimeSpan(this.valueOf() * BigInt(value));
+    return new TimeSpan(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides the TimeSpan by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new TimeSpan that is this TimeSpan divided by the provided value.
+   */
+  div(value: number): TimeSpan {
+    return new TimeSpan(math.div(this.valueOf(), value));
   }
 
   /** @returns the decimal number of days in the TimeSpan. */
@@ -989,7 +1009,10 @@ export class TimeSpan
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
     z.number().transform((n) => new TimeSpan(n)),
+    z.bigint().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
+    z.instanceof(TimeStamp).transform((t) => new TimeSpan(t)),
+    z.custom<Rate>((r) => r instanceof Rate).transform((r) => new TimeSpan(r)),
   ]);
 }
 
@@ -1064,6 +1087,46 @@ export class Rate
   }
 
   /**
+   * Adds another Rate to this Rate.
+   *
+   * @param other - The Rate to add.
+   * @returns A new Rate representing the sum of the two rates.
+   */
+  add(other: CrudeRate): Rate {
+    return new Rate(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Rate from this Rate.
+   *
+   * @param other - The Rate to subtract.
+   * @returns A new Rate representing the difference of the two rates.
+   */
+  sub(other: CrudeRate): Rate {
+    return new Rate(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Rate by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Rate representing this Rate multiplied by the value.
+   */
+  mult(value: number): Rate {
+    return new Rate(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Rate by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Rate representing this Rate divided by the value.
+   */
+  div(value: number): Rate {
+    return new Rate(math.div(this.valueOf(), value));
+  }
+
+  /**
    * Creates a Rate representing the given number of Hz.
    *
    * @param value - The number of Hz.
@@ -1124,6 +1187,46 @@ export class Density
    */
   size(sampleCount: number): Size {
     return new Size(sampleCount * this.valueOf());
+  }
+
+  /**
+   * Adds another Density to this Density.
+   *
+   * @param other - The Density to add.
+   * @returns A new Density representing the sum of the two densities.
+   */
+  add(other: CrudeDensity): Density {
+    return new Density(math.add(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Subtracts another Density from this Density.
+   *
+   * @param other - The Density to subtract.
+   * @returns A new Density representing the difference of the two densities.
+   */
+  sub(other: CrudeDensity): Density {
+    return new Density(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Density by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Density representing this Density multiplied by the value.
+   */
+  mult(value: number): Density {
+    return new Density(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Density by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Density representing this Density divided by the value.
+   */
+  div(value: number): Density {
+    return new Density(math.div(this.valueOf(), value));
   }
 
   /** Unknown/Invalid Density. */
@@ -1702,12 +1805,32 @@ export class Size
 
   /** @returns a new Size representing the sum of the two Sizes. */
   add(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() + other.valueOf());
+    return new Size(math.add(this.valueOf(), other.valueOf()));
   }
 
   /** @returns a new Size representing the difference of the two Sizes. */
   sub(other: CrudeSize): Size {
-    return Size.bytes(this.valueOf() - other.valueOf());
+    return new Size(math.sub(this.valueOf(), other.valueOf()));
+  }
+
+  /**
+   * Multiplies this Size by a scalar value.
+   *
+   * @param value - The scalar value to multiply by.
+   * @returns A new Size representing this Size multiplied by the value.
+   */
+  mult(value: number): Size {
+    return new Size(math.mult(this.valueOf(), value));
+  }
+
+  /**
+   * Divides this Size by a scalar value.
+   *
+   * @param value - The scalar value to divide by.
+   * @returns A new Size representing this Size divided by the value.
+   */
+  div(value: number): Size {
+    return new Size(math.div(this.valueOf(), value));
   }
 
   /** @returns a new Size representing the truncated value of the Size. */

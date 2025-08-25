@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDataType, DataType, status } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
@@ -21,8 +21,9 @@ export type Names = Name[];
 export type KeyOrName = Key | Name;
 export type KeysOrNames = Keys | Names;
 export type PrimitiveParams = Key | Name | Keys | Names;
-export type Params = Key | Name | Keys | Names | Payload | Payload[];
 
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
   name: nameZ,
   key: keyZ,
@@ -35,6 +36,7 @@ export const payloadZ = z.object({
   alias: z.string().optional(),
   expression: z.string().default(""),
   requires: nullableArrayZ(keyZ),
+  status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -49,9 +51,13 @@ export const newZ = payloadZ.extend({
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
-export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
+export interface New extends Omit<z.input<typeof newZ>, "dataType" | "status"> {
   dataType: CrudeDataType;
 }
 
-export const calculationStatusZ = status.statusZ();
-export type CalculationStatus = z.infer<typeof calculationStatusZ>;
+export const paramsZ = z.union([
+  zod.toArray(keyZ),
+  zod.toArray(nameZ),
+  zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
+]);
+export type Params = Key | Name | Keys | Names | Payload | Payload[];

@@ -202,11 +202,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (id: ontology.ID) => {
-      handleError(async () => {
-        if (client == null) return;
-        resourceStore.setItem(await client.ontology.retrieve(id));
-      });
+    (resource: ontology.Resource) => {
+      const prev = resourceStore.getItem(ontology.idToString(resource.id));
+      resourceStore.setItem(resource);
+      // Trigger re-sort when name changes.
+      if (prev?.name !== resource.name) setNodes((prevNodes) => [...prevNodes]);
     },
     [client, handleError, resourceStore.setItem],
   );
@@ -234,6 +234,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               children: services[to.type].hasChildren ? [] : undefined,
             },
           ],
+          throwOnMissing: false,
         }),
       ];
       return nextNodes;

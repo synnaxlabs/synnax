@@ -126,6 +126,16 @@ const defaultGetter = (obj: record.Unknown, key: string): unknown => {
   return undefined;
 };
 
+export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
+  const parts = path.split(".");
+  parts.forEach((part, i) => {
+    obj = defaultGetter(obj as record.Unknown, part) as T;
+    if (obj != null && typeof obj === "object" && "key" in obj)
+      parts[i] = obj.key as string;
+  });
+  return parts.join(".");
+};
+
 /**
  * Gets the value at the given path on the object. If the path does not exist
  * and the optional flag is set to true, null will be returned. If the path does
@@ -158,6 +168,12 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
   return result as V;
 }) as Get;
 
+const getIndex = (part: string): number | null => {
+  // in order to be considered an index, all characters must be numbers
+  for (const char of part) if (isNaN(parseInt(char))) return null;
+  return parseInt(part);
+};
+
 /**
  * Sets the value at the given path on the object. If the parents of the deep path
  * do not exist, new objects will be created.
@@ -180,8 +196,9 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
       return;
     }
     if (result.length === 0) return;
-    const index = parseInt(parts[parts.length - 1]);
-    if (isNaN(index)) {
+    const index = getIndex(parts[parts.length - 1]);
+    // If we can't parse an index, try to interpret it as an object key.
+    if (index == null) {
       const first = result[0];
       if (typeof first === "object" && "key" in first) {
         const objIndex = result.findIndex((o) => o.key === parts[parts.length - 1]);

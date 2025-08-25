@@ -7,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { bounds, color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { Icon } from "@/icon";
-
-const isWindows = runtime.getOS() === "Windows";
-
-export const Symbols: Record<string, FC> = {
-  Meta: isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command,
-  Alt: isWindows ? () => "Alt" : Icon.Keyboard.Option,
-};
+export const redlineZ = z.object({ bounds: bounds.bounds, gradient: color.gradientZ });
+export type Redline = z.infer<typeof redlineZ>;
+export const ZERO_READLINE: Redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };

@@ -32,16 +32,16 @@ export interface HeaderProps extends PHeader.HeaderProps {
   padded?: boolean;
 }
 
-export const Header = (props: HeaderProps): ReactElement => (
+export const Header = ({ padded, ...rest }: HeaderProps): ReactElement => (
   <PHeader.Header
     className={CSS(
       CSS.BE("toolbar", "header"),
-      props.padded && CSS.BEM("toolbar", "header", "padded"),
+      padded && CSS.BEM("toolbar", "header", "padded"),
     )}
     level="h5"
     shrink={false}
     background={1}
-    {...props}
+    {...rest}
   />
 );
 

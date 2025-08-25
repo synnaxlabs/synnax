@@ -17,7 +17,7 @@ import { Menu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Common } from "@/hardware/common";
-import { type LayoutArgs } from "@/hardware/common/task/Task";
+import { type FormLayoutArgs } from "@/hardware/common/task/Form";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
@@ -90,7 +90,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     handleError,
     state: { getResource, shape },
   } = props;
-  const { resourceIDs } = selection;
+  const { resourceIDs, rootID } = selection;
   const resources = getResource(resourceIDs);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -111,7 +111,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(resourceIDs[0].key),
     rangeSnapshot: () => snap(resources),
@@ -121,7 +121,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} rootID={rootID} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />
@@ -156,7 +156,7 @@ const handleRename: Ontology.HandleTreeRename = {
     await client.hardware.tasks.create({ ...task, name });
     const layout = Layout.selectByFilter(
       store.getState(),
-      (l) => (l.args as LayoutArgs)?.taskKey === id.key,
+      (l) => (l.args as FormLayoutArgs)?.taskKey === id.key,
     );
     if (layout == null) return;
     store.dispatch(Layout.rename({ key: layout.key, name }));

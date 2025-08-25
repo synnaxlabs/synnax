@@ -11,9 +11,11 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
+  DisconnectedError,
   type framer,
   type Synnax,
   TimeStamp,
+  ValidationError,
 } from "@synnaxlabs/client";
 import {
   color,
@@ -276,7 +278,9 @@ export class SetChannelValue
   set(...values: number[]): void {
     this.runAsync(async () => {
       const { client } = this.controller.internal;
-      if (client == null) return;
+      if (client == null) throw new DisconnectedError("No cluster connected");
+      if (this.props.channel === 0)
+        throw new ValidationError("No command channel specified for actuator");
       const ch = await client.channels.retrieve(this.props.channel);
       const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
       if (ch.index !== 0) {
@@ -287,7 +291,7 @@ export class SetChannelValue
         );
       }
       await this.controller.set(fr);
-    }, "failed to set channel value");
+    }, "Failed to command channel");
   }
 }
 

@@ -46,6 +46,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 
 	// RANGE
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
+	a.RangeAliasRetrieve = fnoop.UnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}

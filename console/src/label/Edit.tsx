@@ -51,13 +51,9 @@ const LabelListItem = ({
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
-      ({ form }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
+      ({ reset }: Flux.AfterSaveArgs<Flux.Params, typeof Label.formSchema>) => {
         onClose?.();
-        if (isCreate)
-          form.reset({
-            name: "",
-            color: "#000000",
-          });
+        if (isCreate) reset({ name: "", color: "#000000" });
       },
       [isCreate, onClose],
     ),
@@ -111,6 +107,7 @@ const LabelListItem = ({
             inputProps={{
               ref: inputRef,
               placeholder: "Label Name",
+              variant: "text",
               selectOnFocus: true,
               autoFocus: isCreate,
               resetOnBlurIfEmpty: true,
@@ -135,10 +132,10 @@ const LabelListItem = ({
         </Flex.Box>
       ) : (
         <Button.Button
-          className={CSS.BE("label", "delete")}
           variant="outlined"
           size="small"
           onClick={() => handleDelete()}
+          className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />
         </Button.Button>
@@ -176,10 +173,10 @@ export const Edit: Layout.Renderer = () => {
         <Flex.Box x justify="between" style={{ padding: "2rem" }}>
           <Input.Text
             placeholder={
-              <Text.Text>
+              <>
                 <Icon.Search />
                 Search Labels
-              </Text.Text>
+              </>
             }
             value={searchTerm}
             onChange={(v) => {

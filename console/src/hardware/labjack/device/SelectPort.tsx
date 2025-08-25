@@ -67,7 +67,13 @@ export const SelectPort = ({
   const triggerVariant = variant === "preview" ? "preview" : undefined;
   return (
     <Dialog.Frame location="bottom" variant={dialogVariant} {...rest}>
-      <Select.Frame data={data} getItem={getItem} onChange={onChange}>
+      <Select.Frame
+        data={data}
+        getItem={getItem}
+        onChange={onChange}
+        value={value}
+        closeDialogOnSelect
+      >
         <Flex.Box pack x>
           <Dialog.Trigger variant={triggerVariant} {...triggerProps}>
             {selected?.alias ?? selected?.key}

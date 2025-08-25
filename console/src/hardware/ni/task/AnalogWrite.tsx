@@ -56,24 +56,23 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps {}
-
-const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
-      {...rest}
+      {...props}
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      isSnapshot={isSnapshot}
-      path={path}
+      path={itemKey}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
@@ -98,18 +97,16 @@ const Form: FC<
     typeof analogWriteConfigZ,
     typeof analogWriteStatusDataZ
   >
-> = ({ task, isSnapshot }) => (
+> = () => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}
-    isSnapshot={isSnapshot}
-    initialChannels={task.config.channels}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialPayload: Common.Task.GetInitialPayload<
+const getInitialValues: Common.Task.GetInitialValues<
   typeof analogWriteTypeZ,
   typeof analogWriteConfigZ,
   typeof analogWriteStatusDataZ
@@ -227,6 +224,6 @@ export const AnalogWrite = Common.Task.wrapForm({
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
-  getInitialPayload,
+  getInitialValues,
   onConfigure,
 });

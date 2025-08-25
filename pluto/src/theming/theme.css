@@ -38,7 +38,7 @@
     --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
-        fill 0.15s ease-in-out;
+        fill 0.15s ease-in-out, opacity 0.15s ease-in-out;
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
 }

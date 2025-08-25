@@ -68,7 +68,7 @@ export const Item = ({
     );
   else
     inputAndHelp = (
-      <Flex.Box y gap={1 / 3}>
+      <Flex.Box y gap={1 / 3} align="stretch">
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
           <HelpText variant={status}>{helpText}</HelpText>

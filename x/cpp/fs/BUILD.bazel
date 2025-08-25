@@ -1,0 +1,19 @@
+cc_library(
+    name = "fs",
+    hdrs = ["fs.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "fs_test",
+    size = "small",
+    srcs = ["fs_test.cpp"],
+    deps = [
+        "//x/cpp/fs",
+        "//x/cpp/xerrors",
+        "@googletest//:gtest_main",
+    ],
+)
