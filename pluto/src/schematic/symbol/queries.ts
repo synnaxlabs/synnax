@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, ontology, schematic } from "@synnaxlabs/client";
+import { type group, ontology, schematic, type Synnax } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -50,14 +50,22 @@ export interface RetrieveParams {
   key: string;
 }
 
+const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
+  const cached = store.schematicSymbols.get(key);
+  if (cached != null) return cached;
+  const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
+  store.schematicSymbols.set(key, symbol);
+  return symbol;
+};
+
 export const retrieve = Flux.createRetrieve<
   RetrieveParams,
   schematic.symbol.Symbol,
   SubStore
 >({
   name: "SchematicSymbols",
-  retrieve: async ({ client, params }) =>
-    await client.workspaces.schematic.symbols.retrieve({ key: params.key }),
+  retrieve: async ({ client, params, store }) =>
+    await retrieveByKey(client, params.key, store),
   mountListeners: ({ store, params, onChange }) => [
     store.schematicSymbols.onSet(onChange, params.key),
   ],
@@ -77,17 +85,20 @@ export const useList = Flux.createList<
   schematic.symbol.Symbol,
   SubStore
 >({
-  name: "SchematicSymbols",
+  name: "Schematic Symbols",
   retrieve: async ({ client, params: { parent, ...rest } }) => {
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);
-      return await client.workspaces.schematic.symbols.retrieve({ ...rest, keys });
+      return await client.workspaces.schematic.symbols.retrieve({
+        ...rest,
+        keys,
+      });
     }
     return await client.workspaces.schematic.symbols.retrieve(rest);
   },
-  retrieveByKey: async ({ client, key }) =>
-    await client.workspaces.schematic.symbols.retrieve({ key }),
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveByKey(client, key, store),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.schematicSymbols.onSet((symbol) => onChange(symbol.key, symbol)),
     store.schematicSymbols.onDelete(onDelete),
@@ -115,9 +126,9 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, params: { key, parent }, reset }) => {
+  retrieve: async ({ client, params: { key, parent }, reset, store }) => {
     if (key == null) return;
-    const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
+    const symbol = await retrieveByKey(client, key, store);
     reset({
       name: symbol.name,
       data: symbol.data,
@@ -145,13 +156,12 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
 
 export interface RenameParams {
   key: string;
-  name: string;
 }
 
-export const useRename = Flux.createUpdate<RenameParams, void>({
+export const useRename = Flux.createUpdate<RenameParams, string>({
   name: "SchematicSymbols",
-  update: async ({ client, params }) =>
-    await client.workspaces.schematic.symbols.rename(params.key, params.name),
+  update: async ({ client, value, params }) =>
+    await client.workspaces.schematic.symbols.rename(params.key, value),
 }).useDirect;
 
 export interface DeleteParams {

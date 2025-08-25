@@ -11,8 +11,8 @@ import {
   type Input,
   List,
   Nav,
+  SchematicSymbol,
   Select,
-  Symbol,
   Text,
   Theming,
   useCombinedStateAndRef,
@@ -31,7 +31,7 @@ import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "schematic_edit_symbol";
 
-export interface CreateLayoutArgs extends Symbol.UseFormParams {}
+export interface CreateLayoutArgs extends SchematicSymbol.UseFormParams {}
 
 export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   key: CREATE_LAYOUT_TYPE,
@@ -635,7 +635,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
   );
 
   const theme = Theming.use();
-  const { form, save } = Symbol.useForm({
+  const { form, save } = SchematicSymbol.useForm({
     params,
     onHasTouched: handleUnsavedChanges,
     initialValues: {
@@ -723,12 +723,12 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
     form.set(regionPath, { ...region, selectors: updatedSelectors });
   };
   const hasSVG =
-    Form.useFieldValue<string, string, typeof Symbol.formSchema>("data.svg", {
+    Form.useFieldValue<string, string, typeof SchematicSymbol.formSchema>("data.svg", {
       ctx: form,
     }).length > 0;
 
   return (
-    <Form.Form<typeof Symbol.formSchema> {...form}>
+    <Form.Form<typeof SchematicSymbol.formSchema> {...form}>
       <Flex.Box className={CSS.BE("schematic", "symbol-create-layout")} empty full y>
         <Flex.Box className="console-form" grow full y>
           <Form.TextField

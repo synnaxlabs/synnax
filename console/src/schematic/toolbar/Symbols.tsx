@@ -19,10 +19,11 @@ import {
   Icon,
   Input,
   List,
+  Menu,
   Schematic,
+  SchematicSymbol,
   Select,
   Status,
-  Symbol,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -40,6 +41,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { addElement, setSelectedSymbolGroup } from "@/schematic/slice";
 import { createCreateLayout } from "@/schematic/symbols/Create";
@@ -197,7 +199,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   });
 
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: "schematic-element", key: itemKey }]);
+    startDrag([
+      { type: "schematic-element", key: "actuator", data: { specKey: itemKey } },
+    ]);
   }, [startDrag, itemKey]);
 
   if (symbol == null) return null;
@@ -223,23 +227,94 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
 const remoteListItem = Component.renderProp(RemoteListItem);
 
+export interface RemoteSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
+  getItem: (key: string) => schematic.symbol.Symbol | undefined;
+}
+
+const RemoteSymbolListContextMenu = (
+  props: RemoteSymbolListContextMenuProps,
+): ReactElement => {
+  const firstKey = props.keys[0];
+  const item = props.getItem(firstKey);
+  const confirmDelete = useConfirmDelete({
+    type: "Schematic.Symbol",
+    icon: "Schematic",
+  });
+  const renameModal = Modals.useRename();
+  const rename = SchematicSymbol.useRename({
+    params: { key: firstKey },
+    beforeUpdate: async ({ value }) => {
+      if (item == null) return false;
+      const newName = await renameModal(
+        {
+          initialValue: value,
+          allowEmpty: false,
+          label: "Symbol Name",
+        },
+        {
+          name: "Schematic.Symbols.Rename",
+          icon: "Schematic",
+        },
+      );
+      if (newName == null) return false;
+      return newName;
+    },
+  });
+  const del = SchematicSymbol.useDelete({
+    params: { key: firstKey },
+    beforeUpdate: async () => {
+      if (item == null) return false;
+      return await confirmDelete({ name: item.name });
+    },
+  });
+  const handleSelect: Menu.MenuProps["onChange"] = {
+    delete: () => del.update(),
+    rename: () => rename.update(item?.name ?? ""),
+  };
+  return (
+    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
+      <Menu.Item itemKey="delete">
+        <Icon.Delete />
+        Delete
+      </Menu.Item>
+      <Menu.Item itemKey="rename">
+        <Icon.Rename />
+        Rename
+      </Menu.Item>
+    </Menu.Menu>
+  );
+};
+
 const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
-  const listData = Symbol.useList({
+  const listData = SchematicSymbol.useList({
     initialParams: { parent: group.ontologyID(groupKey) },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
   useEffect(() => fetchMore(), [fetchMore]);
+  const menuProps = Menu.useContextMenu();
   return (
-    <Select.Frame<string, schematic.symbol.Symbol>
-      {...listData}
-      value={undefined}
-      allowNone
-      onChange={onSelect}
+    <Menu.ContextMenu
+      {...menuProps}
+      menu={(props) => (
+        <RemoteSymbolListContextMenu {...props} getItem={listData.getItem} />
+      )}
     >
-      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        {remoteListItem}
-      </List.Items>
-    </Select.Frame>
+      <Select.Frame<string, schematic.symbol.Symbol>
+        {...listData}
+        value={undefined}
+        allowNone
+        onChange={onSelect}
+      >
+        <List.Items
+          x
+          className={CSS.BE("schematic", "symbols", "group")}
+          onContextMenu={menuProps.open}
+          wrap
+        >
+          {remoteListItem}
+        </List.Items>
+      </Select.Frame>
+    </Menu.ContextMenu>
   );
 };
 
@@ -329,6 +404,45 @@ export interface GroupListProps extends Input.Control<group.Key> {
   symbolGroupID: ontology.ID;
 }
 
+const GroupListContextMenu = (props: Menu.ContextMenuMenuProps): ReactElement => {
+  const item = List.useItem<group.Key, group.Payload>(props.keys[0]);
+  const confirmDelete = useConfirmDelete({ type: "Group" });
+  const renameModal = Modals.useRename();
+  const del = Group.useDelete({
+    params: { key: item?.key ?? "" },
+    beforeUpdate: async () => {
+      if (item == null) return false;
+      return await confirmDelete({ name: item.name });
+    },
+  });
+  const rename = Group.useRename({
+    params: { key: item?.key ?? "" },
+    beforeUpdate: async ({ value }) => {
+      if (item == null) return false;
+      const newName = await renameModal({ initialValue: value });
+      if (newName == null) return false;
+      return newName;
+    },
+  });
+
+  const handleSelect: Menu.MenuProps["onChange"] = {
+    delete: () => del.update(),
+    rename: () => rename.update(item?.name ?? ""),
+  };
+  return (
+    <Menu.Menu level="small" gap="small" onChange={handleSelect}>
+      <Menu.Item itemKey="delete">
+        <Icon.Delete />
+        Delete
+      </Menu.Item>
+      <Menu.Item itemKey="rename">
+        <Icon.Rename />
+        Rename
+      </Menu.Item>
+    </Menu.Menu>
+  );
+};
+
 const GroupList = ({
   value,
   onChange,
@@ -343,12 +457,13 @@ const GroupList = ({
     second: remoteData,
   });
   const { fetchMore } = List.usePager({ retrieve: remoteData.retrieve });
-  useEffect(() => {
-    fetchMore();
-  }, [fetchMore]);
+  useEffect(() => fetchMore(), [fetchMore]);
+  const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Payload> {...data} value={value} onChange={onChange}>
-      <List.Items>{groupListItem}</List.Items>
+      <Menu.ContextMenu {...menuProps} menu={GroupListContextMenu}>
+        <List.Items onContextMenu={menuProps.open}>{groupListItem}</List.Items>
+      </Menu.ContextMenu>
     </Select.Frame>
   );
 };
@@ -385,7 +500,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   );
 
   const [search, setSearch] = useState("");
-  const g = Symbol.useGroup.useDirect({ params: {} });
+  const g = SchematicSymbol.useGroup.useDirect({ params: {} });
   return (
     <Flex.Box x empty className={CSS.BE("schematic", "symbols")}>
       {g.data != null && (

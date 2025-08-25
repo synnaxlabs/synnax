@@ -79,7 +79,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	
+
 	// Create or retrieve the permanent symbols group
 	if cfg.Group != nil {
 		g, err := cfg.Group.CreateOrRetrieve(ctx, "Schematic Symbols", ontology.RootID)
@@ -88,8 +88,8 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		}
 		s.group = g
 	}
-	
-	cfg.Ontology.RegisterService(ctx, s)
+
+	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Symbol](cfg.DB))
 		if err != nil {

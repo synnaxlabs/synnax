@@ -610,7 +610,6 @@ export const RemoteActuator = ({
       )}
       enabled={enabled}
       triggered={triggered}
-      onClick={console.log}
       {...rest}
     >
       <HandleBoundary orientation={orientation}>

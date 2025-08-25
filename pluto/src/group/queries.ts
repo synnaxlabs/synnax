@@ -41,3 +41,22 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload>({
     return group.groupZ.parse(res.data);
   },
 });
+
+export interface RenameParams {
+  key: string;
+}
+
+export const useRename = Flux.createUpdate<RenameParams, string>({
+  name: "Group",
+  update: async ({ client, value, params }) =>
+    await client.ontology.groups.rename(params.key, value),
+}).useDirect;
+
+export interface DeleteParams {
+  key: string;
+}
+
+export const useDelete = Flux.createUpdate<DeleteParams, void>({
+  name: "Group",
+  update: async ({ client, params }) => await client.ontology.groups.delete(params.key),
+}).useDirect;

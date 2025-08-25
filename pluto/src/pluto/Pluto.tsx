@@ -23,6 +23,7 @@ import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
+import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
@@ -61,6 +62,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
@@ -73,6 +75,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
   [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
 };
 
 export const Provider = ({

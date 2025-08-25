@@ -48,7 +48,7 @@ export { Portal } from "@/portal";
 export { Progress } from "@/progress";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
-export { Symbol } from "@/schematic";
+export { Symbol as SchematicSymbol } from "@/schematic/symbol";
 export { Select } from "@/select";
 export { state } from "@/state";
 export { Status } from "@/status";

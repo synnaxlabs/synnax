@@ -42,9 +42,9 @@ export const handleZ = z.object({
 export interface Handle extends z.infer<typeof handleZ> {}
 
 export const specZ = z.object({
-  svg: z.string(),
+  svg: z.string().min(1, "SVG is required"),
   states: stateZ.array(),
-  variant: z.string(),
+  variant: z.string().min(1, "Variant is required"),
   handles: handleZ.array(),
 });
 
@@ -52,7 +52,7 @@ export interface Spec extends z.infer<typeof specZ> {}
 
 export const symbolZ = z.object({
   key: keyZ,
-  name: z.string(),
+  name: z.string().min(1, "Name is required"),
   data: specZ,
 });
 
