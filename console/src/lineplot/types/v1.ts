@@ -13,15 +13,12 @@ import { z } from "zod";
 
 import * as v0 from "@/lineplot/types/v0";
 
-export const legendStateZ = z.object({
-  visible: z.boolean(),
-  position: Legend.stickyXYz,
-});
+export const VERSION = "1.0.0";
 
-export type LegendState = z.infer<typeof legendStateZ>;
-
+export const legendStateZ = v0.legendStateZ.extend({ position: Legend.stickyXYz });
+export interface LegendState extends z.infer<typeof legendStateZ> {}
 export const ZERO_LEGEND_STATE: LegendState = {
-  visible: true,
+  ...v0.ZERO_LEGEND_STATE,
   position: {
     x: 50,
     y: 50,
@@ -31,53 +28,37 @@ export const ZERO_LEGEND_STATE: LegendState = {
 };
 
 export const stateZ = v0.stateZ
-  .omit({
-    legend: true,
-    version: true,
-  })
-  .extend({
-    version: z.literal("1.0.0"),
-    legend: legendStateZ,
-  });
-
-export type State = z.infer<typeof stateZ>;
-
+  .omit({ legend: true, version: true })
+  .extend({ version: z.literal(VERSION), legend: legendStateZ });
+export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
   ...v0.ZERO_STATE,
-  version: "1.0.0",
+  version: VERSION,
   legend: ZERO_LEGEND_STATE,
 };
 
 export const sliceStateZ = v0.sliceStateZ
-  .omit({
-    plots: true,
-    version: true,
-  })
-  .extend({
-    version: z.literal("1.0.0"),
-    plots: z.record(z.string(), stateZ),
-  });
-
-export type SliceState = z.infer<typeof sliceStateZ>;
-
+  .omit({ plots: true, version: true })
+  .extend({ version: z.literal(VERSION), plots: z.record(z.string(), stateZ) });
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = {
   ...v0.ZERO_SLICE_STATE,
-  version: "1.0.0",
+  version: VERSION,
   plots: {},
 };
 
 export const stateMigration = migrate.createMigration<v0.State, State>({
   name: "lineplot.state",
-  migrate: (s) => ({ ...s, version: "1.0.0", legend: ZERO_LEGEND_STATE }),
+  migrate: (s) => ({ ...s, version: VERSION, legend: ZERO_LEGEND_STATE }),
 });
 
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
   name: "lineplot.slice",
-  migrate: (s) => ({
-    ...s,
-    version: "1.0.0",
+  migrate: ({ plots, ...rest }) => ({
+    ...rest,
+    version: VERSION,
     plots: Object.fromEntries(
-      Object.keys(s.plots).map((k) => [k, stateMigration(s.plots[k])]),
+      Object.entries(plots).map(([key, plot]) => [key, stateMigration(plot)]),
     ),
   }),
 });

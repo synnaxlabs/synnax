@@ -27,22 +27,28 @@ const TOOLTIP_LOCATION: location.XY = {
   y: "bottom",
 };
 
-export const NavControls = (): ReactElement => {
-  const control = useSelectControlState();
+const style = { zIndex: 500 };
+
+export interface NavControlsProps {
+  layoutKey: string;
+}
+
+export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
+  const control = useSelectControlState(layoutKey);
   const vis = Layout.useSelectActiveMosaicTabKey();
-  const mode = useSelectViewportMode();
+  const mode = useSelectViewportMode(layoutKey);
   const dispatch = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    dispatch(setViewportMode({ mode }));
+    dispatch(setViewportMode({ key: layoutKey, mode }));
   };
 
   const handleClickModeChange = (clickMode: ClickMode | null): void => {
-    dispatch(setControlState({ state: { clickMode } }));
+    dispatch(setControlState({ key: layoutKey, state: { clickMode } }));
   };
 
   const handleTooltipChange = (tooltip: boolean): void => {
-    dispatch(setControlState({ state: { enableTooltip: tooltip } }));
+    dispatch(setControlState({ key: layoutKey, state: { enableTooltip: tooltip } }));
   };
 
   const handleZoomReset = (): void => {
@@ -50,7 +56,7 @@ export const NavControls = (): ReactElement => {
   };
 
   const handleHoldChange = (hold: boolean): void => {
-    dispatch(setControlState({ state: { hold } }));
+    dispatch(setControlState({ key: layoutKey, state: { hold } }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
@@ -60,7 +66,7 @@ export const NavControls = (): ReactElement => {
       className={CSS.BE("line-plot", "nav-controls")}
       x
       gap="small"
-      style={{ zIndex: 500 }}
+      style={style}
     >
       <Viewport.SelectMode
         value={mode}
@@ -97,9 +103,9 @@ export const NavControls = (): ReactElement => {
         value={control.clickMode != null}
         tooltip={<Text.Text level="small">Slope</Text.Text>}
         tooltipLocation={TOOLTIP_LOCATION}
-        onChange={() => {
-          handleClickModeChange(control.clickMode != null ? null : "measure");
-        }}
+        onChange={() =>
+          handleClickModeChange(control.clickMode != null ? null : "measure")
+        }
         size="small"
       >
         <Icon.Rule />
