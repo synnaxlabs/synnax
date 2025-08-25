@@ -58,9 +58,9 @@ func (s *Sender[P]) send(ctx context.Context) error {
 // interface for sending messages over a network freighter. TransformSender adds a
 // transform function to the Sender. This is particularly useful in cases where network
 // message types are different from the message types used by the rest of a program.
-type TransformSender[I Value, M freighter.Payload] struct {
-	Sender    freighter.StreamSenderCloser[M]
-	Transform TransformFunc[I, M]
+type TransformSender[I Value, P freighter.Payload] struct {
+	Sender    freighter.StreamSenderCloser[P]
+	Transform TransformFunc[I, P]
 	UnarySink[I]
 }
 
@@ -103,9 +103,9 @@ o:
 // MultiSender wraps a slice of freighter.StreamSender(s) to provide a confluence
 // compatible interface for sending messages over a network freighter. MultiSender sends
 // a copy of each message received from the Outlet.
-type MultiSender[M freighter.Payload] struct {
-	Senders []freighter.StreamSenderCloser[M]
-	UnarySink[M]
+type MultiSender[P freighter.Payload] struct {
+	Senders []freighter.StreamSenderCloser[P]
+	UnarySink[P]
 }
 
 var _ Flow = (*MultiSender[any])(nil)
@@ -151,7 +151,7 @@ func (ms *MultiSender[M]) closeSenders() error {
 
 var _ TargetedSender[any] = (*MapTargetedSender[any])(nil)
 
-type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
+type MapTargetedSender[P freighter.Payload] map[address.Address]freighter.StreamSenderCloser[P]
 
 func (mts MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
 	sender, ok := mts[target]
@@ -204,10 +204,10 @@ func (cts ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address
 // compatible interface for sending messages over a network freighter. SwitchSender
 // receives a value, resolves its target address through a SwitchFunc, and sends it on
 // its merry way.
-type SwitchSender[M freighter.Payload] struct {
-	Sender TargetedSender[M]
-	Switch SwitchFunc[M]
-	UnarySink[M]
+type SwitchSender[P freighter.Payload] struct {
+	Sender TargetedSender[P]
+	Switch SwitchFunc[P]
+	UnarySink[P]
 }
 
 var _ Flow = (*SwitchSender[any])(nil)
@@ -257,8 +257,8 @@ type BatchSwitchSender[I, O freighter.Payload] struct {
 
 var _ Flow = (*BatchSwitchSender[any, any])(nil)
 
-type TargetedSender[M freighter.Payload] interface {
-	Send(context.Context, address.Address, M) error
+type TargetedSender[P freighter.Payload] interface {
+	Send(context.Context, address.Address, P) error
 	Close() error
 }
 
@@ -302,9 +302,9 @@ o:
 // confluence compatible interface for sending transformed messages over a network
 // freighter. MultiTransformSender transforms each input message and sends a copy to
 // each sender.
-type MultiTransformSender[I Value, M freighter.Payload] struct {
-	Senders   []freighter.StreamSenderCloser[M]
-	Transform TransformFunc[I, M]
+type MultiTransformSender[I Value, P freighter.Payload] struct {
+	Senders   []freighter.StreamSenderCloser[P]
+	Transform TransformFunc[I, P]
 	UnarySink[I]
 }
 

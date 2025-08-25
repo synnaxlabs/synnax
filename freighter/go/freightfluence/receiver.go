@@ -20,9 +20,9 @@ import (
 
 // Receiver wraps freighter.StreamReceiver to provide a confluence-compatible interface
 // for receiving messages from a network freighter.
-type Receiver[M freighter.Payload] struct {
-	Receiver freighter.StreamReceiver[M]
-	AbstractUnarySource[M]
+type Receiver[P freighter.Payload] struct {
+	Receiver freighter.StreamReceiver[P]
+	AbstractUnarySource[P]
 }
 
 var _ Flow = (*Receiver[any])(nil)
@@ -54,10 +54,10 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 	}
 }
 
-type TransformReceiver[I Value, M freighter.Payload] struct {
-	Receiver freighter.StreamReceiver[M]
+type TransformReceiver[I Value, P freighter.Payload] struct {
+	Receiver freighter.StreamReceiver[P]
 	AbstractUnarySource[I]
-	Transform TransformFunc[M, I]
+	Transform TransformFunc[P, I]
 }
 
 var _ Flow = (*TransformReceiver[any, any])(nil)
@@ -97,11 +97,11 @@ o:
 	}
 }
 
-type FilterReceiver[I freighter.Payload] struct {
-	Receiver freighter.StreamReceiver[I]
-	AbstractUnarySource[I]
-	Filter  FilterFunc[I]
-	Rejects Inlet[I]
+type FilterReceiver[P freighter.Payload] struct {
+	Receiver freighter.StreamReceiver[P]
+	AbstractUnarySource[P]
+	Filter  FilterFunc[P]
+	Rejects Inlet[P]
 }
 
 var _ Flow = (*FilterReceiver[any])(nil)
