@@ -791,6 +791,209 @@ describe("Series", () => {
     });
   });
 
+  describe("alignmentMultiple", () => {
+    it("should default to 1n when not specified", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+      });
+      expect(series.alignmentMultiple).toBe(1n);
+    });
+
+    it("should be set correctly when specified in constructor", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 5n,
+      });
+      expect(series.alignmentMultiple).toBe(5n);
+    });
+
+    it("should correctly calculate alignment bounds with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 5n,
+      });
+      // lower: 10n (alignment)
+      // upper: 10n + 3n * 5n = 25n
+      expect(series.alignmentBounds).toEqual({ lower: 10n, upper: 25n });
+    });
+
+    it("should correctly calculate alignment bounds with alignmentMultiple = 1", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 1n,
+      });
+      // lower: 10n (alignment)
+      // upper: 10n + 3n * 1n = 13n
+      expect(series.alignmentBounds).toEqual({ lower: 10n, upper: 13n });
+    });
+
+    it("should work with atAlignment when alignmentMultiple > 1", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30, 40, 50]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      // Alignment 100 -> index 0 -> value 10
+      expect(series.atAlignment(100n)).toBe(10);
+      // Alignment 110 -> index 1 -> value 20
+      expect(series.atAlignment(110n)).toBe(20);
+      // Alignment 120 -> index 2 -> value 30
+      expect(series.atAlignment(120n)).toBe(30);
+      // Alignment 130 -> index 3 -> value 40
+      expect(series.atAlignment(130n)).toBe(40);
+      // Alignment 140 -> index 4 -> value 50
+      expect(series.atAlignment(140n)).toBe(50);
+    });
+
+    it("should return undefined for alignments not on the multiple grid", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      // These alignments are not on the 10n grid starting from 100n
+      expect(series.atAlignment(105n)).toBe(10);
+      expect(series.atAlignment(115n)).toBe(20);
+      expect(series.atAlignment(125n)).toBe(30);
+      expect(series.atAlignment(135n)).toBeUndefined();
+    });
+
+    it("should handle alignmentMultiple with decimation scenario", () => {
+      const series = new Series({
+        data: new Float32Array([1, 5, 9, 13, 17]),
+        alignment: 0n,
+        alignmentMultiple: 4n,
+      });
+
+      expect(series.alignmentBounds).toEqual({ lower: 0n, upper: 20n });
+      expect(series.atAlignment(0n)).toBe(1);
+      expect(series.atAlignment(4n)).toBe(5);
+      expect(series.atAlignment(8n)).toBe(9);
+      expect(series.atAlignment(12n)).toBe(13);
+      expect(series.atAlignment(16n)).toBe(17);
+
+      expect(series.atAlignment(1n)).toBe(1);
+      expect(series.atAlignment(2n)).toBe(1);
+      expect(series.atAlignment(3n)).toBe(1);
+    });
+
+    it("should handle alignmentMultiple with averaging scenario", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 1000n,
+        alignmentMultiple: 10n,
+      });
+
+      expect(series.alignmentBounds).toEqual({ lower: 1000n, upper: 1030n });
+
+      expect(series.atAlignment(1000n)).toBe(10);
+      expect(series.atAlignment(1010n)).toBe(20);
+      expect(series.atAlignment(1020n)).toBe(30);
+    });
+
+    it("should preserve alignmentMultiple when creating from another series", () => {
+      const original = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 100n,
+        alignmentMultiple: 5n,
+      });
+
+      const copy = new Series(original);
+      expect(copy.alignmentMultiple).toBe(5n);
+      expect(copy.alignment).toBe(100n);
+      expect(copy.alignmentBounds).toEqual(original.alignmentBounds);
+    });
+
+    it("should handle negative alignment indices correctly with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 50n,
+        alignmentMultiple: 3n,
+      });
+
+      expect(series.atAlignment(45n)).toBeUndefined();
+      expect(series.atAlignment(47n)).toBeUndefined();
+    });
+
+    it("should handle alignment beyond series end with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20]),
+        alignment: 0n,
+        alignmentMultiple: 5n,
+      });
+
+      expect(series.atAlignment(0n)).toBe(10);
+      expect(series.atAlignment(5n)).toBe(20);
+      expect(series.atAlignment(10n)).toBeUndefined();
+    });
+
+    it("should throw error when required=true and alignment not found with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      expect(() => series.atAlignment(150n, true)).toThrow();
+      expect(() => series.atAlignment(90n, true)).toThrow();
+    });
+
+    it("should work with very large alignmentMultiple values", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2]),
+        alignment: 1000000000n,
+        alignmentMultiple: 1000000n,
+      });
+
+      expect(series.atAlignment(1000000000n)).toBe(1);
+      expect(series.atAlignment(1001000000n)).toBe(2);
+      expect(series.alignmentBounds).toEqual({
+        lower: 1000000000n,
+        upper: 1002000000n,
+      });
+    });
+
+    it("should handle alignmentMultiple with different data types", () => {
+      const stringSeries = new Series({
+        data: ["a", "b", "c"],
+        alignment: 10n,
+        alignmentMultiple: 2n,
+      });
+
+      expect(stringSeries.atAlignment(10n)).toBe("a");
+      expect(stringSeries.atAlignment(12n)).toBe("b");
+      expect(stringSeries.atAlignment(14n)).toBe("c");
+
+      const jsonSeries = new Series({
+        data: [{ x: 1 }, { x: 2 }],
+        alignment: 5n,
+        alignmentMultiple: 3n,
+      });
+
+      expect(jsonSeries.atAlignment(5n)).toEqual({ x: 1 });
+      expect(jsonSeries.atAlignment(8n)).toEqual({ x: 2 });
+    });
+
+    it("should correctly calculate index from alignment with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([100, 200, 300, 400]),
+        alignment: 50n,
+        alignmentMultiple: 25n,
+      });
+
+      expect(series.atAlignment(50n)).toBe(100);
+      expect(series.atAlignment(75n)).toBe(200);
+      expect(series.atAlignment(100n)).toBe(300);
+      expect(series.atAlignment(125n)).toBe(400);
+    });
+  });
+
   describe("toStrings", () => {
     interface Spec {
       name: string;
