@@ -22,7 +22,6 @@ import { render } from "@/vis/render";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 const STALENESS_COLOR: [number, number, number, number] = [50, 50, 255, 1];
-const STALENESS_TIMEOUT: number = 5000;
 
 const valueState = z.object({
   box: box.box,
@@ -31,6 +30,7 @@ const valueState = z.object({
   level: text.levelZ.optional().default("p"),
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
+  timeout: z.number().optional().default(5),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
@@ -81,6 +81,17 @@ export class Value
       i.isInitialized = false;
     }
     
+    if (this.state.telem.type === "source-pipeline") {
+      const pipelineProps = telem.sourcePipelinePropsZ.parse(this.state.telem.props);
+      const stringifierSegment = pipelineProps.segments.stringifier;
+      if (stringifierSegment?.type === "stringify-number") {
+        const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
+        if (stringifierProps.timeout !== this.state.timeout)
+          this.setState(prev => ({ ...prev, timeout: stringifierProps.timeout }));
+          i.timed_out = true;
+      }
+    }
+
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
@@ -102,6 +113,7 @@ export class Value
     i.stopListeningBackground?.();
     i.stopListeningBackground = i.backgroundTelem.onChange(() => this.requestRender());
     i.requestRender = render.useOptionalRequestor(ctx);
+    this.requestRender();
   }
 
   afterDelete(): void {
@@ -121,7 +133,7 @@ export class Value
     if (i.staleTimeout) clearTimeout(i.staleTimeout);
     // Needs the initial quick timeout bc when the val renders,
     // it always goes "unstale", so the init timeout kicks it back.
-    const timeoutDuration = i.isInitialized ? STALENESS_TIMEOUT : 20;
+    const timeoutDuration = i.isInitialized ? this.state.timeout * 1000 : 20;
     i.staleTimeout = setTimeout(() => {
       i.textColor = STALENESS_COLOR;
       i.timed_out = true;

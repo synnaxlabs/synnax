@@ -73,6 +73,9 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handlePrecisionChange = (precision: number): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
 
+  const handleTimeOutChange = (timeout: number): void =>
+    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, timeout }) });
+
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
 
@@ -105,6 +108,13 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             value={rollingAverage.windowSize ?? 1}
             bounds={{ lower: 1, upper: 100 }}
             onChange={handleRollingAverageChange}
+          />
+        </Input.Item>
+        <Input.Item label="Timeout" align="start">
+          <Input.Numeric
+            value={stringifier.timeout ?? 2}
+            bounds={{ lower: 0, upper: 61 }}
+            onChange={handleTimeOutChange}
           />
         </Input.Item>
       </Flex.Box>

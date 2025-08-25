@@ -174,6 +174,7 @@ export const stringifyNumberProps = z.object({
   prefix: z.string().optional().default(""),
   suffix: z.string().optional().default(""),
   notation: notation.notationZ.optional().default("standard"),
+  timeout: z.number().optional().default(5),
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
