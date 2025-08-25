@@ -41,6 +41,7 @@ const valueState = z.object({
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
+const DATA_COUNT_THRESHOLD = 2; // Number of packets before non-stale color is shown
 
 export interface ValueProps {
   scale?: scale.XY;
@@ -59,6 +60,7 @@ interface InternalState {
   staleTimeout?: ReturnType<typeof setTimeout>;
   isInitialized: boolean;
   timed_out: boolean;
+  dataCount: number;
 }
 
 export class Value
@@ -74,11 +76,12 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    // Initialize with stale color and timed_out = true
+    i.textColor = this.state.staleness_color;
+    
     if (i.isInitialized === undefined) {
-      i.textColor = this.state.staleness_color;
       i.timed_out = true;
-      i.isInitialized = false;
+      i.isInitialized = true;
+      i.dataCount = 0;
     }
     
     if (this.state.telem.type === "source-pipeline") {
@@ -86,21 +89,28 @@ export class Value
       const stringifierSegment = pipelineProps.segments.stringifier;
       if (stringifierSegment?.type === "stringify-number") {
         const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
-        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout)
+        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout){
           this.setState(prev => ({ ...prev, staleness_timeout: stringifierProps.staleness_timeout }));
-        if (stringifierProps.staleness_color !== this.state.staleness_color)
+          i.dataCount = 0;
+        }
+        if (stringifierProps.staleness_color !== this.state.staleness_color) {
           this.setState(prev => ({ ...prev, staleness_color: stringifierProps.staleness_color }));
+          i.textColor = stringifierProps.staleness_color;
+          i.dataCount = 0;
+        }
       }
     }
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      // Reset timed_out when receiving new data
-      i.timed_out = false;
-      
-      if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
-      else i.textColor = this.state.color;
+      // Only increment data count until we reach the threshold
+      if (i.dataCount >= DATA_COUNT_THRESHOLD) {
+        i.timed_out = false;
+        if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
+        else i.textColor = this.state.color;
+      } 
+      else i.dataCount++;
 
       this.resetStaleTimeout();
       this.requestRender();
@@ -132,13 +142,11 @@ export class Value
   private resetStaleTimeout(): void {
     const { internal: i } = this;
     if (i.staleTimeout) clearTimeout(i.staleTimeout);
-    // Needs the initial quick timeout bc when the val renders,
-    // it always goes "unstale", so the init timeout kicks it back.
-    const timeoutDuration = i.isInitialized ? this.state.staleness_timeout * 1000 : 20;
+    // Set timeout to return to staleness color after specified duration
+    const timeoutDuration = this.state.staleness_timeout * 1000;
     i.staleTimeout = setTimeout(() => {
       i.textColor = this.state.staleness_color;
       i.timed_out = true;
-      i.isInitialized = true;
       this.requestRender();
     }, timeoutDuration);
   }
@@ -219,7 +227,13 @@ export class Value
         canvas.fillStyle = color.hex(textColor);
       }
     }
-    if (setDefaultFillStyle) canvas.fillStyle = color.hex(this.internal.textColor);
+    if (setDefaultFillStyle)
+      // Show normal color only after multiple data packets AND not timed out
+      if (this.internal.dataCount >= DATA_COUNT_THRESHOLD && !this.internal.timed_out)
+        if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(theme.colors.gray.l10);
+        else canvas.fillStyle = color.hex(this.state.color);
+      else
+        canvas.fillStyle = color.hex(this.state.staleness_color);
 
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
