@@ -56,51 +56,46 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
   },
 });
 
-interface UnitsInfo {
-  name: string;
-  symbol: string;
-}
-
-const UNITS_STUFF: Record<Units, UnitsInfo> = {
-  Volts: { name: "Volts", symbol: "V" },
-  Amps: { name: "Amps", symbol: "A" },
-  DegF: { name: "Degrees Fahrenheit", symbol: "°F" },
-  DegC: { name: "Degrees Celsius", symbol: "°C" },
-  DegR: { name: "Degrees Rankine", symbol: "R" },
-  Kelvins: { name: "Kelvin", symbol: "K" },
-  Strain: { name: "Strain", symbol: "" },
-  Ohms: { name: "Ohms", symbol: "Ω" },
-  Hz: { name: "Hertz", symbol: "Hz" },
-  Seconds: { name: "Seconds", symbol: "s" },
-  Meters: { name: "Meters", symbol: "m" },
-  Inches: { name: "Inches", symbol: "in" },
-  Degrees: { name: "Degrees", symbol: "°" },
-  Radians: { name: "Radians", symbol: "rad" },
-  g: { name: "Standard Gravity", symbol: "g" },
-  MetersPerSecondSquared: { name: "Meters per Second Squared", symbol: "m/s^2" },
-  Newtons: { name: "Newtons", symbol: "N" },
-  Pounds: { name: "Pounds", symbol: "lb" },
-  KilogramForce: { name: "Kilograms-Force", symbol: "kgf" },
-  PoundsPerSquareInch: { name: "Pounds per Square Inch", symbol: "psi" },
-  Bar: { name: "Bars", symbol: "bar" },
-  Pascals: { name: "Pascals", symbol: "Pa" },
-  VoltsPerVolt: { name: "Volts per Volt", symbol: "V/V" },
-  mVoltsPerVolt: { name: "Millivolts per Volt", symbol: "mV/V" },
-  NewtonMeters: { name: "Newton-Meters", symbol: "N·m" },
-  InchOunces: { name: "Inch-Ounces", symbol: "in·oz" },
-  InchPounds: { name: "Inch-Pounds", symbol: "in·lb" },
-  FootPounds: { name: "Foot-Pounds", symbol: "ft·lb" },
+const UNIT_SYMBOLS: Record<Units, string> = {
+  Volts: "V",
+  Amps: "A",
+  DegF: "°F",
+  DegC: "°C",
+  DegR: "R",
+  Kelvins: "K",
+  Strain: "strain",
+  Ohms: "Ω",
+  Hz: "Hz",
+  Seconds: "s",
+  Meters: "m",
+  Inches: "in",
+  Degrees: "°",
+  Radians: "rad",
+  g: "g",
+  MetersPerSecondSquared: "m/s^2",
+  Newtons: "N",
+  Pounds: "lb",
+  KilogramForce: "kgf",
+  PoundsPerSquareInch: "psi",
+  Bar: "bar",
+  Pascals: "Pa",
+  VoltsPerVolt: "V/V",
+  mVoltsPerVolt: "mV/V",
+  NewtonMeters: "N·m",
+  InchOunces: "in·oz",
+  InchPounds: "in·lb",
+  FootPounds: "ft·lb",
 };
 
-const unitsData = (Object.entries(UNITS_STUFF) as [Units, UnitsInfo][]).map(
-  ([key, { name }]) => ({ key, name }),
+const unitsData = (Object.entries(UNIT_SYMBOLS) as [Units, string][]).map(
+  ([key, name]) => ({ key, name }),
 );
 
 const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
-  fieldProps: { label: "Units" },
+  fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
-    resourceName: "Units",
+    resourceName: "Unit",
     allowNone: false,
     data: unitsData,
   },
@@ -116,12 +111,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
       <Flex.Box x>
-        <UnitsField
-          fieldKey="preScaledUnits"
-          label="Prescaled Units"
-          path={prefix}
-          grow
-        />
+        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
         <Form.TextField
           fieldKey="scaledUnits"
           label="Scaled Units"
@@ -142,7 +132,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   ),
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <UnitsField fieldKey="preScaledUnits" path={prefix} />
+      <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
       <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
@@ -223,7 +213,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
 
     return (
       <>
-        <UnitsField fieldKey="preScaledUnits" path={prefix} />
+        <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} />
         <Input.Item label="Table CSV" padHelpText>
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}
