@@ -9,6 +9,7 @@
 
 import { type Export } from "@/export";
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
@@ -29,6 +30,7 @@ export const COMMANDS: Palette.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
   ...Sequence.COMMANDS,
+  ...Modbus.Task.COMMANDS,
 ];
 
 export const EXTRACTORS: Export.Extractors = {
@@ -51,6 +53,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...OPC.Task.LAYOUTS,
   [SELECTOR_LAYOUT_TYPE]: Selector,
   ...Sequence.LAYOUTS,
+  ...Modbus.Task.LAYOUTS,
 };
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];

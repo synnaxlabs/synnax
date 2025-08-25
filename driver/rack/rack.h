@@ -27,6 +27,7 @@
 
 /// internal
 #include "driver/labjack/labjack.h"
+#include "driver/modbus/modbus.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
@@ -61,6 +62,7 @@ inline std::vector<std::string> default_integrations() {
         ni::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
+        modbus::INTEGRATION_NAME,
     };
 }
 
