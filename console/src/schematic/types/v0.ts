@@ -16,6 +16,7 @@ export const VERSION = "0.0.0";
 export const nodePropsZ = z.looseObject({
   key: Schematic.variantZ,
   color: color.crudeZ.optional(),
+  label: z.looseObject({ label: z.string().optional() }).optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 

@@ -155,14 +155,7 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (
-      element.type === "node" &&
-      "label" in element.props &&
-      typeof element.props.label === "object" &&
-      element.props.label != null &&
-      "label" in element.props.label &&
-      typeof element.props.label.label === "string"
-    )
+    if (element.type === "node" && element.props.label?.label != null)
       return element.props.label.label;
     return null;
   });
