@@ -87,6 +87,7 @@ jobs:
     if: needs.setup.outputs.changed == 'true'
     env:
       GH_TOKEN: ${{ github.token }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
       matrix:
