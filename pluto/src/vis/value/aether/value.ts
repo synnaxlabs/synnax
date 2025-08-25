@@ -224,8 +224,8 @@ export class Value
     }
     if (setDefaultFillStyle)
       if (!this.internal.timed_out)
-        if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(theme.colors.gray.l10);
-        else canvas.fillStyle = color.hex(this.state.color);
+        if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0));
+        else canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, this.state.color));
       else
         canvas.fillStyle = color.hex(this.state.staleness_color);
 
