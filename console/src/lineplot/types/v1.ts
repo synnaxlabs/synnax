@@ -47,13 +47,16 @@ export const ZERO_SLICE_STATE: SliceState = {
   plots: {},
 };
 
+export const STATE_MIGRATION_NAME = "lineplot.state";
+export const SLICE_MIGRATION_NAME = "lineplot.slice";
+
 export const stateMigration = migrate.createMigration<v0.State, State>({
-  name: "lineplot.state",
-  migrate: (s) => ({ ...s, version: VERSION, legend: ZERO_LEGEND_STATE }),
+  name: STATE_MIGRATION_NAME,
+  migrate: (state) => ({ ...state, version: VERSION, legend: ZERO_LEGEND_STATE }),
 });
 
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
-  name: "lineplot.slice",
+  name: SLICE_MIGRATION_NAME,
   migrate: ({ plots, ...rest }) => ({
     ...rest,
     version: VERSION,

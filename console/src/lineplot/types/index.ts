@@ -97,7 +97,7 @@ export const STATE_MIGRATIONS: migrate.Migrations = {
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
-  name: "lineplot.state",
+  name: v1.STATE_MIGRATION_NAME,
   migrations: STATE_MIGRATIONS,
   def: ZERO_STATE,
 });
@@ -109,7 +109,7 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
-  name: "lineplot.slice",
+  name: v1.SLICE_MIGRATION_NAME,
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });

@@ -12,6 +12,7 @@ import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/lineplot/types/v0";
+import * as v1 from "@/lineplot/types/v1";
 import * as v2 from "@/lineplot/types/v2";
 
 export const VERSION = "3.0.0";
@@ -41,9 +42,9 @@ export const ZERO_SLICE_STATE: SliceState = {
 };
 
 export const stateMigration = migrate.createMigration<v2.State, State>({
-  name: "lineplot.state",
-  migrate: (s) => ({
-    ...s,
+  name: v1.STATE_MIGRATION_NAME,
+  migrate: (state) => ({
+    ...state,
     version: VERSION,
     mode: v2.ZERO_SLICE_STATE.mode,
     control: v2.ZERO_SLICE_STATE.control,
@@ -52,7 +53,7 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
 });
 
 export const sliceMigration = migrate.createMigration<v2.SliceState, SliceState>({
-  name: "lineplot.slice",
+  name: v1.SLICE_MIGRATION_NAME,
   migrate: ({ plots, mode, control, toolbar }) => ({
     version: VERSION,
     plots: Object.fromEntries(
