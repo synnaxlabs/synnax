@@ -76,8 +76,6 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    i.textColor = this.state.staleness_color;
-    
     if (i.isInitialized === undefined) {
       i.timed_out = true;
       i.isInitialized = true;
@@ -89,14 +87,13 @@ export class Value
       const stringifierSegment = pipelineProps.segments.stringifier;
       if (stringifierSegment?.type === "stringify-number") {
         const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
-        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout){
+        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout) {
           this.setState(prev => ({ ...prev, staleness_timeout: stringifierProps.staleness_timeout }));
-          i.dataCount = 0;
+          i.dataCount = 0; // Reset to stale when timeout changes
         }
         if (stringifierProps.staleness_color !== this.state.staleness_color) {
           this.setState(prev => ({ ...prev, staleness_color: stringifierProps.staleness_color }));
-          i.textColor = stringifierProps.staleness_color;
-          i.dataCount = 0;
+          i.dataCount = 0; // Reset to stale when color changes
         }
       }
     }
@@ -104,13 +101,11 @@ export class Value
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      // Only increment data count until we reach the threshold
-      if (i.dataCount >= DATA_COUNT_THRESHOLD) {
-        i.timed_out = false;
-        if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
-        else i.textColor = this.state.color;
-      } 
-      else i.dataCount++;
+
+      if (i.dataCount >= DATA_COUNT_THRESHOLD)
+        i.timed_out = false; // Switch to active
+      else 
+        i.dataCount++;
 
       this.resetStaleTimeout();
       this.requestRender();
@@ -228,8 +223,7 @@ export class Value
       }
     }
     if (setDefaultFillStyle)
-      // Show normal color only after multiple data packets AND not timed out
-      if (this.internal.dataCount >= DATA_COUNT_THRESHOLD && !this.internal.timed_out)
+      if (!this.internal.timed_out)
         if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(theme.colors.gray.l10);
         else canvas.fillStyle = color.hex(this.state.color);
       else
