@@ -959,11 +959,13 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns An iterator over the specified alignment range.
    */
   subAlignmentIterator(start: bigint, end: bigint): Iterator<T> {
-    return new SubIterator(
-      this,
-      Number(start - this.alignment),
-      Number(end - this.alignment),
+    const startIdx = Math.ceil(
+      Number(start - this.alignment) / Number(this.alignmentMultiple),
     );
+    const endIdx = Math.ceil(
+      Number(end - this.alignment) / Number(this.alignmentMultiple),
+    );
+    return new SubIterator(this, startIdx, endIdx);
   }
 
   private subBytes(start: number, end?: number): Series {
@@ -1054,7 +1056,7 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const b = bounds.construct(0, series.length);
+    const b = bounds.construct(0, series.length + 1);
     this.end = bounds.clamp(b, end);
     this.index = bounds.clamp(b, start);
   }
@@ -1373,7 +1375,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (start < ser.alignment) break;
       else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Number(start - ser.alignment);
+        startIdx += Math.ceil(
+          Number(start - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
@@ -1383,7 +1387,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (end < ser.alignment) break;
       else if (end >= ser.alignmentBounds.upper) endIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, end)) {
-        endIdx += Number(end - ser.alignment);
+        endIdx += Math.ceil(
+          Number(end - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
