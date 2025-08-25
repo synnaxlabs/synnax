@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useEffect } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -86,16 +86,13 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       path={path}
       previewDevice={device}
       previewChannelType="di"
-      previewPort={port}
-      previewLine={line}
       customName={customName}
       onCustomNameChange={handleCustomNameChange}
     />
   );
 };
 
-const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  return (
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => (
     <>
       <PForm.NumericField
         path={`${path}.port`}
@@ -109,7 +106,6 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
       />
     </>
   );
-};
 
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
