@@ -29,14 +29,7 @@ interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
 const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
   const { lines } = useContext("FloatingLegend");
-  const groups: Core.GroupData[] = useMemo(() => {
-    const groups: Core.GroupData[] = [];
-    const data1 = lines.filter((l) => l.key.startsWith("y1"));
-    const data2 = lines.filter((l) => l.key.startsWith("y2"));
-    if (data1.length > 0) groups.push({ key: "y1", name: "Y1", data: data1 });
-    if (data2.length > 0) groups.push({ key: "y2", name: "Y2", data: data2 });
-    return groups;
-  }, [lines]);
+  const groups: Core.GroupData[] = useGroupData(lines);
   // if we only have the y1 group, use the simple legend
   if (groups.length === 1 && groups[0].key === "y1")
     return <Core.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
@@ -46,8 +39,7 @@ Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
 
-const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
-  const { lines } = useContext("Legend");
+const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
   const groups: Core.GroupData[] = useMemo(() => {
     const groups: Core.GroupData[] = [];
     const data1 = lines.filter((l) => l.key.startsWith("y1"));
@@ -56,6 +48,12 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
     if (data2.length > 0) groups.push({ key: "y2", name: "Y2", data: data2 });
     return groups;
   }, [lines]);
+  return groups;
+};
+
+const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
+  const { lines } = useContext("Legend");
+  const groups: Core.GroupData[] = useGroupData(lines);
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
@@ -66,7 +64,7 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
     if (groups[0].key === "y1")
       return (
         <Flex.Box align="center" justify="start" x style={gridStyle}>
-          <Entries data={lines} onEntryChange={onLineChange} background={0} />
+          <Entries data={groups[0].data} onEntryChange={onLineChange} background={0} />
         </Flex.Box>
       );
     return <FocusedGroup name="Y2" data={groups[0].data} onLineChange={onLineChange} />;

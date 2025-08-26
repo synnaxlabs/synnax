@@ -37,7 +37,6 @@ export const Simple = ({
   ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState(false);
-  console.log("pickerVisible", pickerVisible);
   if (data.length === 0) return null;
   return (
     <Container
