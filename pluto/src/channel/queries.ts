@@ -380,12 +380,12 @@ export const useList = Flux.createList<
         return false;
       if (
         primitive.isNonZero(params.notDataTypes) &&
-        params.notDataTypes.includes(ch.dataType)
+        params.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
       if (
         primitive.isNonZero(params.dataTypes) &&
-        !params.dataTypes.includes(ch.dataType)
+        !params.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
       if (params.isIndex != null && ch.isIndex !== params.isIndex) return false;
