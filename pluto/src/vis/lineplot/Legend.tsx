@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/legend/Container.css";
-
 import { memo, type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Legend as Core } from "@/vis/legend";
-import { LegendSwatches } from "@/vis/legend/Simple";
+import { Entries } from "@/vis/legend/Entries";
 import { type LineSpec, useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
@@ -30,10 +27,9 @@ interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
 const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
   const { lines } = useContext("FloatingLegend");
-  console.log(lines);
   return <Core.Simple data={lines} onEntryChange={onLineChange} {...rest} />;
 });
-Floating.displayName = "FloatingLegend";
+Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
 
@@ -45,14 +41,8 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement => {
     "Legend",
   );
   return (
-    <Flex.Box
-      className={CSS(CSS.BE("legend", "container"), CSS.B("legend", "fixed"))}
-      align="center"
-      justify="start"
-      x
-      style={gridStyle}
-    >
-      <LegendSwatches data={lines} onEntryChange={onLineChange} background={0} />
+    <Flex.Box align="center" justify="start" x style={gridStyle}>
+      <Entries data={lines} onEntryChange={onLineChange} background={0} />
     </Flex.Box>
   );
 };

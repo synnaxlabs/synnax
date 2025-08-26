@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Optional } from "@synnaxlabs/x";
-import { memo, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { CSS } from "@/css";
-import { type state } from "@/state";
 import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
-import { Entry, type EntryData } from "@/vis/legend/Entry";
+import { Entries } from "@/vis/legend/Entries";
+import { type EntryData } from "@/vis/legend/Entry";
 
 export interface SimpleProps
   extends Omit<ContainerProps, "value" | "onChange" | "background"> {
@@ -26,41 +25,6 @@ export interface SimpleProps
   background?: Theming.Shade;
 }
 
-interface LegendSwatchesProps
-  extends Pick<SimpleProps, "onEntryChange" | "background"> {
-  data: Optional<EntryData, "visible">[];
-  onEntryChange: SimpleProps["onEntryChange"];
-  onVisibleChange?: state.Setter<boolean>;
-  allowVisibleChange?: boolean;
-}
-
-export const LegendSwatches = memo(
-  ({
-    data,
-    onEntryChange,
-    onVisibleChange,
-    allowVisibleChange = true,
-    background = 1,
-  }: LegendSwatchesProps): ReactElement => (
-    <>
-      {data
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map(({ key, color, label, visible = true }) => (
-          <Entry
-            key={key}
-            entry={{ key, color, label, visible }}
-            onEntryChange={onEntryChange}
-            onVisibleChange={onVisibleChange}
-            allowVisibleChange={allowVisibleChange}
-            background={background}
-          />
-        ))}
-    </>
-  ),
-);
-
-LegendSwatches.displayName = "LegendSwatches";
-
 export const Simple = ({
   data = [],
   onEntryChange,
@@ -70,19 +34,18 @@ export const Simple = ({
   background = 1,
   ...rest
 }: SimpleProps): ReactElement | null => {
-  const [pickerVisible, setPickerVisible] = useState<boolean>(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
   if (data.length === 0) return null;
   return (
     <Container
       {...rest}
-      className={allowVisibleChange ? CSS.M("with-visible-toggle") : undefined}
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
       gap={allowVisibleChange ? 0 : "small"}
       background={background}
     >
-      <LegendSwatches
+      <Entries
         data={data}
         onEntryChange={onEntryChange}
         onVisibleChange={setPickerVisible}
