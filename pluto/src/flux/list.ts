@@ -344,6 +344,7 @@ export const createList =
       if (retrieveCached == null) return undefined;
       let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
       if (filterRef.current != null) cached = cached.filter(filterRef.current);
+      if (sortRef.current != null) cached = cached.sort(sortRef.current);
       if (cached.length === 0) return undefined;
       cached.forEach((v) => dataRef.current.set(v.key, v));
       return cached.map((v) => v.key);

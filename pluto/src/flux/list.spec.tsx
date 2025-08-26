@@ -593,6 +593,95 @@ describe("list", () => {
         expect(result.current.data).toEqual([1, 2]);
       });
     });
+
+    it("should apply sort to cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        priority: number;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 3, priority: 3 },
+        { key: 1, priority: 1 },
+        { key: 2, priority: 2 },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, priority: key }),
+            retrieveCached,
+          })({ sort: (a, b) => a.priority - b.priority }),
+        { wrapper },
+      );
+
+      // Should apply sort to cached data
+      expect(result.current.data).toEqual([1, 2, 3]);
+    });
+
+    it("should apply sort in descending order to cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        name: string;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 1, name: "Alpha" },
+        { key: 2, name: "Charlie" },
+        { key: 3, name: "Bravo" },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, name: `item-${key}` }),
+            retrieveCached,
+          })({ sort: (a, b) => b.name.localeCompare(a.name) }), // Descending order
+        { wrapper },
+      );
+
+      // Should sort cached data by name in descending order
+      expect(result.current.data).toEqual([2, 3, 1]); // Charlie, Bravo, Alpha
+    });
+
+    it("should combine filter and sort with cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        value: number;
+        active: boolean;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 1, value: 100, active: true },
+        { key: 2, value: 50, active: false },
+        { key: 3, value: 75, active: true },
+        { key: 4, value: 25, active: true },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
+            retrieveCached,
+          })({ 
+            filter: (item) => item.active,
+            sort: (a, b) => a.value - b.value,
+          }),
+        { wrapper },
+      );
+
+      // Should filter for active items and sort by value
+      expect(result.current.data).toEqual([4, 3, 1]); // 25, 75, 100
+    });
   });
 
   describe("listener synchronization", () => {
