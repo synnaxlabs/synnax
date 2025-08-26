@@ -13,6 +13,7 @@ import { group, type ontology, type schematic } from "@synnaxlabs/client";
 import {
   Button,
   Component,
+  CSS as PCSS,
   Flex,
   Group,
   Haul,
@@ -38,6 +39,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
+import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -285,6 +287,34 @@ const RemoteSymbolListContextMenu = (
   );
 };
 
+const useCreateSymbol = (selectedGroup: string) => {
+  const placeLayout = Layout.usePlacer();
+  const handleCreateSymbol = useCallback(() => {
+    placeLayout(
+      createCreateLayout({
+        args: { parent: group.ontologyID(selectedGroup) },
+      }),
+    );
+  }, [placeLayout, selectedGroup]);
+  return handleCreateSymbol;
+};
+
+interface RemoteListEmptyContentProps {
+  groupKey: string;
+}
+
+const RemoteListEmptyContent = ({
+  groupKey,
+}: RemoteListEmptyContentProps): ReactElement => {
+  const createSymbol = useCreateSymbol(groupKey);
+  return (
+    <EmptyAction
+      message="No symbols found"
+      action="Create Symbol"
+      onClick={createSymbol}
+    />
+  );
+};
 const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
   const listData = SchematicSymbol.useList({
     initialParams: { parent: group.ontologyID(groupKey) },
@@ -309,6 +339,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
+          emptyContent={<RemoteListEmptyContent groupKey={groupKey} />}
           wrap
         >
           {remoteListItem}
@@ -321,11 +352,18 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
   const group = List.useItem<group.Key, group.Payload>(itemKey);
+  const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   return (
-    <Select.ListItem {...props} y level="small" justify="center">
+    <Button.Toggle
+      id={itemKey.toString()}
+      size="small"
+      value={selected}
+      onChange={onSelect}
+      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
+    >
       {group.name}
-    </Select.ListItem>
+    </Button.Toggle>
   );
 };
 
@@ -383,13 +421,13 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   }, [isRemoteGroup, placeLayout, selectedGroup]);
 
   return (
-    <Flex.Box y className={CSS.BE("schematic", "symbols", "actions")}>
-      <Button.Button variant="outlined" size="medium" tooltip="Create new symbol group">
+    <Flex.Box x>
+      <Button.Button variant="outlined" size="small" tooltip="Create new symbol group">
         <CreateGroupIcon onClick={handleCreateGroup} />
       </Button.Button>
       <Button.Button
         variant="outlined"
-        size="medium"
+        size="small"
         tooltip="Create new symbol"
         disabled={!isRemoteGroup}
         onClick={handleCreateSymbol}
@@ -462,7 +500,9 @@ const GroupList = ({
   return (
     <Select.Frame<group.Key, group.Payload> {...data} value={value} onChange={onChange}>
       <Menu.ContextMenu {...menuProps} menu={GroupListContextMenu}>
-        <List.Items onContextMenu={menuProps.open}>{groupListItem}</List.Items>
+        <List.Items onContextMenu={menuProps.open} x gap="small">
+          {groupListItem}
+        </List.Items>
       </Menu.ContextMenu>
     </Select.Frame>
   );
@@ -502,19 +542,8 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [search, setSearch] = useState("");
   const g = SchematicSymbol.useGroup.useDirect({ params: {} });
   return (
-    <Flex.Box x empty className={CSS.BE("schematic", "symbols")}>
-      {g.data != null && (
-        <Actions
-          symbolGroupID={group.ontologyID(g.data.key)}
-          selectedGroup={groupKey}
-        />
-      )}
-      <Flex.Box
-        pack
-        y
-        sharp
-        className={CSS.BE("schematic", "symbols", "group", "list")}
-      >
+    <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
+      <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
         <Input.Text
           value={search}
           onChange={setSearch}
@@ -526,6 +555,12 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             value={groupKey}
             onChange={setGroupKey}
             symbolGroupID={group.ontologyID(g.data.key)}
+          />
+        )}
+        {g.data != null && (
+          <Actions
+            symbolGroupID={group.ontologyID(g.data.key)}
+            selectedGroup={groupKey}
           />
         )}
       </Flex.Box>

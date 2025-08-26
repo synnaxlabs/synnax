@@ -109,7 +109,7 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabKey(),
+          activeTab: Layout.useSelectActiveMosaicTabState(),
         }),
         { wrapper },
       );
@@ -147,7 +147,7 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabKey(),
+          activeTab: Layout.useSelectActiveMosaicTabState(),
         }),
         { wrapper },
       );

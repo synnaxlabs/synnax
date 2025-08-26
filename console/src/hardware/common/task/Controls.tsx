@@ -44,7 +44,8 @@ export const Controls = ({
   const handleError = Status.useErrorHandler();
   let stat: status.Status = taskStatus;
   if (formStatus.variant !== "success") stat = formStatus;
-  const hasTriggers = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  const { layoutKey: activeKey, blurred } = Layout.useSelectActiveMosaicTabState();
+  const hasTriggers = activeKey === layoutKey && !blurred;
   const client = Synnax.use();
   const key = useKey();
   const handleStartStop = useCallback(() => {

@@ -29,7 +29,7 @@ const TOOLTIP_LOCATION: location.XY = {
 
 export const NavControls = (): ReactElement => {
   const control = useSelectControlState();
-  const vis = Layout.useSelectActiveMosaicTabKey();
+  const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode();
   const dispatch = useDispatch();
 

@@ -11,7 +11,7 @@ import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { Text, Triggers } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
-import { selectActiveMosaicTabKey, selectFocused } from "@/layout/selectors";
+import { selectActiveMosaicTabState, selectFocused } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
@@ -30,7 +30,7 @@ export const useTriggers = (): void => {
     callback: ({ stage }) => {
       if (stage !== "start") return;
       const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
+      const { layoutKey: active } = selectActiveMosaicTabState(state);
       const windowKey = selectWindowKey(state);
       const { focused } = selectFocused(state);
       if (active == null || windowKey == null) return;
@@ -44,7 +44,7 @@ export const useTriggers = (): void => {
     callback: ({ stage }) => {
       if (stage !== "start") return;
       const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
+      const { layoutKey: active } = selectActiveMosaicTabState(state);
       if (active == null) {
         store.dispatch(Drift.closeWindow({}));
         return;
@@ -58,7 +58,7 @@ export const useTriggers = (): void => {
     callback: ({ stage }) => {
       if (stage !== "start") return;
       const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
+      const { layoutKey: active } = selectActiveMosaicTabState(state);
       if (active == null) return;
       openInNewWindow(active);
     },
@@ -69,7 +69,7 @@ export const useTriggers = (): void => {
     callback: ({ stage }) => {
       if (stage !== "start") return;
       const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
+      const { layoutKey: active } = selectActiveMosaicTabState(state);
       if (active == null) return;
       Text.edit(`pluto-tab-${active}`);
     },
