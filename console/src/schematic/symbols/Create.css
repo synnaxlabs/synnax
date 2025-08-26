@@ -17,16 +17,11 @@
     .console-form {
         padding: 2rem;
         overflow: hidden;
-
-        & > div:last-child {
-            overflow: hidden;
-        }
     }
 
     .console-file-drop {
         width: 100%;
         position: relative;
-        overflow: hidden;
         transition:
             border-color 0.2s ease-in,
             background-color 0.2s ease-in;
@@ -43,13 +38,6 @@
     }
 
     .console-preview {
-        /* user-select: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 100%; */
-
         svg {
             width: auto;
             height: auto;
@@ -81,16 +69,19 @@
 
     .console-schematic__handle-preview {
         box-shadow: 0 2px 4px var(--pluto-gray-l8);
-        width: 12px;
-        height: 12px;
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
-        background-color: var(--pluto-gray-l8);
+        background-color: var(--pluto-gray-l0);
         border: 2px solid var(--pluto-text-color);
         cursor: grab;
         z-index: 1000;
         transform: translate(-50%, -50%);
         cursor: grab;
         pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
         &.console--dragging {
             cursor: grabbing;
@@ -98,7 +89,12 @@
         }
 
         &.console--selected {
-            background-color: var(--pluto-primary-z);
+            background-color: var(--pluto-primary-l0);
+            border-color: var(--pluto-primary-z);
+
+            svg {
+                color: var(--pluto-primary-z);
+            }
         }
 
         &:hover {
@@ -106,9 +102,13 @@
             box-shadow: 0 4px 8px var(--pluto-gray-l8);
         }
 
-        &.console--selected {
-            transform: translate(-50%, -50%) scale(1.1);
+        &.console--selected:hover {
+            transform: translate(-50%, -50%) scale(1.2);
             box-shadow: 0 4px 8px var(--pluto-primary-l8);
+        }
+
+        svg {
+            color: var(--pluto-text-color);
         }
     }
 }

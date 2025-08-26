@@ -73,8 +73,10 @@ export const FileDrop = ({
       rounded={1}
       onClick={enabled ? handleFileSelect : undefined}
       {...dropProps}
-      borderColor={6}
+      borderColor={5}
+      background={0}
       {...rest}
+      style={{ boxShadow: "var(--pluto-shadow-v2)" }}
     >
       {enabled && (
         <Flex.Box y align="center" center style={{ position: "absolute" }}>

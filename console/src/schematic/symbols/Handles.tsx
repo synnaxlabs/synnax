@@ -26,16 +26,30 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
     onMove: (b) => {
       const box1 = box.construct(xy.ZERO, box.dims(svgBox));
       const box2 = box.reRoot(box.DECIMAL, location.TOP_LEFT);
-      console.log(box.dims(b), box.dims(svgBox));
       const nextPos = scale.XY.scale(box1)
         .scale(box2)
         .translate(positionRef.current)
         .clamp(box2)
         .pos(xy.construct(box.signedDims(b)));
-      console.log(nextPos);
       onDrag(handle.key, nextPos);
     },
   });
+
+  const getArrowRotation = () => {
+    const orientation = handle.orientation || "left";
+    switch (orientation) {
+      case "left":
+        return 180;
+      case "right":
+        return 0;
+      case "top":
+        return -90;
+      case "bottom":
+        return 90;
+      default:
+        return 180;
+    }
+  };
 
   return (
     <div
@@ -48,14 +62,33 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
       style={{
         position: "absolute",
         left: `${pos.x}%`,
-        top: `${pos.y}%  `,
+        top: `${pos.y}%`,
       }}
       draggable
       onMouseDown={(e) => {
         e.stopPropagation();
         onSelect(handle.key);
       }}
-    />
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        style={{
+          pointerEvents: "none",
+          transform: `rotate(${getArrowRotation()}deg)`,
+        }}
+      >
+        <path
+          d="M10 4 L14 8 L10 12 M14 8 L2 8"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
   );
 };
 

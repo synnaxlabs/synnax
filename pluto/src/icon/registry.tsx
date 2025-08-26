@@ -55,12 +55,7 @@ import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import {
-  HiCursorClick,
-  HiDownload,
-  HiLightningBolt,
-  HiOutlinePlus,
-} from "react-icons/hi";
+import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
@@ -91,7 +86,6 @@ import {
   MdEditOff,
   MdFeedback,
   MdFiberManualRecord,
-  MdFileUpload,
   MdFilterCenterFocus,
   MdHardware,
   MdHive,
@@ -149,6 +143,7 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
+  PiUploadSimple,
   PiWaveSawtoothBold,
   PiWaveSineBold,
   PiWaveSquareBold,
@@ -310,9 +305,9 @@ export const Caret = {
 export const Settings = wrapSVGIcon(RiSettingsFill, "settings");
 export const Reference = wrapSVGIcon(IoBookSharp, "reference");
 export const Bolt = wrapSVGIcon(HiLightningBolt, "bolt");
-export const Download = wrapSVGIcon(HiDownload, "download");
-export const Import = wrapSVGIcon(MdFileUpload, "import");
+export const Import = wrapSVGIcon(PiUploadSimple, "import");
 export const Export = wrapSVGIcon(PiDownloadSimple, "export");
+export const Download = Export;
 export const Range = wrapSVGIcon(MdOutlineTimelapse, "range");
 export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");

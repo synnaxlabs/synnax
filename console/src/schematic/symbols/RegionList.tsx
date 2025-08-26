@@ -1,0 +1,113 @@
+import { type schematic } from "@synnaxlabs/client";
+import {
+  Button,
+  Color,
+  Flex,
+  Form,
+  Header,
+  Icon,
+  type Input,
+  List,
+  Select,
+  Text,
+} from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
+
+export interface RegionListProps extends Input.Control<string | undefined> {
+  selectedState: string;
+  onAddRegion: () => void;
+}
+
+export interface RegionListItemProps extends List.ItemRenderProps<string> {
+  selectedState: string;
+}
+
+export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
+  const { itemKey } = props;
+  const path = `data.states.${selectedState}.regions.${itemKey}`;
+  const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
+    `data.states.${selectedState}.regions`,
+  );
+
+  return (
+    <Select.ListItem {...props}>
+      <Flex.Box x align="center" gap={2} justify="between" style={{ width: "100%" }}>
+        <Flex.Box x align="center" gap={1}>
+          <Form.Field<string> path={`${path}.name`} showLabel={false}>
+            {({ onChange, value }) => (
+              <Text.Editable
+                value={value}
+                onChange={onChange}
+                style={{ minWidth: 80 }}
+              />
+            )}
+          </Form.Field>
+        </Flex.Box>
+        <Flex.Box x align="center" gap={1}>
+          <Text.Text level="small" color={7}>
+            ({region?.selectors?.length || 0} Elements)
+          </Text.Text>
+          <Form.Field<string> path={`${path}.strokeColor`} showLabel={false}>
+            {({ onChange, value }) => (
+              <Color.Swatch
+                value={value}
+                onChange={(v) => onChange(color.hex(v))}
+                size="small"
+              />
+            )}
+          </Form.Field>
+          <Form.Field<string> path={`${path}.fillColor`} showLabel={false}>
+            {({ onChange, value }) => (
+              <Color.Swatch
+                value={value}
+                onChange={(v) => onChange(color.hex(v))}
+                size="small"
+              />
+            )}
+          </Form.Field>
+          <Button.Button onClick={() => remove(itemKey)} size="small" variant="text">
+            <Icon.Close />
+          </Button.Button>
+        </Flex.Box>
+      </Flex.Box>
+    </Select.ListItem>
+  );
+};
+
+export const RegionList = ({
+  value,
+  onChange,
+  selectedState,
+  onAddRegion,
+}: RegionListProps) => {
+  const { data } = Form.useFieldList<string, schematic.symbol.Region>(
+    `data.states.${selectedState}.regions`,
+  );
+  return (
+    <Flex.Box y gap={1} style={{ maxHeight: 200 }}>
+      <Header.Header level="p" padded bordered={false}>
+        <Header.Title level="p" weight={500}>
+          Colors
+        </Header.Title>
+        <Header.Actions>
+          <Button.Button onClick={onAddRegion} size="small" variant="outlined">
+            <Icon.Add />
+          </Button.Button>
+        </Header.Actions>
+      </Header.Header>
+      <Select.Frame
+        value={value}
+        onChange={onChange}
+        data={data}
+        closeDialogOnSelect={false}
+      >
+        <List.Items<string> y gap={1}>
+          {({ key, ...rest }) => (
+            <RegionListItem selectedState={selectedState} key={key} {...rest} />
+          )}
+        </List.Items>
+      </Select.Frame>
+    </Flex.Box>
+  );
+};
