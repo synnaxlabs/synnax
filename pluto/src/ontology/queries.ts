@@ -46,7 +46,7 @@ const RELATIONSHIP_DELETE_LISTENER: Flux.ChannelListener<
     store.relationships.delete(ontology.relationshipToString(changed)),
 };
 
-export const RELATIONSHIP_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const RELATIONSHIP_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
@@ -66,7 +66,7 @@ const RESOURCE_DELETE_LISTENER: Flux.ChannelListener<SubStore, typeof ontology.i
   onChange: ({ store, changed }) => store.resources.delete(changed.key),
 };
 
-export const RESOURCE_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const RESOURCE_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
 };
 
@@ -174,6 +174,7 @@ export const useResourceList = Flux.createList<
   SubStore
 >({
   name: "useResourceList",
+  retrieveCached: ({ store }) => store.resources.list(),
   retrieve: async ({ client, params, store }) => {
     const res = await client.ontology.retrieve(params);
     res.forEach((r) => store.resources.set(r.key, r));

@@ -121,6 +121,7 @@ export interface ToggleControlPayload {
 }
 
 export interface SetActiveToolbarTabPayload {
+  key: string;
   tab: ToolbarTab;
 }
 
@@ -136,6 +137,7 @@ export interface ClearSelectionPayload {
 }
 
 export interface SetViewportModePayload {
+  key: string;
   mode: Viewport.Mode;
 }
 
@@ -261,7 +263,7 @@ export const { actions, reducer } = createSlice({
         clearSelections(schematic);
       }
       state.schematics[layoutKey] = schematic;
-      state.toolbar.activeTab = "symbols";
+      state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
@@ -272,7 +274,7 @@ export const { actions, reducer } = createSlice({
       schematic.edges.forEach((edge) => {
         edge.selected = false;
       });
-      state.toolbar.activeTab = "symbols";
+      state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { keys: layoutKeys } = payload;
@@ -320,10 +322,10 @@ export const { actions, reducer } = createSlice({
         nodes.some((node) => node.selected) ||
         schematic.edges.some((edge) => edge.selected);
       if (anySelected) {
-        if (state.toolbar.activeTab !== "properties")
+        if (state.schematics[layoutKey].toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
-        state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "symbols";
+        state.schematics[layoutKey].toolbar.activeTab = "properties";
+      } else state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
@@ -354,17 +356,17 @@ export const { actions, reducer } = createSlice({
         edges.some((edge) => edge.selected) ||
         schematic.nodes.some((node) => node.selected);
       if (anySelected) {
-        if (state.toolbar.activeTab !== "properties")
+        if (state.schematics[layoutKey].toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
-        state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "symbols";
+        state.schematics[layoutKey].toolbar.activeTab = "properties";
+      } else state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     setActiveToolbarTab: (
       state,
       { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
-      const { tab } = payload;
-      state.toolbar.activeTab = tab;
+      const { key, tab } = payload;
+      state.schematics[key].toolbar.activeTab = tab;
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       const { key: layoutKey, viewport } = payload;
@@ -407,9 +409,9 @@ export const { actions, reducer } = createSlice({
     },
     setViewportMode: (
       state,
-      { payload: { mode } }: PayloadAction<SetViewportModePayload>,
+      { payload: { key, mode } }: PayloadAction<SetViewportModePayload>,
     ) => {
-      state.mode = mode;
+      state.schematics[key].mode = mode;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       const { key: layoutKey } = payload;

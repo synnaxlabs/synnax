@@ -14,6 +14,7 @@ import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
+import { Group } from "@/group";
 import { Device } from "@/hardware/device";
 import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
@@ -63,6 +64,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
+  [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
@@ -76,6 +78,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
   [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
+  [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({
