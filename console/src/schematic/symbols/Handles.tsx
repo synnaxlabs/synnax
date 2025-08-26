@@ -1,5 +1,5 @@
 import { type schematic } from "@synnaxlabs/client";
-import { useCursorDrag } from "@synnaxlabs/pluto";
+import { Icon, useCursorDrag } from "@synnaxlabs/pluto";
 import { box, location, scale, xy } from "@synnaxlabs/x";
 import { useRef } from "react";
 
@@ -35,21 +35,25 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
     },
   });
 
-  const getArrowRotation = () => {
+  const getArrowIcon = () => {
     const orientation = handle.orientation || "left";
     switch (orientation) {
       case "left":
-        return 180;
+        return Icon.Arrow.Left;
       case "right":
-        return 0;
+        return Icon.Arrow.Right;
       case "top":
-        return -90;
+        return Icon.Arrow.Up;
       case "bottom":
-        return 90;
+        return Icon.Arrow.Down;
       default:
-        return 180;
+        return Icon.Arrow.Left;
     }
   };
+
+  const ArrowIcon = getArrowIcon();
+
+  const orientation = handle.orientation || "left";
 
   return (
     <div
@@ -64,30 +68,15 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
         left: `${pos.x}%`,
         top: `${pos.y}%`,
       }}
+      data-orientation={orientation}
       draggable
       onMouseDown={(e) => {
         e.stopPropagation();
         onSelect(handle.key);
       }}
     >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        style={{
-          pointerEvents: "none",
-          transform: `rotate(${getArrowRotation()}deg)`,
-        }}
-      >
-        <path
-          d="M10 4 L14 8 L10 12 M14 8 L2 8"
-          stroke="currentColor"
-          strokeWidth="2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <div className={CSS.BE("schematic", "handle", "dot")} />
+      <ArrowIcon className={CSS.BE("schematic", "handle", "arrow")} />
     </div>
   );
 };
