@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation } from "@synnaxlabs/x";
+import { type color, type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Channel } from "@/channel";
@@ -22,6 +22,8 @@ import { Notation } from "@/notation";
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
+  stalenessTimeout?: number;
+  stalenessColor?: color.Color;
 }
 
 const VALUE_CONNECTIONS: telem.Connection[] = [
@@ -46,7 +48,13 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     sourceP.segments.rollingAverage.props,
   );
 
-  const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {
+  const handleChange = (segments: telem.SourcePipelineProps["segments"], stalenessUpdate?: { stalenessTimeout?: number; stalenessColor?: color.Color }): void => {
+    const currentStaleness = {
+      stalenessTimeout: value.stalenessTimeout ?? 5,
+      stalenessColor: value.stalenessColor ?? [204, 197, 0, 1],
+      ...stalenessUpdate
+    };
+    
     const t = telem.sourcePipeline("string", {
       connections: VALUE_CONNECTIONS,
       segments: {
@@ -61,8 +69,10 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         ...segments,
       },
       outlet: "stringifier",
+      // Add staleness as pipeline metadata
+      staleness: currentStaleness,
     });
-    onChange({ ...value, telem: t });
+    onChange({ ...value, telem: t, ...stalenessUpdate });
   };
 
   const handleSourceChange = (v: channel.Key | null): void =>
@@ -73,12 +83,6 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   const handlePrecisionChange = (precision: number): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
-
-  const handleTimeOutChange = (stalenessTimeout: number): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, stalenessTimeout }) });
-
-  const handleStalenessColorChange = (stalenessColor: color.Color): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, stalenessColor }) });
 
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
@@ -116,16 +120,20 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Input.Item label="Staleness Timeout" align="start">
           <Input.Numeric
-            value={stringifier.stalenessTimeout ?? 2}
+            value={value.stalenessTimeout ?? 5}
             bounds={{ lower: 0, upper: Infinity }}
-            onChange={handleTimeOutChange}
             endContent="s"
+            onChange={(newTimeout) => {
+              handleChange({}, { stalenessTimeout: newTimeout });
+            }}
           />
         </Input.Item>
         <Input.Item label="Staleness Color" align="start">
           <Color.Swatch
-            value={stringifier.stalenessColor ?? color.ZERO}
-            onChange={handleStalenessColorChange}
+            value={value.stalenessColor ?? [204, 197, 0, 1]} // pluto-warning-m1: #ccc500
+            onChange={(newColor) => {
+              handleChange({}, { stalenessColor: newColor });
+            }}
           />
         </Input.Item>
       </Flex.Box>

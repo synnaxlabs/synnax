@@ -30,7 +30,7 @@ const valueState = z.object({
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   stalenessTimeout: z.number().optional().default(5),
-  stalenessColor: color.colorZ.optional().default(color.ZERO),
+  stalenessColor: color.colorZ.optional().default([204, 197, 0, 1]), // pluto-warning-m1: #ccc500
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
@@ -76,27 +76,30 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
+    // Read staleness from pipeline metadata if available (only when telem changes)
+    if (this.state.telem.type === "source-pipeline" && this.state.telem !== this.prevState?.telem) {
+      const pipelineProps = telem.sourcePipelinePropsZ.parse(this.state.telem.props);
+      const pipelineStaleness = pipelineProps.staleness;
+      
+      // Update Value state with pipeline staleness if it exists and is different
+      if (pipelineStaleness && 
+          (pipelineStaleness.stalenessTimeout !== this.state.stalenessTimeout ||
+           !color.equals(pipelineStaleness.stalenessColor, this.state.stalenessColor))) {
+        this.setState(prev => ({ 
+          ...prev, 
+          stalenessTimeout: pipelineStaleness.stalenessTimeout,
+          stalenessColor: pipelineStaleness.stalenessColor
+        }));
+        i.dataCount = 0; // Reset to stale when staleness changes
+      }
+    }
+
     if (i.isInitialized === undefined) {
       i.timed_out = true;
       i.isInitialized = true;
       i.dataCount = 0;
     }
     
-    if (this.state.telem.type === "source-pipeline") {
-      const pipelineProps = telem.sourcePipelinePropsZ.parse(this.state.telem.props);
-      const stringifierSegment = pipelineProps.segments.stringifier;
-      if (stringifierSegment?.type === "stringify-number") {
-        const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
-        if (stringifierProps.stalenessTimeout !== this.state.stalenessTimeout) {
-          this.setState(prev => ({ ...prev, stalenessTimeout: stringifierProps.stalenessTimeout }));
-          i.dataCount = 0; // Reset to stale when timeout changes
-        }
-        if (stringifierProps.stalenessColor !== this.state.stalenessColor) {
-          this.setState(prev => ({ ...prev, stalenessColor: stringifierProps.stalenessColor }));
-          i.dataCount = 0; // Reset to stale when color changes
-        }
-      }
-    }
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
