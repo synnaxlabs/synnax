@@ -491,7 +491,7 @@ export const createList =
           setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
-      [client, name, syncListeners],
+      [client, name, store, syncListeners],
     );
 
     const retrieveSingle = useCallback(
