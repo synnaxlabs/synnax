@@ -146,6 +146,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -473,6 +474,7 @@ export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -608,6 +610,7 @@ const icons = {
   None,
   Constant,
   Terminal,
+  CSV,
 };
 
 export const resolve = ((
