@@ -1,0 +1,30 @@
+auto ox_press{
+    chan press_valve 
+    chan vent_valve
+    chan reading
+    uint32 lower_threshold
+    uint32 upper_threshold
+} () {
+    if (reading < lower_threshold) {
+        true -> press_valve
+    } else if (reading > upper_threshold) {
+        true -> vent_valve
+    } else {
+        false -> press_valve
+    }
+}
+
+on{start_master_cmd} 
+-> initialize_tasks{}
+-> select{
+    case true -> press|
+    case false -> safe{}
+}
+
+|press -> fan{
+    -> ox_press{}
+    -> fuel_press{}
+} -> select{
+    case true -> ignition{}
+    case false -> safe{}
+}

@@ -401,6 +401,7 @@ var _ = Describe("Parser", func() {
 
 				Expect(primary.STRING()).NotTo(BeNil())
 				Expect(primary.STRING().GetText()).To(Equal(`"hello world"`))
+				var c chan int
 			})
 
 			It("should parse channel read", func() {
@@ -632,39 +633,39 @@ var _ = Describe("Parser", func() {
 			})
 		})
 	})
-	
+
 	Describe("Function Declarations", func() {
 		Describe("Basic functions", func() {
 			It("should parse a simple function with no parameters", func() {
 				source := `func hello() {
 					return
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
 				Expect(tree).NotTo(BeNil())
-				
+
 				// Verify we have one top-level statement
 				statements := tree.AllTopLevelStatement()
 				Expect(statements).To(HaveLen(1))
-				
+
 				// Get the function declaration
 				funcDecl := statements[0].FunctionDecl()
 				Expect(funcDecl).NotTo(BeNil())
-				
+
 				// Verify function name
 				Expect(funcDecl.IDENTIFIER().GetText()).To(Equal("hello"))
-				
+
 				// Verify no parameters
 				Expect(funcDecl.ParameterList()).To(BeNil())
-				
+
 				// Verify no return type (void)
 				Expect(funcDecl.ReturnType()).To(BeNil())
-				
+
 				// Verify block exists
 				block := funcDecl.Block()
 				Expect(block).NotTo(BeNil())
-				
+
 				// Verify return statement
 				stmts := block.AllStatement()
 				Expect(stmts).To(HaveLen(1))
@@ -672,32 +673,32 @@ var _ = Describe("Parser", func() {
 				Expect(returnStmt).NotTo(BeNil())
 				Expect(returnStmt.Expression()).To(BeNil()) // No return value
 			})
-			
+
 			It("should parse a function with single parameter", func() {
 				source := `func square(x number) number {
 					return x * x
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				
+
 				// Verify parameter
 				paramList := funcDecl.ParameterList()
 				Expect(paramList).NotTo(BeNil())
 				params := paramList.AllParameter()
 				Expect(params).To(HaveLen(1))
-				
+
 				param := params[0]
 				Expect(param.IDENTIFIER().GetText()).To(Equal("x"))
 				Expect(param.Type_().NUMBER()).NotTo(BeNil())
-				
+
 				// Verify return type
 				returnType := funcDecl.ReturnType()
 				Expect(returnType).NotTo(BeNil())
 				Expect(returnType.Type_().NUMBER()).NotTo(BeNil())
-				
+
 				// Verify return statement expression
 				block := funcDecl.Block()
 				returnStmt := block.AllStatement()[0].ReturnStatement()
@@ -705,85 +706,85 @@ var _ = Describe("Parser", func() {
 				Expect(expr).NotTo(BeNil())
 				Expect(expr.GetText()).To(Equal("x*x"))
 			})
-			
+
 			It("should parse a function with multiple parameters", func() {
 				source := `func calculate(a number, b number, flag bool) number {
 					return a + b
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				
+
 				// Verify all parameters
 				params := funcDecl.ParameterList().AllParameter()
 				Expect(params).To(HaveLen(3))
-				
+
 				// First parameter: a number
 				Expect(params[0].IDENTIFIER().GetText()).To(Equal("a"))
 				Expect(params[0].Type_().NUMBER()).NotTo(BeNil())
-				
+
 				// Second parameter: b number
 				Expect(params[1].IDENTIFIER().GetText()).To(Equal("b"))
 				Expect(params[1].Type_().NUMBER()).NotTo(BeNil())
-				
+
 				// Third parameter: flag bool
 				Expect(params[2].IDENTIFIER().GetText()).To(Equal("flag"))
 				Expect(params[2].Type_().BOOL()).NotTo(BeNil())
 			})
 		})
-		
+
 		Describe("Function types", func() {
 			It("should parse void function", func() {
 				source := `func doNothing() void {
 					return
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				returnType := funcDecl.ReturnType()
 				Expect(returnType).NotTo(BeNil())
 				Expect(returnType.Type_().VOID()).NotTo(BeNil())
 			})
-			
+
 			It("should parse channel parameter types", func() {
 				source := `func readChannel(input <-chan) number {
 					return <-input
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				param := funcDecl.ParameterList().AllParameter()[0]
-				
+
 				// Verify channel type
 				paramType := param.Type_()
 				Expect(paramType.CHANNEL_RECV()).NotTo(BeNil())
 				Expect(paramType.CHAN()).NotTo(BeNil())
 			})
-			
+
 			It("should parse send-only channel parameter", func() {
 				source := `func writeChannel(output ->chan, value number) {
 					value -> output
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				param := funcDecl.ParameterList().AllParameter()[0]
-				
+
 				// Verify send-only channel type
 				paramType := param.Type_()
 				Expect(paramType.CHANNEL_SEND()).NotTo(BeNil())
 				Expect(paramType.CHAN()).NotTo(BeNil())
 			})
 		})
-		
+
 		Describe("Function body statements", func() {
 			It("should parse variable declarations", func() {
 				source := `func compute() number {
@@ -791,40 +792,40 @@ var _ = Describe("Parser", func() {
 					y $= 20
 					return x + y
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				stmts := funcDecl.Block().AllStatement()
 				Expect(stmts).To(HaveLen(3))
-				
+
 				// First: local variable declaration
 				varDecl1 := stmts[0].VariableDecl()
 				Expect(varDecl1).NotTo(BeNil())
 				Expect(varDecl1.IDENTIFIER().GetText()).To(Equal("x"))
 				Expect(varDecl1.LOCAL_ASSIGN()).NotTo(BeNil())
-				
+
 				// Second: state variable declaration
 				varDecl2 := stmts[1].VariableDecl()
 				Expect(varDecl2).NotTo(BeNil())
 				Expect(varDecl2.IDENTIFIER().GetText()).To(Equal("y"))
 				Expect(varDecl2.STATE_ASSIGN()).NotTo(BeNil())
 			})
-			
+
 			It("should parse assignments", func() {
 				source := `func update(x number) number {
 					result := x
 					result = result * 2
 					return result
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				stmts := funcDecl.Block().AllStatement()
-				
+
 				// Second statement should be assignment
 				assignment := stmts[1].Assignment()
 				Expect(assignment).NotTo(BeNil())
@@ -832,170 +833,170 @@ var _ = Describe("Parser", func() {
 				Expect(assignment.ASSIGN()).NotTo(BeNil())
 				Expect(assignment.Expression()).NotTo(BeNil())
 			})
-			
+
 			It("should parse if statements", func() {
 				source := `func max(a number, b number) number {
 					if (a > b) return a else return b
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				stmts := funcDecl.Block().AllStatement()
-				
+
 				// Should have one if statement
 				ifStmt := stmts[0].IfStatement()
 				Expect(ifStmt).NotTo(BeNil())
-				
+
 				// Verify condition
 				condition := ifStmt.Expression()
 				Expect(condition).NotTo(BeNil())
 				Expect(condition.GetText()).To(Equal("a>b"))
-				
+
 				// Verify then and else branches
 				thenStmt := ifStmt.Statement(0)
 				Expect(thenStmt).NotTo(BeNil())
-				
+
 				elseStmt := ifStmt.Statement(1)
 				Expect(elseStmt).NotTo(BeNil())
 			})
-			
+
 			It("should parse channel operations", func() {
 				source := `func process(input <-chan, output ->chan) {
 					value := <-input
 					result := value * 2
 					result -> output
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				stmts := funcDecl.Block().AllStatement()
 				Expect(stmts).To(HaveLen(3))
-				
+
 				// First: channel read in variable declaration
 				varDecl := stmts[0].VariableDecl()
 				Expect(varDecl).NotTo(BeNil())
-				
+
 				// Third: channel write
 				channelWrite := stmts[2].ChannelWrite()
 				Expect(channelWrite).NotTo(BeNil())
 				Expect(channelWrite.CHANNEL_SEND()).NotTo(BeNil())
 			})
-			
+
 			It("should parse expression statements", func() {
 				source := `func callOther() void {
 					doSomething()
 					process(42)
 					return
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
 				stmts := funcDecl.Block().AllStatement()
 				// Check we have at least the expected statements
 				Expect(len(stmts)).To(BeNumerically(">=", 3))
-				
-				// First two should be expression statements  
+
+				// First two should be expression statements
 				expr1 := stmts[0].ExpressionStatement()
 				Expect(expr1).NotTo(BeNil())
-				
+
 				expr2 := stmts[1].ExpressionStatement()
 				Expect(expr2).NotTo(BeNil())
-				
+
 				// Last should be return (could be index 2 or 3 depending on parsing)
 				lastIdx := len(stmts) - 1
 				returnStmt := stmts[lastIdx].ReturnStatement()
 				Expect(returnStmt).NotTo(BeNil())
 			})
 		})
-		
+
 		Describe("Multiple functions", func() {
 			It("should parse multiple function declarations", func() {
 				source := `
 				func first() number {
 					return 1
 				}
-				
+
 				func second() number {
 					return 2
 				}
-				
+
 				func third() number {
 					return 3
 				}`
-				
+
 				tree, err := parser.Parse(source)
 				Expect(err).To(BeNil())
-				
+
 				// Should have three top-level statements
 				statements := tree.AllTopLevelStatement()
 				Expect(statements).To(HaveLen(3))
-				
+
 				// Verify each is a function
 				func1 := statements[0].FunctionDecl()
 				Expect(func1).NotTo(BeNil())
 				Expect(func1.IDENTIFIER().GetText()).To(Equal("first"))
-				
+
 				func2 := statements[1].FunctionDecl()
 				Expect(func2).NotTo(BeNil())
 				Expect(func2.IDENTIFIER().GetText()).To(Equal("second"))
-				
+
 				func3 := statements[2].FunctionDecl()
 				Expect(func3).NotTo(BeNil())
 				Expect(func3.IDENTIFIER().GetText()).To(Equal("third"))
 			})
 		})
 	})
-	
+
 	Describe("Reactive Bindings", func() {
 		It("should parse simple channel binding", func() {
 			source := `channel -> process()`
-			
+
 			tree, err := parser.Parse(source)
 			Expect(err).To(BeNil())
-			
+
 			statements := tree.AllTopLevelStatement()
 			Expect(statements).To(HaveLen(1))
-			
+
 			// Get reactive binding
 			binding := statements[0].ReactiveBinding()
 			Expect(binding).NotTo(BeNil())
-			
+
 			// Verify channel identifier
 			Expect(binding.IDENTIFIER()).NotTo(BeNil())
 			Expect(binding.IDENTIFIER().GetText()).To(Equal("channel"))
-			
+
 			// Verify arrow
 			Expect(binding.CHANNEL_SEND()).NotTo(BeNil())
-			
+
 			// Verify function call
 			funcCall := binding.FunctionCall()
 			Expect(funcCall).NotTo(BeNil())
 			Expect(funcCall.IDENTIFIER().GetText()).To(Equal("process"))
 		})
-		
+
 		It("should parse channel list binding", func() {
 			source := `[ch1, ch2, ch3] -> handleMultiple()`
-			
+
 			tree, err := parser.Parse(source)
 			Expect(err).To(BeNil())
-			
+
 			statements := tree.AllTopLevelStatement()
 			binding := statements[0].ReactiveBinding()
-			
+
 			// Verify channel list
 			channelList := binding.ChannelList()
 			Expect(channelList).NotTo(BeNil())
-			
+
 			// Verify brackets
 			Expect(channelList.LBRACKET()).NotTo(BeNil())
 			Expect(channelList.RBRACKET()).NotTo(BeNil())
-			
+
 			// Verify channel identifiers
 			identifiers := channelList.AllIDENTIFIER()
 			Expect(identifiers).To(HaveLen(3))
@@ -1003,62 +1004,62 @@ var _ = Describe("Parser", func() {
 			Expect(identifiers[1].GetText()).To(Equal("ch2"))
 			Expect(identifiers[2].GetText()).To(Equal("ch3"))
 		})
-		
+
 		It("should parse interval binding", func() {
 			source := `interval(1000) -> tick()`
-			
+
 			tree, err := parser.Parse(source)
 			Expect(err).To(BeNil())
-			
+
 			statements := tree.AllTopLevelStatement()
 			binding := statements[0].ReactiveBinding()
-			
+
 			// Get interval binding
 			intervalBinding := binding.IntervalBinding()
 			Expect(intervalBinding).NotTo(BeNil())
-			
+
 			// Verify interval keyword
 			Expect(intervalBinding.INTERVAL()).NotTo(BeNil())
-			
+
 			// Verify number literal
 			Expect(intervalBinding.NUMBER_LITERAL()).NotTo(BeNil())
 			Expect(intervalBinding.NUMBER_LITERAL().GetText()).To(Equal("1000"))
-			
+
 			// Verify function call
 			funcCall := intervalBinding.FunctionCall()
 			Expect(funcCall).NotTo(BeNil())
 			Expect(funcCall.IDENTIFIER().GetText()).To(Equal("tick"))
 		})
-		
+
 		It("should parse mixed program with functions and bindings", func() {
 			source := `
 			func process() {
 				return
 			}
-			
+
 			channel -> process()
-			
+
 			func handleTick() {
 				return
 			}
-			
+
 			interval(500) -> handleTick()`
-			
+
 			tree, err := parser.Parse(source)
 			Expect(err).To(BeNil())
-			
+
 			statements := tree.AllTopLevelStatement()
 			Expect(statements).To(HaveLen(4))
-			
+
 			// First: function
 			Expect(statements[0].FunctionDecl()).NotTo(BeNil())
-			
+
 			// Second: channel binding
 			Expect(statements[1].ReactiveBinding()).NotTo(BeNil())
-			
+
 			// Third: function
 			Expect(statements[2].FunctionDecl()).NotTo(BeNil())
-			
+
 			// Fourth: interval binding
 			Expect(statements[3].ReactiveBinding()).NotTo(BeNil())
 		})
