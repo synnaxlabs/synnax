@@ -7,30 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useState } from "react";
 
-import { Button } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 import { type state } from "@/state";
-import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
-
-interface SimpleEntry {
-  key: string;
-  label: string;
-  color: color.Crude;
-  visible: boolean;
-}
+import { Entry, type EntryData } from "@/vis/legend/Entry";
 
 export interface SimpleProps
   extends Omit<ContainerProps, "value" | "onChange" | "background"> {
-  data?: Optional<SimpleEntry, "visible">[];
-  onEntryChange?: (value: SimpleEntry) => void;
+  data?: Optional<EntryData, "visible">[];
+  onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
   allowVisibleChange?: boolean;
@@ -39,7 +28,7 @@ export interface SimpleProps
 
 interface LegendSwatchesProps
   extends Pick<SimpleProps, "onEntryChange" | "background"> {
-  data: Optional<SimpleEntry, "visible">[];
+  data: Optional<EntryData, "visible">[];
   onEntryChange: SimpleProps["onEntryChange"];
   onVisibleChange?: state.Setter<boolean>;
   allowVisibleChange?: boolean;
@@ -57,48 +46,14 @@ export const LegendSwatches = memo(
       {data
         .sort((a, b) => a.label.localeCompare(b.label))
         .map(({ key, color, label, visible = true }) => (
-          <Flex.Box
+          <Entry
             key={key}
-            className={CSS.B("legend-swatch")}
-            x
-            align="center"
-            gap="small"
-            justify="between"
-          >
-            <Flex.Box direction="x" align="center" gap="small">
-              <Color.Swatch
-                value={color}
-                onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
-                onVisibleChange={onVisibleChange}
-                allowChange={onEntryChange != null}
-                draggable={false}
-                size="tiny"
-              />
-              <Text.MaybeEditable
-                level="small"
-                value={label}
-                onChange={(l) => onEntryChange?.({ key, color, label: l, visible })}
-                overflow="nowrap"
-                color={visible ? 10 : 7}
-                onDoubleClick={(e) => e.stopPropagation()}
-              />
-            </Flex.Box>
-            {allowVisibleChange && (
-              <Button.Button
-                className={CSS.B("visible-toggle")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEntryChange?.({ key, color, label, visible: !visible });
-                }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                size="tiny"
-                contrast={background}
-                variant="text"
-              >
-                {visible ? <Icon.Visible /> : <Icon.Hidden />}
-              </Button.Button>
-            )}
-          </Flex.Box>
+            entry={{ key, color, label, visible }}
+            onEntryChange={onEntryChange}
+            onVisibleChange={onVisibleChange}
+            allowVisibleChange={allowVisibleChange}
+            background={background}
+          />
         ))}
     </>
   ),
@@ -116,9 +71,7 @@ export const Simple = ({
   ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState<boolean>(false);
-
   if (data.length === 0) return null;
-
   return (
     <Container
       {...rest}
