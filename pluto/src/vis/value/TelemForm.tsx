@@ -48,13 +48,16 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     sourceP.segments.rollingAverage.props,
   );
 
-  const handleChange = (segments: telem.SourcePipelineProps["segments"], stalenessUpdate?: { stalenessTimeout?: number; stalenessColor?: color.Color }): void => {
+  const handleChange = (
+    segments: telem.SourcePipelineProps["segments"],
+    stalenessUpdate?: { stalenessTimeout?: number; stalenessColor?: color.Color },
+  ): void => {
     const currentStaleness = {
       stalenessTimeout: value.stalenessTimeout ?? 5,
       stalenessColor: value.stalenessColor ?? [204, 197, 0, 1],
-      ...stalenessUpdate
+      ...stalenessUpdate,
     };
-    
+
     const t = telem.sourcePipeline("string", {
       connections: VALUE_CONNECTIONS,
       segments: {

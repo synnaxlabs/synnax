@@ -77,18 +77,23 @@ export class Value
     i.theme = theming.use(ctx);
 
     // Read staleness from pipeline metadata if available (only when telem changes)
-    if (this.state.telem.type === "source-pipeline" && this.state.telem !== this.prevState?.telem) {
+    if (
+      this.state.telem.type === "source-pipeline" &&
+      this.state.telem !== this.prevState?.telem
+    ) {
       const pipelineProps = telem.sourcePipelinePropsZ.parse(this.state.telem.props);
       const pipelineStaleness = pipelineProps.staleness;
-      
+
       // Update Value state with pipeline staleness if it exists and is different
-      if (pipelineStaleness && 
-          (pipelineStaleness.stalenessTimeout !== this.state.stalenessTimeout ||
-           !color.equals(pipelineStaleness.stalenessColor, this.state.stalenessColor))) {
-        this.setState(prev => ({ 
-          ...prev, 
+      if (
+        pipelineStaleness &&
+        (pipelineStaleness.stalenessTimeout !== this.state.stalenessTimeout ||
+          !color.equals(pipelineStaleness.stalenessColor, this.state.stalenessColor))
+      ) {
+        this.setState((prev) => ({
+          ...prev,
           stalenessTimeout: pipelineStaleness.stalenessTimeout,
-          stalenessColor: pipelineStaleness.stalenessColor
+          stalenessColor: pipelineStaleness.stalenessColor,
         }));
         i.dataCount = 0; // Reset to stale when staleness changes
       }
@@ -99,16 +104,13 @@ export class Value
       i.isInitialized = true;
       i.dataCount = 0;
     }
-    
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-
       if (i.dataCount >= DATA_COUNT_THRESHOLD)
         i.timed_out = false; // Switch to active
-      else 
-        i.dataCount++;
+      else i.dataCount++;
 
       this.resetStaleTimeout();
       this.requestRender();
@@ -173,6 +175,25 @@ export class Value
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
   }
 
+  private getTextColor(): color.Color {
+    const { theme } = this.internal;
+
+    if (this.internal.timed_out) return this.state.stalenessColor;
+
+    if (color.isZero(this.state.color))
+      return color.pickByContrast(
+        theme.colors.border,
+        theme.colors.gray.l11,
+        theme.colors.gray.l0,
+      );
+
+    return color.pickByContrast(
+      theme.colors.border,
+      theme.colors.gray.l11,
+      this.state.color,
+    );
+  }
+
   render({ viewportScale = scale.XY.IDENTITY }): void {
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
@@ -202,12 +223,10 @@ export class Value
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
-    let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const colorValue = backgroundTelem.value();
       const isZero = color.isZero(colorValue);
       if (!isZero) {
-        setDefaultFillStyle = false;
         canvas.fillStyle = color.hex(colorValue);
         const width = this.state.useWidthForBackground
           ? (this.state.width ?? this.state.minWidth)
@@ -217,24 +236,11 @@ export class Value
           width + this.state.valueBackgroundOverScan.x,
           bHeight + this.state.valueBackgroundOverScan.y,
         );
-        // Use staleness color if timed out, otherwise use active color with contrast
-        let textColor;
-        if (this.internal.timed_out)
-          textColor = this.state.stalenessColor;
-        else if (color.isZero(this.state.color)) 
-          textColor = color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0);
-        else 
-          textColor = color.pickByContrast(theme.colors.border, theme.colors.gray.l11, this.state.color);
-        
-        canvas.fillStyle = color.hex(textColor);
       }
     }
-    if (setDefaultFillStyle)
-      if (!this.internal.timed_out)
-        if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0));
-        else canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, this.state.color));
-      else
-        canvas.fillStyle = color.hex(this.state.stalenessColor);
+
+    const textColor = this.getTextColor();
+    canvas.fillStyle = color.hex(textColor);
 
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
@@ -254,4 +260,3 @@ export class Value
 export const REGISTRY: aether.ComponentRegistry = {
   [Value.TYPE]: Value,
 };
-
