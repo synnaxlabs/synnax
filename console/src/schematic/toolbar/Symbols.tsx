@@ -395,6 +395,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
           label: "Group Name",
         },
         {
+          key: "create-group",
           name: "Schematic.Symbols.Create Group",
           icon: "Group",
         },
@@ -445,7 +446,7 @@ const GroupListContextMenu = ({
   keys,
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
-  console.log("firstKey", firstKey);
+  const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Payload>(firstKey);
   const confirmDelete = useConfirmDelete({ type: "Group" });
   const renameModal = Modals.useRename();
@@ -470,6 +471,7 @@ const GroupListContextMenu = ({
     delete: () => del.update(),
     rename: () => rename.update(item?.name ?? ""),
   };
+  if (!isRemoteGroup) return null;
   return (
     <Menu.Menu level="small" gap="small" onChange={handleSelect}>
       <Menu.Item itemKey="delete">
@@ -500,13 +502,15 @@ const GroupList = ({
     second: remoteData,
   });
   const { fetchMore } = List.usePager({ retrieve: remoteData.retrieve });
-  useEffect(() => {
-    fetchMore();
-  }, [fetchMore]);
+  useEffect(() => fetchMore(), [fetchMore]);
   const menuProps = Menu.useContextMenu();
-  console.log("menuProps", menuProps);
   return (
-    <Select.Frame<group.Key, group.Payload> {...data} value={value} onChange={onChange}>
+    <Select.Frame<group.Key, group.Payload>
+      {...data}
+      value={value}
+      onChange={onChange}
+      autoSelectOnNone
+    >
       <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
         <List.Items onContextMenu={menuProps.open} x gap="small">
           {groupListItem}

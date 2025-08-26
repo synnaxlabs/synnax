@@ -161,6 +161,7 @@ const Internal = ({
   ...rest
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
+  const menuContent = menu?.({ keys });
   return createPortal(
     <Flex.Box
       className={CSS(CONTEXT_MENU_CLASS, CSS.bordered())}
@@ -170,7 +171,7 @@ const Internal = ({
       gap="tiny"
       {...rest}
     >
-      {menu?.({ keys })}
+      {menuContent}
     </Flex.Box>,
     document.body,
   );
