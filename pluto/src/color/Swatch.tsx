@@ -41,7 +41,6 @@ export const Swatch = ({
     value: propsVisible,
     onChange: onVisibleChange,
   });
-  console.log("Swatch: visible", visible);
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
     (e) => (canPick ? setVisible(true) : onClick?.(e)),

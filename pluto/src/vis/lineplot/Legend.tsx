@@ -30,8 +30,7 @@ interface FloatingProps extends Omit<LegendProps, "variant"> {}
 const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
   const { lines } = useContext("FloatingLegend");
   const groups: Core.GroupData[] = useGroupData(lines);
-  // if we only have the y1 group, use the simple legend
-  if (groups.length === 1 && groups[0].key === "y1")
+  if (groups.length === 1)
     return <Core.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
   return <Core.Grouped data={groups} onEntryChange={onLineChange} {...rest} />;
 });
@@ -52,7 +51,7 @@ const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
 };
 
 const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
-  const { lines } = useContext("Legend");
+  const { lines } = useContext("FixedLegend");
   const groups: Core.GroupData[] = useGroupData(lines);
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
@@ -60,15 +59,12 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
     "Legend",
   );
   if (groups.length === 0) return null;
-  if (groups.length === 1) {
-    if (groups[0].key === "y1")
-      return (
-        <Flex.Box align="center" justify="start" x style={gridStyle}>
-          <Entries data={groups[0].data} onEntryChange={onLineChange} background={0} />
-        </Flex.Box>
-      );
-    return <FocusedGroup name="Y2" data={groups[0].data} onLineChange={onLineChange} />;
-  }
+  if (groups.length === 1)
+    return (
+      <Flex.Box align="center" justify="start" x style={gridStyle}>
+        <Entries data={groups[0].data} onEntryChange={onLineChange} background={0} />
+      </Flex.Box>
+    );
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
       <FocusedGroup name="Y1" data={groups[0].data} onLineChange={onLineChange} />
