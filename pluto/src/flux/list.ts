@@ -17,7 +17,7 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/core/params";
@@ -241,6 +241,28 @@ const defaultFilter = () => true;
 /** Default debounce time for retrieve operations */
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
+const getInitialData = <
+  RetrieveParams extends Params,
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  ScopedStore extends flux.Store,
+>(
+  retrieveCached: CreateListArgs<RetrieveParams, K, E, ScopedStore>["retrieveCached"],
+  paramsRef: RefObject<RetrieveParams | null>,
+  filterRef: RefObject<((item: E) => boolean) | undefined>,
+  sortRef: RefObject<compare.Comparator<E> | undefined>,
+  dataRef: RefObject<Map<K, E | null>>,
+  store: ScopedStore,
+) => {
+  if (retrieveCached == null) return undefined;
+  let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
+  if (filterRef.current != null) cached = cached.filter(filterRef.current);
+  if (sortRef.current != null) cached = cached.sort(sortRef.current);
+  if (cached.length === 0) return undefined;
+  cached.forEach((v) => dataRef.current.set(v.key, v));
+  return cached.map((v) => v.key);
+};
+
 /**
  * Creates a list query hook that provides comprehensive list management with real-time updates.
  *
@@ -340,17 +362,12 @@ export const createList =
     const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
     const store = useStore<ScopedStore>();
     const paramsRef = useRef<P | null>(initialParams ?? null);
-    const initialData = useMemo(() => {
-      if (retrieveCached == null) return undefined;
-      let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
-      if (filterRef.current != null) cached = cached.filter(filterRef.current);
-      if (sortRef.current != null) cached = cached.sort(sortRef.current);
-      if (cached.length === 0) return undefined;
-      cached.forEach((v) => dataRef.current.set(v.key, v));
-      return cached.map((v) => v.key);
-    }, [retrieveCached, filterRef, store]);
-    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving", initialData),
+    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(() =>
+      pendingResult<K[]>(
+        name,
+        "retrieving",
+        getInitialData(retrieveCached, paramsRef, filterRef, sortRef, dataRef, store),
+      ),
     );
     const hasMoreRef = useRef(true);
     const storeListeners = useDestructors();
