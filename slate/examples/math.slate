@@ -1,0 +1,35 @@
+// Basic mathematical operations
+
+func add(a number, b number) number {
+    return a + b
+}
+
+func subtract(a number, b number) number {
+    return a - b
+}
+
+func multiply(a number, b number) number {
+    return a * b
+}
+
+func divide(a number, b number) number {
+    return a / b
+}
+
+// More complex calculations
+func average(a number, b number, c number) number {
+    sum := a + b + c
+    return sum / 3
+}
+
+func distance(x1 number, y1 number, x2 number, y2 number) number {
+    dx := x2 - x1
+    dy := y2 - y1
+    return dx * dx + dy * dy  // Returns squared distance
+}
+
+func lerp(start number, end number, t number) number {
+    // Linear interpolation
+    diff := end - start
+    return start + diff * t
+}

@@ -1,0 +1,13 @@
+// A simple Slate program
+
+func double(x number) number {
+    return x * 2
+}
+
+func triple(x number) number {
+    return x * 3
+}
+
+func power_of_two(x number) number {
+    return x * x
+}
