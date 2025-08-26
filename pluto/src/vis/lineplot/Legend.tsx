@@ -46,7 +46,7 @@ Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
 
-const Fixed = ({ onLineChange }: FixedProps): ReactElement => {
+const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
   const { lines } = useContext("Legend");
   const groups: Core.GroupData[] = useMemo(() => {
     const groups: Core.GroupData[] = [];
@@ -61,16 +61,20 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement => {
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "Legend",
   );
-  if (groups.length === 1 && groups[0].key === "y1")
-    return (
-      <Flex.Box align="center" justify="start" x style={gridStyle}>
-        <Entries data={lines} onEntryChange={onLineChange} background={0} />
-      </Flex.Box>
-    );
+  if (groups.length === 0) return null;
+  if (groups.length === 1) {
+    if (groups[0].key === "y1")
+      return (
+        <Flex.Box align="center" justify="start" x style={gridStyle}>
+          <Entries data={lines} onEntryChange={onLineChange} background={0} />
+        </Flex.Box>
+      );
+    return <FocusedGroup name="Y2" data={groups[0].data} onLineChange={onLineChange} />;
+  }
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      <FocusedGroup name="y1" data={groups[0].data} onLineChange={onLineChange} />
-      <FocusedGroup name="y2" data={groups[1].data} onLineChange={onLineChange} />
+      <FocusedGroup name="Y1" data={groups[0].data} onLineChange={onLineChange} />
+      <FocusedGroup name="Y2" data={groups[1].data} onLineChange={onLineChange} />
     </Flex.Box>
   );
 };
