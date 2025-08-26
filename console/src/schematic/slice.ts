@@ -160,6 +160,7 @@ export interface SetAuthorityPayload {
 }
 
 export interface SetSelectedSymbolGroupPayload {
+  key: string;
   group: string;
 }
 
@@ -460,8 +461,8 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetSelectedSymbolGroupPayload>,
     ) => {
-      const { group } = payload;
-      state.toolbar.selectedSymbolGroup = group;
+      const { key, group } = payload;
+      state.schematics[key].toolbar.selectedSymbolGroup = group;
     },
   },
 });

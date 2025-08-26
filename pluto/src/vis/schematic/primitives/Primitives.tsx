@@ -1953,7 +1953,6 @@ export const Value = ({
       style={{
         borderColor,
         height: dimensions?.height,
-        width: "100%",
       }}
     >
       <div

@@ -13,7 +13,6 @@ import { group, type ontology, type schematic } from "@synnaxlabs/client";
 import {
   Button,
   Component,
-  CSS as PCSS,
   Flex,
   Group,
   Haul,
@@ -391,7 +390,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     handleError(async () => {
       const result = await rename(
         {
-          initialValue: "New Group",
+          initialValue: "",
           allowEmpty: false,
           label: "Group Name",
         },
@@ -442,8 +441,12 @@ export interface GroupListProps extends Input.Control<group.Key> {
   symbolGroupID: ontology.ID;
 }
 
-const GroupListContextMenu = (props: Menu.ContextMenuMenuProps): ReactElement => {
-  const item = List.useItem<group.Key, group.Payload>(props.keys[0]);
+const GroupListContextMenu = ({
+  keys,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
+  const firstKey = keys[0];
+  console.log("firstKey", firstKey);
+  const item = List.useItem<group.Key, group.Payload>(firstKey);
   const confirmDelete = useConfirmDelete({ type: "Group" });
   const renameModal = Modals.useRename();
   const del = Group.useDelete({
@@ -481,6 +484,8 @@ const GroupListContextMenu = (props: Menu.ContextMenuMenuProps): ReactElement =>
   );
 };
 
+const groupListContextMenu = Component.renderProp(GroupListContextMenu);
+
 const GroupList = ({
   value,
   onChange,
@@ -495,11 +500,14 @@ const GroupList = ({
     second: remoteData,
   });
   const { fetchMore } = List.usePager({ retrieve: remoteData.retrieve });
-  useEffect(() => fetchMore(), [fetchMore]);
+  useEffect(() => {
+    fetchMore();
+  }, [fetchMore]);
   const menuProps = Menu.useContextMenu();
+  console.log("menuProps", menuProps);
   return (
     <Select.Frame<group.Key, group.Payload> {...data} value={value} onChange={onChange}>
-      <Menu.ContextMenu {...menuProps} menu={GroupListContextMenu}>
+      <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
         <List.Items onContextMenu={menuProps.open} x gap="small">
           {groupListItem}
         </List.Items>
@@ -511,12 +519,12 @@ const GroupList = ({
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = Theming.use();
   const dispatch = useDispatch();
-  const groupKey = useSelectSelectedSymbolGroup();
+  const groupKey = useSelectSelectedSymbolGroup(layoutKey);
   const setGroupKey = useCallback(
     (group: group.Key) => {
-      dispatch(setSelectedSymbolGroup({ group }));
+      dispatch(setSelectedSymbolGroup({ key: layoutKey, group }));
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
   const handleAddElement = useCallback(
@@ -547,7 +555,12 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         <Input.Text
           value={search}
           onChange={setSearch}
-          placeholder="Search Symbols"
+          placeholder={
+            <>
+              <Icon.Search />
+              Search Symbols
+            </>
+          }
           size="small"
         />
         {g.data != null && (

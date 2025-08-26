@@ -14,7 +14,7 @@
 
     .console-schematic__symbols-group-list {
         padding: 1rem;
-        border-bottom: var(--pluto-border-l5);
+        border-bottom: var(--pluto-border);
 
         & .pluto-input {
             margin: 0 calc(-1 * var(--pluto-border-width));
@@ -31,23 +31,25 @@
 
     .console-schematic-symbols__button {
         padding: 2rem 1rem;
+        align-items: stretch;
+        & > small {
+            height: calc(var(--pluto-small-line-height) * 2);
+            display: block;
+            color: var(--pluto-gray-l9) !important;
+            font-weight: 450;
+            text-align: center;
+            white-space: wrap;
+        }
         &.pluto-list__item {
             width: 90px;
             min-height: 100px;
             max-height: 100px;
-            min-width: 100px;
-            max-width: 100px;
+            min-width: 110px;
+            max-width: 110px;
         }
 
         .pluto-symbol-primitive {
-            transform: scale(0.65) !important;
-        }
-
-        & > small {
-            display: block;
-            color: var(--pluto-gray-l9) !important;
-            text-align: center;
-            white-space: wrap;
+            transform: scale(0.75) !important;
         }
     }
 }
