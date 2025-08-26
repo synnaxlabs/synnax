@@ -36,11 +36,12 @@ export const Swatch = ({
   visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
-  const [visible, setVisible] = state.usePassthrough<boolean>({
+  const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
     value: propsVisible,
     onChange: onVisibleChange,
   });
+  console.log("Swatch: visible", visible);
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
     (e) => (canPick ? setVisible(true) : onClick?.(e)),

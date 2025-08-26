@@ -12,11 +12,13 @@ import { type ReactElement, useState } from "react";
 
 import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
-import { Entries } from "@/vis/legend/Entries";
-import { type EntryData } from "@/vis/legend/Entry";
+import { Entries, type EntryData } from "@/vis/legend/Entries";
 
 export interface SimpleProps
-  extends Omit<ContainerProps, "value" | "onChange" | "background"> {
+  extends Omit<
+    ContainerProps,
+    "value" | "onChange" | "background" | "draggable" | "gap"
+  > {
   data?: Optional<EntryData, "visible">[];
   onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
@@ -35,6 +37,7 @@ export const Simple = ({
   ...rest
 }: SimpleProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState(false);
+  console.log("pickerVisible", pickerVisible);
   if (data.length === 0) return null;
   return (
     <Container
@@ -42,13 +45,14 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      gap={allowVisibleChange ? 0 : "small"}
+      gap="small"
       background={background}
     >
       <Entries
         data={data}
         onEntryChange={onEntryChange}
-        onVisibleChange={setPickerVisible}
+        colorPickerVisible={pickerVisible}
+        onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowVisibleChange}
         background={background}
       />
