@@ -98,11 +98,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
 	GorpCodec binary.Codec
-	// EnableChannelSignals sets whether to enable CDC signal propagation for changes
-	// to channel data structures.
+	// EnableServiceSignals sets whether to enable CDC signal propagation for changes
+	// to distribution layer data structures (channels, groups, etc.)
 	//
 	// [OPTIONAL] - Defaults to true.
-	EnableChannelSignals *bool
+	EnableServiceSignals *bool
 }
 
 var (
@@ -113,7 +113,7 @@ var (
 	DefaultConfig = Config{
 		EnableSearch:         config.True(),
 		GorpCodec:            &binary.MsgPackCodec{},
-		EnableChannelSignals: config.True(),
+		EnableServiceSignals: config.True(),
 	}
 )
 
@@ -131,7 +131,7 @@ func (c Config) Override(other Config) Config {
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
-	c.EnableChannelSignals = override.Nil(c.EnableChannelSignals, other.EnableChannelSignals)
+	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
 	return c
 }
 
@@ -146,7 +146,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
-	validate.NotNil(v, "enable_channel_signals", c.EnableChannelSignals)
+	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
 	return v.Error()
 }
 
@@ -304,7 +304,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if *cfg.EnableChannelSignals {
+	if *cfg.EnableServiceSignals {
 		var channelSignalsCloser io.Closer
 		if channelSignalsCloser, err = channelsignals.Publish(
 			ctx,
@@ -313,10 +313,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
-	}
-
-	if groupSignalsCloser, err := groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
-		return nil, err
+		if groupSignalsCloser, err := groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+			return nil, err
+		}
 	}
 
 	if l.Cluster.HostKey() == cluster.Bootstrapper {
