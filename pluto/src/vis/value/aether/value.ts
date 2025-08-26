@@ -214,11 +214,15 @@ export class Value
           width + this.state.valueBackgroundOverScan.x,
           bHeight + this.state.valueBackgroundOverScan.y,
         );
-        const textColor = color.pickByContrast(
-          colorValue,
-          theme.colors.gray.l0,
-          theme.colors.gray.l11,
-        );
+        // Use staleness color if timed out, otherwise use active color with contrast
+        let textColor;
+        if (this.internal.timed_out)
+          textColor = this.state.staleness_color;
+        else if (color.isZero(this.state.color)) 
+          textColor = color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0);
+        else 
+          textColor = color.pickByContrast(theme.colors.border, theme.colors.gray.l11, this.state.color);
+        
         canvas.fillStyle = color.hex(textColor);
       }
     }
