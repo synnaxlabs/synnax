@@ -486,7 +486,7 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
   onChange: ({ store, changed }) => store.rangeKV.delete(ranger.kvPairKey(changed)),
 };
 
-export const KV_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_KV_LISTENER, DELETE_KV_LISTENER],
 };
 
@@ -599,6 +599,6 @@ const DELETE_ALIAS_LISTENER: Flux.ChannelListener<SubStore, typeof aliasDeleteZ>
   onChange: ({ store, changed }) => store.rangeAliases.delete(ranger.aliasKey(changed)),
 };
 
-export const ALIAS_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const ALIAS_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_ALIAS_LISTENER, DELETE_ALIAS_LISTENER],
 };

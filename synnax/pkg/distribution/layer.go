@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -312,6 +313,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
+	}
+
+	if groupSignalsCloser, err := groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		return nil, err
 	}
 
 	if l.Cluster.HostKey() == cluster.Bootstrapper {

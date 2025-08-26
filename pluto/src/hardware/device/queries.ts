@@ -47,7 +47,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof device.statusZ>
   },
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER, SET_STATUS_LISTENER],
 };
 
