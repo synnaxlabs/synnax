@@ -174,6 +174,7 @@ export const useResourceList = Flux.createList<
   SubStore
 >({
   name: "useResourceList",
+  retrieveCached: ({ store }) => store.resources.list(),
   retrieve: async ({ client, params, store }) => {
     const res = await client.ontology.retrieve(params);
     res.forEach((r) => store.resources.set(r.key, r));

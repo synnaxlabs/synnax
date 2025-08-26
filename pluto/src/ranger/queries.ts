@@ -423,6 +423,11 @@ const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, SubStore>({
   name: "Ranges",
+  retrieveCached: ({ store, params }) =>
+    store.ranges.get((r) => {
+      if (primitive.isNonZero(params.keys)) return params.keys.includes(r.key);
+      return true;
+    }),
   retrieve: async ({ client, params }) =>
     await client.ranges.retrieve({
       ...DEFAULT_LIST_PARAMS,
