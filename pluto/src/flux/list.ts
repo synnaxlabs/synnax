@@ -17,7 +17,7 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
 import { type FetchOptions, type Params } from "@/flux/core/params";
@@ -116,6 +116,14 @@ export interface RetrieveByKeyArgs<
   store: ScopedStore;
 }
 
+export interface RetrieveCachedArgs<
+  RetrieveParams extends Params,
+  ScopedStore extends flux.Store,
+> {
+  params: Partial<RetrieveParams>;
+  store: ScopedStore;
+}
+
 /**
  * Configuration arguments for creating a list query.
  *
@@ -133,6 +141,8 @@ export interface CreateListArgs<
   retrieveByKey: (
     args: RetrieveByKeyArgs<RetrieveParams, K, ScopedStore>,
   ) => Promise<E | undefined>;
+  /** Function that allows  */
+  retrieveCached?: (args: RetrieveCachedArgs<RetrieveParams, ScopedStore>) => E[];
   /** Function to mount listeners for the list */
   mountListeners?: (
     args: ListMountListenersArgs<RetrieveParams, K, E, ScopedStore>,
@@ -217,7 +227,11 @@ export interface ListMountListenersArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
-> extends Omit<MountListenersArgs<ScopedStore, RetrieveParams, E[]>, "onChange"> {
+> extends Omit<
+    MountListenersArgs<ScopedStore, RetrieveParams, E[]>,
+    "onChange" | "params"
+  > {
+  params: Partial<RetrieveParams>;
   onChange: (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions) => void;
   onDelete: (key: K) => void;
 }
@@ -310,6 +324,7 @@ export const createList =
     mountListeners,
     retrieve,
     retrieveByKey,
+    retrieveCached,
   }: CreateListArgs<P, K, E, ScopedStore>): UseList<P, K, E> =>
   (args: UseListArgs<P, K, E> = {}) => {
     const {
@@ -323,14 +338,22 @@ export const createList =
     const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());
+    const store = useStore<ScopedStore>();
+    const paramsRef = useRef<P | null>(initialParams ?? null);
+    const initialData = useMemo(() => {
+      if (retrieveCached == null) return undefined;
+      let cached = retrieveCached({ params: paramsRef.current ?? {}, store });
+      if (filterRef.current != null) cached = cached.filter(filterRef.current);
+      if (cached.length === 0) return undefined;
+      cached.forEach((v) => dataRef.current.set(v.key, v));
+      return cached.map((v) => v.key);
+    }, [retrieveCached, filterRef, store]);
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving", undefined),
+      pendingResult<K[]>(name, "retrieving", initialData),
     );
     const hasMoreRef = useRef(true);
-    const paramsRef = useRef<P | null>(initialParams ?? null);
     const storeListeners = useDestructors();
-
-    const store = useStore<ScopedStore>();
+    const storeListenersMountedRef = useRef(false);
 
     const notifyListeners = useCallback(
       (changed: K) =>
@@ -353,6 +376,51 @@ export const createList =
       },
       [sortRef],
     );
+
+    const syncListeners = useCallback(() => {
+      if (client == null) return;
+      storeListenersMountedRef.current = true;
+      storeListeners.cleanup();
+      storeListeners.set(
+        mountListeners?.({
+          client,
+          store,
+          params: paramsRef.current ?? {},
+          onDelete: (k) => {
+            dataRef.current.delete(k);
+            setResult((p) => {
+              if (p.data == null) return p;
+              return { ...p, data: p.data.filter((key) => key !== k) };
+            });
+          },
+          onChange: (k, setter, opts = {}) => {
+            const { mode = "append" } = opts;
+            const prev = dataRef.current.get(k) ?? null;
+            if (prev != null && !filterRef.current(prev)) return;
+            const res = state.executeSetter(setter, prev);
+            if (res == null || !filterRef.current(res)) return;
+            dataRef.current.set(k, res);
+            setResult((p) => {
+              if (p.data == null) return p;
+              let newData: K[];
+              if (prev == null)
+                if (sortRef.current != null) newData = updateSortedData([...p.data, k]);
+                else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
+              else if (sortRef.current != null) {
+                const currentIndex = p.data.indexOf(k);
+                const sortedData = updateSortedData(p.data);
+                const newIndex = sortedData.indexOf(k);
+                if (currentIndex !== newIndex) newData = sortedData;
+                else newData = p.data;
+              } else newData = p.data;
+              return { ...p, data: newData };
+            });
+
+            notifyListeners(k);
+          },
+        }),
+      );
+    }, [mountListeners, storeListeners]);
 
     const retrieveAsync = useCallback(
       async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) => {
@@ -379,47 +447,7 @@ export const createList =
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
 
-          storeListeners.cleanup();
-          storeListeners.set(
-            mountListeners?.({
-              client,
-              store,
-              params,
-              onDelete: (k) => {
-                dataRef.current.delete(k);
-                setResult((p) => {
-                  if (p.data == null) return p;
-                  return { ...p, data: p.data.filter((key) => key !== k) };
-                });
-              },
-              onChange: (k, setter, opts = {}) => {
-                const { mode = "append" } = opts;
-                const prev = dataRef.current.get(k) ?? null;
-                if (prev != null && !filterRef.current(prev)) return;
-                const res = state.executeSetter(setter, prev);
-                if (res == null || !filterRef.current(res)) return;
-                dataRef.current.set(k, res);
-                setResult((p) => {
-                  if (p.data == null) return p;
-                  let newData: K[];
-                  if (prev == null)
-                    if (sortRef.current != null)
-                      newData = updateSortedData([...p.data, k]);
-                    else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
-                  else if (sortRef.current != null) {
-                    const currentIndex = p.data.indexOf(k);
-                    const sortedData = updateSortedData(p.data);
-                    const newIndex = sortedData.indexOf(k);
-                    if (currentIndex !== newIndex) newData = sortedData;
-                    else newData = p.data;
-                  } else newData = p.data;
-                  return { ...p, data: newData };
-                });
-
-                notifyListeners(k);
-              },
-            }),
-          );
+          syncListeners();
 
           // If we've already retrieved the initial data, and it's the same as the
           // data we just retrieved, then don't notify listeners.
@@ -445,13 +473,14 @@ export const createList =
           setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
-      [client, name, store, filterRef],
+      [client, name, store, filterRef, syncListeners],
     );
 
     const retrieveSingle = useCallback(
       (key: K, options: FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
+          if (!storeListenersMountedRef.current) syncListeners();
           try {
             if (client == null || primitive.isZero(key)) return;
             const item = await retrieveByKey({
@@ -474,7 +503,7 @@ export const createList =
           }
         })();
       },
-      [retrieveByKey, client, notifyListeners],
+      [retrieveByKey, client, notifyListeners, syncListeners],
     );
 
     const getItem = useCallback(

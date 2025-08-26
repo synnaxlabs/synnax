@@ -372,6 +372,10 @@ export const useList = Flux.createList<
   SubStore
 >({
   name: "Channels",
+  retrieveCached: ({ params, store }) => {
+    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
+    return store.channels.get(() => true);
+  },
   retrieve: async ({ client, params, store }) => {
     const channels = await client.channels.retrieve({
       ...DEFAULT_LIST_PARAMS,
