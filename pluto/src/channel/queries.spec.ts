@@ -298,7 +298,6 @@ describe("queries", () => {
           name: "normal_ch",
           dataType: DataType.FLOAT32,
           virtual: true,
-          internal: false,
         });
 
         const { result: firstResult } = renderHook(() => Channel.useList(), {
@@ -493,20 +492,17 @@ describe("queries", () => {
           name: "virtual_float32",
           dataType: DataType.FLOAT32,
           virtual: true,
-          internal: false,
         });
         const virtualInt32Ch = await client.channels.create({
           name: "virtual_int32",
           dataType: DataType.INT32,
           virtual: true,
-          internal: false,
         });
         const persistedFloat32Ch = await client.channels.create({
           name: "persisted_float32",
           dataType: DataType.FLOAT32,
           index: indexCh.key,
           virtual: false,
-          internal: false,
         });
 
         const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
