@@ -62,7 +62,7 @@ const Context = createContext<ContextValue | null>(null);
 export const useContext = (component: string) => {
   const ctx = use(Context);
   if (ctx == null)
-    throw new Error(`Cannot to use ${component} as a non-child of LinePlot.`);
+    throw new Error(`Cannot use ${component} as a non-child of LinePlot.`);
   return ctx;
 };
 

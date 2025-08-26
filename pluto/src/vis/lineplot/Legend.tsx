@@ -23,23 +23,27 @@ export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryCha
   onLineChange?: (line: LineSpec) => void;
 }
 
-export const Floating = memo(
-  ({ className, style, onLineChange, ...rest }: LegendProps): ReactElement | null => {
-    const { lines } = useContext("Legend");
-    useContext("Legend");
-    return <Core.Simple data={lines} onEntryChange={onLineChange} {...rest} />;
-  },
-);
+export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactElement =>
+  variant === "floating" ? <Floating {...rest} /> : <Fixed {...rest} />;
+
+interface FloatingProps extends Omit<LegendProps, "variant"> {}
+
+const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
+  const { lines } = useContext("FloatingLegend");
+  console.log(lines);
+  return <Core.Simple data={lines} onEntryChange={onLineChange} {...rest} />;
+});
 Floating.displayName = "FloatingLegend";
 
-const Fixed = ({ onLineChange }: LegendProps) => {
+interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
+
+const Fixed = ({ onLineChange }: FixedProps): ReactElement => {
   const { lines } = useContext("Legend");
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "Legend",
   );
-
   return (
     <Flex.Box
       className={CSS(CSS.BE("legend", "container"), CSS.B("legend", "fixed"))}
@@ -52,9 +56,3 @@ const Fixed = ({ onLineChange }: LegendProps) => {
     </Flex.Box>
   );
 };
-
-export const Legend = ({
-  variant = "floating",
-  ...rest
-}: LegendProps): ReactElement | null =>
-  variant === "floating" ? <Floating {...rest} /> : <Fixed {...rest} />;
