@@ -1,5 +1,5 @@
 import { array, type Destructor } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 export interface UseDestructorsReturn {
   cleanup: () => void;
@@ -8,17 +8,19 @@ export interface UseDestructorsReturn {
 
 export const useDestructors = (): UseDestructorsReturn => {
   const ref = useRef<Destructor[]>([]);
-  const cleanup = useCallback((): void => {
-    ref.current.forEach((destructor) => destructor());
-    ref.current = [];
-  }, []);
-  const set = useCallback(
-    (destructors: Destructor | Destructor[] | undefined): void => {
-      if (destructors == null) return;
-      ref.current.push(...array.toArray(destructors));
-    },
-    [cleanup],
+  const value = useMemo(
+    () => ({
+      cleanup: () => {
+        ref.current.forEach((destructor) => destructor());
+        ref.current = [];
+      },
+      set: (destructors: Destructor | Destructor[] | undefined): void => {
+        if (destructors == null) return;
+        ref.current.push(...array.toArray(destructors));
+      },
+    }),
+    [],
   );
-  useEffect(() => cleanup, [cleanup]);
-  return { cleanup, set };
+  useEffect(() => value.cleanup, [value.cleanup]);
+  return value;
 };
