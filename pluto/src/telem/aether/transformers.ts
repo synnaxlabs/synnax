@@ -174,8 +174,8 @@ export const stringifyNumberProps = z.object({
   prefix: z.string().optional().default(""),
   suffix: z.string().optional().default(""),
   notation: notation.notationZ.optional().default("standard"),
-  staleness_timeout: z.number().optional().default(5),
-  staleness_color: color.colorZ.optional().default([204, 197, 0, 1]), // pluto-warning-m1: #ccc500
+  stalenessTimeout: z.number().optional().default(5),
+  stalenessColor: color.colorZ.optional().default([204, 197, 0, 1]), // pluto-warning-m1: #ccc500
 });
 
 export class StringifyNumber extends UnarySourceTransformer<

@@ -29,8 +29,8 @@ const valueState = z.object({
   level: text.levelZ.optional().default("p"),
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
-  staleness_timeout: z.number().optional().default(5),
-  staleness_color: color.colorZ.optional().default(color.ZERO),
+  stalenessTimeout: z.number().optional().default(5),
+  stalenessColor: color.colorZ.optional().default(color.ZERO),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
@@ -87,12 +87,12 @@ export class Value
       const stringifierSegment = pipelineProps.segments.stringifier;
       if (stringifierSegment?.type === "stringify-number") {
         const stringifierProps = telem.stringifyNumberProps.parse(stringifierSegment.props);
-        if (stringifierProps.staleness_timeout !== this.state.staleness_timeout) {
-          this.setState(prev => ({ ...prev, staleness_timeout: stringifierProps.staleness_timeout }));
+        if (stringifierProps.stalenessTimeout !== this.state.stalenessTimeout) {
+          this.setState(prev => ({ ...prev, stalenessTimeout: stringifierProps.stalenessTimeout }));
           i.dataCount = 0; // Reset to stale when timeout changes
         }
-        if (stringifierProps.staleness_color !== this.state.staleness_color) {
-          this.setState(prev => ({ ...prev, staleness_color: stringifierProps.staleness_color }));
+        if (stringifierProps.stalenessColor !== this.state.stalenessColor) {
+          this.setState(prev => ({ ...prev, stalenessColor: stringifierProps.stalenessColor }));
           i.dataCount = 0; // Reset to stale when color changes
         }
       }
@@ -138,9 +138,9 @@ export class Value
     const { internal: i } = this;
     if (i.staleTimeout) clearTimeout(i.staleTimeout);
     // Set timeout to return to staleness color after specified duration
-    const timeoutDuration = this.state.staleness_timeout * 1000;
+    const timeoutDuration = this.state.stalenessTimeout * 1000;
     i.staleTimeout = setTimeout(() => {
-      i.textColor = this.state.staleness_color;
+      i.textColor = this.state.stalenessColor;
       i.timed_out = true;
       this.requestRender();
     }, timeoutDuration);
@@ -217,7 +217,7 @@ export class Value
         // Use staleness color if timed out, otherwise use active color with contrast
         let textColor;
         if (this.internal.timed_out)
-          textColor = this.state.staleness_color;
+          textColor = this.state.stalenessColor;
         else if (color.isZero(this.state.color)) 
           textColor = color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0);
         else 
@@ -231,7 +231,7 @@ export class Value
         if (color.isZero(this.state.color)) canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, theme.colors.gray.l0));
         else canvas.fillStyle = color.hex(color.pickByContrast(theme.colors.border, theme.colors.gray.l11, this.state.color));
       else
-        canvas.fillStyle = color.hex(this.state.staleness_color);
+        canvas.fillStyle = color.hex(this.state.stalenessColor);
 
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.

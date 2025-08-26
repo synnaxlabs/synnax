@@ -74,11 +74,11 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handlePrecisionChange = (precision: number): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
 
-  const handleTimeOutChange = (staleness_timeout: number): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, staleness_timeout }) });
+  const handleTimeOutChange = (stalenessTimeout: number): void =>
+    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, stalenessTimeout }) });
 
-  const handleStalenessColorChange = (staleness_color: color.Color): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, staleness_color }) });
+  const handleStalenessColorChange = (stalenessColor: color.Color): void =>
+    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, stalenessColor }) });
 
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
@@ -116,14 +116,15 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Input.Item label="Staleness Timeout" align="start">
           <Input.Numeric
-            value={stringifier.staleness_timeout ?? 2}
-            bounds={{ lower: 0, upper: 61 }}
+            value={stringifier.stalenessTimeout ?? 2}
+            bounds={{ lower: 0, upper: Infinity }}
             onChange={handleTimeOutChange}
+            endContent="s"
           />
         </Input.Item>
         <Input.Item label="Staleness Color" align="start">
           <Color.Swatch
-            value={stringifier.staleness_color ?? color.ZERO}
+            value={stringifier.stalenessColor ?? color.ZERO}
             onChange={handleStalenessColorChange}
           />
         </Input.Item>
