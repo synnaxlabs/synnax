@@ -1013,6 +1013,8 @@ const value: Spec<ValueProps> = {
     inlineSize: 70,
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
+    stalenessColor: t.colors.warning.z,
+    stalenessTimeout: 5,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
     redline: CoreValue.ZERO_READLINE,
   }),

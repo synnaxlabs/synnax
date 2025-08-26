@@ -57,10 +57,10 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
-  staleTimeout?: ReturnType<typeof setTimeout>;
-  isInitialized: boolean;
-  timed_out: boolean;
   dataCount: number;
+  timeout: NodeJS.Timeout;
+  staleTimeout?: ReturnType<typeof setTimeout>;
+  timedOut: boolean;
 }
 
 export class Value
@@ -76,41 +76,16 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    // Read staleness from pipeline metadata if available (only when telem changes)
-    if (
-      this.state.telem.type === "source-pipeline" &&
-      this.state.telem !== this.prevState?.telem
-    ) {
-      const pipelineProps = telem.sourcePipelinePropsZ.parse(this.state.telem.props);
-      const pipelineStaleness = pipelineProps.staleness;
-
-      // Update Value state with pipeline staleness if it exists and is different
-      if (
-        pipelineStaleness &&
-        (pipelineStaleness.stalenessTimeout !== this.state.stalenessTimeout ||
-          !color.equals(pipelineStaleness.stalenessColor, this.state.stalenessColor))
-      ) {
-        this.setState((prev) => ({
-          ...prev,
-          stalenessTimeout: pipelineStaleness.stalenessTimeout,
-          stalenessColor: pipelineStaleness.stalenessColor,
-        }));
-        i.dataCount = 0; // Reset to stale when staleness changes
-      }
-    }
-
-    if (i.isInitialized === undefined) {
-      i.timed_out = true;
-      i.isInitialized = true;
-      i.dataCount = 0;
-    }
+    // if (i.isInitialized === undefined) {
+    //   i.timedOut = true;
+    //   i.isInitialized = true;
+    //   i.dataCount = 0;
+    // }
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      if (i.dataCount >= DATA_COUNT_THRESHOLD)
-        i.timed_out = false; // Switch to active
-      else i.dataCount++;
+      if (i.dataCount < DATA_COUNT_THRESHOLD) i.dataCount++;
 
       this.resetStaleTimeout();
       this.requestRender();
@@ -146,7 +121,7 @@ export class Value
     const timeoutDuration = this.state.stalenessTimeout * 1000;
     i.staleTimeout = setTimeout(() => {
       i.textColor = this.state.stalenessColor;
-      i.timed_out = true;
+      i.timedOut = true;
       this.requestRender();
     }, timeoutDuration);
   }
@@ -177,8 +152,7 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-
-    if (this.internal.timed_out) return this.state.stalenessColor;
+    if (this.internal.timedOut) return this.state.stalenessColor;
 
     if (color.isZero(this.state.color))
       return color.pickByContrast(
