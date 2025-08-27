@@ -18,7 +18,7 @@ const DEV_CONNECTION: ConnectionParams = {
   secure: false,
 };
 
-export const detectServingConnection = (): ConnectionParams | null => {
+export const detectConnection = (): ConnectionParams | null => {
   if (Runtime.ENGINE === "tauri") return null;
   if (IS_DEV) return DEV_CONNECTION;
   const url = new URL(window.location.origin);

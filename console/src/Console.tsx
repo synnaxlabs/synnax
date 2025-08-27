@@ -24,9 +24,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Auth } from "@/auth/index.ts";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { AuthGuard } from "@/cluster/AuthGuard";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
@@ -138,13 +138,13 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <AuthGuard>
+      <Auth.Guard>
         <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
         </Code.Provider>
-      </AuthGuard>
+      </Auth.Guard>
     </Pluto.Provider>
   );
 };

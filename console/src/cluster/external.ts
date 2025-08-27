@@ -12,13 +12,12 @@ import { versionOutdatedAdapter } from "@/cluster/notification";
 import { type Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-export * from "@/cluster/AuthGuard";
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
 export * from "@/cluster/ConnectionStatus";
 export * from "@/cluster/CopyLinkToolbarButton";
+export * from "@/cluster/detectConnection";
 export * from "@/cluster/Dropdown";
-export * from "@/cluster/LoginScreen";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";

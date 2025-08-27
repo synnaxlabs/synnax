@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { ConnectionBadge } from "@/cluster/Badges";
 import { Dropdown } from "@/cluster/Dropdown";
 import { Runtime } from "@/runtime";
 
-export const Connection = (): ReactElement => {
-  if (Runtime.ENGINE === "tauri") return <Dropdown />;
-  return <ConnectionBadge />;
-};
+export const Connection = Runtime.ENGINE === "tauri" ? Dropdown : ConnectionBadge;
