@@ -1,0 +1,83 @@
+[tool.poetry]
+name = "synnax-test-framework"
+version = "0.1.0"
+description = "Integration test framework for Synnax Labs"
+authors = ["Synnax Labs <info@synnaxlabs.com>"]
+packages = [
+    { include = "framework" },
+    { include = "testcases" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+synnax-freighter = { path = "../../../freighter/py", develop = true }
+alamos = { path = "../../../alamos/py", develop = true }
+synnax = { path = "../../../client/py", develop = true }
+matplotlib = "^3.8.0"
+numpy = "^2.2.1"
+
+[tool.poetry.group.dev.dependencies]
+# Code quality tools
+black = "^24.10.0"
+isort = "^5.10.1"
+mypy = "^1.3.0"
+
+# Testing tools
+pytest = "^8.2.2"
+pytest-asyncio = "^0.25.0"
+
+[tool.poetry.scripts]
+# Make the test conductor easily runnable
+test-conductor = "framework.Test_Conducter:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  __pycache__
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | venv
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Ignore missing imports for external libraries that might not have type stubs
+[[tool.mypy.overrides]]
+module = [
+    "synnax.*",
+    "matplotlib.*"
+]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

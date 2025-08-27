@@ -906,8 +906,8 @@ def monitor_test_execution(conductor: Test_Conductor) -> None:
             conductor.log_message(f"Currently running: {status['current_test']}")
         time.sleep(1)
 
-if __name__ == "__main__":
-
+def main():
+    """Main entry point for the test conductor."""
     gc.disable()
     
     parser = argparse.ArgumentParser(description="Run test sequences")
@@ -960,3 +960,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     gc.enable()
+
+
+if __name__ == "__main__":
+    main()
