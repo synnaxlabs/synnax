@@ -80,6 +80,7 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     store.groups.onDelete(onDelete),
     store.relationships.onSet(async (rel) => {
       if (
+        parent == null ||
         !ontology.matchRelationship(rel, {
           from: parent,
           type: "parent",
@@ -92,6 +93,7 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     store.relationships.onDelete(async (relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
       if (
+        parent == null ||
         !ontology.matchRelationship(rel, {
           from: parent,
           type: "parent",
