@@ -50,20 +50,10 @@ export const isDirection = (c: unknown): c is Direction => crude.safeParse(c).su
 export const signedDimension = (direction: CrudeDirection): SignedDimension =>
   construct(direction) === "x" ? "signedWidth" : "signedHeight";
 
-export interface IsX {
-  (direction: Direction): direction is "x";
-  (direction: CrudeDirection): direction is CrudeXDirection;
-}
-
-export const isX = ((direction: CrudeDirection): direction is CrudeXDirection => {
+export const isX = (direction: CrudeDirection): direction is CrudeXDirection => {
   if (direction === "center") return false;
   return construct(direction) === "x";
-}) as IsX;
+};
 
-export interface IsY {
-  (direction: Direction): direction is "y";
-  (direction: CrudeDirection): direction is CrudeYDirection;
-}
-
-export const isY = ((direction: CrudeDirection): direction is CrudeYDirection =>
-  construct(direction) === "y") as IsY;
+export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
+  construct(direction) === "y";
