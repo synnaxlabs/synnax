@@ -7,7 +7,7 @@ import z from "zod";
 
 import { Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
@@ -15,7 +15,7 @@ describe("queries", () => {
   const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createSynnaxWraperWithAwait({
+    wrapper = await createAsyncSynnaxWrapper({
       client,
       excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
     });

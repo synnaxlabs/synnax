@@ -109,7 +109,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       onVisibleChange={handleClose}
       visible={focused}
       full
-      modalOffset={0}
+      modalPosition="slammed"
       variant="modal"
       background={focused ? 0 : undefined}
     >

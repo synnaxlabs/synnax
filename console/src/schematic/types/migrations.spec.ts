@@ -20,6 +20,7 @@ import * as v1 from "@/schematic/types/v1";
 import * as v2 from "@/schematic/types/v2";
 import * as v3 from "@/schematic/types/v3";
 import * as v4 from "@/schematic/types/v4";
+import * as v5 from "@/schematic/types/v5";
 
 describe("migrations", () => {
   describe("state", () => {
@@ -29,6 +30,7 @@ describe("migrations", () => {
       v2.ZERO_STATE,
       v3.ZERO_STATE,
       v4.ZERO_STATE,
+      v5.ZERO_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
@@ -44,6 +46,7 @@ describe("migrations", () => {
       v2.ZERO_SLICE_STATE,
       v3.ZERO_SLICE_STATE,
       v4.ZERO_SLICE_STATE,
+      v5.ZERO_SLICE_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {

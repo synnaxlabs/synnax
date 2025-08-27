@@ -14,61 +14,53 @@ import { z } from "zod";
 import * as v1 from "@/schematic/types/v1";
 
 export const VERSION = "2.0.0";
-export type Version = typeof VERSION;
-
-const TYPE = "schematic";
-type Type = typeof TYPE;
 
 export const stateZ = v1.stateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
   key: z.string(),
-  type: z.literal(TYPE),
+  type: z.literal("schematic"),
   viewportMode: Viewport.modeZ.default("select"),
 });
-
-export interface State extends Omit<v1.State, "version"> {
-  version: Version;
-  key: string;
-  type: Type;
-}
-
+export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
   ...v1.ZERO_STATE,
   version: VERSION,
   key: "",
-  type: TYPE,
+  type: "schematic",
+  viewportMode: "select",
 };
 
 export const sliceStateZ = v1.sliceStateZ
   .omit({ version: true, schematics: true })
   .extend({ version: z.literal(VERSION), schematics: z.record(z.string(), stateZ) });
-
-export interface SliceState extends Omit<v1.SliceState, "version" | "schematics"> {
-  schematics: Record<string, State>;
-  version: Version;
-}
-
-export const stateMigration = migrate.createMigration<v1.State, State>({
-  name: "schematic.state",
-  migrate: (state) => ({ ...state, version: VERSION, key: uuid.create(), type: TYPE }),
-});
-
-export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>({
-  name: "schematic.slice",
-  migrate: (sliceState) => ({
-    ...sliceState,
-    schematics: Object.fromEntries(
-      Object.entries(sliceState.schematics).map(([key, state]) => [
-        key,
-        { ...stateMigration(state), key },
-      ]),
-    ),
-    version: VERSION,
-  }),
-});
-
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = {
   ...v1.ZERO_SLICE_STATE,
   version: VERSION,
   schematics: {},
 };
+
+export const stateMigration = migrate.createMigration<v1.State, State>({
+  name: v1.STATE_MIGRATION_NAME,
+  migrate: (state) => ({
+    ...state,
+    version: VERSION,
+    key: uuid.create(),
+    type: "schematic",
+    viewportMode: "select",
+  }),
+});
+
+export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>({
+  name: v1.SLICE_MIGRATION_NAME,
+  migrate: ({ schematics, ...rest }) => ({
+    ...rest,
+    schematics: Object.fromEntries(
+      Object.entries(schematics).map(([key, schematic]) => [
+        key,
+        { ...stateMigration(schematic), key },
+      ]),
+    ),
+    version: VERSION,
+  }),
+});
