@@ -32,14 +32,6 @@ const (
 	distDir      = "dist"
 )
 
-var fileSystemConfig = filesystem.Config{
-	Root:         http.FS(s.fs),
-	Browse:       false,
-	Index:        rootHTMLFile,
-	MaxAge:       86400,        // 1 day cache for static assets
-	NotFoundFile: rootHTMLFile, // Serve index.html for SPA routing
-}
-
 // Service serves the web-based console UI.
 type Service struct{ fs fs.FS }
 
@@ -57,7 +49,13 @@ func NewService() *Service {
 // BindTo binds the console UI service to the provided Fiber app.
 // In the ui build, it serves the embedded console assets.
 func (s *Service) BindTo(app *fiber.App) {
-	app.Use("/", filesystem.New(fileSystemConfig))
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:         http.FS(s.fs),
+		Browse:       false,
+		Index:        rootHTMLFile,
+		MaxAge:       86400,        // 1 day cache for static assets
+		NotFoundFile: rootHTMLFile, // Serve index.html for SPA routing
+	}))
 }
 
 func (s *Service) Use(middleware ...freighter.Middleware) {}
