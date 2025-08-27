@@ -58,7 +58,6 @@ export const Dialog = ({
         passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
         variant === "modal" &&
-          modalPosition != null &&
           CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
