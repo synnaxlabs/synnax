@@ -28,7 +28,7 @@ pytest-asyncio = "^0.25.0"
 
 [tool.poetry.scripts]
 # Make the test conductor easily runnable
-test-conductor = "framework.Test_Conducter:main"
+test-conductor = "framework.test_conductor:main"
 
 [tool.black]
 line-length = 88

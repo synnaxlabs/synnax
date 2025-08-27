@@ -17,7 +17,7 @@ from framework.TestCase import TestCase, SynnaxConnection
 
 import synnax as sy
 
-class Check_Connection_Basic(TestCase):
+class CheckConnectionBasic(TestCase):
     """
     Check if the test case is connected to the synnax server.
     """

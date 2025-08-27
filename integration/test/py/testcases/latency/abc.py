@@ -21,7 +21,7 @@ from framework.TestCase import TestCase
 import synnax as sy
 
 
-class Latency_ABC(TestCase):
+class LatencyABC(TestCase):
 
     """
     
@@ -94,7 +94,7 @@ class Latency_ABC(TestCase):
         """
         Run the test case.
         """
-        
+        time.sleep(2)
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
@@ -150,4 +150,4 @@ class Latency_ABC(TestCase):
                     
                     idx += 1
             
-            self.write_tlm("Latency_ABC Report not implemented...")
+            self.write_tlm("LatencyABC Report not implemented...")

@@ -14,7 +14,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'framework'))
 
 from framework.TestCase import TestCase, STATUS
-from framework.Test_Conducter import Test_Conductor, TestDefinition
+from framework.test_conductor import TestConductor, TestDefinition
 
 class NoTimeoutTest(TestCase):
     """Test case with no timeout (Expected_Timeout=-1) to test timeout ignoring."""       
@@ -49,7 +49,7 @@ def test_no_timeout(self):
     self._log_message("Testing no timeout functionality (Expected_Timeout=-1)...")
     
     # Create test conductor
-    conductor = Test_Conductor(name="no_timeout_test_conductor")
+    conductor = TestConductor(name="no_timeout_test_conductor")
     
     # Create a test definition for our no-timeout test
     test_def = TestDefinition(case="test_no_timeout.NoTimeoutTest")

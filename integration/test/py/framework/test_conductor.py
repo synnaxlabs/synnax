@@ -75,7 +75,7 @@ class TestDefinition:
     params: Dict[str, Any] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
 
-class Test_Conductor:
+class TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
     
     def __init__(self, 
@@ -98,7 +98,7 @@ class Test_Conductor:
         self._setup_logging()
         
         # Create connection parameters
-        self.SynnaxConnection = SynnaxConnection(
+        self.synnax_connection = SynnaxConnection(
             server_address=server_address,
             port=port,
             username=username,
@@ -672,7 +672,7 @@ class Test_Conductor:
             # Load and instantiate the test class
             test_class = self._load_test_class(test_def)
             test_instance = test_class(
-                SynnaxConnection=self.SynnaxConnection,
+                synnax_connection=self.synnax_connection,
                 name=test_def.name,
                 expect=test_def.expect,
                 **test_def.params
@@ -897,7 +897,7 @@ class Test_Conductor:
         sys.exit(0)
 
 
-def monitor_test_execution(conductor: Test_Conductor) -> None:
+def monitor_test_execution(conductor: TestConductor) -> None:
     """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
@@ -922,7 +922,7 @@ def main():
     args = parser.parse_args()
     
     # Create and run test conductor
-    conductor = Test_Conductor(
+    conductor = TestConductor(
         name=args.name, 
         server_address=args.server, 
         port=args.port,

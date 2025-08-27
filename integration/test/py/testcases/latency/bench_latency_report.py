@@ -34,23 +34,23 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from framework.TestCase import TestCase
 
 
-class Bench_Latency_Report(TestCase):
+class BenchLatencyReport(TestCase):
 
     def setup(self) -> None:
 
         self.configure(timeout_limit=15)
 
         self.report_client = sy.Synnax(
-            host=self.SynnaxConnection.server_address,
-            port=self.SynnaxConnection.port,
-            username=self.SynnaxConnection.username,
-            password=self.SynnaxConnection.password,
-            secure=self.SynnaxConnection.secure,
+            host=self.synnax_connection.server_address,
+            port=self.synnax_connection.port,
+            username=self.synnax_connection.username,
+            password=self.synnax_connection.password,
+            secure=self.synnax_connection.secure,
         )
 
-        self.STATE_CHANNEL = "bench_state"
-        self.CMD_CHANNEL = "bench_command"
-        self.STATE = True
+        self.state_channel = "bench_state"
+        self.cmd_channel = "bench_command"
+        self.test_state = True
 
         self.loop_start = sy.TimeStamp.now()
 
@@ -68,17 +68,17 @@ class Bench_Latency_Report(TestCase):
         cycles = 0
         times = list()
         loop_start = sy.TimeStamp.now()
-        STATE_CHANNEL = self.STATE_CHANNEL
-        CMD_CHANNEL = self.CMD_CHANNEL
-        BENCH_TIME = sy.TimeSpan.SECOND * 3
+        state_channel = self.state_channel
+        cmd_channel = self.cmd_channel
+        bench_time = sy.TimeSpan.SECOND * 3
 
         # Set channels here to avoid calling "self"
         try:
-            with self.report_client.open_streamer(STATE_CHANNEL) as stream:
-                with self.report_client.open_writer(sy.TimeStamp.now(), CMD_CHANNEL) as writer:
-                    while sy.TimeStamp.since(loop_start) < BENCH_TIME:
+            with self.report_client.open_streamer(state_channel) as stream:
+                with self.report_client.open_writer(sy.TimeStamp.now(), cmd_channel) as writer:
+                    while sy.TimeStamp.since(loop_start) < bench_time:
                         start = sy.TimeStamp.now()
-                        writer.write(CMD_CHANNEL, self.STATE)
+                        writer.write(cmd_channel, self.test_state)
                         value = stream.read()
                         times.append(sy.TimeStamp.since(start))
                         cycles += 1
@@ -86,7 +86,7 @@ class Bench_Latency_Report(TestCase):
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")
         
-        self._log_message(f"Cycles/second: {cycles / BENCH_TIME.seconds}")
+        self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
 
 
         # Convert times to milliseconds for better readability

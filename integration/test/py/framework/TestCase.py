@@ -151,10 +151,10 @@ class TestCase(ABC):
 
     """
     
-    def __init__(self, SynnaxConnection: SynnaxConnection, name:str=None, expect: str = "PASSED", **params):
+    def __init__(self, synnax_connection: SynnaxConnection, name:str=None, expect: str = "PASSED", **params):
 
         # Store for test cases to use
-        self.SynnaxConnection = SynnaxConnection
+        self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
             # Use this wisely!
@@ -170,8 +170,8 @@ class TestCase(ABC):
         """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
         self.params = params
-        self._Timeout_Limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
-        self._Manual_Timeout: int = self.DEFAULT_MANUAL_TIMEOUT
+        self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
+        self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
         
@@ -185,11 +185,11 @@ class TestCase(ABC):
 
         # Connect to Synnax server
         self.client = sy.Synnax(
-            host=SynnaxConnection.server_address,
-            port=SynnaxConnection.port,
-            username=SynnaxConnection.username,
-            password=SynnaxConnection.password,
-            secure=SynnaxConnection.secure,
+            host=synnax_connection.server_address,
+            port=synnax_connection.port,
+            username=synnax_connection.username,
+            password=synnax_connection.password,
+            secure=synnax_connection.secure,
         )
         
         # Default loop rate
@@ -223,7 +223,7 @@ class TestCase(ABC):
         self._shutdown()
 
     def _setup_logging(self) -> None:
-        """Setup logging for real-time output (same approach as Test_Conductor)."""
+        """Setup logging for real-time output (same approach as TestConductor)."""
         # Check if running in CI environment
         is_ci = any(env_var in os.environ for env_var in ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'JENKINS_URL'])
         
@@ -285,7 +285,7 @@ class TestCase(ABC):
                 self.tlm[f"{self.name}_state"] = self._status.value  
 
                 # Check for timeout
-                if self._Timeout_Limit > 0 and uptime_value > self._Timeout_Limit:
+                if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
                     self._status = STATUS.TIMEOUT
 
                 # Check for completion
@@ -454,7 +454,7 @@ class TestCase(ABC):
         elif self._status == STATUS.FAILED:
             self._log_message(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self._log_message(f"TIMEOUT ({status_symbol}): {self._Timeout_Limit} seconds")
+            self._log_message(f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds")
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
                  
@@ -575,11 +575,11 @@ class TestCase(ABC):
     @property
     def manual_timeout(self) -> int:
         """Get the manual timeout of the test case."""
-        return self._Manual_Timeout
+        return self._manual_timeout
     
     @property
     def should_stop(self) -> bool:
-        condition_1 = (self._Manual_Timeout >= 0 and self.uptime > self._Manual_Timeout)
+        condition_1 = (self._manual_timeout >= 0 and self.uptime > self._manual_timeout)
         condition_2 = self._should_stop
         
         return condition_1 or condition_2
@@ -590,7 +590,7 @@ class TestCase(ABC):
 
     def set_manual_timeout(self, value: int) -> None:
         """Set the manual timeout of the test case."""
-        self._Manual_Timeout = value
+        self._manual_timeout = value
         self._log_message(f"Manual timeout set ({value}s)")
         
     def configure(self, **kwargs) -> None:
@@ -608,9 +608,9 @@ class TestCase(ABC):
         if 'loop_rate' in kwargs:
             self.loop = sy.Loop(kwargs['loop_rate'])
         if 'timeout_limit' in kwargs:
-            self._Timeout_Limit = kwargs['timeout_limit']
+            self._timeout_limit = kwargs['timeout_limit']
         if 'manual_timeout' in kwargs:
-            self._Manual_Timeout = kwargs['manual_timeout']
+            self._manual_timeout = kwargs['manual_timeout']
         self._log_message(f"Configured with: {kwargs}")
 
     def is_client_running(self) -> bool:
