@@ -23,6 +23,8 @@ export interface DownloadArgs {
   keys: channel.Keys;
   keysToNames?: Record<channel.Key, string>;
   fileName: string;
+  afterDownload?: () => void;
+  onPercentDownloadedChange?: (percent: number) => void;
 }
 
 export const useDownload = (): ((args: DownloadArgs) => void) => {
@@ -45,19 +47,32 @@ const download = async ({
   keysToNames = {},
   client,
   fileName,
+  afterDownload,
+  onPercentDownloadedChange,
 }: DownloadContext): Promise<void> => {
   const savePath = await save({ defaultPath: `${fileName}.csv` });
   if (savePath == null) return;
   const channels = await client.channels.retrieve(keys);
+  onPercentDownloadedChange?.(10);
   const indexes = unique.unique(channels.map(({ index }) => index));
   const indexChannels = await client.channels.retrieve(indexes);
+  onPercentDownloadedChange?.(20);
   const columns = new Map<channel.Key, string>();
   indexChannels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
   channels.forEach(({ key, name }) => columns.set(key, keysToNames[key] ?? name));
   const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
   const allKeys = unique.unique([...keys, ...indexes]);
+  let percentDownloaded = 20;
+  const totalFrames = simplifiedTimeRanges.length;
+  const delta = totalFrames > 0 ? 60 / totalFrames : 0;
   const frames = await Promise.all(
-    simplifiedTimeRanges.map((tr) => client.read(tr, allKeys)),
+    simplifiedTimeRanges.map(async (tr) => {
+      const frame = await client.read(tr, allKeys);
+      percentDownloaded += delta;
+      if (percentDownloaded >= 80) percentDownloaded = 80;
+      onPercentDownloadedChange?.(percentDownloaded);
+      return frame;
+    }),
   );
   const frame = frames.reduce((acc, curr) => {
     acc.push(curr);
@@ -66,6 +81,8 @@ const download = async ({
   const csv = frameToCSV(columns, frame);
   const data = new TextEncoder().encode(csv);
   await writeFile(savePath, data);
+  onPercentDownloadedChange?.(100);
+  afterDownload?.();
 };
 
 const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): string => {
