@@ -45,5 +45,5 @@ func (s *Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
 func (s *Service) Report() alamos.Report {
-	return alamos.Report{"ui": "disabled"}
+	return alamos.Report{"console": "disabled"}
 }
