@@ -146,6 +146,7 @@ export const useChildren = Flux.createList<
     }),
     store.ranges.onDelete(async (key) => onDelete(key)),
     store.relationships.onSet(async (rel) => {
+      if (key == null) return;
       await handleListParentRelationshipSet(rel, onChange, client, store);
       await handleListLabelRelationshipSet(rel, onChange, client, store);
       const isChild = ontology.matchRelationship(rel, {
@@ -163,6 +164,7 @@ export const useChildren = Flux.createList<
       }
     }),
     store.relationships.onDelete(async (relKey) => {
+      if (key == null) return;
       const rel = ontology.relationshipZ.parse(relKey);
       const isChild = ontology.matchRelationship(rel, {
         from: ranger.ontologyID(key),
@@ -421,6 +423,11 @@ const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, SubStore>({
   name: "Ranges",
+  retrieveCached: ({ store, params }) =>
+    store.ranges.get((r) => {
+      if (primitive.isNonZero(params.keys)) return params.keys.includes(r.key);
+      return true;
+    }),
   retrieve: async ({ client, params }) =>
     await client.ranges.retrieve({
       ...DEFAULT_LIST_PARAMS,

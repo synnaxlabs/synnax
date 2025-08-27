@@ -78,6 +78,7 @@ const retrieveFn = async ({
 };
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
   name: "Racks",
+  retrieveCached: ({ store }) => store.racks.list(),
   retrieve: async ({ client, params, store }) => {
     const racks = await client.hardware.racks.retrieve({
       ...DEFAULT_PARAMS,

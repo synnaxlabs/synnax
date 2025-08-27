@@ -159,6 +159,7 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore>({
   name: "Task",
+  retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, params, store }) => {
     const tasks = await client.hardware.tasks.retrieve({
       includeStatus: true,

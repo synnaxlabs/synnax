@@ -407,5 +407,310 @@ describe("queries", () => {
         expect(deviceInList?.status?.message).toEqual("Device has issues");
       });
     });
+
+    describe("retrieveCached", () => {
+      it("should use cached data on initial mount", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test",
+        });
+        const dev = await client.hardware.devices.create({
+          key: id.create(),
+          name: "cached_device",
+          rack: rack.key,
+          location: "cached_location",
+          make: "cached_make",
+          model: "cached_model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        expect(firstResult.current.data).toContain(dev.key);
+        unmount();
+
+        const { result: secondResult } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev.key);
+      });
+
+      it("should filter cached data by makes", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test",
+        });
+        const targetMake = id.create();
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_make1",
+          rack: rack.key,
+          location: "location",
+          make: targetMake,
+          model: "model",
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_make2",
+          rack: rack.key,
+          location: "location",
+          make: "other_make",
+          model: "model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Device.useList({ initialParams: { makes: [targetMake] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+      });
+
+      it("should filter cached data by models", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test",
+        });
+        const targetModel = id.create();
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_model1",
+          rack: rack.key,
+          location: "location",
+          make: "make",
+          model: targetModel,
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_model2",
+          rack: rack.key,
+          location: "location",
+          make: "make",
+          model: "other_model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Device.useList({ initialParams: { models: [targetModel] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+      });
+
+      it("should filter cached data by racks", async () => {
+        const rack1 = await client.hardware.racks.create({
+          name: "rack1",
+        });
+        const rack2 = await client.hardware.racks.create({
+          name: "rack2",
+        });
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_rack1",
+          rack: rack1.key,
+          location: "location",
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_rack2",
+          rack: rack2.key,
+          location: "location",
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Device.useList({ initialParams: { racks: [rack1.key] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+      });
+
+      it("should filter cached data by locations", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test",
+        });
+        const targetLocation = id.create();
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_loc1",
+          rack: rack.key,
+          location: targetLocation,
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_loc2",
+          rack: rack.key,
+          location: "other_location",
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Device.useList({ initialParams: { locations: [targetLocation] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+      });
+
+      it("should filter cached data by names", async () => {
+        const rack = await client.hardware.racks.create({
+          name: "test",
+        });
+        const targetName = id.create();
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: targetName,
+          rack: rack.key,
+          location: "location",
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "other_name",
+          rack: rack.key,
+          location: "location",
+          make: "make",
+          model: "model",
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Device.useList({ initialParams: { names: [targetName] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+      });
+
+      it("should handle combined filters", async () => {
+        const rack1 = await client.hardware.racks.create({
+          name: "test_rack",
+        });
+        const targetMake = id.create();
+        const targetModel = id.create();
+        const dev1 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_combined1",
+          rack: rack1.key,
+          location: "location",
+          make: targetMake,
+          model: targetModel,
+          properties: {},
+        });
+        const dev2 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_combined2",
+          rack: rack1.key,
+          location: "location",
+          make: targetMake,
+          model: "other_model",
+          properties: {},
+        });
+        const dev3 = await client.hardware.devices.create({
+          key: id.create(),
+          name: "device_combined3",
+          rack: rack1.key,
+          location: "location",
+          make: "other_make",
+          model: targetModel,
+          properties: {},
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({});
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () =>
+            Device.useList({
+              initialParams: {
+                makes: [targetMake],
+                models: [targetModel],
+                racks: [rack1.key],
+              },
+            }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(dev1.key);
+        expect(secondResult.current.data).not.toContain(dev2.key);
+        expect(secondResult.current.data).not.toContain(dev3.key);
+      });
+    });
   });
 });

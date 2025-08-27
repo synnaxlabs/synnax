@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type ranger } from "@synnaxlabs/client";
-import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
+import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -435,6 +435,444 @@ describe("list", () => {
   interface SubStore extends Flux.Store {
     ranges: aetherRanger.FluxStore;
   }
+
+  describe("retrieveCached", () => {
+    it("should use cached data as initial state when available", () => {
+      const cachedItems = [
+        { key: 1, value: "cached-1" },
+        { key: 2, value: "cached-2" },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const retrieve = vi.fn().mockResolvedValue([
+        { key: 1, value: "fresh-1" },
+        { key: 2, value: "fresh-2" },
+      ]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
+            retrieveCached,
+          })(),
+        { wrapper },
+      );
+
+      expect(result.current.variant).toEqual("loading");
+      expect(result.current.data).toEqual([1, 2]);
+      expect(retrieveCached).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not use cached data when empty array is returned", () => {
+      const retrieveCached = vi.fn().mockReturnValue([]);
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            retrieveCached,
+          })(),
+        { wrapper },
+      );
+
+      expect(result.current.variant).toEqual("loading");
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should apply filter to cached data", () => {
+      const cachedItems = [
+        { key: 1, value: "odd" },
+        { key: 2, value: "even" },
+        { key: 3, value: "odd" },
+        { key: 4, value: "even" },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
+            retrieveCached,
+          })({ filter: (item) => item.key % 2 === 0 }), // Only even keys
+        { wrapper },
+      );
+      expect(result.current.data).toEqual([2, 4]);
+    });
+
+    it("should handle params correctly with cached retrieval", () => {
+      interface TestParams {
+        searchTerm?: string;
+      }
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      renderHook(
+        () =>
+          Flux.createList<TestParams, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key }),
+            retrieveCached,
+          })({ initialParams: { searchTerm: "test" } }),
+        { wrapper },
+      );
+
+      expect(retrieveCached).toHaveBeenCalledWith({
+        params: { searchTerm: "test" },
+        store: expect.any(Object),
+      });
+    });
+
+    it("should replace cached data when fresh data arrives", async () => {
+      const cachedItems = [
+        { key: 1, value: "cached-1" },
+        { key: 2, value: "cached-2" },
+      ];
+      const freshItems = [
+        { key: 1, value: "fresh-1" },
+        { key: 2, value: "fresh-2" },
+        { key: 3, value: "fresh-3" },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const retrieve = vi.fn().mockResolvedValue(freshItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number> & { value: string }>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
+            retrieveCached,
+          })(),
+        { wrapper },
+      );
+
+      // Initially should have cached data
+      expect(result.current.data).toEqual([1, 2]);
+
+      // Retrieve fresh data
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual([1, 2, 3]);
+        expect(result.current.getItem(3)?.value).toEqual("fresh-3");
+      });
+    });
+
+    it("should work without retrieveCached defined", async () => {
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            // No retrieveCached provided
+          })(),
+        { wrapper },
+      );
+
+      // Should start with empty data
+      expect(result.current.variant).toEqual("loading");
+      expect(result.current.data).toEqual([]);
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual([1, 2]);
+      });
+    });
+
+    it("should apply sort to cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        priority: number;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 3, priority: 3 },
+        { key: 1, priority: 1 },
+        { key: 2, priority: 2 },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, priority: key }),
+            retrieveCached,
+          })({ sort: (a, b) => a.priority - b.priority }),
+        { wrapper },
+      );
+
+      // Should apply sort to cached data
+      expect(result.current.data).toEqual([1, 2, 3]);
+    });
+
+    it("should apply sort in descending order to cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        name: string;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 1, name: "Alpha" },
+        { key: 2, name: "Charlie" },
+        { key: 3, name: "Bravo" },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, name: `item-${key}` }),
+            retrieveCached,
+          })({ sort: (a, b) => b.name.localeCompare(a.name) }), // Descending order
+        { wrapper },
+      );
+
+      // Should sort cached data by name in descending order
+      expect(result.current.data).toEqual([2, 3, 1]); // Charlie, Bravo, Alpha
+    });
+
+    it("should combine filter and sort with cached data", () => {
+      interface TestItem extends record.Keyed<number> {
+        key: number;
+        value: number;
+        active: boolean;
+      }
+      
+      const cachedItems: TestItem[] = [
+        { key: 1, value: 100, active: true },
+        { key: 2, value: 50, active: false },
+        { key: 3, value: 75, active: true },
+        { key: 4, value: 25, active: true },
+      ];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, TestItem>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
+            retrieveCached,
+          })({ 
+            filter: (item) => item.active,
+            sort: (a, b) => a.value - b.value,
+          }),
+        { wrapper },
+      );
+
+      // Should filter for active items and sort by value
+      expect(result.current.data).toEqual([4, 3, 1]); // 25, 75, 100
+    });
+  });
+
+  describe("listener synchronization", () => {
+    it("should mount listeners on first retrieve", async () => {
+      const mountListeners = vi.fn();
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+
+      expect(mountListeners).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("should mount listeners when retrieving single item before list", async () => {
+      const mountListeners = vi.fn();
+      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey,
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+
+      expect(mountListeners).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.getItem(1);
+      });
+
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(retrieveByKey).toHaveBeenCalled();
+      });
+    });
+
+    it("should not remount listeners on subsequent calls to getItem", async () => {
+      const mountListeners = vi.fn();
+      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey,
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+      act(() => {
+        result.current.getItem(1);
+      });
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+      act(() => {
+        result.current.getItem(1);
+      });
+      await testutil.expectAlways(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("should not remount listeners when getItem is called AFTER retrieve", async () => {
+      const mountListeners = vi.fn();
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.retrieveAsync({}, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+      act(() => {
+        result.current.getItem(1);
+      });
+      await testutil.expectAlways(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("should remount listeners on subsequent retrieves", async () => {
+      const mountListeners = vi.fn();
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+
+      await waitFor(() => {
+        expect(mountListeners).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("should pass correct params to mountListeners", async () => {
+      interface TestParams {
+        filter?: string;
+      }
+      const mountListeners = vi.fn();
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<TestParams, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            mountListeners,
+          })({ initialParams: { filter: "active" } }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.getItem(1);
+      });
+
+      await waitFor(() => {
+        const firstCall = mountListeners.mock.calls[0];
+        expect(firstCall[0].params).toEqual({ filter: "active" });
+      });
+    });
+
+    it("should mount listeners immediately when retrieveCached returns data", () => {
+      const mountListeners = vi.fn();
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+
+      renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>, SubStore>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key }),
+            retrieveCached,
+            mountListeners,
+          })(),
+        { wrapper },
+      );
+
+      expect(mountListeners).not.toHaveBeenCalled();
+    });
+  });
 
   describe("listeners", () => {
     it("should correctly update a list item when the listener changes", async () => {

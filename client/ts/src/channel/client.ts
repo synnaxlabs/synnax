@@ -135,6 +135,7 @@ export class Channel {
     expression = "",
     requires = [],
   }: New & {
+    internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
     status?: status.Crude;
