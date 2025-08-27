@@ -50,6 +50,10 @@
 
         .pluto-symbol-primitive {
             transform: scale(0.75) !important;
+            & svg {
+                height: 100px;
+                width: 100px;
+            }
         }
     }
 }

@@ -46,7 +46,8 @@ export const specZ = z.object({
   states: stateZ.array(),
   variant: z.string().min(1, "Variant is required"),
   handles: handleZ.array(),
-  scale: z.number().min(0.1).max(5).default(1),
+  scale: z.number().positive().default(1),
+  scaleStroke: z.boolean().default(false),
 });
 
 export interface Spec extends z.infer<typeof specZ> {}
