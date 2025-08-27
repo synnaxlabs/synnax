@@ -14,15 +14,18 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { type Channel, Status, Synnax } from "@synnaxlabs/pluto";
-import { type TimeRange, unique } from "@synnaxlabs/x";
+import { runtime, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
+import { useStore } from "react-redux";
 
-interface DownloadProps {
-  timeRange: TimeRange;
+import { Layout } from "@/layout";
+import { buildLines } from "@/lineplot/buildLines";
+import { select, selectRanges } from "@/lineplot/selectors";
+import { type RootState } from "@/store";
+
+interface DownloadArgs extends DownloadAsCSVArgs {
   client: Client;
-  lines: Channel.LineProps[];
-  name: string;
 }
 
 const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): string => {
@@ -40,15 +43,16 @@ const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): str
     if (i === 1) rows.push(header.join(","));
     rows.push(row.join(","));
   }
-  return rows.join("\n");
+  const os = runtime.getOS();
+  return rows.join(os === "Windows" ? "\r\n" : "\n");
 };
 
 const download = async ({
   lines,
   client,
-  timeRange,
-  name = "synnax-data",
-}: DownloadProps): Promise<void> => {
+  timeRanges,
+  name,
+}: DownloadArgs): Promise<void> => {
   let keys: channel.Keys = unique.unique(
     lines
       .flatMap((l) => [l.channels.y, l.channels.x])
@@ -65,7 +69,15 @@ const download = async ({
   indexChannels.forEach((c) =>
     columns.set(c.key, lines.find((l) => l.channels.x === c.key)?.label ?? c.name),
   );
-  const frame = await client.read(timeRange, keys);
+  if (timeRanges.length === 0) throw new Error("No time ranges provided");
+  const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
+  const frames = await Promise.all(
+    simplifiedTimeRanges.map((tr) => client.read(tr, keys)),
+  );
+  const frame = frames.reduce((acc, curr) => {
+    acc.push(curr);
+    return acc;
+  });
   const csv = frameToCSV(columns, frame);
   const savePath = await save({ defaultPath: `${name}.csv` });
   if (savePath == null) return;
@@ -73,14 +85,38 @@ const download = async ({
   await writeFile(savePath, data);
 };
 
-interface DownloadArgs extends Omit<DownloadProps, "client"> {}
+export interface DownloadAsCSVArgs {
+  timeRanges: TimeRange[];
+  lines: Channel.LineProps[];
+  name: string;
+}
 
-export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
+export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
-  return ({ timeRange, lines, name }: DownloadArgs) =>
+  return ({ timeRanges: timeRange, lines, name }: DownloadAsCSVArgs) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      await download({ timeRange, lines, client, name });
+      await download({ timeRanges: timeRange, lines, client, name });
     }, "Failed to download CSV");
+};
+
+export const useDownloadPlotAsCSV = (key: string): (() => void) => {
+  const downloadAsCSV = useDownloadAsCSV();
+  const store = useStore<RootState>();
+  return () => {
+    const now = TimeStamp.now();
+    const storeState = store.getState();
+    const { name } = Layout.selectRequired(storeState, key);
+    const state = select(storeState, key);
+    const ranges = selectRanges(storeState, key);
+    const lines = buildLines(state, ranges);
+    const timeRanges = Object.values(ranges).flatMap((ranges) =>
+      ranges.map((r) => {
+        if (r.variant === "static") return new TimeRange(r.timeRange);
+        return new TimeRange({ start: now.sub(r.span), end: now });
+      }),
+    );
+    downloadAsCSV({ timeRanges, lines, name });
+  };
 };

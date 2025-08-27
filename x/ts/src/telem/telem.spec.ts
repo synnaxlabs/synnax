@@ -1022,6 +1022,56 @@ describe("TimeRange", () => {
       });
     });
   });
+
+  describe("simplify", () => {
+    it("should merge overlapping time ranges", () => {
+      const trs = [
+        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
+        new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3)),
+        new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5)),
+        new TimeRange(TimeSpan.seconds(6), TimeSpan.seconds(7)),
+      ];
+      const expected = [
+        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5)),
+        new TimeRange(TimeSpan.seconds(6), TimeSpan.seconds(7)),
+      ];
+      const simplified = TimeRange.simplify(trs);
+      expect(simplified).toEqual(expected);
+    });
+    it("should merge time ranges that are adjacent", () => {
+      const trs = [
+        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
+        new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(5)),
+      ];
+      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5))];
+      const simplified = TimeRange.simplify(trs);
+      expect(simplified).toEqual(expected);
+    });
+    it("should remove zero length time ranges", () => {
+      const trs = [
+        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
+        new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(5)),
+      ];
+      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4))];
+      const simplified = TimeRange.simplify(trs);
+      expect(simplified).toEqual(expected);
+    });
+    it("should make ranges valid by swapping start and end", () => {
+      const trs = [
+        new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1)),
+        new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3)),
+      ];
+      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4))];
+      const simplified = TimeRange.simplify(trs);
+      expect(simplified).toEqual(expected);
+    });
+    it("should work with zero ranges", () => {
+      const trs: TimeRange[] = [];
+      const expected: TimeRange[] = [];
+      const simplified = TimeRange.simplify(trs);
+      expect(simplified).toEqual(expected);
+    });
+  });
   describe("numericBounds", () => {
     it("should return correct numeric bounds for a valid time range", () => {
       const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
