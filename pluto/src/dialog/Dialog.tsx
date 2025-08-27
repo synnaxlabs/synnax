@@ -31,7 +31,7 @@ export const Dialog = ({
   children,
   ...rest
 }: DialogProps) => {
-  const { ref, location, style: ctxStyle } = useInternalContext();
+  const { ref, targetCorner, dialogCorner, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
   if (!visible && !passthrough) return null;
   const actuallyVisible = visible && Object.keys(ctxStyle).length > 0;
@@ -43,8 +43,10 @@ export const Dialog = ({
       background={background}
       className={CSS(
         CSS.BE("dialog", "dialog"),
-        CSS.loc(location.x),
-        CSS.loc(location.y),
+        CSS.loc(targetCorner.x),
+        CSS.loc(targetCorner.y),
+        CSS.BEM("dialog", "dialog", dialogCorner.x),
+        CSS.BEM("dialog", "dialog", dialogCorner.y),
         CSS.visible(actuallyVisible),
         passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
