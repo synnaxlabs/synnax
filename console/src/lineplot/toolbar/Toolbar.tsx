@@ -48,7 +48,7 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar();
+  const toolbar = useSelectToolbar(layoutKey);
   const state = useSelect(layoutKey);
   const handleExport = useExport();
   const content = useCallback(
@@ -70,9 +70,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
+      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tabKey as ToolbarTab }));
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
   if (state == null) return null;
   return (

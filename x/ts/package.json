@@ -103,11 +103,6 @@
       "import": "./dist/location.js",
       "require": "./dist/location.cjs"
     },
-    "./position": {
-      "types": "./dist/src/spatial/position/index.d.ts",
-      "import": "./dist/position.js",
-      "require": "./dist/position.cjs"
-    },
     "./scale": {
       "types": "./dist/src/spatial/scale/index.d.ts",
       "import": "./dist/scale.js",

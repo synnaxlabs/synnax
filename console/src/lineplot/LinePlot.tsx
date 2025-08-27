@@ -333,8 +333,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [storeLegendPosition],
   );
 
-  const { enableTooltip, clickMode, hold } = useSelectControlState();
-  const mode = useSelectViewportMode();
+  const { enableTooltip, clickMode, hold } = useSelectControlState(layoutKey);
+  const mode = useSelectViewportMode(layoutKey);
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(
@@ -350,8 +350,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-    dispatch(setActiveToolbarTab({ tab: "data" }));
-  }, [windowKey, dispatch]);
+    dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
+  }, [windowKey, dispatch, layoutKey]);
 
   const props = PMenu.useContextMenu();
 
@@ -477,14 +477,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onSelectRule={(ruleKey) =>
             dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
           }
-          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          onHold={(hold) =>
+            dispatch(setControlState({ key: layoutKey, state: { hold } }))
+          }
           rangeAnnotationProvider={rangeAnnotationProvider}
         >
-          {!focused && <NavControls />}
+          {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls />}
+      {focused && <NavControls layoutKey={layoutKey} />}
     </div>
   );
 };

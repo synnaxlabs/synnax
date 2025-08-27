@@ -31,7 +31,7 @@ const DELETE_LABEL_LISTENER: Flux.ChannelListener<SubStore, typeof label.keyZ> =
   onChange: ({ store, changed }) => store.labels.delete(changed),
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
 };
 

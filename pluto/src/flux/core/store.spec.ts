@@ -544,6 +544,231 @@ describe("createStore", () => {
   });
 });
 
+describe("list", () => {
+  it("should return empty array when store is empty", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    expect(store.list()).toEqual([]);
+  });
+
+  it("should return all values in the store", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set("key1", "value1");
+    store.set("key2", "value2");
+    store.set("key3", "value3");
+    
+    const values = store.list();
+    expect(values).toHaveLength(3);
+    expect(values).toContain("value1");
+    expect(values).toContain("value2");
+    expect(values).toContain("value3");
+  });
+
+  it("should return values after deletions", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set("key1", "value1");
+    store.set("key2", "value2");
+    store.set("key3", "value3");
+    store.delete("key2");
+    
+    const values = store.list();
+    expect(values).toHaveLength(2);
+    expect(values).toContain("value1");
+    expect(values).toContain("value3");
+    expect(values).not.toContain("value2");
+  });
+
+  it("should return values after updates", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set("key1", "value1");
+    store.set("key2", "value2");
+    store.set("key1", "updated1");
+    
+    const values = store.list();
+    expect(values).toHaveLength(2);
+    expect(values).toContain("updated1");
+    expect(values).toContain("value2");
+    expect(values).not.toContain("value1");
+  });
+
+  it("should work with complex object types", () => {
+    interface User {
+      id: string;
+      name: string;
+      age: number;
+    }
+    
+    const store = new ScopedUnaryStore<string, User>(basicHandleError).scope("scope");
+    const user1: User = { id: "1", name: "John", age: 30 };
+    const user2: User = { id: "2", name: "Jane", age: 25 };
+    const user3: User = { id: "3", name: "Bob", age: 35 };
+    
+    store.set("user1", user1);
+    store.set("user2", user2);
+    store.set("user3", user3);
+    
+    const users = store.list();
+    expect(users).toHaveLength(3);
+    expect(users).toContainEqual(user1);
+    expect(users).toContainEqual(user2);
+    expect(users).toContainEqual(user3);
+  });
+
+  it("should return values across different scopes", () => {
+    const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+    const scope1 = baseStore.scope("scope1");
+    const scope2 = baseStore.scope("scope2");
+    const scope3 = baseStore.scope("scope3");
+    
+    scope1.set("key1", "value1");
+    scope2.set("key2", "value2");
+    scope3.set("key3", "value3");
+    
+    const values1 = scope1.list();
+    const values2 = scope2.list();
+    const values3 = scope3.list();
+    
+    expect(values1).toHaveLength(3);
+    expect(values2).toHaveLength(3);
+    expect(values3).toHaveLength(3);
+    
+    expect(values1).toContain("value1");
+    expect(values1).toContain("value2");
+    expect(values1).toContain("value3");
+  });
+
+  it("should return values after bulk set operations", () => {
+    const store = new ScopedUnaryStore<string, { key: string; value: string }>(
+      basicHandleError,
+    ).scope("scope");
+    
+    const items = [
+      { key: "key1", value: "value1" },
+      { key: "key2", value: "value2" },
+      { key: "key3", value: "value3" },
+    ];
+    
+    store.set(items);
+    
+    const values = store.list();
+    expect(values).toHaveLength(3);
+    expect(values).toContainEqual({ key: "key1", value: "value1" });
+    expect(values).toContainEqual({ key: "key2", value: "value2" });
+    expect(values).toContainEqual({ key: "key3", value: "value3" });
+  });
+
+  it("should return values after bulk delete operations", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set("key1", "value1");
+    store.set("key2", "value2");
+    store.set("key3", "value3");
+    store.set("key4", "value4");
+    
+    store.delete(["key2", "key3"]);
+    
+    const values = store.list();
+    expect(values).toHaveLength(2);
+    expect(values).toContain("value1");
+    expect(values).toContain("value4");
+  });
+
+  it("should return empty array after clear", () => {
+    const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+    const scope = baseStore.scope("scope");
+    
+    scope.set("key1", "value1");
+    scope.set("key2", "value2");
+    scope.set("key3", "value3");
+    
+    expect(scope.list()).toHaveLength(3);
+    
+    baseStore.clear();
+    
+    expect(scope.list()).toEqual([]);
+  });
+
+  it("should work with number keys", () => {
+    const store = new ScopedUnaryStore<number, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set(1, "value1");
+    store.set(2, "value2");
+    store.set(3, "value3");
+    
+    const values = store.list();
+    expect(values).toHaveLength(3);
+    expect(values).toContain("value1");
+    expect(values).toContain("value2");
+    expect(values).toContain("value3");
+  });
+
+  it("should handle mixed operations correctly", () => {
+    const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
+      "scope",
+    );
+    
+    store.set("a", 1);
+    store.set("b", 2);
+    store.set("c", 3);
+    store.delete("b");
+    store.set("d", 4);
+    store.set("a", 10);
+    
+    const values = store.list();
+    expect(values).toHaveLength(3);
+    expect(values).toContain(10);
+    expect(values).toContain(3);
+    expect(values).toContain(4);
+    expect(values).not.toContain(1);
+    expect(values).not.toContain(2);
+  });
+
+  it("should return independent arrays on each call", () => {
+    const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
+      "scope",
+    );
+    store.set("key1", "value1");
+    store.set("key2", "value2");
+    
+    const list1 = store.list();
+    const list2 = store.list();
+    
+    expect(list1).not.toBe(list2);
+    expect(list1).toEqual(list2);
+    
+    list1.push("extra");
+    expect(list1).toHaveLength(3);
+    expect(list2).toHaveLength(2);
+    expect(store.list()).toHaveLength(2);
+  });
+
+  it("should preserve values with equal function check", () => {
+    const equalFunc = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    const store = new ScopedUnaryStore<string, string>(
+      basicHandleError,
+      equalFunc,
+    ).scope("scope");
+    
+    store.set("key1", "Value1");
+    store.set("key2", "Value2");
+    store.set("key1", "VALUE1");
+    
+    const values = store.list();
+    expect(values).toHaveLength(2);
+    expect(values).toContain("Value1");
+    expect(values).toContain("Value2");
+  });
+});
+
 describe("Scoping exclusion behavior", () => {
   it("should allow multiple scopes from the same base store", () => {
     const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
