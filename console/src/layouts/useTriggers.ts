@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
-import { Text, Triggers } from "@synnaxlabs/pluto";
+import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
+import { useRef } from "react";
 import { useStore } from "react-redux";
 
-import { selectActiveMosaicTabKey, selectFocused } from "@/layout/selectors";
+import {
+  selectActiveMosaicTabKey,
+  selectFocused,
+  selectModals,
+} from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
@@ -19,11 +24,14 @@ import { useRemover } from "@/layout/useRemover";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { type RootState } from "@/store";
 
+const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
+
 export const useTriggers = (): void => {
   const store = useStore<RootState>();
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();
   const placeLayout = usePlacer();
+  const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
@@ -42,14 +50,22 @@ export const useTriggers = (): void => {
     triggers: [["Control", "W"]],
     loose: true,
     callback: ({ stage }) => {
-      if (stage !== "start") return;
-      const state = store.getState();
-      const active = selectActiveMosaicTabKey(state);
-      if (active == null) {
-        store.dispatch(Drift.closeWindow({}));
+      if (stage !== "start") {
+        if (stage === "end" && closeWindowTimeout.current != null) {
+          clearTimeout(closeWindowTimeout.current);
+          closeWindowTimeout.current = null;
+        }
         return;
       }
-      remove(active);
+      const state = store.getState();
+      const modals = selectModals(state);
+      if (modals.length !== 0) return remove(modals[0].key);
+      const active = selectActiveMosaicTabKey(state);
+      if (active != null) return remove(active);
+      closeWindowTimeout.current = setTimeout(
+        () => store.dispatch(Drift.closeWindow({})),
+        CLOSE_WINDOW_TIMEOUT.milliseconds,
+      );
     },
   });
   Triggers.use({

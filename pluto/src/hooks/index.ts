@@ -11,7 +11,6 @@ export * from "@/hooks/ref";
 export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useDebouncedCallback";
-export * from "@/hooks/useDelayedState";
 export * from "@/hooks/useDestructors";
 export * from "@/hooks/useEffectCompare";
 export * from "@/hooks/useRequiredContext";
