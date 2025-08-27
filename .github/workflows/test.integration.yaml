@@ -15,53 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, windows, macos]
-    runs-on: 
-      - self-hosted
-      - ${{ matrix.os }}
+        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Force Quit Synnax Processes
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            # Windows process termination
-            echo "Checking for existing synnax processes on Windows..."
-            taskkill //F //IM "synnax.exe" 2>nul || echo "No synnax.exe processes found"
-            taskkill //F //IM "synnax-driver.exe" 2>nul || echo "No synnax-driver.exe processes found"
-            # Clean up Desktop
-            rm -rf $HOME/Desktop/synnax* || true
-          elif [ "${{ matrix.os }}" = "macos" ]; then
-            # macOS process termination
-            echo "Checking for existing synnax processes on macOS..."
-            pkill -f "synnax" 2>/dev/null || echo "No synnax processes found"
-            sleep 2
-            pkill -9 -f "synnax" 2>/dev/null || true
-            # Clean up Desktop
-            rm -rf $HOME/Desktop/synnax* || true
-          else
-            # Linux process termination (original logic)
-            mkdir -p $HOME/Desktop
-            rm -rf $HOME/Desktop/*
-            echo "Checking for existing synnax processes..."
-            if pgrep -f "synnax" > /dev/null; then
-              echo "Found synnax processes. Terminating..."
-              pkill -f "synnax" || true
-              sleep 2
-              if pgrep -f "synnax" > /dev/null; then
-                echo "Force killing remaining synnax processes..."
-                pkill -9 -f "synnax" || true
-              fi
-              echo "All synnax processes terminated."
-            else
-              echo "No synnax processes found."
-            fi
-          fi
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Windows SDK
-        if: matrix.os == 'windows'
+        if: matrix.os == 'windows-latest'
         uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22000
@@ -70,7 +31,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
@@ -83,23 +44,29 @@ jobs:
           repository-cache: true
 
       - name: Build Driver
-        if: matrix.os != 'windows'
+        if: matrix.os != 'windows-latest'
         run: |
-          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+          if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
+            bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
+          else
+            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+          fi
 
       - name: Build Driver (Windows)
-        if: matrix.os == 'windows'
+        if: matrix.os == 'windows-latest'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
 
       - name: Determine OS
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos" ]; then
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu" ]; then
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows" ]; then
+          elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
+            echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
             echo "OS=windows" >> $GITHUB_OUTPUT
           fi
 
@@ -107,7 +74,7 @@ jobs:
         id: executable
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "windows" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           else
             echo "EXECUTABLE=" >> $GITHUB_OUTPUT
@@ -140,6 +107,19 @@ jobs:
         run: |
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
+      - name: Test Binary Execution
+        shell: bash
+        run: |
+          echo "Testing binary execution..."
+          # Quick smoke test that binaries actually run
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe version || echo "⚠️ Server binary check failed"
+            bazel-bin/driver/driver.exe --help || echo "⚠️ Driver binary check failed"
+          else
+            ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }} version || echo "⚠️ Server binary check failed"
+            bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+          fi
+
       - name: Upload Driver Binary as Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -153,28 +133,6 @@ jobs:
           name: synnax-server-${{ steps.os.outputs.OS }}
           path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
           retention-days: 7
-
-      - name: Copy Binaries to Desktop (for deployment)
-        shell: bash
-        run: |
-          mkdir -p $HOME/Desktop
-          cp bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} $HOME/Desktop/synnax-driver${{ steps.executable.outputs.EXECUTABLE }}
-          cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} $HOME/Desktop/synnax${{ steps.executable.outputs.EXECUTABLE }}
-          echo "Binaries created in $HOME/Desktop:"
-          ls -la $HOME/Desktop/synnax*
-
-      - name: Test Binary Execution
-        shell: bash
-        run: |
-          echo "Testing binary execution..."
-          # Quick smoke test that binaries actually run
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            $HOME/Desktop/synnax.exe version || echo "⚠️ Server binary check failed"
-            $HOME/Desktop/synnax-driver.exe --help || echo "⚠️ Driver binary check failed"
-          else
-            $HOME/Desktop/synnax version || echo "⚠️ Server binary check failed"
-            $HOME/Desktop/synnax-driver --help || echo "⚠️ Driver binary check failed"
-          fi
 
       - name: Debug Build Environment
         if: failure()
@@ -191,8 +149,6 @@ jobs:
           echo "Matrix OS: ${{ matrix.os }}"
           echo "Detected OS: ${{ steps.os.outputs.OS }}"
           echo "Executable suffix: ${{ steps.executable.outputs.EXECUTABLE }}"
-          echo "=== Desktop contents ==="
-          ls -la $HOME/Desktop/ || echo "Cannot list desktop"
           echo "=== Build outputs ==="
           ls -la bazel-bin/driver/ || echo "No driver build output"
           ls -la synnax/ | grep synnax-v || echo "No server build output"
@@ -208,12 +164,116 @@ jobs:
       - ${{ matrix.os }}
     needs: build
     steps:
+      - name: Download Artifacts (Linux)
+        if: matrix.os == 'ubuntu'
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-linux
+          path: ./binaries/
+
+      - name: Download Artifacts (Linux - Server)
+        if: matrix.os == 'ubuntu'
+        uses: actions/download-artifact@v4
+        with:
+          name: synnax-server-linux
+          path: ./binaries/
+
+      - name: Download Artifacts (Windows)
+        if: matrix.os == 'windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-windows
+          path: ./binaries/
+
+      - name: Download Artifacts (Windows - Server)
+        if: matrix.os == 'windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: synnax-server-windows
+          path: ./binaries/
+
+      - name: Download Artifacts (macOS)
+        if: matrix.os == 'macos'
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-macos
+          path: ./binaries/
+
+      - name: Download Artifacts (macOS - Server)
+        if: matrix.os == 'macos'
+        uses: actions/download-artifact@v4
+        with:
+          name: synnax-server-macos
+          path: ./binaries/
+
+      - name: Setup Binaries (Linux)
+        if: matrix.os == 'ubuntu'
+        run: |
+          mkdir -p $HOME/Desktop
+          cp ./binaries/driver $HOME/Desktop/synnax-driver
+          cp ./binaries/synnax-*-linux $HOME/Desktop/synnax
+          chmod +x $HOME/Desktop/synnax*
+          echo "Binaries prepared in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax*
+
+      - name: Setup Binaries (Windows)
+        if: matrix.os == 'windows'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\Desktop"
+          Copy-Item -Force "./binaries/driver.exe" "$env:USERPROFILE\Desktop\synnax-driver.exe"
+          Copy-Item -Force "./binaries/synnax-*-windows.exe" "$env:USERPROFILE\Desktop\synnax.exe"
+          Write-Host "Binaries prepared in Desktop:"
+          Get-ChildItem "$env:USERPROFILE\Desktop\synnax*"
+
+      - name: Setup Binaries (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          mkdir -p $HOME/Desktop
+          cp ./binaries/driver $HOME/Desktop/synnax-driver
+          cp ./binaries/synnax-*-macos $HOME/Desktop/synnax
+          chmod +x $HOME/Desktop/synnax*
+          echo "Binaries prepared in $HOME/Desktop:"
+          ls -la $HOME/Desktop/synnax*
+
+      - name: Force Quit Existing Synnax Processes (Windows)
+        if: matrix.os == 'windows'
+        shell: powershell
+        run: |
+          echo "Checking for existing synnax processes on Windows..."
+          tasklist /FI "IMAGENAME eq synnax.exe" 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            taskkill /F /IM "synnax.exe" 2>$null
+            Write-Host "Killed synnax.exe processes"
+          } else {
+            Write-Host "No synnax.exe processes found"
+          }
+          
+          tasklist /FI "IMAGENAME eq synnax-driver.exe" 2>$null | Out-Null  
+          if ($LASTEXITCODE -eq 0) {
+            taskkill /F /IM "synnax-driver.exe" 2>$null
+            Write-Host "Killed synnax-driver.exe processes"
+          } else {
+            Write-Host "No synnax-driver.exe processes found"
+          }
+
+      - name: Force Quit Existing Synnax Processes (Unix)
+        if: matrix.os != 'windows'
+        shell: bash
+        run: |
+          echo "Checking for existing synnax processes..."
+          pkill -f "synnax" 2>/dev/null || echo "No synnax processes found"
+          sleep 2
+          pkill -9 -f "synnax" 2>/dev/null || true
+
       - name: Debug Deploy Environment
         if: failure()
         shell: bash
         run: |
           echo "🔍 Deploy failed - debugging info:"
           echo "Matrix OS: ${{ matrix.os }}"
+          echo "=== Downloaded binaries ==="
+          ls -la ./binaries/ || echo "No binaries downloaded"
           echo "=== Desktop binaries ==="
           ls -la $HOME/Desktop/synnax* || echo "No binaries found on desktop"
           echo "=== Process check ==="
