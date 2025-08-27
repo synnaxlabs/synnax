@@ -16,9 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, windows, macos]
-    runs-on: [self-hosted, ${{ matrix.os }}]
-    outputs:
-      version: ${{ steps.version.outputs.VERSION }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.os }}
     steps:
       - name: Force Quit Synnax Processes
         shell: bash
@@ -203,7 +203,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, windows, macos]
-    runs-on: [self-hosted, ${{ matrix.os }}]
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.os }}
     needs: build
     steps:
       - name: Debug Deploy Environment
@@ -387,7 +389,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, windows, macos]
-    runs-on: [self-hosted, ${{ matrix.os }}]
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.os }}
     needs: deploy
     steps:
       - name: Checkout Repository
@@ -477,7 +481,7 @@ jobs:
   # test-summary:
   #   name: Aggregate Test Results
   #   needs: test
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu
   #   if: always()
   #   steps:
   #     - name: Download all artifacts
