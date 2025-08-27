@@ -48,25 +48,22 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
   );
 };
 
-export const useDownloadPlotAsCSV = (): ((key: string) => void) => {
+export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const store = useStore<RootState>();
-  return useCallback(
-    (key) => {
-      const now = TimeStamp.now();
-      const storeState = store.getState();
-      const { name } = Layout.selectRequired(storeState, key);
-      const state = select(storeState, key);
-      const ranges = selectRanges(storeState, key);
-      const lines = buildLines(state, ranges);
-      const timeRanges = Object.values(ranges).flatMap((ranges) =>
-        ranges.map((r) => {
-          if (r.variant === "static") return new TimeRange(r.timeRange);
-          return new TimeRange({ start: now.sub(r.span), end: now });
-        }),
-      );
-      downloadAsCSV({ timeRanges, lines, name });
-    },
-    [downloadAsCSV, store],
-  );
+  return useCallback(() => {
+    const now = TimeStamp.now();
+    const storeState = store.getState();
+    const { name } = Layout.selectRequired(storeState, key);
+    const state = select(storeState, key);
+    const ranges = selectRanges(storeState, key);
+    const lines = buildLines(state, ranges);
+    const timeRanges = Object.values(ranges).flatMap((ranges) =>
+      ranges.map((r) => {
+        if (r.variant === "static") return new TimeRange(r.timeRange);
+        return new TimeRange({ start: now.sub(r.span), end: now });
+      }),
+    );
+    downloadAsCSV({ timeRanges, lines, name });
+  }, [downloadAsCSV, store]);
 };

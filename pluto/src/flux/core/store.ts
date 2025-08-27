@@ -58,6 +58,10 @@ export class ScopedUnaryStore<
     return this.entries.get(keys);
   }
 
+  list(): V[] {
+    return Array.from(this.entries.values());
+  }
+
   has(key: K): boolean {
     return this.entries.has(key);
   }
@@ -138,6 +142,7 @@ export class ScopedUnaryStore<
         K,
         V
       >["get"],
+      list: () => this.list(),
       has: (key: K) => this.has(key),
       delete: (key: K | K[]) => this.delete(scope, key),
       onSet: (callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K) =>
@@ -217,6 +222,7 @@ export interface UnaryStore<
   set(key: K, value: state.SetArg<V | undefined>): void;
   get(key: K): V | undefined;
   get(keys: K[] | ((value: V) => boolean)): V[];
+  list(): V[];
   has(key: K): boolean;
   delete(key: K | K[]): void;
   onSet(callback: observe.AsyncHandler<V> | observe.Handler<V>, key?: K): Destructor;

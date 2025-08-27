@@ -75,7 +75,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const downloadAsCSV = useDownloadPlotAsCSV();
+  const downloadAsCSV = useDownloadPlotAsCSV(layoutKey);
   if (state == null) return null;
   return (
     <Core.Content className={CSS.B("line-plot-toolbar")} disableClusterBoundary>
@@ -96,7 +96,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 sharp
                 size="medium"
                 variant="text"
-                onClick={() => downloadAsCSV(layoutKey)}
+                onClick={downloadAsCSV}
               >
                 <Icon.CSV />
               </Button.Button>
