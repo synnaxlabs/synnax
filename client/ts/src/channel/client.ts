@@ -22,6 +22,7 @@ import { z } from "zod";
 import {
   type Key,
   type KeyOrName,
+  keyZ,
   type Name,
   type New,
   type Params,
@@ -139,17 +140,17 @@ export class Channel {
     density?: CrudeDensity;
     status?: status.Crude;
   }) {
-    this.key = key;
+    this.key = keyZ.parse(key);
     this.name = name;
     this.dataType = new DataType(dataType);
     this.leaseholder = leaseholder;
-    this.index = index;
+    this.index = keyZ.parse(index);
     this.isIndex = isIndex;
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = requires ?? [];
+    this.requires = keyZ.array().parse(requires ?? []);
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
