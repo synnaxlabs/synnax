@@ -44,7 +44,7 @@ import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
 
-export interface SymbolFormProps {}
+export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {}
 
 interface FormWrapperProps extends Flex.BoxProps {}
 
@@ -187,7 +187,7 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
   </Form.Field>
 );
 
-interface CommonStyleFormProps {
+interface CommonStyleFormProps extends SymbolFormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
   hideOuterOrientation?: boolean;
@@ -304,11 +304,12 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "control", name: "Control" },
 ];
 
-interface CommonToggleFormProps {
+interface CommonToggleFormProps extends SymbolFormProps {
   hideInnerOrientation?: boolean;
 }
 
 export const CommonToggleForm = ({
+  actions,
   hideInnerOrientation,
 }: CommonToggleFormProps): ReactElement => {
   const content: Tabs.RenderProp = useCallback(
@@ -323,14 +324,14 @@ export const CommonToggleForm = ({
     [hideInnerOrientation],
   );
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
+  return <Tabs.Tabs {...props} actions={actions} />;
 };
 
 const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 const DIMENSIONS_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
 const BORDER_RADIUS_BOUNDS: bounds.Bounds = { lower: 0, upper: 51 };
 
-export interface TankFormProps {
+export interface TankFormProps extends SymbolFormProps {
   includeBorderRadius?: boolean;
   includeStrokeWidth?: boolean;
 }

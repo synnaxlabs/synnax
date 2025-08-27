@@ -33,11 +33,14 @@ export interface CreateLayoutArgs extends SchematicSymbol.UseFormParams {
   scale?: number;
 }
 
+const CREATE_NAME = "Schematic.Create Symbol";
+const EDIT_NAME = "Schematic.Edit Symbol";
+
 export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   location: "modal",
-  name: "Schematic.Create Symbol",
+  name: CREATE_NAME,
   icon: "Schematic",
   args: {},
   window: {
@@ -50,12 +53,16 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 
 export const createCreateLayout = (
   initial: Partial<Layout.BaseState<CreateLayoutArgs>> = {},
-): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, ...initial });
+): Layout.BaseState<CreateLayoutArgs> => {
+  const isEdit = initial.args?.key != null;
+  return { ...CREATE_LAYOUT, ...initial, name: isEdit ? EDIT_NAME : CREATE_NAME };
+};
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 10, upper: 500 };
 
 export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const isEdit = params.key != null;
   const baseRegionID = `base-region-${id.create()}`;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
@@ -234,7 +241,10 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box style={{ padding: "0 2rem" }}>
-                    <Form.Field<number> path="data.scale" showLabel={false}>
+                    <Form.Field<number>
+                      path="data.scale"
+                      helpText="Sets the default scale when added to a schematic"
+                    >
                       {({ onChange, value }) => (
                         <Input.Numeric
                           value={Math.round(value * 100)}
@@ -269,7 +279,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
             <Triggers.SaveHelpText action="Save to Synnax" />
             <Nav.Bar.End>
               <Button.Button variant="filled" onClick={() => save()}>
-                Create
+                {isEdit ? "Save" : "Create"}
               </Button.Button>
             </Nav.Bar.End>
           </Modals.BottomNavBar>

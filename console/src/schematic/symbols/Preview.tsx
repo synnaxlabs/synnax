@@ -1,5 +1,5 @@
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Text, Theming } from "@synnaxlabs/pluto";
 import { box, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
@@ -45,11 +45,13 @@ export const Preview = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgElementRef = useRef<SVGSVGElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
+  const themeContainerRef = useRef<HTMLDivElement>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const scale = Form.useFieldValue<number>("data.scale");
 
   const resetZoom = () => {
@@ -239,95 +241,109 @@ export const Preview = ({
   let svgBox: box.Box = box.ZERO;
   if (svgElementRef.current) svgBox = box.construct(svgElementRef.current);
 
+  const fileDropEnabled = spec.svg.length === 0;
   return (
     <FileDrop
       onContentsChange={handleContentsChange}
       grow={1}
-      enabled={spec.svg.length == 0}
+      enabled={fileDropEnabled}
     >
-      <Flex.Box
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          overflow: "hidden",
-        }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+      <Theming.Provider
+        el={themeContainerRef.current}
+        theme={Theming.SYNNAX_THEMES[isDarkMode ? "synnaxDark" : "synnaxLight"]}
       >
-        {spec.svg.length > 0 && (
-          <Flex.Box
-            x
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              zIndex: 1000,
-            }}
-          >
-            <Text.Text level="small" color={7}>
-              {Math.round(zoom * 100)}%
-            </Text.Text>
-            <Flex.Box pack x>
-              <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
-                <Icon.Subtract />
-              </Button.Button>
-              <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
-                <Icon.Add />
-              </Button.Button>
-              <Button.Button
-                onClick={handleResetZoom}
-                size="small"
-                tooltip="Reset Zoom"
-              >
-                <Icon.Expand />
-              </Button.Button>
-            </Flex.Box>
-          </Flex.Box>
-        )}
-        <div
-          ref={svgWrapperRef}
+        <Flex.Box
+          ref={themeContainerRef}
           style={{
+            position: "relative",
             width: "100%",
             height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: "center",
-            transition: isDragging ? "none" : "transform 0.2s ease-out",
-            cursor: isDragging ? "grabbing" : "default",
+            overflow: "hidden",
+            display: fileDropEnabled ? "none" : "flex",
           }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          background={0}
+          rounded={1}
         >
-          <div
-            style={{
-              position: "relative",
-              transform: `scale(${scale})`,
-              transformOrigin: "center",
-            }}
-          >
-            <HandleOverlay
-              handles={spec.handles}
-              selectedHandle={selectedHandle}
-              svgBox={svgBox}
-              onSelect={onHandleSelect}
-              onDrag={onHandlePlace}
-            />
-            <div
-              ref={containerRef}
-              className={CSS.B("preview")}
+          {spec.svg.length > 0 && (
+            <Flex.Box
+              x
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                position: "absolute",
+                top: 16,
+                right: 16,
+                zIndex: 1000,
               }}
-            ></div>
-          </div>
-        </div>
-      </Flex.Box>
+            >
+              <Text.Text level="small" color={7}>
+                {Math.round(zoom * 100)}%
+              </Text.Text>
+              <Button.Button
+                variant="text"
+                size="small"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+              >
+                {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
+              </Button.Button>
+              <Flex.Box pack x>
+                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
+                  <Icon.Subtract />
+                </Button.Button>
+                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
+                  <Icon.Add />
+                </Button.Button>
+                <Button.Button
+                  onClick={handleResetZoom}
+                  size="small"
+                  tooltip="Reset Zoom"
+                >
+                  <Icon.Expand />
+                </Button.Button>
+              </Flex.Box>
+            </Flex.Box>
+          )}
+          <Flex.Box
+            center
+            ref={svgWrapperRef}
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center",
+              transition: isDragging ? "none" : "transform 0.2s ease-out",
+              cursor: isDragging ? "grabbing" : "default",
+            }}
+            rounded={1}
+          >
+            <div
+              style={{
+                position: "relative",
+                transform: `scale(${scale})`,
+                transformOrigin: "center",
+              }}
+            >
+              <HandleOverlay
+                handles={spec.handles}
+                selectedHandle={selectedHandle}
+                svgBox={svgBox}
+                onSelect={onHandleSelect}
+                onDrag={onHandlePlace}
+              />
+              <div
+                ref={containerRef}
+                className={CSS.B("preview")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              ></div>
+            </div>
+          </Flex.Box>
+        </Flex.Box>
+      </Theming.Provider>
     </FileDrop>
   );
 };

@@ -74,7 +74,6 @@ export const FileDrop = ({
       onClick={enabled ? handleFileSelect : undefined}
       {...dropProps}
       borderColor={5}
-      background={0}
       {...rest}
       style={{ boxShadow: "var(--pluto-shadow-v2)" }}
     >

@@ -28,7 +28,11 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-const singleRetrieve = async (key: group.Key, client: Synnax, subStore: SubStore) => {
+export const singleRetrieve = async (
+  key: group.Key,
+  client: Synnax,
+  subStore: SubStore,
+) => {
   const cached = subStore.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import {
   Button,
   Color,
@@ -20,9 +21,10 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { box, color, deep, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Layout } from "@/layout";
 import {
   type ElementInfo,
   selectViewport,
@@ -32,6 +34,7 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
+import { createCreateLayout } from "@/schematic/symbols/Create";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
@@ -89,11 +92,35 @@ const IndividualProperties = ({
     sync: true,
     onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
+  const specKey = Form.useFieldValue<string, string, typeof nodePropsZ>("specKey", {
+    ctx: formMethods,
+    optional: true,
+  });
+  const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
+  let actions: ReactNode = null;
+  const placeLayout = Layout.usePlacer();
+  if (isRemote)
+    actions = (
+      <Button.Button
+        variant="filled"
+        size="tiny"
+        style={{ marginRight: "1rem" }}
+        onClick={() => {
+          placeLayout(
+            createCreateLayout({
+              args: { key: specKey as string },
+            }),
+          );
+        }}
+      >
+        <Icon.Edit />
+      </Button.Button>
+    );
 
   return (
     <Flex.Box style={{ height: "100%" }} y>
       <Form.Form<typeof nodePropsZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} />
+        <C.Form {...formMethods} key={nodeKey} actions={actions} />
       </Form.Form>
     </Flex.Box>
   );

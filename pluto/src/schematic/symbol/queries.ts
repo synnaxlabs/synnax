@@ -166,6 +166,12 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   retrieve: async ({ client, params: { key, parent }, reset, store }) => {
     if (key == null) return;
     const symbol = await retrieveByKey(client, key, store);
+    if (parent == null) {
+      const parents = await client.ontology.retrieveParents(
+        schematic.symbol.ontologyID(key),
+      );
+      parent = parents[0].id;
+    }
     reset({
       name: symbol.name,
       data: symbol.data,

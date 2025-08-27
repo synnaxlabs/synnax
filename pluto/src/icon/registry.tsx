@@ -80,6 +80,7 @@ import {
   MdBook,
   MdCalendarToday,
   MdCommit,
+  MdDarkMode,
   MdDataArray,
   MdDataObject,
   MdEdit,
@@ -104,6 +105,7 @@ import {
   MdKeyboardReturn,
   MdKeyboardTab,
   MdLabel,
+  MdLightMode,
   MdLink,
   MdNewReleases,
   MdOutlineControlCamera,
@@ -468,6 +470,8 @@ export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
+export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 

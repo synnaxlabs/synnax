@@ -123,6 +123,7 @@ export const use = (): theming.Theme => useContext().theme;
 export interface ProviderProps extends PropsWithChildren<unknown>, UseProviderProps {
   applyCSSVars?: boolean;
   defaultTheme?: string;
+  el?: HTMLElement | null;
 }
 
 const CLASS_PREFIX = "pluto-theme-";
@@ -136,6 +137,7 @@ const setThemeClass = (el: HTMLElement, theme: theming.Theme): void => {
 export const Provider = ({
   children,
   applyCSSVars = true,
+  el,
   ...rest
 }: ProviderProps): ReactElement => {
   const ret = useProvider(rest);
@@ -165,11 +167,12 @@ export const Provider = ({
 
   // See note on useEffect above.
   useLayoutEffect(() => {
-    const el = document.documentElement;
+    if (el === undefined) el = document.documentElement;
+    if (el == null) return;
     setThemeClass(el, ret.theme);
     if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
     else CSS.removeVars(el, "--pluto");
-  }, [ret.theme.key]);
+  }, [ret.theme.key, el]);
 
   return (
     <Context value={ret}>
