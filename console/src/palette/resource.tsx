@@ -14,7 +14,7 @@ import {
   Ontology as POntology,
   Select,
   Status,
-  Synnax as PSynnax,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { isValidElement, useCallback } from "react";
@@ -51,7 +51,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
 export const useResourceList = (): UseListReturn<ontology.Resource> => {
   const { data, getItem, subscribe, retrieve } = POntology.useResourceList();
   const services = Ontology.useServices();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const store = useStore<RootState, RootAction>();
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
