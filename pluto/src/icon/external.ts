@@ -8,4 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/icon/Icon";
+export * from "@/icon/Pump";
 export * from "@/icon/registry";
+export * from "@/icon/Tank";
+export * from "@/icon/Valve";

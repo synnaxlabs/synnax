@@ -13,6 +13,7 @@ import { type FC } from "react";
 import { z } from "zod";
 
 import { removeProps } from "@/component/removeProps";
+import { Icon } from "@/icon";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -1905,12 +1906,14 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
 };
 
 export interface SymbolGroup extends group.Payload {
+  Icon: Icon.FC;
   symbols: Variant[];
 }
 
 export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "general",
+    Icon: Icon.Channel,
     name: "General",
     symbols: [
       "value",
@@ -1928,11 +1931,13 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "vessels",
     name: "Vessels",
+    Icon: Icon.Tank,
     symbols: ["tank", "cylinder", "tJunction", "crossJunction"],
   },
   {
     key: "valves",
     name: "Valves",
+    Icon: Icon.Valve,
     symbols: [
       "valve",
       "solenoidValve",
@@ -1963,6 +1968,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "pumps",
     name: "Pumps",
+    Icon: Icon.Pump,
     symbols: [
       "pump",
       "screwPump",
@@ -1982,6 +1988,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "meters",
     name: "Meters",
+    Icon: Icon.Valve,
     symbols: [
       "flowmeterGeneral",
       "flowmeterElectromagnetic",
@@ -2000,6 +2007,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "process",
     name: "Process",
+    Icon: Icon.Valve,
     symbols: [
       "heatExchangerGeneral",
       "heatExchangerM",
@@ -2017,6 +2025,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "safety",
     name: "Safety",
+    Icon: Icon.Valve,
     symbols: [
       "burstDisc",
       "isoBurstDisc",
@@ -2030,6 +2039,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "fittings",
     name: "Fittings",
+    Icon: Icon.Valve,
     symbols: [
       "cap",
       "isoCap",

@@ -362,9 +362,10 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
 
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
-  const group = List.useItem<group.Key, group.Payload>(itemKey);
+  const group = List.useItem<group.Key, group.Payload & { Icon?: Icon.FC }>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
+  const { Icon: GroupIcon } = group;
   return (
     <Button.Toggle
       id={itemKey.toString()}
@@ -374,6 +375,7 @@ const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null =>
       className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
       textColor={9}
     >
+      {GroupIcon != null && <GroupIcon />}
       {group.name}
     </Button.Toggle>
   );
