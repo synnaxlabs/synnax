@@ -91,7 +91,7 @@ export const useStatusSynchronizer = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
 };
 

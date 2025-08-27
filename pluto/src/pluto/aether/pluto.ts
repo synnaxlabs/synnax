@@ -39,7 +39,7 @@ import { value } from "@/vis/value/aether";
 const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
 }> = {
-  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
 };
 
 export const render = (): void => {

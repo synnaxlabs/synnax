@@ -14,6 +14,7 @@ import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
+import { Group } from "@/group";
 import { Device } from "@/hardware/device";
 import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
@@ -61,18 +62,20 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }> = {
-  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
-  [Label.FLUX_STORE_KEY]: Label.STORE_CONFIG,
-  [Rack.FLUX_STORE_KEY]: Rack.STORE_CONFIG,
-  [Device.FLUX_STORE_KEY]: Device.STORE_CONFIG,
-  [Task.FLUX_STORE_KEY]: Task.STORE_CONFIG,
-  [Workspace.FLUX_STORE_KEY]: Workspace.STORE_CONFIG,
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_STORE_CONFIG,
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_STORE_CONFIG,
-  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
-  [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
+  [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
+  [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
+  [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
+  [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
+  [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_FLUX_STORE_CONFIG,
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
+  [Channel.FLUX_STORE_KEY]: Channel.FLUX_STORE_CONFIG,
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
+  [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({

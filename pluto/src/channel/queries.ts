@@ -64,7 +64,7 @@ export const useListenForCalculationStatus = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   SubStore,
   channel.Key,
   channel.Channel
