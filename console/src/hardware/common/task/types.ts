@@ -36,10 +36,16 @@ export const validateChannels = ({
   });
 };
 
-export const readChannelZ = channelZ.extend({ channel: channel.keyZ });
+export const readChannelZ = channelZ.extend({ 
+  channel: channel.keyZ,
+  customName: z.string().optional(),
+});
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-export const READ_CHANNEL_OVERRIDE: Pick<ReadChannel, "channel"> = { channel: 0 };
+export const READ_CHANNEL_OVERRIDE: Pick<ReadChannel, "channel" | "customName"> = { 
+  channel: 0,
+  customName: undefined,
+};
 
 export const ZERO_READ_CHANNEL: ReadChannel = {
   ...ZERO_CHANNEL,
@@ -67,10 +73,11 @@ export const validateReadChannels = (ctx: z.core.ParsePayload<ReadChannel[]>) =>
 export const writeChannelZ = channelZ.extend({
   cmdChannel: channel.keyZ,
   stateChannel: channel.keyZ,
+  customName: z.string().optional(),
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
-export const WRITE_CHANNEL_OVERRIDE: Pick<WriteChannel, "cmdChannel" | "stateChannel"> =
-  { cmdChannel: 0, stateChannel: 0 };
+export const WRITE_CHANNEL_OVERRIDE: Pick<WriteChannel, "cmdChannel" | "stateChannel" | "customName"> =
+  { cmdChannel: 0, stateChannel: 0, customName: undefined };
 export const ZERO_WRITE_CHANNEL: WriteChannel = {
   ...ZERO_CHANNEL,
   ...WRITE_CHANNEL_OVERRIDE,

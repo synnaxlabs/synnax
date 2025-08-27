@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { extractBaseName } from "@/channel/services/channelNameUtils";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDOChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_SCHEMAS,
@@ -53,15 +53,63 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ cmdChannel, key, stateChannel }: DOChannel) => (
-  <Common.Task.WriteChannelNames
-    cmdChannel={cmdChannel}
-    stateChannel={stateChannel}
-    itemKey={key}
-  />
-);
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<DOChannel>(path);
+  if (item == null) return null;
+  const { port, line, cmdChannel, stateChannel, customName } = item;
+  
+  // Get device from the config
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const { set } = PForm.useContext();
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...item, customName: newName });
+    },
+    [item, path, set],
+  );
+  
+  return (
+    <Common.Task.Layouts.ListAndDetailsChannelItem
+      {...props}
+      port={`${port}/${line}`}
+      portMaxChars={4}
+      hasTareButton={false}
+      channel={cmdChannel}
+      stateChannel={stateChannel}
+      canTare={false}
+      path={path}
+      previewDevice={device}
+      previewChannelType="do"
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
+    />
+  );
+};
 
-const name = Component.renderProp(NameComponent);
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => (
+    <>
+      <PForm.NumericField
+        path={`${path}.port`}
+        label="Port"
+        inputProps={{ showDragHandle: false }}
+      />
+      <PForm.NumericField
+        path={`${path}.line`}
+        label="Line"
+        inputProps={{ showDragHandle: false }}
+      />
+    </>
+  );
+
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -69,11 +117,11 @@ const Form: FC<
     typeof digitalWriteConfigZ,
     typeof digitalWriteStatusDataZ
   >
-> = (props) => (
-  <DigitalChannelList
-    {...props}
+> = () => (
+  <Common.Task.Layouts.ListAndDetails
+    listItem={channelListItem}
+    details={channelDetails}
     createChannel={createDOChannel}
-    name={name}
     contextMenuItems={Common.Task.writeChannelContextMenuItems}
   />
 );
@@ -116,7 +164,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_do_state_time`,
+      name: `${dev.properties.identifier}_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -150,11 +198,14 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   if (statesToCreate.length > 0) {
     modified = true;
     const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_state`,
-        index: dev.properties.digitalOutput.stateIndex,
-        dataType: "uint8",
-      })),
+      statesToCreate.map((c) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_state` : `${dev.properties.identifier}_${c.port}_${c.line}_state`,
+          index: dev.properties.digitalOutput.stateIndex,
+          dataType: "uint8",
+        };
+      }),
     );
     states.forEach((s, i) => {
       const key = getDigitalChannelDeviceKey(statesToCreate[i]);
@@ -167,17 +218,20 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd_time`,
+        name: `${dev.properties.identifier}_${c.port}_${c.line}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "uint8",
-      })),
+      commandsToCreate.map((c, i) => {
+        const baseName = c.customName ? extractBaseName(c.customName) : "";
+        return {
+          name: c.customName ? `${baseName}_cmd` : `${dev.properties.identifier}_${c.port}_${c.line}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "uint8",
+        };
+      }),
     );
     commands.forEach((s, i) => {
       const key = getDigitalChannelDeviceKey(commandsToCreate[i]);

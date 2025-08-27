@@ -42,7 +42,12 @@ export const SingleTrigger = <K extends record.Key>({
   const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
-  const { name, icon } = item ?? {};
+  const { icon } = item ?? {};
+  
+  // For NI and LabJack devices, show location instead of name
+  const displayName = item && ((item as any).make === "NI" || (item as any).make === "LabJack")
+    ? (item as any).location || item.name
+    : item?.name;
   const canDrop = useCallback(
     (hauled: Haul.DraggingState) =>
       staticCanDrop(hauled, haulType, allSelected, disabled),
@@ -70,10 +75,10 @@ export const SingleTrigger = <K extends record.Key>({
       {...dropProps}
       {...rest}
       hideCaret={hideCaret || iconOnly}
-      textColor={name == null ? 8 : undefined}
+      textColor={displayName == null ? 8 : undefined}
     >
       {icon ?? baseIcon}
-      {!iconOnly && (name ?? placeholder)}
+      {!iconOnly && (displayName ?? placeholder)}
     </Dialog.Trigger>
   );
 };

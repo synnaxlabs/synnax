@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC, useCallback, useEffect } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -62,13 +62,55 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
 }
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
-  const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = PForm.useFieldValue<AIChannel[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
+  const currentValue = PForm.useFieldValue<AIChannel>(path, { optional: true });
+  const { set } = PForm.useContext();
+  
+  
+  if (channelIndex === -1) return null;
+  
+  // Initialize unconfigured channels with default values
+  useEffect(() => {
+    if (currentValue == null) {
+      const defaultChannel = { 
+        ...ZERO_AI_CHANNEL, 
+        key: itemKey,
+        port: 0,
+        channel: 0,
+        enabled: false,
+      };
+      set(path, defaultChannel);
+    }
+  }, [currentValue, itemKey, path, set]);
+  
+  // Return null while the channel is being initialized
+  if (currentValue == null) return null;
+  
+  const { port, type, channel, enabled, customName } = currentValue;
   const isSnapshot = Common.Task.useIsSnapshot();
   const isRunning = Common.Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
+  
+  // Get device from the config since we might not have it in the channel yet
+  const deviceKey = currentValue.device ?? PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...currentValue, customName: newName });
+    },
+    [currentValue, path, set],
+  );
+  
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -80,16 +122,20 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       channel={channel}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
+      previewDevice={device}
+      previewChannelType={type}
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
     />
   );
 };
 
 const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
+  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`, { optional: true });
   return (
     <>
       <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AIChannelForm type={type} prefix={path} />
+      {type != null && <AIChannelForm type={type} prefix={path} />}
     </>
   );
 };
@@ -177,7 +223,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
     if (shouldCreateIndex) {
       modified = true;
       const aiIndex = await client.channels.create({
-        name: `${dev.properties.identifier}_ai_time`,
+        name: `${dev.properties.identifier}_time`,
         dataType: "timestamp",
         isIndex: true,
       });
@@ -202,7 +248,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: `${dev.properties.identifier}_ai_${c.port}`,
+          name: c.customName || `${dev.properties.identifier}_${c.port}`,
           dataType: "float32",
           index: dev.properties.analogInput.index,
         })),

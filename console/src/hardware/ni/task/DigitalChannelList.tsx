@@ -22,9 +22,15 @@ interface ListItemProps<C extends DigitalChannel>
 }
 
 const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
-  const path = `config.channels.${rest.itemKey}`;
+  const { itemKey } = rest;
+  
+  // Get all channels to find the index of this channel
+  const allChannels = Form.useFieldValue<C[]>("config.channels");
+  const channelIndex = allChannels.findIndex(ch => ch.key === itemKey);
+  const path = `config.channels.${channelIndex}`;
   const channel = Form.useFieldValue<C>(path);
-  if (channel == null) return null;
+  
+  if (channel == null || channelIndex === -1) return null;
   return (
     <Select.ListItem {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
@@ -62,7 +68,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
-        {name(channel)}
+        {name({ ...channel, path, channelIndex })}
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>

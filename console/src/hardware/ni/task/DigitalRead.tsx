@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { Component, Device as PlutoDevice, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { createDIChannel } from "@/hardware/ni/task/createChannel";
-import { DigitalChannelList } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
@@ -54,11 +53,62 @@ const Properties = () => (
   </>
 );
 
-const NameComponent = ({ channel, key }: DIChannel) => (
-  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
-);
+const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+  const { itemKey } = props;
+  const path = `config.channels.${itemKey}`;
+  const item = PForm.useFieldValue<DIChannel>(path);
+  if (item == null) return null;
+  const { port, line, channel, customName } = item;
+  
+  // Get device from the config
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const { data: device } = PlutoDevice.retrieve().useDirect({ 
+    params: { key: deviceKey || "" },
+  });
+  
+  const { set } = PForm.useContext();
+  
+  const handleCustomNameChange = useCallback(
+    (newName: string) => {
+      set(path, { ...item, customName: newName });
+    },
+    [item, path, set],
+  );
+  
+  return (
+    <Common.Task.Layouts.ListAndDetailsChannelItem
+      {...props}
+      port={`${port}/${line}`}
+      portMaxChars={4}
+      hasTareButton={false}
+      channel={channel}
+      canTare={false}
+      path={path}
+      previewDevice={device}
+      previewChannelType="di"
+      customName={customName}
+      onCustomNameChange={handleCustomNameChange}
+    />
+  );
+};
 
-const name = Component.renderProp(NameComponent);
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => (
+    <>
+      <PForm.NumericField
+        path={`${path}.port`}
+        label="Port"
+        inputProps={{ showDragHandle: false }}
+      />
+      <PForm.NumericField
+        path={`${path}.line`}
+        label="Line"
+        inputProps={{ showDragHandle: false }}
+      />
+    </>
+  );
+
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<
@@ -66,11 +116,11 @@ const Form: FC<
     typeof digitalReadConfigZ,
     typeof digitalReadStatusDataZ
   >
-> = (props) => (
-  <DigitalChannelList<DIChannel>
-    {...props}
+> = () => (
+  <Common.Task.Layouts.ListAndDetails
+    listItem={channelListItem}
+    details={channelDetails}
     createChannel={createDIChannel}
-    name={name}
     contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );
@@ -111,7 +161,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   if (shouldCreateIndex) {
     modified = true;
     const aiIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_di_time`,
+      name: `${dev.properties.identifier}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -136,7 +186,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+        name: c.customName || `${dev.properties.identifier}_${c.port}_${c.line}`,
         dataType: "uint8",
         index: dev.properties.digitalInput.index,
       })),

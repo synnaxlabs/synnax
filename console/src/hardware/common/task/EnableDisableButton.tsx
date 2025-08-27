@@ -31,7 +31,7 @@ export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps)
       tooltip={
         isSnapshot ? undefined : (
           <Text.Text level="small">
-            {value ? "Disable" : "Enable"} data acquisition
+            {value ? "Disable" : "Enable"} on reconfiguration
           </Text.Text>
         )
       }

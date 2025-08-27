@@ -36,7 +36,7 @@ const listItemRenderProp = Component.renderProp(
       >
         <Text.Text align="center">
           <Device.StatusIndicator status={item?.status} />
-          {item?.name}
+          {item?.make === "LabJack" || item?.make === "NI" ? item?.location : item?.name}
         </Text.Text>
         <Breadcrumb.Breadcrumb
           level="small"
@@ -45,9 +45,14 @@ const listItemRenderProp = Component.renderProp(
           style={{ marginTop: "0.25rem" }}
           gap="tiny"
         >
-          {item?.location.split(".").map((segment) => (
-            <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
-          ))}
+          {item?.make === "LabJack" || item?.make === "NI" 
+            ? item?.name.split(".").map((segment) => (
+                <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
+              ))
+            : item?.location.split(".").map((segment) => (
+                <Breadcrumb.Segment key={segment}>{segment}</Breadcrumb.Segment>
+              ))
+          }
         </Breadcrumb.Breadcrumb>
       </Select.ListItem>
     );
