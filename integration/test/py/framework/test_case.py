@@ -181,7 +181,6 @@ class TestCase(ABC):
             self.expected_outcome = STATUS.PASSED
 
         """Initialize test case with Synnax server connection."""
-        self._status = STATUS.INITIALIZING
         self.params = params
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
@@ -197,6 +196,7 @@ class TestCase(ABC):
             self.name = validate_and_sanitize_name(name)
 
         self._setup_logging()
+        self._status = STATUS.INITIALIZING
 
         # Connect to Synnax server
         self.client = sy.Synnax(
@@ -306,7 +306,7 @@ class TestCase(ABC):
 
                 # Check for timeout
                 if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
-                    self._status = STATUS.TIMEOUT
+                    self.STATUS = STATUS.TIMEOUT
 
                 # Check for completion
                 if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
@@ -336,7 +336,7 @@ class TestCase(ABC):
                 self._log_message(
                     f"Writer thread error: {e}\n {traceback.format_exc()}"
                 )
-                self._status = STATUS.FAILED
+                self.STATUS = STATUS.FAILED
                 raise e
 
         finally:
@@ -388,7 +388,7 @@ class TestCase(ABC):
                 self._log_message(
                     f"Streamer thread error: {e}\n {traceback.format_exc()}"
                 )
-                self._status = STATUS.FAILED
+                self.STATUS = STATUS.FAILED
                 raise e
 
         finally:
@@ -455,7 +455,7 @@ class TestCase(ABC):
 
         # All done? All done.
         if self._status == STATUS.PENDING:
-            self._status = STATUS.PASSED
+            self.STATUS = STATUS.PASSED
 
     def _wait_for_client_completion(self, timeout: float = None) -> None:
         """Wait for client threads to complete."""
@@ -479,7 +479,7 @@ class TestCase(ABC):
         """Check if test met expected outcome and handle failures gracefully."""
         # Convert PENDING to PASSED if no final status set
         if self._status == STATUS.PENDING:
-            self._status = STATUS.PASSED
+            self.STATUS = STATUS.PASSED
 
         status_symbol = SYMBOLS.get_symbol(self._status)
         expected_symbol = SYMBOLS.get_symbol(self.expected_outcome)
@@ -489,7 +489,7 @@ class TestCase(ABC):
             if self.expected_outcome == STATUS.PASSED:
                 self._log_message(f"PASSED ({status_symbol})")
             else:
-                self._status = STATUS.FAILED
+                self.STATUS = STATUS.FAILED
                 self._log_message(
                     f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}"
                 )
@@ -498,6 +498,7 @@ class TestCase(ABC):
             self._log_message(
                 f"PASSED (✅): Expected outcome achieved ({status_symbol})"
             )
+            # Set _status directly. Setter protects against lower-value statuses. (PASSED)
             self._status = STATUS.PASSED
         elif self._status == STATUS.FAILED:
             self._log_message(f"FAILED ({status_symbol})")
@@ -511,7 +512,7 @@ class TestCase(ABC):
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
         self._log_message("Shutting down test case...")
-        self._status = STATUS.KILLED
+        self.STATUS = STATUS.KILLED
         self.stop_client()
         self._log_message("Test case shutdown complete")
 
@@ -604,13 +605,23 @@ class TestCase(ABC):
     @STATUS.setter
     def STATUS(self, value: STATUS) -> None:
         """Set the test status and update telemetry if client is running."""
-        self._status = value
-        # Update telemetry if client thread is running
-        if hasattr(self, "tlm") and self.is_client_running():
-            try:
-                self.tlm[f"{self.name}_state"] = value.value
-            except Exception:
-                pass  # Ignore errors if tlm is not fully initialized
+        # Only allow status changes to higher-priority statuses
+        if value.value >= self._status.value:
+            self._status = value
+            # Update telemetry if client thread is running
+            if hasattr(self, "tlm") and self.is_client_running():
+                try:
+                    self.tlm[f"{self.name}_state"] = value.value
+                except Exception:
+                    pass  # Ignore errors if tlm is not fully initialized
+        else:
+            self._log_message(f"Invalid status change: {self._status} -> {value}")
+
+    def _set_status(self, value: STATUS) -> STATUS:
+        """Set the test status and update telemetry if client is running."""
+        # Alternative to STATUS setter that returns the status
+        self.STATUS = value
+        return self.STATUS
 
     @property
     def uptime(self) -> float:
@@ -710,7 +721,7 @@ class TestCase(ABC):
         return "Running" if self.writer_thread.is_alive() else "Stopped"
 
     def fail(self) -> None:
-        self._status = STATUS.FAILED
+        self.STATUS = STATUS.FAILED
 
     def execute(self) -> None:
         """Execute complete test lifecycle: setup -> run -> teardown."""
@@ -720,17 +731,17 @@ class TestCase(ABC):
             # the override methods. Ensures that the status is set
             # Even if the child classes don't call super()
 
-            self._status = STATUS.INITIALIZING
+            self.STATUS = STATUS.INITIALIZING
             self.setup()
 
             self._start_client_threads()
 
-            self._status = STATUS.RUNNING
+            self.STATUS = STATUS.RUNNING
             self.run()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
-                self._status = STATUS.PENDING
+                self.STATUS = STATUS.PENDING
 
             self.teardown()
 
@@ -740,7 +751,7 @@ class TestCase(ABC):
             if is_websocket_error(e):
                 pass
             else:
-                self._status = STATUS.FAILED
+                self.STATUS = STATUS.FAILED
                 self._log_message(f"EXCEPTION: {e}")
         finally:
             self._stop_client()

@@ -8,120 +8,191 @@ on:
 
 env:
   CACHE_SCOPE: deploy-synnax
+  # =============================================================================
+  # DEVELOPMENT MODE: Skip Build & Use Reference Artifacts
+  # =============================================================================
+  # INSTRUCTIONS FOR RAPID ITERATION:
+  #
+  # 1. Find a successful workflow run with good binaries:
+  #    - Go to: https://github.com/synnaxlabs/synnax/actions/workflows/test.integration.yaml
+  #    - Find a run where all build jobs succeeded (green checkmarks)
+  #    - Click on the run and copy the run ID from the URL
+  #      Example: https://github.com/synnaxlabs/synnax/actions/runs/12345678901
+  #      The run ID is: 12345678901
+  #
+  # 2. Update REFERENCE_RUN_ID below with your run ID
+  # 3. Comment out the entire 'build:' job (see instructions below)
+  # 4. Remove 'needs: build' from deploy job (see instructions below)
+  # 5. Commit and push - deploy/test will use artifacts from reference run
+  #
+  # TO REVERT TO NORMAL MODE:
+  # - Uncomment the 'build:' job
+  # - Add back 'needs: build' to deploy job
+  # - Comment out or remove REFERENCE_RUN_ID
+  # =============================================================================
+  # REFERENCE_RUN_ID: "17271306310" #
 
 jobs:
-  build:
-    name: Build Synnax (${{ matrix.os }})
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  # build-ubuntu-22-04:
+  #   name: Build Synnax (Ubuntu-22.04)
+  #   timeout-minutes: 60
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Update Submodules
+  #       run: git submodule update --init --recursive
+
+  #     - name: Setup Bazel
+  #       uses: bazel-contrib/setup-bazel@0.15.0
+  #       with:
+  #         bazelisk-cache: true
+  #         disk-cache: deploy-synnax-ubuntu-22.04
+  #         repository-cache: true
+
+  #     - name: Build Driver
+  #       run: |
+  #         bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
+
+  #     - name: Move Driver to Assets
+  #       shell: bash
+  #       run: |
+  #         mkdir -p synnax/pkg/service/hardware/embedded/assets
+  #         cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+
+  #     - name: Get Version
+  #       id: version
+  #       working-directory: synnax
+  #       run: |
+  #         echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.work
+  #         cache-dependency-path: go.work.sum
+
+  #     - name: Download Dependencies
+  #       working-directory: synnax
+  #       run: go mod download
+
+  #     - name: Build
+  #       working-directory: synnax
+  #       run: |
+  #         go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt
+
+  #     - name: Test Binary Execution
+  #       shell: bash
+  #       run: |
+  #         echo "Testing binary execution..."
+  #         ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt version || echo "⚠️ Server binary check failed"
+  #         bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+
+  #     - name: Upload Driver Binary as Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: driver-nilinuxrt
+  #         path: bazel-bin/driver/driver
+  #         retention-days: 7
+
+  #     - name: Upload Server Binary as Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: synnax-server-nilinuxrt
+  #         path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt
+  #         retention-days: 7
+
+  #     - name: Debug Build Environment
+  #       if: failure()
+  #       shell: bash
+  #       run: |
+  #         echo "🔍 Build failed - debugging info:"
+  #         echo "=== Go version ==="
+  #         go version || echo "Go not found"
+  #         echo "=== Bazel version ==="
+  #         bazel version || bazelisk version || echo "Bazel/Bazelisk not found"
+  #         echo "=== Disk space ==="
+  #         df -h || echo "Cannot check disk space"
+  #         echo "=== Build outputs ==="
+  #         ls -la bazel-bin/driver/ || echo "No driver build output"
+  #         ls -la synnax/ | grep synnax-v || echo "No server build output"
+
+  build-ubuntu-latest:
+    name: Build Synnax (ubuntu-latest)
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Setup Windows SDK
-        if: matrix.os == 'windows-latest'
-        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        with:
-          sdk-version: 22000
+
       - name: Update Submodules
         run: git submodule update --init --recursive
+
       - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
+
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: deploy-synnax-${{ matrix.os }}
+          disk-cache: deploy-synnax-ubuntu-latest
           repository-cache: true
+
       - name: Build Driver
-        if: matrix.os != 'windows-latest'
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
-          else
-            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
-          fi
-      - name: Build Driver (Windows)
-        if: matrix.os == 'windows-latest'
-        run:
-          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
-      - name: Determine OS
-        id: os
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "macos-15" ]; then
-            echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_OUTPUT
-          fi
-      - name: Determine Executable Name
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-          else
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          fi
+          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+
       - name: Move Driver to Assets
         shell: bash
         run: |
           mkdir -p synnax/pkg/service/hardware/embedded/assets
-          cp bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+
       - name: Get Version
         id: version
         working-directory: synnax
         run: |
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
+
       - name: Download Dependencies
         working-directory: synnax
         run: go mod download
+
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
+
       - name: Test Binary Execution
         shell: bash
         run: |
           echo "Testing binary execution..."
-          # Quick smoke test that binaries actually run
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe version || echo "⚠️ Server binary check failed"
-            bazel-bin/driver/driver.exe --help || echo "⚠️ Driver binary check failed"
-          else
-            ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }} version || echo "⚠️ Server binary check failed"
-            bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
-          fi
+          ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux version || echo "⚠️ Server binary check failed"
+          bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+
       - name: Upload Driver Binary as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: driver-${{ steps.os.outputs.OS }}
-          path: bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }}
+          name: driver-linux
+          path: bazel-bin/driver/driver
           retention-days: 7
+
       - name: Upload Server Binary as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-server-${{ steps.os.outputs.OS }}
-          path:
-            synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS
-            }}${{ steps.executable.outputs.EXECUTABLE }}
+          name: synnax-server-linux
+          path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux
           retention-days: 7
+
       - name: Debug Build Environment
         if: failure()
         shell: bash
@@ -133,314 +204,232 @@ jobs:
           bazel version || bazelisk version || echo "Bazel/Bazelisk not found"
           echo "=== Disk space ==="
           df -h || echo "Cannot check disk space"
-          echo "=== Environment ==="
-          echo "Matrix OS: ${{ matrix.os }}"
-          echo "Detected OS: ${{ steps.os.outputs.OS }}"
-          echo "Executable suffix: ${{ steps.executable.outputs.EXECUTABLE }}"
           echo "=== Build outputs ==="
           ls -la bazel-bin/driver/ || echo "No driver build output"
           ls -la synnax/ | grep synnax-v || echo "No server build output"
 
-  deploy:
-    name: Deploy Synnax Service (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu, windows, macos]
+  build-windows-latest:
+    name: Build Synnax (windows-latest)
+    timeout-minutes: 60
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Windows SDK
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 22000
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: deploy-synnax-windows-latest
+          repository-cache: true
+
+      - name: Build Driver (Windows)
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
+
+      - name: Move Driver to Assets
+        shell: bash
+        run: |
+          mkdir -p synnax/pkg/service/hardware/embedded/assets
+          cp bazel-bin/driver/driver.exe synnax/pkg/service/hardware/embedded/assets/driver.exe
+
+      - name: Get Version
+        id: version
+        working-directory: synnax
+        run: |
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Download Dependencies
+        working-directory: synnax
+        run: go mod download
+
+      - name: Build
+        working-directory: synnax
+        run: |
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
+
+      - name: Test Binary Execution
+        shell: bash
+        run: |
+          echo "Testing binary execution..."
+          ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe version || echo "⚠️ Server binary check failed"
+          bazel-bin/driver/driver.exe --help || echo "⚠️ Driver binary check failed"
+
+      - name: Upload Driver Binary as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-windows
+          path: bazel-bin/driver/driver.exe
+          retention-days: 7
+
+      - name: Upload Server Binary as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-server-windows
+          path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
+          retention-days: 7
+
+      - name: Debug Build Environment
+        if: failure()
+        shell: bash
+        run: |
+          echo "🔍 Build failed - debugging info:"
+          echo "=== Go version ==="
+          go version || echo "Go not found"
+          echo "=== Bazel version ==="
+          bazel version || bazelisk version || echo "Bazel/Bazelisk not found"
+          echo "=== Disk space ==="
+          df -h || echo "Cannot check disk space"
+          echo "=== Build outputs ==="
+          ls -la bazel-bin/driver/ || echo "No driver build output"
+          ls -la synnax/ | grep synnax-v || echo "No server build output"
+
+  # build-macos-15:
+  #   name: Build Synnax (macos-15)
+  #   timeout-minutes: 60
+  #   runs-on: macos-15
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Update Submodules
+  #       run: git submodule update --init --recursive
+
+  #     - name: Setup Bazel
+  #       uses: bazel-contrib/setup-bazel@0.15.0
+  #       with:
+  #         bazelisk-cache: true
+  #         disk-cache: deploy-synnax-macos-15
+  #         repository-cache: true
+
+  #     - name: Build Driver
+  #       run: |
+  #         bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+
+  #     - name: Move Driver to Assets
+  #       shell: bash
+  #       run: |
+  #         mkdir -p synnax/pkg/service/hardware/embedded/assets
+  #         cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+
+  #     - name: Get Version
+  #       id: version
+  #       working-directory: synnax
+  #       run: |
+  #         echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.work
+  #         cache-dependency-path: go.work.sum
+
+  #     - name: Download Dependencies
+  #       working-directory: synnax
+  #       run: go mod download
+
+  #     - name: Build
+  #       working-directory: synnax
+  #       run: |
+  #         go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-macos
+
+  #     - name: Test Binary Execution
+  #       shell: bash
+  #       run: |
+  #         echo "Testing binary execution..."
+  #         ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-macos version || echo "⚠️ Server binary check failed"
+  #         bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+
+  #     - name: Upload Driver Binary as Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: driver-macos
+  #         path: bazel-bin/driver/driver
+  #         retention-days: 7
+
+  #     - name: Upload Server Binary as Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: synnax-server-macos
+  #         path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-macos
+  #         retention-days: 7
+
+  #     - name: Debug Build Environment
+  #       if: failure()
+  #       shell: bash
+  #       run: |
+  #         echo "🔍 Build failed - debugging info:"
+  #         echo "=== Go version ==="
+  #         go version || echo "Go not found"
+  #         echo "=== Bazel version ==="
+  #         bazel version || bazelisk version || echo "Bazel/Bazelisk not found"
+  #         echo "=== Disk space ==="
+  #         df -h || echo "Cannot check disk space"
+  #         echo "=== Build outputs ==="
+  #         ls -la bazel-bin/driver/ || echo "No driver build output"
+  #         ls -la synnax/ | grep synnax-v || echo "No server build output"
+
+  download-artifacts-windows:
+    name: Download Artifacts (Windows)
+    timeout-minutes: 1
     runs-on:
       - self-hosted
-      - ${{ matrix.os }}
-    needs: build
+      - windows
+    needs: build-windows-latest
     steps:
-      - name: Download Artifacts (Linux)
-        if: matrix.os == 'ubuntu'
-        uses: actions/download-artifact@v4
-        with:
-          name: driver-linux
-          path: ./binaries/
+      - name: Setup GitHub CLI (Windows)
+        shell: cmd
+        run: |
+          where gh >nul 2>nul && (
+            echo GitHub CLI already installed
+            gh --version
+          ) || (
+            echo Installing GitHub CLI via Chocolatey...
+            choco install gh -y
+            refreshenv
+            gh --version
+          )
 
-      - name: Download Artifacts (Linux - Server)
-        if: matrix.os == 'ubuntu'
-        uses: actions/download-artifact@v4
-        with:
-          name: synnax-server-linux
-          path: ./binaries/
-
-      - name: Download Artifacts (Windows)
-        if: matrix.os == 'windows'
+      - name: Download Build Artifacts (Windows)
         uses: actions/download-artifact@v4
         with:
           name: driver-windows
           path: ./binaries/
-
-      - name: Download Artifacts (Windows - Server)
-        if: matrix.os == 'windows'
+      
+      - name: Download Server Artifacts (Windows)
         uses: actions/download-artifact@v4
         with:
           name: synnax-server-windows
           path: ./binaries/
 
-      - name: Download Artifacts (macOS)
-        if: matrix.os == 'macos'
-        uses: actions/download-artifact@v4
-        with:
-          name: driver-macos
-          path: ./binaries/
-
-      - name: Download Artifacts (macOS - Server)
-        if: matrix.os == 'macos'
-        uses: actions/download-artifact@v4
-        with:
-          name: synnax-server-macos
-          path: ./binaries/
-
-      - name: Setup Binaries (Linux)
-        if: matrix.os == 'ubuntu'
-        run: |
-          mkdir -p $HOME/Desktop
-          cp ./binaries/driver $HOME/Desktop/synnax-driver
-          cp ./binaries/synnax-*-linux $HOME/Desktop/synnax
-          chmod +x $HOME/Desktop/synnax*
-          echo "Binaries prepared in $HOME/Desktop:"
-          ls -la $HOME/Desktop/synnax*
-
       - name: Setup Binaries (Windows)
-        if: matrix.os == 'windows'
-        shell: powershell
+        shell: cmd
         run: |
-          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\Desktop"
-          Copy-Item -Force "./binaries/driver.exe" "$env:USERPROFILE\Desktop\synnax-driver.exe"
-          Copy-Item -Force "./binaries/synnax-*-windows.exe" "$env:USERPROFILE\Desktop\synnax.exe"
-          Write-Host "Binaries prepared in Desktop:"
-          Get-ChildItem "$env:USERPROFILE\Desktop\synnax*"
+          if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
+          copy /Y "./binaries/driver.exe" "%USERPROFILE%\Desktop\synnax-driver.exe"
+          for %%f in (./binaries/synnax-*-windows.exe) do copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
+          echo Binaries prepared in Desktop:
+          dir "%USERPROFILE%\Desktop\synnax*"
 
-      - name: Setup Binaries (macOS)
-        if: matrix.os == 'macos'
-        run: |
-          mkdir -p $HOME/Desktop
-          cp ./binaries/driver $HOME/Desktop/synnax-driver
-          cp ./binaries/synnax-*-macos $HOME/Desktop/synnax
-          chmod +x $HOME/Desktop/synnax*
-          echo "Binaries prepared in $HOME/Desktop:"
-          ls -la $HOME/Desktop/synnax*
-
-      - name: Force Quit Existing Synnax Processes (Windows)
-        if: matrix.os == 'windows'
-        shell: powershell
-        run: |
-          echo "Checking for existing synnax processes on Windows..."
-          tasklist /FI "IMAGENAME eq synnax.exe" 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
-            taskkill /F /IM "synnax.exe" 2>$null
-            Write-Host "Killed synnax.exe processes"
-          } else {
-            Write-Host "No synnax.exe processes found"
-          }
-
-          tasklist /FI "IMAGENAME eq synnax-driver.exe" 2>$null | Out-Null  
-          if ($LASTEXITCODE -eq 0) {
-            taskkill /F /IM "synnax-driver.exe" 2>$null
-            Write-Host "Killed synnax-driver.exe processes"
-          } else {
-            Write-Host "No synnax-driver.exe processes found"
-          }
-
-      - name: Force Quit Existing Synnax Processes (Unix)
-        if: matrix.os != 'windows'
-        shell: bash
-        run: |
-          echo "Checking for existing synnax processes..."
-          pkill -f "synnax" 2>/dev/null || echo "No synnax processes found"
-          sleep 2
-          pkill -9 -f "synnax" 2>/dev/null || true
-
-      - name: Debug Deploy Environment
-        if: failure()
-        shell: bash
-        run: |
-          echo "🔍 Deploy failed - debugging info:"
-          echo "Matrix OS: ${{ matrix.os }}"
-          echo "=== Downloaded binaries ==="
-          ls -la ./binaries/ || echo "No binaries downloaded"
-          echo "=== Desktop binaries ==="
-          ls -la $HOME/Desktop/synnax* || echo "No binaries found on desktop"
-          echo "=== Process check ==="
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            tasklist | findstr synnax || echo "No synnax processes found"
-          else
-            ps aux | grep synnax || echo "No synnax processes found"
-          fi
-          echo "=== Network check ==="
-          netstat -an | grep 9090 || ss -tuln | grep 9090 || echo "Port 9090 not in use"
-
-      - name: Install and Start Synnax as Service (Linux)
-        if: matrix.os == 'ubuntu'
-        run: |
-          # Create necessary directories with proper permissions
-          sudo mkdir -p /var/lib/synnax-driver
-          sudo chown $USER:$USER /var/lib/synnax-driver
-          sudo chmod 755 /var/lib/synnax-driver
-
-          # Create local data directory
-          mkdir -p $HOME/synnax-data
-
-          # Create systemd service
-          sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
-          [Unit]
-          Description=Synnax Server
-          After=network.target
-
-          [Service]
-          Type=simple
-          User=$USER
-          WorkingDirectory=$HOME/synnax-data
-          ExecStart=$HOME/Desktop/synnax start -mi
-          Restart=always
-          RestartSec=5
-          StandardOutput=journal
-          StandardError=journal
-          Environment=SYNNAX_DATA_DIR=$HOME/synnax-data
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-          # Start the service
-          sudo systemctl daemon-reload
-          sudo systemctl stop synnax || true
-          sudo systemctl enable synnax
-          sudo systemctl start synnax
-
-          # Wait for service to start
-          sleep 15
-
-          # Verify service is running and responding
-          if sudo systemctl is-active --quiet synnax; then
-            if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
-              echo "Synnax service is running and responding on port 9090"
-            else
-              echo "Service is running but not responding on port 9090"
-              sudo journalctl -u synnax --no-pager -n 20
-              exit 1
-            fi
-          else
-            echo "Service failed to start"
-            sudo journalctl -u synnax --no-pager -n 20
-            exit 1
-          fi
-
-      - name: Install and Start Synnax as Service (Windows)
-        if: matrix.os == 'windows'
-        shell: powershell
-        run: |
-          # Create data directory
-          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\synnax-data"
-
-          # Stop any existing Synnax service
-          Stop-Service -Name "Synnax" -ErrorAction SilentlyContinue
-
-          # Create a simple background process for testing (Windows Service creation is complex)
-          # For testing purposes, we'll run it as a background process
-          $synnaxPath = "$env:USERPROFILE\Desktop\synnax.exe"
-          $dataDir = "$env:USERPROFILE\synnax-data"
-
-          # Start Synnax in background
-          Start-Process -FilePath $synnaxPath -ArgumentList "start", "-mi" -WorkingDirectory $dataDir -WindowStyle Hidden
-
-          # Wait for service to start
-          Start-Sleep -Seconds 15
-
-          # Verify service is running and responding
-          $isRunning = $false
-          for ($i = 0; $i -lt 10; $i++) {
-            try {
-              $connection = Test-NetConnection -ComputerName localhost -Port 9090 -WarningAction SilentlyContinue
-              if ($connection.TcpTestSucceeded) {
-                Write-Host "Synnax service is running and responding on port 9090"
-                $isRunning = $true
-                break
-              }
-            } catch {}
-            Start-Sleep -Seconds 1
-          }
-
-          if (-not $isRunning) {
-            Write-Error "Synnax service is not responding on port 9090"
-            Get-Process | Where-Object {$_.ProcessName -like "*synnax*"} | Format-Table
-            exit 1
-          }
-
-      - name: Install and Start Synnax as Service (macOS)
-        if: matrix.os == 'macos'
-        run: |
-          # Create data directory
-          mkdir -p $HOME/synnax-data
-
-          # Create LaunchAgent plist for macOS
-          cat > $HOME/Library/LaunchAgents/com.synnaxlabs.synnax.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>Label</key>
-              <string>com.synnaxlabs.synnax</string>
-              <key>ProgramArguments</key>
-              <array>
-                  <string>$HOME/Desktop/synnax</string>
-                  <string>start</string>
-                  <string>-mi</string>
-              </array>
-              <key>WorkingDirectory</key>
-              <string>$HOME/synnax-data</string>
-              <key>EnvironmentVariables</key>
-              <dict>
-                  <key>SYNNAX_DATA_DIR</key>
-                  <string>$HOME/synnax-data</string>
-              </dict>
-              <key>KeepAlive</key>
-              <true/>
-              <key>RunAtLoad</key>
-              <true/>
-              <key>StandardOutPath</key>
-              <string>$HOME/synnax-data/synnax.out</string>
-              <key>StandardErrorPath</key>
-              <string>$HOME/synnax-data/synnax.err</string>
-          </dict>
-          </plist>
-          EOF
-
-          # Stop any existing service
-          launchctl unload $HOME/Library/LaunchAgents/com.synnaxlabs.synnax.plist 2>/dev/null || true
-
-          # Start the service
-          launchctl load $HOME/Library/LaunchAgents/com.synnaxlabs.synnax.plist
-
-          # Wait for service to start
-          sleep 15
-
-          # Verify service is running and responding
-          if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
-            echo "Synnax service is running and responding on port 9090"
-          else
-            echo "Service is not responding on port 9090"
-            launchctl list | grep synnax || echo "Synnax service not found in launchctl"
-            if [ -f $HOME/synnax-data/synnax.err ]; then
-              echo "Error log:"
-              tail -20 $HOME/synnax-data/synnax.err
-            fi
-            exit 1
-          fi
-
-  test:
-    name: Run Test Conductor (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu, windows, macos]
+  deploy-and-test-windows:
+    name: Deploy and Test (windows)
     runs-on:
       - self-hosted
-      - ${{ matrix.os }}
-    needs: deploy
+      - windows
+    needs: download-artifacts-windows
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -452,48 +441,431 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
 
-      - name: Set up Poetry
+      - name: Force Quit Existing Synnax Processes (Windows)
+        shell: cmd
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl python3-pip
-          curl -sSL https://install.python-poetry.org | python3 -
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry --version
+          echo Checking for existing synnax processes on Windows...
+          taskkill /F /IM "synnax.exe" 2>nul && echo Killed synnax.exe processes || echo No synnax.exe processes found
+          taskkill /F /IM "synnax-driver.exe" 2>nul && echo Killed synnax-driver.exe processes || echo No synnax-driver.exe processes found
+          exit /b 0
 
-      - name: Install Dependencies
-        working-directory: integration/py
+      - name: Install Poetry & Dependencies
+        working-directory: integration/test/py
+        shell: powershell
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry env remove --all || true
-          poetry add "pydantic>=2.11.5,<3.0" --no-cache
-          poetry install --no-cache
+          # Install Poetry on Windows
+          (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+          # Add Poetry to PATH
+          $env:PATH = "$env:APPDATA\Python\Scripts;$env:USERPROFILE\.local\bin;$env:PATH"
+          # Remove existing lock file and recreate it fresh
+          if (Test-Path "poetry.lock") { Remove-Item "poetry.lock" }
+          poetry install
 
-      - name: Debug Imports
-        working-directory: integration/py
+      - name: Start Synnax Server
+        timeout-minutes: 1
+        shell: powershell
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry run python -c "
-          import synnax; print('Synnax imported successfully')
-          import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot; print('Matplotlib imported successfully')
-          "
+          # Create data directory
+          if (-not (Test-Path "$env:USERPROFILE\synnax-data")) {
+            New-Item -ItemType Directory -Path "$env:USERPROFILE\synnax-data"
+          }
+          
+          # Start Synnax using PowerShell Start-Process which creates a truly detached process
+          Set-Location "$env:USERPROFILE\synnax-data"
+          $synnaxPath = "$env:USERPROFILE\Desktop\synnax.exe"
+          
+          Write-Host "Starting Synnax server..."
+          $process = Start-Process -FilePath $synnaxPath -ArgumentList "start", "-mi" -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
+          
+          # Store the process ID for tracking
+          $process.Id | Out-File -FilePath "$env:USERPROFILE\synnax-pid.txt" -Encoding ASCII
+          Write-Host "Started Synnax with PID: $($process.Id)"
+          
+          # Wait for startup and verify it's still running
+          Start-Sleep -Seconds 15
+          
+          $synnaxProcess = Get-Process -Id $process.Id -ErrorAction SilentlyContinue
+          if ($synnaxProcess) {
+            Write-Host "Synnax is running with PID: $($synnaxProcess.Id)"
+            
+            # Verify port 9090 is listening
+            $portReady = $false
+            for ($i = 1; $i -le 5; $i++) {
+              $connection = Test-NetConnection -ComputerName localhost -Port 9090 -WarningAction SilentlyContinue
+              if ($connection.TcpTestSucceeded) {
+                Write-Host "Port 9090 is ready"
+                $portReady = $true
+                break
+              }
+              Write-Host "Waiting for port 9090... (attempt $i/5)"
+              Start-Sleep -Seconds 3
+            }
+            
+            if (-not $portReady) {
+              Write-Host "ERROR: Port 9090 never became available"
+              exit 1
+            }
+          } else {
+            Write-Host "ERROR: Synnax process died during startup"
+            exit 1
+          }
 
       - name: Test Conductor
-        working-directory: integration/py
-        shell: bash
+        id: test-conductor
+        timeout-minutes: 5
+        working-directory: integration/test/py
+        shell: powershell
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          poetry run test-conductor --name test-conductor-${{ matrix.os }} --sequence ../test/py/testcases/basic_tests.json
+          # Verify Synnax is still running
+          $synnaxPid = Get-Content "$env:USERPROFILE\synnax-pid.txt" -ErrorAction SilentlyContinue
+          if ($synnaxPid -and (Get-Process -Id $synnaxPid -ErrorAction SilentlyContinue)) {
+            Write-Host "Synnax is running with PID: $synnaxPid"
+          } else {
+            Write-Host "ERROR: Synnax process not running"
+            exit 1
+          }
+          
+          # Run tests with UTF-8 encoding
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PYTHONUTF8 = "1"
+          $env:PATH = "$env:APPDATA\Python\Scripts;$env:USERPROFILE\.local\bin;$env:PATH"
+          poetry run test-conductor --name test-conductor-windows --sequence testcases/basic_tests.json
 
-      - name: Upload Benchmark Plot
+      - name: Upload Test Results
         uses: actions/upload-artifact@v4
-        if: always() # Run even if tests fail
+        if: steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome == 'failure'
         with:
-          name: benchmark-plots-${{ matrix.os }}
+          name: test-results-windows
           path: |
             integration/test/py/*.png
-            integration/test/py/framework/*.png
+            integration/test/py/*.log
+            integration/test/py/*.json
+          retention-days: 30
+
+      - name: Debug Test Environment
+        if: failure()
+        shell: powershell
+        run: |
+          Write-Host "Test failed - debugging info:"
+          Write-Host "Matrix OS: windows"
+          Write-Host "=== Python/Poetry environment ==="
+          python --version
+          $env:PATH = "$env:APPDATA\Python\Scripts;$env:USERPROFILE\.local\bin;$env:PATH"
+          poetry --version
+          Write-Host "=== Synnax connectivity ==="
+          try {
+            $connection = Test-NetConnection -ComputerName localhost -Port 9090 -WarningAction SilentlyContinue
+            if ($connection.TcpTestSucceeded) {
+              Write-Host "Port 9090 reachable"
+            } else {
+              Write-Host "Port 9090 unreachable"
+            }
+          } catch {
+            Write-Host "Cannot test port 9090"
+          }
+          Write-Host "=== Service status ==="
+          Get-Process | Where-Object {$_.ProcessName -like "*synnax*"} | Format-Table -Property ProcessName, Id
+          if (-not (Get-Process | Where-Object {$_.ProcessName -like "*synnax*"})) {
+            Write-Host "No synnax processes found"
+          }
+          Write-Host "=== Test artifacts ==="
+          if (Test-Path "integration/test/py") {
+            Get-ChildItem "integration/test/py" -File | Select-Object Name, Length, LastWriteTime | Format-Table
+          } else {
+            Write-Host "No test directory found"
+          }
+
+  # download-artifacts-macos:
+  #   name: Download Artifacts (macos)
+  #   timeout-minutes: 1
+  #   runs-on:
+  #     - self-hosted
+  #     - macos
+  #   needs: build-macos-15
+  #   steps:
+  #     - name: Install GitHub CLI
+  #       run: |
+  #         if ! command -v gh &> /dev/null; then
+  #           echo "Installing GitHub CLI via Homebrew..."
+  #           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || echo "Homebrew already installed"
+  #           brew install gh
+  #         else
+  #           echo "GitHub CLI already installed"
+  #         fi
+
+  #     - name: Download Build Artifacts (macOS)
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: driver-macos
+  #         path: ./binaries/
+  #     
+  #     - name: Download Server Artifacts (macOS)
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: synnax-server-macos
+  #         path: ./binaries/
+
+  #     - name: Setup Binaries (macOS)
+  #       run: |
+  #         mkdir -p $HOME/synnax-binaries
+  #         cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
+  #         cp ./binaries/synnax-*-macos $HOME/synnax-binaries/synnax
+  #         chmod +x $HOME/synnax-binaries/synnax*
+  #         echo "Binaries prepared in $HOME/synnax-binaries:"
+  #         ls -la $HOME/synnax-binaries/synnax*
+
+  # deploy-and-test-macos:
+  #   name: Deploy and Test (macos)
+  #   runs-on:
+  #     - self-hosted
+  #     - macos
+  #   needs: download-artifacts-macos
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Update Submodules
+  #       run: git submodule update --init --recursive
+
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+
+  #     - name: Force Quit Existing Synnax Processes
+  #       shell: bash
+  #       run: |
+  #         echo "Checking for existing synnax processes..."
+  #         pkill -f "synnax" 2>/dev/null && echo "Killed synnax processes" || echo "No synnax processes found"
+  #         sleep 2
+  #         pkill -9 -f "synnax" 2>/dev/null || true
+  #         exit 0
+
+  #     - name: Install Poetry & Dependencies
+  #       working-directory: integration/test/py
+  #       run: |
+  #         # Install Poetry and dependencies via pyproject.toml
+  #         curl -sSL https://install.python-poetry.org | python3 -
+  #         export PATH="$HOME/.local/bin:$PATH"
+  #         poetry install
+
+  #     - name: Start Synnax Server
+  #       timeout-minutes: 1
+  #       shell: bash
+  #       run: |
+  #         # Create data directory
+  #         mkdir -p $HOME/synnax-data
+  #         
+  #         # Start Synnax in background
+  #         cd $HOME/synnax-data
+  #         $HOME/synnax-binaries/synnax start -mi &
+  #         
+  #         # Wait for startup
+  #         sleep 10
+  #         
+  #         # Verify Synnax is running
+  #         if pgrep -f "synnax" >/dev/null; then
+  #           echo "Synnax is running"
+  #           
+  #           # Verify port 9090 is listening
+  #           portReady=false
+  #           for i in {1..5}; do
+  #             if nc -z localhost 9090; then
+  #               echo "Port 9090 is ready"
+  #               portReady=true
+  #               break
+  #             fi
+  #             echo "Waiting for port 9090... (attempt $i/5)"
+  #             sleep 3
+  #           done
+  #           
+  #           if [ "$portReady" = false ]; then
+  #             echo "ERROR: Port 9090 never became available"
+  #             exit 1
+  #           fi
+  #         else
+  #           echo "ERROR: Synnax process not found after startup"
+  #           exit 1
+  #         fi
+
+  #     - name: Test Conductor
+  #       id: test-conductor
+  #       timeout-minutes: 5
+  #       working-directory: integration/test/py
+  #       run: |
+  #         export PATH="$HOME/.local/bin:$PATH"
+  #         poetry run test-conductor --name test-conductor-macos --sequence testcases/basic_tests.json
+
+  #     - name: Upload Test Results
+  #       uses: actions/upload-artifact@v4
+  #       if: steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome == 'failure'
+  #       with:
+  #         name: test-results-macos
+  #         path: |
+  #           integration/test/py/*.png
+  #           integration/test/py/*.log
+  #           integration/test/py/*.json
+  #         retention-days: 30
+
+  #     - name: Debug Test Environment
+  #       if: failure()
+  #       shell: bash
+  #       run: |
+  #         echo "🔍 Test failed - debugging info:"
+  #         echo "Matrix OS: macos"
+  #         echo "=== Python/Poetry environment ==="
+  #         export PATH="$HOME/.local/bin:$PATH"
+  #         python --version || echo "Python not found"
+  #         poetry --version || echo "Poetry not found"
+  #         echo "=== Synnax connectivity ==="
+  #         if command -v nc &> /dev/null; then
+  #           nc -z localhost 9090 && echo "✅ Port 9090 reachable" || echo "❌ Port 9090 unreachable"
+  #         elif command -v telnet &> /dev/null; then
+  #           timeout 5 telnet localhost 9090 && echo "✅ Port 9090 reachable" || echo "❌ Port 9090 unreachable"
+  #         else
+  #           echo "No network testing tools available"
+  #         fi
+  #         echo "=== Service status ==="
+  #         ps aux | grep -v grep | grep synnax || echo "No synnax processes found"
+  #         echo "=== Test artifacts ==="
+  #         find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10
+
+  download-artifacts-linux:
+    name: Download Artifacts (Linux)
+    timeout-minutes: 1
+    runs-on:
+      - self-hosted
+      - Linux
+    needs: build-ubuntu-latest
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          if ! command -v gh &> /dev/null; then
+            echo "Installing GitHub CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          else
+            echo "GitHub CLI already installed"
+          fi
+
+      - name: Download Build Artifacts (Linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-linux
+          path: ./binaries/
+      
+      - name: Download Server Artifacts (Linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: synnax-server-linux
+          path: ./binaries/
+
+      - name: Setup Binaries (Linux)
+        run: |
+          # Create a binaries directory in a reliable location
+          mkdir -p $HOME/synnax-binaries
+          cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
+          cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
+          chmod +x $HOME/synnax-binaries/synnax*
+          echo "Binaries prepared in $HOME/synnax-binaries:"
+          ls -la $HOME/synnax-binaries/synnax*
+
+  deploy-and-test-linux:
+    name: Deploy and Test (linux)
+    runs-on:
+      - self-hosted
+      - Linux
+    needs: download-artifacts-linux
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Force Quit Existing Synnax Processes
+        shell: bash
+        run: |
+          echo "Checking for existing synnax processes..."
+          pkill -f "synnax" 2>/dev/null && echo "Killed synnax processes" || echo "No synnax processes found"
+          sleep 2
+          pkill -9 -f "synnax" 2>/dev/null || true
+          exit 0
+
+      - name: Install Poetry & Dependencies
+        working-directory: integration/test/py
+        run: |
+          # Install Poetry and dependencies via pyproject.toml
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry install
+
+      - name: Start Synnax Server
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          # Create data directory
+          mkdir -p $HOME/synnax-data
+          
+          # Start Synnax in background
+          cd $HOME/synnax-data
+          $HOME/synnax-binaries/synnax start -mi &
+          
+          # Wait for startup
+          sleep 10
+          
+          # Verify Synnax is running
+          if pgrep -f "synnax" >/dev/null; then
+            echo "Synnax is running"
+            
+            # Verify port 9090 is listening
+            portReady=false
+            for i in {1..5}; do
+              if nc -z localhost 9090; then
+                echo "Port 9090 is ready"
+                portReady=true
+                break
+              fi
+              echo "Waiting for port 9090... (attempt $i/5)"
+              sleep 3
+            done
+            
+            if [ "$portReady" = false ]; then
+              echo "ERROR: Port 9090 never became available"
+              exit 1
+            fi
+          else
+            echo "ERROR: Synnax process not found after startup"
+            exit 1
+          fi
+
+      - name: Test Conductor
+        id: test-conductor
+        timeout-minutes: 5
+        working-directory: integration/test/py
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run test-conductor --name test-conductor-linux --sequence testcases/basic_tests.json
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome == 'failure'
+        with:
+          name: test-results-linux
+          path: |
+            integration/test/py/*.png
+            integration/test/py/*.log
+            integration/test/py/*.json
           retention-days: 30
 
       - name: Debug Test Environment
@@ -501,7 +873,7 @@ jobs:
         shell: bash
         run: |
           echo "🔍 Test failed - debugging info:"
-          echo "Matrix OS: ${{ matrix.os }}"
+          echo "Matrix OS: Linux"
           echo "=== Python/Poetry environment ==="
           export PATH="$HOME/.local/bin:$PATH"
           python --version || echo "Python not found"
@@ -515,36 +887,6 @@ jobs:
             echo "No network testing tools available"
           fi
           echo "=== Service status ==="
-          if [ "${{ matrix.os }}" = "ubuntu" ]; then
-            sudo systemctl status synnax || echo "Systemd service not running"
-          elif [ "${{ matrix.os }}" = "macos" ]; then
-            launchctl list | grep synnax || echo "LaunchAgent not running"
-          elif [ "${{ matrix.os }}" = "windows" ]; then
-            tasklist | findstr synnax || echo "No synnax processes found"
-          fi
+          ps aux | grep -v grep | grep synnax || echo "No synnax processes found"
           echo "=== Test artifacts ==="
           find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10
-
-  # TODO: Uncomment and implement when all hosts are set up
-  # test-summary:
-  #   name: Aggregate Test Results
-  #   needs: test
-  #   runs-on: ubuntu
-  #   if: always()
-  #   steps:
-  #     - name: Download all artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: benchmark-plots-*
-  #         merge-multiple: true
-  #     - name: Generate test summary
-  #       run: |
-  #         echo "# Integration Test Summary" > test-summary.md
-  #         echo "## Platform Results" >> test-summary.md
-  #         # Combine results from all platforms
-  #         # TODO: Parse test results and create consolidated report
-  #     - name: Upload consolidated summary
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: test-summary
-  #         path: test-summary.md

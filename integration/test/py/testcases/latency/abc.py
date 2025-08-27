@@ -54,7 +54,7 @@ class LatencyABC(TestCase):
         """
         Setup the test case.
         """
-
+        self._log_message("WARNING (⚠️): This test does not have any reporting.")
         self.configure(loop_rate=0.01, manual_timeout=30)
 
         self.mode = self.name[-1]  # A, B, C, D
@@ -72,6 +72,7 @@ class LatencyABC(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
+            time.sleep(2)
             self.subscribe(["t_c"])
 
         elif self.mode == "b":
@@ -81,6 +82,7 @@ class LatencyABC(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
+            time.sleep(2)
             self.subscribe("t_a")
 
         elif self.mode == "c":
@@ -90,20 +92,23 @@ class LatencyABC(TestCase):
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
             )
+            time.sleep(2)
             self.subscribe("t_b")
 
         if self.mode == "d":
-            self.subscribe(["t_a", "t_b", "t_c", "t_d"])
             self.add_channel("d_ab", sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_bc", sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_cd", sy.DataType.FLOAT64, 0, False)
             self.add_channel("d_da", sy.DataType.FLOAT64, 0, False)
+            time.sleep(2)
+            self.subscribe(["t_a", "t_b", "t_c", "t_d"])
 
     def run(self) -> None:
         """
         Run the test case.
         """
-        time.sleep(2)
+        self._log_message("Starting run()")
+        time.sleep(3)
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
@@ -158,4 +163,4 @@ class LatencyABC(TestCase):
 
                 idx += 1
 
-            self.write_tlm("LatencyABC Report not implemented...")
+            self._log_message("WARNING (⚠️): LatencyABC Report not implemented...")
