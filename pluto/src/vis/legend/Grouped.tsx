@@ -68,7 +68,7 @@ export const Grouped = ({
               onColorPickerVisibleChange={setPickerVisible}
               allowVisibleChange={allowVisibleChange}
               background={background}
-              entryProps={{ justify: "between", grow: true }}
+              entryProps={entryProps}
             />
           </Flex.Box>
           {i !== data.length - 1 && <div className={CSS.B("legend-divider")} />}
@@ -77,3 +77,5 @@ export const Grouped = ({
     </Container>
   );
 };
+
+const entryProps = { justify: "between", grow: true } as const;

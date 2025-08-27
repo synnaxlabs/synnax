@@ -93,6 +93,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
 
 export interface LineSpec {
   key: string;
+  legendGroup: string;
   color: color.Crude;
   label: string;
   visible: boolean;

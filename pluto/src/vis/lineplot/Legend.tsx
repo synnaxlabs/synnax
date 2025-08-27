@@ -19,7 +19,7 @@ import { type LineSpec, useContext, useGridEntry } from "@/vis/lineplot/LinePlot
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";
-  onLineChange?: (line: LineSpec) => void;
+  onLineChange?: (line: Optional<LineSpec, "legendGroup">) => void;
 }
 
 export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactElement =>
@@ -40,11 +40,18 @@ interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
 
 const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
   const groups: Core.GroupData[] = useMemo(() => {
-    const groups: Core.GroupData[] = [];
-    const data1 = lines.filter((l) => l.key.startsWith("y1"));
-    const data2 = lines.filter((l) => l.key.startsWith("y2"));
-    if (data1.length > 0) groups.push({ key: "y1", name: "Y1", data: data1 });
-    if (data2.length > 0) groups.push({ key: "y2", name: "Y2", data: data2 });
+    const groupInfo: Record<string, LineSpec[]> = {};
+    for (const line of lines) {
+      const group = groupInfo[line.legendGroup];
+      if (group != null) group.push(line);
+      else groupInfo[line.legendGroup] = [line];
+    }
+    const groups = Object.entries(groupInfo).map(([key, data]) => ({
+      key,
+      name: key,
+      data,
+    }));
+    groups.sort((a, b) => a.name.localeCompare(b.name));
     return groups;
   }, [lines]);
   return groups;
@@ -76,7 +83,7 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
 interface FocusedGroupProps {
   name: string;
   data: Optional<EntryData, "visible">[];
-  onLineChange?: (line: LineSpec) => void;
+  onLineChange?: (line: Optional<LineSpec, "legendGroup">) => void;
 }
 
 const FocusedGroup = ({

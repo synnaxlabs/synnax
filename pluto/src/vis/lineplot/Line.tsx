@@ -14,21 +14,24 @@ import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Line as Core } from "@/vis/line";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
-export interface LineProps extends Core.LineProps, Aether.ComponentProps {}
+export interface LineProps extends Core.LineProps, Aether.ComponentProps {
+  legendGroup: string;
+}
 
 export const Line = ({
   aetherKey,
   color,
   label = "",
+  legendGroup,
   visible = true,
   ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
-    setLine({ key: cKey, color, label, visible });
+    setLine({ key: cKey, color, label, visible, legendGroup });
     return () => removeLine(cKey);
-  }, [label, color, visible]);
+  }, [label, color, visible, legendGroup]);
   return (
     <Core.Line
       aetherKey={cKey}

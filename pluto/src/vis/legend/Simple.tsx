@@ -54,7 +54,10 @@ export const Simple = ({
         onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowVisibleChange}
         background={background}
+        entryProps={entryProps}
       />
     </Container>
   );
 };
+
+const entryProps = { justify: "between", grow: true } as const;
