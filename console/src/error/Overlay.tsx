@@ -123,13 +123,13 @@ const FallBackRenderContent = ({
             forceOS={os}
             contrast={0}
             onClose={() => {
-              if (ENGINE === "tauri") void getCurrentWindow().close();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (ENGINE === "tauri") void getCurrentWindow().minimize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (ENGINE === "tauri") void getCurrentWindow().maximize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>

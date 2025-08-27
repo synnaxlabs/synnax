@@ -19,7 +19,7 @@ import { z } from "zod";
 
 import { type ConnectionParams } from "@/cluster/detectConnection";
 import { type Cluster } from "@/cluster/types";
-import { Notifications } from "@/layouts/Notifications";
+import { Layouts } from "@/layouts";
 import { set as setVersion } from "@/version/slice";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -81,7 +81,7 @@ export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
 
   return (
     <>
-      <Notifications />
+      <Layouts.Notifications />
       <Flex.Box className="pluto-login-screen" center y>
         <Flex.Box className="pluto-login-container" y gap="huge">
           <Flex.Box y gap="small" align="center">

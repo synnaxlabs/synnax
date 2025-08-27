@@ -105,7 +105,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         <Nav.Bar location="top" size="5rem">
           <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
             <Breadcrumb.Breadcrumb>
-              <Icon.Feedback />
+              <Icon.Feedback color={9} />
               Feedback
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>

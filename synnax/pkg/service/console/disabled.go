@@ -40,10 +40,10 @@ func (s *Service) BindTo(app *fiber.App) {
 	})
 }
 
-// Use implements freighter.Transport for compatibility.
+// Use implements freighter.Transport.
 func (s *Service) Use(...freighter.Middleware) {}
 
-// Report implements alamos.ReportProvider for compatibility.
+// Report implements alamos.ReportProvider.
 func (s *Service) Report() alamos.Report {
 	return alamos.Report{"ui": "disabled"}
 }
