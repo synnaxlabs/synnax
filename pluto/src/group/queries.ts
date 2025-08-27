@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { group, ontology, type Synnax } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
@@ -80,10 +89,8 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     store.groups.onDelete(onDelete),
     store.relationships.onSet(async (rel) => {
       if (
-        !ontology.matchRelationship(rel, {
-          from: parent,
-          type: "parent",
-        })
+        parent == null ||
+        !ontology.matchRelationship(rel, { from: parent, type: "parent" })
       )
         return;
       const group = await singleRetrieve(rel.to.key, client, store);
@@ -92,10 +99,8 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     store.relationships.onDelete(async (relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
       if (
-        !ontology.matchRelationship(rel, {
-          from: parent,
-          type: "parent",
-        })
+        parent == null ||
+        !ontology.matchRelationship(rel, { from: parent, type: "parent" })
       )
         return;
       onDelete(rel.to.key);

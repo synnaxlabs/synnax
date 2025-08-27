@@ -689,7 +689,7 @@ export const Setpoint = ({
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<SetpointProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Setpoint
@@ -861,7 +861,7 @@ export const Button = ({
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<ButtonProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Button
@@ -905,7 +905,7 @@ export const Light = ({
       symbolKey={symbolKey}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<LightProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Light enabled={enabled} {...rest} />
