@@ -48,7 +48,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       });
     const footer =
       percentDownloaded > 0 ? (
-        <Flex.Box grow style={{ paddingLeft: "5rem", paddingRight: "5rem" }}>
+        <Flex.Box grow style={{ paddingLeft: "5rem", paddingRight: "5rem" }} x>
           <Progress.Progress value={percentDownloaded} />
         </Flex.Box>
       ) : (
