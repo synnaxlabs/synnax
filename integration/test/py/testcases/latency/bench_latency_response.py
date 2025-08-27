@@ -7,18 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from re import S
-import sys
 import os
+import sys
 import time
+from re import S
 from time import time as now
 
-# Set up the path before importing framework modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-
-from framework.TestCase import TestCase
-
 import synnax as sy
+
+from framework.test_case import TestCase
+
 
 class BenchLatencyResponse(TestCase):
 
@@ -50,7 +48,6 @@ class BenchLatencyResponse(TestCase):
             retrieve_if_name_exists=True,
         )
 
-
         # Just make sure to call super() last!
         super().setup()
 
@@ -67,7 +64,9 @@ class BenchLatencyResponse(TestCase):
         try:
 
             with self.bench_client.open_streamer(cmd_channel) as stream:
-                with self.bench_client.open_writer(sy.TimeStamp.now(), state_channel) as writer:
+                with self.bench_client.open_writer(
+                    sy.TimeStamp.now(), state_channel
+                ) as writer:
                     while uptime < 10:
                         frame = stream.read(timeout=2.5)
                         if frame is not None:

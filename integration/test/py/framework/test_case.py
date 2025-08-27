@@ -9,61 +9,66 @@
 
 # Suppress WebSocket keepalive ping warnings
 import warnings
+
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-from selectors import SelectorKey
-import synnax as sy
-import traceback
 import logging
 import os
-import sys
-from dataclasses import dataclass, field
-from enum import Enum, auto
 import re
+import sys
 import threading
 import time
+import traceback
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from selectors import SelectorKey
 from typing import Any
 
-import sys
+import synnax as sy
 
-try:
-    # Import from the framework module to ensure we get the same class objects``
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-    from framework.utils import validate_and_sanitize_name, WebSocketErrorFilter, ignore_websocket_errors
-except ImportError:
-    # Handle case when running script directly
-    from utils import validate_and_sanitize_name, WebSocketErrorFilter, ignore_websocket_errors
-
+from framework.utils import (
+    WebSocketErrorFilter,
+    ignore_websocket_errors,
+    validate_and_sanitize_name,
+)
 
 # Error filter
 sys.excepthook = ignore_websocket_errors
 sys.stderr = WebSocketErrorFilter()
 
+
 def is_websocket_error(error: Exception) -> bool:
-        """Check if an exception is a WebSocket-related error that should be ignored."""
-        error_str = str(error)
-        return any(phrase in error_str for phrase in [
-            "1011", 
-            "keepalive ping timeout", 
+    """Check if an exception is a WebSocket-related error that should be ignored."""
+    error_str = str(error)
+    return any(
+        phrase in error_str
+        for phrase in [
+            "1011",
+            "keepalive ping timeout",
             "keepalive ping failed",
             "timed out while closing connection",
             "ConnectionClosedError",
-            "WebSocketException"
-        ])
+            "WebSocketException",
+        ]
+    )
+
 
 @dataclass
 class SynnaxConnection:
     """Data class representing the Synnax connection parameters."""
-    server_address: str
-    port: int
-    username: str
-    password: str
-    secure: bool
+
+    server_address: str = "localhost"
+    port: int = 9090
+    username: str = "synnax"
+    password: str = "seldon"
+    secure: bool = False
+
 
 class STATUS(Enum):
     """Enum representing the status of a test."""
+
     INITIALIZING = auto()
     RUNNING = auto()
     PENDING = auto()
@@ -72,12 +77,13 @@ class STATUS(Enum):
     TIMEOUT = auto()
     KILLED = auto()
 
+
 class SYMBOLS(Enum):
-    PASSED = "✅"      # Green checkmark
-    FAILED = "❌"      # Red X
-    KILLED = "💀"      # Skull
-    TIMEOUT = "⏰"      # Alarm clock
-    
+    PASSED = "✅"  # Green checkmark
+    FAILED = "❌"  # Red X
+    KILLED = "💀"  # Skull
+    TIMEOUT = "⏰"  # Alarm clock
+
     @classmethod
     def get_symbol(cls, status):
         """Get symbol for a given status, with fallback to '?' if not found."""
@@ -86,10 +92,11 @@ class SYMBOLS(Enum):
         except (KeyError, AttributeError):
             return "❓"  # Question mark emoji
 
+
 class TestCase(ABC):
     """
     Parent class for all test cases in the integration test framework.
-    
+
     This class handles the connection to Synnax server and provides
     three key lifecycle methods that can be overridden by subclasses:
 
@@ -98,9 +105,9 @@ class TestCase(ABC):
     - run(): The main test logic (NOT async!)
 
     - teardown(): Cleanup, unload configs, open vents, etc.
-    
+
     """
-    
+
     # Configuration constants
     DEFAULT_READ_TIMEOUT = 1
     DEFAULT_LOOP_RATE = 1
@@ -150,8 +157,14 @@ class TestCase(ABC):
     - get_writer_status() -> str:
 
     """
-    
-    def __init__(self, synnax_connection: SynnaxConnection, name:str=None, expect: str = "PASSED", **params):
+
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection,
+        name: str = None,
+        expect: str = "PASSED",
+        **params,
+    ):
 
         # Store for test cases to use
         self.synnax_connection = synnax_connection
@@ -166,7 +179,7 @@ class TestCase(ABC):
                 self.expected_outcome = STATUS.KILLED
         else:
             self.expected_outcome = STATUS.PASSED
-        
+
         """Initialize test case with Synnax server connection."""
         self._status = STATUS.INITIALIZING
         self.params = params
@@ -174,10 +187,12 @@ class TestCase(ABC):
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
         self.read_frame = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
-        
+
         if name is None:
             # Convert PascalCase class name to lowercase with underscores
-            self.name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', self.__class__.__name__).lower()
+            self.name = re.sub(
+                r"([a-z0-9])([A-Z])", r"\1_\2", self.__class__.__name__
+            ).lower()
         else:
             self.name = validate_and_sanitize_name(name)
 
@@ -191,13 +206,13 @@ class TestCase(ABC):
             password=synnax_connection.password,
             secure=synnax_connection.secure,
         )
-        
+
         # Default loop rate
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self.client_thread = None
         self._should_stop = False
         self.is_running = True
-        
+
         self.subscribed_channels = []
         # Create telemetry channels
         self.time_index = self.client.channels.create(
@@ -205,19 +220,21 @@ class TestCase(ABC):
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
             retrieve_if_name_exists=True,
-        )  
-        
+        )
+
         self.tlm = {
             f"{self.name}_time": sy.TimeStamp.now(),
         }
-        
+
         self.add_channel(name="uptime", data_type=sy.DataType.UINT32, initial_value=0)
-        self.add_channel(name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value)
+        self.add_channel(
+            name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
+        )
 
     def __enter__(self):
         """Context manager entry point."""
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit point - ensures cleanup."""
         self._shutdown()
@@ -225,40 +242,43 @@ class TestCase(ABC):
     def _setup_logging(self) -> None:
         """Setup logging for real-time output (same approach as TestConductor)."""
         # Check if running in CI environment
-        is_ci = any(env_var in os.environ for env_var in ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'JENKINS_URL'])
-        
+        is_ci = any(
+            env_var in os.environ
+            for env_var in ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL"]
+        )
+
         # Force unbuffered output in CI environments
         if is_ci:
             sys.stdout.reconfigure(line_buffering=True)
-        
+
         # Create logger for this test case (don't configure root logger)
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(logging.INFO)
-        
+
         # Remove any existing handlers to avoid duplicates
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
-        
+
         # Add single handler
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(message)s')
+        formatter = logging.Formatter("%(message)s")
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-        
+
         # Prevent propagation to root logger to avoid duplicate output
         self.logger.propagate = False
-        
+
         # Force immediate flush for real-time output in CI
         for handler in self.logger.handlers:
-            if hasattr(handler.stream, 'flush'):
+            if hasattr(handler.stream, "flush"):
                 handler.flush = lambda h=handler: h.stream.flush()
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
         start_time = sy.TimeStamp.now()
         client = None
-   
+
         try:
             client = self.client.open_writer(
                 start=start_time,
@@ -266,23 +286,23 @@ class TestCase(ABC):
                 name=self.name,
                 enable_auto_commit=True,
             )
-            
+
             while self.loop.wait() and not self._should_stop:
                 """
 
                 # Update telemetry
-                
+
                 Keep outside of try/except block to avoid to ensure
-                we continue to update the internal state of the 
+                we continue to update the internal state of the
                 TestCase object. If not updated, then the logic
                 dictating if the test should continue will not function.
                 """
-                
+
                 now = sy.TimeStamp.now()
-                uptime_value = (now - start_time)/1E9    
+                uptime_value = (now - start_time) / 1e9
                 self.tlm[f"{self.name}_time"] = now
                 self.tlm[f"{self.name}_uptime"] = uptime_value
-                self.tlm[f"{self.name}_state"] = self._status.value  
+                self.tlm[f"{self.name}_state"] = self._status.value
 
                 # Check for timeout
                 if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
@@ -290,11 +310,11 @@ class TestCase(ABC):
 
                 # Check for completion
                 if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
-                    self.tlm[f"{self.name}_state"] = self._status.value                                
+                    self.tlm[f"{self.name}_state"] = self._status.value
                     self._should_stop = True
 
                 try:
-                    client.write(self.tlm)   
+                    client.write(self.tlm)
                 except Exception as e:
                     if is_websocket_error(e):
                         time.sleep(self.WEBSOCKET_RETRY_DELAY)
@@ -308,19 +328,21 @@ class TestCase(ABC):
                 except:
                     pass
             self._log_message("writer shutting down")
-                
+
         except Exception as e:
             if is_websocket_error(e):
                 pass
             else:
-                self._log_message(f"Writer thread error: {e}\n {traceback.format_exc()}")
+                self._log_message(
+                    f"Writer thread error: {e}\n {traceback.format_exc()}"
+                )
                 self._status = STATUS.FAILED
                 raise e
-                    
+
         finally:
             # Cleanup writer
             try:
-                if 'client' in locals() and client:
+                if "client" in locals() and client:
                     client.close()
             except Exception as cleanup_error:
                 if is_websocket_error(cleanup_error):
@@ -341,7 +363,7 @@ class TestCase(ABC):
 
         try:
             streamer = self.client.open_streamer(self.subscribed_channels)
-            
+
             while not self._should_stop:
                 try:
                     # Read data on demand with timeout (not tied to loop.wait())
@@ -349,44 +371,46 @@ class TestCase(ABC):
                     if self.frame_in is not None:
                         for key, value in self.frame_in.items():
                             self.read_frame[key] = value[-1]
-                            
+
                 except Exception as e:
                     if is_websocket_error(e):
                         time.sleep(self.WEBSOCKET_RETRY_DELAY)
                     else:
                         self._log_message(f"Streamer error: {e}")
                         break
-                        
+
             self._log_message("streamer shutting down")
-            
+
         except Exception as e:
             if is_websocket_error(e):
                 pass
             else:
-                self._log_message(f"Streamer thread error: {e}\n {traceback.format_exc()}")
+                self._log_message(
+                    f"Streamer thread error: {e}\n {traceback.format_exc()}"
+                )
                 self._status = STATUS.FAILED
                 raise e
-                
+
         finally:
             # Cleanup streamer
             try:
-                if 'streamer' in locals() and streamer:
+                if "streamer" in locals() and streamer:
                     streamer.close()
             except Exception as cleanup_error:
                 if is_websocket_error(cleanup_error):
                     pass
                 else:
                     self._log_message(f"Streamer cleanup error: {cleanup_error}")
-    
+
     def _log_message(self, message: str) -> None:
         """Log a message to the console with real-time output."""
         self.logger.info(f"{self.name} > {message}")
-        
+
         # Force flush to ensure immediate output in CI
         for handler in self.logger.handlers:
-            if hasattr(handler, 'flush'):
+            if hasattr(handler, "flush"):
                 handler.flush()
-        
+
     def _start_client_threads(self) -> None:
         # Start writer thread (writes telemetry at consistent interval)
         self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
@@ -395,7 +419,7 @@ class TestCase(ABC):
         # Start streamer thread (reads data on demand)
         self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
         self.streamer_thread.start()
-        
+
         time.sleep(self.CLIENT_THREAD_START_DELAY)  # Allow threads to start
         self._log_message("Streamer and Writer threads started")
 
@@ -404,31 +428,51 @@ class TestCase(ABC):
         if self.is_running:
             self._should_stop = True
             self.is_running = False
-            
+
             # Stop streamer thread
-            if hasattr(self, 'streamer_thread') and self.streamer_thread and self.streamer_thread.is_alive():
+            if (
+                hasattr(self, "streamer_thread")
+                and self.streamer_thread
+                and self.streamer_thread.is_alive()
+            ):
                 self.streamer_thread.join(timeout=5.0)
                 if self.streamer_thread.is_alive():
-                    self._log_message("Warning: streamer thread did not stop within timeout")
-            
+                    self._log_message(
+                        "Warning: streamer thread did not stop within timeout"
+                    )
+
             # Stop writer thread
-            if hasattr(self, 'writer_thread') and self.writer_thread and self.writer_thread.is_alive():
+            if (
+                hasattr(self, "writer_thread")
+                and self.writer_thread
+                and self.writer_thread.is_alive()
+            ):
                 self.writer_thread.join(timeout=5.0)
                 if self.writer_thread.is_alive():
-                    self._log_message("Warning: writer thread did not stop within timeout")
+                    self._log_message(
+                        "Warning: writer thread did not stop within timeout"
+                    )
 
-        # All done? All done.                
+        # All done? All done.
         if self._status == STATUS.PENDING:
             self._status = STATUS.PASSED
- 
+
     def _wait_for_client_completion(self, timeout: float = None) -> None:
         """Wait for client threads to complete."""
         # Wait for streamer thread
-        if hasattr(self, 'streamer_thread') and self.streamer_thread and self.streamer_thread.is_alive():
+        if (
+            hasattr(self, "streamer_thread")
+            and self.streamer_thread
+            and self.streamer_thread.is_alive()
+        ):
             self.streamer_thread.join(timeout=timeout)
-        
+
         # Wait for writer thread
-        if hasattr(self, 'writer_thread') and self.writer_thread and self.writer_thread.is_alive():
+        if (
+            hasattr(self, "writer_thread")
+            and self.writer_thread
+            and self.writer_thread.is_alive()
+        ):
             self.writer_thread.join(timeout=timeout)
 
     def _check_expectation(self) -> None:
@@ -446,18 +490,24 @@ class TestCase(ABC):
                 self._log_message(f"PASSED ({status_symbol})")
             else:
                 self._status = STATUS.FAILED
-                self._log_message(f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}")
+                self._log_message(
+                    f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}"
+                )
 
         elif self._status == self.expected_outcome:
-            self._log_message(f"PASSED (✅): Expected outcome achieved ({status_symbol})")
+            self._log_message(
+                f"PASSED (✅): Expected outcome achieved ({status_symbol})"
+            )
             self._status = STATUS.PASSED
         elif self._status == STATUS.FAILED:
             self._log_message(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
-            self._log_message(f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds")
+            self._log_message(
+                f"TIMEOUT ({status_symbol}): {self._timeout_limit} seconds"
+            )
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
-                 
+
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
         self._log_message("Shutting down test case...")
@@ -465,25 +515,30 @@ class TestCase(ABC):
         self.stop_client()
         self._log_message("Test case shutdown complete")
 
-    def add_channel(self, name: str, data_type: sy.DataType, initial_value: Any = None, append_name: bool = True):
-        
+    def add_channel(
+        self,
+        name: str,
+        data_type: sy.DataType,
+        initial_value: Any = None,
+        append_name: bool = True,
+    ):
         """Create a telemetry channel with name {self.name}_{name}."""
         if append_name:
             tlm_name = f"{self.name}_{name}"
         else:
             tlm_name = name
-            
+
         self.client.channels.create(
             name=tlm_name,
             data_type=data_type,
             index=self.time_index.key,
             retrieve_if_name_exists=True,
         )
-    
+
         self.tlm[tlm_name] = initial_value
 
     def subscribe(self, channels) -> None:
-        """ Subscribe to channels. Can take either a single channel name or a list of channels."""
+        """Subscribe to channels. Can take either a single channel name or a list of channels."""
         if isinstance(channels, str):
             # Single channel name
             self.subscribed_channels.append(channels)
@@ -498,7 +553,7 @@ class TestCase(ABC):
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
         return None
-   
+
     @abstractmethod
     def run(self) -> None:
         """
@@ -506,20 +561,20 @@ class TestCase(ABC):
         This method must be implemented by all subclasses.
         """
         pass
-    
+
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""
-        
-        # Unload configs 
+
+        # Unload configs
         # or open vents
         # or whatever else
         pass
-    
-    def write_tlm(self, channel:str, value: Any = None) -> None:
+
+    def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary. Can take single key-value or dict of multiple channels."""
-        #if isinstance(channel, self.tlm.keys()):
+        # if isinstance(channel, self.tlm.keys()):
         self.tlm[channel] = value
-        #else:
+        # else:
         #    raise KeyError(f"Key {channel} not found in telemetry dictionary ({self.tlm.keys()})")
 
     def read_tlm(self, key: str, default: Any = None) -> Any:
@@ -535,8 +590,8 @@ class TestCase(ABC):
 
         - self.name + "state"
         - self.name + "time"
-        - self.name + "uptime"    
-            """
+        - self.name + "uptime"
+        """
 
         name_ch = self.name + "_" + key
         return self.tlm.get(name_ch, default)
@@ -545,13 +600,13 @@ class TestCase(ABC):
     def STATUS(self) -> STATUS:
         """Get the current test status."""
         return self._status
-    
+
     @STATUS.setter
     def STATUS(self, value: STATUS) -> None:
         """Set the test status and update telemetry if client is running."""
         self._status = value
         # Update telemetry if client thread is running
-        if hasattr(self, 'tlm') and self.is_client_running():
+        if hasattr(self, "tlm") and self.is_client_running():
             try:
                 self.tlm[f"{self.name}_state"] = value.value
             except Exception:
@@ -566,7 +621,7 @@ class TestCase(ABC):
     def time(self) -> float:
         """Get the uptime of the test case."""
         return self.tlm.get(f"{self.name}_time", -1)
-    
+
     @property
     def state(self) -> float:
         """Get the state of the test case."""
@@ -576,12 +631,12 @@ class TestCase(ABC):
     def manual_timeout(self) -> int:
         """Get the manual timeout of the test case."""
         return self._manual_timeout
-    
+
     @property
     def should_stop(self) -> bool:
-        condition_1 = (self._manual_timeout >= 0 and self.uptime > self._manual_timeout)
+        condition_1 = self._manual_timeout >= 0 and self.uptime > self._manual_timeout
         condition_2 = self._should_stop
-        
+
         return condition_1 or condition_2
 
     @property
@@ -592,10 +647,10 @@ class TestCase(ABC):
         """Set the manual timeout of the test case."""
         self._manual_timeout = value
         self._log_message(f"Manual timeout set ({value}s)")
-        
+
     def configure(self, **kwargs) -> None:
         """Configure test case parameters.
-        
+
         Args:
             read_timeout: Timeout for read operations (default: 1)
             loop_rate: Loop frequency in Hz (default: 1)
@@ -603,47 +658,57 @@ class TestCase(ABC):
             timeout_limit: Maximum execution time in seconds (default: -1, no limit)
             manual_timeout: Manual timeout value (default: -1, no limit)
         """
-        if 'read_timeout' in kwargs:
-            self.read_timeout = kwargs['read_timeout']
-        if 'loop_rate' in kwargs:
-            self.loop = sy.Loop(kwargs['loop_rate'])
-        if 'timeout_limit' in kwargs:
-            self._timeout_limit = kwargs['timeout_limit']
-        if 'manual_timeout' in kwargs:
-            self._manual_timeout = kwargs['manual_timeout']
+        if "read_timeout" in kwargs:
+            self.read_timeout = kwargs["read_timeout"]
+        if "loop_rate" in kwargs:
+            self.loop = sy.Loop(kwargs["loop_rate"])
+        if "timeout_limit" in kwargs:
+            self._timeout_limit = kwargs["timeout_limit"]
+        if "manual_timeout" in kwargs:
+            self._manual_timeout = kwargs["manual_timeout"]
         self._log_message(f"Configured with: {kwargs}")
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
-        streamer_running = hasattr(self, 'streamer_thread') and self.streamer_thread and self.streamer_thread.is_alive()
-        writer_running = hasattr(self, 'writer_thread') and self.writer_thread and self.writer_thread.is_alive()
+        streamer_running = (
+            hasattr(self, "streamer_thread")
+            and self.streamer_thread
+            and self.streamer_thread.is_alive()
+        )
+        writer_running = (
+            hasattr(self, "writer_thread")
+            and self.writer_thread
+            and self.writer_thread.is_alive()
+        )
         return streamer_running or writer_running
-    
+
     def get_client_status(self) -> str:
         """Get client thread status."""
         streamer_status = "Not started"
         writer_status = "Not started"
-        
-        if hasattr(self, 'streamer_thread') and self.streamer_thread:
-            streamer_status = "Running" if self.streamer_thread.is_alive() else "Stopped"
-        
-        if hasattr(self, 'writer_thread') and self.writer_thread:
+
+        if hasattr(self, "streamer_thread") and self.streamer_thread:
+            streamer_status = (
+                "Running" if self.streamer_thread.is_alive() else "Stopped"
+            )
+
+        if hasattr(self, "writer_thread") and self.writer_thread:
             writer_status = "Running" if self.writer_thread.is_alive() else "Stopped"
-            
+
         return f"Streamer: {streamer_status}, Writer: {writer_status}"
-    
+
     def get_streamer_status(self) -> str:
         """Get streamer thread status."""
-        if not hasattr(self, 'streamer_thread') or self.streamer_thread is None:
+        if not hasattr(self, "streamer_thread") or self.streamer_thread is None:
             return "Not started"
         return "Running" if self.streamer_thread.is_alive() else "Stopped"
-    
+
     def get_writer_status(self) -> str:
         """Get writer thread status."""
-        if not hasattr(self, 'streamer_thread') or self.writer_thread is None:
+        if not hasattr(self, "streamer_thread") or self.writer_thread is None:
             return "Not started"
         return "Running" if self.writer_thread.is_alive() else "Stopped"
-       
+
     def fail(self) -> None:
         self._status = STATUS.FAILED
 
@@ -666,9 +731,9 @@ class TestCase(ABC):
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self._status = STATUS.PENDING
-            
+
             self.teardown()
-            
+
             # PASSED set in _check_expectation()
 
         except Exception as e:

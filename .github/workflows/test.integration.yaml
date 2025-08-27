@@ -1,4 +1,4 @@
-name: Test - Integration (End-to-End)
+name: Test - Integration
 
 on:
   push:
@@ -48,11 +48,11 @@ jobs:
           sudo rm -f /var/lib/apt/lists/lock
           sudo rm -f /var/cache/apt/archives/lock
           sudo rm -f /var/lib/dpkg/lock
-          
+
           # Remove any existing broken Bazel repositories
           sudo rm -f /etc/apt/sources.list.d/bazel.list
           sudo rm -f /etc/apt/trusted.gpg.d/bazel.gpg
-          
+
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -112,7 +112,7 @@ jobs:
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-linux
 
       - name: Copy Binaries to Desktop
-        run: |      
+        run: |
           cp bazel-bin/driver/driver $HOME/Desktop/synnax-driver
           cp synnax/synnax-v${{ steps.version.outputs.VERSION }}-linux $HOME/Desktop/synnax
           echo "Binaries created in $HOME/Desktop:"
@@ -129,16 +129,16 @@ jobs:
           sudo mkdir -p /var/lib/synnax-driver
           sudo chown $USER:$USER /var/lib/synnax-driver
           sudo chmod 755 /var/lib/synnax-driver
-          
+
           # Create local data directory
           mkdir -p $HOME/synnax-data
-          
+
           # Create systemd service
           sudo tee /etc/systemd/system/synnax.service > /dev/null <<EOF
           [Unit]
           Description=Synnax Server
           After=network.target
-          
+
           [Service]
           Type=simple
           User=$USER
@@ -149,20 +149,20 @@ jobs:
           StandardOutput=journal
           StandardError=journal
           Environment=SYNNAX_DATA_DIR=$HOME/synnax-data
-          
+
           [Install]
           WantedBy=multi-user.target
           EOF
-          
+
           # Start the service
           sudo systemctl daemon-reload
           sudo systemctl stop synnax || true
           sudo systemctl enable synnax
           sudo systemctl start synnax
-          
+
           # Wait for service to start
           sleep 15
-          
+
           # Verify service is running and responding
           if sudo systemctl is-active --quiet synnax; then
             if timeout 10 bash -c 'until nc -z localhost 9090; do sleep 1; done'; then
@@ -192,8 +192,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: "pip"
 
       - name: Set up Poetry
         run: |
@@ -228,7 +228,7 @@ jobs:
 
       - name: Upload Benchmark Plot
         uses: actions/upload-artifact@v4
-        if: always()  # Run even if tests fail
+        if: always() # Run even if tests fail
         with:
           name: benchmark-plots
           path: |

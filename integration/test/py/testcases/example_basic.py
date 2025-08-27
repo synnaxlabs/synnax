@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import sys
 import os
+import sys
 import time
 
-# Set up the path before importing framework modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from framework.TestCase import TestCase, SynnaxConnection
-
 import synnax as sy
+
+from framework.test_case import SynnaxConnection, TestCase
+
 
 class CheckConnectionBasic(TestCase):
     """
@@ -28,9 +27,11 @@ class CheckConnectionBasic(TestCase):
         """
 
         # You can then add your own tlm channels here:
-        self.add_channel(name="is_connected", data_type=sy.DataType.UINT32, initial_value=1)
+        self.add_channel(
+            name="is_connected", data_type=sy.DataType.UINT32, initial_value=1
+        )
 
-        # Or explcitiely change the time out 
+        # Or explcitiely change the time out
         self.Expected_Timeout = 6
 
         # Or change it via test parameters
@@ -47,7 +48,7 @@ class CheckConnectionBasic(TestCase):
         # Stuff goes here
         wait_time = self.params.get("wait_time", 0)
         time.sleep(wait_time)
-    
+
         # Or induce a failure
         if self.params.get("fail_test", False):
             raise Exception("Injected failure")

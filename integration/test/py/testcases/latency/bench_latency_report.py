@@ -7,31 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from re import S
-import sys
 import os
-import time
 import sys
+import time
+from re import S
 
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+
+matplotlib.use("Agg")  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
-
 import synnax as sy
 
-try:
-    # Import from the framework module to ensure we get the same class objects``
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-    from framework.utils import get_machine_info, get_memory_info, get_synnax_version   
-except ImportError:
-    # Handle case when running script directly
-    from utils import get_machine_info, get_memory_info, get_synnax_version
-
-
-# Set up the path before importing framework modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-from framework.TestCase import TestCase
+from framework.test_case import TestCase
+from framework.utils import get_machine_info, get_memory_info, get_synnax_version
 
 
 class BenchLatencyReport(TestCase):
@@ -54,7 +43,6 @@ class BenchLatencyReport(TestCase):
 
         self.loop_start = sy.TimeStamp.now()
 
-
         # Just make sure to call super() last!
         super().setup()
 
@@ -75,19 +63,20 @@ class BenchLatencyReport(TestCase):
         # Set channels here to avoid calling "self"
         try:
             with self.report_client.open_streamer(state_channel) as stream:
-                with self.report_client.open_writer(sy.TimeStamp.now(), cmd_channel) as writer:
+                with self.report_client.open_writer(
+                    sy.TimeStamp.now(), cmd_channel
+                ) as writer:
                     while sy.TimeStamp.since(loop_start) < bench_time:
                         start = sy.TimeStamp.now()
                         writer.write(cmd_channel, self.test_state)
                         value = stream.read()
                         times.append(sy.TimeStamp.since(start))
                         cycles += 1
-        
+
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")
-        
-        self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
 
+        self._log_message(f"Cycles/second: {cycles / bench_time.seconds}")
 
         # Convert times to milliseconds for better readability
         times_ms = [float(t.microseconds) / 1000 for t in times]
@@ -181,7 +170,7 @@ class BenchLatencyReport(TestCase):
         plt.tight_layout()
         plt.subplots_adjust(top=0.85)  # Make room for the title and description
 
-        # Selected arbitrarily. However, these values should 
+        # Selected arbitrarily. However, these values should
         # provide a good maximumm threshold
         max_p90 = 2.5
         max_p95 = 3.0
@@ -210,18 +199,20 @@ class BenchLatencyReport(TestCase):
 
         peak_to_peak_jitter_msg = f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms"
         if peak_to_peak_jitter > max_peak_to_peak_jitter:
-            peak_to_peak_jitter_msg += f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
+            peak_to_peak_jitter_msg += (
+                f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
+            )
             self.fail()
         self._log_message(peak_to_peak_jitter_msg)
-        
+
         average_jitter_msg = f"Average jitter: {average_jitter:.2f}ms"
         if average_jitter > max_average_jitter:
             average_jitter_msg += f" is greater than {max_average_jitter}ms (FAILED)"
             self.fail()
         self._log_message(average_jitter_msg)
 
-        plt.savefig("bench_latency_load.png", dpi=300, bbox_inches='tight')
-        self._log_message(f"Saved benchmark plot to: {os.path.abspath('bench_latency_load.png')}")
+        plt.savefig("bench_latency_load.png", dpi=300, bbox_inches="tight")
+        self._log_message(
+            f"Saved benchmark plot to: {os.path.abspath('bench_latency_load.png')}"
+        )
         plt.close(fig)  # Close the figure to free memory
-
-        
