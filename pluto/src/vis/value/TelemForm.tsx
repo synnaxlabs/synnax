@@ -54,7 +54,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   ): void => {
     const currentStaleness = {
       stalenessTimeout: value.stalenessTimeout ?? 5,
-      stalenessColor: value.stalenessColor ?? [204, 197, 0, 1],
+      stalenessColor: value.stalenessColor ?? color.ZERO,
       ...stalenessUpdate,
     };
 
@@ -121,18 +121,27 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
-        <Form.Field<color.Crude> hideIfNull label="Color" align="start" path="stalenessColor" >
-          {({value, onChange}) => (
-            <Color.Swatch 
-            value={value ?? color.setAlpha(color.ZERO, 1)}
-            onChange={onChange}
-            bordered
+        <Form.Field<color.Crude>
+          hideIfNull
+          label="Color"
+          align="start"
+          path="stalenessColor"
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch
+              value={value ?? color.setAlpha(color.ZERO, 1)}
+              onChange={onChange}
+              bordered
             />
           )}
         </Form.Field>
-        <Form.NumericField path="stalenessTimeout" label="Staleness Timeout" inputProps={{
-          bounds: {lower: 0, upper: Infinity}
-        }} />
+        <Form.NumericField
+          path="stalenessTimeout"
+          label="Staleness Timeout"
+          inputProps={{
+            bounds: { lower: 0, upper: Infinity },
+          }}
+        />
       </Flex.Box>
     </>
   );
