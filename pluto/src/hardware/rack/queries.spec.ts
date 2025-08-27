@@ -6,14 +6,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Rack } from "@/hardware/rack";
 import { Ontology } from "@/ontology";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createSynnaxWraperWithAwait({
+    wrapper = await createAsyncSynnaxWrapper({
       client,
       excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
     });
