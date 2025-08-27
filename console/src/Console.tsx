@@ -29,6 +29,7 @@ import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
+import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -55,6 +56,7 @@ import { Workspace } from "@/workspace";
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
+  ...CSV.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,

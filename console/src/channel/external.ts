@@ -10,17 +10,14 @@
 import { Calculated } from "@/channel/Calculated";
 import { CALCULATED_LAYOUT_TYPE } from "@/channel/calculatedLayout";
 import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
-import { SelectModal } from "@/channel/SelectModal";
 import { type Layout } from "@/layout";
 
 export * from "@/channel/Calculated";
 export * from "@/channel/calculatedLayout";
 export * from "@/channel/Create";
-export * from "@/channel/SelectModal";
 export * from "@/channel/useListenForCalculationStatus";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,
   [CALCULATED_LAYOUT_TYPE]: Calculated,
-  "channel.select": SelectModal,
 };

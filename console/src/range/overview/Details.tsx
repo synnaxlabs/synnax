@@ -23,9 +23,9 @@ import { type NumericTimeRange, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
+import { CSV } from "@/csv";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -127,7 +127,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     );
   };
 
-  const promptSelectChannels = Channel.useSelectModal();
+  const promptDownloadCSVModal = CSV.useDownloadModal();
 
   if (status.variant === "error")
     return (
@@ -164,10 +164,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               variant="text"
               onClick={() =>
                 handleError(async () => {
-                  await promptSelectChannels({
-                    timeRanges: [form.get<NumericTimeRange>("timeRange").value],
-                    fileName: name,
-                  });
+                  await promptDownloadCSVModal(
+                    {
+                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
+                      fileName: name,
+                    },
+                    { icon: "Range" },
+                  );
                 }, "Failed to download CSV")
               }
             >

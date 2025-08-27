@@ -28,11 +28,11 @@ export interface BaseProps<R, A extends BaseArgs<R>> {
 export interface LayoutOverrides
   extends Omit<Partial<Layout.BaseState>, "key" | "type" | "location"> {}
 
-export interface Prompt<R, A extends BaseArgs<R> = BaseArgs<R>> {
+export interface Prompt<R, A extends BaseArgs<R>> {
   (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;
 }
 
-export const createBase = <R, A extends BaseArgs<R> = BaseArgs<R>>(
+export const createBase = <R, A extends BaseArgs<R>>(
   name: string,
   type: string,
   Component: FC<BaseProps<R, A>>,
