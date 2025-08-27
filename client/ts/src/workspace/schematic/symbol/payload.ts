@@ -41,6 +41,11 @@ export const handleZ = z.object({
 
 export interface Handle extends z.infer<typeof handleZ> {}
 
+const viewportZ = z.object({
+  zoom: z.number().positive().default(1),
+  position: xy.xy,
+});
+
 export const specZ = z.object({
   svg: z.string().min(1, "SVG is required"),
   states: stateZ.array(),
@@ -48,6 +53,7 @@ export const specZ = z.object({
   handles: handleZ.array(),
   scale: z.number().positive().default(1),
   scaleStroke: z.boolean().default(false),
+  previewViewport: viewportZ.default({ zoom: 1, position: { x: 0, y: 0 } }),
 });
 
 export interface Spec extends z.infer<typeof specZ> {}

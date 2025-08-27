@@ -166,6 +166,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
       variant: "static",
       scale: 1,
       scaleStroke: false,
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     },
     parent: ontology.ROOT_ID,
   },
@@ -177,19 +178,22 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
       const parents = await client.ontology.retrieveParents(
         schematic.symbol.ontologyID(key),
       );
-      console.log(parents);
       parent = parents[0].id;
     }
     reset({
       name: symbol.name,
       data: symbol.data,
       key: symbol.key,
-      parent: parent ?? ontology.ROOT_ID,
+      parent,
     });
   },
   update: async ({ client, value, reset, params }) => {
-    const created = await client.workspaces.schematic.symbols.create(value());
-    reset({ ...created, parent: params.parent ?? ontology.ROOT_ID });
+    const parent = params.parent ?? value().parent ?? ontology.ROOT_ID;
+    const created = await client.workspaces.schematic.symbols.create({
+      ...value(),
+      parent,
+    });
+    reset({ ...created, parent });
   },
   mountListeners: ({ store, params, reset, get }) => {
     if (params.key == null) return [];

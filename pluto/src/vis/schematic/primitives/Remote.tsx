@@ -2,38 +2,54 @@ import { type schematic } from "@synnaxlabs/client";
 import { deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { useRef } from "react";
 
+const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
+const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
+
+const iterElements = (
+  state: schematic.symbol.State,
+  svgElement: Element,
+  fn: (el: Element, region: schematic.symbol.Region) => void,
+) => {
+  state.regions.forEach((region) => {
+    region.selectors.forEach((selector) => {
+      const elements = svgElement.querySelectorAll(selector);
+      elements.forEach((el) => {
+        fn(el, region);
+      });
+    });
+  });
+};
+
+const applyOriginalAttributes = (el: Element) => {
+  const prevStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
+  const prevFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
+  if (prevStroke != null) el.setAttribute("stroke", prevStroke);
+  if (prevFill != null) el.setAttribute("fill", prevFill);
+};
+
+const storeOriginalAttributes = (el: Element) => {
+  if (!el.hasAttribute(ORIGINAL_STROKE_ATTRIBUTE)) {
+    const originalStroke = el.getAttribute("stroke");
+    if (originalStroke != null)
+      el.setAttribute(ORIGINAL_STROKE_ATTRIBUTE, originalStroke);
+  }
+  if (!el.hasAttribute(ORIGINAL_STROKE_ATTRIBUTE)) {
+    const originalStroke = el.getAttribute("stroke");
+    if (originalStroke != null)
+      el.setAttribute(ORIGINAL_STROKE_ATTRIBUTE, originalStroke);
+  }
+};
+
 const applyState = (
   svgElement: Element,
   state: schematic.symbol.State,
   prevState?: schematic.symbol.State | null,
 ) => {
-  if (prevState != null)
-    prevState.regions.forEach((region) => {
-      region.selectors.forEach((selector) => {
-        const elements = svgElement.querySelectorAll(selector);
-        elements.forEach((el) => {
-          const prevStroke = el.getAttribute("data-original-stroke");
-          const prevFill = el.getAttribute("data-original-fill");
-          if (prevStroke != null) el.setAttribute("stroke", prevStroke);
-          if (prevFill != null) el.setAttribute("fill", prevFill);
-        });
-      });
-    });
-
-  state.regions.forEach((region) => {
-    region.selectors.forEach((selector) => {
-      const elements = svgElement.querySelectorAll(selector);
-      elements.forEach((el) => {
-        const prevStroke = el.getAttribute("stroke");
-        const prevFill = el.getAttribute("fill");
-        if (region.strokeColor != null) el.setAttribute("stroke", region.strokeColor);
-        if (region.fillColor) el.setAttribute("fill", region.fillColor);
-        if (!el.hasAttribute("data-original-stroke") && prevStroke != null)
-          el.setAttribute("data-original-stroke", prevStroke);
-        if (!el.hasAttribute("data-original-fill") && prevFill != null)
-          el.setAttribute("data-original-fill", prevFill);
-      });
-    });
+  if (prevState != null) iterElements(prevState, svgElement, applyOriginalAttributes);
+  iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
+    storeOriginalAttributes(el);
+    if (strokeColor != null) el.setAttribute("stroke", strokeColor);
+    if (fillColor) el.setAttribute("fill", fillColor);
   });
 };
 

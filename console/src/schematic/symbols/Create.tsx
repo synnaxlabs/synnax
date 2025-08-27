@@ -83,6 +83,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
       parent: ontology.ROOT_ID,
       data: {
         svg: "",
+        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         handles: [],
         variant: "static",
         scaleStroke: false,

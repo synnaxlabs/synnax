@@ -1,6 +1,6 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
-import { box, id } from "@synnaxlabs/x";
+import { box, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -44,8 +44,8 @@ export const Preview = ({
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   const themeContainerRef = useRef<HTMLDivElement>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pan = Form.useField<xy.XY>("data.previewViewport.position");
+  const zoom = Form.useField<number>("data.previewViewport.zoom");
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const isDark = Theming.use().key === "synnaxDark";
@@ -54,20 +54,20 @@ export const Preview = ({
 
   const svgElementRef = useRef<SVGSVGElement>(null);
 
-  const resetZoom = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+  const resetViewport = () => {
+    zoom.onChange(1);
+    pan.onChange({ x: 0, y: 0 });
   };
 
-  const handleZoomIn = () => setZoom((z) => Math.min(z * 1.2, 5));
-  const handleZoomOut = () => setZoom((z) => Math.max(z / 1.2, 0.1));
-  const handleResetZoom = () => resetZoom();
+  const handleZoomIn = () => zoom.onChange(Math.min(zoom.value * 1.2, 5));
+  const handleZoomOut = () => zoom.onChange(Math.max(zoom.value / 1.2, 0.1));
+  const handleResetZoom = () => resetViewport();
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((z) => Math.max(0.1, Math.min(5, z * delta)));
+      zoom.onChange(Math.max(0.1, Math.min(5, zoom.value * delta)));
     }
   };
 
@@ -75,12 +75,16 @@ export const Preview = ({
     if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       e.preventDefault();
       setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setDragStart({
+        x: e.clientX - pan.value.x,
+        y: e.clientY - pan.value.y,
+      });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    if (isDragging)
+      pan.onChange({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
   const handleMouseUp = () => setIsDragging(false);
@@ -223,7 +227,7 @@ export const Preview = ({
               }}
             >
               <Text.Text level="small" color={7}>
-                {Math.round(zoom * 100)}%
+                {Math.round(zoom.value * 100)}%
               </Text.Text>
               <Button.Button
                 variant="text"
@@ -253,7 +257,7 @@ export const Preview = ({
             center
             ref={svgWrapperRef}
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
               transformOrigin: "center",
               transition: isDragging ? "none" : "transform 0.2s ease-out",
               cursor: isDragging ? "grabbing" : "default",
