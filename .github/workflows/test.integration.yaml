@@ -3,40 +3,32 @@ name: Test - Integration
 on:
   push:
     branches:
-      - "sy-2769-integration-test-development"
+      - "experimentlal/integration-test-deployment-workflow-2"
   workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip build and use reference artifacts'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      reference_run_id:
+        description: 'Reference run ID to download artifacts from (e.g., 12345678901)'
+        required: false
+        default: '17271306310'
+        type: string
 
 env:
   CACHE_SCOPE: deploy-synnax
-  # =============================================================================
-  # DEVELOPMENT MODE: Skip Build & Use Reference Artifacts
-  # =============================================================================
-  # INSTRUCTIONS FOR RAPID ITERATION:
-  #
-  # 1. Find a successful workflow run with good binaries:
-  #    - Go to: https://github.com/synnaxlabs/synnax/actions/workflows/test.integration.yaml
-  #    - Find a run where all build jobs succeeded (green checkmarks)
-  #    - Click on the run and copy the run ID from the URL
-  #      Example: https://github.com/synnaxlabs/synnax/actions/runs/12345678901
-  #      The run ID is: 12345678901
-  #
-  # 2. Update REFERENCE_RUN_ID below with your run ID
-  # 3. Comment out the entire 'build:' job (see instructions below)
-  # 4. Remove 'needs: build' from deploy job (see instructions below)
-  # 5. Commit and push - deploy/test will use artifacts from reference run
-  #
-  # TO REVERT TO NORMAL MODE:
-  # - Uncomment the 'build:' job
-  # - Add back 'needs: build' to deploy job
-  # - Comment out or remove REFERENCE_RUN_ID
-  # =============================================================================
-  # REFERENCE_RUN_ID: "17271306310" #
 
 jobs:
   build-ubuntu-22-04:
     name: Build Synnax (Ubuntu-22.04)
     timeout-minutes: 60
     runs-on: ubuntu-22.04
+    if: inputs.skip_build == 'false'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -72,7 +64,7 @@ jobs:
 
       - name: Upload Server Binary as Artifact
         uses: actions/upload-artifact@v4
-        if: false  # Disabled until hardware available
+        if: false  # Disabled until hardware is available
         with:
           name: synnax-server-nilinuxrt
           path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt
@@ -87,6 +79,7 @@ jobs:
     name: Build Synnax (ubuntu-latest)
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    if: inputs.skip_build == 'false'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -133,6 +126,7 @@ jobs:
     name: Build Synnax (windows-latest)
     timeout-minutes: 60
     runs-on: windows-latest
+    if: inputs.skip_build == 'false'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -186,6 +180,7 @@ jobs:
     name: Build Synnax (macos-15)
     timeout-minutes: 60
     runs-on: macos-15
+    if: inputs.skip_build == 'false'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -238,22 +233,16 @@ jobs:
     runs-on:
       - self-hosted
       - windows
-    needs: build-windows-latest
     steps:
-      - name: Download Build Artifacts (Windows)
-        uses: actions/download-artifact@v4
-        with:
-          name: driver-windows
-          path: ./binaries/
-      
-      - name: Download Server Artifacts (Windows)
-        uses: actions/download-artifact@v4
-        with:
-          name: synnax-server-windows
-          path: ./binaries/
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Setup Windows Artifacts
+      - name: Download and Setup Windows Artifacts
         shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ inputs.skip_build }}
+          REFERENCE_RUN_ID: ${{ inputs.reference_run_id }}
         run: integration/scripts/download-artifacts-windows.cmd
 
   deploy-and-test-windows:
@@ -317,24 +306,15 @@ jobs:
     runs-on:
       - self-hosted
       - macos
-    needs: build-macos-15
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download Build Artifacts (macOS)
-        uses: actions/download-artifact@v4
-        with:
-          name: driver-macos
-          path: ./binaries/
-      
-      - name: Download Server Artifacts (macOS)
-        uses: actions/download-artifact@v4
-        with:
-          name: synnax-server-macos
-          path: ./binaries/
-
-      - name: Setup macOS Artifacts
+      - name: Download and Setup macOS Artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ inputs.skip_build }}
+          REFERENCE_RUN_ID: ${{ inputs.reference_run_id }}
         run: echo "macOS artifacts setup disabled - hardware not available"
         # run: integration/scripts/download-artifacts-macos.sh
 
@@ -397,24 +377,15 @@ jobs:
     runs-on:
       - self-hosted
       - Linux
-    needs: build-ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download Build Artifacts (Linux)
-        uses: actions/download-artifact@v4
-        with:
-          name: driver-linux
-          path: ./binaries/
-      
-      - name: Download Server Artifacts (Linux)
-        uses: actions/download-artifact@v4
-        with:
-          name: synnax-server-linux
-          path: ./binaries/
-
-      - name: Setup Linux Artifacts
+      - name: Download and Setup Linux Artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ inputs.skip_build }}
+          REFERENCE_RUN_ID: ${{ inputs.reference_run_id }}
         run: integration/scripts/download-artifacts-linux.sh
 
   deploy-and-test-linux:

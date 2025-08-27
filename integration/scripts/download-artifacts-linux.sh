@@ -11,6 +11,7 @@
 
 # download-artifacts-linux.sh
 # Downloads build artifacts for Linux platform and sets up binaries
+# Supports both current-run artifacts and reference-run artifacts
 # Used by GitHub Actions workflow: test.integration.yaml
 
 set -euo pipefail
@@ -30,18 +31,71 @@ install_github_cli() {
     fi
 }
 
+# Download artifacts from reference run
+download_reference_artifacts() {
+    local run_id=$1
+    echo "📥 Downloading artifacts from reference run: $run_id"
+    
+    # Create binaries directory
+    mkdir -p ./binaries
+    
+    # Download artifacts using GitHub CLI
+    echo "Downloading driver-linux artifact..."
+    gh run download $run_id --name driver-linux --dir ./binaries
+    
+    echo "Downloading synnax-server-linux artifact..."
+    gh run download $run_id --name synnax-server-linux --dir ./binaries
+    
+    echo "✅ Reference artifacts downloaded successfully"
+}
+
 # Setup binaries in home directory
 setup_binaries() {
     echo "Setting up binaries..."
     
     # Create a binaries directory in a reliable location
     mkdir -p $HOME/synnax-binaries
-    cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
-    cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
+    
+    # Debug: Check what's in binaries directory
+    echo "Contents of ./binaries directory:"
+    ls -la ./binaries/ || echo "No ./binaries directory found"
+    
+    # Check if files exist before copying
+    if [ -f "./binaries/driver" ]; then
+        cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
+        echo "✅ Driver copied successfully"
+    else
+        echo "❌ Driver binary not found in ./binaries/"
+        exit 1
+    fi
+    
+    if ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
+        cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
+        echo "✅ Server binary copied successfully"
+    else
+        echo "❌ Server binary (synnax-*-linux) not found in ./binaries/"
+        exit 1
+    fi
+    
     chmod +x $HOME/synnax-binaries/synnax*
     
     echo "Binaries prepared in $HOME/synnax-binaries:"
     ls -la $HOME/synnax-binaries/synnax*
+}
+
+# Download current run artifacts
+download_current_artifacts() {
+    echo "📥 Downloading current run artifacts..."
+    mkdir -p ./binaries
+    
+    # Use GitHub CLI to download from current run
+    echo "Downloading driver-linux artifact..."
+    gh run download --name driver-linux --dir ./binaries
+    
+    echo "Downloading synnax-server-linux artifact..."
+    gh run download --name synnax-server-linux --dir ./binaries
+    
+    echo "✅ Current run artifacts downloaded successfully"
 }
 
 # Main execution
@@ -49,6 +103,19 @@ main() {
     echo "Starting Linux artifacts download and setup..."
     
     install_github_cli
+    
+    # Check if we should skip build and use reference artifacts
+    if [ "${SKIP_BUILD:-}" = "true" ] && [ -n "${REFERENCE_RUN_ID:-}" ]; then
+        echo "🔄 Skip build mode: using reference run $REFERENCE_RUN_ID"
+        download_reference_artifacts "$REFERENCE_RUN_ID"
+    elif [ "${SKIP_BUILD:-}" != "true" ]; then
+        echo "📦 Build mode: using current run artifacts"
+        download_current_artifacts
+    else
+        echo "❌ Error: SKIP_BUILD is true but no REFERENCE_RUN_ID provided"
+        exit 1
+    fi
+    
     setup_binaries
     
     echo "✅ Linux artifacts setup completed successfully"

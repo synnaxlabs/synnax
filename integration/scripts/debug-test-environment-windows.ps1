@@ -16,7 +16,9 @@ Write-Host "Matrix OS: windows"
 
 Write-Host "=== Python/Poetry environment ==="
 python --version
-$env:PATH = "$env:APPDATA\Python\Scripts;$env:USERPROFILE\.local\bin;$env:PATH"
+$poetryPath1 = "$env:APPDATA\Python\Scripts"
+$poetryPath2 = "$env:USERPROFILE\.local\bin" 
+$env:PATH = "$poetryPath1;$poetryPath2;$env:PATH"
 poetry --version
 
 Write-Host "=== Synnax connectivity ==="

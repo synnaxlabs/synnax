@@ -21,8 +21,10 @@ Set-Location "integration/test/py"
 # Install Poetry on Windows
 (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
 
-# Add Poetry to PATH
-$env:PATH = "$env:APPDATA\Python\Scripts;$env:USERPROFILE\.local\bin;$env:PATH"
+# Add Poetry to PATH  
+$poetryPath1 = "$env:APPDATA\Python\Scripts"
+$poetryPath2 = "$env:USERPROFILE\.local\bin"
+$env:PATH = "$poetryPath1;$poetryPath2;$env:PATH"
 
 # Remove existing lock file and recreate it fresh
 if (Test-Path "poetry.lock") { 
