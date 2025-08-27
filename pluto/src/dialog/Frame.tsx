@@ -57,7 +57,7 @@ export interface FrameProps
 interface State {
   targetCorner: xlocation.XY;
   dialogCorner: xlocation.XY;
-  modalPosition?: ModalPosition;
+  modalPosition: ModalPosition;
   style: CSSProperties;
 }
 
@@ -65,6 +65,7 @@ const ZERO_STATE: State = {
   targetCorner: xlocation.BOTTOM_LEFT,
   dialogCorner: xlocation.BOTTOM_LEFT,
   style: {},
+  modalPosition: "base",
 };
 
 export interface ContextValue {
@@ -163,7 +164,7 @@ export const Frame = ({
   initialVisible = false,
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
-  modalPosition: propsModalPosition,
+  modalPosition: propsModalPosition = "base",
   ...rest
 }: FrameProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
@@ -223,7 +224,7 @@ export const Frame = ({
     if (variant === "connected") style.width = box.width(roundedDialog);
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-    setState({ targetCorner, dialogCorner, style });
+    setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   }, [propsLocation, variant]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });

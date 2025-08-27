@@ -59,7 +59,7 @@ export const Dialog = ({
         CSS.M(variant),
         variant === "modal" &&
           modalPosition != null &&
-          CSS.BM("dialog", "modal", "position", modalPosition),
+          CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
       rounded={rounded}
