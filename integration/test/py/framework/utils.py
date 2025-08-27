@@ -71,10 +71,7 @@ def validate_and_sanitize_name(name: str) -> str:
 def get_machine_info():
     """Get machine information programmatically."""
 
-    """ 
-    TODO : 
-    Move host querying utilities into an "x" package named x/os.
-    """
+    # TODO: SY-2811 Move Test Framework Utils to X/os
 
     system = platform.system()
 

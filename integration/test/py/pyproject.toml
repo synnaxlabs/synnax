@@ -48,35 +48,17 @@ extend-exclude = '''
 
 [tool.isort]
 profile = "black"
-line_length = 88
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
 
 [tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
+mypy_path = "stubs"
+plugins = ["pydantic.mypy"]
+strict = true
 
-# Ignore missing imports for external libraries that might not have type stubs
-[[tool.mypy.overrides]]
-module = [
-    "synnax.*",
-    "matplotlib.*"
-]
-ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_types = true
+warn_required_dynamic_aliases = true
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
