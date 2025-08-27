@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { type Extractor } from "@/export/extractor";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
@@ -28,14 +29,23 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
       handleError(
         async () => {
           const extractorReturn = await extract(key, { store, client });
-          ({ name } = extractorReturn);
-          const savePath = await save({
-            title: `Export ${name}`,
-            defaultPath: `${name}.json`,
-            filters: FILTERS,
-          });
-          if (savePath == null) return;
-          await writeTextFile(savePath, extractorReturn.data);
+          name = extractorReturn.name;
+          if (Runtime.ENGINE === "tauri") {
+            const savePath = await save({
+              title: `Export ${name}`,
+              defaultPath: `${name}.json`,
+              filters: FILTERS,
+            });
+            if (savePath == null) return;
+            return await writeTextFile(savePath, extractorReturn.data);
+          }
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(
+            new Blob([extractorReturn.data], { type: "text/json" }),
+          );
+          link.download = `${name}.json`;
+          link.click();
+          URL.revokeObjectURL(link.href);
         },
         `Failed to export ${name ?? type}`,
       );

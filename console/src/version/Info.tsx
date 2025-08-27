@@ -16,7 +16,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { type Layout } from "@/layout";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { useSelectVersion } from "@/version/selectors";
 
 export const INFO_LAYOUT_TYPE = "versionInfo";
@@ -36,7 +36,7 @@ export const Info: Layout.Renderer = () => {
   const updateQuery = useQuery({
     queryKey: ["version.update"],
     queryFn: async () => {
-      if (RUNTIME !== "tauri") return null;
+      if (Runtime.ENGINE !== "tauri") return null;
       await new Promise((resolve) => setTimeout(resolve, 500));
       return await check();
     },
@@ -62,7 +62,7 @@ export const Info: Layout.Renderer = () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       setAmountDownloaded(updateSize);
       await new Promise((resolve) => setTimeout(resolve, 750));
-      if (RUNTIME === "tauri") await relaunch();
+      if (Runtime.ENGINE === "tauri") await relaunch();
     },
   });
 

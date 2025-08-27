@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { ConnectionBadge } from "@/cluster/Badges";
 import { Dropdown } from "@/cluster/Dropdown";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 export const Connection = (): ReactElement => {
-  if (RUNTIME === "tauri") return <Dropdown />;
+  if (Runtime.ENGINE === "tauri") return <Dropdown />;
   return <ConnectionBadge />;
 };

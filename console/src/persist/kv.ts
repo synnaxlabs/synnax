@@ -10,7 +10,7 @@
 import { type kv } from "@synnaxlabs/x";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 /**
  * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed
@@ -99,7 +99,7 @@ class LocalStorageKV implements SugaredKV {
  * @returns A new SugaredKV instance.
  */
 export const openSugaredKV = (dir: string): SugaredKV => {
-  switch (RUNTIME) {
+  switch (Runtime.ENGINE) {
     case "tauri":
       return new TauriKV(new LazyStore(dir, { autoSave: true }));
     case "web":

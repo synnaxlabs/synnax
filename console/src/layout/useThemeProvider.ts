@@ -9,14 +9,14 @@
 
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type Destructor } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
-import { isMainWindow } from "@/isMainWindow";
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
@@ -31,7 +31,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 
   useAsyncEffect(
     async (signal) => {
-      if (!isMainWindow()) return;
+      if (!Runtime.isMainWindow()) return;
       await setInitialTheme(dispatch);
       if (signal.aborted) return;
       return await synchronizeWithOS(dispatch);
@@ -49,21 +49,23 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>) => {
-  if (RUNTIME !== "tauri")
-    return window.addEventListener("themeChanged", () => {
-      const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-      dispatch(setActiveTheme(matchThemeChange(theme)));
-    });
-  await getCurrentWindow().onThemeChanged(({ payload }) =>
+const synchronizeWithOS = async (
+  dispatch: Dispatch<UnknownAction>,
+): Promise<Destructor> => {
+  if (Runtime.ENGINE !== "tauri") {
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) =>
+      dispatch(setActiveTheme(matchThemeChange(e.matches ? "dark" : "light")));
+    query.addEventListener("change", handler);
+    return () => query.removeEventListener("change", handler);
+  }
+  return await getCurrentWindow().onThemeChanged(({ payload }) =>
     dispatch(setActiveTheme(matchThemeChange(payload))),
   );
 };
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> => {
-  if (RUNTIME !== "tauri") {
+  if (Runtime.ENGINE !== "tauri") {
     const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";

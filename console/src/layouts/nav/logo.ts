@@ -9,7 +9,7 @@
 
 import { runtime } from "@synnaxlabs/x";
 
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 export const LOGO_LOCATION =
-  runtime.getOS() !== "Windows" && RUNTIME === "tauri" ? "left" : "top";
+  runtime.getOS() !== "Windows" && Runtime.ENGINE === "tauri" ? "left" : "top";

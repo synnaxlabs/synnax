@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Cluster } from "@/cluster/slice";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 export interface ConnectionParams extends Pick<Cluster, "host" | "port" | "secure"> {}
 
@@ -19,7 +19,7 @@ const DEV_CONNECTION: ConnectionParams = {
 };
 
 export const detectServingConnection = (): ConnectionParams | null => {
-  if (RUNTIME === "tauri") return null;
+  if (Runtime.ENGINE === "tauri") return null;
   if (IS_DEV) return DEV_CONNECTION;
   const url = new URL(window.location.origin);
   return {
