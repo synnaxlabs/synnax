@@ -186,6 +186,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
+    if (isNaN(value)) return ""; // Show empty instead of NaN
     const { precision, prefix, suffix, notation: pNotation } = this.props;
     return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
   }
@@ -215,7 +216,7 @@ export class RollingAverage extends UnarySourceTransformer<
   private values: number[] = [];
 
   protected transform(value: number): number {
-    if (this.props.windowSize < 2) return value;
+    if (this.props.windowSize < 2 || isNaN(value)) return value;
     return this.values.reduce((a, b) => a + b, 0) / this.values.length;
   }
 
@@ -277,6 +278,7 @@ export class ScaleNumber extends UnarySourceTransformer<
   schema = ScaleNumber.propsZ;
 
   protected transform(value: number): number {
+    if (isNaN(value)) value = 0;
     const { offset, scale } = this.props.scale;
     return value * scale + offset;
   }

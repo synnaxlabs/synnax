@@ -30,7 +30,7 @@ const valueState = z.object({
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   stalenessTimeout: z.number().optional().default(5),
-  stalenessColor: color.colorZ.optional().default([204, 197, 0, 1]), // pluto-warning-m1: #ccc500
+  stalenessColor: color.colorZ.optional().default(color.ZERO),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
@@ -41,7 +41,6 @@ const valueState = z.object({
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
-const DATA_COUNT_THRESHOLD = 2; // Number of packets before non-stale color is shown
 
 export interface ValueProps {
   scale?: scale.XY;
@@ -57,10 +56,8 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
-  dataCount: number;
-  timeout: NodeJS.Timeout;
   staleTimeout?: ReturnType<typeof setTimeout>;
-  timedOut: boolean;
+  isStale: boolean;
 }
 
 export class Value
@@ -76,18 +73,18 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    // if (i.isInitialized === undefined) {
-    //   i.timedOut = true;
-    //   i.isInitialized = true;
-    //   i.dataCount = 0;
-    // }
+    // Initialize as stale
+    i.isStale = true;
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      if (i.dataCount < DATA_COUNT_THRESHOLD) i.dataCount++;
-
-      this.resetStaleTimeout();
+      const value = i.telem.value();
+      // Reset timeout on any data change - let the timeout handle staleness
+      if (value !== undefined && value !== null) {
+        i.isStale = false;
+        this.resetStaleTimeout();
+      }
       this.requestRender();
     });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
@@ -117,13 +114,10 @@ export class Value
   private resetStaleTimeout(): void {
     const { internal: i } = this;
     if (i.staleTimeout) clearTimeout(i.staleTimeout);
-    // Set timeout to return to staleness color after specified duration
-    const timeoutDuration = this.state.stalenessTimeout * 1000;
     i.staleTimeout = setTimeout(() => {
-      i.textColor = this.state.stalenessColor;
-      i.timedOut = true;
+      i.isStale = true;
       this.requestRender();
-    }, timeoutDuration);
+    }, this.state.stalenessTimeout * 1000); // Convert to milliseconds
   }
 
   private requestRender(): void {
@@ -152,7 +146,7 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.internal.timedOut) return this.state.stalenessColor;
+    if (this.internal.isStale) return this.state.stalenessColor;
 
     if (color.isZero(this.state.color))
       return color.pickByContrast(
@@ -221,7 +215,7 @@ export class Value
     if (isNegative)
       canvas.fillText(
         "-",
-        // 0.55 is a multiplier of the font height that seems to keep the sign in
+        // 0.6 is a multiplier of the font height that seems to keep the sign in
         // the right place.
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
         undefined,
