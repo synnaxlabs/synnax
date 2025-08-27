@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location } from "@synnaxlabs/x";
+import { box, location, testutil } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -386,5 +386,22 @@ describe("position", () => {
       it(`should position dialog correctly for ${name}`, () =>
         expect(Dialog.position(args)).toEqual(expected)),
     );
+  });
+
+  describe("parseLocationOptions", () => {
+    const TESTS: [Dialog.Location, Partial<location.XY>][] = [
+      ["left", { x: "left" }],
+      [{ x: "left" }, { x: "left" }],
+      [
+        { x: "left", y: "top" },
+        { x: "left", y: "top" },
+      ],
+      [{}, { x: undefined, y: undefined }],
+    ];
+    TESTS.forEach(([arg, expected]) => {
+      it(`should return ${testutil.toString(expected)} for ${testutil.toString(arg)}`, () => {
+        expect(Dialog.parseLocationOptions(arg)).toEqual(expected);
+      });
+    });
   });
 });
