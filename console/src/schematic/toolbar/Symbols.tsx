@@ -28,14 +28,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { EmptyAction } from "@/components";
@@ -125,74 +118,10 @@ export interface RemoteListItemProps extends List.ItemProps<string> {
   itemKey: string;
 }
 
-const RemoteSymbolPreview = ({
-  symbol,
-  scale = 0.75,
-}: {
-  symbol: schematic.symbol.Symbol;
-  scale?: number;
-}): ReactElement => {
-  const svgRef = useRef<HTMLDivElement>(null);
-  const svgElementRef = useRef<SVGSVGElement | null>(null);
-
-  useEffect(() => {
-    if (svgRef.current && symbol.data.svg && !svgElementRef.current) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(symbol.data.svg, "image/svg+xml");
-      const svgElement = doc.documentElement as unknown as SVGSVGElement;
-      svgElementRef.current = svgElement;
-
-      // Apply base styling and scaling
-      const pathElements = svgElement.querySelectorAll(
-        "path, circle, rect, line, ellipse, polygon, polyline",
-      );
-      pathElements.forEach((el) => {
-        el.setAttribute("vector-effect", "non-scaling-stroke");
-      });
-
-      // Apply first state (default state)
-      if (symbol.data.states.length > 0) {
-        const state = symbol.data.states[0];
-        state.regions.forEach((region) => {
-          region.selectors.forEach((selector) => {
-            const elements = svgElement.querySelectorAll(selector);
-            elements.forEach((el) => {
-              if (region.strokeColor != null)
-                el.setAttribute("stroke", region.strokeColor);
-              if (region.fillColor) el.setAttribute("fill", region.fillColor);
-            });
-          });
-        });
-      }
-
-      // Scale the SVG
-      const originalWidth = svgElement.viewBox.baseVal.width || 100;
-      const originalHeight = svgElement.viewBox.baseVal.height || 100;
-      svgElement.width.baseVal.value = originalWidth * scale;
-      svgElement.height.baseVal.value = originalHeight * scale;
-
-      svgRef.current.appendChild(svgElement);
-    }
-
-    return () => {
-      if (svgRef.current && svgElementRef.current) {
-        svgRef.current.removeChild(svgElementRef.current);
-        svgElementRef.current = null;
-      }
-    };
-  }, [symbol.data.svg, symbol.data.states, scale]);
-
-  return (
-    <div
-      ref={svgRef}
-      style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-    />
-  );
-};
-
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
+  const Preview = Schematic.SYMBOLS.actuator.Preview;
 
   const { startDrag, onDragEnd } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -220,7 +149,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     >
       <Text.Text level="small">{symbol.name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <RemoteSymbolPreview symbol={symbol} scale={0.75} />
+        <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
     </Select.ListItem>
   );

@@ -1,5 +1,5 @@
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Text, Theming } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { box, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
@@ -9,7 +9,6 @@ import { HandleOverlay } from "@/schematic/symbols/Handles";
 
 interface PreviewProps {
   selectedState: string;
-  selectedRegion?: string;
   selectedHandle?: string;
   onElementClick: (selector: string) => void;
   onContentsChange: (contents: string) => void;
@@ -35,7 +34,6 @@ const preprocessSVG = (svgString: string): string => {
 
 export const Preview = ({
   selectedState,
-  selectedRegion,
   selectedHandle,
   onElementClick,
   onContentsChange,
@@ -43,7 +41,6 @@ export const Preview = ({
   onHandleSelect,
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgElementRef = useRef<SVGSVGElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   const themeContainerRef = useRef<HTMLDivElement>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
@@ -51,8 +48,11 @@ export const Preview = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const scale = Form.useFieldValue<number>("data.scale");
+  const isDark = Theming.use().key === "synnaxDark";
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(isDark);
+  useEffect(() => setIsDarkMode(isDark), [isDark]);
+
+  const svgElementRef = useRef<SVGSVGElement>(null);
 
   const resetZoom = () => {
     setZoom(1);
@@ -105,13 +105,8 @@ export const Preview = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [spec.svg]);
 
-  const injectSVG = (svgContainer: HTMLDivElement, svgString: string) => {
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
-    const svgElement = svgDoc.documentElement as unknown as SVGSVGElement;
+  const onMount = (svgElement: SVGSVGElement) => {
     svgElementRef.current = svgElement;
-    svgContainer.innerHTML = "";
-
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
@@ -169,63 +164,17 @@ export const Preview = ({
 
       Array.from(el.children).forEach(addInteractivity);
     };
-
-    Array.from(svgElement.children).forEach(addInteractivity);
-
-    svgContainer.appendChild(svgElement);
+    Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  const applyLivePreview = () => {
-    if (!containerRef.current || !spec) return;
-
-    const allElements = containerRef.current.querySelectorAll("*");
-    allElements.forEach((el) => {
-      if (el instanceof SVGElement) {
-        el.removeAttribute("fill");
-        el.removeAttribute("fill-opacity");
-        el.style.stroke = "";
-        el.style.strokeWidth = "";
-        el.style.filter = "";
-        el.classList.remove(
-          CSS.BEM("schematic", "svg-region", "selected"),
-          CSS.BEM("schematic", "svg-region", "hover"),
-          CSS.BEM("schematic", "svg-region", "active"),
-        );
-      }
-    });
-
-    const currentState = spec.states.find((s) => s.key === selectedState);
-    if (currentState)
-      currentState.regions.forEach((region) => {
-        region.selectors.forEach((selector) => {
-          const element = containerRef.current?.querySelector(selector);
-          if (element instanceof SVGElement) {
-            if (region.fillColor) {
-              element.setAttribute("fill", region.fillColor);
-              element.setAttribute("fill-opacity", "1");
-            }
-            if (region.strokeColor) {
-              element.style.stroke = region.strokeColor;
-              const originalWidth = element.getAttribute("data-original-stroke-width");
-              element.style.strokeWidth = originalWidth ? `${originalWidth}px` : "2px";
-              element.style.strokeOpacity = "1";
-            }
-          }
-        });
-      });
-
-    if (selectedRegion) {
-      const selectedRegionData = currentState?.regions.find(
-        (r) => r.key === selectedRegion,
-      );
-      if (selectedRegionData)
-        selectedRegionData.selectors.forEach((selector) => {
-          const element = containerRef.current?.querySelector(selector);
-          if (element instanceof SVGElement)
-            element.classList.add(CSS.BEM("schematic", "svg-region", "active"));
-        });
-    }
-  };
+  Schematic.useApplyRemote(
+    containerRef.current,
+    "left",
+    selectedState,
+    1,
+    spec,
+    onMount,
+  );
 
   const handleContentsChange = (contents: string) => {
     const processedSVG = preprocessSVG(contents);
@@ -233,15 +182,9 @@ export const Preview = ({
     onContentsChange(processedSVG);
   };
 
-  if (containerRef.current != null && spec.svg.length > 0) {
-    injectSVG(containerRef.current, spec.svg);
-    applyLivePreview();
-  }
-
-  let svgBox: box.Box = box.ZERO;
-  if (svgElementRef.current) svgBox = box.construct(svgElementRef.current);
-
   const fileDropEnabled = spec.svg.length === 0;
+  let svgBox: box.Box = box.ZERO;
+  if (svgElementRef.current != null) svgBox = box.construct(svgElementRef.current);
   return (
     <FileDrop
       onContentsChange={handleContentsChange}
@@ -317,13 +260,7 @@ export const Preview = ({
             }}
             rounded={1}
           >
-            <div
-              style={{
-                position: "relative",
-                transform: `scale(${scale})`,
-                transformOrigin: "center",
-              }}
-            >
+            <div style={{ position: "relative" }}>
               <HandleOverlay
                 handles={spec.handles}
                 selectedHandle={selectedHandle}
@@ -331,15 +268,7 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div
-                ref={containerRef}
-                className={CSS.B("preview")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              ></div>
+              <div ref={containerRef} className={CSS.B("preview")} style={{}}></div>
             </div>
           </Flex.Box>
         </Flex.Box>

@@ -58,7 +58,7 @@ export const createCreateLayout = (
   return { ...CREATE_LAYOUT, ...initial, name: isEdit ? EDIT_NAME : CREATE_NAME };
 };
 
-const SCALE_BOUNDS: bounds.Bounds = { lower: 10, upper: 500 };
+const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 
 export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
@@ -85,6 +85,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
         svg: "",
         handles: [],
         variant: "static",
+        scaleStroke: false,
         states: [
           {
             key: "base",
@@ -255,6 +256,11 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
                         />
                       )}
                     </Form.Field>
+                    <Form.SwitchField
+                      path="data.scaleStroke"
+                      label="Scale Stroke"
+                      align="start"
+                    />
                   </Flex.Box>
                 </Flex.Box>
               </Flex.Box>
@@ -263,7 +269,6 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
               {({ onChange }) => (
                 <Preview
                   selectedState={selectedState}
-                  selectedRegion={selectedRegion}
                   selectedHandle={selectedHandle}
                   onElementClick={handleElementClick}
                   onContentsChange={onChange}

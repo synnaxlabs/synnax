@@ -9,7 +9,6 @@
 
 import "@/vis/schematic/primitives/Primitives.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import {
   color,
   dimensions,
@@ -44,6 +43,7 @@ import { Input } from "@/input";
 import { Symbol } from "@/schematic/symbol";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { useApplyRemote } from "@/vis/schematic/primitives/Remote";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -501,18 +501,6 @@ export interface RemoteActuatorProps extends ToggleProps, SVGBasedPrimitiveProps
   specKey: string;
 }
 
-const applyState = (svgElement: Element, state: schematic.symbol.State) => {
-  state.regions.forEach((region) => {
-    region.selectors.forEach((selector) => {
-      const elements = svgElement.querySelectorAll(selector);
-      elements.forEach((el) => {
-        if (region.strokeColor != null) el.setAttribute("stroke", region.strokeColor);
-        if (region.fillColor) el.setAttribute("fill", region.fillColor);
-      });
-    });
-  });
-};
-
 export const RemoteActuator = ({
   specKey,
   enabled = false,
@@ -525,84 +513,14 @@ export const RemoteActuator = ({
 }: RemoteActuatorProps): ReactElement | null => {
   const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
-  const svgElementRef = useRef<SVGSVGElement>(null);
-  const prevEnabledRef = useRef(enabled);
-  const prevScaleRef = useRef<number | null>(null);
-  const prevOrientationRef = useRef(orientation);
-  const baseDimsRef = useRef<dimensions.Dimensions>({ width: 0, height: 0 });
-  const prevSpecDataRef = useRef<schematic.symbol.Spec | null>(spec.data?.data);
-
+  useApplyRemote(
+    svgContainerRef.current,
+    orientation,
+    enabled ? "active" : "base",
+    scale,
+    spec?.data?.data,
+  );
   if (spec.data?.data == null) return null;
-
-  if (svgContainerRef.current != null) {
-    const {
-      data: { svg, states },
-    } = spec.data;
-    if (svgElementRef.current == null || prevSpecDataRef.current !== spec.data?.data) {
-      if (svgElementRef.current != null) {
-        svgElementRef.current.remove();
-        svgElementRef.current = null;
-      }
-      prevSpecDataRef.current = spec.data?.data;
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svg, "image/svg+xml");
-      const svgElement = doc.documentElement;
-      svgElementRef.current = svgElement as unknown as SVGSVGElement;
-      baseDimsRef.current = {
-        width: svgElementRef.current.viewBox.baseVal.width,
-        height: svgElementRef.current.viewBox.baseVal.height,
-      };
-
-      const pathElements = svgElement.querySelectorAll(
-        "path, circle, rect, line, ellipse, polygon, polyline",
-      );
-      pathElements.forEach((el) => {
-        el.setAttribute("vector-effect", "non-scaling-stroke");
-      });
-
-      const existingG = svgElement.querySelector("g");
-      if (!existingG) {
-        const gElement = doc.createElementNS("http://www.w3.org/2000/svg", "g");
-        const children = Array.from(svgElement.children);
-        children.forEach((child) => {
-          if (child !== gElement) gElement.appendChild(child);
-        });
-        svgElement.appendChild(gElement);
-      }
-
-      const state = states[0];
-      applyState(svgElement, state);
-      svgContainerRef.current.appendChild(svgElement);
-    }
-    if (enabled !== prevEnabledRef.current) {
-      prevEnabledRef.current = enabled;
-      const state = enabled ? states[1] : states[0];
-      applyState(svgContainerRef.current, state);
-    }
-    if (
-      svgElementRef.current != null &&
-      (scale !== prevScaleRef.current || orientation !== prevOrientationRef.current)
-    ) {
-      prevScaleRef.current = scale;
-      let preScaledDims = baseDimsRef.current;
-      if (direction.construct(orientation) === "y")
-        preScaledDims = dimensions.swap(preScaledDims);
-      const scaledDims = dimensions.scale(preScaledDims, scale * spec.data.data.scale);
-      svgElementRef.current.width.baseVal.value = scaledDims.width;
-      svgElementRef.current.height.baseVal.value = scaledDims.height;
-      svgElementRef.current.viewBox.baseVal.x = 0;
-      svgElementRef.current.viewBox.baseVal.y = 0;
-      svgElementRef.current.viewBox.baseVal.width = preScaledDims.width;
-      svgElementRef.current.viewBox.baseVal.height = preScaledDims.height;
-    }
-    if (svgElementRef.current != null && orientation !== prevOrientationRef.current) {
-      svgElementRef.current.classList.remove(
-        `pluto--location-${prevOrientationRef.current}`,
-      );
-      svgElementRef.current.classList.add(`pluto--location-${orientation}`);
-      prevOrientationRef.current = orientation;
-    }
-  }
 
   const handles = spec.data?.data?.handles || [];
 

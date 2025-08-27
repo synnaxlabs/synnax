@@ -922,7 +922,7 @@ const filter: Spec<FilterProps> = {
 };
 
 const flowStraightener: Spec<FlowStraightenerProps> = {
-  name: "Straightener",
+  name: "Flow Straightener",
   key: "flowStraightener",
   Form: CommonStyleForm,
   Symbol: FlowStraightener,
@@ -1112,7 +1112,7 @@ const pistonPump: Spec<PistonPumpProps> = {
 };
 
 const staticMixer: Spec<StaticMixerProps> = {
-  name: "Static",
+  name: "Static Mixer",
   key: "staticMixer",
   Symbol: StaticMixer,
   Form: CommonStyleForm,
@@ -1126,7 +1126,7 @@ const staticMixer: Spec<StaticMixerProps> = {
 };
 
 const rotaryMixer: Spec<RotaryMixerProps> = {
-  name: "Rotary",
+  name: "Rotary Mixer",
   key: "rotaryMixer",
   Symbol: RotaryMixer,
   Form: CommonToggleForm,
@@ -1185,7 +1185,7 @@ const agitator: Spec<AgitatorProps> = {
 };
 
 const propellerAgitator: Spec<PropellerAgitatorProps> = {
-  name: "Propeller",
+  name: "Propeller Agitator",
   key: "propellerAgitator",
   Symbol: PropellerAgitator,
   Form: CommonToggleForm,
@@ -1199,7 +1199,7 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
 };
 
 const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
-  name: "Flat Blade",
+  name: "Flat Blade Agitator",
   key: "flatBladeAgitator",
   Symbol: FlatBladeAgitator,
   Form: CommonToggleForm,
@@ -1213,7 +1213,7 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
 };
 
 const paddleAgitator: Spec<PaddleAgitatorProps> = {
-  name: "Paddle",
+  name: "Paddle Agitator",
   key: "paddleAgitator",
   Symbol: PaddleAgitator,
   Form: CommonToggleForm,
@@ -1227,7 +1227,7 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
 };
 
 const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
-  name: "Cross Beam",
+  name: "Cross Beam Agitator",
   key: "crossBeamAgitator",
   Symbol: CrossBeamAgitator,
   Form: CommonToggleForm,
@@ -1241,7 +1241,7 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
 };
 
 const helicalAgitator: Spec<HelicalAgitatorProps> = {
-  name: "Helical",
+  name: "Helical Agitator",
   key: "helicalAgitator",
   Symbol: HelicalAgitator,
   Form: CommonToggleForm,
@@ -1527,7 +1527,7 @@ const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
 };
 
 const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
-  name: "General",
+  name: "Heat Exchanger",
   key: "heatExchangerGeneral",
   Form: CommonStyleForm,
   Symbol: HeatExchangerGeneral,
@@ -1541,7 +1541,7 @@ const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
 };
 
 const heatExchangerM: Spec<HeatExchangerMProps> = {
-  name: "M-Type",
+  name: "M-Type Heat Exchanger",
   key: "heatExchangerM",
   Form: CommonStyleForm,
   Symbol: HeatExchangerM,
@@ -1555,7 +1555,7 @@ const heatExchangerM: Spec<HeatExchangerMProps> = {
 };
 
 const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
-  name: "Straight Tube",
+  name: "Straight Tube Heat Exchanger",
   key: "heatExchangerStraightTube",
   Form: CommonStyleForm,
   Symbol: HeatExchangerStraightTube,
@@ -1569,7 +1569,7 @@ const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
 };
 
 const turboCompressor: Spec<TurboCompressorProps> = {
-  name: "Turbo",
+  name: "Turbo Compressor",
   key: "turboCompressor",
   Form: CommonToggleForm,
   Symbol: TurboCompressor,
@@ -1583,7 +1583,7 @@ const turboCompressor: Spec<TurboCompressorProps> = {
 };
 
 const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
-  name: "Roller Vane",
+  name: "Roller Vane Compressor",
   key: "rollerVaneCompressor",
   Form: CommonToggleForm,
   Symbol: RollerVaneCompressor,
@@ -1597,7 +1597,7 @@ const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
 };
 
 const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
-  name: "Liquid Ring",
+  name: "Liquid Ring Compressor",
   key: "liquidRingCompressor",
   Form: CommonToggleForm,
   Symbol: LiquidRingCompressor,
@@ -1611,7 +1611,7 @@ const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
 };
 
 const ejectorCompressor: Spec<EjectorCompressorProps> = {
-  name: "Ejector",
+  name: "Ejector Compressor",
   key: "ejectorCompressor",
   Form: CommonToggleForm,
   Symbol: EjectorCompressor,
@@ -1625,7 +1625,7 @@ const ejectorCompressor: Spec<EjectorCompressorProps> = {
 };
 
 const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
-  name: "Centrifugal",
+  name: "Centrifugal Compressor",
   key: "centrifugalCompressor",
   Form: CommonToggleForm,
   Symbol: CentrifugalCompressor,
@@ -1639,7 +1639,7 @@ const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
 };
 
 const diaphragmPump: Spec<DiaphragmPumpProps> = {
-  name: "Diaphragm",
+  name: "Diaphragm Pump",
   key: "diaphragmPump",
   Form: CommonToggleForm,
   Symbol: DiaphragmPump,
@@ -1987,8 +1987,8 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   },
   {
     key: "meters",
-    name: "Meters",
-    Icon: Icon.Valve,
+    name: "Flow Meters",
+    Icon: Icon.Rule,
     symbols: [
       "flowmeterGeneral",
       "flowmeterElectromagnetic",
@@ -2007,7 +2007,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "process",
     name: "Process",
-    Icon: Icon.Valve,
+    Icon: Icon.Process,
     symbols: [
       "heatExchangerGeneral",
       "heatExchangerM",
@@ -2025,7 +2025,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "safety",
     name: "Safety",
-    Icon: Icon.Valve,
+    Icon: Icon.Safety,
     symbols: [
       "burstDisc",
       "isoBurstDisc",
@@ -2039,7 +2039,7 @@ export const SYMBOL_GROUPS: SymbolGroup[] = [
   {
     key: "fittings",
     name: "Fittings",
-    Icon: Icon.Valve,
+    Icon: Icon.Fitting,
     symbols: [
       "cap",
       "isoCap",

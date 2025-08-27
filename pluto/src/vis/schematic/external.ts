@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { DRAG_HANDLE_CLASS } from "@/vis/schematic/Grid";
+export * from "@/vis/schematic/primitives/Remote";
 export * from "@/vis/schematic/registry";
 export * from "@/vis/schematic/Symbols";

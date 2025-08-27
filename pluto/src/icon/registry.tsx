@@ -49,7 +49,7 @@ import {
   FaWind,
   FaWindows,
 } from "react-icons/fa";
-import { FaBridge, FaGaugeHigh, FaGear } from "react-icons/fa6";
+import { FaBridge, FaGaugeHigh, FaGear, FaHelmetSafety } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -186,10 +186,13 @@ import {
 } from "react-icons/vsc";
 
 import { CSS } from "@/css";
+import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { NI } from "@/icon/NI";
 import { OPC } from "@/icon/OPC";
+import { Process } from "@/icon/Process";
+import { Pump } from "@/icon/Pump";
 import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
@@ -394,6 +397,7 @@ export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
+export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -530,6 +534,10 @@ const icons = {
   Constant,
   Terminal,
   Valve,
+  Safety,
+  Process,
+  Fitting,
+  Pump,
 };
 
 export const resolve = ((

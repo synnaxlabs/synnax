@@ -159,7 +159,14 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   name: "SchematicSymbols",
   initialValues: {
     name: "",
-    data: { svg: "", states: [], handles: [], variant: "static", scale: 1 },
+    data: {
+      svg: "",
+      states: [],
+      handles: [],
+      variant: "static",
+      scale: 1,
+      scaleStroke: false,
+    },
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
