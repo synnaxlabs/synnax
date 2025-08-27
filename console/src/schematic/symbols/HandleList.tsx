@@ -46,22 +46,27 @@ const HandleListItem = (props: HandleListItemProps) => {
   if (handle == null) return null;
   const scaledPos = xy.scale(handle.position, 100);
   return (
-    <Select.ListItem {...props}>
-      <Flex.Box x align="center" gap={2} justify="between" style={{ width: "100%" }}>
-        <Flex.Box x align="center" gap={1}>
-          <Text.Text level="small" weight={500}>
-            Handle {index + 1}
-          </Text.Text>
-          <Text.Text level="small" color={7}>
-            ({Math.round(scaledPos.x)}%, {Math.round(scaledPos.y)}%)
-          </Text.Text>
-        </Flex.Box>
+    <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
+      <Flex.Box x align="center" gap={1}>
+        <Text.Text level="small" weight={500}>
+          Handle {index + 1}
+        </Text.Text>
+        <Text.Text level="small" color={7}>
+          ({Math.round(scaledPos.x)}%, {Math.round(scaledPos.y)}%)
+        </Text.Text>
+      </Flex.Box>
+      <Flex.Box x align="center" empty>
         <Form.Field<location.Outer> path={`${path}.orientation`} showLabel={false}>
           {({ onChange, value }) => (
             <SelectHandleOrientation value={value} onChange={onChange} />
           )}
         </Form.Field>
-        <Button.Button onClick={() => remove(itemKey)} size="small" variant="text">
+        <Button.Button
+          onClick={() => remove(itemKey)}
+          size="small"
+          variant="text"
+          ghost
+        >
           <Icon.Close />
         </Button.Button>
       </Flex.Box>

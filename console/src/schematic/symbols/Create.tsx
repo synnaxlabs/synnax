@@ -97,7 +97,10 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
         scale: 1,
       },
     },
-    afterSave: () => onClose(),
+    afterSave: () => {
+      dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: false }));
+      onClose();
+    },
   });
   const [selectedState, setSelectedState, selectedStateRef] =
     useCombinedStateAndRef<string>("base");

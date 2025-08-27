@@ -229,18 +229,19 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 const remoteListItem = Component.renderProp(RemoteListItem);
 
 export interface RemoteSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
-  getItem: (key: string) => schematic.symbol.Symbol | undefined;
+  groupKey: string;
 }
 
 const RemoteSymbolListContextMenu = (
   props: RemoteSymbolListContextMenuProps,
 ): ReactElement => {
   const firstKey = props.keys[0];
-  const item = props.getItem(firstKey);
+  const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = useConfirmDelete({
     type: "Schematic.Symbol",
     icon: "Schematic",
   });
+  const placeLayout = Layout.usePlacer();
   const renameModal = Modals.useRename();
   const rename = SchematicSymbol.useRename({
     params: { key: firstKey },
@@ -268,9 +269,17 @@ const RemoteSymbolListContextMenu = (
       return await confirmDelete({ name: item.name });
     },
   });
+  const handleEdit = () => {
+    placeLayout(
+      createCreateLayout({
+        args: { key: firstKey, parent: group.ontologyID(props.groupKey) },
+      }),
+    );
+  };
   const handleSelect: Menu.MenuProps["onChange"] = {
     delete: () => del.update(),
     rename: () => rename.update(item?.name ?? ""),
+    edit: handleEdit,
   };
   return (
     <Menu.Menu level="small" gap="small" onChange={handleSelect}>
@@ -281,6 +290,10 @@ const RemoteSymbolListContextMenu = (
       <Menu.Item itemKey="rename">
         <Icon.Rename />
         Rename
+      </Menu.Item>
+      <Menu.Item itemKey="edit">
+        <Icon.Edit />
+        Edit
       </Menu.Item>
     </Menu.Menu>
   );
@@ -314,6 +327,7 @@ const RemoteListEmptyContent = ({
     />
   );
 };
+
 const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
   const listData = SchematicSymbol.useList({
     initialParams: { parent: group.ontologyID(groupKey) },
@@ -322,17 +336,15 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
   useEffect(() => fetchMore(), [fetchMore]);
   const menuProps = Menu.useContextMenu();
   return (
-    <Menu.ContextMenu
-      {...menuProps}
-      menu={(props) => (
-        <RemoteSymbolListContextMenu {...props} getItem={listData.getItem} />
-      )}
+    <Select.Frame<string, schematic.symbol.Symbol>
+      {...listData}
+      value={undefined}
+      allowNone
+      onChange={onSelect}
     >
-      <Select.Frame<string, schematic.symbol.Symbol>
-        {...listData}
-        value={undefined}
-        allowNone
-        onChange={onSelect}
+      <Menu.ContextMenu
+        {...menuProps}
+        menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
       >
         <List.Items
           x
@@ -343,8 +355,8 @@ const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
         >
           {remoteListItem}
         </List.Items>
-      </Select.Frame>
-    </Menu.ContextMenu>
+      </Menu.ContextMenu>
+    </Select.Frame>
   );
 };
 

@@ -522,20 +522,28 @@ export const RemoteActuator = ({
   scale = 1,
   className,
   ...rest
-}: RemoteActuatorProps): ReactElement => {
+}: RemoteActuatorProps): ReactElement | null => {
   const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
   const svgElementRef = useRef<SVGSVGElement>(null);
   const prevEnabledRef = useRef(enabled);
-  const prevScaleRef = useRef(scale);
+  const prevScaleRef = useRef<number | null>(null);
   const prevOrientationRef = useRef(orientation);
   const baseDimsRef = useRef<dimensions.Dimensions>({ width: 0, height: 0 });
+  const prevSpecDataRef = useRef<schematic.symbol.Spec | null>(spec.data?.data);
 
-  if (svgContainerRef.current != null && spec.data != null) {
+  if (spec.data?.data == null) return null;
+
+  if (svgContainerRef.current != null) {
     const {
       data: { svg, states },
     } = spec.data;
-    if (svgElementRef.current == null) {
+    if (svgElementRef.current == null || prevSpecDataRef.current !== spec.data?.data) {
+      if (svgElementRef.current != null) {
+        svgElementRef.current.remove();
+        svgElementRef.current = null;
+      }
+      prevSpecDataRef.current = spec.data?.data;
       const parser = new DOMParser();
       const doc = parser.parseFromString(svg, "image/svg+xml");
       const svgElement = doc.documentElement;
@@ -579,7 +587,7 @@ export const RemoteActuator = ({
       let preScaledDims = baseDimsRef.current;
       if (direction.construct(orientation) === "y")
         preScaledDims = dimensions.swap(preScaledDims);
-      const scaledDims = dimensions.scale(preScaledDims, scale);
+      const scaledDims = dimensions.scale(preScaledDims, scale * spec.data.data.scale);
       svgElementRef.current.width.baseVal.value = scaledDims.width;
       svgElementRef.current.height.baseVal.value = scaledDims.height;
       svgElementRef.current.viewBox.baseVal.x = 0;

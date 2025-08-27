@@ -14,6 +14,7 @@ const StateListItem = (props: List.ItemRenderProps<string>) => {
       justify="center"
       onClick={onSelect}
       style={{ minWidth: 80 }}
+      grow
     >
       {state.name}
     </Button.Button>

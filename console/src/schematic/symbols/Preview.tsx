@@ -1,5 +1,5 @@
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon, Text } from "@synnaxlabs/pluto";
 import { box, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
@@ -225,14 +225,16 @@ export const Preview = ({
     }
   };
 
-  applyLivePreview();
-
   const handleContentsChange = (contents: string) => {
     const processedSVG = preprocessSVG(contents);
     if (containerRef.current == null) return;
-    injectSVG(containerRef.current, processedSVG);
     onContentsChange(processedSVG);
   };
+
+  if (containerRef.current != null && spec.svg.length > 0) {
+    injectSVG(containerRef.current, spec.svg);
+    applyLivePreview();
+  }
 
   let svgBox: box.Box = box.ZERO;
   if (svgElementRef.current) svgBox = box.construct(svgElementRef.current);
@@ -258,24 +260,32 @@ export const Preview = ({
       >
         {spec.svg.length > 0 && (
           <Flex.Box
-            pack
+            x
             style={{
               position: "absolute",
               top: 16,
               right: 16,
               zIndex: 1000,
             }}
-            x
           >
-            <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
-              <Icon.Subtract />
-            </Button.Button>
-            <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
-              <Icon.Add />
-            </Button.Button>
-            <Button.Button onClick={handleResetZoom} size="small" tooltip="Reset Zoom">
-              <Icon.Expand />
-            </Button.Button>
+            <Text.Text level="small" color={7}>
+              {Math.round(zoom * 100)}%
+            </Text.Text>
+            <Flex.Box pack x>
+              <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
+                <Icon.Subtract />
+              </Button.Button>
+              <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
+                <Icon.Add />
+              </Button.Button>
+              <Button.Button
+                onClick={handleResetZoom}
+                size="small"
+                tooltip="Reset Zoom"
+              >
+                <Icon.Expand />
+              </Button.Button>
+            </Flex.Box>
           </Flex.Box>
         )}
         <div

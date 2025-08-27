@@ -9,4 +9,4 @@
 
 export * from "@/workspace/schematic/client";
 export * from "@/workspace/schematic/payload";
-export * as symbol from "@/workspace/schematic/symbol";
+export * from "@/workspace/schematic/symbol";

@@ -63,13 +63,33 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, group.Key, group.Payload, SubStore>({
   name: "Group",
-  retrieve: async ({ client, params }) => {
+  retrieveCached: ({ store, params }) => {
+    if (params.parent == null) return [];
+    const rels = store.relationships.get((r) =>
+      ontology.matchRelationship(r, {
+        from: params.parent,
+        type: "parent",
+      }),
+    );
+    return store.groups.get(rels.map((r) => r.to.key));
+  },
+  retrieve: async ({ client, params, store }) => {
     if (params.parent == null) return [];
     const res = await client.ontology.retrieveChildren(params.parent, {
       ...params,
       types: ["group"],
     });
-    return res.map((r) => group.groupZ.parse(r.data));
+    const groups = res.map((r) => group.groupZ.parse(r.data));
+    store.groups.set(groups);
+    groups.forEach((g) => {
+      const rel = {
+        from: params.parent as ontology.ID,
+        type: "parent",
+        to: group.ontologyID(g.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+    return groups;
   },
   retrieveByKey: async ({ client, key, store }) =>
     await singleRetrieve(key, client, store),

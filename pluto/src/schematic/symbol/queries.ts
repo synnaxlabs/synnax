@@ -98,18 +98,27 @@ export const useList = Flux.createList<
     if (params.parent == null) return store.schematicSymbols.list();
     const keys = store.relationships
       .get((r) => matchSymbolRelationship(r, params.parent as ontology.ID))
-      .map((r) => r.from.key);
+      .map((r) => r.to.key);
     return store.schematicSymbols.get(keys);
   },
   name: "Schematic Symbols",
-  retrieve: async ({ client, params: { parent, ...rest } }) => {
+  retrieve: async ({ client, store, params: { parent, ...rest } }) => {
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);
-      return await client.workspaces.schematic.symbols.retrieve({
+      const symbols = await client.workspaces.schematic.symbols.retrieve({
         ...rest,
         keys,
       });
+      symbols.forEach((s) => {
+        const rel = {
+          from: parent,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: schematic.symbol.ontologyID(s.key),
+        };
+        store.relationships.set(ontology.relationshipToString(rel), rel);
+      });
+      return symbols;
     }
     return await client.workspaces.schematic.symbols.retrieve(rest);
   },
@@ -122,13 +131,13 @@ export const useList = Flux.createList<
     store.schematicSymbols.onDelete(onDelete),
     store.relationships.onSet(async (r) => {
       if (!matchSymbolRelationship(r, params.parent as ontology.ID)) return;
-      const symbol = await retrieveByKey(client, r.from.key, store);
-      onChange(r.from.key, symbol);
+      const symbol = await retrieveByKey(client, r.to.key, store);
+      onChange(r.to.key, symbol);
     }),
     store.relationships.onDelete(async (r) => {
       const rel = ontology.relationshipZ.parse(r);
       if (!matchSymbolRelationship(rel, params.parent as ontology.ID)) return;
-      onDelete(rel.from.key);
+      onDelete(rel.to.key);
     }),
   ],
 });

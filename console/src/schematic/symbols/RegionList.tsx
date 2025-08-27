@@ -31,45 +31,49 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
   );
 
   return (
-    <Select.ListItem {...props}>
-      <Flex.Box x align="center" gap={2} justify="between" style={{ width: "100%" }}>
-        <Flex.Box x align="center" gap={1}>
-          <Form.Field<string> path={`${path}.name`} showLabel={false}>
-            {({ onChange, value }) => (
-              <Text.Editable
-                value={value}
-                onChange={onChange}
-                style={{ minWidth: 80 }}
-              />
-            )}
-          </Form.Field>
-        </Flex.Box>
-        <Flex.Box x align="center" gap={1}>
-          <Text.Text level="small" color={7}>
-            ({region?.selectors?.length || 0} Elements)
-          </Text.Text>
-          <Form.Field<string> path={`${path}.strokeColor`} showLabel={false}>
-            {({ onChange, value }) => (
-              <Color.Swatch
-                value={value}
-                onChange={(v) => onChange(color.hex(v))}
-                size="small"
-              />
-            )}
-          </Form.Field>
-          <Form.Field<string> path={`${path}.fillColor`} showLabel={false}>
-            {({ onChange, value }) => (
-              <Color.Swatch
-                value={value}
-                onChange={(v) => onChange(color.hex(v))}
-                size="small"
-              />
-            )}
-          </Form.Field>
-          <Button.Button onClick={() => remove(itemKey)} size="small" variant="text">
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
+    <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
+      <Flex.Box x align="center" gap={1}>
+        <Form.Field<string> path={`${path}.name`} showLabel={false}>
+          {({ onChange, value }) => (
+            <Text.Editable
+              level="small"
+              value={value}
+              onChange={onChange}
+              style={{ minWidth: 80 }}
+            />
+          )}
+        </Form.Field>
+      </Flex.Box>
+      <Flex.Box x align="center" gap={1}>
+        <Text.Text level="small" color={7}>
+          {region?.selectors?.length || 0} Elements
+        </Text.Text>
+        <Form.Field<string> path={`${path}.strokeColor`} showLabel={false}>
+          {({ onChange, value }) => (
+            <Color.Swatch
+              value={value}
+              onChange={(v) => onChange(color.hex(v))}
+              size="small"
+            />
+          )}
+        </Form.Field>
+        <Form.Field<string> path={`${path}.fillColor`} showLabel={false}>
+          {({ onChange, value }) => (
+            <Color.Swatch
+              value={value}
+              onChange={(v) => onChange(color.hex(v))}
+              size="small"
+            />
+          )}
+        </Form.Field>
+        <Button.Button
+          onClick={() => remove(itemKey)}
+          size="small"
+          variant="text"
+          ghost
+        >
+          <Icon.Close />
+        </Button.Button>
       </Flex.Box>
     </Select.ListItem>
   );
