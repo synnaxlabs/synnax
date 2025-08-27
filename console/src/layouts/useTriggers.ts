@@ -60,7 +60,7 @@ export const useTriggers = (): void => {
       const state = store.getState();
       const modals = selectModals(state);
       if (modals.length !== 0) return remove(modals[0].key);
-      const {layoutKey: active} = selectActiveMosaicTabKey(state);
+      const { layoutKey: active } = selectActiveMosaicTabState(state);
       if (active != null) return remove(active);
       closeWindowTimeout.current = setTimeout(
         () => store.dispatch(Drift.closeWindow({})),

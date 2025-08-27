@@ -79,7 +79,7 @@ export const Controls = ({
         <Flex.Box align="center" x justify="end">
           <Button.Button
             onClick={onConfigure}
-            status={status.filterVariant(formStatus.variant, ["loading", "disabled"])}
+            status={status.keepVariants(formStatus.variant, ["loading", "disabled"])}
             size="medium"
             tooltip={
               hasTriggers ? (
@@ -96,7 +96,7 @@ export const Controls = ({
           </Button.Button>
           <Button.Button
             disabled={formStatus.variant !== "success"}
-            status={status.filterVariant(taskStatus.variant, "loading")}
+            status={status.keepVariants(taskStatus.variant, "loading")}
             onClick={handleStartStop}
             size="medium"
             variant="filled"
