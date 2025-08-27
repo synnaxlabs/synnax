@@ -62,14 +62,24 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
               trigger={Triggers.SAVE}
             >
               <Icon.Download />
+              Download
             </Button.Button>
           </Nav.Bar.End>
         </>
       );
     return (
       <Modals.ModalContentLayout footer={footer} gap="huge">
-        <Text.Text level="h3">Select Channels to Download</Text.Text>
-        <Channel.SelectMultiple value={channels} onChange={setChannels} full="x" />
+        <Text.Text level="h4" weight={450}>
+          Export Range Data to a CSV
+        </Text.Text>
+        <Flex.Box y full="x">
+          <Channel.SelectMultiple
+            value={channels}
+            onChange={setChannels}
+            triggerProps={{ placeholder: "Select Channels to Download" }}
+            full="x"
+          />
+        </Flex.Box>
       </Modals.ModalContentLayout>
     );
   },
