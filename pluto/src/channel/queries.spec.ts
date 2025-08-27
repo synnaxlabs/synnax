@@ -14,14 +14,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
 import { Ontology } from "@/ontology";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("queries", () => {
   let controller: AbortController;
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createSynnaxWraperWithAwait({
+    wrapper = await createAsyncSynnaxWrapper({
       client,
       excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
     });

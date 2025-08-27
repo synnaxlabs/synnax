@@ -15,7 +15,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Group } from "@/group";
 import { Ontology } from "@/ontology";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Group queries", () => {
   let controller: AbortController;
@@ -23,7 +23,7 @@ describe("Group queries", () => {
   let wrapper: FC<PropsWithChildren>;
 
   beforeAll(async () => {
-    wrapper = await createSynnaxWraperWithAwait({
+    wrapper = await createAsyncSynnaxWrapper({
       client,
       excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
     });
