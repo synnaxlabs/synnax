@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Fragment, type ReactElement, useMemo, useState } from "react";
+import "@/vis/legend/Grouped.css";
 
-import { Divider } from "@/divider";
+import { Fragment, type ReactElement, useState } from "react";
+
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Text } from "@/text";
-import { text } from "@/text/core";
-import { Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntriesProps } from "@/vis/legend/Entries";
 
@@ -44,16 +44,6 @@ export const Grouped = ({
   ...rest
 }: GroupedProps): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState(false);
-  const font = Theming.useTypography("small").toString();
-  const style = useMemo(() => {
-    if (data.length === 0) return undefined;
-    let width = 0;
-    for (const { name } of data) {
-      const dims = text.dimensions(name, font);
-      width = Math.max(width, dims.width);
-    }
-    return { width: `${width}px` };
-  }, [data, font]);
   if (data.length === 0) return null;
   return (
     <Container
@@ -63,26 +53,25 @@ export const Grouped = ({
       onChange={onPositionChange}
       gap="small"
       background={background}
+      className={CSS.B("legend-grouped")}
     >
       {data.map(({ key, name, data: groupData }, i) => (
         <Fragment key={key}>
-          <Flex.Box x>
-            <Text.Text level="small" style={style}>
-              {name}
-            </Text.Text>
-            <Flex.Box y grow>
-              <Entries
-                data={groupData}
-                onEntryChange={onEntryChange}
-                colorPickerVisible={pickerVisible}
-                onColorPickerVisibleChange={setPickerVisible}
-                allowVisibleChange={allowVisibleChange}
-                background={background}
-                entryProps={{ justify: "between", grow: true }}
-              />
-            </Flex.Box>
+          <Text.Text level="small" className={CSS.B("legend-name")}>
+            {name}
+          </Text.Text>
+          <Flex.Box y grow className={CSS.B("legend-entries")}>
+            <Entries
+              data={groupData}
+              onEntryChange={onEntryChange}
+              colorPickerVisible={pickerVisible}
+              onColorPickerVisibleChange={setPickerVisible}
+              allowVisibleChange={allowVisibleChange}
+              background={background}
+              entryProps={{ justify: "between", grow: true }}
+            />
           </Flex.Box>
-          {i !== data.length - 1 && <Divider.Divider x />}
+          {i !== data.length - 1 && <div className={CSS.B("legend-divider")} />}
         </Fragment>
       ))}
     </Container>
