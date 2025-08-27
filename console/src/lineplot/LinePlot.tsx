@@ -146,7 +146,7 @@ const RangeAnnotationContextMenu = ({
   return (
     <PMenu.Menu level="small">
       <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.Download />
+        <Icon.CSV />
         Download as CSV
       </PMenu.Item>
       <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
@@ -424,8 +424,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
-              <Icon.Download /> Download Region as CSV
+              <Icon.CSV /> Download Region as CSV
             </PMenu.Item>
+            <PMenu.Divider />
           </>
         )}
         <Menu.HardReloadItem />

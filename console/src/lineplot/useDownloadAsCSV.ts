@@ -101,10 +101,10 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
     }, "Failed to download CSV");
 };
 
-export const useDownloadPlotAsCSV = (): ((key: string) => void) => {
+export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const store = useStore<RootState>();
-  return (key) => {
+  return () => {
     const now = TimeStamp.now();
     const storeState = store.getState();
     const { name } = Layout.selectRequired(storeState, key);
