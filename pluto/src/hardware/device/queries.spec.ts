@@ -14,14 +14,14 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Device } from "@/hardware/device";
-import { createSynnaxWraperWithAwait } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
-    wrapper = await createSynnaxWraperWithAwait({ client });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
   describe("retrieve", () => {
     it("should return a device", async () => {

@@ -14,22 +14,19 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { light } from "@/vis/light/aether";
 
-export interface UseProps extends Pick<z.input<typeof light.lightStateZ>, "source"> {
+export interface UseProps extends Pick<z.input<typeof light.stateZ>, "source"> {
   aetherKey: string;
 }
 
-export interface UseReturn extends Pick<z.infer<typeof light.lightStateZ>, "enabled"> {}
+export interface UseReturn extends Pick<z.infer<typeof light.stateZ>, "enabled"> {}
 
 export const use = ({ aetherKey, source }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source });
   const [, { enabled }, setState] = Aether.use({
     aetherKey,
     type: light.Light.TYPE,
-    schema: light.lightStateZ,
-    initialState: {
-      enabled: false,
-      ...memoProps,
-    },
+    schema: light.stateZ,
+    initialState: { enabled: false, ...memoProps },
   });
   useEffect(
     () => setState((state) => ({ ...state, ...memoProps })),

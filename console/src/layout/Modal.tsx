@@ -10,7 +10,7 @@
 import "@/layout/Modals.css";
 
 import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
-import { type CSSProperties } from "react";
+import { type CSSProperties, useCallback } from "react";
 
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
@@ -27,21 +27,15 @@ interface ModalProps {
   remove: (key: string) => void;
 }
 
-const calculateOffset = (window?: WindowProps): number => {
-  if (window?.size?.height == null) return 0;
-  if (window?.size?.height < 500) return 15;
-  return Math.round(window.size.height / 250);
-};
-
 export const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
+  const handleVisibleChange = useCallback(() => remove(key), [key, remove]);
   return (
     <Dialog.Frame
       key={key}
       variant="modal"
       visible
-      onVisibleChange={() => remove(key)}
-      modalOffset={calculateOffset(window)}
+      onVisibleChange={handleVisibleChange}
       background={0}
     >
       <Dialog.Dialog style={layoutCSS(window)} full>

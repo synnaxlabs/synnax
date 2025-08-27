@@ -10,6 +10,7 @@
 import { box, debounce as debounceF, deep, type direction } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
+import { useSyncedRef } from "@/hooks/ref";
 import { compareArrayDeps, useMemoCompare } from "@/memo";
 
 export interface UseResizeOpts {
@@ -89,8 +90,15 @@ const shouldResize = (
   return false;
 };
 
-export const useSize = (): [RefCallback<HTMLElement>, box.Box] => {
-  const [size, setSize] = useState<box.Box>(() => deep.copy(box.ZERO));
-  const ref = useResize((b) => setSize(b));
-  return [ref, size];
+export const useWindowResize = (onResize: UseResizeHandler) => {
+  const onResizeRef = useSyncedRef(onResize);
+  useEffect(() => {
+    const handler = () =>
+      onResizeRef.current(
+        box.construct(window.innerWidth, window.innerHeight),
+        window.document.documentElement,
+      );
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 };

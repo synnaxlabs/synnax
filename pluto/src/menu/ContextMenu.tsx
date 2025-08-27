@@ -9,12 +9,13 @@
 
 import "@/menu/ContextMenu.css";
 
-import { box, position, unique, xy } from "@synnaxlabs/x";
+import { box, location, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
 
@@ -80,6 +81,13 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   return [target];
 };
 
+const PREFERENCES: Dialog.LocationPreference[] = [
+  { targetCorner: location.BOTTOM_RIGHT, dialogCorner: location.TOP_LEFT },
+  { targetCorner: location.BOTTOM_LEFT, dialogCorner: location.TOP_RIGHT },
+  { targetCorner: location.TOP_RIGHT, dialogCorner: location.BOTTOM_LEFT },
+  { targetCorner: location.TOP_LEFT, dialogCorner: location.BOTTOM_RIGHT },
+];
+
 /**
  * Menu.useContextMenu extracts the logic for toggling a context menu, allowing
  * the caller to control the menu's visibility and position.
@@ -112,11 +120,11 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (el == null) return;
     setMenuState((prev) => {
       if (!prev.visible) return prev;
-      const { adjustedDialog } = position.dialog({
+      const { adjustedDialog } = Dialog.position({
         container: box.construct(0, 0, window.innerWidth, window.innerHeight),
         dialog: box.construct(el),
         target: box.construct(prev.cursor, 0, 0),
-        prefer: [{ y: "bottom" }],
+        prefer: PREFERENCES,
       });
       const nextPos = box.topLeft(adjustedDialog);
       if (xy.equals(prev.position, nextPos)) return prev;
@@ -137,7 +145,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   };
 };
 
-export interface ContextMenuMenuProps {
+export interface ContextMenuMenuProps extends ContextMenuState {
   keys: string[];
 }
 
@@ -156,22 +164,25 @@ const Internal = ({
   position,
   keys,
   className,
-  cursor: _,
+  cursor,
   style,
+  onClick,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
   if (!visible) return null;
-  const menuContent = menu?.({ keys });
   return createPortal(
     <Flex.Box
       className={CSS(CONTEXT_MENU_CLASS, CSS.bordered())}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
-      onClick={close}
+      onClick={(e) => {
+        close();
+        onClick?.(e);
+      }}
       gap="tiny"
       {...rest}
     >
-      {menuContent}
+      {menu?.({ keys, visible, position, cursor })}
     </Flex.Box>,
     document.body,
   );
