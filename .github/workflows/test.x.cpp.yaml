@@ -54,7 +54,7 @@ jobs:
         if: matrix.format
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-22
 
       - name: Check Formatting
         if: matrix.format
