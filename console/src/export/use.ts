@@ -38,20 +38,18 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
               filters: FILTERS,
             });
             if (savePath == null) return;
-            return await writeTextFile(savePath, extractorReturn.data);
+            await writeTextFile(savePath, extractorReturn.data);
             addStatus({
               variant: "success",
               message: `Exported ${name ?? type} to ${savePath}`,
             });
+            return;
           }
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(
-            new Blob([extractorReturn.data], { type: "text/json" }),
+          Runtime.downloadFromBrowser(
+            extractorReturn.data,
+            "application/json",
+            `${name}.json`,
           );
-          link.download = `${name}.json`;
-          link.click();
-          URL.revokeObjectURL(link.href);
-          link.remove();
         },
         `Failed to export ${name ?? type}`,
       );

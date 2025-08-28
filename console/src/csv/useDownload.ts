@@ -18,6 +18,8 @@ import { runtime, TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
+import { Runtime } from "@/runtime";
+
 export interface DownloadArgs {
   timeRanges: TimeRange[];
   keys: channel.Keys;
@@ -58,8 +60,11 @@ const download = async ({
   onPercentDownloadedChange,
   addStatus,
 }: DownloadContext): Promise<void> => {
-  const savePath = await save({ defaultPath: `${fileName}.csv` });
-  if (savePath == null) return;
+  let savePath: string | null = null;
+  if (Runtime.ENGINE === "tauri") {
+    savePath = await save({ defaultPath: `${fileName}.csv` });
+    if (savePath == null) return;
+  }
   const channels = await client.channels.retrieve(keys);
   onPercentDownloadedChange?.(10);
   const indexes = unique.unique(channels.map(({ index }) => index));
@@ -88,11 +93,14 @@ const download = async ({
   });
   const csv = frameToCSV(columns, frame);
   const data = new TextEncoder().encode(csv);
-  await writeFile(savePath, data);
-  addStatus({
-    variant: "success",
-    message: `Downloaded ${fileName} to ${savePath}`,
-  });
+  if (savePath == null) Runtime.downloadFromBrowser(csv, "text/csv", `${fileName}.csv`);
+  else {
+    await writeFile(savePath, data);
+    addStatus({
+      variant: "success",
+      message: `Downloaded ${fileName} to ${savePath}`,
+    });
+  }
   onPercentDownloadedChange?.(100);
   afterDownload?.();
 };

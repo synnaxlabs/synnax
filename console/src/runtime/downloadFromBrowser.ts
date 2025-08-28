@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/runtime/downloadFromBrowser";
-export * from "@/runtime/isMainWindow";
-export * from "@/runtime/runtime";
+export const downloadFromBrowser = (data: string, type: string, fileName: string) => {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([data], { type }));
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  link.remove();
+};
