@@ -30,15 +30,22 @@ export interface DownloadArgs {
 export const useDownload = (): ((args: DownloadArgs) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+  const addStatus = Status.useAdder();
   return (args: DownloadArgs) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      await download({ ...args, client });
+      try {
+        await download({ ...args, client, addStatus });
+      } catch (e) {
+        args.onPercentDownloadedChange?.(0);
+        throw e;
+      }
     }, "Failed to download CSV");
 };
 
 interface DownloadContext extends DownloadArgs {
   client: Client;
+  addStatus: Status.Adder;
 }
 
 const download = async ({
@@ -49,6 +56,7 @@ const download = async ({
   fileName,
   afterDownload,
   onPercentDownloadedChange,
+  addStatus,
 }: DownloadContext): Promise<void> => {
   const savePath = await save({ defaultPath: `${fileName}.csv` });
   if (savePath == null) return;
@@ -81,6 +89,10 @@ const download = async ({
   const csv = frameToCSV(columns, frame);
   const data = new TextEncoder().encode(csv);
   await writeFile(savePath, data);
+  addStatus({
+    variant: "success",
+    message: `Downloaded ${fileName} to ${savePath}`,
+  });
   onPercentDownloadedChange?.(100);
   afterDownload?.();
 };

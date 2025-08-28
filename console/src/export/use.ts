@@ -22,6 +22,7 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
   const client = Synnax.use();
   const store = useStore<RootState>();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   return useCallback(
     (key: string) => {
       let name: string | undefined;
@@ -36,6 +37,10 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
           });
           if (savePath == null) return;
           await writeTextFile(savePath, extractorReturn.data);
+          addStatus({
+            variant: "success",
+            message: `Exported ${name ?? type} to ${savePath}`,
+          });
         },
         `Failed to export ${name ?? type}`,
       );

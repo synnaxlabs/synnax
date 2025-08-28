@@ -18,7 +18,7 @@ import { Triggers } from "@/triggers";
 
 export interface DownloadModalArgs extends Modals.BaseArgs<void> {
   timeRanges: NumericTimeRange[];
-  fileName: string;
+  name: string;
 }
 
 export const DOWNLOAD_MODAL_LAYOUT_TYPE = "downloadCSV";
@@ -31,19 +31,16 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
 >(
   "Download.CSV",
   DOWNLOAD_MODAL_LAYOUT_TYPE,
-  ({ value: { timeRanges, fileName }, onFinish }) => {
+  ({ value: { timeRanges, name }, onFinish }) => {
     const [channels, setChannels] = useState<channel.Keys>([]);
     const [percentDownloaded, setPercentDownloaded] = useState(0);
     const downloadCSV = useDownload();
-    const afterDownload = () => {
-      setTimeout(onFinish, 500);
-    };
     const handleFinish = () =>
       downloadCSV({
         timeRanges: timeRanges.map((tr) => new TimeRange(tr)),
         keys: channels,
-        fileName,
-        afterDownload,
+        fileName: name,
+        afterDownload: onFinish,
         onPercentDownloadedChange: setPercentDownloaded,
       });
     const footer =
@@ -70,12 +67,13 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
     return (
       <Modals.ModalContentLayout footer={footer} gap="huge">
         <Text.Text level="h4" weight={450}>
-          Export Range Data to a CSV
+          Export Data for {name} to a CSV
         </Text.Text>
         <Flex.Box y full="x">
           <Channel.SelectMultiple
             value={channels}
             onChange={setChannels}
+            initialParams={{ virtual: false }}
             triggerProps={{ placeholder: "Select Channels to Download" }}
             full="x"
           />
