@@ -1,30 +1,53 @@
-auto ox_press{
-    chan press_valve 
-    chan vent_valve
-    chan reading
-    uint32 lower_threshold
-    uint32 upper_threshold
+auto press {
+    chan  press_valve_cmd
+    chan  vent_valve_cmd
+    chan  press_valve_state
+    chan  vent_valve_state
+    chan  reading
+    int32 press_target
+    int32 bounds
 } () {
-    if (reading < lower_threshold) {
-        true -> press_valve
-    } else if (reading > upper_threshold) {
-        true -> vent_valve
+    if (reading < press_target && press_valve_state == false) {
+        true -> press_valve_cmd
+    } else if (reading > press_target + bounds && vent_valve_state == false) {
+        true -> vent_valve_cmd
     } else {
-        false -> press_valve
+        false -> press_valve_cmd
+        false -> vent_valve_cmd
     }
 }
 
-on{start_master_cmd} 
--> initialize_tasks{}
--> select{
-    case true -> press|
-    case false -> safe{}
+interval{100, ox_press_cmd} -> press{
+    press_target: 100
+    bounds: 10
+    press_valve_cmd: ox_press_vlv_cmd
+    vent_valve_cmd: ox_vent_vlv_cmd
+    reading: ox_press_pt
 }
 
-|press -> fan{
-    -> ox_press{}
-    -> fuel_press{}
-} -> select{
-    case true -> ignition{}
+interval{100, fuel_press_cmd} -> press{
+    press_target: 120
+    bounds: 5,
+    press_valve_cmd: fuel_press_vlv_cmd
+    vent_valve_cmd: fuel_vent_vlv_cmd
+    reading: fuel_press_pt
+}
+
+{start_master_cmd} -> initialize_tasks{} -> select{
+    case true -> auto{} () {
+        true -> ox_press_cmd
+        true -> fuel_press_cmd
+    }
     case false -> safe{}
+} -> first{
+    {fuel_press_pt > 120 && ox_press_pt > 100},
+    timeout{100}
+}-> select{
+    case true -> hold_state
+    case false -> safe{}
+} -> first{
+    {hold_state === false}
+    {abort_state == true}
+} -> {
+    igniter<-true
 }
