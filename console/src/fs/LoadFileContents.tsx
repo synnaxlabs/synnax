@@ -17,6 +17,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
+import { Runtime } from "@/runtime";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
@@ -34,6 +35,10 @@ export const InputFilePath = ({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
+      if (Runtime.ENGINE !== "tauri")
+        throw new Error(
+          "Cannot open a file dialog when running Synnax in the browser.",
+        );
       const path = await open({ directory: false, filters });
       if (path == null) return;
       onChange(path);

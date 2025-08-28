@@ -141,6 +141,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -398,6 +399,7 @@ export const Click = wrapSVGIcon(HiCursorClick, "click");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");
+export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -533,6 +535,7 @@ const icons = {
   None,
   Constant,
   Terminal,
+  CSV,
   Valve,
   Safety,
   Process,

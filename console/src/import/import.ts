@@ -19,6 +19,7 @@ import { useStore } from "react-redux";
 import { type FileIngestor } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -44,6 +45,10 @@ export const createImporter: ImporterCreator =
   (ingest, type) =>
   ({ store, client, placeLayout, handleError, workspaceKey }) => {
     handleError(async () => {
+      if (Runtime.ENGINE !== "tauri")
+        throw new Error(
+          "Cannot import items from a dialog when running Synnax in the browser.",
+        );
       const paths = await open({
         title: `Import ${type}`,
         filters: FILTERS,

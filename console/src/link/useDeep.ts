@@ -15,7 +15,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type ClusterHandler, type Handler, PREFIX } from "@/link/types";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
@@ -30,7 +30,7 @@ export const useDeep = (
 ): void => {
   // While early returns are usually bad in hooks, this is fine because IS_TAURI is a
   // constant and so the hook will be the exact same for a given runtime.
-  if (RUNTIME !== "tauri") return;
+  if (Runtime.ENGINE !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();

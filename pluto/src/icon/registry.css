@@ -55,6 +55,10 @@
     transform: translateY(1px) scale(1.25);
 }
 
+.pluto-icon--csv {
+    transform: scale(1.25);
+}
+
 .pluto-icon--fitting {
     --pluto-base-scale: 1.8;
     transform: scale(var(--pluto-base-scale));

@@ -17,7 +17,7 @@ build:
     COPY . .
     ARG driver=true
     IF [ "$driver" = "true" ]
-        RUN go build -tags driver -o build/synnax .
+        RUN go build -tags driver,console -o build/synnax .
     ELSE
         RUN go build -o build/synnax .
     END

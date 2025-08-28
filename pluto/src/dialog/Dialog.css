@@ -117,3 +117,9 @@
 .pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
     background: var(--pluto-gray-l1-60);
 }
+
+@media (prefers-color-scheme: dark) {
+    .pluto-dialog__bg.pluto--visible {
+        background: var(--pluto-gray-l1-60);
+    }
+}

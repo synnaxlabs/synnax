@@ -22,6 +22,7 @@ import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
 import { createSelectorLayout } from "@/layouts/Selector";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
@@ -73,6 +74,7 @@ export const useTriggers = (): void => {
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;
+      if (Runtime.ENGINE !== "tauri") return;
       const state = store.getState();
       const { layoutKey: active } = selectActiveMosaicTabState(state);
       if (active == null) return;

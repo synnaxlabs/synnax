@@ -23,7 +23,7 @@ import {
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { type LocationPreference, position } from "@/dialog/position";
+import { type LocationPreference, position, type Preference } from "@/dialog/position";
 import { Flex } from "@/flex";
 import {
   useClickOutside,
@@ -178,7 +178,7 @@ export const Frame = ({
 
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocation = useRef<xlocation.XY | undefined>(undefined);
+  const prevLocationPreference = useRef<Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -202,17 +202,21 @@ export const Frame = ({
         return { ...prev, modalPosition };
       });
     }
+    let prefer = PREFERENCES;
+    if (prevLocationPreference.current != null)
+      prefer = [prevLocationPreference.current, ...PREFERENCES];
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
-    const { adjustedDialog, targetCorner, dialogCorner } = position({
+    const { adjustedDialog, ...locations } = position({
       target,
       dialog,
       container: windowBox,
-      prefer: PREFERENCES,
+      prefer,
       initial: propsLocation,
       offset: 3,
     });
-    prevLocation.current = targetCorner;
+    prevLocationPreference.current = locations;
+    const { targetCorner, dialogCorner } = locations;
     const roundedDialog = box.round(adjustedDialog);
     if (positionsEqual(variant, roundedDialog, prevBox.current)) return;
     prevBox.current = roundedDialog;
