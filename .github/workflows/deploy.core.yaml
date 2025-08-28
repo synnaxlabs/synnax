@@ -1,4 +1,4 @@
-name: Deploy - Synnax
+name: Deploy - Core
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
 
       - name: Get Version
         id: version
-        working-directory: synnax
+        working-directory: core
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
@@ -129,8 +129,10 @@ jobs:
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
-      
+        run:
+          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
+          --announce_rc //driver
+
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         run: |
@@ -196,7 +198,7 @@ jobs:
           </dict>
           </plist>
           EOF
-          
+
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
@@ -248,9 +250,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+            mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           else
-            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
       - name: Create Driver Install Script for NI Linux RT
@@ -293,21 +295,21 @@ jobs:
       - name: Copy Console Assets to Server
         shell: bash
         run: |
-          mkdir -p synnax/pkg/service/console/dist
-          cp -r console/dist/* synnax/pkg/service/console/dist/
+          mkdir -p core/pkg/service/console/dist
+          cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Download Dependencies
-        working-directory: synnax
+        working-directory: core
         run: go mod download
 
       - name: Build
-        working-directory: synnax
+        working-directory: core
         run: |
           go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
         if: matrix.os == 'macos-15' && github.event_name == 'push'
-        working-directory: synnax
+        working-directory: core
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -321,14 +323,14 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
-          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
+          relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
 
       - name: Upload Release Asset
         if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
@@ -388,7 +390,7 @@ jobs:
       - name: Build Image
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
         run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
-        working-directory: ./synnax
+        working-directory: core
 
       - name: Push to Github Container Registry
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'

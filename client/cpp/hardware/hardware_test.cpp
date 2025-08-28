@@ -242,7 +242,8 @@ TEST(DeviceTests, testCreateDevices) {
 
     // Verify each device was created correctly by retrieving them
     for (const auto &device: devices) {
-        const auto retrieved = ASSERT_NIL_P(client.hardware.retrieve_device(device.key)
+        const auto retrieved = ASSERT_NIL_P(
+            client.hardware.retrieve_device(device.key)
         );
         ASSERT_EQ(retrieved.key, device.key);
         ASSERT_EQ(retrieved.name, device.name);

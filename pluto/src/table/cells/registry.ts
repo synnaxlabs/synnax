@@ -59,6 +59,8 @@ const value: Spec<typeof valuePropsZ> = {
     color: color.hex(t.colors.gray.l10),
     level: "h5",
     units: "",
+    stalenessTimeout: 5,
+    stalenessColor: t.colors.warning.m1,
   }),
   schema: valuePropsZ,
 };

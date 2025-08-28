@@ -172,8 +172,9 @@ public:
     explicit Reader(
         const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
         const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
-        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses =
-            {{{0.5}, xerrors::NIL}}
+        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {
+            {{0.5}, xerrors::NIL}
+        }
     );
 
     ReadResult read(size_t samples_per_channel, std::vector<T> &data) override;

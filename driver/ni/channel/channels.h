@@ -650,7 +650,8 @@ struct AIThermocouple final : AI {
         thermocouple_type(parse_type(cfg)),
         cjc_source(parse_cjc_source(cfg)),
         cjc_val(cfg.optional<double>("cjc_val", 0)),
-        cjc_port(format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))
+        cjc_port(
+            format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))
         ) {
         this->cjc_port = format_cjc_port(
             this->cfg_path,
@@ -1625,9 +1626,7 @@ template<typename T>
 using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
 #define INPUT_CHAN_FACTORY(type, class)                                                \
-    {                                                                                  \
-        type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }          \
-    }
+    {type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),

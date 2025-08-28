@@ -78,7 +78,8 @@ class Scanner final : public common::Scanner {
 
         for (int i = 0; i < num_found; i++) {
             const auto serial_str = std::to_string(serial_numbers[i]);
-            const auto device_type_str = std::string(NumberToDeviceType(device_types[i])
+            const auto device_type_str = std::string(
+                NumberToDeviceType(device_types[i])
             );
             const auto conn_type_str = std::string(
                 NumberToConnectionType(connection_types[i])
@@ -103,11 +104,10 @@ class Scanner final : public common::Scanner {
                 .key = sy_dev.key,
                 .variant = status::variant::SUCCESS,
                 .message = "Device present",
-                .details =
-                    synnax::DeviceStatusDetails{
-                        .rack = rack,
-                        .device = sy_dev.key,
-                    }
+                .details = synnax::DeviceStatusDetails{
+                    .rack = rack,
+                    .device = sy_dev.key,
+                }
             };
             devices.push_back(sy_dev);
         }

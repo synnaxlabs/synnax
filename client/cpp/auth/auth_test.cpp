@@ -12,8 +12,8 @@
 #include <gtest/gtest.h>
 #include <memory>
 
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 #include "freighter/cpp/mock/mock.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
