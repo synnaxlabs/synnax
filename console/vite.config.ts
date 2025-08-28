@@ -15,7 +15,7 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import importMetaUrlPlugin from "@codingame/esbuild-import-meta-url-plugin";
 
-const isDev = process.env.TAURI_ENV_DEBUG === "true";
+const isDev = process.env.VITE_IS_DEV === "true";
 
 export default defineConfig({
   clearScreen: false,

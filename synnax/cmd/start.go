@@ -237,7 +237,7 @@ func start(cmd *cobra.Command) {
 		if rootServer, err = server.Serve(
 			server.Config{
 				Branches: []server.Branch{
-					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
+					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
 					&server.GRPCBranch{Transports: slices.Concat(
 						grpcAPITrans,
 						distributionTransports,
