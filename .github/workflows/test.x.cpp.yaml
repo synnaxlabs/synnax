@@ -50,6 +50,12 @@ jobs:
           disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
+      - name: Install Clang Format
+        if: matrix.format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
       - name: Check Formatting
         if: matrix.format
         run: ./scripts/check-clang-format.sh x/cpp
