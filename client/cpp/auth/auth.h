@@ -124,7 +124,8 @@ public:
                             "Synnax cluster.";
             LOG(WARNING) << "this host (" << host << ") is " << direction
                          << "by approximately " << skew_calc.skew().abs();
-            LOG(WARNING
+            LOG(
+                WARNING
             ) << "this may cause problems with time-series data consistency. We highly "
                  "recommend synchronizing your clock with the Synnax cluster.";
         }

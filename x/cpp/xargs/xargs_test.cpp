@@ -121,11 +121,13 @@ TEST_F(XArgsTest, TestError) {
 }
 
 TEST(XArgs, Regression) {
-    auto parser = xargs::Parser(std::vector<std::string>{
-        "program",
-        "--state-file",
-        "/tmp/rack-config-test/state.json"
-    });
+    auto parser = xargs::Parser(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json"
+        }
+    );
     const std::string value = parser.optional("--state-file", "");
     ASSERT_EQ(value, "/tmp/rack-config-test/state.json");
 }
