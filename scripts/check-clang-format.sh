@@ -38,6 +38,9 @@ if ! command -v clang-format &> /dev/null; then
   exit 1
 fi
 
+# print the version of clang-format
+clang-format --version
+
 # Use the root .clang-format-ignore file
 ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
 
