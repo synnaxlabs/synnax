@@ -45,7 +45,7 @@
     }
 
     .pluto-legend-entry {
-        height: 3.5rem;
+        height: round(3.25rem, 1px);
         cursor: pointer;
     }
 }

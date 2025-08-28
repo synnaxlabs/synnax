@@ -46,7 +46,7 @@ export interface PositionReturn {
 
 const normalizePreference = (pref: LocationPreference): Preference => {
   if (typeof pref === "string" || "x" in pref || "y" in pref)
-    return { targetCorner: pref, dialogCorner: location.CENTER };
+    return { targetCorner: pref, dialogCorner: undefined };
   // The only remaining case here is an empty object, which is valid as both a preference
   // and a location.
   return pref as Preference;
@@ -81,9 +81,12 @@ const buildOptions = ({
         if (dialogLoc.y != null && d.y !== dialogLoc.y) return;
 
         const opt = { targetCorner: t, dialogCorner: d };
-        if (!isDisabled(opt, disabled)) options.push(opt);
+        options.push(opt);
       });
     });
+    const first = options.filter((o) => !isDisabled(o, disabled));
+    if (first.length == 0) return options.slice(0, 1);
+    return first;
   }
 
   // Add explicit preferences in order

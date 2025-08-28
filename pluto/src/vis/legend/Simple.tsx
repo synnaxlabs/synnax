@@ -44,8 +44,8 @@ export const Simple = ({
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      gap="small"
       background={background}
+      empty
     >
       <Entries
         data={data}

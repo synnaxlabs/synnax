@@ -12,7 +12,7 @@
 .pluto-legend-grouped {
     display: grid;
     grid-template-columns: max-content 1fr;
-    row-gap: 1rem;
+    row-gap: 0rem;
     column-gap: 1rem;
 
     & > .pluto-legend-name {

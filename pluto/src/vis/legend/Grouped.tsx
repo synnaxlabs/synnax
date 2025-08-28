@@ -57,10 +57,15 @@ export const Grouped = ({
     >
       {data.map(({ key, name, data: groupData }, i) => (
         <Fragment key={key}>
-          <Text.Text level="small" className={CSS.B("legend-name")}>
+          <Text.Text
+            level="small"
+            color={9}
+            weight={500}
+            className={CSS.B("legend-name")}
+          >
             {name}
           </Text.Text>
-          <Flex.Box y grow className={CSS.B("legend-entries")}>
+          <Flex.Box y grow className={CSS.B("legend-entries")} empty>
             <Entries
               data={groupData}
               onEntryChange={onEntryChange}

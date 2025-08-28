@@ -360,6 +360,118 @@ describe("position", () => {
       },
     };
 
+    const INITIAL_LOCATION_SIMPLE: Spec = {
+      name: "initial location preference",
+      args: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: {
+          targetCorner: location.TOP_RIGHT,
+          dialogCorner: location.BOTTOM_LEFT,
+        },
+      },
+      expected: {
+        targetCorner: location.TOP_RIGHT,
+        dialogCorner: location.BOTTOM_LEFT,
+        adjustedDialog: box.construct(50, 20, 20, 20),
+      },
+    };
+
+    const INITIAL_LOCATION_PARTIAL: Spec = {
+      name: "initial location with partial preference",
+      args: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: {
+          targetCorner: "top",
+          dialogCorner: "bottom",
+        },
+      },
+      expected: {
+        targetCorner: location.TOP_CENTER,
+        dialogCorner: location.BOTTOM_CENTER,
+        adjustedDialog: box.construct(35, 20, 20, 20),
+      },
+    };
+
+    const INITIAL_WITH_PREFER: Spec = {
+      name: "initial location with prefer fallback",
+      args: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 20, 20),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: {
+          targetCorner: location.TOP_LEFT,
+          dialogCorner: location.BOTTOM_LEFT,
+        },
+        prefer: {
+          targetCorner: location.CENTER_LEFT,
+          dialogCorner: location.CENTER_RIGHT,
+        },
+      },
+      expected: {
+        targetCorner: location.TOP_LEFT,
+        dialogCorner: location.BOTTOM_LEFT,
+        adjustedDialog: box.construct(40, 20, 20, 20),
+      },
+    };
+
+    const INITIAL_CONSTRAINED: Spec = {
+      name: "initial location constrained by container",
+      args: {
+        container: box.construct(0, 0, 50, 50),
+        target: box.construct(35, 35, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: {
+          targetCorner: location.BOTTOM_RIGHT,
+          dialogCorner: location.TOP_LEFT,
+        },
+      },
+      expected: {
+        targetCorner: location.BOTTOM_RIGHT,
+        dialogCorner: location.TOP_LEFT,
+        adjustedDialog: box.construct(45, 45, 20, 20),
+      },
+    };
+
+    const INITIAL_WITH_DISABLE: Spec = {
+      name: "initial location with disabled options",
+      args: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: {
+          targetCorner: location.CENTER_LEFT,
+          dialogCorner: location.CENTER_RIGHT,
+        },
+        disable: [
+          { targetCorner: location.CENTER_LEFT, dialogCorner: location.CENTER_RIGHT },
+        ],
+      },
+      expected: {
+        targetCorner: location.CENTER_LEFT,
+        dialogCorner: location.CENTER_RIGHT,
+        adjustedDialog: box.construct(20, 35, 20, 20),
+      },
+    };
+
+    const INITIAL_SINGLE_AXIS: Spec = {
+      name: "initial location with single axis preference",
+      args: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: "right",
+      },
+      expected: {
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(50, 35, 20, 20),
+      },
+    };
+
     const SPECS: Spec[] = [
       CENTER,
       TOP_LEFT,
@@ -380,6 +492,12 @@ describe("position", () => {
       CONSTRAINED_SPACE,
       EDGE_CASE_SINGLE_AXIS,
       LARGE_DIALOG,
+      INITIAL_LOCATION_SIMPLE,
+      INITIAL_LOCATION_PARTIAL,
+      INITIAL_WITH_PREFER,
+      INITIAL_CONSTRAINED,
+      INITIAL_WITH_DISABLE,
+      INITIAL_SINGLE_AXIS,
     ];
 
     SPECS.forEach(({ name, args, expected }) =>
