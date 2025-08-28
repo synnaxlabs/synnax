@@ -1,9 +1,6 @@
 name: "Test - Benchmark"
 
 on:
-  push:
-    branches:
-      - "none"
   workflow_dispatch:
 
 permissions:

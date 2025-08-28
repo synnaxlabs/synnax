@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "🔍 Build failed - debugging info:"
+echo "Build failed - debugging info:"
 
 echo "=== Go version ==="
 go version || echo "Go not found"
@@ -30,4 +30,4 @@ echo "=== Build outputs ==="
 ls -la bazel-bin/driver/ || echo "No driver build output"
 ls -la synnax/ | grep synnax-v || echo "No server build output"
 
-echo "🔍 Debug information collection completed"
+echo "Debug information collection completed"

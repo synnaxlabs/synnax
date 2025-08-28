@@ -15,44 +15,44 @@
 
 set -euo pipefail
 
-echo "🐧 Building Synnax for Ubuntu Latest..."
+echo "Building Synnax for Ubuntu Latest..."
 
 # Install system dependencies
-echo "📦 Installing system dependencies..."
+echo "Installing system dependencies..."
 sudo apt-get update
 sudo apt-get install -y libsystemd-dev
 
 # Build Driver
-echo "🔧 Building driver with Bazel..."
+echo "Building driver with Bazel..."
 bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
 # Move Driver to Assets
-echo "📦 Moving driver to assets..."
+echo "Moving driver to assets..."
 mkdir -p synnax/pkg/service/hardware/embedded/assets
 cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
 
 # Get Version
-echo "📋 Getting version..."
+echo "Getting version..."
 cd synnax
 VERSION=$(cat pkg/version/VERSION)
 echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 echo "Building version: $VERSION"
 
 # Download Go Dependencies
-echo "📥 Downloading Go dependencies..."
+echo "Downloading Go dependencies..."
 go mod download
 
 # Build Server
-echo "🏗️ Building Synnax server..."
+echo "Building Synnax server..."
 go build -tags driver -o synnax-v${VERSION}-linux
 cd ..
 
 # Test Binary Execution
-echo "🧪 Testing binary execution..."
-./synnax/synnax-v${VERSION}-linux version || echo "⚠️ Server binary check failed"
-bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+echo "Testing binary execution..."
+./synnax/synnax-v${VERSION}-linux version || echo "WARNING: Server binary check failed"
+bazel-bin/driver/driver --help || echo "WARNING: Driver binary check failed"
 
-echo "✅ Ubuntu Latest build completed successfully!"
-echo "📁 Built artifacts:"
+echo "Ubuntu Latest build completed successfully!"
+echo "Built artifacts:"
 echo "  - Driver: bazel-bin/driver/driver"
 echo "  - Server: synnax/synnax-v${VERSION}-linux"

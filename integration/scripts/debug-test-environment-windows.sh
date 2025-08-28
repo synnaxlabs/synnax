@@ -13,7 +13,7 @@
 # Provides debugging information when tests fail on Windows using bash
 # Used by GitHub Actions workflow: test.integration.yaml
 
-echo "🔍 Test failed - debugging info:"
+echo "Test failed - debugging info:"
 echo "Matrix OS: windows"
 
 echo "=== Python/Poetry environment ==="
@@ -24,7 +24,7 @@ poetry --version || echo "Poetry not found"
 
 echo "=== Synnax connectivity ==="
 # Test port connectivity using timeout and nc/bash
-timeout 5 bash -c 'until nc -z localhost 9090 2>/dev/null; do sleep 1; done' && echo "✅ Port 9090 reachable" || echo "❌ Port 9090 unreachable"
+timeout 5 bash -c 'until nc -z localhost 9090 2>/dev/null; do sleep 1; done' && echo "Port 9090 reachable" || echo "Port 9090 unreachable"
 
 echo "=== Service status ==="
 # Use Windows tasklist command
@@ -34,4 +34,4 @@ echo "=== Test artifacts ==="
 # Find test artifacts
 find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10 || echo "No test artifacts found"
 
-echo "🔍 Debug information collection completed"
+echo "Debug information collection completed"

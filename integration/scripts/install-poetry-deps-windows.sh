@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "📦 Installing Poetry and dependencies on Windows..."
+echo "Installing Poetry and dependencies on Windows..."
 
 # Change to the integration test directory
 cd "integration/test/py"
@@ -39,4 +39,4 @@ fi
 poetry env remove --all || true
 poetry install --no-cache
 
-echo "✅ Poetry and dependencies installed successfully"
+echo "Poetry and dependencies installed successfully"

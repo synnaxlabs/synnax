@@ -15,39 +15,39 @@
 
 set -euo pipefail
 
-echo "🔧 Building Synnax for Ubuntu 22.04 (NI Linux RT)..."
+echo "Building Synnax for Ubuntu 22.04 (NI Linux RT)..."
 
 # Build Driver (NI Linux RT specific)
-echo "🔧 Building driver with Bazel (NI Linux RT platform)..."
+echo "Building driver with Bazel (NI Linux RT platform)..."
 bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
 
 # Move Driver to Assets
-echo "📦 Moving driver to assets..."
+echo "Moving driver to assets..."
 mkdir -p synnax/pkg/service/hardware/embedded/assets
 cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
 
 # Get Version
-echo "📋 Getting version..."
+echo "Getting version..."
 cd synnax
 VERSION=$(cat pkg/version/VERSION)
 echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 echo "Building version: $VERSION"
 
 # Download Go Dependencies
-echo "📥 Downloading Go dependencies..."
+echo "Downloading Go dependencies..."
 go mod download
 
 # Build Server (NI Linux RT target)
-echo "🏗️ Building Synnax server for NI Linux RT..."
+echo "Building Synnax server for NI Linux RT..."
 go build -tags driver -o synnax-v${VERSION}-nilinuxrt
 cd ..
 
 # Test Binary Execution
-echo "🧪 Testing binary execution..."
-./synnax/synnax-v${VERSION}-nilinuxrt version || echo "⚠️ Server binary check failed"
-bazel-bin/driver/driver --help || echo "⚠️ Driver binary check failed"
+echo "Testing binary execution..."
+./synnax/synnax-v${VERSION}-nilinuxrt version || echo "WARNING: Server binary check failed"
+bazel-bin/driver/driver --help || echo "WARNING: Driver binary check failed"
 
-echo "✅ Ubuntu 22.04 (NI Linux RT) build completed successfully!"
-echo "📁 Built artifacts:"
+echo "Ubuntu 22.04 (NI Linux RT) build completed successfully!"
+echo "Built artifacts:"
 echo "  - Driver: bazel-bin/driver/driver"
 echo "  - Server: synnax/synnax-v${VERSION}-nilinuxrt"

@@ -5,11 +5,16 @@ on:
   pull_request:
     branches:
       - main
+      # DELETE LINE BEFORE MERGE
+      - "sy-2769-integration-test-development"
+  workflow_dispatch:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: '0000000000'
+  # SET TO FALSE BEFORE MERGE
+  SKIP_BUILD: true
+  # SET TO 0s BEFORE MERGE
+  REF_RUN_ID: '17292139239'
 
 jobs:
   setup:

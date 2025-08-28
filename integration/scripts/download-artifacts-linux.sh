@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-echo "🔧 Setting up Linux artifacts download..."
+echo "Setting up Linux artifacts download..."
 
 # Install GitHub CLI if not present
 install_github_cli() {
@@ -46,7 +46,7 @@ download_reference_artifacts() {
     echo "Downloading synnax-server-linux artifact..."
     gh run download $run_id --name synnax-server-linux --dir ./binaries
     
-    echo "✅ Reference artifacts downloaded successfully"
+    echo "Reference artifacts downloaded successfully"
 }
 
 # Setup binaries in home directory
@@ -63,17 +63,17 @@ setup_binaries() {
     # Check if files exist before copying
     if [ -f "./binaries/driver" ]; then
         cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
-        echo "✅ Driver copied successfully"
+        echo "Driver copied successfully"
     else
-        echo "❌ Driver binary not found in ./binaries/"
+        echo "ERROR: Driver binary not found in ./binaries/"
         exit 1
     fi
     
     if ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
         cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
-        echo "✅ Server binary copied successfully"
+        echo "Server binary copied successfully"
     else
-        echo "❌ Server binary (synnax-*-linux) not found in ./binaries/"
+        echo "ERROR: Server binary (synnax-*-linux) not found in ./binaries/"
         exit 1
     fi
     
@@ -95,17 +95,17 @@ download_current_artifacts() {
     echo "Downloading synnax-server-linux artifact..."
     gh run download --name synnax-server-linux --dir ./binaries
     
-    echo "✅ Current run artifacts downloaded successfully"
+    echo "Current run artifacts downloaded successfully"
 }
 
 # Main execution
 main() {
     # Clean up any existing binaries
     if [ -d "./binaries" ]; then
-        echo "🧹 Cleaning existing binaries directory..."
+        echo "Cleaning existing binaries directory..."
         rm -rf "./binaries"
     else
-        echo "🧹 No existing binaries directory to clean"
+        echo "No existing binaries directory to clean"
     fi
     
     echo "Starting Linux artifacts download and setup..."
@@ -114,19 +114,19 @@ main() {
     
     # Check if we should skip build and use reference artifacts
     if [ "${SKIP_BUILD:-false}" = "true" ] && [ -n "${REF_RUN_ID:-}" ]; then
-        echo "🔄 SKIP build mode: using reference run $REF_RUN_ID"
+        echo "SKIP build mode: using reference run $REF_RUN_ID"
         download_reference_artifacts "$REF_RUN_ID"
     elif [ "${SKIP_BUILD:-false}" != "true" ]; then
-        echo "📦 Build mode: using current run artifacts"
+        echo "Build mode: using current run artifacts"
         download_current_artifacts
     else
-        echo "❌ Error: SKIP_BUILD is true but no REF_RUN_ID provided"
+        echo "ERROR: SKIP_BUILD is true but no REF_RUN_ID provided"
         exit 1
     fi
     
     setup_binaries
     
-    echo "✅ Linux artifacts setup completed successfully"
+    echo "Linux artifacts setup completed successfully"
 }
 
 # Run main function

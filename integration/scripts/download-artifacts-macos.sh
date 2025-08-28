@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-echo "🍎 Setting up macOS artifacts download..."
+echo "Setting up macOS artifacts download..."
 
 # Install GitHub CLI if not present
 install_github_cli() {
@@ -32,7 +32,7 @@ install_github_cli() {
 # Download artifacts from reference run
 download_reference_artifacts() {
     local run_id=$1
-    echo "📥 Downloading artifacts from reference run: $run_id"
+    echo "Downloading artifacts from reference run: $run_id"
     
     # Create binaries directory
     mkdir -p ./binaries
@@ -44,7 +44,7 @@ download_reference_artifacts() {
     echo "Downloading synnax-server-macos artifact..."
     gh run download $run_id --name synnax-server-macos --dir ./binaries
     
-    echo "✅ Reference artifacts downloaded successfully"
+    echo "Reference artifacts downloaded successfully"
 }
 
 # Setup binaries in home directory
@@ -63,7 +63,7 @@ setup_binaries() {
 
 # Download current run artifacts
 download_current_artifacts() {
-    echo "📥 Downloading current run artifacts..."
+    echo "Downloading current run artifacts..."
     mkdir -p ./binaries
     
     # Use GitHub CLI to download from current run
@@ -73,14 +73,14 @@ download_current_artifacts() {
     echo "Downloading synnax-server-macos artifact..."
     gh run download --name synnax-server-macos --dir ./binaries
     
-    echo "✅ Current run artifacts downloaded successfully"
+    echo "Current run artifacts downloaded successfully"
 }
 
 # Main execution
 main() {
     # Clean up any existing binaries
     if [ -d "./binaries" ]; then
-        echo "🧹 Cleaning existing binaries directory..."
+        echo "Cleaning existing binaries directory..."
         rm -rf "./binaries"
     fi
     
@@ -89,24 +89,24 @@ main() {
     install_github_cli
     
     # Debug: Print environment variables
-    echo "🐛 DEBUG: SKIP_BUILD='${SKIP_BUILD:-}'"
-    echo "🐛 DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
+    echo "DEBUG: SKIP_BUILD='${SKIP_BUILD:-}'"
+    echo "DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
     
     # Check if we should skip build and use reference artifacts
     if [ "${SKIP_BUILD:-false}" = "true" ] && [ -n "${REF_RUN_ID:-}" ]; then
-        echo "🔄 SKIP build mode: using reference run $REF_RUN_ID"
+        echo "SKIP build mode: using reference run $REF_RUN_ID"
         download_reference_artifacts "$REF_RUN_ID"
     elif [ "${SKIP_BUILD:-false}" != "true" ]; then
-        echo "📦 Build mode: using current run artifacts"
+        echo "Build mode: using current run artifacts"
         download_current_artifacts
     else
-        echo "❌ Error: SKIP_BUILD is true but no REF_RUN_ID provided"
+        echo "ERROR: SKIP_BUILD is true but no REF_RUN_ID provided"
         exit 1
     fi
     
     setup_binaries
     
-    echo "✅ macOS artifacts setup completed successfully"
+    echo "macOS artifacts setup completed successfully"
 }
 
 # Run main function

@@ -15,12 +15,12 @@
 
 set -euo pipefail
 
-echo "🍎 Checking for existing Synnax processes on macOS..."
+echo "Checking for existing Synnax processes on macOS..."
 
 echo "Checking for existing synnax processes..."
 pkill -f "synnax" 2>/dev/null && echo "Killed synnax processes" || echo "No synnax processes found"
 sleep 2
 pkill -9 -f "synnax" 2>/dev/null || true
 
-echo "✅ Synnax process cleanup completed"
+echo "Synnax process cleanup completed"
 exit 0

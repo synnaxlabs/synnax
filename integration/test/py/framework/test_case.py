@@ -117,47 +117,6 @@ class TestCase(ABC):
     DEFAULT_TIMEOUT_LIMIT = -1
     DEFAULT_MANUAL_TIMEOUT = -1
 
-    """
-    Override methods:
-    - setup()
-    - run()
-    - teardown()
-
-    Setup methods:
-    - add_channel()
-    - subscribe()
-    - set_manual_timeout()
-    - configure()
-
-    Telemetry methods:
-    - write_tlm()
-    - read_tlm()
-
-    Helpful getters:
-    - @property: uptime 
-    - @property: time
-    - @property: state
-    - @property: STATUS
-    - @property: manual_timeout
-    - @property: should_stop
-    - @property: should_continue
-    - get_state() -> Dict
-
-    Test Case Properties:
-    - @property: STATUS
-    - @property: manual_timeout
-    - @property: should_stop
-    - @property: should_continue
-    - get_state() -> Dict
-
-    Client Threads Monitoring:
-    - is_client_running() -> bool:
-    - get_client_status() -> str:
-    - get_streamer_status() -> str:
-    - get_writer_status() -> str:
-
-    """
-
     def __init__(
         self,
         synnax_connection: SynnaxConnection,
@@ -166,7 +125,6 @@ class TestCase(ABC):
         **params,
     ):
 
-        # Store for test cases to use
         self.synnax_connection = synnax_connection
 
         if expect in ["FAILED", "TIMEOUT", "KILLED"]:
@@ -198,7 +156,6 @@ class TestCase(ABC):
         self._setup_logging()
         self._status = STATUS.INITIALIZING
 
-        # Connect to Synnax server
         self.client = sy.Synnax(
             host=synnax_connection.server_address,
             port=synnax_connection.port,
@@ -207,14 +164,13 @@ class TestCase(ABC):
             secure=synnax_connection.secure,
         )
 
-        # Default loop rate
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self.client_thread = None
         self._should_stop = False
         self.is_running = True
 
         self.subscribed_channels = []
-        # Create telemetry channels
+
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
             data_type=sy.DataType.TIMESTAMP,
@@ -289,10 +245,9 @@ class TestCase(ABC):
 
             while self.loop.wait() and not self._should_stop:
                 """
-
                 # Update telemetry
 
-                Keep outside of try/except block to avoid to ensure
+                Keep outside of try/except block to ensure
                 we continue to update the internal state of the
                 TestCase object. If not updated, then the logic
                 dictating if the test should continue will not function.

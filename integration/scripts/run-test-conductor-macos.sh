@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "🍎 Running integration test conductor on macOS..."
+echo "Running integration test conductor on macOS..."
 
 # Change to the integration test directory
 cd integration/test/py
@@ -26,4 +26,4 @@ export PATH="$HOME/.local/bin:$PATH"
 # Run the test conductor
 poetry run test-conductor --name test-conductor-macos --sequence testcases/basic_tests.json
 
-echo "✅ Integration test conductor completed successfully"
+echo "Integration test conductor completed successfully"

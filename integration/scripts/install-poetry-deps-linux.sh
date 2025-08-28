@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "📦 Installing Poetry and dependencies on Linux..."
+echo "Installing Poetry and dependencies on Linux..."
 
 # Change to the integration test directory
 cd integration/test/py
@@ -25,4 +25,4 @@ curl -sSL https://install.python-poetry.org | python3 -
 export PATH="$HOME/.local/bin:$PATH"
 poetry install
 
-echo "✅ Poetry and dependencies installed successfully"
+echo "Poetry and dependencies installed successfully"

@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "🔍 Test failed - debugging info:"
+echo "Test failed - debugging info:"
 echo "Matrix OS: Linux"
 
 echo "=== Python/Poetry environment ==="
@@ -25,9 +25,9 @@ poetry --version || echo "Poetry not found"
 
 echo "=== Synnax connectivity ==="
 if command -v nc &> /dev/null; then
-    nc -z localhost 9090 && echo "✅ Port 9090 reachable" || echo "❌ Port 9090 unreachable"
+    nc -z localhost 9090 && echo "Port 9090 reachable" || echo "Port 9090 unreachable"
 elif command -v telnet &> /dev/null; then
-    timeout 5 telnet localhost 9090 && echo "✅ Port 9090 reachable" || echo "❌ Port 9090 unreachable"
+    timeout 5 telnet localhost 9090 && echo "Port 9090 reachable" || echo "Port 9090 unreachable"
 else
     echo "No network testing tools available"
 fi
@@ -38,4 +38,4 @@ ps aux | grep -v grep | grep synnax || echo "No synnax processes found"
 echo "=== Test artifacts ==="
 find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10
 
-echo "🔍 Debug information collection completed"
+echo "Debug information collection completed"

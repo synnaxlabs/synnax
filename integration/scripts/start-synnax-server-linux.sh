@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "🚀 Starting Synnax server on Linux..."
+echo "Starting Synnax server on Linux..."
 
 # Create data directory
 mkdir -p $HOME/synnax-data
@@ -25,36 +25,36 @@ cd $HOME/synnax-data
 $HOME/synnax-binaries/synnax start -mi &
 
 # Wait for startup
-echo "⏳ Waiting for server startup..."
+echo "Waiting for server startup..."
 sleep 10
 
 # Verify Synnax is running
 if pgrep -f "synnax" >/dev/null; then
-    echo "✅ Synnax is running"
+    echo "Synnax is running"
     
     # Verify port 9090 is listening
     portReady=false
     for i in {1..5}; do
         if nc -z localhost 9090; then
-            echo "✅ Port 9090 is ready"
+            echo "Port 9090 is ready"
             portReady=true
             break
         fi
-        echo "⏳ Waiting for port 9090... (attempt $i/5)"
+        echo "Waiting for port 9090... (attempt $i/5)"
         sleep 3
     done
     
     if [ "$portReady" = false ]; then
-        echo "❌ ERROR: Port 9090 never became available"
+        echo "ERROR: Port 9090 never became available"
         exit 1
     fi
 else
-    echo "❌ ERROR: Synnax process not found after startup"
+    echo "ERROR: Synnax process not found after startup"
     exit 1
 fi
 
-echo "🎉 Synnax server started successfully and is ready!"
+echo "Synnax server started successfully and is ready!"
 
 # Output Synnax version
-echo "📋 Synnax version:"
+echo "Synnax version:"
 $HOME/synnax-binaries/synnax version

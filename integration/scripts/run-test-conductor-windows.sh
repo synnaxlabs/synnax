@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "🧪 Running test conductor on Windows..."
+echo "Running test conductor on Windows..."
 
 # Add Poetry to PATH for current session
 export PATH="$HOME/.local/bin:$PATH"
@@ -26,4 +26,4 @@ cd "integration/test/py"
 # Run test conductor
 poetry run test-conductor --name test-conductor-windows --sequence testcases/basic_tests.json
 
-echo "✅ Test conductor completed"
+echo "Test conductor completed"
