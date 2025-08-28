@@ -3,7 +3,7 @@ import CodeI from "@/components/code/CodeI.astro";
 const { os } = Astro.props;
 
 const VERSION =
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
+    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/core/pkg/version/VERSION";
 const version = await (await fetch(VERSION)).text();
 const baseURL = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}`;
 let url = `${baseURL}/synnax-driver-v${version.trim()}-${os.toLowerCase()}`;

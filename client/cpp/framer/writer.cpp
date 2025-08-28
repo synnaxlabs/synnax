@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "client/cpp/framer/framer.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 
@@ -24,8 +24,8 @@ enum WriterCommand : uint32_t {
 };
 
 namespace synnax {
-std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &cfg
-) const {
+std::pair<Writer, xerrors::Error>
+FrameClient::open_writer(const WriterConfig &cfg) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {
         codec = Codec(this->channel_client);
@@ -111,7 +111,8 @@ xerrors::Error Writer::init_request(const Frame &fr) {
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
         for (size_t i = 0; i < fr.series->size(); i++)
-            fr.series->at(i).to_proto(cached_frame->mutable_series(static_cast<int>(i))
+            fr.series->at(i).to_proto(
+                cached_frame->mutable_series(static_cast<int>(i))
             );
         return xerrors::NIL;
     }

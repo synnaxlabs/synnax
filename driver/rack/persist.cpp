@@ -45,11 +45,13 @@ std::string get_persisted_state_path(xargs::Parser &parser) {
 }
 
 std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv(xargs::Parser &parser) {
-    return kv::JSONFile::open(kv::JSONFileConfig{
-        .path = get_persisted_state_path(parser),
-        .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
-        .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
-    });
+    return kv::JSONFile::open(
+        kv::JSONFileConfig{
+            .path = get_persisted_state_path(parser),
+            .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
+            .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
+        }
+    );
 }
 
 xerrors::Error rack::Config::load_persisted_state(xargs::Parser &args) {

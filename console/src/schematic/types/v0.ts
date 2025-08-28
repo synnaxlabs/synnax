@@ -40,7 +40,11 @@ export const stateZ = z.object({
     .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ).transform((p) => {
     for (const key in p)
-      if (p[key].key === "value") p[key].redline = Value.ZERO_READLINE;
+      if (p[key].key === "value") {
+        p[key].redline = Value.ZERO_READLINE;
+        p[key].stalenessTimeout = 5;
+        p[key].stalenessColor = color.ZERO;
+      }
     return p;
   }),
   control: control.statusZ,

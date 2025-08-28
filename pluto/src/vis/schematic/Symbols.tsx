@@ -753,6 +753,8 @@ export const Value = ({
   selected,
   draggable,
   notation,
+  stalenessColor,
+  stalenessTimeout,
   redline,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
@@ -786,6 +788,8 @@ export const Value = ({
     telem: t,
     backgroundTelem,
     minWidth: inlineSize,
+    stalenessColor,
+    stalenessTimeout,
     notation,
     useWidthForBackground: true,
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,

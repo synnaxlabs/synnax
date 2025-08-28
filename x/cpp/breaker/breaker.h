@@ -80,13 +80,15 @@ public:
         config(config), interval(config.base_interval), retries(0), is_running(false) {}
 
     Breaker():
-        Breaker(Config{
-            "default",
-            telem::TimeSpan(1 * telem::SECOND),
-            10,
-            1.1,
-            telem::TimeSpan(1 * telem::MINUTE)
-        }) {}
+        Breaker(
+            Config{
+                "default",
+                telem::TimeSpan(1 * telem::SECOND),
+                10,
+                1.1,
+                telem::TimeSpan(1 * telem::MINUTE)
+            }
+        ) {}
 
     ~Breaker() {
         if (!this->running()) return;
