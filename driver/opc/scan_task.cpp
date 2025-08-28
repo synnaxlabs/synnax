@@ -78,7 +78,8 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     if (!res.results[0].hasValue) return res.results[0].status;
     if (!res.results[1].hasValue) return res.results[1].status;
     UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.results[0].value.data);
-    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(res.results[1].value.data
+    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
+        res.results[1].value.data
     );
     const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
     auto data_type = telem::UNKNOWN_T;
@@ -107,8 +108,10 @@ void ScanTask::scan(const task::Command &cmd) const {
         return ctx->set_status(
             {.key = cmd.key,
              .variant = status::variant::ERR,
-             .details = synnax::
-                 TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
+             .details = synnax::TaskStatusDetails{
+                 .task = task.key,
+                 .data = parser.error_json()
+             }}
         );
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
@@ -117,10 +120,9 @@ void ScanTask::scan(const task::Command &cmd) const {
             .key = cmd.key,
             .variant = status::variant::ERR,
             .message = err.message(),
-            .details =
-                synnax::TaskStatusDetails{
-                    .task = task.key,
-                },
+            .details = synnax::TaskStatusDetails{
+                .task = task.key,
+            },
         });
 
     const auto scan_ctx = new ScanContext{
@@ -136,12 +138,11 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_status({
         .key = cmd.key,
         .variant = status::variant::SUCCESS,
-        .details =
-            synnax::TaskStatusDetails{
-                .task = task.key,
-                .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
-                            .to_json(),
-            },
+        .details = synnax::TaskStatusDetails{
+            .task = task.key,
+            .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
+                        .to_json(),
+        },
     });
     delete scan_ctx;
 }
@@ -153,8 +154,10 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         return ctx->set_status(
             {.key = cmd.key,
              .variant = status::variant::ERR,
-             .details = synnax::
-                 TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
+             .details = synnax::TaskStatusDetails{
+                 .task = task.key,
+                 .data = parser.error_json()
+             }}
         );
     if (const auto err = connect(args.connection, "[opc.scanner] ").second)
         return ctx->set_status(

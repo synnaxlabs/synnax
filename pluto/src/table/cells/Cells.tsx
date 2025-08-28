@@ -87,6 +87,8 @@ export const valuePropsZ = z.object({
   level: CoreText.levelZ,
   color: z.string(),
   units: z.string(),
+  stalenessTimeout: z.number().optional().default(5),
+  stalenessColor: color.colorZ.optional().default(color.ZERO),
 });
 export type ValueProps = z.infer<typeof valuePropsZ>;
 
@@ -99,6 +101,8 @@ export const Value = ({
   selected,
   box: b,
   onSelect,
+  stalenessTimeout,
+  stalenessColor,
 }: CellProps<ValueProps>) => {
   const { width } = CoreValue.use({
     aetherKey: cellKey,
@@ -106,6 +110,8 @@ export const Value = ({
     telem: t,
     level,
     color,
+    stalenessTimeout,
+    stalenessColor,
     backgroundTelem: telem.sourcePipeline("color", {
       connections: [
         { from: "source", to: "scale" },

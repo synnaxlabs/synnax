@@ -85,10 +85,10 @@ export class StreamChannelValue
 
   value(): number {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return 0;
+    if (primitive.isZero(this.props.channel)) return NaN;
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
-    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
+    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
     return this.leadingBuffer.at(-1, true) as number;
   }
 

@@ -86,7 +86,7 @@ require (
 
 replace github.com/synnaxlabs/x => ../x/go
 
-replace github.com/synnaxlabs/synnax => ../synnax
+replace github.com/synnaxlabs/synnax => ../core
 
 replace github.com/synnaxlabs/freighter => ../freighter/go
 

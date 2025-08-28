@@ -162,10 +162,12 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_NIL(sy->hardware.create_device(dev));
 
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(sy->channels.create("tc_channel", telem::FLOAT64_T, true)
+    auto tc_ch = ASSERT_NIL_P(
+        sy->channels.create("tc_channel", telem::FLOAT64_T, true)
     );
     auto di_ch = ASSERT_NIL_P(sy->channels.create("di_channel", telem::UINT8_T, true));
-    auto ai_ch = ASSERT_NIL_P(sy->channels.create("ai_channel", telem::FLOAT64_T, true)
+    auto ai_ch = ASSERT_NIL_P(
+        sy->channels.create("ai_channel", telem::FLOAT64_T, true)
     );
 
     auto j = basic_read_task_config();
@@ -182,8 +184,9 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(cfg->data_saving, true);
     ASSERT_EQ(cfg->channels.size(), 3);
 
-    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(cfg->channels[0].get(
-    ));
+    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(
+        cfg->channels[0].get()
+    );
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
