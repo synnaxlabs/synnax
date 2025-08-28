@@ -11,37 +11,33 @@ import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
-export const lightStateZ = z.object({
+export const stateZ = z.object({
   enabled: z.boolean(),
   source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
 });
-
-export type LightState = z.input<typeof lightStateZ>;
+export interface State extends z.input<typeof stateZ> {}
 
 interface InternalState {
   source: telem.BooleanSource;
-  addStatus: status.Adder;
   stopListening: Destructor;
 }
 
 // Light is a component that listens to a telemetry source to update its state.
 export class Light
-  extends aether.Leaf<typeof lightStateZ, InternalState>
+  extends aether.Leaf<typeof stateZ, InternalState>
   implements diagram.Element
 {
   static readonly TYPE = "Light";
 
-  schema = lightStateZ;
+  schema = stateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    this.internal.addStatus = status.useOptionalAdder(ctx);
-    const { source: sourceProps } = this.state;
     const { internal: i } = this;
-    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+    this.internal.source = telem.useSource(ctx, this.state.source, i.source);
+    this.updateEnabledState();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }

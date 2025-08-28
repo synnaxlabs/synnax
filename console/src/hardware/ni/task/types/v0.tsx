@@ -654,13 +654,13 @@ export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   r0: 0,
 };
 
-const FULL_BRIDGE_I = "full-bridge-I";
-const FULL_BRIDGE_II = "full-bridge-II";
-const FULL_BRIDGE_III = "full-bridge-III";
-const HALF_BRIDGE_I = "half-bridge-I";
-const HALF_BRIDGE_II = "half-bridge-II";
-const QUARTER_BRIDGE_I = "quarter-bridge-I";
-const QUARTER_BRIDGE_II = "quarter-bridge-II";
+const FULL_BRIDGE_I = "FullBridgeI";
+const FULL_BRIDGE_II = "FullBridgeII";
+const FULL_BRIDGE_III = "FullBridgeIII";
+const HALF_BRIDGE_I = "HalfBridgeI";
+const HALF_BRIDGE_II = "HalfBridgeII";
+const QUARTER_BRIDGE_I = "QuarterBridgeI";
+const QUARTER_BRIDGE_II = "QuarterBridgeII";
 const strainConfigZ = z.enum([
   FULL_BRIDGE_I,
   FULL_BRIDGE_II,

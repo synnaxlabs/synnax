@@ -153,7 +153,9 @@ const Line = ({
         dragScale={DOWNSAMPLE_DRAG_SCALE}
         bounds={DOWNSAMPLE_BOUNDS}
         shrink={false}
-        tooltip="Downsample"
+        tooltip={
+          line.downsampleMode === "average" ? "Averaging Window" : "Downsampling Factor"
+        }
       />
       <SelectDownsampleMode
         value={line.downsampleMode}

@@ -293,7 +293,7 @@ export const scaleNumber = (
   valueType: "number",
 });
 
-export const downsampleModeZ = z.enum(["average", "minmax", "decimate"]);
+export const downsampleModeZ = z.enum(["average", "decimate"]);
 
 export type DownsampleMode = z.infer<typeof downsampleModeZ>;
 
@@ -351,38 +351,9 @@ const average: DownsampleFunction = (source, downsampled, windowSize) => {
   }
 };
 
-const minmax: DownsampleFunction = (source, downsampled, windowSize) => {
-  const startIdx = (downsampled.length / 2) * windowSize;
-
-  for (let i = startIdx; i < source.length; i += windowSize) {
-    const endIdx = Math.min(i + windowSize, source.length);
-    let min = Infinity;
-    let max = -Infinity;
-    let hasValues = false;
-
-    for (let j = i; j < endIdx; j++) {
-      const val = source.at(j);
-      if (val !== undefined && typeof val === "number") {
-        min = Math.min(min, val);
-        max = Math.max(max, val);
-        hasValues = true;
-      }
-    }
-
-    if (hasValues)
-      downsampled.write(
-        new Series({
-          data: [min, max],
-          dataType: source.dataType,
-        }),
-      );
-  }
-};
-
 const DOWNSAMPLE_FUNCTIONS: Record<DownsampleMode, DownsampleFunction> = {
   decimate,
   average,
-  minmax,
 };
 
 export class SeriesDownsampler {
@@ -420,15 +391,13 @@ export class SeriesDownsampler {
       let downsampledSeries = this.cache.series.at(i);
       // Step 2A: If the series is not in the cache, allocate a new series.
       if (downsampledSeries == null) {
-        const capacity =
-          this.props.mode === "minmax"
-            ? Math.ceil(ser.capacity / this.props.windowSize) * 2
-            : Math.ceil(ser.capacity / this.props.windowSize);
+        const capacity = Math.ceil(ser.capacity / this.props.windowSize);
         downsampledSeries = Series.alloc({
           key: ser.key + id.create(),
           dataType: ser.dataType,
           capacity,
           alignment: ser.alignment,
+          alignmentMultiple: BigInt(this.props.windowSize),
           sampleOffset: ser.sampleOffset,
           timeRange: ser.timeRange,
         });

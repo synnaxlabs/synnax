@@ -244,9 +244,9 @@ public:
     /// This function NOT be called concurrently with any other calls
     /// to run(). It is safe to call run() concurrently with stop().
     ///
-    /// @param started_promise an optional promise that will be set when the manager
+    /// @param on_started an optional callback that will be called when the manager
     /// has started successfully.
-    xerrors::Error run(std::promise<void> *started_promise = nullptr);
+    xerrors::Error run(std::function<void()> on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing all resources.
     /// Once the manager has shut down, the run() function will return with any

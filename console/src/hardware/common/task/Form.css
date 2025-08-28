@@ -79,7 +79,6 @@
         overflow: hidden;
         white-space: nowrap;
         font-weight: 500;
-        color: var(--pluto-gray-l10);
         flex-shrink: 1;
     }
 }

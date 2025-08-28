@@ -45,6 +45,7 @@ import { Nav } from "@/layouts/nav";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -109,15 +110,18 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       onVisibleChange={handleClose}
       visible={focused}
       full
-      modalOffset={0}
+      modalPosition="slammed"
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      <Dialog.Dialog passthrough full>
+      <Dialog.Dialog passthrough full className={CSS.B("mosaic-modal")}>
         <PNav.Bar
           location="top"
           size="5rem"
-          style={{ display: focused ? "flex" : "none" }}
+          className={CSS(
+            CSS.B("mosaic-modal-bar"),
+            focused && CSS.BM("mosaic-modal-bar", "focused"),
+          )}
           bordered
         >
           {/*
@@ -126,7 +130,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
            */}
           {focused && (
             <>
-              <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
+              <PNav.Bar.Start>
                 <Breadcrumb.Breadcrumb>
                   <Breadcrumb.Segment>
                     {Icon.resolve(layout.icon)}
@@ -134,12 +138,18 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
                   </Breadcrumb.Segment>
                 </Breadcrumb.Breadcrumb>
               </PNav.Bar.Start>
-              <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-                <Button.Button onClick={handleOpenInNewWindow} size="small">
-                  <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-                </Button.Button>
-                <Button.Button onClick={handleClose} size="small">
-                  <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
+              <PNav.Bar.End pack>
+                {Runtime.ENGINE === "tauri" && (
+                  <Button.Button
+                    onClick={handleOpenInNewWindow}
+                    size="small"
+                    textColor={9}
+                  >
+                    <Icon.OpenInNewWindow />
+                  </Button.Button>
+                )}
+                <Button.Button onClick={handleClose} size="small" textColor={9}>
+                  <Icon.Subtract />
                 </Button.Button>
               </PNav.Bar.End>
             </>
@@ -311,6 +321,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         activeTab={activeTab ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"
+        className={CSS.B("mosaic")}
       >
         {renderProp}
       </Core.Mosaic>

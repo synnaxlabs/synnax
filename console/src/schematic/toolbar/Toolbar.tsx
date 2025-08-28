@@ -22,8 +22,8 @@ import {
   useSelectEditable,
   useSelectHasPermission,
   useSelectIsSnapshot,
+  useSelectRequiredToolbar,
   useSelectSelectedElementNames,
-  useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
@@ -68,7 +68,7 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar();
+  const toolbar = useSelectRequiredToolbar(layoutKey);
   const isEditable = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
@@ -88,9 +88,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
+      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tabKey as ToolbarTab }));
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
   const canEdit = useSelectHasPermission();
   return (
@@ -110,7 +110,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               {name}
             </Breadcrumb.Segment>
             {selectedNames.length === 1 && selectedNames[0] !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="p">
+              <Breadcrumb.Segment weight={400} color={8} level="small">
                 {selectedNames[0]}
               </Breadcrumb.Segment>
             )}

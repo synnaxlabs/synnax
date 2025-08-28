@@ -11,5 +11,5 @@ import { Channel, Status } from "@synnaxlabs/pluto";
 
 export const useListenForCalculationStatus = (): void => {
   const addStatus = Status.useAdder();
-  Channel.useCalculationStatusSynchronizer(addStatus);
+  Channel.useListenForCalculationStatus(addStatus);
 };

@@ -58,7 +58,10 @@ export class Writer {
       this.client,
       CREATE_ENDPOINT,
       {
-        channels: channels.map((c) => ({ ...c, dataType: c.dataType as DataType })),
+        channels: channels.map((c) => ({
+          ...c,
+          dataType: c.dataType as DataType,
+        })),
       },
       createReqZ,
       createResZ,
@@ -68,6 +71,7 @@ export class Writer {
   }
 
   async delete(props: DeleteProps): Promise<void> {
+    const keys = keyZ.array().parse(props.keys ?? []);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
@@ -75,7 +79,7 @@ export class Writer {
       deleteReqZ,
       deleteResZ,
     );
-    if (props.keys != null) this.cache.delete(props.keys);
+    if (keys.length > 0) this.cache.delete(keys);
     if (props.names != null) this.cache.delete(props.names);
   }
 

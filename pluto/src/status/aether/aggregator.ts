@@ -11,6 +11,13 @@ import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import {
+  type Adder,
+  createAsyncErrorHandler,
+  createErrorHandler,
+  type ErrorHandler,
+} from "@/status/aether/errorHandler";
+import { type AsyncErrorHandler } from "@/status/Aggregator";
 
 export const aggregatorStateZ = z.object({ statuses: status.statusZ().array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
@@ -42,10 +49,6 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export interface Adder {
-  <D = undefined>(spec: status.Crude<D>): void;
-}
-
 export const useAdder = (ctx: aether.Context): Adder =>
   ctx.get<ContextValue>(CONTEXT_KEY).add;
 
@@ -54,45 +57,11 @@ export const useOptionalAdder = (ctx: aether.Context): Adder => {
   if (agg != null) return agg.add;
   return () => {};
 };
-
-export interface ErrorHandler {
-  (exc: unknown, message?: string): void;
-  (func: () => Promise<void>, message?: string): void;
-}
-
-export interface AsyncErrorHandler {
-  (func: () => Promise<void>, message?: string): Promise<void>;
-}
-
-export const createErrorHandler =
-  (add: Adder): ErrorHandler =>
-  (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
-    if (typeof excOrFunc !== "function")
-      return add(status.fromException(excOrFunc, message));
-    void (async () => {
-      try {
-        await excOrFunc();
-      } catch (exc) {
-        add(status.fromException(exc, message));
-      }
-    })();
-  };
-
-export const createAsyncExceptionHandler =
-  (add: Adder): AsyncErrorHandler =>
-  async (func: () => Promise<void>, message?: string): Promise<void> => {
-    try {
-      await func();
-    } catch (exc) {
-      add(status.fromException(exc, message));
-    }
-  };
-
 export const useErrorHandler = (ctx: aether.Context): ErrorHandler =>
   createErrorHandler(useAdder(ctx));
 
 export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
-  createAsyncExceptionHandler(useAdder(ctx));
+  createAsyncErrorHandler(useAdder(ctx));
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,

@@ -11,14 +11,16 @@ import { Triggers, useSyncedRef } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelectControlState } from "@/lineplot/selectors";
+import { Layout } from "@/layout";
+import { useSelectControlStateOptional } from "@/lineplot/selectors";
 import { setControlState } from "@/lineplot/slice";
 
 export type Config = Triggers.ModeConfig<"toggle">;
 
 export const useTriggerHold = (triggers: Config): void => {
-  const { hold } = useSelectControlState();
-  const ref = useSyncedRef(hold);
+  const activeTab = Layout.useSelectActiveMosaicTabKey();
+  const controlState = useSelectControlStateOptional(activeTab ?? "");
+  const ref = useSyncedRef(controlState?.hold);
   const dispatch = useDispatch();
   const flat = Triggers.useFlattenedMemoConfig(triggers);
   Triggers.use({
@@ -26,10 +28,10 @@ export const useTriggerHold = (triggers: Config): void => {
     loose: true,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
-        if (e.stage !== "start") return;
-        dispatch(setControlState({ state: { hold: !ref.current } }));
+        if (e.stage !== "start" || activeTab == null || ref.current == null) return;
+        dispatch(setControlState({ key: activeTab, state: { hold: !ref.current } }));
       },
-      [dispatch],
+      [dispatch, activeTab, flat, ref],
     ),
   });
 };

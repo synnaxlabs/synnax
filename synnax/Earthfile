@@ -1,6 +1,6 @@
 VERSION 0.7
 
-FROM golang:1.24
+FROM golang:1.25
 WORKDIR /synnax
 
 deps:
@@ -17,7 +17,7 @@ build:
     COPY . .
     ARG driver=true
     IF [ "$driver" = "true" ]
-        RUN go build -tags driver -o build/synnax .
+        RUN go build -tags driver,console -o build/synnax .
     ELSE
         RUN go build -o build/synnax .
     END

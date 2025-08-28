@@ -40,5 +40,5 @@ export const use = <
     if (primitive.isZero(devKey)) return;
     retrieve({ key: devKey });
   }, [devKey, retrieve]);
-  return data;
+  return data ?? null;
 };

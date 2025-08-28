@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.44.1",
+  "version": "0.44.4",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -102,11 +102,6 @@
       "types": "./dist/src/spatial/location/index.d.ts",
       "import": "./dist/location.js",
       "require": "./dist/location.cjs"
-    },
-    "./position": {
-      "types": "./dist/src/spatial/position/index.d.ts",
-      "import": "./dist/position.js",
-      "require": "./dist/position.cjs"
     },
     "./scale": {
       "types": "./dist/src/spatial/scale/index.d.ts",
