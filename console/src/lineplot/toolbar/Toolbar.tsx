@@ -10,7 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { linePlot } from "@synnaxlabs/client";
-import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -27,6 +27,7 @@ import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
+import { useDownloadPlotAsCSV } from "@/lineplot/useDownloadAsCSV";
 
 interface Tab {
   tabKey: ToolbarTab;
@@ -48,7 +49,7 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar();
+  const toolbar = useSelectToolbar(layoutKey);
   const state = useSelect(layoutKey);
   const handleExport = useExport();
   const content = useCallback(
@@ -70,10 +71,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
+      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tabKey as ToolbarTab }));
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
+  const downloadAsCSV = useDownloadPlotAsCSV(layoutKey);
   if (state == null) return null;
   return (
     <Core.Content className={CSS.B("line-plot-toolbar")} disableClusterBoundary>
@@ -88,7 +90,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Core.Header>
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
+            <Flex.Box x empty style={{ height: "100%", width: 86 }}>
+              <Button.Button
+                tooltip="Download as CSV"
+                sharp
+                size="medium"
+                variant="text"
+                onClick={downloadAsCSV}
+              >
+                <Icon.CSV />
+              </Button.Button>
               <Export.ToolbarButton onExport={() => handleExport(state.key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}

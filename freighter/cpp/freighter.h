@@ -228,8 +228,8 @@ public:
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}
 
-            std::pair<Context, xerrors::Error> operator()(freighter::Context context
-            ) override {
+            std::pair<Context, xerrors::Error>
+            operator()(freighter::Context context) override {
                 if (this->index >= this->collector.middlewares.size()) {
                     auto f_res = this->finalizer->operator()(context, req);
                     this->res = std::move(f_res.response);

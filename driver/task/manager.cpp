@@ -47,12 +47,15 @@ xerrors::Error task::Manager::open_streamer() {
 
     if (this->exit_early) return xerrors::NIL;
     std::lock_guard lock{this->mu};
-    auto [s, open_err] = this->ctx->client->telem.open_streamer(synnax::StreamerConfig{
-        .channels =
-            {this->channels.task_set.key,
-             this->channels.task_delete.key,
-             this->channels.task_cmd.key}
-    });
+    auto [s, open_err] = this->ctx->client->telem.open_streamer(
+        synnax::StreamerConfig{
+            .channels = {
+                this->channels.task_set.key,
+                this->channels.task_delete.key,
+                this->channels.task_cmd.key
+            }
+        }
+    );
     if (open_err) return open_err;
     this->streamer = std::make_unique<synnax::Streamer>(std::move(s));
     return xerrors::NIL;
@@ -105,7 +108,7 @@ bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     return false;
 }
 
-xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
+xerrors::Error task::Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return xerrors::NIL;
@@ -118,7 +121,7 @@ xerrors::Error task::Manager::run(std::promise<void> *started_promise) {
     }
     if (const auto err = this->open_streamer()) return err;
     LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
-    if (started_promise != nullptr) started_promise->set_value();
+    if (on_started) on_started();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()
         // and read() concurrently.

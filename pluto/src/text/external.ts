@@ -11,5 +11,4 @@ export * from "@/text/core/dimensions";
 export * from "@/text/core/types";
 export * from "@/text/DateTime";
 export * from "@/text/Editable";
-export * from "@/text/symbols";
 export * from "@/text/Text";

@@ -689,7 +689,7 @@ export const Setpoint = ({
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<SetpointProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Setpoint
@@ -750,6 +750,8 @@ export const Value = ({
   selected,
   draggable,
   notation,
+  stalenessColor,
+  stalenessTimeout,
   redline,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
@@ -783,6 +785,8 @@ export const Value = ({
     telem: t,
     backgroundTelem,
     minWidth: inlineSize,
+    stalenessColor,
+    stalenessTimeout,
     notation,
     useWidthForBackground: true,
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
@@ -861,7 +865,7 @@ export const Button = ({
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<ButtonProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Button
@@ -905,7 +909,7 @@ export const Light = ({
       symbolKey={symbolKey}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } } as Partial<LightProps>);
+        onChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitives.Light enabled={enabled} {...rest} />

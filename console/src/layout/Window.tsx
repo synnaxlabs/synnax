@@ -20,7 +20,7 @@ import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
@@ -29,7 +29,7 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 const WindowInternal = (): ReactElement | null => {
-  const currLabel = RUNTIME === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
+  const currLabel = Runtime.ENGINE === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
   const isMain = currLabel === MAIN_WINDOW;
   let win = useSelectWindowKey(currLabel) ?? "";
   if (isMain) win = MAIN_WINDOW;
