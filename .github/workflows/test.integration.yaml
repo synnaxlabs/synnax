@@ -2,9 +2,9 @@ name: Test - Integration
 #run-name: Test - Integration (${{ github.run_id }})
 
 on:
-  push:
+  pull_request:
     branches:
-      - "sy-2769-integration-test-development"
+      - main
 
 env:
   CACHE_SCOPE: deploy-synnax
