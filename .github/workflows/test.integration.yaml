@@ -5,7 +5,9 @@ on:
   pull_request:
     branches:
       - main
-      # DELETE LINE BEFORE MERGE
+  # DELETE LINES BEFORE MERGING
+  push:
+    branches:
       - "sy-2769-integration-test-development"
   workflow_dispatch:
 
