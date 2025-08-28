@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, ranger } from "@synnaxlabs/client";
-import { deep, type Optional } from "@synnaxlabs/x";
+import { deep, type Optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -64,7 +64,7 @@ export const useListenForCalculationStatus = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   SubStore,
   channel.Key,
   channel.Channel
@@ -372,6 +372,27 @@ export const useList = Flux.createList<
   SubStore
 >({
   name: "Channels",
+  retrieveCached: ({ params, store }) => {
+    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
+    return store.channels.get((ch) => {
+      if (params.internal != null && ch.internal !== params.internal) return false;
+      if (params.calculated != null && ch.isCalculated !== params.calculated)
+        return false;
+      if (
+        primitive.isNonZero(params.notDataTypes) &&
+        params.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+      )
+        return false;
+      if (
+        primitive.isNonZero(params.dataTypes) &&
+        !params.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+      )
+        return false;
+      if (params.isIndex != null && ch.isIndex !== params.isIndex) return false;
+      if (params.virtual != null && ch.virtual !== params.virtual) return false;
+      return true;
+    });
+  },
   retrieve: async ({ client, params, store }) => {
     const channels = await client.channels.retrieve({
       ...DEFAULT_LIST_PARAMS,

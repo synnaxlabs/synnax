@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
 import { silenceUpdateNotifications } from "@/version/slice";
@@ -28,7 +28,7 @@ export const useCheckForUpdates = (): boolean => {
   const [available, setAvailable] = useState(false);
 
   const checkForUpdates = async (addNotification: boolean) => {
-    if (RUNTIME !== "tauri") return;
+    if (Runtime.ENGINE !== "tauri") return;
     if (available) return;
     const update = await check();
     if (update == null) return;

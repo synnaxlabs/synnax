@@ -36,7 +36,7 @@ const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<SubStore, typeof workspace
     onChange: ({ store, changed }) => store.workspaces.delete(changed),
   };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_WORKSPACE_LISTENER, DELETE_WORKSPACE_LISTENER],
 };
 

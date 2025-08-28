@@ -54,3 +54,7 @@
 .pluto-icon--logo-opc {
     transform: translateY(1px) scale(1.25);
 }
+
+.pluto-icon--csv {
+    transform: scale(1.25);
+}

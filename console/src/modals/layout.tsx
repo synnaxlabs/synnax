@@ -12,16 +12,25 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { BottomNavBar } from "@/modals/BottomNavBar";
 
-export interface ModalContentLayoutProps extends PropsWithChildren {
+export interface ModalContentLayoutProps extends PropsWithChildren, Flex.BoxProps {
   footer: React.ReactNode;
 }
 
 export const ModalContentLayout = ({
   children,
   footer,
+  style,
+  ...rest
 }: ModalContentLayoutProps): ReactElement => (
   <Flex.Box y grow justify="center">
-    <Flex.Box y grow align="start" justify="center" style={{ padding: "5rem" }}>
+    <Flex.Box
+      y
+      grow
+      align="start"
+      justify="center"
+      style={{ padding: "5rem", ...style }}
+      {...rest}
+    >
       {children}
     </Flex.Box>
     <BottomNavBar>{footer}</BottomNavBar>

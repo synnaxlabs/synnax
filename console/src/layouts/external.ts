@@ -14,6 +14,7 @@ import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/layouts/Mosaic";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/layouts/Selector";
 
 export * from "@/layouts/nav";
+export * from "@/layouts/Notifications";
 export * from "@/layouts/useTriggers";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

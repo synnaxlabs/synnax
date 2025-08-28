@@ -33,13 +33,13 @@ var schema = zyn.Object(map[string]zyn.Schema{
 var _ gorp.Entry[uuid.UUID] = Group{}
 
 // GorpKey implements gorp.Entry.
-func (c Group) GorpKey() uuid.UUID { return c.Key }
+func (g Group) GorpKey() uuid.UUID { return g.Key }
 
 // SetOptions implements gorp.Entry.
-func (c Group) SetOptions() []any { return nil }
+func (g Group) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology.ID for the group.
-func (c Group) OntologyID() ontology.ID { return OntologyID(c.Key) }
+func (g Group) OntologyID() ontology.ID { return OntologyID(g.Key) }
 
 // IsZero implements ZeroAble.
-func (c Group) IsZero() bool { return c.Key == uuid.Nil && len(c.Name) == 0 }
+func (g Group) IsZero() bool { return g.Key == uuid.Nil && len(g.Name) == 0 }

@@ -52,6 +52,7 @@ export const ConnectionStatusBadge = ({
         borderColor={5}
         background={variant !== "disabled" && 0}
         size="medium"
+        rounded
       >
         <Status.Indicator variant={variant} />
       </Text.Text>
@@ -59,9 +60,6 @@ export const ConnectionStatusBadge = ({
   );
 };
 
-/**
- * Displays the connection state of the cluster.
- */
 export const ConnectionBadge = (): ReactElement => {
   const state = Synnax.useConnectionState();
   return <ConnectionStatusBadge state={state} />;

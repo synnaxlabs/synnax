@@ -10,6 +10,8 @@
 import {
   type CrudeDirection,
   crudeDirection,
+  type CrudeXDirection,
+  type CrudeYDirection,
   type Dimension,
   type Direction,
   direction,
@@ -25,6 +27,8 @@ export { Direction, direction, DIRECTIONS };
 export const crude = crudeDirection;
 
 export type Crude = CrudeDirection;
+export type CrudeX = CrudeXDirection;
+export type CrudeY = CrudeYDirection;
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
@@ -45,3 +49,11 @@ export const isDirection = (c: unknown): c is Direction => crude.safeParse(c).su
 
 export const signedDimension = (direction: CrudeDirection): SignedDimension =>
   construct(direction) === "x" ? "signedWidth" : "signedHeight";
+
+export const isX = (direction: CrudeDirection): direction is CrudeXDirection => {
+  if (direction === "center") return false;
+  return construct(direction) === "x";
+};
+
+export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
+  construct(direction) === "y";

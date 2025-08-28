@@ -87,6 +87,7 @@ jobs:
     if: needs.setup.outputs.changed == 'true'
     env:
       GH_TOKEN: ${{ github.token }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
       matrix:
@@ -274,6 +275,27 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Node Dependencies
+        run: pnpm install
+
+      - name: Build Console Web Assets
+        run: pnpm build:console-vite
+
+      - name: Copy Console Assets to Server
+        shell: bash
+        run: |
+          mkdir -p synnax/pkg/service/console/dist
+          cp -r console/dist/* synnax/pkg/service/console/dist/
+
       - name: Download Dependencies
         working-directory: synnax
         run: go mod download
@@ -281,7 +303,7 @@ jobs:
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
         if: matrix.os == 'macos-15' && github.event_name == 'push'
