@@ -10,7 +10,6 @@
 import { box, location, testutil } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { box, location } from "@synnaxlabs/x";
 import { Dialog } from "@/dialog";
 
 interface Spec {

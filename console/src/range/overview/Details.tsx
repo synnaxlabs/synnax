@@ -10,6 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
+  Divider,
   Flex,
   Form,
   Icon,
