@@ -40,6 +40,7 @@ export const SelectMultipleAxesInputItem = ({
       initialParams={SEARCH_OPTIONS}
       onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
       full="x"
+      location="top"
       {...selectProps}
     />
   </Input.Item>

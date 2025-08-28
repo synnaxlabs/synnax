@@ -71,12 +71,12 @@ interface EntryProps
 
 const Entry = ({
   allowVisibleChange = true,
-  background,
   entry,
   onEntryChange,
   colorPickerVisible,
   onColorPickerVisibleChange,
   className,
+  background,
   ...rest
 }: EntryProps): ReactElement => {
   const { color, key, label, visible } = entry;
@@ -96,7 +96,6 @@ const Entry = ({
           onChange={(c) => onEntryChange?.({ ...entry, color: c })}
           size="tiny"
           value={color}
-          visible={colorPickerVisible}
           onVisibleChange={onColorPickerVisibleChange}
         />
         <Text.MaybeEditable
