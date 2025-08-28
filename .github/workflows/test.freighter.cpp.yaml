@@ -1,19 +1,19 @@
 name: Test - Freighter (C++)
 
 on:
-  pull_request:
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.freighter.cpp.yaml
-      - freighter/cpp/**
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
-      - x/cpp/**
-      - x/go/**/*.pb.h
+  # pull_request:
+  #   paths:
+  #     - .bazeliskrc
+  #     - .bazelrc
+  #     - .clang-format
+  #     - .clang-format-ignore
+  #     - .github/workflows/test.freighter.cpp.yaml
+  #     - freighter/cpp/**
+  #     - MODULE.bazel
+  #     - MODULE.bazel.lock
+  #     - scripts/check-clang-format.sh
+  #     - x/cpp/**
+  #     - x/go/**/*.pb.h
   push:
     branches:
       - main

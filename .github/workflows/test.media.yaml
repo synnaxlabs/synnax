@@ -1,17 +1,17 @@
 name: Test - Media
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.media.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/media/**
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/test.media.yaml
+  #     - configs/eslint/**
+  #     - configs/ts/**
+  #     - configs/vite/**
+  #     - package.json
+  #     - pnpm-lock.yaml
+  #     - pnpm-workspace.yaml
+  #     - turbo.json
+  #     - x/media/**
   push:
     branches:
       - main

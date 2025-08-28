@@ -1,18 +1,18 @@
 name: Test - Alamos (TypeScript)
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.alamos.ts.yaml
-      - alamos/ts/**
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/ts/**
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/test.alamos.ts.yaml
+  #     - alamos/ts/**
+  #     - configs/eslint/**
+  #     - configs/ts/**
+  #     - configs/vite/**
+  #     - package.json
+  #     - pnpm-lock.yaml
+  #     - pnpm-workspace.yaml
+  #     - turbo.json
+  #     - x/ts/**
   push:
     branches:
       - main

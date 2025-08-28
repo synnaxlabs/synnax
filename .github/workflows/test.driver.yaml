@@ -1,27 +1,27 @@
 name: Test - Driver
 
 on:
-  pull_request:
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.driver.yaml
-      - alamos/go/**
-      - aspen/**
-      - cesium/**
-      - client/cpp/**
-      - freighter/cpp/**
-      - freighter/go/**
-      - go.work
-      - go.work.sum
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check-clang-format.sh
-      - synnax/**
-      - x/cpp/**
-      - x/go/**
+  # pull_request:
+  #   paths:
+  #     - .bazeliskrc
+  #     - .bazelrc
+  #     - .clang-format
+  #     - .clang-format-ignore
+  #     - .github/workflows/test.driver.yaml
+  #     - alamos/go/**
+  #     - aspen/**
+  #     - cesium/**
+  #     - client/cpp/**
+  #     - freighter/cpp/**
+  #     - freighter/go/**
+  #     - go.work
+  #     - go.work.sum
+  #     - MODULE.bazel
+  #     - MODULE.bazel.lock
+  #     - scripts/check-clang-format.sh
+  #     - synnax/**
+  #     - x/cpp/**
+  #     - x/go/**
   push:
     branches:
       - main

@@ -1,23 +1,23 @@
 name: Test - Pluto
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.pluto.yaml
-      - alamos/ts/**
-      - client/ts/**
-      - configs/eslint/**
-      - configs/stylelint/**
-      - configs/ts/**
-      - configs/vite/**
-      - freighter/ts/**
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/media/**
-      - x/ts/**
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/test.pluto.yaml
+  #     - alamos/ts/**
+  #     - client/ts/**
+  #     - configs/eslint/**
+  #     - configs/stylelint/**
+  #     - configs/ts/**
+  #     - configs/vite/**
+  #     - freighter/ts/**
+  #     - package.json
+  #     - pluto/**
+  #     - pnpm-lock.yaml
+  #     - pnpm-workspace.yaml
+  #     - turbo.json
+  #     - x/media/**
+  #     - x/ts/**
   push:
     branches:
       - main

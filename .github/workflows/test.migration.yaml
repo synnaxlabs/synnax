@@ -1,20 +1,20 @@
 name: Test - Migration
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.migration.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - aspen/**
-      - cesium/**
-      - client/py/**
-      - freighter/go/**
-      - freighter/py/**
-      - go.work
-      - go.work.sum
-      - synnax/**
-      - x/go/**
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/test.migration.yaml
+  #     - alamos/go/**
+  #     - alamos/py/**
+  #     - aspen/**
+  #     - cesium/**
+  #     - client/py/**
+  #     - freighter/go/**
+  #     - freighter/py/**
+  #     - go.work
+  #     - go.work.sum
+  #     - synnax/**
+  #     - x/go/**
   push:
     branches:
       - main

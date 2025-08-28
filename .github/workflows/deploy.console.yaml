@@ -25,7 +25,7 @@ on:
   pull_request:
     branches:
       - main
-      - rc
+      # - rc
     paths:
       - .github/workflows/deploy.console.yaml
       - alamos/ts/**
@@ -131,8 +131,7 @@ jobs:
       - name: Import Apple Developer Certificate
         # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
-        if:
-          matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -152,8 +151,7 @@ jobs:
 
       - name: Verify Apple Developer Certificate
         # Same as above - only notarize on macOS and on push events, not on PRs
-        if:
-          matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -176,9 +174,7 @@ jobs:
           cache: pnpm
 
       - name: Adjust Auto Updater URL for Release Candidate
-        if:
-          (github.event_name != 'pull_request') &&
-          github.ref == 'refs/heads/rc'
+        if: (github.event_name != 'pull_request') && github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
@@ -222,7 +218,6 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
-
       - name: Build (Push)
         if: github.event_name != 'pull_request'
         env:
@@ -241,14 +236,12 @@ jobs:
         run: pnpm build
 
       - name: Upload macOS Release Asset
-        if:
-          (github.event_name != 'pull_request') &&
-          matrix.os == 'macos-latest'
+        if: (github.event_name != 'pull_request') && matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
-          
+
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest'
         run: |
@@ -262,9 +255,7 @@ jobs:
           echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
 
       - name: Sign Windows Release Asset
-        if:
-          (github.event_name != 'pull_request') &&
-          matrix.os == 'windows-latest'
+        if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -274,9 +265,7 @@ jobs:
           relic sign --file ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe --key azure --config relic.conf
 
       - name: Upload Windows Release Asset
-        if:
-          (github.event_name != 'pull_request') &&
-          matrix.os == 'windows-latest'
+        if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
@@ -289,7 +278,8 @@ jobs:
     permissions:
       contents: write
     if:
-      needs.create-release.outputs.release_id != '' && github.event_name != 'pull_request'
+      needs.create-release.outputs.release_id != '' && github.event_name !=
+      'pull_request'
     needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}

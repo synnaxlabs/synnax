@@ -5,15 +5,15 @@ on:
     branches:
       - main
       - rc
-  pull_request:
-    paths:
-      - .github/workflows/test.freighter.go.yaml
-      - alamos/go/**
-      - freighter/go/**
-      - go.work
-      - go.work.sum
-      - scripts/check-gofmt.sh
-      - x/go/**
+  # pull_request:
+  #   paths:
+  #     - .github/workflows/test.freighter.go.yaml
+  #     - alamos/go/**
+  #     - freighter/go/**
+  #     - go.work
+  #     - go.work.sum
+  #     - scripts/check-gofmt.sh
+  #     - x/go/**
   workflow_dispatch:
 
 jobs:
