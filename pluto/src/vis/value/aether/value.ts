@@ -56,7 +56,7 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
-  staleTimeout?: ReturnType<typeof setTimeout>;
+  staleTimeout?: NodeJS.Timeout;
   isStale: boolean;
 }
 
@@ -73,14 +73,12 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    // Initialize as stale
     i.isStale = true;
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       const value = i.telem.value();
-      // Reset timeout on any data change - let the timeout handle staleness
       if (value !== undefined && value !== null) {
         i.isStale = false;
         this.resetStaleTimeout();
@@ -103,7 +101,7 @@ export class Value
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
-    if (i.staleTimeout) clearTimeout(i.staleTimeout);
+    clearTimeout(i.staleTimeout);
     i.telem.cleanup?.();
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
@@ -113,7 +111,7 @@ export class Value
 
   private resetStaleTimeout(): void {
     const { internal: i } = this;
-    if (i.staleTimeout) clearTimeout(i.staleTimeout);
+    clearTimeout(i.staleTimeout);
     i.staleTimeout = setTimeout(() => {
       i.isStale = true;
       this.requestRender();
@@ -146,7 +144,11 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.internal.isStale) return this.state.stalenessColor;
+    if (this.internal.isStale) {
+      if (color.isZero(this.state.stalenessColor))
+        return theme.colors.warning.m1;
+      return this.state.stalenessColor;
+    }
 
     if (color.isZero(this.state.color))
       return color.pickByContrast(

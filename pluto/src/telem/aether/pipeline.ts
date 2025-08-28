@@ -38,10 +38,6 @@ export const sourcePipelinePropsZ = z.object({
   connections: z.array(connectionZ),
   outlet: z.string(),
   segments: z.record(z.string(), sourceSpecZ),
-  staleness: z.object({
-    stalenessTimeout: z.number(),
-    stalenessColor: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  }).optional(),
 });
 
 export type SourcePipelineProps = z.infer<typeof sourcePipelinePropsZ>;

@@ -186,7 +186,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    if (isNaN(value)) return ""; // Show empty instead of NaN
+    if (isNaN(value)) return "";
     const { precision, prefix, suffix, notation: pNotation } = this.props;
     return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
   }
@@ -278,7 +278,7 @@ export class ScaleNumber extends UnarySourceTransformer<
   schema = ScaleNumber.propsZ;
 
   protected transform(value: number): number {
-    if (isNaN(value)) value = 0;
+    if (isNaN(value)) return value;
     const { offset, scale } = this.props.scale;
     return value * scale + offset;
   }

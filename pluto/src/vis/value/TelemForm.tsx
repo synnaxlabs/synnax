@@ -50,14 +50,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   const handleChange = (
     segments: telem.SourcePipelineProps["segments"],
-    stalenessUpdate?: { stalenessTimeout?: number; stalenessColor?: color.Color },
   ): void => {
-    const currentStaleness = {
-      stalenessTimeout: value.stalenessTimeout ?? 5,
-      stalenessColor: value.stalenessColor ?? color.ZERO,
-      ...stalenessUpdate,
-    };
-
     const t = telem.sourcePipeline("string", {
       connections: VALUE_CONNECTIONS,
       segments: {
@@ -72,10 +65,8 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         ...segments,
       },
       outlet: "stringifier",
-      // Add staleness as pipeline metadata
-      staleness: currentStaleness,
     });
-    onChange({ ...value, telem: t, ...stalenessUpdate });
+    onChange({ ...value, telem: t });
   };
 
   const handleSourceChange = (v: channel.Key | null): void =>
@@ -140,6 +131,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           label="Staleness Timeout"
           inputProps={{
             bounds: { lower: 0, upper: Infinity },
+            endContent: "s",
           }}
         />
       </Flex.Box>
