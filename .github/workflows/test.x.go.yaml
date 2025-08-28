@@ -1,14 +1,14 @@
 name: Test - X (Go)
 
 on:
-  # pull_request:
-  #   paths:
-  #     - .github/workflows/test.x.go.yaml
-  #     - alamos/go/**
-  #     - go.work
-  #     - go.work.sum
-  #     - scripts/check-gofmt.sh
-  #     - x/go/**
+  pull_request:
+    paths:
+      - .github/workflows/test.x.go.yaml
+      - alamos/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check-gofmt.sh
+      - x/go/**
   push:
     branches:
       - main

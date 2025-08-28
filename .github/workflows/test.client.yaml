@@ -1,41 +1,41 @@
 name: Test - Client
 
 on:
-  # pull_request:
-  #   paths:
-  #     - .bazeliskrc
-  #     - .bazelrc
-  #     - .clang-format
-  #     - .clang-format-ignore
-  #     - .github/workflows/test.client.yaml
-  #     - alamos/go/**
-  #     - alamos/py/**
-  #     - alamos/ts/**
-  #     - aspen/**
-  #     - cesium/**
-  #     - client/cpp/**
-  #     - client/py/**
-  #     - client/ts/**
-  #     - configs/eslint/**
-  #     - configs/ts/**
-  #     - configs/vite/**
-  #     - freighter/cpp/**
-  #     - freighter/go/**
-  #     - freighter/py/**
-  #     - freighter/ts/**
-  #     - go.work
-  #     - go.work.sum
-  #     - MODULE.bazel
-  #     - MODULE.bazel.lock
-  #     - package.json
-  #     - pnpm-lock.yaml
-  #     - pnpm-workspace.yaml
-  #     - scripts/check-clang-format.sh
-  #     - synnax/**
-  #     - turbo.json
-  #     - x/cpp/**
-  #     - x/go/**
-  #     - x/ts/**
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.client.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/py/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/py/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/check-clang-format.sh
+      - synnax/**
+      - turbo.json
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   push:
     branches:
       - main
@@ -163,9 +163,15 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+      - name: Install Clang Format
+        run: |
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          sudo apt-get install -y clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
 
       - name: Check Formatting
-        run: ./scripts/check-clang-format.sh client/cpp
+        run: scripts/check-clang-format.sh client/cpp
 
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results

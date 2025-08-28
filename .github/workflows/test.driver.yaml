@@ -1,27 +1,27 @@
 name: Test - Driver
 
 on:
-  # pull_request:
-  #   paths:
-  #     - .bazeliskrc
-  #     - .bazelrc
-  #     - .clang-format
-  #     - .clang-format-ignore
-  #     - .github/workflows/test.driver.yaml
-  #     - alamos/go/**
-  #     - aspen/**
-  #     - cesium/**
-  #     - client/cpp/**
-  #     - freighter/cpp/**
-  #     - freighter/go/**
-  #     - go.work
-  #     - go.work.sum
-  #     - MODULE.bazel
-  #     - MODULE.bazel.lock
-  #     - scripts/check-clang-format.sh
-  #     - synnax/**
-  #     - x/cpp/**
-  #     - x/go/**
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.driver.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check-clang-format.sh
+      - synnax/**
+      - x/cpp/**
+      - x/go/**
   push:
     branches:
       - main
@@ -96,8 +96,15 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Install Clang Format
+        run: |
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          sudo apt-get install -y clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+
       - name: Check Formatting
-        run: ./scripts/check-clang-format.sh driver
+        run: scripts/check-clang-format.sh driver
 
       - name: Test Driver
         run:

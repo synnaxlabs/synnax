@@ -1,15 +1,15 @@
 name: Test - Cesium
 
 on:
-  # pull_request:
-  #   paths:
-  #     - .github/workflows/test.cesium.yaml
-  #     - alamos/go/**
-  #     - cesium/**
-  #     - go.work
-  #     - go.work.sum
-  #     - scripts/check-gofmt.sh
-  #     - x/go/**
+  pull_request:
+    paths:
+      - .github/workflows/test.cesium.yaml
+      - alamos/go/**
+      - cesium/**
+      - go.work
+      - go.work.sum
+      - scripts/check-gofmt.sh
+      - x/go/**
   push:
     branches:
       - main

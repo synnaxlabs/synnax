@@ -38,9 +38,6 @@ if ! command -v clang-format &> /dev/null; then
   exit 1
 fi
 
-# print the version of clang-format
-clang-format --version
-
 # Use the root .clang-format-ignore file
 ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
 
@@ -77,7 +74,7 @@ for file in "${files_to_check[@]}"; do
   full_path="$path/$file"
 
   # Format the file and capture the output
-  formatted_content=$(clang-format --style=file "$full_path")
+  formatted_content=$(clang-format "$full_path")
   original_content=$(cat "$full_path")
 
   # Compare the original with the formatted content

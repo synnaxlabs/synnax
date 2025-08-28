@@ -1,24 +1,24 @@
 name: Test - Console
 
 on:
-  # pull_request:
-  #   paths:
-  #     - .github/workflows/test.console.yaml
-  #     - alamos/ts/**
-  #     - client/ts/**
-  #     - configs/eslint/**
-  #     - configs/ts/**
-  #     - configs/vite/**
-  #     - console/**
-  #     - drift/**
-  #     - freighter/ts/**
-  #     - package.json
-  #     - pluto/**
-  #     - pnpm-lock.yaml
-  #     - pnpm-workspace.yaml
-  #     - turbo.json
-  #     - x/media/**
-  #     - x/ts/**
+  pull_request:
+    paths:
+      - .github/workflows/test.console.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
