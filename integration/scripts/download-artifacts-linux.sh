@@ -34,7 +34,7 @@ install_github_cli() {
 # Download artifacts from reference run
 download_reference_artifacts() {
     local run_id=$1
-    echo "📥 Downloading artifacts from reference run: $run_id"
+    echo "Downloading artifacts from reference run: $run_id"
     
     # Create binaries directory
     mkdir -p ./binaries
@@ -85,7 +85,7 @@ setup_binaries() {
 
 # Download current run artifacts
 download_current_artifacts() {
-    echo "📥 Downloading current run artifacts..."
+    echo "Downloading current run artifacts..."
     mkdir -p ./binaries
     
     # Use GitHub CLI to download from current run
