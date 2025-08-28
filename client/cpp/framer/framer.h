@@ -25,7 +25,7 @@
 #include "x/cpp/telem/telem.h"
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.

@@ -12,7 +12,7 @@
 #include <vector>
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 /// internal
 #include "client/cpp/framer/framer.h"

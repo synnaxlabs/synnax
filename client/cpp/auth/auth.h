@@ -15,7 +15,7 @@
 #include <string>
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 
 /// external
 #include "glog/logging.h"

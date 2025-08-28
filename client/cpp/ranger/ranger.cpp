@@ -17,7 +17,7 @@
 #include "client/cpp/ranger/ranger.h"
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
 
 namespace synnax {
 Range::Range(std::string name, telem::TimeRange time_range):
