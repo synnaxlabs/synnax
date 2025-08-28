@@ -46,22 +46,22 @@ declare -a files_to_check=()
 
 while IFS= read -r file; do
     should_check=true
-    
+
     while IFS= read -r pattern || [ -n "$pattern" ]; do
         # Skip empty lines and comments
         [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
-        
+
         # Clean up pattern
         pattern=$(echo "$pattern" | tr -d '[:space:]')
         filename=$(basename "$file")
-        
+
         if [[ "$filename" == "$pattern" ]]; then
             echo "Skipping $file (ignored by pattern $pattern)..."
             should_check=false
             break
         fi
     done < "$ignore_file"
-    
+
     if [ "$should_check" = true ]; then
         files_to_check+=("$file")
     fi
@@ -72,11 +72,11 @@ needs_formatting=false
 for file in "${files_to_check[@]}"; do
   # Prepend path to the file to get the correct absolute path
   full_path="$path/$file"
-  
+
   # Format the file and capture the output
-  formatted_content=$(clang-format "$full_path")
+  formatted_content=$(clang-format --style=file "$full_path")
   original_content=$(cat "$full_path")
-  
+
   # Compare the original with the formatted content
   if [ "$formatted_content" != "$original_content" ]; then
     if [ "$needs_formatting" = false ]; then
