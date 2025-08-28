@@ -13,13 +13,26 @@
 # Forcibly terminates existing Synnax processes on Linux
 # Used by GitHub Actions workflow: test.integration.yaml
 
-set -euo pipefail
+#!/bin/bash
 
-echo "🔪 Checking for existing Synnax processes..."
+echo "Checking for existing synnax processes..."
+if pgrep -f "synnax" > /dev/null; then
+  echo "Found synnax processes. Terminating..."
+  pkill -f "synnax"
+  KILL_EXIT_CODE=$?
+  echo "Initial kill exit code: $KILL_EXIT_CODE"
+  sleep 2
+  # Force kill if still running
+  if pgrep -f "synnax" > /dev/null; then
+    echo "Force killing remaining synnax processes..."
+    pkill -9 -f "synnax"
+    FORCE_KILL_EXIT_CODE=$?
+    echo "Force kill exit code: $FORCE_KILL_EXIT_CODE"
+  fi
+  echo "All synnax processes terminated."
+else
+  echo "No synnax processes found."
+fi
 
-pkill -f "synnax" 2>/dev/null && echo "Killed synnax processes" || echo "No synnax processes found"
-sleep 2
-pkill -9 -f "synnax" 2>/dev/null || true
-
-echo "✅ Synnax process cleanup completed"
+echo "Script completed successfully"
 exit 0

@@ -54,3 +54,7 @@ else
 fi
 
 echo "🎉 Synnax server started successfully and is ready!"
+
+# Output Synnax version
+echo "📋 Synnax version:"
+$HOME/synnax-binaries/synnax version

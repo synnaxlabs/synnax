@@ -78,19 +78,29 @@ download_current_artifacts() {
 
 # Main execution
 main() {
+    # Clean up any existing binaries
+    if [ -d "./binaries" ]; then
+        echo "🧹 Cleaning existing binaries directory..."
+        rm -rf "./binaries"
+    fi
+    
     echo "Starting macOS artifacts download and setup..."
     
     install_github_cli
     
+    # Debug: Print environment variables
+    echo "🐛 DEBUG: SKIP_BUILD='${SKIP_BUILD:-}'"
+    echo "🐛 DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
+    
     # Check if we should skip build and use reference artifacts
-    if [ "${SKIP_BUILD:-}" = "true" ] && [ -n "${REFERENCE_RUN_ID:-}" ]; then
-        echo "🔄 Skip build mode: using reference run $REFERENCE_RUN_ID"
-        download_reference_artifacts "$REFERENCE_RUN_ID"
-    elif [ "${SKIP_BUILD:-}" != "true" ]; then
+    if [ "${SKIP_BUILD:-false}" = "true" ] && [ -n "${REF_RUN_ID:-}" ]; then
+        echo "🔄 SKIP build mode: using reference run $REF_RUN_ID"
+        download_reference_artifacts "$REF_RUN_ID"
+    elif [ "${SKIP_BUILD:-false}" != "true" ]; then
         echo "📦 Build mode: using current run artifacts"
         download_current_artifacts
     else
-        echo "❌ Error: SKIP_BUILD is true but no REFERENCE_RUN_ID provided"
+        echo "❌ Error: SKIP_BUILD is true but no REF_RUN_ID provided"
         exit 1
     fi
     

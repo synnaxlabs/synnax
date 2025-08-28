@@ -61,4 +61,4 @@ if ($synnaxProcess) {
     exit 1
 }
 
-Write-Host "🎉 Synnax server started successfully and is ready!"
+Write-Host "Synnax server started successfully and is ready!"
