@@ -13,8 +13,9 @@ on:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: '0000000000'
+  # SET TO FALSE BEFORE MERGE
+  SKIP_BUILD: true 
+  REF_RUN_ID: '17309620670'
 
 jobs:
   setup:

@@ -13,7 +13,7 @@
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 Starting Synnax server on Windows..."
+Write-Host "Starting Synnax server on Windows..."
 
 # Create data directory
 if (-not (Test-Path "$env:USERPROFILE\synnax-data")) {
@@ -32,7 +32,7 @@ $process.Id | Out-File -FilePath "$env:USERPROFILE\synnax-pid.txt" -Encoding ASC
 Write-Host "Started Synnax with PID: $($process.Id)"
 
 # Wait for startup and verify it's still running
-Write-Host "⏳ Waiting for server startup..."
+Write-Host "Waiting for server startup..."
 Start-Sleep -Seconds 15
 
 $synnaxProcess = Get-Process -Id $process.Id -ErrorAction SilentlyContinue
@@ -48,7 +48,7 @@ if ($synnaxProcess) {
             $portReady = $true
             break
         }
-        Write-Host "⏳ Waiting for port 9090... (attempt $i/5)"
+        Write-Host "Waiting for port 9090... (attempt $i/5)"
         Start-Sleep -Seconds 3
     }
     

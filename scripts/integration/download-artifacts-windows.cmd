@@ -25,14 +25,14 @@ if exist ".\binaries" (
 )
 
 rem Clean up any existing desktop binaries
-echo 🧹 Cleaning up desktop binaries...
+echo Cleaning up desktop binaries...
 del /q "%USERPROFILE%\Desktop\synnax*.exe" 2>nul
-echo 🧹 Desktop cleanup completed
+echo Desktop cleanup completed
 
-echo 💻 Setting up Windows artifacts download...
+echo Setting up Windows artifacts download...
 
 rem Setup GitHub CLI (Windows)
-echo 🔧 Setting up GitHub CLI...
+echo Setting up GitHub CLI...
 
 rem Initialize gh_cmd variable
 set "gh_cmd=gh"
@@ -40,7 +40,7 @@ set "gh_cmd=gh"
 rem Check multiple ways if GitHub CLI is already available
 where gh >nul 2>nul
 if %errorlevel% equ 0 (
-    echo ✅ GitHub CLI already available in PATH
+    echo GitHub CLI already available in PATH
     gh --version
     goto :skip_install
 )
@@ -69,11 +69,11 @@ choco install gh -y --force
 rem Note: Chocolatey may return non-zero exit codes even for successful installs
 echo ✅ Chocolatey installation command completed
 
-echo 🔄 Refreshing environment to find GitHub CLI...
+echo Refreshing environment to find GitHub CLI...
 call refreshenv.exe 2>nul || echo "refreshenv not available, continuing..."
 
 rem Try to find GitHub CLI in common paths
-echo 🔍 Searching for GitHub CLI in common locations...
+echo Searching for GitHub CLI in common locations...
 
 if exist "%ProgramFiles%\GitHub CLI\gh.exe" (
     set "gh_cmd=%ProgramFiles%\GitHub CLI\gh.exe"
@@ -96,7 +96,7 @@ if %errorlevel% equ 0 (
 )
 
 rem Try refreshing PATH manually and check again
-echo 🔄 Manually refreshing PATH environment...
+echo Manually refreshing PATH environment...
 for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PATH') do set "SYS_PATH=%%B"
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v PATH') do set "USER_PATH=%%B"
 set "PATH=%SYS_PATH%;%USER_PATH%"
@@ -123,11 +123,11 @@ echo ✅ GitHub CLI installation successful
 echo ✅ GitHub CLI setup completed
 
 rem Verify GitHub CLI authentication
-echo 🔐 Verifying GitHub CLI authentication...
+echo Verifying GitHub CLI authentication...
 "%gh_cmd%" auth status
 if %errorlevel% neq 0 (
     echo ❌ GitHub CLI authentication failed
-    echo 🔑 Attempting to authenticate using GITHUB_TOKEN...
+    echo Attempting to authenticate using GITHUB_TOKEN...
     set /p="%GH_TOKEN%" <nul | "%gh_cmd%" auth login --with-token
     if %errorlevel% neq 0 (
         echo ❌ Failed to authenticate with GitHub
@@ -139,10 +139,10 @@ echo ✅ GitHub CLI authentication verified
 rem Check build mode and download appropriate artifacts  
 if "%SKIP_BUILD%"=="true" (
     if defined REF_RUN_ID (
-        echo 📥 Downloading artifacts from reference run: %REF_RUN_ID%
+        echo Downloading artifacts from reference run: %REF_RUN_ID%
         
         rem Verify the run exists and has artifacts
-        echo 🔍 Verifying run %REF_RUN_ID% exists...
+        echo Verifying run %REF_RUN_ID% exists...
         "%gh_cmd%" run view %REF_RUN_ID% --repo synnaxlabs/synnax
         if %errorlevel% neq 0 (
             echo ❌ Error: Cannot access run %REF_RUN_ID%

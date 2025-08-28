@@ -18,17 +18,21 @@
 echo "Checking for existing synnax processes..."
 if pgrep -f "synnax" > /dev/null; then
   echo "Found synnax processes. Terminating..."
-  pkill -f "synnax"
+  set +e
+  pkill -f "synnax" 2>/dev/null
   KILL_EXIT_CODE=$?
+  set -e 
   echo "Initial kill exit code: $KILL_EXIT_CODE"
   sleep 2
   # Force kill if still running
+  set +e
   if pgrep -f "synnax" > /dev/null; then
     echo "Force killing remaining synnax processes..."
-    pkill -9 -f "synnax"
+    pkill -9 -f "synnax" 2>/dev/null
     FORCE_KILL_EXIT_CODE=$?
     echo "Force kill exit code: $FORCE_KILL_EXIT_CODE"
   fi
+  set -e
   echo "All synnax processes terminated."
 else
   echo "No synnax processes found."
