@@ -54,7 +54,7 @@ jobs:
 
       - name: Build Image
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: synnax
+        working-directory: core
 
       - name: Push to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}

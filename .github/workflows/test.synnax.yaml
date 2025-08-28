@@ -52,4 +52,4 @@ jobs:
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
-        working-directory: synnax
+        working-directory: core
