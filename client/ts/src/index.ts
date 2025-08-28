@@ -9,7 +9,6 @@
 
 export { access } from "@/access";
 export { policy } from "@/access/policy";
-export { annotation } from "@/annotation";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";

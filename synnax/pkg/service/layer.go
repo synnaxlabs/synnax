@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/console"
@@ -115,7 +114,6 @@ type Layer struct {
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
 	Console *console.Service
-	Annotation *annotation.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -231,16 +229,5 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l.Console = console.NewService()
-	if l.Annotation, err = annotation.OpenService(
-		ctx,
-		annotation.ServiceConfig{
-			DB:       cfg.Distribution.DB,
-			Ontology: cfg.Distribution.Ontology,
-			Signals:  cfg.Distribution.Signals,
-		},
-	); !ok(err, l.Annotation) {
-		return nil, err
-	}
-
 	return l, nil
 }

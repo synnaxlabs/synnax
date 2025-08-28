@@ -23,7 +23,6 @@ import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { LinePlot as Core } from "@/vis/lineplot";
-import { Annotation } from "@/vis/lineplot/annotation";
 import { Range } from "@/vis/lineplot/range";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
@@ -92,9 +91,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
-  // Annotation
   rangeProviderProps?: Range.ProviderProps;
-  annotationProviderProps?: Annotation.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -125,7 +122,6 @@ export const LinePlot = ({
   onViewportChange,
   viewportTriggers,
   rangeProviderProps,
-  annotationProviderProps,
   onSelectRule,
   children,
   ...rest
@@ -159,7 +155,6 @@ export const LinePlot = ({
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
             rangeProviderProps={rangeProviderProps}
-            annotationProviderProps={annotationProviderProps}
             onRuleChange={onRuleChange}
             onSelectRule={onSelectRule}
           />
@@ -204,7 +199,6 @@ interface XAxisProps
   yAxes: AxisProps[];
   index: number;
   rangeProviderProps?: Range.ProviderProps;
-  annotationProviderProps?: Annotation.ProviderProps;
 }
 
 const XAxis = ({
@@ -218,7 +212,6 @@ const XAxis = ({
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
   rangeProviderProps,
-  annotationProviderProps,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -279,7 +272,6 @@ const XAxis = ({
         />
       ))}
       <Range.Provider {...rangeProviderProps} />
-      {annotationProviderProps && <Annotation.Provider {...annotationProviderProps} />}
     </Core.XAxis>
   );
 };

@@ -153,10 +153,6 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
-	// ANNOTATION
-	AnnotationCreate   freighter.UnaryServer[AnnotationCreateRequest, AnnotationCreateResponse]
-	AnnotationRetrieve freighter.UnaryServer[AnnotationRetrieveRequest, AnnotationRetrieveResponse]
-	AnnotationDelete   freighter.UnaryServer[AnnotationDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -179,7 +175,6 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
-	Annotation   *AnnotationService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -310,11 +305,6 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
-
-		// ANNOTATION
-		t.AnnotationCreate,
-		t.AnnotationDelete,
-		t.AnnotationRetrieve,
 	)
 
 	// AUTH
@@ -426,11 +416,6 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
-
-	// ANNOTATION
-	t.AnnotationCreate.BindHandler(a.Annotation.Create)
-	t.AnnotationDelete.BindHandler(a.Annotation.Delete)
-	t.AnnotationRetrieve.BindHandler(a.Annotation.Retrieve)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -456,6 +441,5 @@ func New(configs ...Config) (*Layer, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
-	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { Aether } from "@/aether";
-export { Annotation } from "@/annotation";
 export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";

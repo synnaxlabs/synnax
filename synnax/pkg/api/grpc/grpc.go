@@ -107,10 +107,5 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
 
-	// ANNOTATION
-	a.AnnotationCreate = fnoop.UnaryServer[api.AnnotationCreateRequest, api.AnnotationCreateResponse]{}
-	a.AnnotationDelete = fnoop.UnaryServer[api.AnnotationDeleteRequest, types.Nil]{}
-	a.AnnotationRetrieve = fnoop.UnaryServer[api.AnnotationRetrieveRequest, api.AnnotationRetrieveResponse]{}
-
 	return a, transports
 }

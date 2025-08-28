@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AnnotationServices } from "@/annotation/services";
 import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
@@ -39,5 +38,4 @@ export const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
-  ...AnnotationServices.COMMANDS,
 ];

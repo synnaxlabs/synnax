@@ -12,7 +12,6 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { flux } from "@/flux/aether";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
@@ -29,7 +28,6 @@ import { eraser } from "@/vis/eraser/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
-import { annotation } from "@/vis/lineplot/annotation/aether";
 import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { log } from "@/vis/log/aether";
@@ -41,12 +39,10 @@ import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
-  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.FluxStore;
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
-  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,
 };
@@ -66,7 +62,6 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
-    ...annotation.REGISTRY,
     ...measure.REGISTRY,
     ...range.REGISTRY,
     ...rule.REGISTRY,

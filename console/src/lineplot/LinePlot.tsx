@@ -10,10 +10,9 @@
 import "@/lineplot/LinePlot.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel, ranger } from "@synnaxlabs/client";
+import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  Annotation,
   type axis,
   Channel,
   Icon,
@@ -50,7 +49,6 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { Annotation as AnnotationServices } from "@/annotation";
 import { Menu } from "@/components";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -405,18 +403,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           case "range":
             placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
             break;
-          case "annotation": {
-            // Get the first available range key as the default parent
-            const firstRange = ranges.x1[0] || ranges.x2[0];
-            const parentRangeKey = firstRange?.key;
-            placeLayout(
-              AnnotationServices.createCreateLayout({
-                timeRange: tr.numeric,
-                parent: ranger.ontologyID(parentRangeKey),
-              }),
-            );
-            break;
-          }
           case "download":
             if (client == null) return;
             downloadAsCSV({ timeRanges: [tr], lines, name });
@@ -449,10 +435,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             <PMenu.Divider />
           </>
         )}
-        <PMenu.Item itemKey="annotation">
-          <Annotation.CreateIcon />
-          Create Annotation
-        </PMenu.Item>
         <PMenu.Divider />
         <Menu.HardReloadItem />
       </PMenu.Menu>
@@ -462,15 +444,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const rangeProviderProps: Channel.LinePlotProps["rangeProviderProps"] = {
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
-
-  const parents = useMemo(
-    () =>
-      [
-        ...ranges.x1.filter((r) => r.variant === "static"),
-        ...ranges.x2.filter((r) => r.variant === "static"),
-      ].map((r) => ranger.ontologyID(r.key)),
-    [ranges],
-  );
 
   return (
     <div
@@ -515,7 +488,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             dispatch(setControlState({ key: layoutKey, state: { hold } }))
           }
           rangeProviderProps={rangeProviderProps}
-          annotationProviderProps={{ parents }}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
