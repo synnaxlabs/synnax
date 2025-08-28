@@ -168,7 +168,8 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
 TEST(TestFactory, TestDeleteLegacyTaskByType_NonExistent) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    ASSERT_NIL(delete_legacy_task_by_type(rack, "non_existent_type", "test_integration")
+    ASSERT_NIL(
+        delete_legacy_task_by_type(rack, "non_existent_type", "test_integration")
     );
 }
 }

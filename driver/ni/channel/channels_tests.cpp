@@ -146,8 +146,9 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
-    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable *>(chan.get(
-    ));
+    const auto force_bridge_chan = dynamic_cast<channel::AIForceBridgeTable *>(
+        chan.get()
+    );
     ASSERT_NE(force_bridge_chan, nullptr);
     EXPECT_EQ(force_bridge_chan->bridge_config.ni_bridge_config, DAQmx_Val_FullBridge);
     EXPECT_EQ(force_bridge_chan->min_val, 0);

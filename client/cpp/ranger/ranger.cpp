@@ -17,7 +17,7 @@
 #include "client/cpp/ranger/ranger.h"
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
 
 namespace synnax {
 Range::Range(std::string name, telem::TimeRange time_range):
@@ -39,8 +39,8 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, xerrors::Error> RangeClient::retrieve_by_key(const std::string &key
-) const {
+std::pair<Range, xerrors::Error>
+RangeClient::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -55,8 +55,8 @@ std::pair<Range, xerrors::Error> RangeClient::retrieve_by_key(const std::string 
     return {rng, err};
 }
 
-std::pair<Range, xerrors::Error> RangeClient::retrieve_by_name(const std::string &name
-) const {
+std::pair<Range, xerrors::Error>
+RangeClient::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
