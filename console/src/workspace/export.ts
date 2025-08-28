@@ -17,6 +17,7 @@ import { useStore } from "react-redux";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { Runtime } from "@/runtime";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { select, selectActiveKey } from "@/workspace/selectors";
@@ -37,6 +38,8 @@ export const export_ = (
 ): void => {
   let name: string = "workspace"; // default name for error message
   handleError(async () => {
+    if (Runtime.ENGINE !== "tauri")
+      throw new Error("Cannot export workspaces when running Synnax in the browser.");
     const storeState = store.getState();
     const activeKey = selectActiveKey(storeState);
     let toExport: Layout.SliceState;

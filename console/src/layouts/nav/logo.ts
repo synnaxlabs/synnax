@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AiFillApi } from "react-icons/ai";
+import { runtime } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
-import { type Palette } from "@/palette";
 import { Runtime } from "@/runtime";
 
-const CONNECT_COMMAND: Palette.Command = {
-  key: "connect-cluster",
-  name: "Connect a Cluster",
-  icon: <AiFillApi />,
-  onSelect: ({ placeLayout }) => placeLayout(Cluster.CONNECT_LAYOUT),
-  visible: () => Runtime.ENGINE === "tauri",
-};
-
-export const COMMANDS = [CONNECT_COMMAND];
+export const LOGO_LOCATION =
+  runtime.getOS() !== "Windows" && Runtime.ENGINE === "tauri" ? "left" : "top";

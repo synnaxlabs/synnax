@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AiFillApi } from "react-icons/ai";
+import { Drift } from "@synnaxlabs/drift";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { Cluster } from "@/cluster";
-import { type Palette } from "@/palette";
 import { Runtime } from "@/runtime";
 
-const CONNECT_COMMAND: Palette.Command = {
-  key: "connect-cluster",
-  name: "Connect a Cluster",
-  icon: <AiFillApi />,
-  onSelect: ({ placeLayout }) => placeLayout(Cluster.CONNECT_LAYOUT),
-  visible: () => Runtime.ENGINE === "tauri",
+export const isMainWindow = (): boolean => {
+  switch (Runtime.ENGINE) {
+    case "tauri":
+      return getCurrentWindow().label === Drift.MAIN_WINDOW;
+    case "web":
+      return true;
+  }
 };
-
-export const COMMANDS = [CONNECT_COMMAND];
