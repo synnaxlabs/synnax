@@ -13,9 +13,7 @@ const iterElements = (
   state.regions.forEach((region) => {
     region.selectors.forEach((selector) => {
       const elements = svgElement.querySelectorAll(selector);
-      elements.forEach((el) => {
-        fn(el, region);
-      });
+      elements.forEach((el) => fn(el, region));
     });
   });
 };
