@@ -45,6 +45,7 @@ import { Nav } from "@/layouts/nav";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -138,13 +139,15 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
                 </Breadcrumb.Breadcrumb>
               </PNav.Bar.Start>
               <PNav.Bar.End pack>
-                <Button.Button
-                  onClick={handleOpenInNewWindow}
-                  size="small"
-                  textColor={9}
-                >
-                  <Icon.OpenInNewWindow />
-                </Button.Button>
+                {Runtime.ENGINE === "tauri" && (
+                  <Button.Button
+                    onClick={handleOpenInNewWindow}
+                    size="small"
+                    textColor={9}
+                  >
+                    <Icon.OpenInNewWindow />
+                  </Button.Button>
+                )}
                 <Button.Button onClick={handleClose} size="small" textColor={9}>
                   <Icon.Subtract />
                 </Button.Button>

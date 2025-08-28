@@ -46,6 +46,7 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
           link.download = `${name}.json`;
           link.click();
           URL.revokeObjectURL(link.href);
+          link.remove();
         },
         `Failed to export ${name ?? type}`,
       );
