@@ -49,10 +49,10 @@
         }
 
         .pluto-symbol-primitive {
-            transform: scale(0.75) !important;
+            transform: scale(0.75);
             & svg {
-                max-height: 100px !important;
-                max-width: 110px;
+                max-height: 80px !important;
+                max-width: 90px !important;
             }
         }
     }
