@@ -30,11 +30,12 @@ export interface ExportContext {
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
   extractors: Export.Extractors;
+  addStatus: Status.Adder;
 }
 
 export const export_ = (
   key: string | null,
-  { client, store, confirm, handleError, extractors }: ExportContext,
+  { client, store, confirm, handleError, extractors, addStatus }: ExportContext,
 ): void => {
   let name: string = "workspace"; // default name for error message
   handleError(async () => {
@@ -96,6 +97,10 @@ export const export_ = (
         await writeTextFile(await join(directory, name), data);
       }),
     );
+    addStatus({
+      variant: "success",
+      message: `Exported ${name} to ${directory}`,
+    });
   }, `Failed to export ${name}`);
 };
 
@@ -104,8 +109,9 @@ export const LAYOUT_FILE_NAME = "LAYOUT.json";
 export const useExport = (extractors: Export.Extractors): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
   const confirm = Modals.useConfirm();
   return (key: string) =>
-    export_(key, { client, store, confirm, handleError, extractors });
+    export_(key, { client, store, confirm, handleError, extractors, addStatus });
 };

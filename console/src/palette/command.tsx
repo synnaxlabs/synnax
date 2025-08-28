@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -15,7 +15,7 @@ import {
   List,
   Select,
   Status,
-  Synnax as PSynnax,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { type compare } from "@synnaxlabs/x";
@@ -88,7 +88,7 @@ export const useCommandList = (): UseListReturn<Command> => {
   const data = commands.filter(({ visible }) => visible?.(store.getState()) ?? true);
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
@@ -116,7 +116,7 @@ export const useCommandList = (): UseListReturn<Command> => {
 
 export interface CommandSelectionContext {
   store: RootStore;
-  client: Synnax | null;
+  client: Client | null;
   placeLayout: Layout.Placer;
   confirm: Modals.PromptConfirm;
   addStatus: Status.Adder;
