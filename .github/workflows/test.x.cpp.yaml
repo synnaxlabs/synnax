@@ -55,7 +55,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-22
+          sudo apt-get install -y clang-format
 
       - name: Check Formatting
         if: matrix.format
