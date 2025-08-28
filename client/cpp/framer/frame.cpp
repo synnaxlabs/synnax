@@ -12,7 +12,7 @@
 #include <vector>
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 /// internal
 #include "client/cpp/framer/framer.h"
@@ -46,7 +46,8 @@ Frame::Frame(std::unordered_map<ChannelKey, telem::SampleValue> &data, size_t ca
 }
 
 Frame::Frame(const api::v1::Frame &f):
-    channels(std::make_unique<std::vector<ChannelKey>>(f.keys().begin(), f.keys().end())
+    channels(
+        std::make_unique<std::vector<ChannelKey>>(f.keys().begin(), f.keys().end())
     ),
     series(std::make_unique<std::vector<telem::Series>>()) {
     this->series->reserve(f.series_size());

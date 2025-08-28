@@ -47,8 +47,11 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
 
 void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
     this->breaker.start();
-    this->run_thread = std::thread([this, args, callback = std::move(on_shutdown)](
-                                   ) mutable { this->run(args, callback); });
+    this->run_thread = std::thread(
+        [this, args, callback = std::move(on_shutdown)]() mutable {
+            this->run(args, callback);
+        }
+    );
 }
 
 xerrors::Error rack::Rack::stop() {

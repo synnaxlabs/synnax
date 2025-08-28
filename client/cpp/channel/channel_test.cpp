@@ -184,7 +184,8 @@ TEST(TestChannel, testRetrieveManyNotFound) {
 TEST(TestChannel, testRetrieveManySameName) {
     auto client = new_test_client();
     auto channel = ASSERT_NIL_P(client.channels.create("test", telem::FLOAT64_T, true));
-    auto channel2 = ASSERT_NIL_P(client.channels.create("test", telem::FLOAT64_T, true)
+    auto channel2 = ASSERT_NIL_P(
+        client.channels.create("test", telem::FLOAT64_T, true)
     );
     ASSERT_OCCURRED_AS_P(client.channels.retrieve("test"), xerrors::QUERY);
 }

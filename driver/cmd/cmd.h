@@ -28,7 +28,7 @@
 
 /// module
 #include "client/cpp/synnax.h"
-#include "synnax/pkg/version/version.h"
+#include "core/pkg/version/version.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xshutdown/xshutdown.h"
 
