@@ -54,7 +54,7 @@ jobs:
 
       - name: Build Image
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: synnax
+        working-directory: core
 
       - name: Push to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
@@ -96,8 +96,15 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Install Clang Format
+        run: |
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          sudo apt-get install -y clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+
       - name: Check Formatting
-        run: ./scripts/check-clang-format.sh driver
+        run: scripts/check-clang-format.sh driver
 
       - name: Test Driver
         run:
