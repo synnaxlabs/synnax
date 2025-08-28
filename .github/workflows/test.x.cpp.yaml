@@ -54,8 +54,7 @@ jobs:
         if: matrix.format
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get update
-          # sudo apt-get purge -y clang-format || true
+          # sudo apt-get update
           sudo apt-get install -y clang-format-20
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
