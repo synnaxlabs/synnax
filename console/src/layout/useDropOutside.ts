@@ -18,7 +18,7 @@ import { useDispatch, useStore } from "react-redux";
 import { select } from "@/layout/selectors";
 import { createMosaicWindow, moveMosaicTab, type StoreState } from "@/layout/slice";
 import { usePlacer } from "@/layout/usePlacer";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
   const store = useStore<Drift.StoreState>();
@@ -50,7 +50,7 @@ const useDropOutsideMacOS = ({
   const store = useStore<StoreState & Drift.StoreState>();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
-    if (RUNTIME !== "tauri") return;
+    if (Runtime.ENGINE !== "tauri") return;
     return listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
       handleError(async () => {
         if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;

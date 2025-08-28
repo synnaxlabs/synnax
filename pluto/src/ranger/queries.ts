@@ -426,6 +426,11 @@ const DEFAULT_LIST_PARAMS: ranger.RetrieveRequest = {
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range, SubStore>({
   name: "Ranges",
+  retrieveCached: ({ store, params }) =>
+    store.ranges.get((r) => {
+      if (primitive.isNonZero(params.keys)) return params.keys.includes(r.key);
+      return true;
+    }),
   retrieve: async ({ client, params }) =>
     await client.ranges.retrieve({
       ...DEFAULT_LIST_PARAMS,
@@ -491,7 +496,7 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
   onChange: ({ store, changed }) => store.rangeKV.delete(ranger.kvPairKey(changed)),
 };
 
-export const KV_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_KV_LISTENER, DELETE_KV_LISTENER],
 };
 
@@ -604,6 +609,6 @@ const DELETE_ALIAS_LISTENER: Flux.ChannelListener<SubStore, typeof aliasDeleteZ>
   onChange: ({ store, changed }) => store.rangeAliases.delete(ranger.aliasKey(changed)),
 };
 
-export const ALIAS_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const ALIAS_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_ALIAS_LISTENER, DELETE_ALIAS_LISTENER],
 };

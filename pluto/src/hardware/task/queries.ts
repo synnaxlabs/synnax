@@ -91,7 +91,7 @@ export const useStatusSynchronizer = (
   );
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
 };
 
@@ -159,6 +159,7 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore>({
   name: "Task",
+  retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, params, store }) => {
     const tasks = await client.hardware.tasks.retrieve({
       includeStatus: true,

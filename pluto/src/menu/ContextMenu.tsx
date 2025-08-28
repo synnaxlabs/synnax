@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
 import { Dialog } from "@/dialog";

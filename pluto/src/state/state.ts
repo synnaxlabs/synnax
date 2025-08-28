@@ -59,9 +59,7 @@ export const usePassthrough = <NextState extends State>({
   value,
   onChange,
 }: UsePassthroughProps<NextState>): UseReturn<NextState> => {
-  const [internal, setInternal] = useState<NextState>(
-    executeInitialSetter(value ?? initial),
-  );
+  const [internal, setInternal] = useState(value ?? initial);
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setInternal];
 };

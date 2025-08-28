@@ -56,22 +56,31 @@ export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
     [key],
   );
 
-export const selectToolbar = (state: StoreState): ToolbarState =>
-  selectSliceState(state).toolbar;
+export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
+  select(state, key).toolbar;
 
-export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
+export const useSelectToolbar = (key: string): ToolbarState =>
+  useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
-export const selectControlState = (state: StoreState): ControlState =>
-  selectSliceState(state).control;
+export const selectControlState = (state: StoreState, key: string): ControlState =>
+  select(state, key).control;
 
-export const useSelectControlState = (): ControlState =>
-  useMemoSelect(selectControlState, []);
+export const useSelectControlState = (key: string): ControlState =>
+  useMemoSelect((state: StoreState) => selectControlState(state, key), [key]);
 
-export const selectViewportMode = (state: StoreState): Viewport.Mode =>
-  selectSliceState(state).mode;
+export const selectControlStateOptional = (
+  state: StoreState,
+  key: string,
+): ControlState | undefined => selectOptional(state, key)?.control;
 
-export const useSelectViewportMode = (): Viewport.Mode =>
-  useMemoSelect(selectViewportMode, []);
+export const useSelectControlStateOptional = (key: string): ControlState | undefined =>
+  useMemoSelect((state: StoreState) => selectControlStateOptional(state, key), [key]);
+
+export const selectViewportMode = (state: StoreState, key: string): Viewport.Mode =>
+  select(state, key).mode;
+
+export const useSelectViewportMode = (key: string): Viewport.Mode =>
+  useMemoSelect((state: StoreState) => selectViewportMode(state, key), [key]);
 
 export const selectSelection = (state: StoreState, key: string): SelectionState =>
   select(state, key).selection;

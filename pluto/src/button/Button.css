@@ -56,6 +56,12 @@
             cursor: not-allowed;
         }
     }
+    &.pluto-btn--prevent-click {
+        cursor: default;
+        & * {
+            cursor: default;
+        }
+    }
 
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);

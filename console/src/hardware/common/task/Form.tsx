@@ -9,12 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import {
-  type device,
-  type rack,
-  type Synnax as Client,
-  task,
-} from "@synnaxlabs/client";
+import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -32,7 +27,7 @@ import { type RootState } from "@/store";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
-    client: Client,
+    client: Synnax,
     config: z.infer<Config>,
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;

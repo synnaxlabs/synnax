@@ -150,6 +150,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFileCsv,
   PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
@@ -498,6 +499,7 @@ export const False = wrapSVGIcon(FaXmark, "false");
 export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
 export const Annotation = wrapSVGIcon(MdComment, "annotation");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -642,6 +644,7 @@ const icons = {
   ToDo,
   Boolean,
   Annotation,
+  CSV,
 };
 
 export const resolve = ((

@@ -32,7 +32,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -86,7 +86,7 @@ const FallBackRenderContent = ({
     } catch (e) {
       console.error(e);
     }
-    if (RUNTIME === "tauri") void getCurrentWindow().show();
+    if (Runtime.ENGINE === "tauri") void getCurrentWindow().show();
   }, []);
   return (
     <Flex.Box y className={CSS.B("error-overlay")}>
@@ -103,13 +103,13 @@ const FallBackRenderContent = ({
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().close();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -123,13 +123,13 @@ const FallBackRenderContent = ({
             forceOS={os}
             contrast={0}
             onClose={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().close();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
+              if (Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>

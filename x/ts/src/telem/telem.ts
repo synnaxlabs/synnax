@@ -1500,6 +1500,31 @@ export class TimeRange implements primitive.Stringer {
   static sort(a: TimeRange, b: TimeRange): number {
     return TimeStamp.sort(a.start, b.start) || TimeStamp.sort(a.end, b.end);
   }
+
+  /**
+   * Simplify takes the list of `TimeRange`s, makes all of them valid, sorts them, and
+   * merges any overlapping ranges.
+   *
+   * @param ranges - The list of `TimeRange`s to simplify.
+   * @returns A list of simplified `TimeRange`s.
+   */
+  static simplify(ranges: TimeRange[]): TimeRange[] {
+    return ranges
+      .map((r) => r.makeValid())
+      .sort((a, b) => TimeRange.sort(a, b))
+      .reduce<TimeRange[]>((simplified, range) => {
+        if (range.isZero) return simplified;
+        if (simplified.length === 0) {
+          simplified.push(range);
+          return simplified;
+        }
+        const last = simplified[simplified.length - 1];
+        if (last.overlapsWith(range) || last.end.equals(range.start))
+          last.end = TimeStamp.max(last.end, range.end);
+        else simplified.push(range);
+        return simplified;
+      }, []);
+  }
 }
 
 /** DataType is a string that represents a data type. */

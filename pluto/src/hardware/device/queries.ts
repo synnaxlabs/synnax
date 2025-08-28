@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, type Synnax } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import { primitive, type record } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -47,7 +47,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof device.statusZ>
   },
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER, SET_STATUS_LISTENER],
 };
 
@@ -101,6 +101,25 @@ export interface ListParams extends device.MultiRetrieveArgs {}
 export const useList = Flux.createList<ListParams, device.Key, device.Device, SubStore>(
   {
     name: "Devices",
+    retrieveCached: ({ store, params }) =>
+      store.devices.get((d) => {
+        if (primitive.isNonZero(params.makes) && !params.makes.includes(d.make))
+          return false;
+        if (primitive.isNonZero(params.models) && !params.models.includes(d.model))
+          return false;
+        if (primitive.isNonZero(params.racks) && !params.racks.includes(d.rack))
+          return false;
+        if (
+          primitive.isNonZero(params.locations) &&
+          !params.locations.includes(d.location)
+        )
+          return false;
+        if (primitive.isNonZero(params.names) && !params.names.includes(d.name))
+          return false;
+        if (primitive.isNonZero(params.keys) && !params.keys.includes(d.key))
+          return false;
+        return true;
+      }),
     retrieve: async ({ client, params, store }) => {
       const devices = await client.hardware.devices.retrieve({
         includeStatus: true,

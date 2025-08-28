@@ -31,10 +31,17 @@ export const Dialog = ({
   children,
   ...rest
 }: DialogProps) => {
-  let { ref, targetCorner, dialogCorner, style: ctxStyle } = useInternalContext();
+  const {
+    ref,
+    targetCorner,
+    dialogCorner,
+    style: ctxStyle,
+    modalPosition,
+  } = useInternalContext();
   const { visible, variant } = useContext();
   if (!visible && !passthrough) return null;
-  const actuallyVisible = visible && Object.keys(ctxStyle).length > 0;
+  const actuallyVisible =
+    visible && (Object.keys(ctxStyle).length > 0 || variant === "modal");
   let dialog = (
     <Flex.Box
       pack
@@ -50,6 +57,8 @@ export const Dialog = ({
         CSS.visible(actuallyVisible),
         passthrough && CSS.BM("dialog", "passthrough"),
         CSS.M(variant),
+        variant === "modal" &&
+          CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
       rounded={rounded}

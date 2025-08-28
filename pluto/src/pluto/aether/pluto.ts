@@ -45,7 +45,7 @@ const STORE_CONFIG: flux.StoreConfig<{
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
 }> = {
-  [ranger.FLUX_STORE_KEY]: ranger.STORE_CONFIG,
+  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_STORE_CONFIG,
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_STORE_CONFIG,

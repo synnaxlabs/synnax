@@ -20,11 +20,11 @@ import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Nav } from "@/layouts/nav";
+import { Notifications } from "@/layouts/Notifications";
 import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
-import { Notifications } from "@/notifications";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
@@ -34,12 +34,6 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 import { User } from "@/user";
-
-const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
-  ...Cluster.NOTIFICATION_ADAPTERS,
-  ...Hardware.NOTIFICATION_ADAPTERS,
-  ...Version.NOTIFICATION_ADAPTERS,
-];
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   channel: ChannelServices.handleLink,
@@ -81,7 +75,7 @@ export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
 export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
-    <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
+    <Notifications />
     <SideEffect />
     <Nav.Top />
     <Layout.Modals />
