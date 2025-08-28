@@ -11,10 +11,10 @@ import { array, box, direction, location, xy } from "@synnaxlabs/x";
 
 export type Location = location.Outer | Partial<location.XY> | location.XY;
 
-type Preference = {
+export interface Preference {
   targetCorner?: Location;
   dialogCorner?: Location;
-};
+}
 
 // DialogLocationPreference can be either:
 // 1. A Location (treated as target corner preference)
@@ -31,20 +31,11 @@ export interface PositionArgs {
   disable?: LocationPreference | LocationPreference[];
 }
 
-export const parseLocationOptions = (
-  initial?: location.Outer | Partial<location.XY> | location.XY,
-): Partial<location.XY> => {
+export const parseLocationOptions = (initial?: Location): Partial<location.XY> => {
   if (initial == null) return { x: undefined, y: undefined };
-  const parsedXYLoc = location.xy.safeParse(initial);
-  if (parsedXYLoc.success) return parsedXYLoc.data;
-  const parsedLoc = location.location.safeParse(initial);
-  if (parsedLoc.success) {
-    const isX = direction.construct(parsedLoc.data) === "x";
-    return isX
-      ? { x: parsedLoc.data as location.X, y: undefined }
-      : { x: undefined, y: parsedLoc.data as location.Y };
-  }
-  return initial as Partial<location.XY>;
+  if (typeof initial !== "string") return initial;
+  if (direction.isX(initial)) return { x: initial, y: undefined };
+  return { x: undefined, y: initial };
 };
 
 export interface PositionReturn {
@@ -54,17 +45,11 @@ export interface PositionReturn {
 }
 
 const normalizePreference = (pref: LocationPreference): Preference => {
-  if (
-    typeof pref === "object" &&
-    pref != null &&
-    "targetCorner" in pref &&
-    "dialogCorner" in pref
-  )
-    return pref;
-  return {
-    targetCorner: pref as Location,
-    dialogCorner: location.CENTER,
-  };
+  if (typeof pref === "string" || "x" in pref || "y" in pref)
+    return { targetCorner: pref, dialogCorner: undefined };
+  // The only remaining case here is an empty object, which is valid as both a preference
+  // and a location.
+  return pref as Preference;
 };
 
 const buildOptions = ({
@@ -96,9 +81,12 @@ const buildOptions = ({
         if (dialogLoc.y != null && d.y !== dialogLoc.y) return;
 
         const opt = { targetCorner: t, dialogCorner: d };
-        if (!isDisabled(opt, disabled)) options.push(opt);
+        options.push(opt);
       });
     });
+    const first = options.filter((o) => !isDisabled(o, disabled));
+    if (first.length == 0) return options.slice(0, 1);
+    return first;
   }
 
   // Add explicit preferences in order

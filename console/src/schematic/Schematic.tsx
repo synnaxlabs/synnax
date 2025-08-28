@@ -54,8 +54,8 @@ import {
   useSelectHasPermission,
   useSelectNodeProps,
   useSelectRequired,
+  useSelectRequiredViewportMode,
   useSelectVersion,
-  useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
   addElement,
@@ -293,7 +293,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     onDrop: handleDrop,
   });
 
-  const mode = useSelectViewportMode();
+  const mode = useSelectRequiredViewportMode(layoutKey);
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
@@ -360,8 +360,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
-    [dispatch],
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
+    [dispatch, layoutKey],
   );
 
   const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;

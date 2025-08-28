@@ -23,3 +23,7 @@ synnax
 # |||| DARWIN ||||
 
 .DS_Store
+
+# |||| EMBEDDED CONSOLE ||||
+
+assets

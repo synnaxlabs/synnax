@@ -15,7 +15,6 @@ import {
   type RefCallback,
   useCallback,
   useContext as reactUseContext,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,7 +23,7 @@ import {
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { type LocationPreference, position } from "@/dialog/position";
+import { type LocationPreference, position, type Preference } from "@/dialog/position";
 import { Flex } from "@/flex";
 import {
   useClickOutside,
@@ -32,12 +31,15 @@ import {
   useRequiredContext,
   useResize,
   useSyncedRef,
+  useWindowResize,
 } from "@/hooks";
 import { Menu } from "@/menu";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
 export type Variant = "connected" | "floating" | "modal";
+
+export type ModalPosition = "slammed" | "shifted" | "base";
 
 /** Props for the {@link Frame} component. */
 export interface FrameProps
@@ -49,12 +51,13 @@ export interface FrameProps
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
-  modalOffset?: number;
+  modalPosition?: ModalPosition;
 }
 
 interface State {
   targetCorner: xlocation.XY;
   dialogCorner: xlocation.XY;
+  modalPosition: ModalPosition;
   style: CSSProperties;
 }
 
@@ -62,6 +65,7 @@ const ZERO_STATE: State = {
   targetCorner: xlocation.BOTTOM_LEFT,
   dialogCorner: xlocation.BOTTOM_LEFT,
   style: {},
+  modalPosition: "base",
 };
 
 export interface ContextValue {
@@ -83,7 +87,7 @@ const Context = createContext<ContextValue>({
 });
 
 interface InternalContextValue
-  extends Pick<State, "targetCorner" | "dialogCorner" | "style"> {
+  extends Pick<State, "targetCorner" | "dialogCorner" | "style" | "modalPosition"> {
   ref: RefCallback<HTMLDivElement>;
 }
 
@@ -130,6 +134,15 @@ const PREFERENCES: LocationPreference[] = [
   },
 ];
 
+const selectModalPosition = (
+  dialogHeight: number,
+  windowHeight: number,
+): ModalPosition => {
+  if (dialogHeight / windowHeight > 0.8) return "slammed";
+  if (dialogHeight / windowHeight > 0.6) return "shifted";
+  return "base";
+};
+
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest
  * case, use the {@link use} hook (more behavioral details explained there).
@@ -148,10 +161,10 @@ export const Frame = ({
   variant = "floating",
   maxHeight,
   zIndex,
-  modalOffset = 20,
   initialVisible = false,
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
+  modalPosition: propsModalPosition = "base",
   ...rest
 }: FrameProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
@@ -165,13 +178,12 @@ export const Frame = ({
 
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocation = useRef<xlocation.XY | undefined>(undefined);
+  const prevLocationPreference = useRef<Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [{ targetCorner, dialogCorner, style }, setState] = useState<State>({
-    ...ZERO_STATE,
-  });
+  const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
+    useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = useCallback(() => {
     if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
@@ -179,32 +191,44 @@ export const Frame = ({
     const target = box.construct(targetRef.current);
     let dialog = box.construct(dialogRef.current);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
-
-    const container = box.construct(0, 0, window.innerWidth, window.innerHeight);
-    const { adjustedDialog, targetCorner, dialogCorner } = position({
+    const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
+    if (variant === "modal") {
+      const modalPosition = selectModalPosition(
+        box.height(dialog),
+        box.height(windowBox),
+      );
+      return setState((prev) => {
+        if (modalPosition === prev.modalPosition) return prev;
+        return { ...prev, modalPosition };
+      });
+    }
+    let prefer = PREFERENCES;
+    if (prevLocationPreference.current != null)
+      prefer = [prevLocationPreference.current, ...PREFERENCES];
+    // In the connected or floating case, we use a more sophisticated positioning
+    // algorithm.
+    const { adjustedDialog, ...locations } = position({
       target,
       dialog,
-      container,
-      prefer: PREFERENCES,
+      container: windowBox,
+      prefer,
       initial: propsLocation,
       offset: 3,
     });
-    prevLocation.current = targetCorner;
+    prevLocationPreference.current = locations;
+    const { targetCorner, dialogCorner } = locations;
     const roundedDialog = box.round(adjustedDialog);
     if (positionsEqual(variant, roundedDialog, prevBox.current)) return;
     prevBox.current = roundedDialog;
     const style: CSSProperties = {};
-    if (variant !== "modal" && targetRef.current != null) {
-      style.left = box.left(roundedDialog);
-      if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x)
-        style.bottom = box.height(container) - box.bottom(roundedDialog);
-      else style.top = box.top(roundedDialog);
-
-      if (variant === "connected") style.width = box.width(roundedDialog);
-    } else if (variant === "modal") style.top = `${modalOffset}%`;
+    style.left = box.left(roundedDialog);
+    if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x)
+      style.bottom = box.height(windowBox) - box.bottom(roundedDialog);
+    else style.top = box.top(roundedDialog);
+    if (variant === "connected") style.width = box.width(roundedDialog);
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
-    setState({ targetCorner, dialogCorner, style });
+    setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   }, [propsLocation, variant]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
@@ -212,6 +236,8 @@ export const Frame = ({
 
   const resizeTargetRef = useResize(calculatePosition, { enabled: visible });
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
+
+  useWindowResize(calculatePosition);
 
   const exclude = useCallback(
     (e: MouseEvent) => {
@@ -248,8 +274,9 @@ export const Frame = ({
       targetCorner,
       dialogCorner,
       style,
+      modalPosition,
     }),
-    [combinedDialogRef, targetCorner, dialogCorner, style],
+    [combinedDialogRef, targetCorner, dialogCorner, style, modalPosition],
   );
 
   const ctxValue = useMemo(

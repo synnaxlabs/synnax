@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/console"
 	"github.com/synnaxlabs/synnax/pkg/service/effect"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
@@ -113,7 +114,9 @@ type Layer struct {
 	Hardware *hardware.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
-	Framer     *framer.Service
+	Framer *framer.Service
+	// Console is for serving the web-based console UI.
+	Console *console.Service
 	Annotation *annotation.Service
 	Effect     *effect.Service
 	Slate      *slate.Service
@@ -231,6 +234,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
+	l.Console = console.NewService()
 	if l.Annotation, err = annotation.OpenService(
 		ctx,
 		annotation.ServiceConfig{

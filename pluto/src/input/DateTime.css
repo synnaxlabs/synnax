@@ -19,6 +19,9 @@
 input::-webkit-calendar-picker-indicator {
     display: none;
 }
+input[type="date"]::-moz-calendar-picker-indicator {
+    display: none;
+}
 
 @media (max-width: 800px) {
     .pluto-datetime-modal {

@@ -36,7 +36,7 @@ export const Swatch = ({
   visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
-  const [visible, setVisible] = state.usePassthrough<boolean>({
+  const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
     value: propsVisible,
     onChange: onVisibleChange,

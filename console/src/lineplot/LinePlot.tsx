@@ -57,11 +57,11 @@ import { Layout } from "@/layout";
 import {
   type AxisKey,
   axisLocation,
-  type MultiXAxisRecord,
   X_AXIS_KEYS,
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
+import { buildLines } from "@/lineplot/buildLines";
 import { NavControls } from "@/lineplot/NavControls";
 import {
   select,
@@ -92,7 +92,6 @@ import {
   shouldDisplayAxis,
   type State,
   storeViewport,
-  typedLineKeyToString,
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
@@ -141,7 +140,7 @@ const RangeAnnotationContextMenu = ({
 }: RangeAnnotationContextMenuProps): ReactElement => {
   const downloadAsCSV = useDownloadAsCSV();
   const handleDownloadAsCSV = () =>
-    downloadAsCSV({ timeRange: range.timeRange, lines, name: range.name });
+    downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot(range.key);
   const placeLayout = Layout.usePlacer();
@@ -151,7 +150,7 @@ const RangeAnnotationContextMenu = ({
   return (
     <PMenu.Menu level="small">
       <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.Download />
+        <Icon.CSV />
         Download as CSV
       </PMenu.Item>
       <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
@@ -341,8 +340,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [storeLegendPosition],
   );
 
-  const { enableTooltip, clickMode, hold } = useSelectControlState();
-  const mode = useSelectViewportMode();
+  const { enableTooltip, clickMode, hold } = useSelectControlState(layoutKey);
+  const mode = useSelectViewportMode(layoutKey);
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(
@@ -358,8 +357,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-    dispatch(setActiveToolbarTab({ tab: "data" }));
-  }, [windowKey, dispatch]);
+    dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
+  }, [windowKey, dispatch, layoutKey]);
 
   const props = PMenu.useContextMenu();
 
@@ -420,7 +419,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           }
           case "download":
             if (client == null) return;
-            downloadAsCSV({ timeRange: tr, lines, name });
+            downloadAsCSV({ timeRanges: [tr], lines, name });
             break;
         }
       }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
@@ -440,16 +439,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
               <Icon.TypeScript /> Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
-            <PMenu.Item itemKey="download">
-              <Icon.Download />
-              Download CSV
+            <PMenu.Item itemKey="range">
+              <Ranger.CreateIcon /> Create Range from Selection
             </PMenu.Item>
             <PMenu.Divider />
-
-            <PMenu.Item itemKey="range">
-              <Ranger.CreateIcon />
-              Create Range
+            <PMenu.Item itemKey="download">
+              <Icon.CSV /> Download Region as CSV
             </PMenu.Item>
+            <PMenu.Divider />
           </>
         )}
         <PMenu.Item itemKey="annotation">
@@ -514,15 +511,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onSelectRule={(ruleKey) =>
             dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
           }
-          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          onHold={(hold) =>
+            dispatch(setControlState({ key: layoutKey, state: { hold } }))
+          }
           rangeProviderProps={rangeProviderProps}
           annotationProviderProps={{ parents }}
         >
-          {!focused && <NavControls />}
+          {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls />}
+      {focused && <NavControls layoutKey={layoutKey} />}
     </div>
   );
 };
@@ -537,43 +536,6 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
         ...axis,
       }),
     );
-
-const buildLines = (
-  vis: State,
-  sug: MultiXAxisRecord<Range.Range>,
-): Array<Channel.LineProps & { key: string }> =>
-  Object.entries(sug).flatMap(([xAxis, ranges]) =>
-    ranges.flatMap((range) =>
-      Object.entries(vis.channels)
-        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
-        .flatMap(([yAxis, yChannels]) => {
-          const xChannel = vis.channels[xAxis as XAxisKey];
-          const variantArg =
-            range.variant === "dynamic"
-              ? { variant: "dynamic", timeSpan: range.span }
-              : { variant: "static", timeRange: range.timeRange };
-
-          return (yChannels as number[]).map((channel) => {
-            const key = typedLineKeyToString({
-              xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as YAxisKey,
-              range: range.key,
-              channels: { x: xChannel, y: channel },
-            });
-            const line = vis.lines.find((l) => l.key === key);
-            if (line == null) throw new Error("Line not found");
-            const v: Channel.LineProps = {
-              ...line,
-              key,
-              axes: { x: xAxis, y: yAxis },
-              channels: { x: xChannel, y: channel },
-              ...variantArg,
-            } as unknown as Channel.LineProps;
-            return v;
-          });
-        }),
-    ),
-  );
 
 export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const linePlot = useLoadRemote({

@@ -14,7 +14,6 @@ import { array, deep, record, unique } from "@synnaxlabs/x";
 
 import {
   type AxisKey,
-  type MultiXAxisRecord,
   X_AXIS_KEYS,
   type XAxisKey,
   type YAxisKey,
@@ -40,7 +39,6 @@ export type RuleState = latest.RuleState;
 export type RulesState = latest.RulesState;
 export type ChannelsState = latest.ChannelsState;
 export type RangesState = latest.RangesState;
-export type SugaredRangesState = MultiXAxisRecord<Range>;
 export type State = latest.State;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -136,14 +134,17 @@ export interface RemoveRulePayload {
 }
 
 export interface SetActiveToolbarTabPayload {
+  key: string;
   tab: ToolbarTab;
 }
 
 export interface SetControlStatePayload {
+  key: string;
   state: Partial<ControlState>;
 }
 
 export interface SetViewportModePayload {
+  key: string;
   mode: Viewport.Mode;
 }
 
@@ -334,16 +335,19 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
-      state.toolbar.activeTab = payload.tab;
+      state.plots[payload.key].toolbar.activeTab = payload.tab;
     },
     setControlState: (state, { payload }: PayloadAction<SetControlStatePayload>) => {
-      state.control = { ...state.control, ...payload.state };
+      state.plots[payload.key].control = {
+        ...state.plots[payload.key].control,
+        ...payload.state,
+      };
     },
     setViewportMode: (
       state,
-      { payload: { mode } }: PayloadAction<SetViewportModePayload>,
+      { payload: { key, mode } }: PayloadAction<SetViewportModePayload>,
     ) => {
-      state.mode = mode;
+      state.plots[key].mode = mode;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.plots[payload.key].remoteCreated = true;
@@ -358,7 +362,7 @@ export const { actions, reducer } = createSlice({
         ...rule,
         selected: keys.includes(rule.key),
       }));
-      state.toolbar.activeTab = "annotations";
+      state.plots[payload.key].toolbar.activeTab = "annotations";
     },
   },
 });
