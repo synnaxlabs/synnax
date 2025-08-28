@@ -11,7 +11,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check-clang-format.sh
-      - x/cpp/**
+      - "x/cpp/**"
       - x/go/**/*.pb.h
   push:
     branches:
