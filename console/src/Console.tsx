@@ -24,11 +24,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
+import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -55,6 +57,7 @@ import { Workspace } from "@/workspace";
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
+  ...CSV.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,
@@ -125,16 +128,10 @@ const useBlockDefaultDropBehavior = (): void =>
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
-  const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
     <Pluto.Provider
       theming={theme}
-      channelAlias={{
-        // Set the alias active range to undefined if the range is not saved in Synnax,
-        // otherwise it will try to pull aliases from a range that doesn't exist.
-        activeRange: activeRange?.persisted ? activeRange.key : undefined,
-      }}
       workerEnabled
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
@@ -143,11 +140,13 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
-        <Vis.Canvas>
-          <Layout.Window />
-        </Vis.Canvas>
-      </Code.Provider>
+      <Auth.Guard>
+        <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
+          <Vis.Canvas>
+            <Layout.Window />
+          </Vis.Canvas>
+        </Code.Provider>
+      </Auth.Guard>
     </Pluto.Provider>
   );
 };

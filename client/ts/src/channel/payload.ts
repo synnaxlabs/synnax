@@ -12,7 +12,14 @@ import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
 
-export const keyZ = z.number();
+const errorMessage = "Channel key must be a valid uint32.";
+export const keyZ = z.uint32().or(
+  z
+    .string()
+    .refine((val) => !isNaN(Number(val)), { message: errorMessage })
+    .transform(Number)
+    .refine((val) => val < 2 ** 32 - 1, { message: errorMessage }),
+);
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
 export const nameZ = z.string();
@@ -22,6 +29,8 @@ export type KeyOrName = Key | Name;
 export type KeysOrNames = Keys | Names;
 export type PrimitiveParams = Key | Name | Keys | Names;
 
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
   name: nameZ,
   key: keyZ,
@@ -34,6 +43,7 @@ export const payloadZ = z.object({
   alias: z.string().optional(),
   expression: z.string().default(""),
   requires: nullableArrayZ(keyZ),
+  status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -48,12 +58,10 @@ export const newZ = payloadZ.extend({
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
-export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
+export interface New
+  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
   dataType: CrudeDataType;
 }
-
-export const calculationStatusZ = status.statusZ();
-export type CalculationStatus = z.infer<typeof calculationStatusZ>;
 
 export const paramsZ = z.union([
   zod.toArray(keyZ),

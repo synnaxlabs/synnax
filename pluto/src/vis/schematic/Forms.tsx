@@ -17,7 +17,7 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useEffect } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -623,12 +623,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({
-          trueBound: {
-            lower: threshold.trueBound.lower ?? 0.9,
-            upper: threshold.trueBound.upper ?? 1.1,
-          },
-        }),
+        threshold: telem.withinBounds({ trueBound: threshold.trueBound }),
       },
       outlet: "threshold",
     });
@@ -646,44 +641,34 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     });
     onChange({ ...value, source: t });
   };
-
-  const [c] = Channel.useName(source.channel as number);
-
-  useEffect(() => onChange({ ...value }), [c]);
+  if (typeof source.channel !== "number")
+    throw new Error("Channel key must be used for light telemetry");
 
   return (
     <FormWrapper x align="stretch">
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
-        />
+        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Input.Item label="Lower Threshold">
         <Input.Numeric
           value={threshold.trueBound.lower ?? 0.9}
-          onChange={(v) =>
-            handleThresholdChange({
-              ...threshold.trueBound,
-              lower: v,
-            })
-          }
+          onChange={(v) => handleThresholdChange({ ...threshold.trueBound, lower: v })}
         />
       </Input.Item>
       <Input.Item label="Upper Threshold">
         <Input.Numeric
           value={threshold.trueBound.upper ?? 1.1}
-          onChange={(v) =>
-            handleThresholdChange({
-              ...threshold.trueBound,
-              upper: v,
-            })
-          }
+          onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}
         />
       </Input.Item>
     </FormWrapper>
   );
 };
+
+const LIGHT_FORM_TABS: Tabs.Tab[] = [
+  { tabKey: "style", name: "Style" },
+  { tabKey: "telemetry", name: "Telemetry" },
+];
 
 export const LightForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
@@ -694,7 +679,7 @@ export const LightForm = (): ReactElement => {
         return <CommonStyleForm />;
     }
   }, []);
-  const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
+  const props = Tabs.useStatic({ tabs: LIGHT_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
 

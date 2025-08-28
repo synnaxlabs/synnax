@@ -89,3 +89,14 @@ export const create = <D = undefined, V extends Variant = Variant>(
     time: TimeStamp.now(),
     ...spec,
   }) as unknown as Status<D, V>;
+
+export const filterVariant = (
+  variant: Variant,
+  only: Variant | Variant[] = [],
+): Variant | undefined => {
+  if (Array.isArray(only)) {
+    if (only.includes(variant)) return variant;
+    return undefined;
+  }
+  return only === variant ? variant : undefined;
+};

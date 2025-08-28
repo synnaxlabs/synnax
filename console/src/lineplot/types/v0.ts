@@ -7,59 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text, Viewport } from "@synnaxlabs/pluto";
+import { telem, Text, Viewport } from "@synnaxlabs/pluto";
 import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type AxisKey,
-  axisKeyZ,
-  type MultiXAxisRecord,
-  type MultiYAxisRecord,
-  type XAxisRecord,
-} from "@/lineplot/axis";
+import { axisKeyZ } from "@/lineplot/axis";
 
-// |||||| TITLE ||||||
+export const VERSION = "0.0.0";
 
 export const titleStateZ = z.object({ level: Text.levelZ, visible: z.boolean() });
-
-export type TitleState = z.infer<typeof titleStateZ>;
-
+export interface TitleState extends z.infer<typeof titleStateZ> {}
 export const ZERO_TITLE_STATE: TitleState = { level: "h4", visible: false };
 
-// |||||| LEGEND ||||||
-
 export const legendStateZ = z.object({ visible: z.boolean() });
-
-export type LegendState = z.infer<typeof legendStateZ>;
-
-const ZERO_LEGEND_STATE = { visible: true };
-
-// |||||| VIEWPORT ||||||
+export interface LegendState extends z.infer<typeof legendStateZ> {}
+export const ZERO_LEGEND_STATE: LegendState = { visible: true };
 
 export const viewportStateZ = z.object({
   renderTrigger: z.number(),
   zoom: dimensions.dimensions,
   pan: xy.xy,
 });
-
-export type ViewportState = z.infer<typeof viewportStateZ>;
-
+export interface ViewportState extends z.infer<typeof viewportStateZ> {}
 export const ZERO_VIEWPORT_STATE: ViewportState = {
   renderTrigger: 0,
   zoom: dimensions.DECIMAL,
   pan: xy.ZERO,
 };
 
-// ||||||| SELECTION |||||||
-
 export const selectionStateZ = z.object({ box: box.box });
-
-export type SelectionState = z.infer<typeof selectionStateZ>;
-
+export interface SelectionState extends z.infer<typeof selectionStateZ> {}
 export const ZERO_SELECTION_STATE: SelectionState = { box: box.ZERO };
-
-// |||||| AXES ||||||
 
 export const axisStateZ = z.object({
   key: axisKeyZ,
@@ -70,8 +48,16 @@ export const axisStateZ = z.object({
   tickSpacing: z.number(),
   labelLevel: Text.levelZ,
 });
-
-export type AxisState = z.infer<typeof axisStateZ>;
+export interface AxisState extends z.infer<typeof axisStateZ> {}
+export const ZERO_AXIS_STATE: AxisState = {
+  key: "x1",
+  label: "",
+  labelDirection: "x",
+  labelLevel: "small",
+  bounds: bounds.ZERO,
+  autoBounds: { lower: true, upper: true },
+  tickSpacing: 75,
+};
 
 export const axesStateZ = z.object({
   renderTrigger: z.number(),
@@ -85,135 +71,7 @@ export const axesStateZ = z.object({
     x2: axisStateZ,
   }),
 });
-
-// Zod uses partial records so we need to
-export type AxesState = z.infer<typeof axesStateZ>;
-
-// |||| LINE ||||||
-
-export const lineStateZ = z.object({
-  key: z.string(),
-  label: z.string().optional(),
-  color: z.string(),
-  strokeWidth: z.number(),
-  downsample: z.number(),
-});
-
-export type LineState = z.infer<typeof lineStateZ>;
-
-export const linesStateZ = z.array(lineStateZ);
-
-export type LinesState = z.infer<typeof linesStateZ>;
-
-export const ZERO_LINE_STATE: Omit<LineState, "key"> = {
-  color: "",
-  strokeWidth: 2,
-  downsample: 1,
-};
-
-export const ZERO_LINES_STATE: LinesState = [];
-
-// |||||| RULES ||||||
-
-export const ruleStateZ = z.object({
-  selected: z.boolean().optional(),
-  key: z.string(),
-  label: z.string(),
-  color: z.string(),
-  axis: axisKeyZ,
-  lineWidth: z.number(),
-  lineDash: z.number(),
-  units: z.string(),
-  position: z.number(),
-});
-
-export type RuleState = z.infer<typeof ruleStateZ>;
-
-export const rulesStateZ = z.array(ruleStateZ);
-
-export type RulesState = z.infer<typeof rulesStateZ>;
-
-export const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
-  color: "#3774D0",
-  label: "",
-  axis: "y1",
-  lineWidth: 1,
-  lineDash: 0,
-  units: "",
-  position: 0,
-};
-
-export const ZERO_RULES_STATE: RulesState = [];
-
-// |||||| CHANNELS |||||
-
-export const channelsStateZ = z.object({
-  x1: z.number(),
-  x2: z.number(),
-  y1: z.array(z.number()),
-  y2: z.array(z.number()),
-  y3: z.array(z.number()),
-  y4: z.array(z.number()),
-});
-
-export type ChannelsState = MultiYAxisRecord<number[]> & XAxisRecord<number>;
-
-export const ZERO_CHANNELS_STATE: z.infer<typeof channelsStateZ> = {
-  x1: 0,
-  x2: 0,
-  y1: [],
-  y2: [],
-  y3: [],
-  y4: [],
-};
-
-export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
-  if (["x1", "y1"].includes(key)) return true;
-  const channels = state.channels[key];
-  if (Array.isArray(channels)) return channels.length > 0;
-  return channels !== 0;
-};
-
-// |||||| RANGES ||||||
-
-export const rangesStateZ = z.object({
-  x1: z.array(z.string()),
-  x2: z.array(z.string()),
-});
-
-export type RangesState = z.infer<typeof rangesStateZ>;
-
-export const ZERO_RANGES_STATE: RangesState = { x1: [], x2: [] };
-
-export type SugaredRangesState = MultiXAxisRecord<Range>;
-
-export const stateZ = z.object({
-  version: z.literal("0.0.0"),
-  key: z.string(),
-  remoteCreated: z.boolean(),
-  title: titleStateZ,
-  legend: legendStateZ,
-  channels: channelsStateZ,
-  ranges: rangesStateZ,
-  viewport: viewportStateZ,
-  axes: axesStateZ,
-  lines: linesStateZ,
-  rules: rulesStateZ,
-  selection: selectionStateZ,
-});
-
-export type State = z.infer<typeof stateZ>;
-
-export const ZERO_AXIS_STATE: AxisState = {
-  key: "x1",
-  label: "",
-  labelDirection: "x",
-  labelLevel: "small",
-  bounds: bounds.ZERO,
-  autoBounds: { lower: true, upper: true },
-  tickSpacing: 75,
-};
-
+export interface AxesState extends z.infer<typeof axesStateZ> {}
 export const ZERO_AXES_STATE: AxesState = {
   renderTrigger: 0,
   hasHadChannelSet: false,
@@ -227,8 +85,94 @@ export const ZERO_AXES_STATE: AxesState = {
   },
 };
 
+export const lineStateZ = z.object({
+  key: z.string(),
+  label: z.string().optional(),
+  color: z.string(),
+  strokeWidth: z.number(),
+  downsample: z.number(),
+  downsampleMode: telem.downsampleModeZ.default("decimate"),
+});
+export interface LineState extends z.infer<typeof lineStateZ> {}
+export const ZERO_LINE_STATE: Omit<LineState, "key"> = {
+  color: "",
+  strokeWidth: 2,
+  downsample: 1,
+  downsampleMode: "decimate",
+};
+
+export const linesStateZ = z.array(lineStateZ);
+export interface LinesState extends z.infer<typeof linesStateZ> {}
+export const ZERO_LINES_STATE: LinesState = [];
+
+export const ruleStateZ = z.object({
+  selected: z.boolean().optional(),
+  key: z.string(),
+  label: z.string(),
+  color: z.string(),
+  axis: axisKeyZ,
+  lineWidth: z.number(),
+  lineDash: z.number(),
+  units: z.string(),
+  position: z.number(),
+});
+export interface RuleState extends z.infer<typeof ruleStateZ> {}
+export const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
+  color: "#3774D0",
+  label: "",
+  axis: "y1",
+  lineWidth: 1,
+  lineDash: 0,
+  units: "",
+  position: 0,
+};
+
+export const rulesStateZ = z.array(ruleStateZ);
+export interface RulesState extends z.infer<typeof rulesStateZ> {}
+export const ZERO_RULES_STATE: RulesState = [];
+
+export const channelsStateZ = z.object({
+  x1: z.number(),
+  x2: z.number(),
+  y1: z.array(z.number()),
+  y2: z.array(z.number()),
+  y3: z.array(z.number()),
+  y4: z.array(z.number()),
+});
+export interface ChannelsState extends z.infer<typeof channelsStateZ> {}
+export const ZERO_CHANNELS_STATE: ChannelsState = {
+  x1: 0,
+  x2: 0,
+  y1: [],
+  y2: [],
+  y3: [],
+  y4: [],
+};
+
+export const rangesStateZ = z.object({
+  x1: z.array(z.string()),
+  x2: z.array(z.string()),
+});
+export interface RangesState extends z.infer<typeof rangesStateZ> {}
+export const ZERO_RANGES_STATE: RangesState = { x1: [], x2: [] };
+
+export const stateZ = z.object({
+  version: z.literal(VERSION),
+  key: z.string(),
+  remoteCreated: z.boolean(),
+  title: titleStateZ,
+  legend: legendStateZ,
+  channels: channelsStateZ,
+  ranges: rangesStateZ,
+  viewport: viewportStateZ,
+  axes: axesStateZ,
+  lines: linesStateZ,
+  rules: rulesStateZ,
+  selection: selectionStateZ,
+});
+export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
-  version: "0.0.0",
+  version: VERSION,
   key: "",
   remoteCreated: false,
   title: ZERO_TITLE_STATE,
@@ -242,24 +186,20 @@ export const ZERO_STATE: State = {
   selection: ZERO_SELECTION_STATE,
 };
 
-// |||||| TOOLBAR ||||||
-
-const LINE_TOOLBAR_TABS = [
+export const toolbarTabZ = z.enum([
   "data",
   "lines",
   "axes",
   "annotations",
   "properties",
-] as const;
-export const toolbarTabZ = z.enum(LINE_TOOLBAR_TABS);
+]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
 export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
-export type ToolbarState = z.infer<typeof toolbarStateZ>;
+export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "data" };
 
-export const CLICK_MODES = ["annotate", "measure"] as const;
-export const clickModeZ = z.enum(CLICK_MODES);
+export const clickModeZ = z.enum(["annotate", "measure"]);
 export type ClickMode = z.infer<typeof clickModeZ>;
 
 export const controlStateZ = z.object({
@@ -267,9 +207,7 @@ export const controlStateZ = z.object({
   clickMode: clickModeZ.nullable(),
   enableTooltip: z.boolean(),
 });
-
-export type ControlState = z.infer<typeof controlStateZ>;
-
+export interface ControlState extends z.infer<typeof controlStateZ> {}
 export const ZERO_CONTROL_SATE: ControlState = {
   clickMode: null,
   hold: false,
@@ -277,23 +215,15 @@ export const ZERO_CONTROL_SATE: ControlState = {
 };
 
 export const sliceStateZ = z.object({
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   mode: Viewport.modeZ,
   control: controlStateZ,
   toolbar: toolbarStateZ,
   plots: z.record(z.string(), stateZ),
 });
-
-export type SliceState = z.infer<typeof sliceStateZ>;
-
-export const SLICE_NAME = "line";
-
-export interface StoreState {
-  [SLICE_NAME]: SliceState;
-}
-
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
+  version: VERSION,
   mode: "zoom",
   control: ZERO_CONTROL_SATE,
   toolbar: ZERO_TOOLBAR_STATE,

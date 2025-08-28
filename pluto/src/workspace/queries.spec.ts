@@ -7,16 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { type PropsWithChildren } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { newSynnaxWrapper } from "@/testutil/Synnax";
+import { Ontology } from "@/ontology";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { Workspace } from "@/workspace";
 
-const client = newTestClient();
+const client = createTestClient();
 
 describe("queries", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
+  });
+
   describe("useList", () => {
     it("should return a list of workspace keys", async () => {
       const ws1 = await client.workspaces.create({
@@ -29,7 +39,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -51,7 +61,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -73,7 +83,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 });
@@ -93,7 +103,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -105,7 +115,7 @@ describe("queries", () => {
 
     it("should update the list when a workspace is created", async () => {
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -131,7 +141,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -155,7 +165,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -182,7 +192,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -208,7 +218,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -234,7 +244,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Workspace.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({});
@@ -268,7 +278,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Workspace.retrieve.useDirect({ params: { key: testWorkspace.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -286,7 +296,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Workspace.retrieve.useDirect({ params: { key: workspace.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 

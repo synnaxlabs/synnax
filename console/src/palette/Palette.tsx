@@ -78,12 +78,14 @@ export const Palette = ({
           size="medium"
           justify="center"
           contrast={2}
-          color={9}
+          textColor={9}
           gap="small"
           full="x"
         >
           <Icon.Search />
-          Search & Command
+          <Text.Text el="span" color={9}>
+            Search & Command
+          </Text.Text>
         </Button.Button>
         <Dialog.Dialog
           className={CSS.BE("palette", "content")}
@@ -107,13 +109,14 @@ export interface PaletteDialogProps extends Input.Control<string> {
 }
 
 const commandEmptyContent = (
-  <Text.Text status="disabled" center>
+  <Text.Text status="disabled" center level="h4">
+    <Icon.Terminal />
     No commands found
   </Text.Text>
 );
 
 const resourceEmptyContent = (
-  <Text.Text status="disabled" center>
+  <Text.Text status="disabled" center level="h4">
     <Icon.Resources />
     No resources found
   </Text.Text>

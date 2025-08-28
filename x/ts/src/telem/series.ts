@@ -66,6 +66,7 @@ interface BaseSeriesArgs {
   sampleOffset?: math.Numeric;
   glBufferUsage?: GLBufferUsage;
   alignment?: bigint;
+  alignmentMultiple?: bigint;
   key?: string;
 }
 
@@ -165,6 +166,12 @@ export class Series<T extends TelemValue = TelemValue>
    * group. Useful for defining the position of the series within a channel's data.
    */
   readonly alignment: bigint = 0n;
+  /**
+   * Alignment multiple defines the number of alignment steps taken per sample. This is
+   * useful for when the samples in a series represent a partial view of the raw data
+   * i.e. decimation or averaging.
+   */
+  readonly alignmentMultiple: bigint = 1n;
   /** A cached minimum value. */
   private cachedMin?: math.Numeric;
   /** A cached maximum value. */
@@ -282,6 +289,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
+      alignmentMultiple = 1n,
       key = id.create(),
       data,
     } = props;
@@ -294,6 +302,7 @@ export class Series<T extends TelemValue = TelemValue>
       this._data = data_._data;
       this.timeRange = data_.timeRange;
       this.alignment = data_.alignment;
+      this.alignmentMultiple = data_.alignmentMultiple;
       this.cachedMin = data_.cachedMin;
       this.cachedMax = data_.cachedMax;
       this.writePos = data_.writePos;
@@ -369,6 +378,7 @@ export class Series<T extends TelemValue = TelemValue>
 
     this.key = key;
     this.alignment = alignment;
+    this.alignmentMultiple = alignmentMultiple;
     this.sampleOffset = sampleOffset ?? 0;
     this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {
@@ -685,7 +695,7 @@ export class Series<T extends TelemValue = TelemValue>
   atAlignment(alignment: bigint, required?: false): T | undefined;
 
   atAlignment(alignment: bigint, required?: boolean): T | undefined {
-    const index = Number(alignment - this.alignment);
+    const index = Number((alignment - this.alignment) / this.alignmentMultiple);
     if (index < 0 || index >= this.length) {
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
@@ -873,7 +883,10 @@ export class Series<T extends TelemValue = TelemValue>
    * is exclusive.
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    return bounds.construct(this.alignment, this.alignment + BigInt(this.length));
+    return bounds.construct(
+      this.alignment,
+      this.alignment + BigInt(this.length) * this.alignmentMultiple,
+    );
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
@@ -946,11 +959,13 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns An iterator over the specified alignment range.
    */
   subAlignmentIterator(start: bigint, end: bigint): Iterator<T> {
-    return new SubIterator(
-      this,
-      Number(start - this.alignment),
-      Number(end - this.alignment),
+    const startIdx = Math.ceil(
+      Number(start - this.alignment) / Number(this.alignmentMultiple),
     );
+    const endIdx = Math.ceil(
+      Number(end - this.alignment) / Number(this.alignmentMultiple),
+    );
+    return new SubIterator(this, startIdx, endIdx);
   }
 
   private subBytes(start: number, end?: number): Series {
@@ -1041,7 +1056,7 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const b = bounds.construct(0, series.length);
+    const b = bounds.construct(0, series.length + 1);
     this.end = bounds.clamp(b, end);
     this.index = bounds.clamp(b, start);
   }
@@ -1360,7 +1375,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (start < ser.alignment) break;
       else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Number(start - ser.alignment);
+        startIdx += Math.ceil(
+          Number(start - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
@@ -1370,7 +1387,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (end < ser.alignment) break;
       else if (end >= ser.alignmentBounds.upper) endIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, end)) {
-        endIdx += Number(end - ser.alignment);
+        endIdx += Math.ceil(
+          Number(end - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }

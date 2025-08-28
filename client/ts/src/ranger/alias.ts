@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { type change } from "@synnaxlabs/x/change";
 import { z } from "zod";
 
@@ -22,10 +23,7 @@ const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
 
 const resolveResZ = z.object({ aliases: z.record(z.string(), channel.keyZ) });
 
-const setReqZ = z.object({
-  range: keyZ,
-  aliases: z.record(channel.keyZ.or(z.string()), z.string()),
-});
+const setReqZ = z.object({ range: keyZ, aliases: z.record(channel.keyZ, z.string()) });
 
 const setResZ = z.unknown();
 
@@ -37,10 +35,15 @@ const listReqZ = z.object({ range: keyZ });
 
 const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
+const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
+
+const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
+
 export class Aliaser {
   private static readonly SET_ENDPOINT = "/range/alias/set";
   private static readonly RESOLVE_ENDPOINT = "/range/alias/resolve";
   private static readonly LIST_ENDPOINT = "/range/alias/list";
+  private static readonly RETRIEVE_ENDPOINT = "/range/alias/retrieve";
   private static readonly DELETE_ENDPOINT = "/range/alias/delete";
   private readonly frameClient: framer.Client;
   private readonly cache = new Map<string, channel.Key>();
@@ -108,6 +111,23 @@ export class Aliaser {
     ).aliases;
   }
 
+  async retrieve(alias: channel.Key): Promise<string>;
+  async retrieve(aliases: channel.Key[]): Promise<Record<channel.Key, string>>;
+
+  async retrieve(
+    alias: channel.Key | channel.Key[],
+  ): Promise<string | Record<channel.Key, string>> {
+    const isSingle = typeof alias === "number";
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+      this.client,
+      Aliaser.RETRIEVE_ENDPOINT,
+      { range: this.rangeKey, channels: array.toArray(alias) },
+      retrieveReqZ,
+      retrieveResZ,
+    );
+    return isSingle ? res.aliases[alias] : res.aliases;
+  }
+
   async delete(aliases: channel.Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
@@ -120,7 +140,7 @@ export class Aliaser {
 }
 
 export const aliasZ = z.object({
-  alias: z.string(),
+  alias: z.string().optional(),
   channel: channel.keyZ,
   range: keyZ,
 });
@@ -129,6 +149,9 @@ export interface Alias extends z.infer<typeof aliasZ> {}
 export type AliasChange = change.Change<string, Alias>;
 
 const SEPARATOR = "---";
+
+export const aliasKey = (alias: Pick<Alias, "range" | "channel">): string =>
+  `${alias.range}${SEPARATOR}${alias.channel}`;
 
 export interface DecodedDeleteAliasChange {
   range: Key;

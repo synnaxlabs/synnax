@@ -97,10 +97,7 @@ export const useSelectStatic = (key?: string): StaticRange | undefined =>
  * selected.
  * @returns The ranges with the given keys.
  */
-export const selectMultiple = (
-  state: StoreState,
-  keys?: string[] | string[],
-): Range[] => {
+export const selectMultiple = (state: StoreState, keys?: string[]): Range[] => {
   const all = Object.values(selectState(state).ranges);
   if (keys == null) return all;
   return all.filter((range) => keys.includes(range.key));
@@ -122,3 +119,12 @@ export const selectKeys = (state: StoreState): string[] =>
 
 export const useSelectKeys = (): string[] =>
   useMemoSelect((state: StoreState) => selectKeys(state), []);
+
+export const selectStaticKeys = (state: StoreState): string[] =>
+  Object.keys(selectState(state).ranges).filter((key) => {
+    const range = select(state, key);
+    return range != null && range.variant === "static";
+  });
+
+export const useSelectStaticKeys = (): string[] =>
+  useMemoSelect((state: StoreState) => selectStaticKeys(state), []);

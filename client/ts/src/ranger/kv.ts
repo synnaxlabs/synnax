@@ -21,6 +21,9 @@ export const KV_DELETE_CHANNEL = "sy_range_kv_delete";
 export const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
 export interface KVPair extends z.infer<typeof kvPairZ> {}
 
+export const kvPairKey = ({ range, key }: Omit<KVPair, "value">) =>
+  `${range}<--->${key}`;
+
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface GetRequest extends z.infer<typeof getReqZ> {}
 

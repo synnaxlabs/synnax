@@ -7,17 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, newTestClient } from "@synnaxlabs/client";
+import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type FC, type PropsWithChildren } from "react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
-import { newSynnaxWrapper } from "@/testutil/Synnax";
-
-const client = newTestClient();
+import { Ontology } from "@/ontology";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("queries", () => {
   let controller: AbortController;
+  const client = createTestClient();
+  let wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
+    wrapper = await createAsyncSynnaxWrapper({
+      client,
+      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
+    });
+  });
   beforeEach(() => {
     controller = new AbortController();
   });
@@ -43,12 +51,14 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
       expect(result.current.data.length).toBeGreaterThanOrEqual(3);
       expect(result.current.data).toContain(ch1.key);
       expect(result.current.data).toContain(ch2.key);
@@ -62,7 +72,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -87,7 +97,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve(
@@ -113,7 +123,7 @@ describe("queries", () => {
         });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({ limit: 2, offset: 1 }, { signal: controller.signal });
@@ -124,14 +134,13 @@ describe("queries", () => {
 
     it("should update the list when a channel is created", async () => {
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       const initialLength = result.current.data.length;
 
@@ -155,14 +164,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.getItem(testChannel.key)?.name).toEqual("original");
 
@@ -181,14 +189,13 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.data).toContain(testChannel.key);
 
@@ -207,7 +214,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -228,7 +235,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useList(), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -238,12 +245,298 @@ describe("queries", () => {
       const retrievedChannel = result.current.getItem(virtualChannel.key);
       expect(retrievedChannel?.virtual).toBe(true);
     });
+
+    describe("retrieveCached", () => {
+      it("should use cached data on initial mount when no searchTerm", async () => {
+        const ch = await client.channels.create({
+          name: "cached_test",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        expect(firstResult.current.data).toContain(ch.key);
+        unmount();
+
+        const { result: secondResult } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(ch.key);
+      });
+
+      it("should not use cached data on initial mount when searchTerm provided", async () => {
+        await client.channels.create({
+          name: "cached_test_search",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+
+        const { result: firstResult } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { searchTerm: "cached" } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toEqual([]);
+      });
+
+      it("should filter cached data by internal flag", async () => {
+        const normalCh = await client.channels.create({
+          name: "normal_ch",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+
+        const { result: firstResult } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { internal: true } }),
+          { wrapper },
+        );
+        expect(secondResult.current.data).not.toContain(normalCh.key);
+      });
+
+      it("should filter by calculated channels", async () => {
+        const idxCh = await client.channels.create({
+          name: "idx_for_calc",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const calcCh = await client.channels.create({
+          name: "calculated_ch",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: "return 1",
+          requires: [idxCh.key],
+        });
+        const normalCh = await client.channels.create({
+          name: "normal_virtual",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { calculated: true } }),
+          {
+            wrapper,
+          },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(calcCh.key);
+        expect(secondResult.current.data).not.toContain(normalCh.key);
+      });
+
+      it("should filter by dataTypes inclusion", async () => {
+        const float32Ch = await client.channels.create({
+          name: "float32_ch",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const float64Ch = await client.channels.create({
+          name: "float64_ch",
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { dataTypes: [DataType.FLOAT32] } }),
+          { wrapper },
+        );
+        expect(secondResult.current.data).toContain(float32Ch.key);
+        expect(secondResult.current.data).not.toContain(float64Ch.key);
+      });
+
+      it("should filter by notDataTypes exclusion", async () => {
+        const float32Ch = await client.channels.create({
+          name: "float32_exclude",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const int32Ch = await client.channels.create({
+          name: "int32_include",
+          dataType: DataType.INT32,
+          virtual: true,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () =>
+            Channel.useList({
+              initialParams: { notDataTypes: [DataType.FLOAT32] },
+            }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).not.toContain(float32Ch.key);
+        expect(secondResult.current.data).toContain(int32Ch.key);
+      });
+
+      it("should filter by isIndex", async () => {
+        const indexCh = await client.channels.create({
+          name: "index_filter",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const dataCh = await client.channels.create({
+          name: "data_filter",
+          dataType: DataType.FLOAT32,
+          index: indexCh.key,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { isIndex: true } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(indexCh.key);
+        expect(secondResult.current.data).not.toContain(dataCh.key);
+      });
+
+      it("should filter by virtual", async () => {
+        const indexCh = await client.channels.create({
+          name: "index_virt",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const virtualCh = await client.channels.create({
+          name: "virtual_filter",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const persistedCh = await client.channels.create({
+          name: "persisted_filter",
+          dataType: DataType.FLOAT32,
+          index: indexCh.key,
+          virtual: false,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialParams: { virtual: true } }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(virtualCh.key);
+        expect(secondResult.current.data).not.toContain(persistedCh.key);
+      });
+
+      it("should handle combined filters", async () => {
+        const indexCh = await client.channels.create({
+          name: "idx_combined",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const virtualFloat32Ch = await client.channels.create({
+          name: "virtual_float32",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        });
+        const virtualInt32Ch = await client.channels.create({
+          name: "virtual_int32",
+          dataType: DataType.INT32,
+          virtual: true,
+        });
+        const persistedFloat32Ch = await client.channels.create({
+          name: "persisted_float32",
+          dataType: DataType.FLOAT32,
+          index: indexCh.key,
+          virtual: false,
+        });
+
+        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
+          wrapper,
+        });
+        act(() => {
+          firstResult.current.retrieve({}, { signal: controller.signal });
+        });
+        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
+        unmount();
+
+        const { result: secondResult } = renderHook(
+          () =>
+            Channel.useList({
+              initialParams: {
+                virtual: true,
+                dataTypes: [DataType.FLOAT32],
+                internal: false,
+              },
+            }),
+          { wrapper },
+        );
+        expect(secondResult.current.variant).toEqual("loading");
+        expect(secondResult.current.data).toContain(virtualFloat32Ch.key);
+        expect(secondResult.current.data).not.toContain(virtualInt32Ch.key);
+        expect(secondResult.current.data).not.toContain(persistedFloat32Ch.key);
+      });
+    });
   });
 
   describe("useForm", () => {
     it("should create a new virtual channel", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -266,7 +559,7 @@ describe("queries", () => {
 
     it("should create a new index channel", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -295,7 +588,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -325,7 +618,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useForm({ params: { key: existingChannel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -352,7 +645,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useForm({ params: { key: testChannel.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().name).toEqual("externalUpdate");
@@ -366,7 +659,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -378,7 +671,7 @@ describe("queries", () => {
 
     it("should validate that index channels have timestamp data type", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -395,7 +688,7 @@ describe("queries", () => {
 
     it("should validate that data channels have an index or are virtual", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -414,7 +707,7 @@ describe("queries", () => {
 
     it("should validate that persisted channels have fixed-size data types", async () => {
       const { result } = renderHook(() => Channel.useForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -440,7 +733,7 @@ describe("queries", () => {
       });
 
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -480,7 +773,7 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useCalculatedForm({ params: { key: existingCalculated.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
@@ -504,7 +797,7 @@ describe("queries", () => {
 
     it("should validate that expression is not empty", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -520,7 +813,7 @@ describe("queries", () => {
 
     it("should validate that expression contains return statement", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -536,7 +829,7 @@ describe("queries", () => {
 
     it("should validate that expression uses at least one channel", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       act(() => {
@@ -553,7 +846,7 @@ describe("queries", () => {
 
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ params: {} }), {
-        wrapper: newSynnaxWrapper(client),
+        wrapper,
       });
 
       expect(result.current.form.value().name).toEqual("");
@@ -580,15 +873,16 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => Channel.useCalculatedForm({ params: { key: testCalculated.key } }),
-        { wrapper: newSynnaxWrapper(client) },
+        { wrapper },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.listenersMounted).toBe(true);
       });
       expect(result.current.form.value().name).toEqual("updateCalculated");
 
-      await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
+      await act(async () => {
+        await client.channels.rename(testCalculated.key, "externallyUpdatedCalculated");
+      });
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("externallyUpdatedCalculated");

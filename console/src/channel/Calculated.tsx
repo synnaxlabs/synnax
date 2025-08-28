@@ -63,8 +63,8 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
 
   const { form, variant, save, status } = Channel.useCalculatedForm({
     params: { key: args?.channelKey },
-    afterSave: ({ form }) => {
-      if (createMore) form.reset();
+    afterSave: ({ reset }) => {
+      if (createMore) reset();
       else onClose();
     },
   });

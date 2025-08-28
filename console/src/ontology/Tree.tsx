@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, ontology, type Synnax } from "@synnaxlabs/client";
+import { DisconnectedError, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
   Haul,
@@ -16,7 +16,7 @@ import {
   Menu,
   Ontology,
   Status,
-  Synnax as PSynnax,
+  Synnax,
   Text,
   Tree as Core,
   useAsyncEffect,
@@ -164,7 +164,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const resourceStore = List.useMapData<string, ontology.Resource>();
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
-  const client = PSynnax.use();
+  const client = Synnax.use();
 
   const useLoading = useCallback(
     (key: string) =>
@@ -202,14 +202,12 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    (id: ontology.ID) =>
-      handleError(async () => {
-        if (client == null) return;
-        const updated = await client.ontology.retrieve(id);
-        const prev = resourceStore.getItem(ontology.idToString(id));
-        resourceStore.setItem(updated);
-        if (updated.name !== prev?.name) setNodes((prevNodes) => [...prevNodes]);
-      }),
+    (resource: ontology.Resource) => {
+      const prev = resourceStore.getItem(ontology.idToString(resource.id));
+      resourceStore.setItem(resource);
+      // Trigger re-sort when name changes.
+      if (prev?.name !== resource.name) setNodes((prevNodes) => [...prevNodes]);
+    },
     [client, handleError, resourceStore.setItem],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
@@ -338,7 +336,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const getBaseProps = useCallback(
-    (client: Synnax): BaseProps => ({
+    (client: Client): BaseProps => ({
       client,
       store,
       placeLayout,

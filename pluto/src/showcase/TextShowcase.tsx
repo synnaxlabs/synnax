@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -110,10 +111,10 @@ export const TextShowcase = () => (
             </Text.Text>
             <Flex.Box x gap="small">
               <Text.Text variant="keyboard">
-                <Text.Symbols.Meta />
+                <Icon.Keyboard.Control />
               </Text.Text>
               <Text.Text variant="keyboard">
-                <Text.Symbols.Alt />
+                <Icon.Keyboard.Alt />
               </Text.Text>
             </Flex.Box>
           </Flex.Box>

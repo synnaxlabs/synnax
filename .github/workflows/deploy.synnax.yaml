@@ -87,6 +87,7 @@ jobs:
     if: needs.setup.outputs.changed == 'true'
     env:
       GH_TOKEN: ${{ github.token }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
       matrix:
@@ -184,23 +185,55 @@ jobs:
       - name: Sign macOS Driver Binary
         if: matrix.os == 'macos-15' && github.event_name == 'push'
         run: |
+          # Create entitlements file to disable library validation for LabJack support
+          cat > driver-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --sign "$CERT_ID" bazel-bin/driver/driver
+          codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Sign Windows Driver Binary
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
-          # Wait for any file handles to be released
+          # Path to Bazel output
+          $bin = "bazel-bin\driver\driver.exe"
+
+          # Give any AV/indexers a moment to release handles
           Start-Sleep -Seconds 2
-          # Set file permissions to allow modification
-          icacls bazel-bin/driver/driver.exe /grant Everyone:F
-          relic sign --file bazel-bin/driver/driver.exe --key azure --config relic.conf
+
+          # Clear Windows file attributes first; Bazel marks outputs read-only
+          attrib -R -S -H -A $bin
+
+          # (Optional) ensure ownership + broad write perms; attrib is the key piece
+          takeown /F $bin | Out-Null
+          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null  # Everyone:F via well-known SID
+
+          # Retry a few times in case something still has a transient lock
+          $max = 5
+          for ($i = 1; $i -le $max; $i++) {
+            try {
+              relic sign --file $bin --key azure --config relic.conf
+              break
+            } catch {
+              if ($i -eq $max) { throw }
+              Start-Sleep -Seconds 3
+            }
+          }
 
       - name: Upload and Move Driver Binary
         if: github.event_name == 'push'
@@ -210,11 +243,6 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
-          # Upload signature file for Windows driver
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv bazel-bin/driver/driver.exe.sig synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
-            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}.exe.sig
-          fi
 
       - name: Move Driver to Assets
         shell: bash
@@ -247,6 +275,27 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Node Dependencies
+        run: pnpm install
+
+      - name: Build Console Web Assets
+        run: pnpm build:console-vite
+
+      - name: Copy Console Assets to Server
+        shell: bash
+        run: |
+          mkdir -p synnax/pkg/service/console/dist
+          cp -r console/dist/* synnax/pkg/service/console/dist/
+
       - name: Download Dependencies
         working-directory: synnax
         run: go mod download
@@ -254,7 +303,7 @@ jobs:
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
         if: matrix.os == 'macos-15' && github.event_name == 'push'

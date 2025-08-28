@@ -219,7 +219,7 @@ func start(cmd *cobra.Command) {
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
 		sCtx.Go(
-			distributionLayer.Ontology.RunStartupSearchIndexing,
+			distributionLayer.Ontology.InitializeSearchIndex,
 			xsignal.WithKey("startup_search_indexing"),
 		)
 
@@ -237,7 +237,7 @@ func start(cmd *cobra.Command) {
 		if rootServer, err = server.Serve(
 			server.Config{
 				Branches: []server.Branch{
-					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
+					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
 					&server.GRPCBranch{Transports: slices.Concat(
 						grpcAPITrans,
 						distributionTransports,

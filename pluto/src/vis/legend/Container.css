@@ -43,4 +43,9 @@
             transform: scale(0.9);
         }
     }
+
+    .pluto-legend-entry {
+        height: round(3.25rem, 1px);
+        cursor: pointer;
+    }
 }

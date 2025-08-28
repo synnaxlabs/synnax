@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, Color, Icon, Input, List, Tabs } from "@synnaxlabs/pluto";
+import {
+  Channel,
+  Color,
+  Icon,
+  Input,
+  List,
+  Select,
+  Tabs,
+  type telem,
+} from "@synnaxlabs/pluto";
 import { type bounds, color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
@@ -49,7 +58,9 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
         className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >
-        {(p) => <Line layoutKey={layoutKey} onChange={handleChange} {...p} />}
+        {({ key, ...rest }) => (
+          <Line key={key} layoutKey={layoutKey} onChange={handleChange} {...rest} />
+        )}
       </List.Items>
     </List.Frame>
   );
@@ -64,6 +75,22 @@ const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 11 };
 const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 51 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
+
+interface SelectDownsampleModeProps
+  extends Omit<Select.StaticProps<telem.DownsampleMode>, "data"> {}
+
+const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
+
+const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement => (
+  <Select.Buttons {...props} keys={KEYS}>
+    <Select.Button itemKey="average" size="small">
+      Average
+    </Select.Button>
+    <Select.Button itemKey="decimate" size="small">
+      Decimate
+    </Select.Button>
+  </Select.Buttons>
+);
 
 const Line = ({
   itemKey,
@@ -83,6 +110,11 @@ const Line = ({
   const handleDownsampleChange: Input.Control<number>["onChange"] = (value: number) => {
     onChange({ ...line, downsample: value });
   };
+
+  const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
+    (value: telem.DownsampleMode) => {
+      onChange({ ...line, downsampleMode: value });
+    };
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (
     value: color.Color,
@@ -111,6 +143,7 @@ const Line = ({
         dragScale={STROKE_WIDTH_DRAG_SCALE}
         bounds={STROKE_WIDTH_BOUNDS}
         shrink={false}
+        tooltip="Stroke Width"
       />
       <Input.Numeric
         variant="shadow"
@@ -120,6 +153,14 @@ const Line = ({
         dragScale={DOWNSAMPLE_DRAG_SCALE}
         bounds={DOWNSAMPLE_BOUNDS}
         shrink={false}
+        tooltip={
+          line.downsampleMode === "average" ? "Averaging Window" : "Downsampling Factor"
+        }
+      />
+      <SelectDownsampleMode
+        value={line.downsampleMode}
+        onChange={handleDownsampleModeChange}
+        resourceName="Downsample Mode"
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>

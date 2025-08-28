@@ -15,6 +15,9 @@ describe("naturalLanguageJoin", () => {
   it("should return an empty string for an empty array", () =>
     expect(strings.naturalLanguageJoin([])).toBe(""));
 
+  it("should return the string for a single string", () =>
+    expect(strings.naturalLanguageJoin("apple")).toBe("apple"));
+
   it("should return the zeroLength string for an empty array if provided", () =>
     expect(strings.naturalLanguageJoin([], "No items")).toBe("No items"));
 

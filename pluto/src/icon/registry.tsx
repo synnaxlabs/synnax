@@ -55,7 +55,12 @@ import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import {
+  HiCursorClick,
+  HiDownload,
+  HiLightningBolt,
+  HiOutlinePlus,
+} from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
@@ -63,6 +68,7 @@ import {
   IoCopy,
   IoNotificationsOff,
   IoShapes,
+  IoTerminal,
   IoTime,
 } from "react-icons/io5";
 import {
@@ -140,6 +146,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -465,6 +472,9 @@ export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -599,6 +609,8 @@ const icons = {
   Linear,
   None,
   Constant,
+  Terminal,
+  CSV,
 };
 
 export const resolve = ((

@@ -121,8 +121,6 @@ jobs:
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
       NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
@@ -134,9 +132,10 @@ jobs:
         # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
         if:
-          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch')
+          matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -154,8 +153,7 @@ jobs:
       - name: Verify Apple Developer Certificate
         # Same as above - only notarize on macOS and on push events, not on PRs
         if:
-          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch')
+          matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -179,7 +177,7 @@ jobs:
 
       - name: Adjust Auto Updater URL for Release Candidate
         if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.event_name != 'pull_request') &&
           github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
@@ -211,11 +209,10 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server (Before Build)
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
-          # Adjust this path to point to the embedded binary in your repository.
           EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
           if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
             echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
@@ -226,7 +223,8 @@ jobs:
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
 
-      - name: Build
+      - name: Build (Push)
+        if: github.event_name != 'pull_request'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -237,9 +235,14 @@ jobs:
         working-directory: console
         run: pnpm build
 
+      - name: Build (PR)
+        if: github.event_name == 'pull_request'
+        working-directory: console
+        run: pnpm build
+
       - name: Upload macOS Release Asset
         if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.event_name != 'pull_request') &&
           matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
@@ -260,7 +263,7 @@ jobs:
 
       - name: Sign Windows Release Asset
         if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.event_name != 'pull_request') &&
           matrix.os == 'windows-latest'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -272,7 +275,7 @@ jobs:
 
       - name: Upload Windows Release Asset
         if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.event_name != 'pull_request') &&
           matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
@@ -286,8 +289,7 @@ jobs:
     permissions:
       contents: write
     if:
-      needs.create-release.outputs.release_id != '' || github.event_name ==
-      'workflow_dispatch'
+      needs.create-release.outputs.release_id != '' && github.event_name != 'pull_request'
     needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}

@@ -27,7 +27,7 @@ from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame
-from synnax.framer.iterator import Iterator, AUTO_SPAN
+from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.ontology import ID
@@ -265,15 +265,13 @@ class Client:
         self,
         channels: ChannelKey | ChannelName,
         n: int = 1,
-    ) -> MultiSeries:
-        ...
+    ) -> MultiSeries: ...
 
     def read_latest(
         self,
         channels: ChannelKeys | ChannelNames,
         n: int = 1,
-    ) -> Frame:
-        ...
+    ) -> Frame: ...
 
     def read_latest(
         self,

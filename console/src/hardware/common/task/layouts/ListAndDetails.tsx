@@ -38,26 +38,22 @@ export interface DetailsProps {
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<
     ChannelListProps<C>,
-    "onTare" | "allowTare" | "isSnapshot" | "listItem" | "contextMenuItems"
+    "onTare" | "allowTare" | "listItem" | "contextMenuItems"
   > {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
-  initialChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
   details,
-  initialChannels,
   createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
-  const [selected, setSelected] = useState<string[]>(
-    initialChannels.length ? [initialChannels[0].key] : [],
-  );
+  const [selected, setSelected] = useState<string[]>([]);
   const { get } = Form.useContext();
   const handleCreateChannel = useCallback(
-    (channels: C[]) => createChannel(channels),
-    [createChannel],
+    (channels: C[]) => createChannel(channels, selected[0]),
+    [createChannel, selected],
   );
   const handleDuplicateChannels = useCallback(
     (allChannels: C[], keys: string[]) => {
