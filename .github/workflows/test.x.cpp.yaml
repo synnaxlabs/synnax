@@ -37,8 +37,8 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      # - name: Checkout Repository
+      #   uses: actions/checkout@v4
 
       # - name: Update Submodules
       #   run: git submodule update --init --recursive
@@ -55,10 +55,10 @@ jobs:
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
           sudo apt-get update
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo apt-get install -y clang-format-21
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-21 100
           clang-format --version
-          clang-format-20 --version
+          clang-format-21 --version
 
       - name: Check Formatting
         if: matrix.format
