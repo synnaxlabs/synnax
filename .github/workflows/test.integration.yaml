@@ -69,7 +69,7 @@ jobs:
       - name: Build Synnax (Ubuntu 22.04 - NI Linux RT)
         id: version
         run: echo "Ubuntu 22.04 build disabled - hardware not available"
-        # run: integration/scripts/build-ubuntu-22-04.sh
+        # run: scripts/integration/build-ubuntu-22-04.sh
 
       - name: Upload Driver Binary as Artifact
         uses: actions/upload-artifact@v4
@@ -88,7 +88,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         run: echo "Ubuntu 22.04 build debug disabled - hardware not available"
-        # run: integration/scripts/debug-build-environment-ubuntu.sh
+        # run: scripts/integration/debug-build-environment-ubuntu.sh
 
   build-ubuntu-latest:
     name: Build Synnax (ubuntu-latest)
@@ -122,7 +122,7 @@ jobs:
       - name: Build Synnax (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        run: integration/scripts/build-ubuntu-latest.sh
+        run: scripts/integration/build-ubuntu-latest.sh
       
       - name: Skip Build (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
@@ -146,7 +146,7 @@ jobs:
 
       - name: Debug Build Environment
         if: failure()
-        run: integration/scripts/debug-build-environment-ubuntu.sh
+        run: scripts/integration/debug-build-environment-ubuntu.sh
 
   build-windows-latest:
     name: Build Synnax (windows-latest)
@@ -245,7 +245,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         shell: cmd
-        run: integration/scripts/debug-build-environment-windows.cmd
+        run: scripts/integration/debug-build-environment-windows.cmd
 
   build-macos-15:
     name: Build Synnax (macos-15)
@@ -281,7 +281,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         run: echo "macOS build disabled - hardware not available"
-        # run: integration/scripts/build-macos-15.sh
+        # run: scripts/integration/build-macos-15.sh
 
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
@@ -306,7 +306,7 @@ jobs:
       - name: Debug Build Environment
         if: failure()
         run: echo "macOS build debug disabled - hardware not available"
-        # run: integration/scripts/debug-build-environment-macos.sh
+        # run: scripts/integration/debug-build-environment-macos.sh
 
   download-artifacts-windows:
     name: Download Artifacts (Windows)
@@ -325,7 +325,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SKIP_BUILD: ${{ env.SKIP_BUILD }}
           REF_RUN_ID: ${{ env.REF_RUN_ID }}
-        run: integration/scripts/download-artifacts-windows.cmd
+        run: scripts/integration/download-artifacts-windows.cmd
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
@@ -347,16 +347,16 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes (Windows)
         shell: cmd
-        run: integration/scripts/kill-synnax-processes-windows.cmd
+        run: scripts/integration/kill-synnax-processes-windows.cmd
 
       - name: Install Poetry & Dependencies
         shell: cmd
-        run: integration/scripts/install-poetry-deps-windows.cmd
+        run: scripts/integration/install-poetry-deps-windows.cmd
 
       - name: Start Synnax Server
         timeout-minutes: 1
         shell: powershell
-        run: integration/scripts/start-synnax-server-windows.ps1
+        run: scripts/integration/start-synnax-server-windows.ps1
 
       - name: Test Conductor
         id: test-conductor
@@ -364,7 +364,7 @@ jobs:
         shell: cmd
         env:
           PYTHONIOENCODING: utf-8
-        run: integration/scripts/run-test-conductor-windows.cmd
+        run: scripts/integration/run-test-conductor-windows.cmd
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -380,7 +380,7 @@ jobs:
       - name: Debug Test Environment
         if: failure()
         shell: cmd
-        run: integration/scripts/debug-test-environment-windows.cmd
+        run: scripts/integration/debug-test-environment-windows.cmd
 
   download-artifacts-macos:
     name: Download Artifacts (macos)
@@ -400,7 +400,7 @@ jobs:
           SKIP_BUILD: ${{ env.SKIP_BUILD }}
           REF_RUN_ID: ${{ env.REF_RUN_ID }}
         run: echo "macOS artifacts setup disabled - hardware not available"
-        # run: integration/scripts/download-artifacts-macos.sh
+        # run: scripts/integration/download-artifacts-macos.sh
 
   deploy-and-test-macos:
     name: Deploy and Test (macos)
@@ -422,22 +422,22 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         run: echo "macOS process cleanup disabled - hardware not available"
-        # run: integration/scripts/kill-synnax-processes-macos.sh
+        # run: scripts/integration/kill-synnax-processes-macos.sh
 
       - name: Install Poetry & Dependencies
         run: echo "macOS Poetry installation disabled - hardware not available"
-        # run: integration/scripts/install-poetry-deps-macos.sh
+        # run: scripts/integration/install-poetry-deps-macos.sh
 
       - name: Start Synnax Server
         timeout-minutes: 1
         run: echo "macOS server startup disabled - hardware not available"
-        # run: integration/scripts/start-synnax-server-macos.sh
+        # run: scripts/integration/start-synnax-server-macos.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         run: echo "macOS test conductor disabled - hardware not available"
-        # run: integration/scripts/run-test-conductor-macos.sh
+        # run: scripts/integration/run-test-conductor-macos.sh
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -452,7 +452,7 @@ jobs:
       - name: Debug Test Environment
         if: failure()
         run: echo "macOS debug disabled - hardware not available"
-        # run: integration/scripts/debug-test-environment-macos.sh
+        # run: scripts/integration/debug-test-environment-macos.sh
 
   download-artifacts-linux:
     name: Download Artifacts (Linux)
@@ -470,7 +470,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SKIP_BUILD: ${{ env.SKIP_BUILD }}
           REF_RUN_ID: ${{ env.REF_RUN_ID }}
-        run: integration/scripts/download-artifacts-linux.sh
+        run: scripts/integration/download-artifacts-linux.sh
 
   deploy-and-test-linux:
     name: Deploy and Test (linux)
@@ -492,19 +492,19 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
-        run: integration/scripts/kill-synnax-processes-linux.sh
+        run: scripts/integration/kill-synnax-processes-linux.sh
 
       - name: Install Poetry & Dependencies
-        run: integration/scripts/install-poetry-deps-linux.sh
+        run: scripts/integration/install-poetry-deps-linux.sh
 
       - name: Start Synnax Server
         timeout-minutes: 1
-        run: integration/scripts/start-synnax-server-linux.sh
+        run: scripts/integration/start-synnax-server-linux.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: integration/scripts/run-test-conductor-linux.sh
+        run: scripts/integration/run-test-conductor-linux.sh
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -519,4 +519,4 @@ jobs:
 
       - name: Debug Test Environment
         if: failure()
-        run: integration/scripts/debug-test-environment-linux.sh
+        run: scripts/integration/debug-test-environment-linux.sh
