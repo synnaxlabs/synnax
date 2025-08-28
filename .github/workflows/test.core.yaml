@@ -1,9 +1,9 @@
-name: Test - Synnax
+name: Test - Core
 
 on:
   pull_request:
     paths:
-      - .github/workflows/test.synnax.yaml
+      - .github/workflows/test.core.yaml
       - alamos/go/**
       - aspen/**
       - cesium/**
@@ -48,7 +48,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh synnax
+        run: ./scripts/check-gofmt.sh core
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output

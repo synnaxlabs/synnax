@@ -1,4 +1,4 @@
-name: Deploy - Synnax
+name: Deploy - Core
 
 on:
   push:
