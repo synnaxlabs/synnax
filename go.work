@@ -4,9 +4,9 @@ use (
 	./alamos/go
 	./aspen
 	./cesium
+	./core
 	./freighter/go
 	./freighter/integration
 	./integration
-	./synnax
 	./x/go
 )

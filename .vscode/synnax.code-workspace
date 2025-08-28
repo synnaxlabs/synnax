@@ -6,6 +6,7 @@
     { "name": "alamos/ts", "path": "../alamos/ts" },
     { "name": "aspen", "path": "../aspen" },
     { "name": "cesium", "path": "../cesium" },
+    { "name": "core", "path": "../core" },
     { "name": "client/cpp", "path": "../client/cpp" },
     { "name": "client/py", "path": "../client/py" },
     { "name": "client/ts", "path": "../client/ts" },
@@ -24,7 +25,6 @@
     { "name": "freighter/ts", "path": "../freighter/ts" },
     { "name": "media", "path": "../x/media" },
     { "name": "pluto", "path": "../pluto" },
-    { "name": "server", "path": "../synnax" },
     { "name": "x/cpp", "path": "../x/cpp" },
     { "name": "x/go", "path": "../x/go" },
     { "name": "x/ts", "path": "../x/ts" }

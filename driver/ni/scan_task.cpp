@@ -87,11 +87,10 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         .variant = status::variant::SUCCESS,
         .message = "Device present",
         .time = telem::TimeStamp::now(),
-        .details =
-            synnax::DeviceStatusDetails{
-                .rack = dev.rack,
-                .device = dev.key,
-            }
+        .details = synnax::DeviceStatusDetails{
+            .rack = dev.rack,
+            .device = dev.key,
+        }
     };
 
     auto err = xerrors::NIL;

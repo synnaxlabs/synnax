@@ -24,7 +24,7 @@
 #include "x/cpp/telem/telem.h"
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
 
 using Key = std::string;
 
@@ -75,8 +75,8 @@ public:
     /// @returns a pair containing the value and an error where ok() is false if the
     /// value could not be retrieved. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<std::string, xerrors::Error> get(const std::string &key
-    ) const;
+    [[nodiscard]] std::pair<std::string, xerrors::Error>
+    get(const std::string &key) const;
 
     /// @brief sets the value of the given key.
     /// @param key - the key to set the value of.

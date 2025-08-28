@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 const VERSION =
-  "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
+  "https://raw.githubusercontent.com/synnaxlabs/synnax/main/core/pkg/version/VERSION";
 
 export const getVersion = async (): Promise<string> =>
   await (await fetch(VERSION)).text();

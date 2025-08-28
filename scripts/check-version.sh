@@ -11,7 +11,7 @@
 
 # Function to read the version from the VERSION file
 get_version() {
-    local version_file="../synnax/pkg/version/VERSION"
+    local version_file="../core/pkg/version/VERSION"
     if [[ -f "$version_file" ]]; then
         # Extract the major.minor part of the version
         VERSION=$(cat "$version_file" | cut -d '.' -f1-2)

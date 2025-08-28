@@ -36,9 +36,9 @@ In Console, it's particularly common to make a change to [pluto](../pluto/README
 rebuild it, and see that change reflected in Console.
 
 Typically, you'l also want to run Console in conjunction with the synnax
-[database](../synnax/README.md) database itself, so you can read/write data, create
+[database](../core/README.md) database itself, so you can read/write data, create
 visualizations, etc. For information on how to start up a synnax dev database, see the
-[contributing guide](../synnax/CONTRIBUTING.md).
+[contributing guide](../core/CONTRIBUTING.md).
 
 ## Building the Application
 

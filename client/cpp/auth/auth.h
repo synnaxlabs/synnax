@@ -15,7 +15,7 @@
 #include <string>
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 
 /// external
 #include "glog/logging.h"
@@ -124,7 +124,8 @@ public:
                             "Synnax cluster.";
             LOG(WARNING) << "this host (" << host << ") is " << direction
                          << "by approximately " << skew_calc.skew().abs();
-            LOG(WARNING
+            LOG(
+                WARNING
             ) << "this may cause problems with time-series data consistency. We highly "
                  "recommend synchronizing your clock with the Synnax cluster.";
         }
