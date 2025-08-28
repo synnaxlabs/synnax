@@ -24,7 +24,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Auth } from "@/auth/index.ts";
+import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
