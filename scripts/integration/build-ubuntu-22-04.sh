@@ -9,13 +9,12 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# build-ubuntu-22-04.sh
 # Builds Synnax driver and server binaries for Ubuntu 22.04 (NI Linux RT)
 # Used by GitHub Actions workflow: test.integration.yaml
 
 set -euo pipefail
 
-echo "Building Synnax for Ubuntu 22.04 (NI Linux RT)..."
+echo "Building Synnax..."
 
 # Build Driver (NI Linux RT specific)
 echo "Building driver with Bazel (NI Linux RT platform)..."

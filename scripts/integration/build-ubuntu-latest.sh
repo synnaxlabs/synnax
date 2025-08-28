@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-echo "Building Synnax for Ubuntu Latest..."
+echo "Building Synnax..."
 
 # Install system dependencies
 echo "Installing system dependencies..."

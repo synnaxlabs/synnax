@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-echo "Building Synnax for macOS-15..."
+echo "Building Synnax..."
 
 # Build Driver
 echo "Building driver with Bazel..."

@@ -11,10 +11,8 @@ on:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  # SET TO FALSE BEFORE MERGE
-  SKIP_BUILD: true
-  # SET TO 0s BEFORE MERGE
-  REF_RUN_ID: '17292139239'
+  SKIP_BUILD: false
+  REF_RUN_ID: '0000000000'
 
 jobs:
   setup:
@@ -247,10 +245,10 @@ jobs:
         shell: cmd
         run: scripts/integration/debug-build-environment-windows.cmd
 
-  build-macos-15:
-    name: Build Synnax (macos-15)
+  build-macos-latest:
+    name: Build Synnax (macos-latest)
     timeout-minutes: 60
-    runs-on: macos-15
+    runs-on: macos-latest
     needs: setup
     if: false
     steps:
@@ -267,7 +265,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: deploy-synnax-macos-15
+          disk-cache: deploy-synnax-macos-latest
           repository-cache: true
 
       - name: Set up Go
@@ -281,7 +279,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         run: echo "macOS build disabled - hardware not available"
-        # run: scripts/integration/build-macos-15.sh
+        # run: scripts/integration/build-macos-latest.sh
 
       - name: Skip Build (macOS)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
@@ -389,7 +387,7 @@ jobs:
     runs-on:
       - self-hosted
       - macos
-    needs: [build-macos-15]
+    needs: [build-macos-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -426,18 +424,18 @@ jobs:
 
       - name: Install Poetry & Dependencies
         run: echo "macOS Poetry installation disabled - hardware not available"
-        # run: scripts/integration/install-poetry-deps-macos.sh
+        # run: scripts/integration/install-poetry-deps-unix.sh
 
       - name: Start Synnax Server
         timeout-minutes: 1
         run: echo "macOS server startup disabled - hardware not available"
-        # run: scripts/integration/start-synnax-server-macos.sh
+        # run: scripts/integration/start-synnax-server-unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
         run: echo "macOS test conductor disabled - hardware not available"
-        # run: scripts/integration/run-test-conductor-macos.sh
+        # run: scripts/integration/run-test-conductor-unix.sh
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -452,7 +450,7 @@ jobs:
       - name: Debug Test Environment
         if: failure()
         run: echo "macOS debug disabled - hardware not available"
-        # run: scripts/integration/debug-test-environment-macos.sh
+        # run: scripts/integration/debug-test-environment-unix.sh
 
   download-artifacts-linux:
     name: Download Artifacts (Linux)
@@ -495,16 +493,16 @@ jobs:
         run: scripts/integration/kill-synnax-processes-linux.sh
 
       - name: Install Poetry & Dependencies
-        run: scripts/integration/install-poetry-deps-linux.sh
+        run: scripts/integration/install-poetry-deps-unix.sh
 
       - name: Start Synnax Server
         timeout-minutes: 1
-        run: scripts/integration/start-synnax-server-linux.sh
+        run: scripts/integration/start-synnax-server-unix.sh
 
       - name: Test Conductor
         id: test-conductor
         timeout-minutes: 5
-        run: scripts/integration/run-test-conductor-linux.sh
+        run: scripts/integration/run-test-conductor-unix.sh
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -519,4 +517,4 @@ jobs:
 
       - name: Debug Test Environment
         if: failure()
-        run: scripts/integration/debug-test-environment-linux.sh
+        run: scripts/integration/debug-test-environment-unix.sh
