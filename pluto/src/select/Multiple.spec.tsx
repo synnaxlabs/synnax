@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +31,7 @@ describe("Select.Multiple", () => {
     { key: "1", name: "First Item" },
     { key: "2", name: "Second Item" },
     { key: "3", name: "Third Item" },
+    { key: "4", name: "Fourth Item" },
   ];
   const listItemRenderProp = renderProp((props: List.ItemProps<string>) => {
     const { itemKey } = props;
@@ -86,24 +88,24 @@ describe("Select.Multiple", () => {
     expect(c.getByText("Select Test Items")).toBeTruthy();
   });
 
-  it("should open the selection dialog when the trigger is clicked", () => {
+  it("should open the selection dialog when the trigger is clicked", async () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("Select Test Items"));
     expect(c.getByText("First Item Option")).toBeTruthy();
     expect(c.getByText("Second Item Option")).toBeTruthy();
     expect(c.getByText("Third Item Option")).toBeTruthy();
   });
 
-  it("should close the selection dialog when the user clicks on the trigger", () => {
+  it("should close the selection dialog when the user clicks on the trigger", async () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("Select Test Items"));
     expect(c.queryByText("First Item Option")).toBeNull();
   });
 
-  it("should call onChange when an item is selected", () => {
+  it("should call onChange when an item is selected", async () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple />);
     fireEvent.click(c.getByText("Select Test Items"));
@@ -111,70 +113,68 @@ describe("Select.Multiple", () => {
     expect(onChange).toHaveBeenCalledWith(["1"]);
   });
 
-  it("should not close the dialog when an item is selected", () => {
+  it("should not close the dialog when an item is selected", async () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
     expect(c.getByText("First Item Option")).toBeTruthy();
     expect(c.getByText("Second Item Option")).toBeTruthy();
     expect(c.getByText("Third Item Option")).toBeTruthy();
   });
 
-  it("should allow the user to select multiple items", () => {
+  it("should allow the user to select multiple items", async () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByText("Second Item Option"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("Second Item Option"));
     expect(onChange).toHaveBeenCalledWith(["1", "2"]);
   });
 
-  it("should allow the user to deselect an item", () => {
+  it("should allow the user to deselect an item", async () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it("should not allow the user to deselect to empty when allowNone is false", () => {
+  it("should not allow the user to deselect to empty when allowNone is false", async () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple allowNone={false} />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith(["1"]);
   });
 
-  it("should render a tag for each selected item", () => {
+  it("should render a tag for each selected item", async () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByText("Second Item Option"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByText("Second Item Option"));
     expect(c.getAllByText("First Item")).toHaveLength(1);
     expect(c.getAllByText("Second Item")).toHaveLength(1);
     expect(c.queryByText("Third Item")).toBeNull();
   });
 
-  it("should allow the caller to deselect an item via its tag", () => {
+  it("should allow the caller to deselect an item via its tag", async () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.click(c.getByText("First Item Option"));
-    fireEvent.click(c.getByLabelText("close"));
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.click(c.getByText("First Item Option"));
+    await userEvent.click(c.getByLabelText("close"));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it("should allow the caller to search for an item", () => {
+  it("should allow the caller to search for an item", async () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
-    fireEvent.click(c.getByText("Select Test Items"));
-    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
-      target: { value: "First" },
-    });
+    await userEvent.click(c.getByText("Select Test Items"));
+    await userEvent.type(c.getByPlaceholderText("Search Test Items..."), "First");
     expect(c.getByText("First Item Option")).toBeTruthy();
     expect(c.queryByText("Second Item Option")).toBeNull();
     expect(c.queryByText("Third Item Option")).toBeNull();
@@ -191,12 +191,12 @@ describe("Select.Multiple", () => {
   });
 
   describe("replaceOnSingle", () => {
-    it("should replace the selection when the user selects a single item", () => {
+    it("should replace the selection when the user selects a single item", async () => {
       const { SelectMultiple, onChange } = createSelectMultiple();
       const c = render(<SelectMultiple replaceOnSingle />);
-      fireEvent.click(c.getByText("Select Test Items"));
-      fireEvent.click(c.getByText("First Item Option"));
-      fireEvent.click(c.getByText("Second Item Option"));
+      await userEvent.click(c.getByText("Select Test Items"));
+      await userEvent.click(c.getByText("First Item Option"));
+      await userEvent.click(c.getByText("Second Item Option"));
       expect(onChange).toHaveBeenLastCalledWith(["2"]);
     });
 
@@ -208,6 +208,54 @@ describe("Select.Multiple", () => {
       fireEvent.keyDown(c.container, { code: "Control" });
       fireEvent.click(c.getByText("Second Item Option"));
       expect(onChange).toHaveBeenLastCalledWith(["1", "2"]);
+    });
+  });
+
+  describe("right click", () => {
+    describe("multiple selected before", () => {
+      it("should extend the selection when you right click even if replaceOnSingle is true", async () => {
+        const { SelectMultiple, onChange } = createSelectMultiple();
+        const c = render(<SelectMultiple replaceOnSingle />);
+        await userEvent.click(c.getByText("Select Test Items"));
+        await userEvent.click(c.getByText("First Item Option"));
+        await userEvent.click(c.getByText("Second Item Option"));
+        await userEvent.pointer([
+          {
+            target: c.getByText("Third Item Option"),
+            keys: "[MouseRight]",
+          },
+        ]);
+        expect(onChange).toHaveBeenLastCalledWith(["1", "2", "3"]);
+      });
+
+      it("should replace the previous right click selection when you right click again", async () => {
+        const { SelectMultiple, onChange } = createSelectMultiple();
+        const c = render(<SelectMultiple replaceOnSingle />);
+        await userEvent.click(c.getByText("Select Test Items"));
+        await userEvent.click(c.getByText("First Item Option"));
+        await userEvent.pointer([
+          { target: c.getByText("Second Item Option"), keys: "[MouseRight]" },
+        ]);
+        await userEvent.pointer([
+          { target: c.getByText("Third Item Option"), keys: "[MouseRight]" },
+        ]);
+        expect(onChange).toHaveBeenLastCalledWith(["1", "3"]);
+      });
+
+      it("should keep existing selection when you right click on the same item", async () => {
+        const { SelectMultiple, onChange } = createSelectMultiple();
+        const c = render(<SelectMultiple replaceOnSingle />);
+        await userEvent.click(c.getByText("Select Test Items"));
+        await userEvent.click(c.getByText("First Item Option"));
+        await userEvent.pointer([
+          { target: c.getByText("Second Item Option"), keys: "[MouseRight]" },
+        ]);
+        expect(onChange).toHaveBeenLastCalledWith(["1", "2"]);
+        await userEvent.pointer([
+          { target: c.getByText("Second Item Option"), keys: "[MouseRight]" },
+        ]);
+        expect(onChange).toHaveBeenLastCalledWith(["1", "2"]);
+      });
     });
   });
 });

@@ -26,8 +26,8 @@ export const ListItem = <
 ) => {
   const { itemKey } = props;
   const { onSelect, ...restSelectProps } = useItemState(itemKey);
-  // @ts-expect-error - generic element issues
   return (
+    // @ts-expect-error - generic element issues
     <List.Item<E>
       {...restSelectProps}
       {...props}

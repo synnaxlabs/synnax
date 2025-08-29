@@ -62,9 +62,11 @@ export interface UseMultipleProps<K extends record.Key>
   autoSelectOnNone?: boolean;
 }
 
+interface OnSelectEvent extends Pick<MouseEvent, "button"> {}
+
 /** Return value for the {@link useMultiple} hook. */
 export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
-  onSelect: (key: K, e?: MouseEvent) => void;
+  onSelect: (key: K, e?: OnSelectEvent) => void;
   setSelected: (keys: K[]) => void;
   clear: () => void;
 }
@@ -124,6 +126,7 @@ export const useMultiple = <K extends record.Key>({
 }: UseMultipleProps<K>): UseReturn<K> => {
   const { data } = List.useData<K>();
   const shiftValueRef = useRef<K | null>(null);
+  const rightClickRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
   const valueRef = useSyncedRef(value);
@@ -133,7 +136,7 @@ export const useMultiple = <K extends record.Key>({
       onChange([data[0]], { clicked: data[0], clickedIndex: 0 });
   }, [autoSelectOnNone, onChange, value, data.length]);
   const onSelect = useCallback(
-    (key: K, e?: MouseEvent): void => {
+    (key: K, e?: OnSelectEvent): void => {
       const shiftValue = shiftValueRef.current;
       const data = dataRef.current;
       let nextSelected: K[] = [];
@@ -163,19 +166,28 @@ export const useMultiple = <K extends record.Key>({
         shiftValueRef.current = null;
       } else {
         shiftValueRef.current = key;
-        const isMouseRight = e?.button == 2;
-        if (replaceOnSingle && !isMouseRight)
-          nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
-        else if (value.includes(key)) {
-          if (!isMouseRight) nextSelected = value.filter((k) => k !== key);
-        } else nextSelected = [...value, key];
+        const isMouseRight = e?.button == Triggers.MOUSE_RIGHT_NUMBER;
+        nextSelected = [...value];
+
+        if (isMouseRight) {
+          if (rightClickRef.current != null)
+            nextSelected = nextSelected.filter((k) => k !== rightClickRef.current);
+          if (!nextSelected.includes(key)) rightClickRef.current = key;
+        }
+
+        if (replaceOnSingle && (!isMouseRight || value.length === 1))
+          nextSelected =
+            nextSelected.includes(key) && nextSelected.length === 1 ? [] : [key];
+        else if (nextSelected.includes(key)) {
+          if (!isMouseRight) nextSelected = nextSelected.filter((k) => k !== key);
+        } else nextSelected = [...nextSelected, key];
       }
-      const v = unique.unique(nextSelected);
-      if (v.length === 0) {
+      nextSelected = unique.unique(nextSelected);
+      if (nextSelected.length === 0) {
         if (!allowNone) return;
         shiftValueRef.current = null;
       }
-      onChange(v, {
+      onChange(nextSelected, {
         clicked: key,
         clickedIndex: data.findIndex((v) => v === key),
       });

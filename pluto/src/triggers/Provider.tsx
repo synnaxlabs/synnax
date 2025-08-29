@@ -78,6 +78,8 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
   return false;
 };
 
+const listenerElement = window;
+
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
   if (isInputOrContentEditable(e)) {
@@ -181,23 +183,23 @@ export const Provider = ({
   }, []);
 
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousedown", handleKeyDown);
-    window.addEventListener("mouseup", handleKeyUp);
-    window.addEventListener("dragend", handleKeyUp);
-    window.addEventListener("drop", handleKeyUp);
-    window.addEventListener("blur", handlePageVisibility);
+    listenerElement.addEventListener("keydown", handleKeyDown);
+    listenerElement.addEventListener("keyup", handleKeyUp);
+    listenerElement.addEventListener("mousemove", handleMouseMove);
+    listenerElement.addEventListener("mousedown", handleKeyDown);
+    listenerElement.addEventListener("mouseup", handleKeyUp);
+    listenerElement.addEventListener("dragend", handleKeyUp);
+    listenerElement.addEventListener("drop", handleKeyUp);
+    listenerElement.addEventListener("blur", handlePageVisibility);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mousedown", handleKeyDown);
-      window.removeEventListener("mouseup", handleKeyUp);
-      window.removeEventListener("dragend", handleKeyUp);
-      window.removeEventListener("drop", handleKeyUp);
-      window.removeEventListener("blur", handlePageVisibility);
+      listenerElement.removeEventListener("keydown", handleKeyDown);
+      listenerElement.removeEventListener("keyup", handleKeyUp);
+      listenerElement.removeEventListener("mousemove", handleMouseMove);
+      listenerElement.removeEventListener("mousedown", handleKeyDown);
+      listenerElement.removeEventListener("mouseup", handleKeyUp);
+      listenerElement.removeEventListener("dragend", handleKeyUp);
+      listenerElement.removeEventListener("drop", handleKeyUp);
+      listenerElement.removeEventListener("blur", handlePageVisibility);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 
