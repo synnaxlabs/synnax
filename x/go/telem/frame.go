@@ -14,8 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
-	"slices"
-	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -263,35 +261,6 @@ func (f Frame[K]) RawKeyAt(i int) K {
 	return f.keys[i]
 }
 
-// frameSorter is a helper type that implements sort.Interface for sorting Frame.
-type frameSorter[K types.Numeric] struct{ *Frame[K] }
-
-// Len returns the number of Keys in the Frame.
-func (fs frameSorter[K]) Len() int {
-	return len(fs.keys)
-}
-
-// Less compares two Keys in the Frame.
-func (fs frameSorter[K]) Less(i, j int) bool {
-	return fs.keys[i] < fs.keys[j]
-}
-
-// Swap exchanges the Keys and corresponding Series at indices i and j.
-func (fs frameSorter[K]) Swap(i, j int) {
-	fs.keys[i], fs.keys[j] = fs.keys[j], fs.keys[i]
-	fs.series[i], fs.series[j] = fs.series[j], fs.series[i]
-	if fs.mask.enabled {
-		fs.mask.Mask128 = fs.mask.Swap(i, j)
-	}
-}
-
-// Sort sorts the frame in place.
-func (f *Frame[K]) Sort() {
-	if !slices.IsSorted(f.keys) {
-		sort.Sort(frameSorter[K]{f})
-	}
-}
-
 var (
 	_ json.Marshaler        = Frame[int]{}
 	_ json.Unmarshaler      = &Frame[int]{}
@@ -476,7 +445,7 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 // FilterKeys filters the frame to only include the keys in the given slice, returning
 // a shallow copy of the filtered frame.
 func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
-	if len(f.keys) < f.mask.Size() {
+	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
 			if !lo.Contains(keys, key) {

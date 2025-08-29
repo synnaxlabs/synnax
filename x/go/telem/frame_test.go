@@ -175,6 +175,19 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](7, 8, 9),
 			}))
 		})
+
+		It("Should correctly filter a frame that has multiple series for the same channel", func() {
+			fr := telem.MultiFrame(
+				[]int{1048578, 1048578, 1048581},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				},
+			)
+			filtered := fr.FilterKeys([]int{1048578})
+			Expect(filtered.Count()).To(Equal(2))
+		})
 	})
 
 	Describe("Series", func() {
@@ -568,118 +581,193 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("Sort", func() {
-		It("Should correctly sort an unmasked frame by keys", func() {
+	Describe("RawSeriesSortedI", func() {
+		It("Should return raw indices sorted by keys", func() {
 			fr := telem.MultiFrame(
-				[]int{3, 1, 2},
+				[]int{30, 10, 20},
 				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-				})
+					telem.NewSeriesV[int32](300),
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+				},
+			)
 
-			fr.Sort()
+			indices := make([]int, 0)
+			keys := make([]int, 0)
 
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 2, 3}))
-			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
-				telem.NewSeriesV[int32](1, 2, 3),
-				telem.NewSeriesV[int32](4, 5, 6),
-				telem.NewSeriesV[int32](7, 8, 9),
-			}))
-		})
-
-		It("Should handle sorting a frame with duplicate keys", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2, 1},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-					telem.NewSeriesV[int32](10, 11, 12),
-				})
-
-			fr.Sort()
-
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 1, 2, 3}))
-
-			series := fr.SeriesSlice()
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](10, 11, 12)))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
-			Expect(series[3]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-		})
-
-		It("Should respect masking when sorting", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2, 5, 4},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-					telem.NewSeriesV[int32](13, 14, 15),
-					telem.NewSeriesV[int32](10, 11, 12),
-				})
-
-			filtered := fr.FilterKeys([]int{1, 3, 5})
-
-			filtered.Sort()
-
-			Expect(filtered.KeysSlice()).To(Equal([]int{1, 3, 5}))
-
-			series := filtered.SeriesSlice()
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](13, 14, 15)))
-
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 2, 3, 4, 5}))
-		})
-
-		It("Should sort an empty frame without errors", func() {
-			fr := telem.Frame[int]{}
-			Expect(func() { fr.Sort() }).NotTo(Panic())
-			Expect(fr.Empty()).To(BeTrue())
-		})
-
-		It("Should maintain consistency between keys and series after sorting", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-				})
-
-			fr.Sort()
-
-			keys := fr.KeysSlice()
-			series := fr.SeriesSlice()
-			Expect(keys[0]).To(Equal(1))
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(keys[1]).To(Equal(2))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
-			Expect(keys[2]).To(Equal(3))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-		})
-
-		It("Should correctly handle a filtered frame with more than 128 entries", func() {
-			keys := make([]int, 200)
-			series := make([]telem.Series, 200)
-			for i := range 200 {
-				keys[i] = 199 - i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1))
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
 			}
-			fr := telem.MultiFrame(keys, series)
-			filteredKeys := []int{10, 50, 100, 150, 190}
-			filtered := fr.FilterKeys(filteredKeys)
-			filtered.Sort()
-			sortedKeys := filtered.KeysSlice()
-			Expect(sortedKeys).To(Equal([]int{10, 50, 100, 150, 190}))
-			resultSeries := filtered.SeriesSlice()
-			Expect(resultSeries[0]).To(Equal(telem.NewSeriesV[int32](189, 190)))
-			Expect(resultSeries[1]).To(Equal(telem.NewSeriesV[int32](149, 150)))
-			Expect(resultSeries[2]).To(Equal(telem.NewSeriesV[int32](99, 100)))
-			Expect(resultSeries[3]).To(Equal(telem.NewSeriesV[int32](49, 50)))
-			Expect(resultSeries[4]).To(Equal(telem.NewSeriesV[int32](9, 10)))
+
+			Expect(indices).To(Equal([]int{1, 2, 0})) // Sorted order of original indices
+			Expect(keys).To(Equal([]int{10, 20, 30})) // Keys in sorted order
+		})
+
+		It("Should handle frames with duplicate keys", func() {
+			fr := telem.MultiFrame(
+				[]int{20, 10, 30, 10},
+				[]telem.Series{
+					telem.NewSeriesV[int32](200),
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](300),
+					telem.NewSeriesV[int32](101),
+				},
+			)
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+			}
+
+			Expect(keys).To(Equal([]int{10, 10, 20, 30}))
+			Expect(indices).To(Equal([]int{1, 3, 0, 2}))
+		})
+
+		It("Should handle single element frame", func() {
+			fr := telem.UnaryFrame(42, telem.NewSeriesV[int32](420))
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+			}
+
+			Expect(indices).To(Equal([]int{0}))
+			Expect(keys).To(Equal([]int{42}))
+		})
+
+		It("Should handle empty frame", func() {
+			fr := telem.Frame[int]{}
+
+			count := 0
+			for range fr.RawSeriesSortedI() {
+				count++
+			}
+
+			Expect(count).To(Equal(0))
+		})
+
+		It("Should support early exit", func() {
+			fr := telem.MultiFrame(
+				[]int{50, 30, 10, 40, 20},
+				[]telem.Series{
+					telem.NewSeriesV[int32](500),
+					telem.NewSeriesV[int32](300),
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](400),
+					telem.NewSeriesV[int32](200),
+				},
+			)
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+				if len(indices) == 3 {
+					break
+				}
+			}
+
+			Expect(indices).To(Equal([]int{2, 4, 1}))
+			Expect(keys).To(Equal([]int{10, 20, 30}))
+		})
+
+		It("Should work with already sorted frame", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20, 30},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+					telem.NewSeriesV[int32](300),
+				},
+			)
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+			}
+
+			Expect(indices).To(Equal([]int{0, 1, 2}))
+			Expect(keys).To(Equal([]int{10, 20, 30}))
+		})
+
+		It("Should work with reverse sorted frame", func() {
+			fr := telem.MultiFrame(
+				[]int{30, 20, 10},
+				[]telem.Series{
+					telem.NewSeriesV[int32](300),
+					telem.NewSeriesV[int32](200),
+					telem.NewSeriesV[int32](100),
+				},
+			)
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+			}
+
+			Expect(indices).To(Equal([]int{2, 1, 0}))
+			Expect(keys).To(Equal([]int{10, 20, 30}))
+		})
+
+		It("Should work with negative keys", func() {
+			fr := telem.MultiFrame(
+				[]int{10, -20, 0, -5},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](-200),
+					telem.NewSeriesV[int32](0),
+					telem.NewSeriesV[int32](-50),
+				},
+			)
+
+			indices := make([]int, 0)
+			keys := make([]int, 0)
+
+			for idx, key := range fr.RawSeriesSortedI() {
+				indices = append(indices, idx)
+				keys = append(keys, key)
+			}
+
+			Expect(indices).To(Equal([]int{1, 3, 2, 0}))
+			Expect(keys).To(Equal([]int{-20, -5, 0, 10}))
+		})
+
+		It("Should allow access to series through returned indices", func() {
+			fr := telem.MultiFrame(
+				[]int{30, 10, 20},
+				[]telem.Series{
+					telem.NewSeriesV[int32](300, 301, 302),
+					telem.NewSeriesV[int32](100, 101, 102),
+					telem.NewSeriesV[int32](200, 201, 202),
+				},
+			)
+
+			sortedSeries := make([]telem.Series, 0)
+
+			for idx := range fr.RawSeriesSortedI() {
+				sortedSeries = append(sortedSeries, fr.RawSeriesAt(idx))
+			}
+
+			Expect(sortedSeries).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](100, 101, 102), // key 10
+				telem.NewSeriesV[int32](200, 201, 202), // key 20
+				telem.NewSeriesV[int32](300, 301, 302), // key 30
+			}))
 		})
 	})
 
