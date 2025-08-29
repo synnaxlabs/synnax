@@ -9,6 +9,7 @@
 
 import "@/schematic/symbol/Primitives.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import {
   color,
   dimensions,
@@ -499,6 +500,7 @@ export const SolenoidValve = ({
 
 export interface CustomActuatorProps extends ToggleProps, SVGBasedPrimitiveProps {
   specKey: string;
+  stateOverrides?: schematic.symbol.State[];
 }
 
 export const CustomActuator = ({
@@ -509,6 +511,7 @@ export const CustomActuator = ({
   color: colorProp,
   scale = 1,
   className,
+  stateOverrides,
   ...rest
 }: CustomActuatorProps): ReactElement | null => {
   const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
@@ -519,6 +522,7 @@ export const CustomActuator = ({
     activeState: enabled ? "active" : "base",
     externalScale: scale,
     spec: spec?.data?.data,
+    stateOverrides,
   });
   const handles = spec?.data?.data?.handles || [];
   return (

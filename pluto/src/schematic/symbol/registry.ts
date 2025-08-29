@@ -1805,6 +1805,7 @@ const customActuator: Spec<RemoteActuatorProps> = {
     ...zeroLabel("Custom Actuator"),
     ...ZERO_TOGGLE_PROPS,
     specKey: "",
+    stateOverrides: [],
   }),
   Preview: Primitives.CustomActuator,
   zIndex: Z_INDEX_UPPER,

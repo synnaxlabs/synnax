@@ -29,6 +29,7 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { StateOverrideControls } from "@/schematic/symbol/Custom";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
 import {
   type ControlStateProps,
@@ -186,7 +187,6 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
     )}
   </Form.Field>
 );
-
 interface CommonStyleFormProps extends SymbolFormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
@@ -197,31 +197,38 @@ export const CommonStyleForm = ({
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
-}: CommonStyleFormProps): ReactElement => (
-  <FormWrapper x align="stretch" empty>
-    <Flex.Box y grow>
-      <LabelControls omit={omit} path="label" />
-      <Flex.Box x grow>
-        <ColorControl path="color" optional />
-        <Form.Field<boolean>
-          path="normallyOpen"
-          label="Normally Open"
-          padHelpText={false}
-          hideIfNull
-          optional
-        >
-          {(p) => <Input.Switch {...p} />}
-        </Form.Field>
-        <ScaleControl path="scale" />
+}: CommonStyleFormProps): ReactElement => {
+  // Check if this is a custom symbol by looking for specKey
+  const specKey = Form.useFieldValue<string>("specKey");
+  const isCustomSymbol = specKey != null && specKey.length > 0;
+
+  return (
+    <FormWrapper x align="stretch" empty>
+      <Flex.Box y grow>
+        <LabelControls omit={omit} path="label" />
+        <Flex.Box x grow>
+          {isCustomSymbol && <ColorControl path="color" optional />}
+          <Form.Field<boolean>
+            path="normallyOpen"
+            label="Normally Open"
+            padHelpText={false}
+            hideIfNull
+            optional
+          >
+            {(p) => <Input.Switch {...p} />}
+          </Form.Field>
+          <ScaleControl path="scale" />
+        </Flex.Box>
       </Flex.Box>
-    </Flex.Box>
-    <OrientationControl
-      path=""
-      hideInner={hideInnerOrientation}
-      hideOuter={hideOuterOrientation}
-    />
-  </FormWrapper>
-);
+      {isCustomSymbol && <StateOverrideControls specKey={specKey} />}
+      <OrientationControl
+        path=""
+        hideInner={hideInnerOrientation}
+        hideOuter={hideOuterOrientation}
+      />
+    </FormWrapper>
+  );
+};
 
 const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<

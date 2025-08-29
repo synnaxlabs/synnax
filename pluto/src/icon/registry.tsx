@@ -152,6 +152,7 @@ import {
   PiWaveTriangleBold,
 } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
+import { RxReset } from "react-icons/rx";
 import {
   SiGooglenearby,
   SiNpm,
@@ -400,6 +401,7 @@ export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");
 export const CSV = wrapSVGIcon(PiFileCsv, "csv");
+export const Reset = wrapSVGIcon(RxReset, "reset");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -541,6 +543,7 @@ const icons = {
   Process,
   Fitting,
   Pump,
+  Reset,
 };
 
 export const resolve = ((

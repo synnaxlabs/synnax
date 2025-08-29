@@ -1,9 +1,223 @@
 import { type schematic } from "@synnaxlabs/client";
-import { deep, dimensions, direction, type location } from "@synnaxlabs/x";
-import { useRef } from "react";
+import {
+  caseconv,
+  color,
+  deep,
+  dimensions,
+  direction,
+  type location,
+} from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useRef, useState } from "react";
+
+import { Button } from "@/button";
+import { Color } from "@/color";
+import { Flex } from "@/flex";
+import { Form } from "@/form";
+import { Icon } from "@/icon";
+import { retrieve } from "@/schematic/symbol/queries";
+import { Select } from "@/select";
+import { Text } from "@/text";
 
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
+
+export interface StateOverrideControlsProps {
+  specKey: string;
+}
+
+interface RegionControlsProps {
+  path: string;
+  onReset: (path: string) => void;
+  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
+}
+
+/**
+ * Synchronizes state overrides with the symbol specification, preserving user customizations
+ * while adding new states/regions and removing obsolete ones.
+ */
+const syncStateOverrides = (
+  currentOverrides: schematic.symbol.State[],
+  specStates: schematic.symbol.State[],
+): schematic.symbol.State[] => {
+  // If the number of states has changed, sync states first
+  let syncedStates = [...currentOverrides];
+
+  if (currentOverrides.length !== specStates.length) {
+    // Create maps for efficient lookup
+    const currentStateMap = new Map(
+      currentOverrides.map((state) => [state.key, state]),
+    );
+    const specStateMap = new Map(specStates.map((state) => [state.key, state]));
+
+    // Remove states that are no longer in the spec
+    syncedStates = syncedStates.filter((state) => specStateMap.has(state.key));
+
+    // Add states from spec that are not in current overrides
+    for (const specState of specStates)
+      if (!currentStateMap.has(specState.key)) syncedStates.push(deep.copy(specState));
+  }
+
+  // Now sync regions within each state
+  const finalStates = [...syncedStates];
+
+  for (let stateIndex = 0; stateIndex < finalStates.length; stateIndex++) {
+    const currentState = finalStates[stateIndex];
+    const specState = specStates.find((s) => s.key === currentState.key);
+
+    if (specState && currentState.regions.length !== specState.regions.length) {
+      const currentRegions = [...currentState.regions];
+
+      // Create maps for efficient lookup
+      const currentRegionMap = new Map(
+        currentRegions.map((region) => [region.key, region]),
+      );
+      const specRegionMap = new Map(
+        specState.regions.map((region) => [region.key, region]),
+      );
+
+      // Remove regions that are no longer in the spec
+      const syncedRegions = currentRegions.filter((region) =>
+        specRegionMap.has(region.key),
+      );
+
+      // Add regions from spec that are not in current state
+      for (const specRegion of specState.regions)
+        if (!currentRegionMap.has(specRegion.key))
+          syncedRegions.push(deep.copy(specRegion));
+
+      finalStates[stateIndex] = {
+        ...currentState,
+        regions: syncedRegions,
+      };
+    }
+  }
+
+  return finalStates;
+};
+
+const RegionControls = ({
+  path,
+  onReset,
+  getOriginalRegion,
+}: RegionControlsProps): ReactElement => {
+  const name = Form.useFieldValue<string>(`${path}.name`);
+  const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const originalRegion = getOriginalRegion(path);
+  const canBeReset = !deep.equal(region, originalRegion);
+  return (
+    <Flex.Box x>
+      <Text.Text level="small" color={9}>
+        {caseconv.capitalize(name)}
+      </Text.Text>
+      <Flex.Box x align="stretch" key={path}>
+        <Form.Field<string>
+          path={`${path}.strokeColor`}
+          showLabel={false}
+          padHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
+          )}
+        </Form.Field>
+        <Form.Field<string>
+          path={`${path}.fillColor`}
+          showLabel={false}
+          padHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
+          )}
+        </Form.Field>
+        {canBeReset && (
+          <Button.Button
+            onClick={() => onReset(path)}
+            variant="text"
+            size="small"
+            ghost
+          >
+            <Icon.Reset />
+          </Button.Button>
+        )}
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+export const StateOverrideControls = ({
+  specKey,
+}: StateOverrideControlsProps): ReactElement | null => {
+  const form = Form.useContext();
+  const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
+  const { data: states } = Form.useFieldList<string, schematic.symbol.State>(
+    "stateOverrides",
+  );
+
+  const [selectedState, setSelectedState] = useState<string | null>(states?.[0]);
+  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
+    `stateOverrides.${selectedState}.regions`,
+  );
+  retrieve.useEffect({
+    params: { key: specKey },
+    onChange: (res) => {
+      if (res.data?.data == null) return;
+      const symbolSpec = res.data.data;
+      setOriginalStates(deep.copy(symbolSpec.states));
+      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+
+      if (currentOverrides.value?.length === 0)
+        // Initialize with spec states if no overrides exist
+        form.set("stateOverrides", deep.copy(symbolSpec.states));
+      else {
+        // Sync existing overrides with updated spec
+        const syncedStates = syncStateOverrides(
+          currentOverrides.value,
+          symbolSpec.states,
+        );
+        form.set("stateOverrides", syncedStates);
+      }
+    },
+  });
+
+  const resetRegion = useCallback(
+    (path: string) => {
+      const parsedPath = path.split(".").slice(1).join(".");
+      const prev = deep.get(originalStates, parsedPath, { optional: true });
+      if (prev == null) return;
+      form.set(path, deep.copy(prev));
+    },
+    [form.set, originalStates],
+  );
+
+  const getOriginalRegion = useCallback(
+    (path: string): schematic.symbol.Region | null => {
+      const parsedPath = path.split(".").slice(1).join(".");
+      return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
+    },
+    [originalStates],
+  );
+
+  if (selectedState == null) return null;
+
+  return (
+    <Flex.Box y align="stretch">
+      <Select.Buttons keys={states} value={selectedState} onChange={setSelectedState}>
+        {states?.map((state) => (
+          <Select.Button key={state} itemKey={state}>
+            {caseconv.capitalize(state)}
+          </Select.Button>
+        ))}
+      </Select.Buttons>
+      {regions?.map((region) => (
+        <RegionControls
+          key={region}
+          onReset={resetRegion}
+          path={`stateOverrides.${selectedState}.regions.${region}`}
+          getOriginalRegion={getOriginalRegion}
+        />
+      ))}
+    </Flex.Box>
+  );
+};
 
 const iterElements = (
   state: schematic.symbol.State,
@@ -43,15 +257,19 @@ const applyState = (
   prevState?: schematic.symbol.State | null,
 ) => {
   if (prevState != null) iterElements(prevState, svgElement, applyOriginalAttributes);
-  iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
+  iterElements(state, svgElement, (el, region) => {
     storeOriginalAttributes(el);
+
+    // The state already contains the overridden colors
+    const { strokeColor, fillColor } = region;
+
     if (strokeColor != null) el.setAttribute("stroke", strokeColor);
     else {
       // Restore original stroke if no strokeColor specified
       const originalStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
       if (originalStroke != null) el.setAttribute("stroke", originalStroke);
     }
-    
+
     if (fillColor != null) el.setAttribute("fill", fillColor);
     else {
       // Restore original fill if no fillColor specified
@@ -68,6 +286,7 @@ export interface UseCustomArgs {
   externalScale: number;
   spec?: schematic.symbol.Spec;
   onMount?: (svgElement: SVGSVGElement) => void;
+  stateOverrides?: schematic.symbol.State[];
 }
 
 export const useCustom = ({
@@ -77,6 +296,7 @@ export const useCustom = ({
   externalScale,
   spec,
   onMount,
+  stateOverrides,
 }: UseCustomArgs) => {
   const svgElementRef = useRef<SVGSVGElement>(null);
   const baseDimsRef = useRef<dimensions.Dimensions>({ width: 0, height: 0 });
@@ -85,6 +305,7 @@ export const useCustom = ({
   const prevOrientationRef = useRef<location.Outer | undefined>(undefined);
   const prevSpecDataRef = useRef<schematic.symbol.Spec | undefined>(undefined);
   const prevStateRef = useRef<schematic.symbol.State>(undefined);
+  const prevStateOverridesRef = useRef<typeof stateOverrides>(undefined);
 
   if (spec == null || spec.svg.length === 0 || container == null) return;
 
@@ -94,14 +315,25 @@ export const useCustom = ({
   const internalScaleDiffers = prevSpecDataRef.current?.scale !== spec?.scale;
   const scaleStrokeDiffers = prevSpecDataRef.current?.scaleStroke !== spec?.scaleStroke;
   const specDiffers = prevSpecDataRef.current !== spec;
-  const currState = activeState === "active" ? spec.states[1] : spec.states[0];
+
+  // Get the current state from overrides if available, otherwise from spec
+  const stateIndex = activeState === "active" ? 1 : 0;
+  const currState = stateOverrides?.[stateIndex] ?? spec.states[stateIndex];
+
   const stateDiffers = prevStateRef.current !== currState;
+  const stateOverridesDiffers =
+    JSON.stringify(prevStateOverridesRef.current) !== JSON.stringify(stateOverrides);
   const different =
-    externalScaleDiffers || svgDiffers || scaleStrokeDiffers || stateDiffers;
+    externalScaleDiffers ||
+    svgDiffers ||
+    scaleStrokeDiffers ||
+    stateDiffers ||
+    stateOverridesDiffers;
   if (!different) return;
   if (externalScaleDiffers) prevExternalScaleRef.current = externalScale;
   if (orientationDiffers) prevOrientationRef.current = orientation;
   if (specDiffers) prevSpecDataRef.current = deep.copy(spec);
+  if (stateOverridesDiffers) prevStateOverridesRef.current = stateOverrides;
   const { svg, scaleStroke, scale } = spec;
   if (svgElementRef.current == null || svgDiffers) {
     if (svgElementRef.current != null) {
@@ -141,7 +373,7 @@ export const useCustom = ({
     onMount?.(svgElementRef.current);
   }
 
-  if (stateDiffers) {
+  if (stateDiffers || stateOverridesDiffers) {
     applyState(svgElementRef.current, currState, prevStateRef.current);
     prevStateRef.current = deep.copy(currState);
   }
