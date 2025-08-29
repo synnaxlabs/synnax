@@ -52,5 +52,4 @@ var _ = Describe("Emitter", func() {
 		_, ok := <-stream.Outlet()
 		Expect(ok).To(BeFalse())
 	})
-
 })

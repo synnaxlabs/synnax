@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package zyn provides a type-safe schema validation and serialization system for Go.
-// It allows defining schemas for data structures and provides methods to validate,
-// serialize, and deserialize data according to those schemas.
 package zyn
 
 import (
@@ -21,13 +18,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// BoolZ represents a boolean schema.
-// It provides methods for validating and converting boolean data.
-// BoolZ supports conversion from various types to boolean values.
+// BoolZ represents a boolean schema. It provides methods for validating and converting
+// boolean data. BoolZ supports conversion from various types to boolean values.
 type BoolZ struct{ baseZ }
 
-// Optional marks the boolean field as optional.
-// Optional fields can be nil or omitted.
+// Optional marks the boolean field as optional. Optional fields can be nil or omitted.
 func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
 
 // Shape returns the base shape of the boolean schema.
@@ -45,15 +40,16 @@ func (b BoolZ) validateDestination(dest reflect.Value) error {
 	if destType.Kind() == reflect.Bool {
 		return nil
 	}
-	if b.expectedType != nil && (destType.AssignableTo(b.expectedType) || b.expectedType.AssignableTo(destType)) {
+	if b.expectedType != nil &&
+		(destType.AssignableTo(b.expectedType) ||
+			b.expectedType.AssignableTo(destType)) {
 		return nil
 	}
 	return NewInvalidDestinationTypeError(string(BoolT), dest)
 }
 
-// Dump converts the given data to a boolean according to the schema.
-// It validates the data and returns an error if the data is invalid.
-// The function accepts:
+// Dump converts the given data to a boolean according to the schema. It validates the
+// data and returns an error if the data is invalid. The function accepts:
 //   - boolean values
 //   - string values ("true", "false", "1", "0")
 //   - numeric values (non-zero is true, zero is false)
@@ -97,9 +93,8 @@ func (b BoolZ) Dump(data any) (any, error) {
 	return boolVal, nil
 }
 
-// Parse converts the given data from a boolean to the destination type.
-// It validates the data and returns an error if the data is invalid.
-// The function accepts:
+// Parse converts the given data from a boolean to the destination type. It validates
+// the data and returns an error if the data is invalid. The function accepts:
 //   - boolean values
 //   - string values ("true", "false", "1", "0")
 //   - numeric values (non-zero is true, zero is false)
@@ -143,8 +138,8 @@ func (b BoolZ) Parse(data any, dest any) error {
 	return nil
 }
 
-// Bool creates a new boolean schema.
-// This is the entry point for creating boolean validation schemas.
+// Bool creates a new boolean schema. This is the entry point for creating boolean
+// validation schemas.
 func Bool() BoolZ {
 	z := BoolZ{baseZ: baseZ{dataType: BoolT, expectedType: reflect.TypeOf(true)}}
 	z.wrapper = z
@@ -152,9 +147,16 @@ func Bool() BoolZ {
 }
 
 func invalidBooleanStringError(v string) error {
-	return errors.Wrapf(validate.Error, "invalid boolean string '%s': must be 'true', 'false', '1', or '0'", v)
+	return errors.Wrapf(
+		validate.Error,
+		"invalid boolean string '%s': must be 'true', 'false', '1', or '0'",
+		v,
+	)
 }
 
 func invalidBooleanTypeError(v reflect.Value) error {
-	return validate.NewInvalidTypeError("boolean, string, number, or nil", types.ValueName(v))
+	return validate.NewInvalidTypeError(
+		"boolean, string, number, or nil",
+		types.ValueName(v),
+	)
 }

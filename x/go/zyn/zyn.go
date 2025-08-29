@@ -17,13 +17,11 @@ import (
 	"slices"
 )
 
-// DataType represents the type of a schema.
-// It is used to identify the kind of validation and conversion rules to apply.
+// DataType represents the type of a schema. It is used to identify the kind of
+// validation and conversion rules to apply.
 type DataType string
 
-func (t DataType) String() string {
-	return string(t)
-}
+func (t DataType) String() string { return string(t) }
 
 const (
 	// StringT represents a string type in the schema.
@@ -125,9 +123,9 @@ func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
 type Schema interface {
 	// Parse converts the given data from a standardized format to the destination type.
 	// It validates the data and returns an error if the data is invalid.
-	Parse(data any, dest any) error
-	// Dump converts the given data to a standardized format according to the schema.
-	// It validates the data and returns an error if the data is invalid.
+	Parse(data, dest any) error
+	// Dump converts the given data to a standardized format according to the schema. It
+	// validates the data and returns an error if the data is invalid.
 	Dump(data any) (any, error)
 	// Shape returns the base shape of the schema.
 	Shape() Shape
@@ -140,8 +138,8 @@ type Shape interface {
 	Optional() bool
 	// DataType returns a string representation of the schema's type.
 	DataType() DataType
-	// Fields is only valid for object schemas, and returns a map of the field
-	// names to the schemas for each field.
+	// Fields is only valid for object schemas, and returns a map of the field names to
+	// the schemas for each field.
 	Fields() map[string]Shape
 	ReflectType() reflect.Type
 }

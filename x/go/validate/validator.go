@@ -65,7 +65,8 @@ func (v *Validator) Func(f func() bool, msg string) bool {
 
 func NotNil(v *Validator, field string, value any) bool {
 	isNil := value == nil ||
-		(reflect.ValueOf(value).Kind() == reflect.Pointer && reflect.ValueOf(value).IsNil())
+		(reflect.ValueOf(value).Kind() == reflect.Pointer &&
+			reflect.ValueOf(value).IsNil())
 	return v.Ternary(field, isNil, "must be non-nil")
 }
 
