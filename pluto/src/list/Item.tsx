@@ -33,7 +33,6 @@ export type ItemProps<
     draggingOver?: boolean;
     rightAligned?: boolean;
     highlightHovered?: boolean;
-    onSelect?: (key: K) => void;
     selected?: boolean;
     hovered?: boolean;
   };
@@ -50,8 +49,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   highlightHovered = false,
   selected = false,
   translate,
-  onSelect,
-  onClick,
   hovered,
   style,
   ...rest
@@ -62,10 +59,6 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     defaultEl="div"
     id={itemKey.toString()}
     variant="text"
-    onClick={(e: any) => {
-      onSelect?.(itemKey);
-      onClick?.(e);
-    }}
     className={CSS(
       className,
       CONTEXT_TARGET,

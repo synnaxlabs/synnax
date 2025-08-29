@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Optional } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -15,16 +16,15 @@ import { List } from "@/list";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
-interface UseSelectMultipleWrapperReturn {
+interface UseSelectMultipleWrapperReturn
+  extends Pick<Select.UseReturn<string>, "onSelect" | "clear"> {
   value: string[];
-  clear: () => void;
-  onSelect: (key: string) => void;
 }
 
 const useMultipleWrapper = (
-  props: Omit<Select.UseMultipleProps<string>, "data" | "value" | "onChange">,
+  props?: Optional<Omit<Select.UseMultipleProps<string>, "data" | "onChange">, "value">,
 ): UseSelectMultipleWrapperReturn => {
-  const [value, onChange] = useState<string[]>([]);
+  const [value, onChange] = useState<string[]>(props?.value ?? []);
   const { clear, onSelect } = Select.useMultiple<string>({
     ...props,
     value,
@@ -33,14 +33,13 @@ const useMultipleWrapper = (
   return { value, clear, onSelect };
 };
 
-interface UseSelectSingleWrapperReturn {
+interface UseSelectSingleWrapperReturn
+  extends Pick<Select.UseReturn<string>, "onSelect" | "clear"> {
   value: string | undefined;
-  clear: () => void;
-  onSelect: (key: string) => void;
 }
 
 const useSelectSingleWrapper = (
-  props: Omit<Select.UseSingleProps<string>, "data" | "value" | "onChange">,
+  props?: Omit<Select.UseSingleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectSingleWrapperReturn => {
   const [value, onChange] = useState<string | undefined>(undefined);
   const { clear, onSelect } = Select.useSingle<string>({
@@ -52,7 +51,7 @@ const useSelectSingleWrapper = (
   return { value, clear, onSelect };
 };
 
-const data = ["1", "2", "3"];
+const data = ["1", "2", "3", "4"];
 
 const Wrapper = (props: PropsWithChildren) => (
   <Triggers.Provider>
@@ -62,30 +61,35 @@ const Wrapper = (props: PropsWithChildren) => (
 
 describe("useSelect", () => {
   describe("multiple selection", () => {
-    it("should select two items", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
-      act(() => result.current.onSelect("1"));
-      expect(result.current.value).toEqual(["1"]);
-      act(() => result.current.onSelect("2"));
-      expect(result.current.value).toEqual(["1", "2"]);
+    describe("basic selection mechanics", () => {
+      it("should select two items", () => {
+        const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+        act(() => result.current.onSelect("1"));
+        expect(result.current.value).toEqual(["1"]);
+        act(() => result.current.onSelect("2"));
+        expect(result.current.value).toEqual(["1", "2"]);
+      });
+
+      it("should deselect an item when you click it again", () => {
+        const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+        act(() => result.current.onSelect("1"));
+        act(() => result.current.onSelect("2"));
+        act(() => result.current.onSelect("1"));
+        expect(result.current.value).toEqual(["2"]);
+      });
     });
 
-    it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
-      act(() => result.current.onSelect("1"));
-      act(() => result.current.onSelect("2"));
-      act(() => result.current.onSelect("1"));
-      expect(result.current.value).toEqual(["2"]);
+    describe("clear", () => {
+      it("should clear all selections", () => {
+        const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
+        act(() => result.current.onSelect("1"));
+        act(() => result.current.onSelect("2"));
+        act(() => result.current.clear());
+        expect(result.current.value).toEqual([]);
+      });
     });
 
-    it("should clear all selections", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
-      act(() => result.current.onSelect("1"));
-      act(() => result.current.onSelect("2"));
-      act(() => result.current.clear());
-      expect(result.current.value).toEqual([]);
-    });
-    describe("no not allow none", () => {
+    describe("allowNone is false", () => {
       it("should not allow removing the last selection", () => {
         const { result } = renderHook(() => useMultipleWrapper({ allowNone: false }), {
           wrapper: Wrapper,
@@ -95,6 +99,7 @@ describe("useSelect", () => {
         expect(result.current.value).toEqual(["1"]);
       });
     });
+
     describe("replaceOnSingle", () => {
       it("should replace the selection when you click a new item", () => {
         const { result } = renderHook(
@@ -107,13 +112,6 @@ describe("useSelect", () => {
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual(["2"]);
       });
-    });
-
-    it("should clear the selection when clear() is called", () => {
-      const { result } = renderHook(useMultipleWrapper, { wrapper: Wrapper });
-      act(() => result.current.onSelect("1"));
-      act(() => result.current.clear());
-      expect(result.current.value).toEqual([]);
     });
 
     describe("autoSelectOnNone", () => {
@@ -169,7 +167,75 @@ describe("useSelect", () => {
         expect(result.current.value).toEqual(["1"]);
       });
     });
+
+    describe("right click", () => {
+      describe("multiple selected before", () => {
+        it("should extend the selection when you right click even if replaceOnSingle is true", () => {
+          const { result } = renderHook(
+            () => useMultipleWrapper({ replaceOnSingle: true, value: ["1", "2"] }),
+            {
+              wrapper: Wrapper,
+            },
+          );
+          act(() =>
+            result.current.onSelect("3", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["1", "2", "3"]);
+        });
+
+        it("should replace the previous right click selection when you right click a new item", () => {
+          const { result } = renderHook(
+            () => useMultipleWrapper({ replaceOnSingle: true, value: ["1", "2"] }),
+            {
+              wrapper: Wrapper,
+            },
+          );
+          act(() =>
+            result.current.onSelect("3", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["1", "2", "3"]);
+          act(() =>
+            result.current.onSelect("4", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["1", "2", "4"]);
+        });
+
+        it("should not replace the previous right click entry if it was already in the selection buffer", () => {
+          const { result } = renderHook(
+            () => useMultipleWrapper({ replaceOnSingle: true, value: ["1", "2"] }),
+            {
+              wrapper: Wrapper,
+            },
+          );
+
+          act(() =>
+            result.current.onSelect("1", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["1", "2"]);
+          act(() =>
+            result.current.onSelect("2", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["1", "2"]);
+        });
+      });
+
+      describe("single selected before", () => {
+        it("should replace the selection when you right click a new item", () => {
+          const { result } = renderHook(
+            () => useMultipleWrapper({ replaceOnSingle: true, value: ["1"] }),
+            {
+              wrapper: Wrapper,
+            },
+          );
+          act(() =>
+            result.current.onSelect("2", { button: Triggers.MOUSE_RIGHT_NUMBER }),
+          );
+          expect(result.current.value).toEqual(["2"]);
+        });
+      });
+    });
   });
+
   describe("single selection", () => {
     it("should select one item", () => {
       const { result } = renderHook(useSelectSingleWrapper, { wrapper: Wrapper });

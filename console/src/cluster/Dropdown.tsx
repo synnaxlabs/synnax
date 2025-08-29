@@ -63,7 +63,7 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       className={CSS(CSS.B("cluster-list-item"))}
       y
       selected={selected}
-      onSelect={onSelect}
+      onClick={onSelect}
       {...rest}
     >
       <Text.MaybeEditable
