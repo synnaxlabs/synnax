@@ -90,6 +90,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         LOG(WARNING) << "Device missing resource name, skipping: " << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
+    LOG(INFO) << "Resource name: " << property_value_buf;
     dev.resource_name = property_value_buf;
     if (dev.resource_name.size() > 2)
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);

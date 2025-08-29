@@ -85,7 +85,7 @@ jobs:
       - name: Get Version
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
-        working-directory: synnax
+        working-directory: core
         shell: cmd
         run: |
           for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
@@ -93,12 +93,12 @@ jobs:
 
       - name: Download Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: synnax
+        working-directory: core
         run: go mod download
 
       - name: Build Server
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: synnax
+        working-directory: core
         run: go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
 
       - name: Test Binary Execution
