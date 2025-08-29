@@ -27,22 +27,28 @@ const TOOLTIP_LOCATION: location.XY = {
   y: "bottom",
 };
 
-export const NavControls = (): ReactElement => {
-  const control = useSelectControlState();
+const style = { zIndex: 500 };
+
+export interface NavControlsProps {
+  layoutKey: string;
+}
+
+export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
+  const control = useSelectControlState(layoutKey);
   const vis = Layout.useSelectActiveMosaicTabKey();
-  const mode = useSelectViewportMode();
+  const mode = useSelectViewportMode(layoutKey);
   const dispatch = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    dispatch(setViewportMode({ mode }));
+    dispatch(setViewportMode({ key: layoutKey, mode }));
   };
 
   const handleClickModeChange = (clickMode: ClickMode | null): void => {
-    dispatch(setControlState({ state: { clickMode } }));
+    dispatch(setControlState({ key: layoutKey, state: { clickMode } }));
   };
 
   const handleTooltipChange = (tooltip: boolean): void => {
-    dispatch(setControlState({ state: { enableTooltip: tooltip } }));
+    dispatch(setControlState({ key: layoutKey, state: { enableTooltip: tooltip } }));
   };
 
   const handleZoomReset = (): void => {
@@ -50,7 +56,7 @@ export const NavControls = (): ReactElement => {
   };
 
   const handleHoldChange = (hold: boolean): void => {
-    dispatch(setControlState({ state: { hold } }));
+    dispatch(setControlState({ key: layoutKey, state: { hold } }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
@@ -60,29 +66,23 @@ export const NavControls = (): ReactElement => {
       className={CSS.BE("line-plot", "nav-controls")}
       x
       gap="small"
-      style={{ zIndex: 500 }}
+      style={style}
     >
       <Viewport.SelectMode
         value={mode}
         onChange={handleModeChange}
         triggers={triggers}
+        tooltipLocation={TOOLTIP_LOCATION}
       />
       <Button.Button
         onClick={handleZoomReset}
         variant="outlined"
         tooltipLocation={TOOLTIP_LOCATION}
         tooltip={
-          <Flex.Box x align="center">
-            <Text.Text level="small">Reset Zoom</Text.Text>
-            <Flex.Box x empty>
-              <Text.Text level="small" variant="keyboard">
-                <Text.Symbols.Meta />
-              </Text.Text>
-              <Text.Text level="small" variant="keyboard">
-                Click
-              </Text.Text>
-            </Flex.Box>
-          </Flex.Box>
+          <Text.Text level="small">
+            Reset Zoom
+            <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
+          </Text.Text>
         }
         size="small"
       >
@@ -94,25 +94,18 @@ export const NavControls = (): ReactElement => {
         checkedVariant="filled"
         size="small"
         uncheckedVariant="outlined"
-        tooltip={
-          <Flex.Box x align="center">
-            <Text.Text level="small">Show Tooltip on Hover</Text.Text>
-          </Flex.Box>
-        }
+        tooltip={<Text.Text level="small">Show Tooltip on Hover</Text.Text>}
         tooltipLocation={TOOLTIP_LOCATION}
       >
         <Icon.Tooltip />
       </Button.Toggle>
       <Button.Toggle
         value={control.clickMode != null}
-        tooltip={
-          <Flex.Box x align="center">
-            <Text.Text level="small">Slope</Text.Text>
-          </Flex.Box>
+        tooltip={<Text.Text level="small">Slope</Text.Text>}
+        tooltipLocation={TOOLTIP_LOCATION}
+        onChange={() =>
+          handleClickModeChange(control.clickMode != null ? null : "measure")
         }
-        onChange={() => {
-          handleClickModeChange(control.clickMode != null ? null : "measure");
-        }}
         size="small"
       >
         <Icon.Rule />

@@ -46,7 +46,7 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof rack.statusZ> =
     ),
 };
 
-export const STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
 };
 
@@ -78,6 +78,7 @@ const retrieveFn = async ({
 };
 export const useList = Flux.createList<ListParams, rack.Key, rack.Payload, SubStore>({
   name: "Racks",
+  retrieveCached: ({ store }) => store.racks.list(),
   retrieve: async ({ client, params, store }) => {
     const racks = await client.hardware.racks.retrieve({
       ...DEFAULT_PARAMS,

@@ -10,8 +10,8 @@
 import { type Action, type Middleware } from "@reduxjs/toolkit";
 import { debounce, deep, type record, TimeSpan } from "@synnaxlabs/x";
 
-import { isMainWindow } from "@/isMainWindow";
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
+import { Runtime } from "@/runtime";
 import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
@@ -81,7 +81,7 @@ const nextVersion = (currentVersion: number): number =>
  * Clear the entire store and reload the page.
  */
 export const hardClearAndReload = () => {
-  if (!isMainWindow()) return;
+  if (!Runtime.isMainWindow()) return;
   openAndMigrateKV()
     .then(async (db) => await db.clear())
     .finally(() => window.location.reload())

@@ -14,6 +14,9 @@ import { Group } from "@/ontology/group/group";
 import { type Key, type Name, type Payload } from "@/ontology/group/payload";
 import { Writer } from "@/ontology/group/writer";
 
+export const SET_CHANNEL_NAME = "sy_group_set";
+export const DELETE_CHANNEL_NAME = "sy_group_delete";
+
 export class Client {
   private readonly creator: Writer;
 

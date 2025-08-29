@@ -12,7 +12,14 @@ import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
 
-export const keyZ = z.number();
+const errorMessage = "Channel key must be a valid uint32.";
+export const keyZ = z.uint32().or(
+  z
+    .string()
+    .refine((val) => !isNaN(Number(val)), { message: errorMessage })
+    .transform(Number)
+    .refine((val) => val < 2 ** 32 - 1, { message: errorMessage }),
+);
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
 export const nameZ = z.string();
@@ -51,7 +58,8 @@ export const newZ = payloadZ.extend({
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
-export interface New extends Omit<z.input<typeof newZ>, "dataType" | "status"> {
+export interface New
+  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
   dataType: CrudeDataType;
 }
 

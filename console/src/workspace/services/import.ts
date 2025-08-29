@@ -17,6 +17,7 @@ import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
+import { Runtime } from "@/runtime";
 import { Workspace } from "@/workspace";
 
 export const ingest: Import.DirectoryIngestor = async (
@@ -59,6 +60,10 @@ export const import_ = ({
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
+    if (Runtime.ENGINE !== "tauri")
+      throw new Error(
+        "Cannot import items from a dialog when running Synnax in the browser.",
+      );
     const path = await open({
       title: "Import a Workspace",
       multiple: false,

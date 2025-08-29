@@ -45,10 +45,9 @@ public:
         const synnax::RackStatus status{
             .variant = ::status::variant::SUCCESS,
             .message = "Driver is running",
-            .details =
-                synnax::RackStatusDetails{
-                    .rack = this->rack_key,
-                }
+            .details = synnax::RackStatusDetails{
+                .rack = this->rack_key,
+            }
         };
         VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
         fr.emplace(key, telem::Series(status.to_json()));
@@ -68,12 +67,14 @@ public:
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
     ):
-        pipe(pipeline::Acquisition(
-            ctx->client,
-            writer_config,
-            std::move(source),
-            breaker_config
-        )) {
+        pipe(
+            pipeline::Acquisition(
+                ctx->client,
+                writer_config,
+                std::move(source),
+                breaker_config
+            )
+        ) {
         pipe.start();
     }
 
@@ -86,7 +87,8 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME
+        auto [ch, err] = ctx->client->channels.retrieve(
+            synnax::RACK_STATUS_CHANNEL_NAME
         );
         if (err) {
             LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "

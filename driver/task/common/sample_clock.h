@@ -191,7 +191,8 @@ public:
                                      this->samples_per_chan;
         auto sample_end = this->curr_start_sample_time + fixed_increment;
         const auto system_end = this->cfg.now();
-        const double error = static_cast<double>((sample_end - system_end).nanoseconds()
+        const double error = static_cast<double>(
+            (sample_end - system_end).nanoseconds()
         );
         const double dt = static_cast<double>(
             (system_end - this->prev_system_end).nanoseconds()

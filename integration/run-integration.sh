@@ -17,7 +17,7 @@ fi
 
 # Build the server binary
 echo "--Compiling"
-(cd ../synnax && go build -tags="development" -o ../integration/bin/synnax.exe)
+(cd ../core && go build -tags="development" -o ../integration/bin/synnax.exe)
 
 # Run the Go program with the provided arguments
 go run . "$1" ${2:+$2}
