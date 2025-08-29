@@ -496,7 +496,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		}
 
 		if lengthOfFrame == -1 {
-			// Config type of first series must be known since we use it to calculate the
+			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
 			if s.DataType.Density() == telem.UnknownDensity {
 				return invalidDataTypeError(uWriter.Channel, s.DataType)

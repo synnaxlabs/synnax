@@ -82,7 +82,7 @@ func ValueName(v reflect.Value) string {
 	}
 	t := v.Type()
 	switch t.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if v.IsNil() {
 			return "*" + t.Elem().String() + " (nil)"
 		}

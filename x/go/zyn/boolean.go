@@ -35,11 +35,11 @@ func (b BoolZ) Shape() Shape { return b.baseZ }
 
 // validateDestination validates that the destination is compatible with boolean data
 func (b BoolZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(BoolT), dest)
 	}
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 	if destType.Kind() == reflect.Bool {
@@ -66,7 +66,7 @@ func (b BoolZ) Dump(data any) (any, error) {
 	}
 
 	dataVal := reflect.ValueOf(data)
-	if dataVal.Kind() == reflect.Ptr {
+	if dataVal.Kind() == reflect.Pointer {
 		if dataVal.IsNil() {
 			if b.optional {
 				return nil, nil
@@ -115,7 +115,7 @@ func (b BoolZ) Parse(data any, dest any) error {
 
 	destVal = destVal.Elem()
 	// If the destination is a pointer, we need to allocate it
-	if destVal.Kind() == reflect.Ptr {
+	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destVal.Type().Elem()))
 		}

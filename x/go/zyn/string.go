@@ -43,11 +43,11 @@ func (s StringZ) Shape() Shape { return s.baseZ }
 
 // validateDestinationValue validates that the destination is compatible with string data
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)
 	}
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 	if destType.Kind() == reflect.String || destType.String() == "uuid.UUID" {
@@ -88,7 +88,7 @@ func (s StringZ) Dump(data any) (any, error) {
 	}
 
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			if s.optional {
 				return nil, nil
@@ -165,7 +165,7 @@ func (s StringZ) Parse(data any, dest any) error {
 
 	data_, ok := data.(string)
 	if !ok {
-		if dataVal.Kind() == reflect.Ptr {
+		if dataVal.Kind() == reflect.Pointer {
 			if dataVal.IsNil() {
 				return errors.WithStack(validate.RequiredError)
 			}
@@ -189,7 +189,7 @@ func (s StringZ) Parse(data any, dest any) error {
 
 	destVal = destVal.Elem()
 	// If the destination is a pointer, we need to allocate it
-	if destVal.Kind() == reflect.Ptr {
+	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destVal.Type().Elem()))
 		}

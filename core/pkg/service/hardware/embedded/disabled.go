@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 //go:build !driver
-// +build !driver
 
 package embedded
 

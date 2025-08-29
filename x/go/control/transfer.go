@@ -66,7 +66,7 @@ func (s State[R]) String() string {
 // resource is uncontrolled after the transfer.
 //
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
-// and Source.Subject != To.Subject, a transfer occurred.
+// and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {
 	// From is the control state before the transfer. If From is nil, the entity
 	// was uncontrolled before the transfer.
@@ -86,7 +86,7 @@ func (t Transfer[R]) assertValid() {
 }
 
 // Occurred returns true if a transfer occurred, i.e., one of From or To is not nil and
-// Source.Subject != To.Subject.
+// From.Subject != To.Subject.
 func (t Transfer[R]) Occurred() bool {
 	t.assertValid()
 	if t.From != nil && t.To != nil {

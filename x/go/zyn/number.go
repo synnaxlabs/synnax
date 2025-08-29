@@ -46,11 +46,11 @@ func (n NumberZ) Shape() Shape { return n.baseZ }
 
 // validateDestination validates that the destination is compatible with numeric data
 func (n NumberZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(n.dataType), dest)
 	}
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 	if isNumericType(destType) {
@@ -172,7 +172,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 	}
 
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			if n.optional {
 				return nil, nil
@@ -314,7 +314,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 	destType := destVal.Type().Elem()
 	destVal = destVal.Elem()
 
-	if destVal.Kind() == reflect.Ptr {
+	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destType.Elem()))
 		}

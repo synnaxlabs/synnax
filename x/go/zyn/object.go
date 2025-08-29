@@ -74,11 +74,11 @@ func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 
 // validateDestination validates that the destination is compatible with object data
 func (o ObjectZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(ObjectT), dest)
 	}
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 	if destType.Kind() != reflect.Struct {
@@ -130,7 +130,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	}
 
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			if o.optional {
 				return nil, nil

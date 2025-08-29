@@ -46,7 +46,7 @@ func (u UnionZ) Shape() Shape { return u.baseZ }
 // validateDestination validates that the destination is compatible with union data
 // Union accepts any destination type since it can contain various types
 func (u UnionZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("union", dest)
 	}
 	return nil

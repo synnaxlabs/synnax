@@ -45,7 +45,7 @@ func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) 
 
 	}
 	if base.optional {
-		if destVal.Elem().Kind() == reflect.Ptr {
+		if destVal.Elem().Kind() == reflect.Pointer {
 			destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
 		}
 		return false, nil

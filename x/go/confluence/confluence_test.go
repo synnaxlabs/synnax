@@ -27,15 +27,13 @@ type seg struct {
 func (s seg) Flow(sCtx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(s.Out)
-	sCtx.Go(func(ctx context.Context) error {
-		for {
-			select {
-			case v := <-s.In.Outlet():
-				if v == 1 {
-					panic("got 1")
-				}
+	sCtx.Go(func(context.Context) error {
+		for v := range s.In.Outlet() {
+			if v == 1 {
+				panic("got 1")
 			}
 		}
+		return nil
 	}, o.Signal...)
 }
 
@@ -116,12 +114,12 @@ var _ = Describe("Confluence", func() {
 		It("Should drain an outlet of values until it is closed", func() {
 			c := NewStream[int](10)
 			go func() {
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					c.Inlet() <- 1
 				}
 				c.Close()
 			}()
-			Drain[int](c)
+			Drain(c)
 			Expect(c.Outlet()).To(BeClosed())
 		})
 	})

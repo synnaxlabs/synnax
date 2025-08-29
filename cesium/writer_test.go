@@ -204,7 +204,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Context("Index and Config", func() {
+				Context("Index and Data", func() {
 					It("Should write properly", func() {
 						var (
 							index1 = GenerateChannelKey()
@@ -1270,7 +1270,7 @@ var _ = Describe("Writer Behavior", func() {
 
 				Context("Missing Channel", func() {
 
-					Specify("Frame With Index Channel but without Config Channel", func() {
+					Specify("Frame With Index Channel but without Data Channel", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -1292,7 +1292,7 @@ var _ = Describe("Writer Behavior", func() {
 								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
 					})
 
-					Specify("Frame With Config Channel but without Index", func() {
+					Specify("Frame With Data Channel but without Index", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -1413,9 +1413,9 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Config Type Errors", func() {
+			Describe("Data Type Errors", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
-				Specify("Invalid Config Type for series", func() {
+				Specify("Invalid Data Type for series", func() {
 					var dtErr = GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
@@ -1520,9 +1520,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Name: "Index 1", Key: index1, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Name: "Config 1", Key: data1, DataType: telem.Int64T, Index: index1},
-						cesium.Channel{Name: "Config 2", Key: data2, DataType: telem.Uint8T, Index: index1},
-						cesium.Channel{Name: "Config 3", Key: data3, DataType: telem.Float32T, Index: index1},
+						cesium.Channel{Name: "Data 1", Key: data1, DataType: telem.Int64T, Index: index1},
+						cesium.Channel{Name: "Data 2", Key: data2, DataType: telem.Uint8T, Index: index1},
+						cesium.Channel{Name: "Data 3", Key: data3, DataType: telem.Float32T, Index: index1},
 					)).To(Succeed())
 
 					now := telem.Now()

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 //go:build (invariants && !race) || (tracing && !race)
-// +build invariants,!race tracing,!race
 
 package invariants
 

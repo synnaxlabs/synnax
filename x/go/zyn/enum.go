@@ -37,13 +37,13 @@ func (e EnumZ) Shape() Shape { return e.baseZ }
 
 // validateDestination validates that the destination is compatible with enum data
 func (e EnumZ) validateDestination(dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("enum", dest)
 	}
 
 	// Get the actual destination type (dereferencing pointer layers)
 	destType := dest.Type().Elem()
-	for destType.Kind() == reflect.Ptr {
+	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
 
@@ -86,7 +86,7 @@ func (e EnumZ) Dump(data any) (any, error) {
 	}
 
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			if e.optional {
 				return nil, nil
@@ -119,7 +119,7 @@ func (e EnumZ) Parse(data any, dest any) error {
 	}
 
 	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return errors.WithStack(validate.RequiredError)
 		}
@@ -127,7 +127,7 @@ func (e EnumZ) Parse(data any, dest any) error {
 	}
 
 	destVal = destVal.Elem()
-	if destVal.Kind() == reflect.Ptr {
+	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destVal.Type().Elem()))
 		}

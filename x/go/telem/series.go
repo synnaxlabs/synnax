@@ -109,11 +109,6 @@ func (s Series) At(i int) []byte {
 	return s.Data[i*den : (i+1)*den]
 }
 
-func (s Series) AtAny(i int) any {
-	d := s.At(i)
-	return UnmarshalAnyF(s.DataType)(d)
-}
-
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
@@ -196,7 +191,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
-// DataString returns a string representation of the data in a seris.
+// DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
@@ -386,8 +381,9 @@ func (m MultiSeries) Data() []byte {
 	return data
 }
 
-// At returns the binary representation of the sample at the given index across the MultiSeries.
-// It supports negative indices, which will be wrapped around the end of the MultiSeries.
+// At returns the binary representation of the sample at the given index across the
+// MultiSeries. It supports negative indices, which will be wrapped around the end of
+// the MultiSeries.
 func (m MultiSeries) At(i int) []byte {
 	if len(m.Series) == 0 {
 		return nil
@@ -411,8 +407,4 @@ func (m MultiSeries) At(i int) []byte {
 	}
 
 	return nil
-}
-
-func (m MultiSeries) AtAny(i int) any {
-	return UnmarshalAnyF(m.DataType())(m.At(i))
 }
