@@ -65,8 +65,8 @@ python_install
 # |||| PLAYWRIGHT ||||
 
 integration/node_modules
-integration/playwright-report
-integration/test-results
+**/playwright-report
+**/test-results
 
 # |||| LANDING SITE ||||
 

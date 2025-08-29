@@ -8,6 +8,7 @@ test.describe('Basic Navigation', () => {
     
     const title = await page.title();
     expect(title).toBeTruthy();
+    expect(title).toBe('Synnax Console');
     
     await page.waitForLoadState('networkidle');
   });
