@@ -12,7 +12,6 @@ package ranger
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -75,7 +74,6 @@ type Service struct {
 	Config
 	group           group.Group
 	shutdownSignals io.Closer
-	mu              sync.Mutex
 }
 
 const groupName = "Ranges"

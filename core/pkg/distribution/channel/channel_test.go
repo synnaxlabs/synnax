@@ -214,7 +214,7 @@ var _ = Describe("Channel Tests", func() {
 			Entry("By Name", channel.Channel{Name: "name1", LocalKey: 1}, channel.Channel{Name: "name2", LocalKey: 1}),
 			Entry("By Leaseholder", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 2, LocalKey: 1}),
 			Entry("By LocalKey", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 2}),
-			Entry("By Config Type", channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"}, channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "float"}),
+			Entry("By Data Type", channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"}, channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "float"}),
 			Entry("By Virtual", channel.Channel{Leaseholder: 1, LocalKey: 1, Virtual: true}, channel.Channel{Leaseholder: 1, LocalKey: 1}),
 		)
 	})

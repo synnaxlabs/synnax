@@ -207,8 +207,9 @@ func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res 
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		for _, key := range req.Keys {
-			if err := s.internal.NewWriter(tx).Delete(ctx, key); err != nil {
+			if err := w.Delete(ctx, key); err != nil {
 				return err
 			}
 		}

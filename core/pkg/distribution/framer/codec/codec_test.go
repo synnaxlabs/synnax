@@ -173,7 +173,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("Variable Config Types",
+		Entry("Variable Data Types",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.StringT, telem.JSONT},
 			core.MultiFrame(

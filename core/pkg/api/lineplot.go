@@ -52,8 +52,9 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		for i, lp := range req.LinePlots {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
+			if err = w.Create(ctx, req.Workspace, &lp); err != nil {
 				return err
 			}
 			req.LinePlots[i] = lp

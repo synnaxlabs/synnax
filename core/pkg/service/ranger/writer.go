@@ -147,7 +147,7 @@ func (w Writer) Rename(
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children
-// of the range. Delete is idemp.
+// of the range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
