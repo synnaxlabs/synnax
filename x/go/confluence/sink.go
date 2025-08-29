@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// UnarySink is a basic implementation of Sink that can receive values from a single Inlet.
+// UnarySink is a basic implementation of Sink that can receive values from a single
+// Inlet.
 type UnarySink[V Value] struct {
 	// Sink is called whenever a value is received from the Outlet.
 	Sink func(context.Context, V) error

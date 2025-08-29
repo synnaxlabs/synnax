@@ -73,11 +73,21 @@ func Positive[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternaryf(field, value <= 0, "must be positive")
 }
 
-func GreaterThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+func GreaterThan[T types.Numeric](
+	v *Validator,
+	field string,
+	value T,
+	threshold T,
+) bool {
 	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
 }
 
-func GreaterThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+func GreaterThanEq[T types.Numeric](
+	v *Validator,
+	field string,
+	value T,
+	threshold T,
+) bool {
 	return v.Ternaryf(
 		field,
 		value < threshold,
@@ -89,7 +99,12 @@ func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T)
 	return v.Ternaryf(field, value >= threshold, "must be less than %v", threshold)
 }
 
-func LessThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+func LessThanEq[T types.Numeric](
+	v *Validator,
+	field string,
+	value T,
+	threshold T,
+) bool {
 	return v.Ternaryf(
 		field,
 		value > threshold,

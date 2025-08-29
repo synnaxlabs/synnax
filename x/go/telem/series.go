@@ -380,31 +380,3 @@ func (m MultiSeries) Data() []byte {
 	}
 	return data
 }
-
-// At returns the binary representation of the sample at the given index across the
-// MultiSeries. It supports negative indices, which will be wrapped around the end of
-// the MultiSeries.
-func (m MultiSeries) At(i int) []byte {
-	if len(m.Series) == 0 {
-		return nil
-	}
-
-	totalLen := int(m.Len())
-	if i < 0 {
-		i += totalLen
-	}
-
-	if i < 0 || i >= totalLen {
-		return nil
-	}
-
-	for _, s := range m.Series {
-		seriesLen := int(s.Len())
-		if i < seriesLen {
-			return s.At(i)
-		}
-		i -= seriesLen
-	}
-
-	return nil
-}
