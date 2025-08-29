@@ -62,7 +62,6 @@ func (e EnumZ) validateDestination(dest reflect.Value) error {
 		reflect.Uint64, reflect.Float32, reflect.Float64, reflect.Bool:
 		return nil
 	}
-
 	return NewInvalidDestinationTypeError("enum-compatible type", dest)
 }
 
@@ -85,7 +84,6 @@ func (e EnumZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -96,7 +94,6 @@ func (e EnumZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-
 	// Check if the value is in the allowed values
 	for _, v := range e.values {
 		if reflect.DeepEqual(v, val.Interface()) {
@@ -114,11 +111,9 @@ func (e EnumZ) Parse(data any, dest any) error {
 	if err := e.validateDestination(destVal); err != nil {
 		return err
 	}
-
 	if ok, err := validateNilData(destVal, data, e.baseZ); !ok || err != nil {
 		return err
 	}
-
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -126,7 +121,6 @@ func (e EnumZ) Parse(data any, dest any) error {
 		}
 		val = val.Elem()
 	}
-
 	destVal = destVal.Elem()
 	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
@@ -134,7 +128,6 @@ func (e EnumZ) Parse(data any, dest any) error {
 		}
 		destVal = destVal.Elem()
 	}
-
 	// Try to convert the value to the destination type first
 	if val.Type().ConvertibleTo(destVal.Type()) {
 		convertedVal := val.Convert(destVal.Type())
@@ -155,7 +148,6 @@ func (e EnumZ) Parse(data any, dest any) error {
 			}
 		}
 	}
-
 	return invalidEnumValueError(val.Interface(), e.values)
 }
 

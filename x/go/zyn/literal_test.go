@@ -22,90 +22,78 @@ var _ = Describe("Literal", func() {
 			Expect(zyn.Literal("a").Parse("a", &dest)).To(Succeed())
 			Expect(dest).To(Equal("a"))
 		})
-
 		Specify("int literal", func() {
 			var dest int
 			Expect(zyn.Literal(1).Parse(1, &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
 		})
-
 		Specify("float literal", func() {
 			var dest float64
 			Expect(zyn.Literal(1.0).Parse(1.0, &dest)).To(Succeed())
 			Expect(dest).To(Equal(1.0))
 		})
 	})
-
 	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
 			var dest string
-			Expect(zyn.Literal("a").Parse("b", &dest)).To(MatchError(ContainSubstring("invalid enum value")))
+			Expect(zyn.Literal("a").Parse("b", &dest)).
+				To(MatchError(ContainSubstring("invalid enum value")))
 		})
-
 		Specify("invalid type", func() {
 			var dest string
-			Expect(zyn.Literal("a").Parse(1, &dest)).To(MatchError(ContainSubstring("invalid enum value")))
+			Expect(zyn.Literal("a").Parse(1, &dest)).
+				To(MatchError(ContainSubstring("invalid enum value")))
 		})
-
 		Specify("type conversion", func() {
 			var dest int
-			Expect(zyn.Literal[int](1).Parse(int64(1), &dest)).To(Succeed())
+			Expect(zyn.Literal(1).Parse(int64(1), &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
 		})
 	})
-
 	Describe("Optional Fields", func() {
 		Specify("optional field with nil value", func() {
 			var dest *string
 			Expect(zyn.Literal("a").Optional().Parse(nil, &dest)).To(Succeed())
 			Expect(dest).To(BeNil())
 		})
-
 		Specify("required field with nil value", func() {
 			var dest string
-			Expect(zyn.Literal("a").Parse(nil, &dest)).To(MatchError(ContainSubstring("required")))
+			Expect(zyn.Literal("a").Parse(nil, &dest)).
+				To(MatchError(ContainSubstring("required")))
 		})
-
 		Specify("optional field with value", func() {
 			var dest *string
 			Expect(zyn.Literal("a").Optional().Parse("a", &dest)).To(Succeed())
 			Expect(*dest).To(Equal("a"))
 		})
 	})
-
 	Describe("Dump", func() {
 		Specify("valid value", func() {
 			result, err := zyn.Literal("a").Dump("a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal("a"))
 		})
-
 		Specify("invalid value", func() {
 			_, err := zyn.Literal("a").Dump("b")
 			Expect(err).To(MatchError(ContainSubstring("invalid enum value")))
 		})
-
 		Specify("nil value", func() {
 			_, err := zyn.Literal("a").Dump(nil)
 			Expect(err).To(MatchError(ContainSubstring("required")))
 		})
-
 		Specify("optional nil value", func() {
 			result, err := zyn.Literal("a").Optional().Dump(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeNil())
 		})
 	})
-
 	Describe("Custom DataTypes", func() {
 		type MyEnum string
-
 		Specify("custom type literal", func() {
 			var dest MyEnum
 			Expect(zyn.Literal(MyEnum("a")).Parse(MyEnum("a"), &dest)).To(Succeed())
 			Expect(dest).To(Equal(MyEnum("a")))
 		})
-
 		Specify("custom type conversion", func() {
 			var dest string
 			Expect(zyn.Literal(MyEnum("a")).Parse(MyEnum("a"), &dest)).To(Succeed())

@@ -100,7 +100,7 @@ var _ = Describe("Zyn", func() {
 		Entry("number", zyn.NumberTypeSchema, zyn.NumberT),
 		Entry("UUID", zyn.UUIDTypeSchema, zyn.UUIDT),
 		Entry("float32", zyn.Float32TypeSchema, zyn.Float32T),
-		Entry("float64", zyn.Float64TypeShema, zyn.Float64T),
+		Entry("float64", zyn.Float64TypeSchema, zyn.Float64T),
 		Entry("uint8", zyn.Uint8TypeSchema, zyn.Uint8T),
 		Entry("uint16", zyn.Uint16TypeSchema, zyn.Uint16T),
 		Entry("uint32", zyn.Uint32TypeSchema, zyn.Uint32T),

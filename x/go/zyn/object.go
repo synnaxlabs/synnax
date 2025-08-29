@@ -98,7 +98,6 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	if dataMap, ok := data.(map[string]any); ok {
 		result := make(map[string]any)
 		for fieldName, schema := range o.fields {
@@ -109,22 +108,18 @@ func (o ObjectZ) Dump(data any) (any, error) {
 				}
 				return nil, validate.PathedError(validate.RequiredError, fieldName)
 			}
-
 			fieldData, err := schema.Dump(fieldData)
 			if err != nil {
 				return nil, validate.PathedError(err, fieldName)
 			}
-
 			if fieldData == nil && schema.Shape().Optional() {
 				continue
 			}
-
 			snakeCaseName := lo.SnakeCase(fieldName)
 			result[snakeCaseName] = fieldData
 		}
 		return result, nil
 	}
-
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -135,14 +130,12 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-
 	if val.Kind() != reflect.Struct {
 		return nil, validate.NewInvalidTypeError(
 			"struct or map[string]any",
 			types.ValueName(val),
 		)
 	}
-
 	result := make(map[string]any)
 	for fieldName, schema := range o.fields {
 		field := fieldByName(val, fieldName)
@@ -152,22 +145,17 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			}
 			return nil, validate.PathedError(validate.RequiredError, fieldName)
 		}
-
 		fieldData, err := schema.Dump(field.Interface())
 		if err != nil {
 			return nil, validate.PathedError(err, fieldName)
 		}
-
-		// Skip nil optional fields
 		if fieldData == nil && schema.Shape().Optional() {
 			continue
 		}
-
 		// Convert field name to snake case for output
 		snakeCaseName := lo.SnakeCase(fieldName)
 		result[snakeCaseName] = fieldData
 	}
-
 	return result, nil
 }
 
@@ -183,7 +171,6 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	if err := o.validateDestination(destVal); err != nil {
 		return err
 	}
-
 	// Handle nil data for optional fields
 	if data == nil {
 		if o.optional {
@@ -191,31 +178,25 @@ func (o ObjectZ) Parse(data any, dest any) error {
 		}
 		return errors.WithStack(validate.RequiredError)
 	}
-
 	destVal = destVal.Elem()
-
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() != reflect.Map {
 		return NewInvalidDestinationTypeError("map[string]any", dataVal)
 	}
-
 	dataMap, ok := data.(map[string]any)
 	if !ok {
 		return NewInvalidDestinationTypeError("map[string]any", destVal)
 	}
-
 	// Create a map of snake case field names to their original names
 	fieldNameMap := make(map[string]string)
 	for fieldName := range o.fields {
 		fieldNameMap[lo.SnakeCase(fieldName)] = fieldName
 	}
-
 	for fieldName, fieldSchema := range o.fields {
 		field := fieldByName(destVal, fieldName)
 		if !field.IsValid() {
 			continue
 		}
-
 		// Try both original and snake case field names
 		fieldData, exists := getFieldOnMap(dataMap, fieldName)
 		if !exists {
@@ -224,12 +205,10 @@ func (o ObjectZ) Parse(data any, dest any) error {
 			}
 			return validate.PathedError(validate.RequiredError, fieldName)
 		}
-
 		if err := fieldSchema.Parse(fieldData, field.Addr().Interface()); err != nil {
 			return validate.PathedError(err, fieldName)
 		}
 	}
-
 	return nil
 }
 

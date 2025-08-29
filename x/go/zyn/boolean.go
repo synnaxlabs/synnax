@@ -60,7 +60,6 @@ func (b BoolZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() == reflect.Pointer {
 		if dataVal.IsNil() {
@@ -71,7 +70,6 @@ func (b BoolZ) Dump(data any) (any, error) {
 		}
 		dataVal = dataVal.Elem()
 	}
-
 	var boolVal bool
 	switch dataVal.Kind() {
 	case reflect.Bool:
@@ -103,11 +101,9 @@ func (b BoolZ) Parse(data any, dest any) error {
 	if err := b.validateDestination(destVal); err != nil {
 		return err
 	}
-
 	if ok, err := validateNilData(destVal, data, b.baseZ); !ok || err != nil {
 		return err
 	}
-
 	destVal = destVal.Elem()
 	// If the destination is a pointer, we need to allocate it
 	if destVal.Kind() == reflect.Pointer {
@@ -116,7 +112,6 @@ func (b BoolZ) Parse(data any, dest any) error {
 		}
 		destVal = destVal.Elem()
 	}
-
 	var boolVal bool
 	switch v := data.(type) {
 	case bool:

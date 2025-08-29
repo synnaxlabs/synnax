@@ -172,7 +172,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -183,7 +182,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-
 	// If an expected type is set and coercion is not enabled, validate the input type
 	if n.dataType != NumberT && !n.coerce {
 		if val.Type() != n.expectedType {
@@ -194,7 +192,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		return val.Interface(), nil
 	}
-
 	// If the source is a custom type, try to convert it to a basic type first
 	if val.Type().Kind() != reflect.Float64 &&
 		val.Type().Kind() != reflect.Float32 &&
@@ -214,7 +211,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 			return nil, cannotConvertToNumberError(val)
 		}
 	}
-
 	if n.dataType != NumberT {
 		switch n.expectedType.Kind() {
 		case reflect.Float64, reflect.Float32:
@@ -299,7 +295,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 			types.ValueName(val),
 		)
 	}
-
 	// If no expected type is set, return the value in its most appropriate form
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
@@ -326,10 +321,8 @@ func (n NumberZ) Parse(data any, dest any) error {
 	if ok, err := validateNilData(destVal, data, n.baseZ); !ok || err != nil {
 		return err
 	}
-
 	destType := destVal.Type().Elem()
 	destVal = destVal.Elem()
-
 	if destVal.Kind() == reflect.Pointer {
 		if destVal.IsNil() {
 			destVal.Set(reflect.New(destType.Elem()))
@@ -337,20 +330,17 @@ func (n NumberZ) Parse(data any, dest any) error {
 		destVal = destVal.Elem()
 		destType = destType.Elem()
 	}
-
 	srcVal := reflect.ValueOf(data)
 	srcValName := types.ValueName(srcVal)
 	convertibleErr := validate.NewInvalidTypeError(
 		"number or convertible to number",
 		srcValName,
 	)
-
 	if n.dataType != NumberT && !n.coerce {
 		if srcVal.Type() != n.expectedType {
 			return validate.NewInvalidTypeError(n.expectedType.String(), srcValName)
 		}
 	}
-
 	if srcVal.Type().Kind() != reflect.Float64 &&
 		srcVal.Type().Kind() != reflect.Float32 &&
 		srcVal.Type().Kind() != reflect.Int &&
@@ -369,7 +359,6 @@ func (n NumberZ) Parse(data any, dest any) error {
 			return convertibleErr
 		}
 	}
-
 	// Handle the destination type
 	switch destType.Kind() {
 	case reflect.Float64, reflect.Float32:

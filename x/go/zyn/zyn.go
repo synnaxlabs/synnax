@@ -80,7 +80,7 @@ var (
 	Uint32TypeSchema  = Literal(Uint32T)
 	Uint64TypeSchema  = Literal(Uint64T)
 	Float32TypeSchema = Literal(Float32T)
-	Float64TypeShema  = Literal(Float64T)
+	Float64TypeSchema = Literal(Float64T)
 	IntegerTypes      = []DataType{
 		IntT,
 		Int8T,
@@ -93,28 +93,19 @@ var (
 		Uint32T,
 		Uint64T,
 	}
-	IntegerTypeSchema  = Enum(IntegerTypes...)
-	FloatingPointTypes = []DataType{
-		Float32T,
-		Float64T,
-	}
+	IntegerTypeSchema       = Enum(IntegerTypes...)
+	FloatingPointTypes      = []DataType{Float32T, Float64T}
 	FloatingPointTypeSchema = Enum(FloatingPointTypes...)
 	NumericTypes            = slices.Concat(
 		[]DataType{NumberT},
 		IntegerTypes,
 		FloatingPointTypes,
 	)
-	NumericTypeSchema = Enum(NumericTypes...)
-	PrimitiveTypes    = slices.Concat(
-		[]DataType{StringT, BoolT, UUIDT},
-		NumericTypes,
-	)
+	NumericTypeSchema   = Enum(NumericTypes...)
+	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat(
-		[]DataType{ObjectT},
-		PrimitiveTypes,
-	)
-	AnyDataTypeSchema = Enum(DataTypes...)
+	DataTypes           = slices.Concat([]DataType{ObjectT}, PrimitiveTypes)
+	AnyDataTypeSchema   = Enum(DataTypes...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }

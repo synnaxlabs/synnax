@@ -57,9 +57,7 @@ func (v *Validator) Newf(format string, args ...any) error {
 }
 
 func (v *Validator) Func(f func() bool, msg string) bool {
-	v.Exec(func() error {
-		return lo.Ternary(f(), v.New(msg), nil)
-	})
+	v.Exec(func() error { return lo.Ternary(f(), v.New(msg), nil) })
 	return v.Error() != nil
 }
 
@@ -109,7 +107,9 @@ func LessThanEq[T types.Numeric](
 	return v.Ternaryf(
 		field,
 		value > threshold,
-		"must be less than or equal to %v", threshold)
+		"must be less than or equal to %v",
+		threshold,
+	)
 }
 
 func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
