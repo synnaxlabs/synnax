@@ -39,10 +39,13 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {dev, err};
     dev.is_simulated = is_simulated;
-    
-    LOG(INFO) << "Device: " << dev;
+    LOG(INFO) << "Processing device resource: " << resource;
+    LOG(INFO) << "Device Key: " << dev.key;
+    LOG(INFO) << "Device Model: " << dev.model;
+    LOG(INFO) << "Device Rack: " << dev.rack;
+
     if (!is_simulated) {
-        LOG(INFO) << "Physical device detected: " << resource;
+        LOG(INFO) << "Physical device detected";
         if (const auto err = this->syscfg->GetResourceProperty(
                 resource,
                 NISysCfgResourcePropertySerialNumber,
