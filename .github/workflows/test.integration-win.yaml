@@ -25,9 +25,7 @@ jobs:
           SKIP_BUILD: ${{ env.SKIP_BUILD }}
           REF_RUN_ID: ${{ env.REF_RUN_ID }}
         run: |
-
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
-
           if [ "${SKIP_BUILD}" = "false" ]; then
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
             echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}"
