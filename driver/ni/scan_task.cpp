@@ -57,6 +57,9 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         dev.key = property_value_buf;
         LOG(INFO) << "Physical device serial number: " << dev.key;
     }
+    else {
+        LOG(INFO) << "Simulated device detected";
+    }
 
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
