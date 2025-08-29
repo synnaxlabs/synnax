@@ -60,10 +60,12 @@ export const createCreateLayout = (
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 
+const DEFAULT_REGION_KEY = "default";
+const DEFAULT_REGION_NAME = "Default";
+
 export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const isEdit = params.key != null;
-  const baseRegionID = `base-region-${id.create()}`;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
@@ -93,8 +95,8 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
             name: "Base",
             regions: [
               {
-                key: baseRegionID,
-                name: "All Elements",
+                key: DEFAULT_REGION_KEY,
+                name: DEFAULT_REGION_NAME,
                 selectors: [],
                 strokeColor: color.hex(theme.colors.gray.l10),
                 fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
@@ -115,7 +117,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
     useCombinedStateAndRef<string>("base");
   const [selectedRegion, setSelectedRegion, selectedRegionRef] = useCombinedStateAndRef<
     string | undefined
-  >(baseRegionID);
+  >(DEFAULT_REGION_KEY);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addNewRegion = () => {

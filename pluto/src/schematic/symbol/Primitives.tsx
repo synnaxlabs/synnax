@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/primitives/Primitives.css";
+import "@/schematic/symbol/Primitives.css";
 
 import {
   color,
@@ -41,9 +41,9 @@ import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Input } from "@/input";
 import { Symbol } from "@/schematic/symbol";
+import { useCustom } from "@/schematic/symbol/Custom";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { useApplyRemote } from "@/vis/schematic/primitives/Remote";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -497,11 +497,11 @@ export const SolenoidValve = ({
   </Toggle>
 );
 
-export interface RemoteActuatorProps extends ToggleProps, SVGBasedPrimitiveProps {
+export interface CustomActuatorProps extends ToggleProps, SVGBasedPrimitiveProps {
   specKey: string;
 }
 
-export const RemoteActuator = ({
+export const CustomActuator = ({
   specKey,
   enabled = false,
   triggered = false,
@@ -510,25 +510,23 @@ export const RemoteActuator = ({
   scale = 1,
   className,
   ...rest
-}: RemoteActuatorProps): ReactElement | null => {
+}: CustomActuatorProps): ReactElement | null => {
   const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
   const svgContainerRef = useRef<HTMLButtonElement>(null);
-  useApplyRemote(
-    svgContainerRef.current,
+  useCustom({
+    container: svgContainerRef.current,
     orientation,
-    enabled ? "active" : "base",
-    scale,
-    spec?.data?.data,
-  );
-  if (spec.data?.data == null) return null;
-
-  const handles = spec.data?.data?.handles || [];
-
+    activeState: enabled ? "active" : "base",
+    externalScale: scale,
+    spec: spec?.data?.data,
+  });
+  const handles = spec?.data?.data?.handles || [];
   return (
     <Toggle
       ref={svgContainerRef}
       className={CSS(
-        CSS.B("remote-actuator"),
+        CSS.BM("symbol", "custom"),
+        CSS.B("custom-actuator"),
         orientation != null && CSS.loc(orientation),
         enabled && CSS.M("enabled"),
         triggered && CSS.M("triggered"),

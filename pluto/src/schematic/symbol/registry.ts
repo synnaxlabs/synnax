@@ -14,9 +14,6 @@ import { z } from "zod";
 
 import { removeProps } from "@/component/removeProps";
 import { Icon } from "@/icon";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
-import { type Theming } from "@/theming";
 import {
   BoxForm,
   ButtonForm,
@@ -34,13 +31,13 @@ import {
   TankForm,
   TextBoxForm,
   ValueForm,
-} from "@/vis/schematic/Forms";
-import { Primitives } from "@/vis/schematic/primitives";
+} from "@/schematic/symbol/Forms";
 import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   DEFAULT_POLYGON_SIDE_LENGTH,
-} from "@/vis/schematic/primitives/Primitives";
+} from "@/schematic/symbol/Primitives";
+import * as Primitives from "@/schematic/symbol/Primitives";
 import {
   Agitator,
   type AgitatorProps,
@@ -239,7 +236,10 @@ import {
   type ValveProps,
   Vent,
   type VentProps,
-} from "@/vis/schematic/Symbols";
+} from "@/schematic/symbol/Symbols";
+import { telem } from "@/telem/aether";
+import { control } from "@/telem/control/aether";
+import { type Theming } from "@/theming";
 import { Value as CoreValue } from "@/vis/value";
 
 export interface Spec<P extends object = object> {
@@ -350,7 +350,8 @@ const VARIANTS = [
   "nozzle",
   "strainer",
   "strainerCone",
-  "actuator",
+  "customActuator",
+  "customStatic",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1794,22 +1795,24 @@ const strainerCone: Spec<StrainerConeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const actuator: Spec<RemoteActuatorProps> = {
-  name: "Actuator",
-  key: "actuator",
+const customActuator: Spec<RemoteActuatorProps> = {
+  name: "Custom Actuator",
+  key: "customActuator",
   Form: CommonToggleForm,
   Symbol: RemoteActuator,
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
-    ...zeroLabel("Actuator"),
+    ...zeroLabel("Custom Actuator"),
     ...ZERO_TOGGLE_PROPS,
     specKey: "",
   }),
-  Preview: Primitives.RemoteActuator,
+  Preview: Primitives.CustomActuator,
   zIndex: Z_INDEX_UPPER,
 };
 
-export const SYMBOLS: Record<Variant, Spec<any>> = {
+const customStatic: Spec<RemoteActuatorProps> = customActuator;
+
+export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
@@ -1904,15 +1907,16 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   nozzle,
   strainer,
   strainerCone,
-  actuator,
+  customActuator,
+  customStatic,
 };
 
-export interface SymbolGroup extends group.Payload {
+export interface Group extends group.Payload {
   Icon: Icon.FC;
   symbols: Variant[];
 }
 
-export const SYMBOL_GROUPS: SymbolGroup[] = [
+export const GROUPS: Group[] = [
   {
     key: "general",
     Icon: Icon.Channel,

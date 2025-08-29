@@ -1,5 +1,6 @@
 import { type schematic } from "@synnaxlabs/client";
-import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
+import { Form, Icon, type Input, Select, Theming } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 
@@ -17,23 +18,39 @@ const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
   />
 );
 
-export const SelectVariantField = () => (
-  <Form.Field<string>
-    path="data.variant"
-    showLabel={false}
-    onChange={(next, { get, set }) => {
-      const prev = get("data.variant").value;
-      if (prev === next) return;
-      const prevStates = get<schematic.symbol.State[]>("data.states").value;
-      if (next === "actuator")
-        set("data.states", [
-          ...prevStates,
-          { key: "active", name: "Active", regions: [], color: "#000000" },
-        ]);
-      else if (next === "static")
-        set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
-    }}
-  >
-    {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}
-  </Form.Field>
-);
+export const SelectVariantField = () => {
+  const theme = Theming.use();
+  return (
+    <Form.Field<string>
+      path="data.variant"
+      showLabel={false}
+      onChange={(next, { get, set }) => {
+        const prev = get("data.variant").value;
+        if (prev === next) return;
+        const prevStates = get<schematic.symbol.State[]>("data.states").value;
+        if (next === "actuator")
+          set("data.states", [
+            ...prevStates,
+            {
+              key: "active",
+              name: "Active",
+              regions: [
+                {
+                  key: "default",
+                  name: "Default",
+                  selectors: [],
+                  strokeColor: color.hex(theme.colors.gray.l10),
+                  fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
+                },
+              ],
+              color: color.hex(theme.colors.gray.l10),
+            },
+          ]);
+        else if (next === "static")
+          set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
+      }}
+    >
+      {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}
+    </Form.Field>
+  );
+};

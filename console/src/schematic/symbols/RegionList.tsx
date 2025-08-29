@@ -30,15 +30,18 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
     `data.states.${selectedState}.regions`,
   );
 
+  // Check if this is the default region
+  const isDefaultRegion = region?.key === "default";
+
   return (
     <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
       <Flex.Box x align="center" gap={1}>
         <Form.Field<string> path={`${path}.name`} showLabel={false}>
           {({ onChange, value }) => (
-            <Text.Editable
+            <Text.MaybeEditable
               level="small"
               value={value}
-              onChange={onChange}
+              onChange={isDefaultRegion ? undefined : onChange}
               style={{ minWidth: 80 }}
             />
           )}
@@ -67,10 +70,14 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           )}
         </Form.Field>
         <Button.Button
-          onClick={() => remove(itemKey)}
+          onClick={() => {
+            if (isDefaultRegion) return;
+            remove(itemKey);
+          }}
           size="small"
           variant="text"
           ghost
+          style={{ opacity: isDefaultRegion ? 0 : undefined }}
         >
           <Icon.Close />
         </Button.Button>

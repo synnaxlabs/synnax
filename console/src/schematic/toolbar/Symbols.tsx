@@ -52,7 +52,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const handleDragStart = useCallback(() => {
     startDrag([{ type: "schematic-element", key: itemKey }]);
   }, [startDrag, itemKey]);
-  const spec = List.useItem<string, Schematic.Spec>(itemKey);
+  const spec = List.useItem<string, Schematic.Symbol.Spec>(itemKey);
   const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
   if (spec == null || defaultProps_ == null) return null;
   const { name, Preview } = spec;
@@ -79,7 +79,7 @@ const staticListItem = Component.renderProp(StaticListItem);
 
 export interface GroupProps
   extends Pick<
-    List.FrameProps<string, Schematic.Spec>,
+    List.FrameProps<string, Schematic.Symbol.Spec>,
     "data" | "getItem" | "subscribe"
   > {
   onSelect: (key: string) => void;
@@ -90,17 +90,19 @@ export interface StaticGroupProps extends Pick<GroupProps, "onSelect"> {
 }
 
 const StaticSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
-  const group = Schematic.SYMBOL_GROUPS.find((g) => g.key === groupKey);
+  const group = Schematic.Symbol.GROUPS.find((g) => g.key === groupKey);
   const symbols = useMemo(
     () =>
-      Object.values(Schematic.SYMBOLS).filter((s) => group?.symbols.includes(s.key)),
+      Object.values(Schematic.Symbol.REGISTRY).filter((s) =>
+        group?.symbols.includes(s.key),
+      ),
     [group],
   );
-  const { data, getItem } = List.useStaticData<string, Schematic.Spec>({
+  const { data, getItem } = List.useStaticData<string, Schematic.Symbol.Spec>({
     data: symbols,
   });
   return (
-    <Select.Frame<string, Schematic.Spec>
+    <Select.Frame<string, Schematic.Symbol.Spec>
       data={data}
       getItem={getItem}
       value={undefined}
@@ -121,7 +123,7 @@ export interface RemoteListItemProps extends List.ItemProps<string> {
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
-  const Preview = Schematic.SYMBOLS.actuator.Preview;
+  const Preview = Schematic.Symbol.REGISTRY.customActuator.Preview;
 
   const { startDrag, onDragEnd } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -130,7 +132,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
   const handleDragStart = useCallback(() => {
     startDrag([
-      { type: "schematic-element", key: "actuator", data: { specKey: itemKey } },
+      { type: "schematic-element", key: "customActuator", data: { specKey: itemKey } },
     ]);
   }, [startDrag, itemKey]);
 
@@ -438,7 +440,7 @@ const GroupList = ({
   symbolGroupID,
 }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Payload>({
-    data: Schematic.SYMBOL_GROUPS,
+    data: Schematic.Symbol.GROUPS,
   });
   const remoteData = Group.useList({ initialParams: { parent: symbolGroupID } });
   const data = List.useCombinedData({
@@ -477,10 +479,10 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
   const handleAddElement = useCallback(
     (key: string) => {
-      let variant: Schematic.Variant;
-      if (isRemoteGroup) variant = "actuator";
-      else variant = key as Schematic.Variant;
-      const spec = Schematic.SYMBOLS[variant];
+      let variant: Schematic.Symbol.Variant;
+      if (isRemoteGroup) variant = "customActuator";
+      else variant = key as Schematic.Symbol.Variant;
+      const spec = Schematic.Symbol.REGISTRY[variant];
       const initialProps = spec.defaultProps(theme);
       if (isRemoteGroup) initialProps.specKey = key;
       dispatch(

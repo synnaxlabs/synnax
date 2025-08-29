@@ -171,14 +171,14 @@ export const Preview = ({
     Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  Schematic.useApplyRemote(
-    containerRef.current,
-    "left",
-    selectedState,
-    1,
+  Schematic.Symbol.useCustom({
+    container: containerRef.current,
+    orientation: "left",
+    activeState: selectedState,
+    externalScale: 1,
     spec,
     onMount,
-  );
+  });
 
   const handleContentsChange = (contents: string) => {
     const processedSVG = preprocessSVG(contents);

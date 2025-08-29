@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/symbol";
+export { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/Forms.css";
+import "@/schematic/symbol/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
@@ -29,17 +29,17 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
+import {
+  type ControlStateProps,
+  type LabelExtensionProps,
+} from "@/schematic/symbol/Symbols";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
 import { Button as CoreButton } from "@/vis/button";
-import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
-import {
-  type ControlStateProps,
-  type LabelExtensionProps,
-} from "@/vis/schematic/Symbols";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";

@@ -31,10 +31,9 @@ const storeOriginalAttributes = (el: Element) => {
     if (originalStroke != null)
       el.setAttribute(ORIGINAL_STROKE_ATTRIBUTE, originalStroke);
   }
-  if (!el.hasAttribute(ORIGINAL_STROKE_ATTRIBUTE)) {
-    const originalStroke = el.getAttribute("stroke");
-    if (originalStroke != null)
-      el.setAttribute(ORIGINAL_STROKE_ATTRIBUTE, originalStroke);
+  if (!el.hasAttribute(ORIGINAL_FILL_ATTRIBUTE)) {
+    const originalFill = el.getAttribute("fill");
+    if (originalFill != null) el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, originalFill);
   }
 };
 
@@ -47,18 +46,38 @@ const applyState = (
   iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
     storeOriginalAttributes(el);
     if (strokeColor != null) el.setAttribute("stroke", strokeColor);
-    if (fillColor) el.setAttribute("fill", fillColor);
+    else {
+      // Restore original stroke if no strokeColor specified
+      const originalStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
+      if (originalStroke != null) el.setAttribute("stroke", originalStroke);
+    }
+    
+    if (fillColor != null) el.setAttribute("fill", fillColor);
+    else {
+      // Restore original fill if no fillColor specified
+      const originalFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
+      if (originalFill != null) el.setAttribute("fill", originalFill);
+    }
   });
 };
 
-export const useApplyRemote = (
-  container: HTMLElement | null,
-  orientation: location.Outer,
-  activeState: string,
-  externalScale: number,
-  spec?: schematic.symbol.Spec,
-  onMount?: (svgElement: SVGSVGElement) => void,
-) => {
+export interface UseCustomArgs {
+  container: HTMLElement | null;
+  orientation: location.Outer;
+  activeState: string;
+  externalScale: number;
+  spec?: schematic.symbol.Spec;
+  onMount?: (svgElement: SVGSVGElement) => void;
+}
+
+export const useCustom = ({
+  container,
+  orientation,
+  activeState,
+  externalScale,
+  spec,
+  onMount,
+}: UseCustomArgs) => {
   const svgElementRef = useRef<SVGSVGElement>(null);
   const baseDimsRef = useRef<dimensions.Dimensions>({ width: 0, height: 0 });
 
@@ -93,10 +112,21 @@ export const useApplyRemote = (
     const doc = parser.parseFromString(svg, "image/svg+xml");
     const svgElement = doc.documentElement;
     svgElementRef.current = svgElement as unknown as SVGSVGElement;
-    baseDimsRef.current = {
-      width: svgElementRef.current.viewBox.baseVal.width,
-      height: svgElementRef.current.viewBox.baseVal.height,
-    };
+
+    // Extract dimensions from viewBox attribute for better test compatibility
+    const viewBoxAttr = svgElementRef.current.getAttribute("viewBox");
+    if (viewBoxAttr) {
+      const [, , width, height] = viewBoxAttr.split(" ").map(Number);
+      baseDimsRef.current = { width, height };
+    } else if (svgElementRef.current.viewBox?.baseVal)
+      baseDimsRef.current = {
+        width: svgElementRef.current.viewBox.baseVal.width,
+        height: svgElementRef.current.viewBox.baseVal.height,
+      };
+    else
+      // Fallback to default dimensions if viewBox is not available
+      baseDimsRef.current = { width: 100, height: 100 };
+
     const existingG = svgElement.querySelector("g");
     if (!existingG) {
       const gElement = doc.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -116,8 +146,15 @@ export const useApplyRemote = (
     prevStateRef.current = deep.copy(currState);
   }
 
-  if (internalScaleDiffers || externalScaleDiffers || orientationDiffers) {
+  if (
+    internalScaleDiffers ||
+    externalScaleDiffers ||
+    orientationDiffers ||
+    svgDiffers
+  ) {
     let preScaledDims = baseDimsRef.current;
+    // Use direction.construct to properly determine if we need to swap
+    // This handles the rotation logic correctly
     if (direction.construct(orientation) === "y")
       preScaledDims = dimensions.swap(preScaledDims);
     const scaledDims = dimensions.scale(preScaledDims, scale * externalScale);
@@ -134,12 +171,9 @@ export const useApplyRemote = (
       "path, circle, rect, line, ellipse, polygon, polyline",
     );
     if (!scaleStroke)
-      pathElements.forEach((el) => {
-        el.setAttribute("vector-effect", "non-scaling-stroke");
-      });
-    else
-      pathElements.forEach((el) => {
-        el.removeAttribute("vector-effect");
-      });
+      pathElements.forEach((el) =>
+        el.setAttribute("vector-effect", "non-scaling-stroke"),
+      );
+    else pathElements.forEach((el) => el.removeAttribute("vector-effect"));
   }
 };

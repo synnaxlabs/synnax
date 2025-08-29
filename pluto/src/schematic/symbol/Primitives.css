@@ -35,8 +35,11 @@
         transform: translate(100%, 100%) rotate(180deg);
     }
 
-    & svg {
+    &:not(.pluto-symbol--custom) svg {
         stroke-width: 2px;
+    }
+
+    & svg {
         overflow: visible;
     }
 
