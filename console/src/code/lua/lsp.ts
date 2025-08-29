@@ -14,6 +14,7 @@ import { type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
 import { type Extension } from "@/code/init/initialize";
+import { Runtime } from "@/runtime";
 
 const NOOP_DISPOSER = () => ({ dispose: () => {} });
 
@@ -22,6 +23,7 @@ const stringToError = (str: string): Error => new Error(str);
 export const LANGUAGE = "lua";
 
 const startLuaLSP = async (): Promise<AsyncDestructor> => {
+  if (Runtime.ENGINE !== "tauri") return async () => {};
   const command = Command.create(`lua-language-server-${runtime.getOS()}`);
   const child = await command.spawn();
   const reader: MessageReader = {

@@ -460,8 +460,12 @@ T eventually_nil_p(
 /// @param interval Time to wait between checks
 /// @return The value component of the pair once the error becomes nil
 #define ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(expr, timeout, interval)                  \
-    xtest::eventually_nil_p<typename std::remove_reference<decltype((expr).first       \
-    )>::type>([&]() { return (expr); }, (timeout), (interval))
+    xtest::eventually_nil_p<                                                           \
+        typename std::remove_reference<decltype((expr).first)>::type>(                 \
+        [&]() { return (expr); },                                                      \
+        (timeout),                                                                     \
+        (interval)                                                                     \
+    )
 
 /// @brief Asserts that a boolean condition will eventually become false
 /// @param condition A function that returns the boolean condition to check

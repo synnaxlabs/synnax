@@ -7,7 +7,7 @@ cc_library(
         "service.cpp",
         "start.cpp",
         "version.cpp",
-        "//synnax/pkg/version",
+        "//core/pkg/version",
     ],
     hdrs = ["cmd.h"],
     linkopts = select({

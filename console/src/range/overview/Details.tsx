@@ -10,7 +10,6 @@
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
-  Divider,
   Flex,
   Form,
   Icon,
@@ -20,12 +19,13 @@ import {
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { type NumericTimeRange, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
+import { CSV } from "@/csv";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -88,6 +88,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     ctx: form,
   });
   const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleError = Status.useErrorHandler();
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
@@ -126,6 +127,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     );
   };
 
+  const promptDownloadCSVModal = CSV.useDownloadModal();
+
   if (status.variant === "error")
     return (
       <Status.Summary
@@ -154,38 +157,48 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
-          <Flex.Box
-            x
-            className={CSS.B("copy-buttons")}
-            style={{ height: "fit-content" }}
-            gap="small"
-          >
-            <Flex.Box x gap="small">
-              <Button.Button
-                tooltip={`Copy Python code to retrieve ${name}`}
-                tooltipLocation="bottom"
-                variant="text"
-                onClick={handleCopyPythonCode}
-              >
-                <Icon.Python color={9} />
-              </Button.Button>
-              <Button.Button
-                variant="text"
-                tooltip={`Copy TypeScript code to retrieve ${name}`}
-                tooltipLocation="bottom"
-                onClick={handleCopyTypeScriptCode}
-              >
-                <Icon.TypeScript color={9} />
-              </Button.Button>
-            </Flex.Box>
-            <Divider.Divider y />
+          <Flex.Box x style={{ height: "fit-content" }} gap="small">
+            <Button.Button
+              tooltip={`Download data for ${name} as a CSV`}
+              tooltipLocation={"bottom"}
+              variant="text"
+              onClick={() =>
+                handleError(async () => {
+                  await promptDownloadCSVModal(
+                    {
+                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
+                      name,
+                    },
+                    { icon: "Range" },
+                  );
+                }, "Failed to download CSV")
+              }
+            >
+              <Icon.CSV color={9} />
+            </Button.Button>
+            <Button.Button
+              tooltip={`Copy Python code to retrieve ${name}`}
+              tooltipLocation="bottom"
+              variant="text"
+              onClick={handleCopyPythonCode}
+            >
+              <Icon.Python color={9} />
+            </Button.Button>
+            <Button.Button
+              variant="text"
+              tooltip={`Copy TypeScript code to retrieve ${name}`}
+              tooltipLocation="bottom"
+              onClick={handleCopyTypeScriptCode}
+            >
+              <Icon.TypeScript color={9} />
+            </Button.Button>
             <Button.Button
               variant="text"
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
-              <Icon.Link color={10} />
+              <Icon.Link color={9} />
             </Button.Button>
           </Flex.Box>
         </Flex.Box>
@@ -205,7 +218,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Form.Field<string[]> required={false} path="labels">
-          {({ variant: _, value, onChange }) => (
+          {({ value, onChange }) => (
             <Label.SelectMultiple
               zIndex={100}
               variant="floating"

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2025 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
@@ -37,12 +37,22 @@
             border: none;
         }
         &.pluto--visible {
-            animation: var(--pluto-modal-animation);
+            top: 15%;
             border-color: var(--pluto-gray-l6);
             min-width: 400px;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
             border-radius: 1rem;
+            &.pluto-dialog--modal-position-shifted {
+                top: 8%;
+            }
+            &.pluto-dialog--modal-position-slammed {
+                top: 0;
+            }
+            &:not(.pluto-dialog--passthrough) {
+                transition: top 0.15s ease-in-out;
+                animation: var(--pluto-modal-animation);
+            }
         }
     }
 
@@ -93,7 +103,7 @@
         width: 100%;
         height: 100%;
         z-index: 4;
-        padding: 5rem;
+        padding: 3rem 5rem 3rem 5rem;
         transition: background 0.15s ease-in-out;
         background: var(--pluto-gray-l8-40);
     }
@@ -101,4 +111,10 @@
 
 .pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
     background: var(--pluto-gray-l1-60);
+}
+
+@media (prefers-color-scheme: dark) {
+    .pluto-dialog__bg.pluto--visible {
+        background: var(--pluto-gray-l1-60);
+    }
 }

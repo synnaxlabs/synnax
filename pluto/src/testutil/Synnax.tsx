@@ -76,7 +76,7 @@ export const createSynnaxWrapper = ({
 }: CreateSynnaxWrapperArgs): FC<PropsWithChildren> =>
   newWrapper(client, createFluxClient({ client, excludeFluxStores }));
 
-export const createSynnaxWraperWithAwait = async (
+export const createAsyncSynnaxWrapper = async (
   args: CreateSynnaxWrapperArgs,
 ): Promise<FC<PropsWithChildren>> => {
   const { client } = args;

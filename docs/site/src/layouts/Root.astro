@@ -486,12 +486,13 @@ const {
             border-radius: 1rem !important;
         }
 
-        .pluto-dropdown__bg {
-            backdrop-filter: blur(0.5rem);
-            -webkit-backdrop-filter: blur(0.5rem);
+        .pluto-dialog__bg {
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
+            background: var(--pluto-gray-l0);
         }
         @media (max-width: 600px) and (hover: none) {
-            .pluto-dropdown__dialog {
+            .pluto-dialog__dialog {
                 top: 5rem !important;
                 transform: none !important;
             }

@@ -80,7 +80,8 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         rand_name,
         telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
     ));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(std::vector{rand_name})
+    const auto got = ASSERT_NIL_P(
+        client.ranges.retrieve_by_name(std::vector{rand_name})
     );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
@@ -102,7 +103,8 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     );
     const auto range = ASSERT_NIL_P(client.ranges.create("test", tr));
     const auto range2 = ASSERT_NIL_P(client.ranges.create("test2", tr));
-    const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key({range.key, range2.key})
+    const auto got = ASSERT_NIL_P(
+        client.ranges.retrieve_by_key({range.key, range2.key})
     );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");

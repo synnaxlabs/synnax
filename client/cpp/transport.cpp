@@ -11,16 +11,16 @@
 #include "google/protobuf/empty.pb.h"
 
 /// protos
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.grpc.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
 
 /// module
 #include "client/cpp/transport.h"

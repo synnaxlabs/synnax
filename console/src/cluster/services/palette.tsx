@@ -11,12 +11,14 @@ import { AiFillApi } from "react-icons/ai";
 
 import { Cluster } from "@/cluster";
 import { type Palette } from "@/palette";
+import { Runtime } from "@/runtime";
 
 const CONNECT_COMMAND: Palette.Command = {
   key: "connect-cluster",
   name: "Connect a Cluster",
   icon: <AiFillApi />,
   onSelect: ({ placeLayout }) => placeLayout(Cluster.CONNECT_LAYOUT),
+  visible: () => Runtime.ENGINE === "tauri",
 };
 
 export const COMMANDS = [CONNECT_COMMAND];

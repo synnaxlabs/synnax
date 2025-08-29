@@ -73,21 +73,6 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`, you may
 need to remove them to avoid conflicts.
 
-<Note.Note variant="warning">
-If you've also installed the [Synnax Python
-Client](/reference/python-client/get-started), its `synnax` command may take precedence
-over the one you just installed. To avoid conflicts, rename the binary you've just
-installed to something else, like `synnax-server` by running (you may need to use
-`sudo`):
-
-```
-mv /usr/local/bin/synnax /usr/local/bin/synnax-server
-```
-
-Then, you can run the binary using `synnax-server` instead of `synnax`.
-
-</Note.Note>
-
 Next, give execution permissions to the binary:
 
 ```bash
@@ -138,20 +123,6 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`, you may
 need to remove them to avoid conflicts.
 
-<Note.Note variant="warning">
-If you've also installed the [Synnax Python
-Client](/reference/python-client/get-started), its `synnax` command may take precedence
-over the one you just installed. To avoid conflicts, rename the binary you've just
-installed to something else, like `synnax-server` by running:
-
-```
-mv /usr/local/bin/synnax /usr/local/bin/synnax-server
-```
-
-Then, you can run the binary using `synnax-server` instead of `synnax`.
-
-</Note.Note>
-
 Next, give execution permissions to the binary:
 
 ```bash
@@ -190,13 +161,6 @@ Install the Synnax cluster on Windows by downloading and running the latest inst
 </Flex.Box>
 <br />
 <br />
-
-<Note.Note variant="warning">
-  If you've also installed the [Synnax Python
-  Client](/reference/python-client/get-started), its `synnax` command may take
-  precedence over the one you just installed. You can alternatively use the
-  `synnax-server` command which has also been added to your `PATH`.
-</Note.Note>
 
 To verify that the installation was successful, run the following command in a
 **PowerShell** terminal:

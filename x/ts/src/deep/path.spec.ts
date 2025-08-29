@@ -108,6 +108,7 @@ describe("path", () => {
       deep.set(a, "b.c", 3);
       expect(a).toEqual(b);
     });
+
     it("should set an array index", () => {
       const a: TestRecord = {
         a: 1,
@@ -125,6 +126,19 @@ describe("path", () => {
       };
       deep.set(a, "c.1", 4);
       expect(a).toEqual(b);
+    });
+
+    it("should interpret a leading number also containing letters as a key", () => {
+      const data = {
+        a: [
+          {
+            key: "1b",
+            value: 1,
+          },
+        ],
+      };
+      deep.set(data, "a.1b.value", 2);
+      expect(deep.get(data, "a.1b.value")).toEqual(2);
     });
 
     it("should set a value on a nested object in the array by key", () => {
