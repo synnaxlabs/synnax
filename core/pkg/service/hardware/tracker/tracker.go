@@ -500,6 +500,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 		if rackStatus.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
 		}
+		rackStatus.Time = telem.Now()
 		rackStatus.Variant = status.WarningVariant
 		rackStatus.Message = fmt.Sprintf("Driver %s is not alive", rackStatus.Key)
 		rackStatuses = append(rackStatuses, rackStatus.Status)
@@ -519,6 +520,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 			telem.Since(rackStatus.Time).Truncate(telem.Second),
 		)
 		for _, taskState := range rackStatus.TaskStatuses {
+			taskState.Time = telem.Now()
 			taskState.Variant = status.WarningVariant
 			taskState.Message = msg
 			taskState.Details.Running = false
@@ -527,6 +529,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 
 		for _, dev := range t.mu.Devices {
 			if dev.Details.Rack == rackStatus.Details.Rack {
+				dev.Time = telem.Now()
 				dev.Variant = status.WarningVariant
 				dev.Message = msg
 				deviceStatuses = append(deviceStatuses, dev)
@@ -665,6 +668,7 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 			continue
 		}
 		existing, hasState := t.mu.Devices[c.Key]
+		existing.Time = telem.Now()
 		existing.Key = c.Value.Key
 		existing.Details.Rack = c.Value.Rack
 		existing.Details.Device = c.Key

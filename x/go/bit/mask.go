@@ -24,8 +24,8 @@ func (m Mask128) Swap(i, j int) Mask128 {
 	return m.Set(i, jVal).Set(j, iVal)
 }
 
-// Size returns the size of the mask (128).
-func (m Mask128) Size() int { return 128 }
+// Cap returns the capacity of the mask in bits.
+func (m Mask128) Cap() int { return 128 }
 
 // TrueCount returns the number of 1s in the mask.
 func (m Mask128) TrueCount() int {

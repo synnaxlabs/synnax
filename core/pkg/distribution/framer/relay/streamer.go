@@ -137,7 +137,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 			case f := <-responses.Outlet():
 				if filtered := f.Frame.FilterKeys(r.cfg.Keys); !filtered.Empty() {
-					res := Response{Frame: f.Frame.FilterKeys(r.cfg.Keys)}
+					res := Response{Frame: filtered}
 					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
 						return err
 					}

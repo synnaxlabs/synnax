@@ -60,9 +60,6 @@ func (f Frame) SplitByLeaseholder() map[cluster.NodeKey]Frame {
 	return frames
 }
 
-// Sort sorts the frame in place by channel key.
-func (f *Frame) Sort() { f.Frame.Sort() }
-
 // SplitByHost splits the frame into three frames based on the leaseholder of each channel:
 // - local: contains series for channels leased by the specified host
 // - remote: contains series for channels leased by other hosts

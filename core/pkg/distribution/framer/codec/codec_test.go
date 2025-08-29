@@ -355,6 +355,171 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame2.Frame))
 		})
 	})
+
+	Describe("Sorter Reuse", func() {
+		It("Should correctly handle encoding frames of varying sizes sequentially", func() {
+			keys := channel.Keys{1, 2, 3, 4, 5}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Int64T, telem.Uint8T, telem.Float64T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			largeFrame := core.MultiFrame(
+				channel.Keys{5, 3, 1, 4, 2},
+				[]telem.Series{
+					telem.NewSeriesV[float64](1.1, 2.2, 3.3),
+					telem.NewSeriesV[int64](100, 200, 300),
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[uint8](10, 20, 30),
+					telem.NewSeriesV[float32](4.4, 5.5, 6.6),
+				},
+			)
+			encoded1 := MustSucceed(codec.Encode(ctx, largeFrame))
+			decoded1 := MustSucceed(codec.Decode(encoded1))
+			Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+
+			smallFrame := core.MultiFrame(
+				channel.Keys{2, 4},
+				[]telem.Series{
+					telem.NewSeriesV[float32](7.7, 8.8),
+					telem.NewSeriesV[uint8](40, 50),
+				},
+			)
+			encoded2 := MustSucceed(codec.Encode(ctx, smallFrame))
+			decoded2 := MustSucceed(codec.Decode(encoded2))
+			Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+
+			anotherLargeFrame := core.MultiFrame(
+				channel.Keys{4, 2, 1, 3},
+				[]telem.Series{
+					telem.NewSeriesV[uint8](60, 70, 80, 90),
+					telem.NewSeriesV[float32](9.9, 10.10),
+					telem.NewSeriesV[int32](4, 5, 6, 7, 8),
+					telem.NewSeriesV[int64](400, 500),
+				},
+			)
+			encoded3 := MustSucceed(codec.Encode(ctx, anotherLargeFrame))
+			decoded3 := MustSucceed(codec.Decode(encoded3))
+			Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
+
+			emptyFrame := core.Frame{}
+			encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
+			decoded4 := MustSucceed(codec.Decode(encoded4))
+			Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
+		})
+	})
+
+	Describe("Duplicate Channel Keys Sorting", func() {
+		It("Should correctly sort and encode frames with duplicate channel keys", func() {
+			keys := channel.Keys{10, 20, 30}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float64T, telem.Uint8T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// Create frame with multiple series for the same channels in random order
+			frame := core.MultiFrame(
+				channel.Keys{20, 10, 30, 10, 20, 30, 10},
+				[]telem.Series{
+					telem.NewSeriesV[float64](1.1, 2.2),         // channel 20
+					telem.NewSeriesV[int32](100, 200, 300),      // channel 10
+					telem.NewSeriesV[uint8](5, 6, 7),            // channel 30
+					telem.NewSeriesV[int32](400, 500),           // channel 10
+					telem.NewSeriesV[float64](3.3, 4.4, 5.5),    // channel 20
+					telem.NewSeriesV[uint8](8, 9),               // channel 30
+					telem.NewSeriesV[int32](600, 700, 800, 900), // channel 10
+				},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			Expect(decoded.Count()).To(Equal(7))
+
+			ch10Series := decoded.Get(10)
+			Expect(len(ch10Series.Series)).To(Equal(3))
+			ch20Series := decoded.Get(20)
+			Expect(len(ch20Series.Series)).To(Equal(2))
+			ch30Series := decoded.Get(30)
+			Expect(len(ch30Series.Series)).To(Equal(2))
+
+			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+		})
+	})
+
+	Describe("Edge Cases", func() {
+		It("Should handle frames with very large channel key values", func() {
+			keys := channel.Keys{channel.Key(^uint32(0)), channel.Key(^uint32(0) - 1), channel.Key(1)}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint64T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			frame := core.MultiFrame(
+				channel.Keys{channel.Key(^uint32(0) - 1), channel.Key(^uint32(0)), channel.Key(1)},
+				[]telem.Series{
+					telem.NewSeriesV[float32](1.1, 2.2, 3.3),
+					telem.NewSeriesV[int32](10, 20, 30),
+					telem.NewSeriesV[uint64](100, 200, 300),
+				},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+		})
+
+		It("Should handle encoding after an empty frame (sorter reset edge case)", func() {
+			keys := channel.Keys{5, 10, 15}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			frame1 := core.MultiFrame(
+				channel.Keys{15, 5, 10},
+				[]telem.Series{
+					telem.NewSeriesV[uint8](1, 2, 3),
+					telem.NewSeriesV[int32](10, 20),
+					telem.NewSeriesV[float32](1.5, 2.5, 3.5),
+				},
+			)
+			encoded1 := MustSucceed(codec.Encode(ctx, frame1))
+			decoded1 := MustSucceed(codec.Decode(encoded1))
+			Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
+
+			emptyFrame := core.Frame{}
+			encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
+			decoded2 := MustSucceed(codec.Decode(encoded2))
+			Expect(decoded2.Empty()).To(BeTrue())
+
+			frame3 := core.MultiFrame(
+				channel.Keys{10, 5},
+				[]telem.Series{
+					telem.NewSeriesV[float32](4.5, 5.5),
+					telem.NewSeriesV[int32](30, 40, 50),
+				},
+			)
+			encoded3 := MustSucceed(codec.Encode(ctx, frame3))
+			decoded3 := MustSucceed(codec.Decode(encoded3))
+			Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
+		})
+
+		It("Should handle single channel frame after multi-channel frame", func() {
+			keys := channel.Keys{100, 200, 300}
+			dataTypes := []telem.DataType{telem.Int64T, telem.Float64T, telem.StringT}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			multiFrame := core.MultiFrame(
+				channel.Keys{300, 100, 200},
+				[]telem.Series{
+					telem.NewSeriesStringsV("hello", "world"),
+					telem.NewSeriesV[int64](1000, 2000, 3000),
+					telem.NewSeriesV[float64](1.111, 2.222),
+				},
+			)
+			encoded1 := MustSucceed(codec.Encode(ctx, multiFrame))
+			decoded1 := MustSucceed(codec.Decode(encoded1))
+			Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+
+			singleFrame := core.UnaryFrame(200, telem.NewSeriesV[float64](9.999))
+			encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
+			decoded2 := MustSucceed(codec.Decode(encoded2))
+			Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+		})
+	})
 })
 
 func BenchmarkEncode(b *testing.B) {
