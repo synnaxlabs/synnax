@@ -11,6 +11,7 @@ synnax-freighter = { path = "../../freighter/py", develop = true }
 alamos = { path = "../../alamos/py", develop = true }
 synnax = { path = "../../client/py", develop = true }
 numpy = "^2.2.1"
+matplotlib = "^3.8.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
