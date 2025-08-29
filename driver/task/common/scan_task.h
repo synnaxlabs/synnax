@@ -275,22 +275,21 @@ public:
 
         if (to_create.empty()) return xerrors::NIL;
         return this->client->create_devices(to_create);
-        '''
-        Add this after validating logging:
+        
+        //Add this after validating logging:
         // Create devices individually to avoid atomic transaction failure
-        xerrors::Error last_err = xerrors::NIL;
-        for (auto &device : to_create) {
-            std::vector<synnax::Device> single_device = {device};
-            if (const auto err = this->client->create_devices(single_device)) {
-                LOG(WARNING) << "[scan_task] failed to create device " << device.key 
-                           << ": " << err.message();
-                last_err = err;
-            } else {
-                LOG(INFO) << "[scan_task] successfully created device " << device.key;
-            }
-        }
-        return last_err;
-        '''
+        //xerrors::Error last_err = xerrors::NIL;
+        //for (auto &device : to_create) {
+        //    std::vector<synnax::Device> single_device = {device};
+        //    if (const auto err = this->client->create_devices(single_device)) {
+        //        LOG(WARNING) << "[scan_task] failed to create device " << device.key 
+        //                   << ": " << err.message();
+        //        last_err = err;
+        //    } else {
+        //        LOG(INFO) << "[scan_task] successfully created device " << device.key;
+        //    }
+        // }
+        //return last_err;
     }
 
     xerrors::Error propagate_state() {
