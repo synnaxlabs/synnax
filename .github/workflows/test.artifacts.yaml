@@ -1,4 +1,5 @@
-name: Test Build - Artifacts
+name: Test - Artifacts
+#run-name: Test - Artifacts (${{ github.run_id }})
 
 on:
   push:
@@ -6,323 +7,130 @@ on:
       - "sy-2746-ni-device-scanner-detection-failure"
   workflow_dispatch:
 
-
-permissions:
-  contents: write
-  packages: write
-
 env:
   CACHE_SCOPE: deploy-synnax
+  SKIP_BUILD: false
+  REF_RUN_ID: '17309620670'
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
+      SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Get Version
-        id: version
-        working-directory: synnax
+      - name: Set outputs
+        id: set-outputs
+        env:
+          SKIP_BUILD: ${{ env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ env.REF_RUN_ID }}
         run: |
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+
+          if [ "${SKIP_BUILD}" = "false" ]; then
+            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}"
           else
-            echo "VERSION=$(cat pkg/version/VERSION)-tc" >> $GITHUB_OUTPUT
+            echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: rc
-          filters: |
-            changed:
-              - .github/workflows/deploy.synnax.yaml
-              - alamos/go/**
-              - aspen/**
-              - cesium/**
-              - client/cpp/**
-              - driver/**
-              - freighter/go/**
-              - synnax/**
-              - x/cpp/**
-              - x/go/**
-
-  build:
+  build-windows-latest:
+    name: Build Synnax (windows-latest)
+    timeout-minutes: 60
+    runs-on: windows-latest
     needs: setup
-    name: Build (${{ matrix.os }})
-    if: needs.setup.outputs.changed == 'true'
-    env:
-      GH_TOKEN: ${{ github.token }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v4
 
-      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: matrix.os == 'windows-latest'
+      - name: Setup Windows SDK
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22000
 
       - name: Update Submodules
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
-
       - name: Setup Bazel
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
+          disk-cache: deploy-synnax-windows-latest
           repository-cache: true
 
-      - name: Build Driver
-        if: matrix.os != 'windows-latest'
-        run: |
-          if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
-          else
-            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
-          fi
-
-      - name: Build Driver (Windows)
-        if: matrix.os == 'windows-latest'
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
-      
-      - name: Download relic for Windows signing
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-
-      - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Determine OS
-        id: os
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "macos-15" ]; then
-            echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Determine Executable Name
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
-          else
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-
-      - name: Sign macOS Driver Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
-        run: |
-          # Create entitlements file to disable library validation for LabJack support
-          cat > driver-entitlements.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>com.apple.security.cs.disable-library-validation</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-          
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
-          codesign --verify --verbose bazel-bin/driver/driver
-
-      - name: Sign Windows Driver Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        shell: pwsh
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          # Path to Bazel output
-          $bin = "bazel-bin\driver\driver.exe"
-
-          # Give any AV/indexers a moment to release handles
-          Start-Sleep -Seconds 2
-
-          # Clear Windows file attributes first; Bazel marks outputs read-only
-          attrib -R -S -H -A $bin
-
-          # (Optional) ensure ownership + broad write perms; attrib is the key piece
-          takeown /F $bin | Out-Null
-          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null  # Everyone:F via well-known SID
-
-          # Retry a few times in case something still has a transient lock
-          $max = 5
-          for ($i = 1; $i -le $max; $i++) {
-            try {
-              relic sign --file $bin --key azure --config relic.conf
-              break
-            } catch {
-              if ($i -eq $max) { throw }
-              Start-Sleep -Seconds 3
-            }
-          }
-
-      - name: Rename Driver Binary
-        shell: bash
-        run: |
-          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
-
-      - name: Upload Driver Binary as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: synnax-driver-${{ steps.os.outputs.OS }}
-          path: synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
-          retention-days: 15
-          compression-level: 0
-
-      - name: Move Driver to Assets
-        shell: bash
-        run: |
-          cp synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-
-      - name: Create Driver Install Script for NI Linux RT
-        if: matrix.os == 'ubuntu-22.04'
-        shell: bash
-        run: |
-          cat > install-driver-nilinuxrt.sh << 'EOF'
-          #!/bin/bash
-          VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
-          DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
-          # Note: Download URL updated for artifact-based deployment
-          echo "Download the driver binary from GitHub Actions artifacts"
-          chmod +x $DRIVER_BINARY
-          ./$DRIVER_BINARY stop
-          sudo ./$DRIVER_BINARY install
-          ./$DRIVER_BINARY start
-          EOF
-
-      - name: Upload NI Linux RT Install Script as Artifact
-        if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
-        with:
-          name: install-driver-nilinuxrt-script
-          path: install-driver-nilinuxrt.sh
-          retention-days: 15
-          compression-level: 0
-
       - name: Set up Go
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
+      - name: Build Driver (Windows)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
+
+      - name: Move Driver to Assets  
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        shell: cmd
+        run: |
+          if not exist synnax\pkg\service\hardware\embedded\assets mkdir synnax\pkg\service\hardware\embedded\assets
+          copy bazel-bin\driver\driver.exe synnax\pkg\service\hardware\embedded\assets\driver.exe
+
+      - name: Get Version
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        id: version
+        working-directory: synnax
+        shell: cmd
+        run: |
+          for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
+          echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
+
       - name: Download Dependencies
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: synnax
         run: go mod download
 
-      - name: Build
+      - name: Build Server
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: synnax
-        run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+        run: go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
 
-      - name: Sign macOS Server Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
-        working-directory: synnax
+      - name: Test Binary Execution
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        continue-on-error: true
+        shell: cmd
         run: |
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
-          codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+          echo Testing binary execution...
+          synnax\synnax-v${{ steps.version.outputs.VERSION }}-windows.exe version || echo ⚠️ Server binary check failed
+          bazel-bin\driver\driver.exe version || echo ⚠️ Driver binary check failed
 
-      - name: Sign Windows Server Binary
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe --key azure --config relic.conf
+      - name: Skip Build (Windows Latest)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
+        run: echo "Build skipped - using reference artifacts"
+
+      - name: Upload Driver Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-windows
+          path: bazel-bin/driver/driver.exe
+          retention-days: 7
 
       - name: Upload Server Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-server-${{ steps.os.outputs.OS }}
-          path: ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
-          retention-days: 15
-          compression-level: 0
+          name: synnax-server-windows
+          path: synnax/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
+          retention-days: 7
 
-      - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        shell: powershell
-        run: |
-          # Ensure EnVar.dll is present in the correct plugin path
-          $pluginPath = "${env:ProgramFiles(x86)}\NSIS\Plugins\x86-unicode"
-          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
-
-          # Prepare the binary for packaging
-          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
-
-          # Build the installer
-          & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
-
-      - name: Sign Windows Installer
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
-
-      - name: Upload Windows Installer as Artifact
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: synnax-windows-installer
-          path: .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
-          retention-days: 15
-          compression-level: 0
-
-      # Docker build/push commands removed - artifacts should remain local to the run
+      - name: Debug Build Environment
+        if: failure()
+        shell: cmd
+        run: scripts/integration/debug-build-environment-windows.cmd
