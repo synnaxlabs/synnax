@@ -123,7 +123,10 @@ export interface RemoteListItemProps extends List.ItemProps<string> {
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
-  const Preview = Schematic.Symbol.REGISTRY.customActuator.Preview;
+  // Determine if symbol is static or dynamic based on variant or number of states
+  const isStatic = symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
+  const variant = isStatic ? "customStatic" : "customActuator";
+  const Preview = Schematic.Symbol.REGISTRY[variant].Preview;
 
   const { startDrag, onDragEnd } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -132,9 +135,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
   const handleDragStart = useCallback(() => {
     startDrag([
-      { type: "schematic-element", key: "customActuator", data: { specKey: itemKey } },
+      { type: "schematic-element", key: variant, data: { specKey: itemKey } },
     ]);
-  }, [startDrag, itemKey]);
+  }, [startDrag, itemKey, variant]);
 
   if (symbol == null) return null;
 
@@ -477,11 +480,23 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
+  
+  // Fetch symbols if it's a remote group
+  const listData = SchematicSymbol.useList(
+    isRemoteGroup ? { initialParams: { parent: group.ontologyID(groupKey) } } : { initialParams: {} },
+  );
+  
   const handleAddElement = useCallback(
     (key: string) => {
       let variant: Schematic.Symbol.Variant;
-      if (isRemoteGroup) variant = "customActuator";
-      else variant = key as Schematic.Symbol.Variant;
+      if (isRemoteGroup) {
+        // Find the symbol to determine if it's static or dynamic
+        const symbol = listData.data?.find((s: schematic.symbol.Symbol) => s.key === key);
+        const isStatic = symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
+        variant = isStatic ? "customStatic" : "customActuator";
+      } else {
+        variant = key as Schematic.Symbol.Variant;
+      }
       const spec = Schematic.Symbol.REGISTRY[variant];
       const initialProps = spec.defaultProps(theme);
       if (isRemoteGroup) initialProps.specKey = key;
@@ -494,7 +509,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         }),
       );
     },
-    [dispatch, layoutKey, theme, isRemoteGroup],
+    [dispatch, layoutKey, theme, isRemoteGroup, listData.data],
   );
 
   const [search, setSearch] = useState("");

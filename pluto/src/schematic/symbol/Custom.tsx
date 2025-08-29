@@ -105,7 +105,7 @@ const RegionControls = ({
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
-    <Flex.Box x>
+    <Flex.Box x align="center">
       <Text.Text level="small" color={9}>
         {caseconv.capitalize(name)}
       </Text.Text>
@@ -128,17 +128,39 @@ const RegionControls = ({
             <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
           )}
         </Form.Field>
-        {canBeReset && (
-          <Button.Button
-            onClick={() => onReset(path)}
-            variant="text"
-            size="small"
-            ghost
-          >
-            <Icon.Reset />
-          </Button.Button>
-        )}
+        <Button.Button
+          onClick={() => onReset(path)}
+          variant="text"
+          size="tiny"
+          style={{ opacity: canBeReset ? 1 : 0 }}
+        >
+          <Icon.Reset />
+        </Button.Button>
       </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+interface RegionListProps {
+  onReset: (path: string) => void;
+  getOriginalRegion: (path: string) => schematic.symbol.Region | null;
+  selectedState: string;
+}
+
+const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListProps) => {
+  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
+    `stateOverrides.${selectedState}.regions`,
+  );
+  return (
+    <Flex.Box y align="stretch">
+      {regions.map((region) => (
+        <RegionControls
+          key={region}
+          onReset={onReset}
+          path={`stateOverrides.${selectedState}.regions.${region}`}
+          getOriginalRegion={getOriginalRegion}
+        />
+      ))}
     </Flex.Box>
   );
 };
@@ -151,11 +173,8 @@ export const StateOverrideControls = ({
   const { data: states } = Form.useFieldList<string, schematic.symbol.State>(
     "stateOverrides",
   );
+  const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  const [selectedState, setSelectedState] = useState<string | null>(states?.[0]);
-  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
-    `stateOverrides.${selectedState}.regions`,
-  );
   retrieve.useEffect({
     params: { key: specKey },
     onChange: (res) => {
@@ -163,12 +182,10 @@ export const StateOverrideControls = ({
       const symbolSpec = res.data.data;
       setOriginalStates(deep.copy(symbolSpec.states));
       const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-
-      if (currentOverrides.value?.length === 0)
-        // Initialize with spec states if no overrides exist
+      if (currentOverrides.value?.length === 0) {
         form.set("stateOverrides", deep.copy(symbolSpec.states));
-      else {
-        // Sync existing overrides with updated spec
+        setSelectedState(symbolSpec.states[0].key);
+      } else {
         const syncedStates = syncStateOverrides(
           currentOverrides.value,
           symbolSpec.states,
@@ -196,25 +213,29 @@ export const StateOverrideControls = ({
     [originalStates],
   );
 
-  if (selectedState == null) return null;
-
   return (
     <Flex.Box y align="stretch">
-      <Select.Buttons keys={states} value={selectedState} onChange={setSelectedState}>
-        {states?.map((state) => (
-          <Select.Button key={state} itemKey={state}>
-            {caseconv.capitalize(state)}
-          </Select.Button>
-        ))}
-      </Select.Buttons>
-      {regions?.map((region) => (
-        <RegionControls
-          key={region}
+      {states.length > 1 && (
+        <Select.Buttons
+          keys={states}
+          value={selectedState}
+          onChange={setSelectedState}
+          full="x"
+        >
+          {states.map((state) => (
+            <Select.Button key={state} itemKey={state} justify="center">
+              {caseconv.capitalize(state)}
+            </Select.Button>
+          ))}
+        </Select.Buttons>
+      )}
+      {selectedState != null && (
+        <RegionList
+          selectedState={selectedState}
           onReset={resetRegion}
-          path={`stateOverrides.${selectedState}.regions.${region}`}
           getOriginalRegion={getOriginalRegion}
         />
-      ))}
+      )}
     </Flex.Box>
   );
 };

@@ -10,3 +10,4 @@
 export * from "@/schematic/symbol/Custom";
 export * from "@/schematic/symbol/queries";
 export * from "@/schematic/symbol/registry";
+export type * from "@/schematic/symbol/Symbols";

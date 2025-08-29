@@ -79,6 +79,8 @@ import {
   type CrossBeamAgitatorProps,
   CrossJunction,
   type CrossJunctionProps,
+  CustomStatic,
+  type CustomStaticProps,
   Cylinder,
   CylinderPreview,
   DiaphragmPump,
@@ -1811,7 +1813,21 @@ const customActuator: Spec<RemoteActuatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const customStatic: Spec<RemoteActuatorProps> = customActuator;
+const customStatic: Spec<CustomStaticProps> = {
+  name: "Custom Static",
+  key: "customStatic",
+  Form: CommonStyleForm,
+  Symbol: CustomStatic,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11,
+    ...zeroLabel("Custom Static"),
+    ...ZERO_PROPS,
+    specKey: "",
+    stateOverrides: [],
+  }),
+  Preview: Primitives.CustomStatic,
+  zIndex: Z_INDEX_UPPER,
+};
 
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,

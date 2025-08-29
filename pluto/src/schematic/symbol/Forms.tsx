@@ -199,7 +199,7 @@ export const CommonStyleForm = ({
   hideOuterOrientation,
 }: CommonStyleFormProps): ReactElement => {
   // Check if this is a custom symbol by looking for specKey
-  const specKey = Form.useFieldValue<string>("specKey");
+  const specKey = Form.useFieldValue<string>("specKey", { optional: true });
   const isCustomSymbol = specKey != null && specKey.length > 0;
 
   return (
@@ -207,7 +207,7 @@ export const CommonStyleForm = ({
       <Flex.Box y grow>
         <LabelControls omit={omit} path="label" />
         <Flex.Box x grow>
-          {isCustomSymbol && <ColorControl path="color" optional />}
+          {!isCustomSymbol && <ColorControl path="color" optional />}
           <Form.Field<boolean>
             path="normallyOpen"
             label="Normally Open"

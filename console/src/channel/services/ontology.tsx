@@ -90,7 +90,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const schematicSymbolProps: PSchematic.ValueProps = {
+  const schematicSymbolProps: PSchematic.Symbol.ValueProps = {
     label: {
       label: name,
       level: "p",
