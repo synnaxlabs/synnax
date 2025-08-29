@@ -88,21 +88,21 @@ describe("remote", () => {
       vi.resetAllMocks();
     });
 
-    it("should return a zero value when no channel has been set", async () => {
+    it("should return a NaN value when no channel has been set", async () => {
       const props: StreamChannelValueProps = {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(0);
+      expect(scv.value()).toBe(NaN);
       expect(scv.testingOnlyValid).toBe(false);
     });
 
-    it("should return a zero value when no leading buffer has been set", async () => {
+    it("should return a NaN value when no leading buffer has been set", async () => {
       const props: StreamChannelValueProps = {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(0);
+      expect(scv.value()).toBe(NaN);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
 
@@ -153,7 +153,7 @@ describe("remote", () => {
       const scv = new StreamChannelValue(c, props);
       const handleChange = vi.fn();
       scv.onChange(handleChange);
-      expect(scv.value()).toBe(0);
+      expect(scv.value()).toBe(NaN);
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
