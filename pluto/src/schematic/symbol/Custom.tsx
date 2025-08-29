@@ -106,7 +106,12 @@ const RegionControls = ({
   const canBeReset = !deep.equal(region, originalRegion);
   return (
     <Flex.Box x align="center">
-      <Text.Text level="small" color={9}>
+      <Text.Text
+        level="small"
+        color={9}
+        style={{ maxWidth: 50, width: 50 }}
+        overflow="ellipsis"
+      >
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
