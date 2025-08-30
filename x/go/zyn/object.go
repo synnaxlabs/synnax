@@ -55,9 +55,7 @@ func (o ObjectZ) Shape() Shape {
 }
 
 // Fields returns a map of field names to their shapes.
-func (o objectShape) Fields() map[string]Shape {
-	return o.fields
-}
+func (o objectShape) Fields() map[string]Shape { return o.fields }
 
 // Field adds a field to the object schema. The field name can be in PascalCase or
 // snake_case. The shape parameter defines the validation rules for the field.
