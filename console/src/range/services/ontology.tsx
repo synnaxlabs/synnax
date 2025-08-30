@@ -32,7 +32,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import {
-  addChildRangeMenuItem,
+  createChildRangeMenuItem,
   addToActivePlotMenuItem,
   addToNewPlotMenuItem,
   clearActiveMenuItem,
@@ -280,7 +280,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />
-          {addChildRangeMenuItem}
+          {createChildRangeMenuItem}
           <PMenu.Divider />
         </>
       )}

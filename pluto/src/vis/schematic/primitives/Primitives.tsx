@@ -1853,7 +1853,7 @@ export const Value = ({
 };
 
 export interface SwitchProps extends Omit<ToggleValveButtonProps, "onClick"> {
-  onClick?: MouseEventHandler<HTMLInputElement>;
+  onClick?: MouseEventHandler<HTMLElement>;
 }
 
 export const Switch = ({

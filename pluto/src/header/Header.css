@@ -25,4 +25,7 @@
     .pluto-header-button-title {
         flex-grow: 1;
     }
+    &.pluto--padded-large {
+        padding: 1rem;
+    }
 }

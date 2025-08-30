@@ -39,6 +39,7 @@ export interface BaseLineProps {
   axes: { x: string; y: string };
   channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
   color: color.Crude;
+  axis: string;
   strokeWidth?: number;
   label?: string;
   downsample?: number;
@@ -90,7 +91,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
-  rangeAnnotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -120,7 +121,7 @@ export const LinePlot = ({
   legendVariant,
   onViewportChange,
   viewportTriggers,
-  rangeAnnotationProvider: annotationProvider,
+  rangeProviderProps,
   onSelectRule,
   children,
   ...rest
@@ -153,7 +154,7 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
-            annotationProvider={annotationProvider}
+            rangeProviderProps={rangeProviderProps}
             onRuleChange={onRuleChange}
             onSelectRule={onSelectRule}
           />
@@ -197,7 +198,7 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
-  annotationProvider?: Range.ProviderProps;
+  rangeProviderProps?: Range.ProviderProps;
 }
 
 const XAxis = ({
@@ -210,7 +211,7 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
-  annotationProvider,
+  rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -270,7 +271,7 @@ const XAxis = ({
           onSelect={() => onSelectRule?.(rule.key)}
         />
       ))}
-      <Range.Provider {...annotationProvider} />
+      <Range.Provider {...rangeProviderProps} />
     </Core.XAxis>
   );
 };
@@ -328,7 +329,7 @@ const YAxis = ({
       onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
-        <Line key={lineKey(l)} line={l} />
+        <Line key={lineKey(l)} line={{ ...l, axis: key }} />
       ))}
       {rules?.map((r) => (
         <Rule.Rule
@@ -392,6 +393,7 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
+    axis,
     ...rest
   },
 }: {

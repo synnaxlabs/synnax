@@ -19,7 +19,7 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { useStateRef } from "@/hooks/ref";
+import { useCombinedStateAndRef, useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
@@ -90,7 +90,7 @@ export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   zoom: [["MouseLeft"]],
   zoomReset: [["MouseLeft", "Control"]],
   pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
-  select: [["MouseLeft", "Alt"]],
+  select: [["MouseLeft", "Alt"], ["MouseRight"]],
   cancel: [["Escape"]],
 };
 
@@ -151,7 +151,7 @@ export const use = ({
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
-  const [maskBox, setMaskBox] = useState<box.Box>(box.ZERO);
+  const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
   // We store the START of the previous pan in statRef, which means
@@ -211,8 +211,9 @@ export const use = ({
       const isClick_ = isClick(box_);
 
       if (stage === "end") {
+        const isContext = triggers.find((t) => t.includes("MouseRight"));
         // This prevents clicks from being registered as a drag
-        if (isClick_) {
+        if (isClick_ && !isContext) {
           if (mode === "zoom") setMaskBox(box.ZERO);
           onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
@@ -225,7 +226,8 @@ export const use = ({
             return next;
           }
           const next = handleZoomSelect(box_, prev, canvas);
-          if (next === null) return prev;
+          if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
+            return prev;
           onChange?.({ box: next, mode, stage, cursor });
 
           if (mode === "zoom") {
