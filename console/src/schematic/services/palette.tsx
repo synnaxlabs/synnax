@@ -11,7 +11,7 @@ import { type Palette } from "@/palette";
 import { Schematic } from "@/schematic";
 import { CreateIcon, ImportIcon } from "@/schematic/services/Icon";
 import { import_ } from "@/schematic/services/import";
-import { createCreateLayout } from "@/schematic/symbols/Create";
+import { createCreateLayout } from "@/schematic/symbols/edit/Edit";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",

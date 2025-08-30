@@ -4,8 +4,8 @@ import { box, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { FileDrop } from "@/schematic/symbols/FileDrop";
-import { HandleOverlay } from "@/schematic/symbols/Handles";
+import { FileDrop } from "@/schematic/symbols/edit/FileDrop";
+import { HandleOverlay } from "@/schematic/symbols/edit/Handles";
 
 interface PreviewProps {
   selectedState: string;

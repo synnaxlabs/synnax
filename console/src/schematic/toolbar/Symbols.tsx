@@ -39,7 +39,7 @@ import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { addElement, setSelectedSymbolGroup } from "@/schematic/slice";
-import { createCreateLayout } from "@/schematic/symbols/Create";
+import { createCreateLayout } from "@/schematic/symbols/edit/Edit";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { useExport as useExportSymbol } from "@/schematic/symbols/export";
 import { useExportGroup } from "@/schematic/symbols/exportGroup";

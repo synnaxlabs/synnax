@@ -20,14 +20,14 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { HandleList } from "@/schematic/symbols/HandleList";
-import { Preview } from "@/schematic/symbols/Preview";
-import { RegionList } from "@/schematic/symbols/RegionList";
+import { HandleList } from "@/schematic/symbols/edit/HandleList";
+import { Preview } from "@/schematic/symbols/edit/Preview";
+import { RegionList } from "@/schematic/symbols/edit/RegionList";
+import { StateList } from "@/schematic/symbols/edit/StateList";
 import { SelectVariantField } from "@/schematic/symbols/SelectVariant";
-import { StateList } from "@/schematic/symbols/StateList";
 import { Triggers } from "@/triggers";
 
-export const CREATE_LAYOUT_TYPE = "schematic_edit_symbol";
+export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
 export interface CreateLayoutArgs extends SchematicSymbol.UseFormParams {
   scale?: number;
@@ -37,8 +37,8 @@ const CREATE_NAME = "Schematic.Create Symbol";
 const EDIT_NAME = "Schematic.Edit Symbol";
 
 export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
-  key: CREATE_LAYOUT_TYPE,
-  type: CREATE_LAYOUT_TYPE,
+  key: EDIT_LAYOUT_TYPE,
+  type: EDIT_LAYOUT_TYPE,
   location: "modal",
   name: CREATE_NAME,
   icon: "Schematic",
@@ -63,9 +63,9 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 const DEFAULT_REGION_KEY = "default";
 const DEFAULT_REGION_NAME = "Default";
 
-export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
+export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const isEdit = params.key != null;
+  const isCreate = params.key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
@@ -287,7 +287,7 @@ export const Create: Layout.Renderer = ({ layoutKey, onClose }): ReactElement =>
             <Triggers.SaveHelpText action="Save to Synnax" />
             <Nav.Bar.End>
               <Button.Button variant="filled" onClick={() => save()}>
-                {isEdit ? "Save" : "Create"}
+                {isCreate ? "Create" : "Save"}
               </Button.Button>
             </Nav.Bar.End>
           </Modals.BottomNavBar>

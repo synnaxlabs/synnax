@@ -34,7 +34,7 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
-import { createCreateLayout } from "@/schematic/symbols/Create";
+import { createCreateLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
