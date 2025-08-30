@@ -42,36 +42,36 @@ describe("math", () => {
   });
   describe("closeTo", () => {
     it("should return true if two numbers are close", () => {
-      expect(math.closeTo(1, 1.0001)).toBeTruthy();
+      expect(math.closeTo(1, 1.0001)).toBe(true);
     });
     it("should return false if two numbers are not close", () => {
-      expect(math.closeTo(1, 1.1)).toBeFalsy();
+      expect(math.closeTo(1, 1.1)).toBe(false);
     });
   });
   describe("equal", () => {
     it("should return true if two numbers are equal", () => {
-      expect(math.equal(1, 1)).toBeTruthy();
+      expect(math.equal(1, 1)).toBe(true);
     });
     it("should return false if two numbers are not equal", () => {
-      expect(math.equal(1, 2)).toBeFalsy();
+      expect(math.equal(1, 2)).toBe(false);
     });
     it("should return true if two bigints are equal", () => {
-      expect(math.equal(1n, 1n)).toBeTruthy();
+      expect(math.equal(1n, 1n)).toBe(true);
     });
     it("should return false if two bigints are not equal", () => {
-      expect(math.equal(1n, 2n)).toBeFalsy();
+      expect(math.equal(1n, 2n)).toBe(false);
     });
     it("should return true if a number and a bigint are equal", () => {
-      expect(math.equal(1, 1n)).toBeTruthy();
+      expect(math.equal(1, 1n)).toBe(true);
     });
     it("should return false if a number and a bigint are not equal", () => {
-      expect(math.equal(1, 2n)).toBeFalsy();
+      expect(math.equal(1, 2n)).toBe(false);
     });
     it("should return true if a bigint and a number are equal", () => {
-      expect(math.equal(1n, 1)).toBeTruthy();
+      expect(math.equal(1n, 1)).toBe(true);
     });
     it("should return false if a bigint and a number are not equal", () => {
-      expect(math.equal(1n, 2)).toBeFalsy();
+      expect(math.equal(1n, 2)).toBe(false);
     });
     it("should handle bigint a and decimal b correctly", () => {
       expect(math.equal(5n, 5.5)).toBe(false);

@@ -33,7 +33,7 @@ describe("connectivity", () => {
     );
     const state = await connectivity.check();
     expect(state.status).toEqual("connected");
-    expect(z.uuid().safeParse(state.clusterKey).success).toBeTruthy();
+    expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
   });
   describe("version compatibility", () => {
     it("should pull the server and client versions", async () => {
@@ -51,7 +51,7 @@ describe("connectivity", () => {
         __VERSION__,
       );
       const state = await connectivity.check();
-      expect(state.clientServerCompatible).toBeTruthy();
+      expect(state.clientServerCompatible).toBe(true);
       expect(state.clientVersion).toBe(__VERSION__);
     });
     it("should adjust state if the server is too old", async () => {
@@ -69,7 +69,7 @@ describe("connectivity", () => {
         "50000.0.0",
       );
       const state = await connectivity.check();
-      expect(state.clientServerCompatible).toBeFalsy();
+      expect(state.clientServerCompatible).toBe(false);
       expect(state.clientVersion).toBe("50000.0.0");
     });
     it("should adjust state if the server is too new", async () => {
@@ -83,7 +83,7 @@ describe("connectivity", () => {
       transport.use(client.middleware());
       const connectivity = new connection.Checker(transport.unary, undefined, "0.0.0");
       const state = await connectivity.check();
-      expect(state.clientServerCompatible).toBeFalsy();
+      expect(state.clientServerCompatible).toBe(false);
       expect(state.clientVersion).toBe("0.0.0");
     });
   });

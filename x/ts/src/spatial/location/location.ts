@@ -105,10 +105,7 @@ export type XYString =
 export const TOP_LEFT: CornerXY = Object.freeze({ x: "left", y: "top" });
 export const TOP_RIGHT: CornerXY = Object.freeze({ x: "right", y: "top" });
 export const BOTTOM_LEFT: CornerXY = Object.freeze({ x: "left", y: "bottom" });
-export const BOTTOM_RIGHT: CornerXY = Object.freeze({
-  x: "right",
-  y: "bottom",
-});
+export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" });
 export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
 export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
 export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });
