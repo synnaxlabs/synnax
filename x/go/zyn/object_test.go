@@ -86,7 +86,10 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest TestStruct
 			Expect(schema.Parse("not a map", &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(And(
+					HaveOccurredAs(zyn.InvalidDestinationTypeError),
+					MatchError(ContainSubstring("received string")),
+				))
 		})
 		Specify("nil pointer", func() {
 			type TestStruct struct{ Name string }
@@ -118,17 +121,20 @@ var _ = Describe("Object", func() {
 		Specify("string destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest string
-			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
+				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 		Specify("numeric destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest int
-			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
+				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 		Specify("bool destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest bool
-			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
+				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 		Specify("slice destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
@@ -169,7 +175,8 @@ var _ = Describe("Object", func() {
 			type TestStruct struct{ Name string }
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest TestStruct
-			Expect(schema.Parse(nil, &dest)).To(MatchError(ContainSubstring("required")))
+			Expect(schema.Parse(nil, &dest)).
+				To(MatchError(ContainSubstring("required")))
 		})
 	})
 	Describe("Dump", func() {
@@ -185,9 +192,7 @@ var _ = Describe("Object", func() {
 				"Score": zyn.Number(),
 			})
 			data := TestStruct{Name: "John", Age: 42, Score: 95.5}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(map[string]any{
+			Expect(schema.Dump(data)).To(Equal(map[string]any{
 				"name":  "John",
 				"age":   int64(42),
 				"score": 95.5,
@@ -213,9 +218,7 @@ var _ = Describe("Object", func() {
 				Name:    "John",
 				Address: Address{Street: "123 Main St", City: "Boston"},
 			}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(map[string]any{
+			Expect(schema.Dump(data)).To(Equal(map[string]any{
 				"name":    "John",
 				"address": map[string]any{"street": "123 Main St", "city": "Boston"},
 			}))
@@ -230,9 +233,7 @@ var _ = Describe("Object", func() {
 				"Email": zyn.String().Optional(),
 			})
 			data := TestStruct{Name: "John", Email: nil}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(map[string]any{"name": "John"}))
+			Expect(schema.Dump(data)).To(Equal(map[string]any{"name": "John"}))
 		})
 		Specify("already dumped map[string]any", func() {
 			type TestStruct struct {
@@ -247,17 +248,13 @@ var _ = Describe("Object", func() {
 			})
 			// First dump
 			data := TestStruct{Name: "John", Age: 42, Score: 95.5}
-			firstDump, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
+			firstDump := MustSucceed(schema.Dump(data))
 			Expect(firstDump).To(Equal(map[string]any{
 				"name":  "John",
 				"age":   int64(42),
 				"score": 95.5,
 			}))
-			// Dump again with the already dumped data
-			secondDump, err := schema.Dump(firstDump)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(secondDump).To(Equal(map[string]any{
+			Expect(schema.Dump(firstDump)).To(Equal(map[string]any{
 				"name":  "John",
 				"age":   int64(42),
 				"score": 95.5,
@@ -271,29 +268,27 @@ var _ = Describe("Object", func() {
 			})
 			// Missing required field age
 			data := map[string]any{"name": "John", "score": 95.5}
-			_, err := schema.Dump(data)
-			Expect(err).To(MatchError(ContainSubstring("required")))
+			Expect(schema.Dump(data)).Error().
+				To(MatchError(ContainSubstring("required")))
 		})
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
 				schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
-				_, err := schema.Dump(nil)
-				Expect(err).To(MatchError(ContainSubstring("required")))
+				Expect(schema.Dump(nil)).Error().
+					To(MatchError(ContainSubstring("required")))
 			})
 			Specify("nil pointer", func() {
 				type TestStruct struct{ Name string }
 				schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 				var data *TestStruct
-				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(ContainSubstring("required")))
+				Expect(schema.Dump(data)).Error().
+					To(MatchError(ContainSubstring("required")))
 			})
 			Specify("optional nil value", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				}).Optional()
-				result, err := schema.Dump(nil)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(BeNil())
+				Expect(schema.Dump(nil)).To(BeNil())
 			})
 			Specify("optional nil pointer", func() {
 				type TestStruct struct{ Name string }
@@ -301,14 +296,14 @@ var _ = Describe("Object", func() {
 					"Name": zyn.String(),
 				}).Optional()
 				var data *TestStruct
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(BeNil())
+				Expect(schema.Dump(data)).To(BeNil())
 			})
 			Specify("non-struct value", func() {
 				schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
-				_, err := schema.Dump("not a struct")
-				Expect(err).To(MatchError(ContainSubstring("expected struct or map[string]any")))
+				Expect(schema.Dump("not a struct")).Error().
+					To(MatchError(ContainSubstring(
+						"expected struct or map[string]any",
+					)))
 			})
 			Specify("missing required field", func() {
 				type TestStruct struct{ Name string }
@@ -317,8 +312,8 @@ var _ = Describe("Object", func() {
 					"Age":  zyn.Number(),
 				})
 				data := TestStruct{Name: "John"}
-				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(ContainSubstring("required")))
+				Expect(schema.Dump(data)).Error().
+					To(MatchError(ContainSubstring("required")))
 			})
 		})
 		Describe("Map Input", func() {
@@ -328,14 +323,8 @@ var _ = Describe("Object", func() {
 					"Age":   zyn.Number(),
 					"Score": zyn.Number(),
 				})
-				data := map[string]any{
-					"name":  "John",
-					"age":   42,
-					"score": 95.5,
-				}
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(map[string]any{
+				data := map[string]any{"name": "John", "age": 42, "score": 95.5}
+				Expect(schema.Dump(data)).To(Equal(map[string]any{
 					"name":  "John",
 					"age":   int64(42),
 					"score": 95.5,
@@ -348,9 +337,7 @@ var _ = Describe("Object", func() {
 					"Score": zyn.Number(),
 				})
 				data := map[string]any{"name": "John", "age": 42, "Score": 95.5}
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(map[string]any{
+				Expect(schema.Dump(data)).To(Equal(map[string]any{
 					"name":  "John",
 					"age":   int64(42),
 					"score": 95.5,
@@ -371,9 +358,7 @@ var _ = Describe("Object", func() {
 						"city":   "Boston",
 					},
 				}
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(map[string]any{
+				Expect(schema.Dump(data)).To(Equal(map[string]any{
 					"name": "John",
 					"address": map[string]any{
 						"street": "123 Main St",
@@ -387,9 +372,7 @@ var _ = Describe("Object", func() {
 					"Email": zyn.String().Optional(),
 				})
 				data := map[string]any{"name": "John"}
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(map[string]any{"name": "John"}))
+				Expect(schema.Dump(data)).To(Equal(map[string]any{"name": "John"}))
 			})
 			Specify("nil optional field in map", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
@@ -397,9 +380,7 @@ var _ = Describe("Object", func() {
 					"Email": zyn.String().Optional(),
 				})
 				data := map[string]any{"name": "John", "email": nil}
-				result, err := schema.Dump(data)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(map[string]any{"name": "John"}))
+				Expect(schema.Dump(data)).To(Equal(map[string]any{"name": "John"}))
 			})
 			Specify("invalid field type in map", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
@@ -407,8 +388,10 @@ var _ = Describe("Object", func() {
 					"Age":  zyn.Number(),
 				})
 				data := map[string]any{"name": "John", "age": "not a number"}
-				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(ContainSubstring("expected number or convertible to number")))
+				Expect(schema.Dump(data)).Error().
+					To(MatchError(ContainSubstring(
+						"expected number or convertible to number",
+					)))
 			})
 			Specify("missing required field in map", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
@@ -416,8 +399,8 @@ var _ = Describe("Object", func() {
 					"Age":  zyn.Number(),
 				})
 				data := map[string]any{"name": "John"}
-				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(ContainSubstring("required")))
+				Expect(schema.Dump(data)).Error().
+					To(MatchError(ContainSubstring("required")))
 			})
 			Specify("invalid nested object in map", func() {
 				schema := zyn.Object(map[string]zyn.Schema{
@@ -428,8 +411,10 @@ var _ = Describe("Object", func() {
 					}),
 				})
 				data := map[string]any{"name": "John", "address": "not an object"}
-				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(ContainSubstring("expected struct or map[string]any")))
+				Expect(schema.Dump(data)).Error().
+					To(MatchError(ContainSubstring(
+						"expected struct or map[string]any",
+					)))
 			})
 		})
 	})
@@ -448,9 +433,7 @@ var _ = Describe("Object", func() {
 				"Score":     zyn.Number(),
 			})
 			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42, Score: 95.5}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(map[string]any{
+			Expect(schema.Dump(data)).To(Equal(map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
 				"age":        int64(42),
@@ -532,8 +515,7 @@ var _ = Describe("Object", func() {
 				LastName:  "Doe",
 				Address:   Address{StreetName: "123 Main St", CityName: "Boston"},
 			}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(schema.Dump(data))
 			Expect(result).To(Equal(map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
@@ -566,8 +548,7 @@ var _ = Describe("Object", func() {
 				"score":      zyn.Number(),
 			})
 			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42, Score: 95.5}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(schema.Dump(data))
 			Expect(result).To(Equal(map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
@@ -596,8 +577,7 @@ var _ = Describe("Object", func() {
 				"score":     zyn.Number(),
 			})
 			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42, Score: 95.5}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(schema.Dump(data))
 			Expect(result).To(Equal(map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
@@ -635,8 +615,7 @@ var _ = Describe("Object", func() {
 				LastName:  "Doe",
 				Address:   Address{StreetName: "123 Main St", CityName: "Boston"},
 			}
-			result, err := schema.Dump(data)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(schema.Dump(data))
 			Expect(result).To(Equal(map[string]any{
 				"first_name": "John",
 				"last_name":  "Doe",
@@ -689,7 +668,8 @@ var _ = Describe("Object", func() {
 				}
 			}
 			var v MyStruct
-			Expect(schema.Parse(data, &v)).To(MatchError(ContainSubstring("first.second.third.value")))
+			Expect(schema.Parse(data, &v)).
+				To(MatchError(ContainSubstring("first.second.third.value")))
 		})
 	})
 })

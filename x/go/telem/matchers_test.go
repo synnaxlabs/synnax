@@ -140,7 +140,8 @@ TimeRange:
 			matcher := telem.MatchFrame(f1)
 			matched := MustSucceed(matcher.Match(f2))
 			Expect(matched).To(BeFalse())
-			Expect(matcher.FailureMessage(f2)).To(ContainSubstring("Frames have different counts"))
+			Expect(matcher.FailureMessage(f2)).
+				To(ContainSubstring("Frames have different counts"))
 		})
 		It("Should return false if series data for a key does not match", func() {
 			f1 := telem.UnaryFrame[int64](1, telem.NewSeriesV[int64](1, 2, 3))

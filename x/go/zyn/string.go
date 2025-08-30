@@ -85,7 +85,6 @@ func (s StringZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.RequiredError)
 	}
-
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -96,7 +95,6 @@ func (s StringZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		switch val.Kind() {
 		case reflect.String:
@@ -119,7 +117,6 @@ func (s StringZ) Dump(data any) (any, error) {
 			)
 		}
 	}
-
 	switch val.Kind() {
 	case reflect.String:
 		return val.String(), nil
@@ -151,9 +148,7 @@ func (s StringZ) Parse(data any, dest any) error {
 	if ok, err := validateNilData(destVal, data, s.baseZ); !ok || err != nil {
 		return err
 	}
-
 	dataVal := reflect.ValueOf(data)
-
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		switch v := data.(type) {
 		case string:
@@ -167,7 +162,6 @@ func (s StringZ) Parse(data any, dest any) error {
 			return newInvalidUUIDTypeError(reflect.ValueOf(dataVal))
 		}
 	}
-
 	data_, ok := data.(string)
 	if !ok {
 		if dataVal.Kind() == reflect.Pointer {
@@ -192,7 +186,6 @@ func (s StringZ) Parse(data any, dest any) error {
 			return invalidStringTypeError(dataVal)
 		}
 	}
-
 	destVal = destVal.Elem()
 	// If the destination is a pointer, we need to allocate it
 	if destVal.Kind() == reflect.Pointer {
@@ -201,7 +194,6 @@ func (s StringZ) Parse(data any, dest any) error {
 		}
 		destVal = destVal.Elem()
 	}
-
 	// If UUID type is expected, handle both string and UUID destinations
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		parsedUUID, err := uuid.Parse(data_)
@@ -218,7 +210,6 @@ func (s StringZ) Parse(data any, dest any) error {
 		}
 		return NewInvalidDestinationTypeError(s.expectedType.String(), destVal)
 	}
-
 	destVal.SetString(data_)
 	return nil
 }

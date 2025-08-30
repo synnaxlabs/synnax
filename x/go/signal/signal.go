@@ -65,11 +65,7 @@ func newCore(
 	cancel context.CancelFunc,
 	opts ...Option,
 ) *core {
-	c := &core{
-		options: newOptions(opts),
-		Context: ctx,
-		cancel:  cancel,
-	}
+	c := &core{options: newOptions(opts), Context: ctx, cancel: cancel}
 	c.mu.stopped = make(chan struct{})
 	return c
 }

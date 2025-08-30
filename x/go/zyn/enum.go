@@ -39,13 +39,11 @@ func (e EnumZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("enum", dest)
 	}
-
 	// Get the actual destination type (dereferencing pointer layers)
 	destType := dest.Type().Elem()
 	for destType.Kind() == reflect.Pointer {
 		destType = destType.Elem()
 	}
-
 	// Enum can accept destinations that are compatible with its enum values Allow
 	// assignment compatibility for custom types
 	if e.expectedType != nil &&
@@ -53,7 +51,6 @@ func (e EnumZ) validateDestination(dest reflect.Value) error {
 			e.expectedType.AssignableTo(destType)) {
 		return nil
 	}
-
 	// If no specific expected type, allow basic types that the enum values could
 	// convert to
 	switch destType.Kind() {

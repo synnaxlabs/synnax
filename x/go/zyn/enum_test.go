@@ -98,22 +98,18 @@ var _ = Describe("Enum", func() {
 	})
 	Describe("Dump", func() {
 		Specify("valid value", func() {
-			result, err := zyn.Enum("a", "b", "c").Dump("a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal("a"))
+			Expect(zyn.Enum("a", "b", "c").Dump("a")).To(Equal("a"))
 		})
 		Specify("invalid value", func() {
-			_, err := zyn.Enum("a", "b", "c").Dump("d")
-			Expect(err).To(MatchError(ContainSubstring("invalid enum value")))
+			Expect(zyn.Enum("a", "b", "c").Dump("d")).Error().
+				To(MatchError(ContainSubstring("invalid enum value")))
 		})
 		Specify("nil value", func() {
-			_, err := zyn.Enum("a", "b", "c").Dump(nil)
-			Expect(err).To(MatchError(ContainSubstring("required")))
+			Expect(zyn.Enum("a", "b", "c").Dump(nil)).Error().
+				To(MatchError(ContainSubstring("required")))
 		})
 		Specify("optional nil value", func() {
-			result, err := zyn.Enum("a", "b", "c").Optional().Dump(nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(zyn.Enum("a", "b", "c").Optional().Dump(nil)).To(BeNil())
 		})
 	})
 	Describe("Values", func() {

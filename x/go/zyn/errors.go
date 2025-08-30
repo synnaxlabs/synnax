@@ -44,7 +44,6 @@ func isNumericType(t reflect.Type) bool {
 func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) {
 	if data != nil {
 		return true, nil
-
 	}
 	if base.optional {
 		if destVal.Elem().Kind() == reflect.Pointer {

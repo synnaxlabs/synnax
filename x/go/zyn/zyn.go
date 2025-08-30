@@ -34,7 +34,6 @@ const (
 	ObjectT DataType = "object"
 	// UUIDT represents a UUID type in the schema.
 	UUIDT DataType = "uuid"
-
 	// IntT represents an int type in the schema.
 	IntT DataType = "int"
 	// Int8T represents an int8 type in the schema.
@@ -45,7 +44,6 @@ const (
 	Int32T DataType = "int32"
 	// Int64T represents an int64 type in the schema.
 	Int64T DataType = "int64"
-
 	// UintT represents a uint type in the schema.
 	UintT DataType = "uint"
 	// Uint8T represents a uint8 type in the schema.
@@ -56,7 +54,6 @@ const (
 	Uint32T DataType = "uint32"
 	// Uint64T represents a uint64 type in the schema.
 	Uint64T DataType = "uint64"
-
 	// Float32T represents a float32 type in the schema.
 	Float32T DataType = "float32"
 	// Float64T represents a float64 type in the schema.

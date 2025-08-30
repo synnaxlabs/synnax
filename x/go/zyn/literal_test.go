@@ -69,22 +69,18 @@ var _ = Describe("Literal", func() {
 	})
 	Describe("Dump", func() {
 		Specify("valid value", func() {
-			result, err := zyn.Literal("a").Dump("a")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal("a"))
+			Expect(zyn.Literal("a").Dump("a")).To(Equal("a"))
 		})
 		Specify("invalid value", func() {
-			_, err := zyn.Literal("a").Dump("b")
-			Expect(err).To(MatchError(ContainSubstring("invalid enum value")))
+			Expect(zyn.Literal("a").Dump("b")).Error().
+				To(MatchError(ContainSubstring("invalid enum value")))
 		})
 		Specify("nil value", func() {
-			_, err := zyn.Literal("a").Dump(nil)
-			Expect(err).To(MatchError(ContainSubstring("required")))
+			Expect(zyn.Literal("a").Dump(nil)).Error().
+				To(MatchError(ContainSubstring("required")))
 		})
 		Specify("optional nil value", func() {
-			result, err := zyn.Literal("a").Optional().Dump(nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(zyn.Literal("a").Optional().Dump(nil)).To(BeNil())
 		})
 	})
 	Describe("Custom DataTypes", func() {

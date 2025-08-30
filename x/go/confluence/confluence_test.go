@@ -48,9 +48,9 @@ var _ = Describe("Confluence", func() {
 	Describe("Options", func() {
 		It("Should not close inlet on panic", func() {
 			ctx, _ := signal.Isolated()
-			var s seg
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
 			s.Flow(ctx, CloseOutputInletsOnExit(), WithRetryOnPanic(1))
@@ -66,9 +66,9 @@ var _ = Describe("Confluence", func() {
 		})
 		It("Should close inlet on a panic-recovered error", func() {
 			ctx, _ := signal.Isolated()
-			var s seg
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
 			s.Flow(ctx, CloseOutputInletsOnExit(), RecoverWithErrOnPanic())
@@ -78,14 +78,12 @@ var _ = Describe("Confluence", func() {
 		})
 		It("Should still run deferred methods after panic", func() {
 			ctx, _ := signal.Isolated()
-			var (
-				s seg
-				a = atomic.Int32Counter{}
-			)
 			i := NewStream[int]()
 			o := NewStream[int]()
+			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
+			var a = atomic.Int32Counter{}
 			s.Flow(
 				ctx,
 				CloseOutputInletsOnExit(),
