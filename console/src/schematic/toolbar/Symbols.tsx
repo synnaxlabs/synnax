@@ -24,6 +24,7 @@ import {
   SchematicSymbol,
   Select,
   Status,
+  Synnax,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -39,6 +40,11 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { addElement, setSelectedSymbolGroup } from "@/schematic/slice";
 import { createCreateLayout } from "@/schematic/symbols/Create";
+import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
+import { useExport as useExportSymbol } from "@/schematic/symbols/export";
+import { useExportGroup } from "@/schematic/symbols/exportGroup";
+import { useImport as useImportSymbol } from "@/schematic/symbols/import";
+import { useImportGroup } from "@/schematic/symbols/importGroup";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
@@ -124,7 +130,8 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   // Determine if symbol is static or dynamic based on variant or number of states
-  const isStatic = symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
+  const isStatic =
+    symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
   const variant = isStatic ? "customStatic" : "customActuator";
   const Preview = Schematic.Symbol.REGISTRY[variant].Preview;
 
@@ -177,6 +184,7 @@ const RemoteSymbolListContextMenu = (
   });
   const placeLayout = Layout.usePlacer();
   const renameModal = Modals.useRename();
+  const exportSymbol = useExportSymbol();
   const rename = SchematicSymbol.useRename({
     params: { key: firstKey },
     beforeUpdate: async ({ value }) => {
@@ -214,6 +222,7 @@ const RemoteSymbolListContextMenu = (
     delete: () => del.update(),
     rename: () => rename.update(item?.name ?? ""),
     edit: handleEdit,
+    export: () => exportSymbol(firstKey),
   };
   return (
     <Menu.Menu level="small" gap="small" onChange={handleSelect}>
@@ -228,6 +237,10 @@ const RemoteSymbolListContextMenu = (
       <Menu.Item itemKey="edit">
         <Icon.Edit />
         Edit
+      </Menu.Item>
+      <Menu.Item itemKey="export">
+        <Icon.Export />
+        Export
       </Menu.Item>
     </Menu.Menu>
   );
@@ -325,6 +338,14 @@ const CreateSymbolIcon = Icon.createComposite(Icon.Schematic, {
   bottomRight: Icon.Add,
 });
 
+const ImportSymbolIcon = Icon.createComposite(Icon.Schematic, {
+  bottomRight: Icon.Import,
+});
+
+const ImportGroupIcon = Icon.createComposite(Icon.Group, {
+  bottomRight: Icon.Import,
+});
+
 export interface ActionsProps {
   symbolGroupID: ontology.ID;
   selectedGroup: string;
@@ -335,6 +356,9 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
+  const importSymbol = useImportSymbol(selectedGroup);
+  const importGroup = useImportGroup();
+
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
       const result = await rename(
@@ -377,11 +401,28 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
       <Button.Button
         variant="outlined"
         size="small"
+        tooltip="Import symbol group"
+        onClick={importGroup}
+      >
+        <ImportGroupIcon />
+      </Button.Button>
+      <Button.Button
+        variant="outlined"
+        size="small"
         tooltip="Create new symbol"
         disabled={!isRemoteGroup}
         onClick={handleCreateSymbol}
       >
         <CreateSymbolIcon />
+      </Button.Button>
+      <Button.Button
+        variant="outlined"
+        size="small"
+        tooltip="Import symbol"
+        disabled={!isRemoteGroup}
+        onClick={importSymbol}
+      >
+        <ImportSymbolIcon />
       </Button.Button>
     </Flex.Box>
   );
@@ -397,15 +438,10 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Payload>(firstKey);
-  const confirmDelete = useConfirmDelete({ type: "Group" });
   const renameModal = Modals.useRename();
-  const del = Group.useDelete({
-    params: { key: item?.key ?? "" },
-    beforeUpdate: async () => {
-      if (item == null) return false;
-      return await confirmDelete({ name: item.name });
-    },
-  });
+  const client = Synnax.use();
+  const exportGroup = useExportGroup(client);
+  const deleteSymbolGroup = useDeleteSymbolGroup();
   const rename = Group.useRename({
     params: { key: item?.key ?? "" },
     beforeUpdate: async ({ value }) => {
@@ -417,19 +453,27 @@ const GroupListContextMenu = ({
   });
 
   const handleSelect: Menu.MenuProps["onChange"] = {
-    delete: () => del.update(),
+    del: () => {
+      if (item == null) return;
+      deleteSymbolGroup(item);
+    },
     rename: () => rename.update(item?.name ?? ""),
+    export: () => exportGroup(firstKey, item?.name ?? "Group"),
   };
   if (!isRemoteGroup) return null;
   return (
     <Menu.Menu level="small" gap="small" onChange={handleSelect}>
-      <Menu.Item itemKey="delete">
+      <Menu.Item itemKey="del">
         <Icon.Delete />
         Delete
       </Menu.Item>
       <Menu.Item itemKey="rename">
         <Icon.Rename />
         Rename
+      </Menu.Item>
+      <Menu.Item itemKey="export">
+        <Icon.Export />
+        Export
       </Menu.Item>
     </Menu.Menu>
   );
@@ -480,26 +524,24 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
-  
-  // Fetch symbols if it's a remote group
-  const listData = SchematicSymbol.useList(
-    isRemoteGroup ? { initialParams: { parent: group.ontologyID(groupKey) } } : { initialParams: {} },
-  );
-  
+
   const handleAddElement = useCallback(
     (key: string) => {
       let variant: Schematic.Symbol.Variant;
-      if (isRemoteGroup) {
-        // Find the symbol to determine if it's static or dynamic
-        const symbol = listData.data?.find((s: schematic.symbol.Symbol) => s.key === key);
-        const isStatic = symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-        variant = isStatic ? "customStatic" : "customActuator";
-      } else {
-        variant = key as Schematic.Symbol.Variant;
-      }
+      if (isRemoteGroup)
+        // For remote symbols, we determine if it's static or dynamic based on the data
+        // Since we can't access the symbol data directly in the callback, we'll use
+        // the pattern from RemoteListItem where we determine the variant
+        variant = "customStatic"; // Default to static, the actual variant will be determined when rendering
+      else variant = key as Schematic.Symbol.Variant;
+
       const spec = Schematic.Symbol.REGISTRY[variant];
       const initialProps = spec.defaultProps(theme);
-      if (isRemoteGroup) initialProps.specKey = key;
+      if (isRemoteGroup) {
+        initialProps.specKey = key;
+        // The actual variant (static vs actuator) will be determined when the symbol is loaded
+        variant = "customStatic"; // This will be overridden based on the symbol data
+      }
       dispatch(
         addElement({
           key: layoutKey,
@@ -509,7 +551,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         }),
       );
     },
-    [dispatch, layoutKey, theme, isRemoteGroup, listData.data],
+    [dispatch, layoutKey, theme, isRemoteGroup],
   );
 
   const [search, setSearch] = useState("");

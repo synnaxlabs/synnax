@@ -93,6 +93,7 @@ export const useList = Flux.createList<
   schematic.symbol.Symbol,
   SubStore
 >({
+  sort: (a, b) => a.name.localeCompare(b.name),
   retrieveCached: ({ params, store }) => {
     if (params.searchTerm != null && params.searchTerm.length > 0) return [];
     if (params.parent == null) return store.schematicSymbols.list();
