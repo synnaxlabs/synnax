@@ -53,9 +53,8 @@ func (s *TableService) Create(ctx context.Context, req TableCreateRequest) (res 
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
 		for i, table_ := range req.Tables {
-			if err = w.Create(ctx, req.Workspace, &table_); err != nil {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &table_); err != nil {
 				return err
 			}
 			req.Tables[i] = table_
