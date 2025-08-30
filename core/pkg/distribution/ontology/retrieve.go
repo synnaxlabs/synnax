@@ -19,15 +19,15 @@ import (
 )
 
 // Retrieve implements a set of methods for retrieving resources and traversing their
-// relationships in teh ontology.
+// relationships in the ontology.
 type Retrieve struct {
 	query     *gorp.CompoundRetrieve[ID, Resource]
 	registrar serviceRegistrar
 	tx        gorp.Tx
 }
 
-// NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
-// from the underlying ontology.
+// NewRetrieve opens a new Retrieve query, which can be used to traverse and read
+// resources from the underlying ontology.
 func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar, o.DB) }
 
 func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
@@ -98,8 +98,8 @@ func (d Direction) GetID(rel *Relationship) ID {
 type Traverser struct {
 	// Filter if a function that returns true if the given Resource and Relationship
 	// should be included in the traversal results.
-	Filter func(res *Resource, rel *Relationship) bool
-	// Direction is the direction of the traversal. See (Direction) for more.
+	Filter func(*Resource, *Relationship) bool
+	// Direction is the direction of the traversal.
 	Direction Direction
 }
 
@@ -176,9 +176,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 
 const traverseOptKey = "traverse"
 
-func setTraverser(q query.Parameters, f Traverser) {
-	q.Set(traverseOptKey, f)
-}
+func setTraverser(q query.Parameters, f Traverser) { q.Set(traverseOptKey, f) }
 
 func getTraverser(q query.Parameters) Traverser {
 	return q.GetRequired(traverseOptKey).(Traverser)
@@ -208,7 +206,8 @@ func (r Retrieve) retrieveEntities(
 		excludeFieldData = getExcludeFieldData(clause.Params)
 		retrieveResource = !excludeFieldData
 	)
-	// Iterate over the entries in place, retrieving the resource if the query requires it.
+	// Iterate over the entries in place, retrieving the resource if the query requires
+	// it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
 			if !entries.IsMultiple() {

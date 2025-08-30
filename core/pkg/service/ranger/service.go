@@ -76,46 +76,48 @@ type Service struct {
 	shutdownSignals io.Closer
 }
 
-const groupName = "Ranges"
-
-// OpenService opens a new ranger.Service with the provided configuration. If error
-// is nil, the services is ready for use and must be closed by calling Close to
-// prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
+// OpenService opens a new ranger.Service with the provided configuration. If error is
+// nil, the services is ready for use and must be closed by calling Close to prevent
+// resource leaks.
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Ranges", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{Config: cfg, group: g}
+	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if cfg.Signals == nil {
-		return
+		return s, nil
 	}
-	rangeSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Range](cfg.DB))
+	rangeSignals, err := signals.PublishFromGorp(
+		ctx,
+		cfg.Signals,
+		signals.GorpPublisherConfigUUID[Range](cfg.DB),
+	)
 	if err != nil {
-		return
+		return nil, err
 	}
 	aliasSignalsCfg := signals.GorpPublisherConfigString[Alias](cfg.DB)
 	aliasSignalsCfg.SetName = "sy_range_alias_set"
 	aliasSignalsCfg.DeleteName = "sy_range_alias_delete"
 	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasSignalsCfg)
 	if err != nil {
-		return
+		return nil, err
 	}
 	kvSignalsCfg := signals.GorpPublisherConfigString[KVPair](cfg.DB)
 	kvSignalsCfg.SetName = "sy_range_kv_set"
 	kvSignalsCfg.DeleteName = "sy_range_kv_delete"
 	kvSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, kvSignalsCfg)
 	if err != nil {
-		return
+		return nil, err
 	}
 	s.shutdownSignals = xio.MultiCloser{rangeSignals, aliasSignals, kvSignals}
-	return
+	return s, nil
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
@@ -129,8 +131,8 @@ func (s *Service) Close() error {
 }
 
 // NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will execute
-// all operations directly against the underlying gorp.DB.
+// the writer will use it to execute all operations. If tx is nil, the writer will
+// execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        gorp.OverrideTx(s.DB, tx),

@@ -31,19 +31,16 @@ type Writer struct {
 }
 
 // Create creates a new range within the DB, assigning it a unique key if it does not
-// already have one. If the Range already has a key and an existing Range already
-// exists with that key, the existing range will be updated.
-func (w Writer) Create(
-	ctx context.Context,
-	r *Range,
-) error {
+// already have one. If the Range already has a key and an existing Range already exists
+// with that key, the existing range will be updated.
+func (w Writer) Create(ctx context.Context, r *Range) error {
 	return w.CreateWithParent(ctx, r, ontology.ID{})
 }
 
-// CreateWithParent creates a new range as a child range of the ontology.Resource with the given
-// ID. If the range does not already have a key, a new key will be assigned. If the range
-// already exists, it will be updated. If the range already exists and a parent is
-// provided, the existing parent relationship will be deleted and a new parent
+// CreateWithParent creates a new range as a child range of the ontology.Resource with
+// the given ID. If the range does not already have a key, a new key will be assigned.
+// If the range already exists, it will be updated. If the range already exists and a
+// parent is provided, the existing parent relationship will be deleted and a new parent
 // relationship will be created. If the range already exists and no parent is provided,
 // the existing parent relationship will be preserved. If an empty parent is provided,
 // the range will be created under the top level "Ranges" group.
@@ -51,7 +48,7 @@ func (w Writer) CreateWithParent(
 	ctx context.Context,
 	r *Range,
 	parent ontology.ID,
-) (err error) {
+) error {
 	hasParent := !parent.IsZero()
 	if !hasParent {
 		parent = w.group.OntologyID()
@@ -62,96 +59,121 @@ func (w Writer) CreateWithParent(
 	if r.Stage == "" {
 		r.Stage = ToDo
 	}
-	if err = w.validate(*r); err != nil {
-		return
+	if err := w.validate(*r); err != nil {
+		return err
 	}
-	exists, err := gorp.NewRetrieve[uuid.UUID, Range]().WhereKeys(r.Key).Exists(ctx, w.tx)
+	exists, err := gorp.
+		NewRetrieve[uuid.UUID, Range]().
+		WhereKeys(r.Key).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(r.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
 	}
-	// Range already exists and parent provided  = delete incoming relationships and define new parent
+	// Range already exists and parent provided  = delete incoming relationships and
+	// define new parent
+	//
 	// Range already exists and no parent provided = do nothing
+	//
 	// Range does not exist = define parent
 	if exists && hasParent {
-		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+		if hasPar, err := w.otgWriter.HasRelationship(
+			ctx,
+			parent,
+			ontology.ParentOf,
+			otgID,
+		); hasPar || err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
-			return
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+			ctx,
+			otgID,
+			ontology.ParentOf,
+		); err != nil {
+			return err
 		}
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
+		if err = w.otgWriter.DefineRelationship(ctx,
+			parent,
+			ontology.ParentOf,
+			otgID,
+		); err != nil {
+			return err
 		}
 	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
+		if err = w.otgWriter.DefineRelationship(ctx,
+			parent,
+			ontology.ParentOf,
+			otgID,
+		); err != nil {
+			return err
 		}
 	}
 	r.tx = w.tx
 	r.otg = w.otg
-	return
+	return nil
 }
 
 // CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
 // they will be updated.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	rs *[]Range,
-) (err error) {
-	for i, r := range *rs {
-		if err = w.Create(ctx, &r); err != nil {
-			return
+func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
+	for i, r := range *ranges {
+		if err := w.Create(ctx, &r); err != nil {
+			return err
 		}
-		(*rs)[i] = r
+		(*ranges)[i] = r
 	}
-	return err
+	return nil
 }
 
-// CreateManyWithParent creates multiple ranges within the DB as child ranges of the ontology.Resource
-// with the given ID. If any of the ranges already exist, they will be updated. If the range
-// already exists and a parent is provided, the existing parent relationship will be deleted
-// and a new parent relationship will be created. If the range already exists and no parent
-// is provided, the existing parent relationship will be preserved. If an empty parent is
-// provided, the range will be created under the top level "Ranges" group.
+// CreateManyWithParent creates multiple ranges within the DB as child ranges of the
+// ontology.Resource with the given ID. If any of the ranges already exist, they will be
+// updated. If the range already exists and a parent is provided, the existing parent
+// relationship will be deleted and a new parent relationship will be created. If the
+// range already exists and no parent is provided, the existing parent relationship will
+// be preserved. If an empty parent is provided, the range will be created under the top
+// level "Ranges" group.
 func (w Writer) CreateManyWithParent(
 	ctx context.Context,
-	rs *[]Range,
+	ranges *[]Range,
 	parent ontology.ID,
-) (err error) {
-	if rs == nil {
-		return
+) error {
+	if len(*ranges) == 0 {
+		return nil
 	}
-	for i, r := range *rs {
-		if err = w.CreateWithParent(ctx, &r, parent); err != nil {
-			return
+	for i, r := range *ranges {
+		if err := w.CreateWithParent(ctx, &r, parent); err != nil {
+			return err
 		}
-		(*rs)[i] = r
+		(*ranges)[i] = r
 	}
-	return err
+	return nil
 }
 
 // Rename renames the range with the given key.
-func (w Writer) Rename(
-	ctx context.Context,
-	key uuid.UUID,
-	name string,
-) error {
-	return gorp.NewUpdate[uuid.UUID, Range]().WhereKeys(key).Change(func(r Range) Range {
-		r.Name = name
-		return r
-	}).Exec(ctx, w.tx)
+func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
+	return gorp.
+		NewUpdate[uuid.UUID, Range]().
+		WhereKeys(key).
+		Change(func(r Range) Range {
+			r.Name = name
+			return r
+		}).Exec(ctx, w.tx)
 }
 
-// Delete deletes the range with the given key. Delete will also delete all children
-// of the range. Delete is idempotent.
+// Delete deletes the range with the given key. Delete will also delete all children of
+// the range. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
-	if err := w.otgWriter.NewRetrieve().
+	if err := w.
+		otgWriter.
+		NewRetrieve().
 		WhereIDs(OntologyID(key)).
 		TraverseTo(ontology.Children).
 		Entries(&children).
@@ -177,7 +199,10 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 			return err
 		}
 	}
-	if err := gorp.NewDelete[uuid.UUID, Range]().WhereKeys(key).Exec(ctx, w.tx); err != nil {
+	if err := gorp.
+		NewDelete[uuid.UUID, Range]().
+		WhereKeys(key).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))

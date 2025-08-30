@@ -91,10 +91,10 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).To(Equal(k))
 		})
-		Context("RetrieveParent Management", func() {
+		Context("Parent Management", func() {
 			It("Should set a custom parent for the range", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -113,7 +113,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			})
 			It("Should NOT re-set the custom parent when the range exists but no parent is provided", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -164,7 +164,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			})
 			It("Should create multiple ranges with the same parent", func() {
 				parent := ranger.Range{
-					Name:      "RetrieveParent",
+					Name:      "Parent",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
 				}
 				Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -185,10 +185,10 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
-			Context("RetrieveParent Method", func() {
+			Context("Parent Method", func() {
 				It("Should get the parent of the range", func() {
 					parent := ranger.Range{
-						Name:      "RetrieveParent",
+						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &parent)).To(Succeed())
@@ -202,7 +202,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				})
 				It("Should return an error if the range has no parent", func() {
 					p := ranger.Range{
-						Name:      "RetrieveParent",
+						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
@@ -274,7 +274,7 @@ var _ = Describe("Ranger", Ordered, func() {
 		})
 		It("Should delete all child ranges when a range is deleted", func() {
 			parent := ranger.Range{
-				Name: "RetrieveParent",
+				Name: "Parent",
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(5 * telem.Second),
 					End:   telem.TimeStamp(10 * telem.Second),
@@ -443,7 +443,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
@@ -535,7 +535,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should fallback to the parent range if the Alias is not found", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
@@ -563,7 +563,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 			It("Should return an error if the Alias can't be resolved on both the child range and its parent", func() {
 				parent := ranger.Range{
-					Name: "RetrieveParent",
+					Name: "Parent",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
