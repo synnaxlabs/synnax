@@ -36,7 +36,7 @@ not been user friendly, especially when it comes to communicating errors. To add
 this, we've redesigned the `Writer` class in all three languages to be more simple and
 intuitive.
 
-Instead of returning a boolean from calls to `write`, writers will now directly raise
+Instead of returning a boolean from calls to `write`, writers will not directly raise
 any errors encountered during a write operation. This removes the need for calls to the
 `error` method, so we've completely removed it.
 

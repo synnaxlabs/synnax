@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
@@ -19,6 +20,7 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
+  ...Modbus.Task.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
