@@ -1,0 +1,10 @@
+[
+    {
+        "sequence_name": "Playwright_Tests",
+        "tests": [
+            {
+                "case": "testcases/playwright/playwright"
+            }
+        ]
+    }
+]

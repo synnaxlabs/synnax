@@ -15,6 +15,7 @@ alamos = { path = "../../../alamos/py", develop = true }
 synnax = { path = "../../../client/py", develop = true }
 matplotlib = "^3.8.0"
 numpy = "^2.2.1"
+playwright = "^1.49.1"
 
 [tool.poetry.group.dev.dependencies]
 # Code quality tools
