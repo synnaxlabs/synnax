@@ -18,7 +18,7 @@ export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirmDelete = useConfirmDelete({
-    type: "group",
+    type: "Group",
   });
   return useCallback(
     (g: group.Payload) => {
