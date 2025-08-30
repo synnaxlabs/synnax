@@ -1,24 +1,26 @@
-{  
-  "version": "0.2.0",
+{
   "configurations": [
     {
-      "name": "Front-end App Debug",
-      "type": "msedge",
-      "port": 9222,
-      "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/console/src-tauri/target/debug/Synnax.exe", // Remember to edit the right path to your app.
-      "useWebView": true,
-      "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "dev:console-vite",          
-      "sourceMapPathOverrides": {
-          "/src/*": "${workspaceFolder}/console/src/*",
-          "./src/*": "${workspaceFolder}/console/src/*",
-      }
-    },   
-    {
-      "name": "Pluto Debug",
+      "name": "Console: Debug in Chrome",
       "type": "chrome",
       "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "console: start dev server",
+      "trace": true,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        "http://localhost:5173/src/*": "${workspaceFolder}/console/src/*",
+        "http://localhost:5173/@fs/*": "/*",
+      },
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
     }
-  ],
+  ]
 }
