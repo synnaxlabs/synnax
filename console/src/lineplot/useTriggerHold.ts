@@ -18,7 +18,7 @@ import { setControlState } from "@/lineplot/slice";
 export type Config = Triggers.ModeConfig<"toggle">;
 
 export const useTriggerHold = (triggers: Config): void => {
-  const activeTab = Layout.useSelectActiveMosaicTabKey();
+  const { layoutKey: activeTab } = Layout.useSelectActiveMosaicTabState();
   const controlState = useSelectControlStateOptional(activeTab ?? "");
   const ref = useSyncedRef(controlState?.hold);
   const dispatch = useDispatch();

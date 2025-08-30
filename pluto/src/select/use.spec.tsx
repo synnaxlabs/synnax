@@ -54,9 +54,11 @@ const useSelectSingleWrapper = (
 
 const data = ["1", "2", "3"];
 
-const Wrapper = (props: PropsWithChildren) => (
+interface UseMultipleWrapperProps extends Partial<List.FrameProps<string>> {}
+
+const Wrapper = (props: UseMultipleWrapperProps) => (
   <Triggers.Provider>
-    <List.Frame data={data} {...props} />;
+    <List.Frame data={data} {...props} />
   </Triggers.Provider>
 );
 
@@ -168,6 +170,25 @@ describe("useSelect", () => {
         );
         expect(result.current.value).toEqual(["1"]);
       });
+
+      it("should auto-select when the selected list item is removed", () => {
+        let data = ["1", "2", "3"];
+        const Wrapper = (props: UseMultipleWrapperProps) => (
+          <Triggers.Provider>
+            <List.Frame data={data} {...props} />
+          </Triggers.Provider>
+        );
+        const { result, rerender } = renderHook(
+          () => useMultipleWrapper({ allowNone: false, autoSelectOnNone: true }),
+          { wrapper: Wrapper },
+        );
+        expect(result.current.value).toEqual(["1"]);
+        act(() => {
+          data = ["2", "3"];
+          rerender();
+        });
+        expect(result.current.value).toEqual(["2"]);
+      });
     });
   });
   describe("single selection", () => {
@@ -272,6 +293,25 @@ describe("useSelect", () => {
           { wrapper: EmptyWrapper },
         );
         expect(result.current.value).toEqual(undefined);
+      });
+
+      it("should auto-select when the selected list item is removed", () => {
+        let data = ["1", "2", "3"];
+        const Wrapper = (props: UseMultipleWrapperProps) => (
+          <Triggers.Provider>
+            <List.Frame data={data} {...props} />
+          </Triggers.Provider>
+        );
+        const { result, rerender } = renderHook(
+          () => useSelectSingleWrapper({ allowNone: false, autoSelectOnNone: true }),
+          { wrapper: Wrapper },
+        );
+        expect(result.current.value).toEqual("1");
+        act(() => {
+          data = ["2", "3"];
+          rerender();
+        });
+        expect(result.current.value).toEqual("2");
       });
     });
   });

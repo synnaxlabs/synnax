@@ -260,3 +260,9 @@ export const selectAuthority = (state: StoreState, key: string): number | undefi
 
 export const useSelectAuthority = (key: string): number | undefined =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
+
+export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
+  selectRequired(state, key).toolbar.selectedSymbolGroup;
+
+export const useSelectSelectedSymbolGroup = (key: string): string =>
+  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);

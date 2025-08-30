@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/Forms.css";
+import "@/schematic/symbol/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
@@ -29,22 +29,23 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { StateOverrideControls } from "@/schematic/symbol/Custom";
+import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
+import {
+  type ControlStateProps,
+  type LabelExtensionProps,
+} from "@/schematic/symbol/Symbols";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
 import { Button as CoreButton } from "@/vis/button";
-import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
-import {
-  type ControlStateProps,
-  type LabelExtensionProps,
-} from "@/vis/schematic/Symbols";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
 
-export interface SymbolFormProps {}
+export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {}
 
 interface FormWrapperProps extends Flex.BoxProps {}
 
@@ -186,8 +187,7 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
     )}
   </Form.Field>
 );
-
-interface CommonStyleFormProps {
+interface CommonStyleFormProps extends SymbolFormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
   hideOuterOrientation?: boolean;
@@ -197,31 +197,38 @@ export const CommonStyleForm = ({
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
-}: CommonStyleFormProps): ReactElement => (
-  <FormWrapper x align="stretch" empty>
-    <Flex.Box y grow>
-      <LabelControls omit={omit} path="label" />
-      <Flex.Box x grow>
-        <ColorControl path="color" optional />
-        <Form.Field<boolean>
-          path="normallyOpen"
-          label="Normally Open"
-          padHelpText={false}
-          hideIfNull
-          optional
-        >
-          {(p) => <Input.Switch {...p} />}
-        </Form.Field>
-        <ScaleControl path="scale" />
+}: CommonStyleFormProps): ReactElement => {
+  // Check if this is a custom symbol by looking for specKey
+  const specKey = Form.useFieldValue<string>("specKey", { optional: true });
+  const isCustomSymbol = specKey != null && specKey.length > 0;
+
+  return (
+    <FormWrapper x align="stretch" empty>
+      <Flex.Box y grow>
+        <LabelControls omit={omit} path="label" />
+        <Flex.Box x grow>
+          {!isCustomSymbol && <ColorControl path="color" optional />}
+          <Form.Field<boolean>
+            path="normallyOpen"
+            label="Normally Open"
+            padHelpText={false}
+            hideIfNull
+            optional
+          >
+            {(p) => <Input.Switch {...p} />}
+          </Form.Field>
+          <ScaleControl path="scale" />
+        </Flex.Box>
       </Flex.Box>
-    </Flex.Box>
-    <OrientationControl
-      path=""
-      hideInner={hideInnerOrientation}
-      hideOuter={hideOuterOrientation}
-    />
-  </FormWrapper>
-);
+      {isCustomSymbol && <StateOverrideControls specKey={specKey} />}
+      <OrientationControl
+        path=""
+        hideInner={hideInnerOrientation}
+        hideOuter={hideOuterOrientation}
+      />
+    </FormWrapper>
+  );
+};
 
 const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
@@ -304,11 +311,12 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "control", name: "Control" },
 ];
 
-interface CommonToggleFormProps {
+interface CommonToggleFormProps extends SymbolFormProps {
   hideInnerOrientation?: boolean;
 }
 
 export const CommonToggleForm = ({
+  actions,
   hideInnerOrientation,
 }: CommonToggleFormProps): ReactElement => {
   const content: Tabs.RenderProp = useCallback(
@@ -323,14 +331,14 @@ export const CommonToggleForm = ({
     [hideInnerOrientation],
   );
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
+  return <Tabs.Tabs {...props} actions={actions} />;
 };
 
 const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 const DIMENSIONS_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
 const BORDER_RADIUS_BOUNDS: bounds.Bounds = { lower: 0, upper: 51 };
 
-export interface TankFormProps {
+export interface TankFormProps extends SymbolFormProps {
   includeBorderRadius?: boolean;
   includeStrokeWidth?: boolean;
 }
@@ -906,7 +914,8 @@ export const TextBoxForm = (): ReactElement => {
                 <Button.Button
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
-                  variant="outlined"
+                  variant="text"
+                  style={{ borderLeft: "var(--pluto-border-l5)" }}
                   tooltip={
                     autoFit?.value === true
                       ? "Manually enter value to disable auto fit"

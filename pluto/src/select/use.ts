@@ -82,9 +82,10 @@ export const useSingle = <K extends record.Key>({
   const { close } = Dialog.useContext();
   const dataRef = useSyncedRef(data);
   useEffect(() => {
-    if (autoSelectOnNone && value == null && data.length > 0)
+    const dataHasValue = value != null && data.includes(value);
+    if (autoSelectOnNone && data.length > 0 && !dataHasValue)
       onChange(data[0], { clicked: data[0], clickedIndex: 0 });
-  }, [autoSelectOnNone, onChange, value, data.length]);
+  }, [autoSelectOnNone, onChange, value, data.length, data]);
   const handleSelect = useCallback(
     (key: K): void => {
       if (valueRef.current === key) {
@@ -129,9 +130,10 @@ export const useMultiple = <K extends record.Key>({
   const valueRef = useSyncedRef(value);
   const dataRef = useSyncedRef(data);
   useEffect(() => {
-    if (autoSelectOnNone && value.length === 0 && data.length > 0)
+    const dataHasValue = data.some((v) => value.includes(v));
+    if (autoSelectOnNone && data.length > 0 && !dataHasValue)
       onChange([data[0]], { clicked: data[0], clickedIndex: 0 });
-  }, [autoSelectOnNone, onChange, value, data.length]);
+  }, [autoSelectOnNone, onChange, value, data.length, data]);
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;

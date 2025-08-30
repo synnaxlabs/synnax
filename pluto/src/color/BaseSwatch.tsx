@@ -75,7 +75,10 @@ export const BaseSwatch = ({
       size={size as Button.ButtonProps["size"]}
       draggable={draggable}
       onDragStart={handleDragStart}
-      style={{ ...style, backgroundColor: color.cssString(value) }}
+      style={{
+        ...style,
+        [CSS.var("swatch", "color")]: color.cssString(value),
+      }}
       variant="outlined"
       {...haulProps}
       {...rest}

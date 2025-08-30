@@ -17,7 +17,7 @@ export interface SelectComponentSizeProps
 
 export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
   <Select.Buttons {...props} keys={SIZES}>
-    <Select.Button itemKey="tiny">L</Select.Button>
+    <Select.Button itemKey="tiny">S</Select.Button>
     <Select.Button itemKey="small">M</Select.Button>
     <Select.Button itemKey="medium">L</Select.Button>
   </Select.Buttons>

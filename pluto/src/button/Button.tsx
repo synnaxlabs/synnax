@@ -21,7 +21,7 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
-export type ElementType = "button" | "a" | "div" | "label";
+export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
 /** The variant of button */
 export type Variant =
@@ -44,6 +44,7 @@ export interface ExtensionProps
   disabled?: boolean;
   preventClick?: boolean;
   onClickDelay?: number | TimeSpan;
+  ghost?: boolean;
 }
 
 /** The props for the {@link Button} component. */
@@ -106,6 +107,7 @@ const Core = <E extends ElementType = "button">({
   children,
   defaultEl = "button",
   el,
+  ghost,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -194,6 +196,7 @@ const Core = <E extends ElementType = "button">({
         variant !== "preview" && CSS.disabled(isDisabled),
         CSS.BM(MODULE_CLASS, variant),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
+        ghost && CSS.BM(MODULE_CLASS, "ghost"),
         className,
       )}
       size={size}

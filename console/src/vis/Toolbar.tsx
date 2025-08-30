@@ -63,6 +63,6 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   tooltip: "Visualize",
   icon: <Icon.Visualize />,
   minSize: 160,
-  maxSize: 250,
+  maxSize: 300,
   trigger: ["V"],
 };

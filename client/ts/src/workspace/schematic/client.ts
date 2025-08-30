@@ -24,6 +24,7 @@ import {
   type Schematic,
   schematicZ,
 } from "@/workspace/schematic/payload";
+import { symbol } from "@/workspace/schematic/symbol";
 
 const RETRIEVE_ENDPOINT = "/workspace/schematic/retrieve";
 const CREATE_ENDPOINT = "/workspace/schematic/create";
@@ -45,10 +46,12 @@ const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
 
 export class Client {
+  readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
+    this.symbols = new symbol.Client(client);
   }
 
   async create(workspace: WorkspaceKey, schematic: New): Promise<Schematic>;

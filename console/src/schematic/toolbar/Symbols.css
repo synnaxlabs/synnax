@@ -9,34 +9,51 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-schematic-symbols {
-    padding: 1rem 2rem;
-    height: calc(100% - 5rem);
-    overflow: auto;
-}
+.console-schematic__symbols {
+    height: 100%;
 
-.console-schematic-symbols__button {
-    background: none;
-    border: none;
-    width: fit-content;
-    padding: 1rem;
-    cursor: pointer;
-    border-radius: var(--pluto-border-radius);
-    min-width: 80px;
-    max-width: 150px;
-    max-height: 130px;
-    margin: 1rem 0.5rem;
+    .console-schematic__symbols-group-list {
+        padding: 1rem;
+        border-bottom: var(--pluto-border);
 
-    & > small {
-        color: var(--pluto-gray-l9) !important;
-        text-align: center;
+        & .pluto-input {
+            margin: 0 calc(-1 * var(--pluto-border-width));
+        }
     }
 
-    & .preview-wrapper {
+    .console-schematic__symbols-group {
+        overflow: auto;
         height: 100%;
+        & > .pluto-list__virtualizer {
+            height: fit-content;
+        }
     }
-}
 
-.console-schematic-symbols__button:hover {
-    background: var(--pluto-gray-l3);
+    .console-schematic-symbols__button {
+        padding: 2rem 1rem;
+        align-items: stretch;
+        & > small {
+            height: calc(var(--pluto-small-line-height) * 2);
+            display: block;
+            color: var(--pluto-gray-l9) !important;
+            font-weight: 450;
+            text-align: center;
+            white-space: wrap;
+        }
+        &.pluto-list__item {
+            width: 90px;
+            min-height: 100px;
+            max-height: 100px;
+            min-width: 110px;
+            max-width: 110px;
+        }
+
+        .pluto-symbol-primitive {
+            transform: scale(0.75);
+            & svg {
+                max-height: 80px !important;
+                max-width: 90px !important;
+            }
+        }
+    }
 }

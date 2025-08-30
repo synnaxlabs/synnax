@@ -12,6 +12,7 @@ import {
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useState,
 } from "react";
@@ -33,6 +34,7 @@ export interface SelectorProps
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
+  actions?: ReactNode;
 }
 
 const CLS = "tabs-selector";
@@ -44,6 +46,7 @@ export const Selector = ({
   direction = "x",
   contextMenu,
   addTooltip,
+  actions,
   ...rest
 }: SelectorProps): ReactElement | null => {
   const {
@@ -112,17 +115,20 @@ export const Selector = ({
           )}
         </Flex.Box>
 
-        {onCreate != null && (
+        {(actions != null || onCreate != null) && (
           <Flex.Box className={CSS.BE(CLS, "actions")}>
-            <Button.Button
-              size={size}
-              sharp
-              onClick={onCreate}
-              tooltip={addTooltip}
-              variant="text"
-            >
-              <Icon.Add />
-            </Button.Button>
+            {onCreate != null && (
+              <Button.Button
+                size={size}
+                sharp
+                onClick={onCreate}
+                tooltip={addTooltip}
+                variant="text"
+              >
+                <Icon.Add />
+              </Button.Button>
+            )}
+            {actions}
           </Flex.Box>
         )}
       </Flex.Box>

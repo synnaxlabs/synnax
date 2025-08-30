@@ -159,6 +159,11 @@ export interface SetAuthorityPayload {
   authority: number;
 }
 
+export interface SetSelectedSymbolGroupPayload {
+  key: string;
+  group: string;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -452,6 +457,13 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[key];
       schematic.authority = authority;
     },
+    setSelectedSymbolGroup: (
+      state,
+      { payload }: PayloadAction<SetSelectedSymbolGroupPayload>,
+    ) => {
+      const { key, group } = payload;
+      state.schematics[key].toolbar.selectedSymbolGroup = group;
+    },
   },
 });
 
@@ -483,6 +495,7 @@ export const {
   setNodes,
   remove,
   clearSelection,
+  setSelectedSymbolGroup,
   setFitViewOnResize,
   create: internalCreate,
   setElementProps,

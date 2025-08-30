@@ -117,7 +117,7 @@ export interface TabsProps
       | "onDrop"
     >,
     ContextValue,
-    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop">,
+    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop" | "actions">,
     Pick<Flex.BoxProps, "direction" | "x" | "y"> {
   children?: RenderProp | ReactNode;
   size?: Component.Size;
@@ -182,6 +182,7 @@ export const Tabs = ({
   onDragOver,
   onDrop,
   contextMenu,
+  actions,
   addTooltip,
   size = "medium",
   direction: dir = "y",
@@ -222,6 +223,7 @@ export const Tabs = ({
         altColor={selectedAltColor}
         contextMenu={contextMenu}
         addTooltip={addTooltip}
+        actions={actions}
       />
       <Content />
     </Provider>
