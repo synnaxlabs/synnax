@@ -158,7 +158,7 @@ class TestConductor:
 
     def _client_manager(self) -> None:
         """Manage telemetry channels and writer for test conductor."""
-        loop = sy.Loop(1)  # 1Hz
+        loop = sy.Loop(5)  # 1Hz
 
         # Create telemetry channels
         time = self.client.channels.create(
@@ -313,7 +313,6 @@ class TestConductor:
                     + "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
 
-        time.sleep(1)
         with open(sequence_path, "r") as f:
             sequence_data = json.load(f)
 
@@ -754,7 +753,7 @@ class TestConductor:
         result = self._execute_single_test(test_def)
         result_container.append(result)
 
-    def _timeout_monitor_thread(self, monitor_interval: float = 1.0) -> None:
+    def _timeout_monitor_thread(self, monitor_interval: float = 0.5) -> None:
         """Monitor test execution for timeout violations."""
         while self.is_running and not self.should_stop:
             # Check current test (for sequential execution)
