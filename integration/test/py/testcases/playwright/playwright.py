@@ -7,77 +7,48 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
-import sys
-import time
-
-import synnax as sy
-
-from framework.test_case import SynnaxConnection, TestCase
-from playwright.sync_api import sync_playwright, Playwright
-
+import re
+from framework.test_case import TestCase
+from playwright.sync_api import sync_playwright
 
 class Playwright(TestCase):
     """
-    Playwright test case
+    Playwright TestCase implementation
     """
 
     def setup(self) -> None:
-        """
-        Setup the test case.
-        """
 
-        ''' 
-        TODO: 
-        - make browser a testcase arg
-        - Use Playwright Github actions in CI instructions
-           - Caches browser downloads
-           - Handles system deps
-           - Optimized for github's runner envs
-
-
-        - name: Install Python dependencies
-            run: poetry install
-
-        - name: Install Playwright browsers
-            uses: microsoft/playwright-github-action@v1
-            # or use: run: poetry run playwright install
-
-        '''
-
+        # Open page
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=False, slow_mo=100)
-        self.console = self.browser.new_page()
-        self.console.goto("http://localhost:5173/")
+        self.browser = self.playwright.chromium.launch(headless=False)
+        self.page = self.browser.new_page()
+        
+        # Set timeouts
+        self.page.set_default_timeout(1000)  # 1s
+        self.page.set_default_navigation_timeout(1000)  #1s
 
-        super().setup()
+        # Login
+        self.page.goto("http://localhost:5173/")
+        self.page.locator('input').first.fill('synnax')
+        self.page.locator('input[type="password"]').fill('seldon')
+        self.page.get_by_role('button', name='Sign In').click()
+        self.page.wait_for_load_state('networkidle')
 
-    def run(self) -> None:
-        """
-        Run the test case.
-        """
-
-        # wait for page to load
-        self.console.get_by_role('textbox', name='synnax').fill('synnax')
-        self.console.get_by_role('textbox', name='seldon').click()
-        self.console.get_by_role('textbox', name='seldon').fill('seldon')
-        self.console.get_by_role('button', name='Sign In').click()
-        time.sleep(10)
-
-        # click button
-        self.console.get_by_role("button", name="Sign In").click()
-
-        # load config file
-        # click button
-        # load config file
-        # Stop config file
+        # Toggle theme
+        self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.locator("#toggle-theme").click()
 
     def teardown(self) -> None:
-        """
-        Teardown the test case.
-        """
-
         self.browser.close()
-        
-        # Always call super() last
-        super().teardown()
+
+    def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
+        self.page.locator("[id=\"«r5»\"]").click() # New Page (+)
+        self.page.get_by_role("button", name=page_name).first.click()
+        # Apply inputs
+        for i in inputs_items:
+            self.page.get_by_role("textbox", name="Name").fill(i)
+            self.page.get_by_role("textbox", name="Name").press("ControlOrMeta+Enter")
+
+    def close_page(self, page_name: str) -> None:
+        tab = self.page.locator("div").filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
+        tab.get_by_label("pluto-tabs__close").click()
