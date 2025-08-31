@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group, type ontology } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  group,
+  type ontology,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -18,19 +23,21 @@ import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
 import { type ExportedSymbol } from "@/schematic/symbols/export";
 
+interface SymbolManifest {
+  file: string;
+  key: string;
+  name: string;
+}
+
 export interface GroupManifest {
   version: 1;
   type: "symbol-group";
   name: string;
-  symbols: Array<{
-    file: string;
-    key: string;
-    name: string;
-  }>;
+  symbols: SymbolManifest[];
 }
 
-export interface ExportGroupContext {
-  client: any; // Synnax client
+export interface ExportGroupArgs {
+  client: Synnax;
   groupKey: string;
   groupName: string;
   handleError: Status.ErrorHandler;
@@ -44,7 +51,7 @@ const exportGroup = async ({
   groupName,
   addStatus,
   confirm,
-}: ExportGroupContext): Promise<void> => {
+}: ExportGroupArgs): Promise<void> => {
   if (client == null) throw new DisconnectedError();
 
   // Get all symbols in the group

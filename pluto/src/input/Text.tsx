@@ -120,7 +120,6 @@ export const Text = ({
     if (onlyChangeOnBlur) setTempValue(value);
     onFocus?.(e);
     cachedFocusRef.current = e.target.value;
-    if (selectOnFocus) e.target.select();
   };
 
   const handleMouseUp = (): void => {
