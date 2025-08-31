@@ -29,7 +29,7 @@ type Writer struct {
 
 // Create creates the given symbol as a child of the ontology.Resource with the given
 // parent ID. If the symbol does not have a key, a new key will be generated. If the symbol
-// already exists, it will be updated and the existing parent relationship will be deleted 
+// already exists, it will be updated and the existing parent relationship will be deleted
 // and replaced with the new parent relationship.
 func (w Writer) Create(
 	ctx context.Context,
