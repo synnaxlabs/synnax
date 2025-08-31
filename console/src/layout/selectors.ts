@@ -246,6 +246,19 @@ export const selectActiveMosaicTabState = (
   };
 };
 
+export const selectActiveMosaicTabKeyAndNotBlurred = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string | null => {
+  const active = selectActiveMosaicTabState(state, windowKey);
+  if (active.layoutKey == null) return null;
+  if (active.blurred) return null;
+  return active.layoutKey;
+};
+
+export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null =>
+  useMemoSelect(selectActiveMosaicTabKeyAndNotBlurred, []);
+
 export const selectActiveMosaicTabName = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,

@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
@@ -451,7 +460,7 @@ describe("useCustom", () => {
 
     it("should handle orientation changes", () => {
       const container = document.createElement("div");
-      // Using the default spec with viewBox "0 0 100 100"  
+      // Using the default spec with viewBox "0 0 100 100"
       const spec = createMockSpec();
 
       const { rerender } = renderHook(
@@ -951,7 +960,7 @@ describe("useCustom", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
-      
+
       // Initially inactive - main has state colors, secondary has original
       expect(rect.getAttribute("stroke")).toBe("#333");
       expect(rect.getAttribute("fill")).toBe("#ccc");
@@ -1022,7 +1031,7 @@ describe("useCustom", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      
+
       // Start with state1 (treated as inactive)
       expect(rect.getAttribute("fill")).toBe("#ff0000");
       expect(rect.getAttribute("data-original-fill")).toBe("white");

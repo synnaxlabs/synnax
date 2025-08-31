@@ -515,6 +515,111 @@ describe("Form", () => {
     });
   });
 
+  describe("useFieldListUtils", () => {
+    it("should return current array values", () => {
+      const { result } = renderHook(
+        () => Form.useFieldListUtils<string, record.KeyedNamed>("array"),
+        { wrapper },
+      );
+      expect(result.current.value()).toEqual([{ key: "key1", name: "John Doe" }]);
+    });
+    it("should push items to array", () => {
+      const { result, rerender } = renderHook(
+        () => {
+          const utils = Form.useFieldListUtils<string, record.KeyedNamed>("array");
+          const field = Form.useFieldValue<record.KeyedNamed[]>("array");
+          return { utils, field };
+        },
+        { wrapper },
+      );
+      act(() => result.current.utils.push({ key: "key2", name: "Jane Doe" }));
+      rerender();
+      expect(result.current.field).toHaveLength(2);
+      expect(result.current.field?.[1]).toEqual({ key: "key2", name: "Jane Doe" });
+    });
+    it("should add items at specific index", () => {
+      const { result, rerender } = renderHook(
+        () => {
+          const utils = Form.useFieldListUtils<string, record.KeyedNamed>("array");
+          const field = Form.useFieldValue<record.KeyedNamed[]>("array");
+          return { utils, field };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.utils.push({ key: "key2", name: "Jane Doe" });
+        result.current.utils.add({ key: "key3", name: "Bob Smith" }, 1);
+      });
+      rerender();
+      expect(result.current.field).toHaveLength(3);
+      expect(result.current.field?.[1]).toEqual({ key: "key3", name: "Bob Smith" });
+    });
+    it("should remove items by key", () => {
+      const { result, rerender } = renderHook(
+        () => {
+          const utils = Form.useFieldListUtils<string, record.KeyedNamed>("array");
+          const field = Form.useFieldValue<record.KeyedNamed[]>("array");
+          return { utils, field };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.utils.push([
+          { key: "key2", name: "Jane Doe" },
+          { key: "key3", name: "Bob Smith" },
+        ]);
+      });
+      rerender();
+      act(() => result.current.utils.remove(["key1", "key3"]));
+      rerender();
+      expect(result.current.field).toHaveLength(1);
+      expect(result.current.field?.[0]).toEqual({ key: "key2", name: "Jane Doe" });
+    });
+    it("should keep only specified items", () => {
+      const { result, rerender } = renderHook(
+        () => {
+          const utils = Form.useFieldListUtils<string, record.KeyedNamed>("array");
+          const field = Form.useFieldValue<record.KeyedNamed[]>("array");
+          return { utils, field };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.utils.push([
+          { key: "key2", name: "Jane Doe" },
+          { key: "key3", name: "Bob Smith" },
+        ]);
+      });
+      rerender();
+      act(() => result.current.utils.keepOnly("key2"));
+      rerender();
+      expect(result.current.field).toHaveLength(1);
+      expect(result.current.field?.[0]).toEqual({ key: "key2", name: "Jane Doe" });
+    });
+    it("should sort array items", () => {
+      const { result, rerender } = renderHook(
+        () => {
+          const utils = Form.useFieldListUtils<string, record.KeyedNamed>("array");
+          const field = Form.useFieldValue<record.KeyedNamed[]>("array");
+          return { utils, field };
+        },
+        { wrapper },
+      );
+      act(() => {
+        result.current.utils.push([
+          { key: "key2", name: "Zara" },
+          { key: "key3", name: "Alice" },
+        ]);
+      });
+      rerender();
+      act(() => result.current.utils.sort?.((a, b) => a.name.localeCompare(b.name)));
+      rerender();
+      expect(result.current.field?.[0].name).toBe("Alice");
+      expect(result.current.field?.[1].name).toBe("John Doe");
+      expect(result.current.field?.[2].name).toBe("Zara");
+    });
+  });
+
   describe("reset functionality", () => {
     describe("reset()", () => {
       it("should reset all form values to initial values", () => {

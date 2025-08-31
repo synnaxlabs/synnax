@@ -40,7 +40,7 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { addElement, setSelectedSymbolGroup } from "@/schematic/slice";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
-import { createCreateLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { useExport as useExportSymbol } from "@/schematic/symbols/export";
 import { useExportGroup } from "@/schematic/symbols/exportGroup";
 import { useImport as useImportSymbol } from "@/schematic/symbols/import";
@@ -213,7 +213,7 @@ const RemoteSymbolListContextMenu = (
   });
   const handleEdit = () => {
     placeLayout(
-      createCreateLayout({
+      createEditLayout({
         args: { key: firstKey, parent: group.ontologyID(props.groupKey) },
       }),
     );
@@ -250,7 +250,7 @@ const useCreateSymbol = (selectedGroup: string) => {
   const placeLayout = Layout.usePlacer();
   const handleCreateSymbol = useCallback(() => {
     placeLayout(
-      createCreateLayout({
+      createEditLayout({
         args: { parent: group.ontologyID(selectedGroup) },
       }),
     );
@@ -387,7 +387,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const handleCreateSymbol = useCallback(() => {
     if (!isRemoteGroup) return;
     placeLayout(
-      createCreateLayout({
+      createEditLayout({
         args: { parent: group.ontologyID(selectedGroup) },
       }),
     );

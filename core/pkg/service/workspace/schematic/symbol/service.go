@@ -91,7 +91,10 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Symbol](cfg.DB))
+		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](cfg.DB)
+		signalsCfg.SetName = "sy_schematic_symbol_set"
+		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
+		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg)
 		if err != nil {
 			return nil, err
 		}

@@ -87,8 +87,9 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     return store.groups.get(rels.map((r) => r.to.key));
   },
   retrieve: async ({ client, params, store }) => {
-    if (params.parent == null) return [];
-    const res = await client.ontology.retrieveChildren(params.parent, {
+    const { parent } = params;
+    if (parent == null) return [];
+    const res = await client.ontology.retrieveChildren(parent, {
       ...params,
       types: ["group"],
     });
@@ -96,7 +97,7 @@ export const useList = Flux.createList<ListParams, group.Key, group.Payload, Sub
     store.groups.set(groups);
     groups.forEach((g) => {
       const rel = {
-        from: params.parent as ontology.ID,
+        from: parent,
         type: "parent",
         to: group.ontologyID(g.key),
       };

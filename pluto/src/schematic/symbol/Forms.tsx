@@ -191,6 +191,7 @@ interface CommonStyleFormProps extends SymbolFormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
   hideOuterOrientation?: boolean;
+  showStateOverrides?: boolean;
 }
 
 export const CommonStyleForm = ({
@@ -198,16 +199,16 @@ export const CommonStyleForm = ({
   hideInnerOrientation,
   hideOuterOrientation,
 }: CommonStyleFormProps): ReactElement => {
-  // Check if this is a custom symbol by looking for specKey
-  const specKey = Form.useFieldValue<string>("specKey", { optional: true });
-  const isCustomSymbol = specKey != null && specKey.length > 0;
-
+  const hasStateOverrides =
+    Form.useFieldValue<string>("stateOverrides", {
+      optional: true,
+    }) != null;
   return (
     <FormWrapper x align="stretch" empty>
       <Flex.Box y grow>
         <LabelControls omit={omit} path="label" />
         <Flex.Box x grow>
-          {!isCustomSymbol && <ColorControl path="color" optional />}
+          {!hasStateOverrides && <ColorControl path="color" optional />}
           <Form.Field<boolean>
             path="normallyOpen"
             label="Normally Open"
@@ -220,7 +221,7 @@ export const CommonStyleForm = ({
           <ScaleControl path="scale" />
         </Flex.Box>
       </Flex.Box>
-      {isCustomSymbol && <StateOverrideControls specKey={specKey} />}
+      {hasStateOverrides && <StateOverrideControls />}
       <OrientationControl
         path=""
         hideInner={hideInnerOrientation}

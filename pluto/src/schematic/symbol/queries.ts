@@ -234,7 +234,7 @@ export const useDelete = Flux.createUpdate<DeleteParams, void>({
     await client.workspaces.schematic.symbols.delete(key),
 }).useDirect;
 
-export const useGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
+export const retrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
     await client.workspaces.schematic.symbols.retrieveGroup(),

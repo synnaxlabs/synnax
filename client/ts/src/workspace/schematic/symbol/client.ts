@@ -57,8 +57,8 @@ const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 
-export const SET_CHANNEL_NAME = "sy_symbol_set";
-export const DELETE_CHANNEL_NAME = "sy_symbol_delete";
+export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
+export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
 export interface CreateArgs extends New {
   parent: ontology.ID;
@@ -112,7 +112,7 @@ export class Client {
       retrieveArgsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Symbol", args, res.symbols, isSingle);
+    checkForMultipleOrNoResults("Schematic Symbol", args, res.symbols, isSingle);
     return isSingle ? res.symbols[0] : res.symbols;
   }
 

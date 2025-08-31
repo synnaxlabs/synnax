@@ -34,7 +34,7 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
-import { createCreateLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
@@ -99,7 +99,7 @@ const IndividualProperties = ({
   const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
   let actions: ReactNode = null;
   const placeLayout = Layout.usePlacer();
-  if (isRemote)
+  if (isRemote && specKey != null)
     actions = (
       <Button.Button
         variant="filled"
@@ -107,8 +107,8 @@ const IndividualProperties = ({
         style={{ marginRight: "1rem" }}
         onClick={() => {
           placeLayout(
-            createCreateLayout({
-              args: { key: specKey as string },
+            createEditLayout({
+              args: { key: specKey },
             }),
           );
         }}

@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type schematic } from "@synnaxlabs/client";
 import {
   caseconv,
@@ -20,10 +29,6 @@ import { Text } from "@/text";
 
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
-
-export interface StateOverrideControlsProps {
-  specKey: string;
-}
 
 interface RegionControlsProps {
   path: string;
@@ -170,9 +175,8 @@ const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListPro
   );
 };
 
-export const StateOverrideControls = ({
-  specKey,
-}: StateOverrideControlsProps): ReactElement | null => {
+export const StateOverrideControls = (): ReactElement => {
+  const specKey = Form.useFieldValue<string>("specKey");
   const form = Form.useContext();
   const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
   const { data: states } = Form.useFieldList<string, schematic.symbol.State>(

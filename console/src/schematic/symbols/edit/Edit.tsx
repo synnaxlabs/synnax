@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import "@/schematic/symbols/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
@@ -36,7 +45,7 @@ export interface CreateLayoutArgs extends SchematicSymbol.UseFormParams {
 const CREATE_NAME = "Schematic.Create Symbol";
 const EDIT_NAME = "Schematic.Edit Symbol";
 
-export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
+const EDIT_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   location: "modal",
@@ -51,11 +60,11 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   },
 };
 
-export const createCreateLayout = (
+export const createEditLayout = (
   initial: Partial<Layout.BaseState<CreateLayoutArgs>> = {},
 ): Layout.BaseState<CreateLayoutArgs> => {
   const isEdit = initial.args?.key != null;
-  return { ...CREATE_LAYOUT, ...initial, name: isEdit ? EDIT_NAME : CREATE_NAME };
+  return { ...EDIT_LAYOUT, ...initial, name: isEdit ? EDIT_NAME : CREATE_NAME };
 };
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };

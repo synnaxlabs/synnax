@@ -42,27 +42,24 @@ func (w Writer) Create(
 	} else {
 		exists, err = gorp.NewRetrieve[uuid.UUID, Symbol]().WhereKeys(s.Key).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, Symbol]().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(s.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
 	}
 	// Symbol already exists = delete incoming relationships and define new parent
 	// Symbol does not exist = define parent
 	if exists {
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
-			return
+			return err
 		}
 	}
-	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-		return
-	}
-	return
+	return w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID)
 }
 
 // Rename renames the symbol with the given key to the provided name.
