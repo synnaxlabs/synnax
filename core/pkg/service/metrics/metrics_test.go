@@ -92,7 +92,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
 			})
-			Expect(cfg.CollectionInterval).To(Equal(5 * time.Second))
+			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
 	})
 
