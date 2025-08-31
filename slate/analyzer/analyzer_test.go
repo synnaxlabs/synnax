@@ -48,7 +48,7 @@ func dog(age i32, age i32) {
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			diagnostic := result.Diagnostics[0]
-			Expect(diagnostic.Message).To(Equal("name age conflicts with existing symbol at line 2, col 9"))
+			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
 		})
 	})
 

@@ -1,6 +1,8 @@
-func testFunc() {
-	a i32 := 10
-	b i32 := 20
-	c i32 := 30
-	d u8 := a + b * c < 100 
+task average{} (first chan i64) chan i64 {
+	return (first + second) / 2
 }
+
+task on{} () chan i64 {
+}
+
+on{} -> average{} -> ox_pt_1

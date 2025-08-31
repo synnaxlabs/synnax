@@ -264,7 +264,6 @@ func visitUnary(
 		}
 		operandType := types.InferFromUnaryExpression(parentScope, innerUnary)
 		if ctx.MINUS() != nil {
-			// Unary negation requires numeric type
 			if operandType != nil && !types.IsNumeric(operandType) {
 				result.AddError(
 					errors.Newf("operator - not supported for type %s", operandType),
@@ -273,16 +272,14 @@ func visitUnary(
 				return false
 			}
 		} else if ctx.NOT() != nil {
-			// Logical NOT requires boolean type
 			if operandType != nil && !types.IsBool(operandType) {
 				result.AddError(
-					errors.Newf("operator ! requires boolean operand, got %s", operandType),
+					errors.Newf("operator ! requires boolean operand, received %s", operandType),
 					ctx,
 				)
 				return false
 			}
 		}
-
 		return true
 	}
 	if blockingRead := ctx.BlockingReadExpr(); blockingRead != nil {

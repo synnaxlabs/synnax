@@ -80,17 +80,11 @@ func (s *BaseSlateParserListener) EnterFlowStatement(ctx *FlowStatementContext) 
 // ExitFlowStatement is called when production flowStatement is exited.
 func (s *BaseSlateParserListener) ExitFlowStatement(ctx *FlowStatementContext) {}
 
-// EnterFlowSource is called when production flowSource is entered.
-func (s *BaseSlateParserListener) EnterFlowSource(ctx *FlowSourceContext) {}
+// EnterFlowNode is called when production flowNode is entered.
+func (s *BaseSlateParserListener) EnterFlowNode(ctx *FlowNodeContext) {}
 
-// ExitFlowSource is called when production flowSource is exited.
-func (s *BaseSlateParserListener) ExitFlowSource(ctx *FlowSourceContext) {}
-
-// EnterFlowTarget is called when production flowTarget is entered.
-func (s *BaseSlateParserListener) EnterFlowTarget(ctx *FlowTargetContext) {}
-
-// ExitFlowTarget is called when production flowTarget is exited.
-func (s *BaseSlateParserListener) ExitFlowTarget(ctx *FlowTargetContext) {}
+// ExitFlowNode is called when production flowNode is exited.
+func (s *BaseSlateParserListener) ExitFlowNode(ctx *FlowNodeContext) {}
 
 // EnterChannelIdentifier is called when production channelIdentifier is entered.
 func (s *BaseSlateParserListener) EnterChannelIdentifier(ctx *ChannelIdentifierContext) {}

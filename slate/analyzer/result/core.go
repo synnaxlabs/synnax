@@ -9,7 +9,10 @@
 
 package result
 
-import "github.com/antlr4-go/antlr/v4"
+import (
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/slate/analyzer/symbol"
+)
 
 // Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
@@ -30,6 +33,7 @@ const (
 
 type Result struct {
 	Diagnostics []Diagnostic
+	Symbols     *symbol.Scope
 }
 
 func (r *Result) AddError(

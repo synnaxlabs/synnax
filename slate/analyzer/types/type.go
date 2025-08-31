@@ -10,6 +10,8 @@
 package types
 
 import (
+	"iter"
+
 	"github.com/synnaxlabs/slate/analyzer/symbol"
 )
 
@@ -64,15 +66,74 @@ type Series struct {
 func (s Series) String() string { return "series " + s.ValueType.String() }
 
 type Function struct {
-	Params map[string]symbol.Type
+	Params OrderedMap[string, symbol.Type]
 	Return symbol.Type
+}
+
+func NewFunction() Function {
+	return Function{Params: OrderedMap[string, symbol.Type]{}}
 }
 
 func (f Function) String() string { return "function" }
 
+type OrderedMap[K comparable, V any] struct {
+	keys   []K
+	values []V
+}
+
+func NewOrderedMap[K comparable, V any](keys []K, values []V) OrderedMap[K, V] {
+	return OrderedMap[K, V]{keys, values}
+}
+
+func NewTask() Task {
+	return Task{
+		Params: OrderedMap[string, symbol.Type]{},
+		Config: OrderedMap[string, symbol.Type]{},
+	}
+}
+
+func (m *OrderedMap[K, V]) Count() int {
+	return len(m.keys)
+}
+
+func (m *OrderedMap[K, V]) At(i int) V {
+	return m.values[i]
+}
+
+func (m *OrderedMap[K, V]) Iter() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for i, k := range m.keys {
+			if !yield(k, m.values[i]) {
+				return
+			}
+		}
+	}
+}
+
+func (m *OrderedMap[K, V]) Get(key K) (V, bool) {
+	for i, k := range m.keys {
+		if k == key {
+			return m.values[i], true
+		}
+	}
+	var res V
+	return res, false
+}
+
+func (m *OrderedMap[K, V]) Put(key K, value V) bool {
+	for _, k := range m.keys {
+		if k == key {
+			return false
+		}
+	}
+	m.keys = append(m.keys, key)
+	m.values = append(m.values, value)
+	return true
+}
+
 type Task struct {
-	Config map[string]symbol.Type
-	Params map[string]symbol.Type
+	Config OrderedMap[string, symbol.Type]
+	Params OrderedMap[string, symbol.Type]
 	Return symbol.Type
 }
 
@@ -93,6 +154,9 @@ type TimeStamp struct{}
 func (t TimeStamp) String() string { return "timestamp" }
 
 func IsNumeric(t symbol.Type) bool {
+	if ch, isChan := t.(Chan); isChan {
+		t = ch.ValueType
+	}
 	switch t {
 	case U8{}, U16{}, U32{}, U64{}, I8{}, I16{}, I32{}, I64{}, F32{}, F64{}:
 		return true
@@ -140,4 +204,8 @@ func IsFloat(t symbol.Type) bool {
 func IsBool(t symbol.Type) bool {
 	_, ok := t.(U8)
 	return ok
+}
+
+func Equal(t symbol.Type, v symbol.Type) bool {
+	return t == v
 }

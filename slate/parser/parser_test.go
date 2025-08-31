@@ -324,20 +324,20 @@ task doubler{
 			flow := prog.TopLevelItem(0).FlowStatement()
 			Expect(flow).NotTo(BeNil())
 
-			// Source: sensor channel
-			source := flow.FlowSource()
-			Expect(source.ChannelIdentifier()).NotTo(BeNil())
-			Expect(source.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("sensor"))
+			// First node: sensor channel
+			node1 := flow.FlowNode(0)
+			Expect(node1.ChannelIdentifier()).NotTo(BeNil())
+			Expect(node1.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("sensor"))
 
-			// First target: controller{}
-			target1 := flow.FlowTarget(0)
-			Expect(target1.TaskInvocation()).NotTo(BeNil())
-			Expect(target1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+			// Second node: controller{}
+			node2 := flow.FlowNode(1)
+			Expect(node2.TaskInvocation()).NotTo(BeNil())
+			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Second target: actuator
-			target2 := flow.FlowTarget(1)
-			Expect(target2.ChannelIdentifier()).NotTo(BeNil())
-			Expect(target2.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+			// Third node: actuator
+			node3 := flow.FlowNode(2)
+			Expect(node3.ChannelIdentifier()).NotTo(BeNil())
+			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 		})
 
 		It("Should parse task invocation with named config", func() {
@@ -349,8 +349,8 @@ controller{
 }(1) -> output`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
-			source := flow.FlowSource()
-			task := source.TaskInvocation()
+			node := flow.FlowNode(0)
+			task := node.TaskInvocation()
 
 			Expect(task.IDENTIFIER().GetText()).To(Equal("controller"))
 
@@ -371,8 +371,8 @@ controller{
 			prog := parseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
-			source := flow.FlowSource()
-			task := source.TaskInvocation()
+			node := flow.FlowNode(0)
+			task := node.TaskInvocation()
 
 			Expect(task.IDENTIFIER().GetText()).To(Equal("any"))
 
@@ -382,10 +382,10 @@ controller{
 			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
 			Expect(config.AnonymousConfigValues().AllExpression()).To(HaveLen(2))
 
-			// Check the flow target also has task invocation
-			target := flow.FlowTarget(0)
-			Expect(target.TaskInvocation()).NotTo(BeNil())
-			Expect(target.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			// Check the second node also has task invocation
+			node2 := flow.FlowNode(1)
+			Expect(node2.TaskInvocation()).NotTo(BeNil())
+			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
 		It("Should parse task with anonymous arguments in complex flow", func() {
@@ -402,8 +402,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			// Check flow statement
 			flow := prog.TopLevelItem(1).FlowStatement()
-			source := flow.FlowSource()
-			task := source.TaskInvocation()
+			node := flow.FlowNode(0)
+			task := node.TaskInvocation()
 
 			// Verify anonymous config
 			config := task.ConfigValues()
@@ -426,11 +426,11 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			prog := parseProgram(`ox_pt_1 > 100 -> alarm{}`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
-			source := flow.FlowSource()
+			node := flow.FlowNode(0)
 
-			// Source is an expression
-			Expect(source.Expression()).NotTo(BeNil())
-			relational := getRelationalExpression(source.Expression())
+			// First node is an expression
+			Expect(node.Expression()).NotTo(BeNil())
+			relational := getRelationalExpression(node.Expression())
 			Expect(relational.GT(0)).NotTo(BeNil())
 		})
 
@@ -450,27 +450,27 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			flow := prog.TopLevelItem(1).FlowStatement()
 
 			// Check first task invocation (any)
-			source := flow.FlowSource()
-			Expect(source.TaskInvocation()).NotTo(BeNil())
-			Expect(source.TaskInvocation().IDENTIFIER().GetText()).To(Equal("any"))
+			node1 := flow.FlowNode(0)
+			Expect(node1.TaskInvocation()).NotTo(BeNil())
+			Expect(node1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("any"))
 
 			// Check middle task invocation (average with empty config)
-			target1 := flow.FlowTarget(0)
-			Expect(target1.TaskInvocation()).NotTo(BeNil())
-			Expect(target1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+			node2 := flow.FlowNode(1)
+			Expect(node2.TaskInvocation()).NotTo(BeNil())
+			Expect(node2.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
 
 			// Verify average has empty config
-			avgConfig := target1.TaskInvocation().ConfigValues()
+			avgConfig := node2.TaskInvocation().ConfigValues()
 			Expect(avgConfig).NotTo(BeNil())
 			Expect(avgConfig.LBRACE()).NotTo(BeNil())
 			Expect(avgConfig.RBRACE()).NotTo(BeNil())
 			Expect(avgConfig.NamedConfigValues()).To(BeNil())
 			Expect(avgConfig.AnonymousConfigValues()).To(BeNil())
 
-			// Check final target (channel)
-			target2 := flow.FlowTarget(1)
-			Expect(target2.ChannelIdentifier()).NotTo(BeNil())
-			Expect(target2.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
+			// Check final node (channel)
+			node3 := flow.FlowNode(2)
+			Expect(node3.ChannelIdentifier()).NotTo(BeNil())
+			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
 		})
 
 		It("Should fail parsing mixed named and anonymous config values", func() {

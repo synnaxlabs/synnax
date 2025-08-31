@@ -135,6 +135,12 @@ func Compatible(
 	if t1 == nil || t2 == nil {
 		return false
 	}
+	if t1Chan, ok := t1.(Chan); ok {
+		t1 = t1Chan.ValueType
+	}
+	if t2Chan, ok := t2.(Chan); ok {
+		t2 = t2Chan.ValueType
+	}
 	// Same type is always compatible
 	if t1.String() == t2.String() {
 		return true

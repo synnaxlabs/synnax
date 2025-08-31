@@ -37,11 +37,8 @@ type SlateParserListener interface {
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
 
-	// EnterFlowSource is called when entering the flowSource production.
-	EnterFlowSource(c *FlowSourceContext)
-
-	// EnterFlowTarget is called when entering the flowTarget production.
-	EnterFlowTarget(c *FlowTargetContext)
+	// EnterFlowNode is called when entering the flowNode production.
+	EnterFlowNode(c *FlowNodeContext)
 
 	// EnterChannelIdentifier is called when entering the channelIdentifier production.
 	EnterChannelIdentifier(c *ChannelIdentifierContext)
@@ -232,11 +229,8 @@ type SlateParserListener interface {
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
 
-	// ExitFlowSource is called when exiting the flowSource production.
-	ExitFlowSource(c *FlowSourceContext)
-
-	// ExitFlowTarget is called when exiting the flowTarget production.
-	ExitFlowTarget(c *FlowTargetContext)
+	// ExitFlowNode is called when exiting the flowNode production.
+	ExitFlowNode(c *FlowNodeContext)
 
 	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
 	ExitChannelIdentifier(c *ChannelIdentifierContext)

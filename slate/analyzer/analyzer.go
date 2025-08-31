@@ -25,33 +25,27 @@ type Config struct {
 	Resolver symbol.Resolver
 }
 
+type Result = result.Result
+
 func Analyze(cfg Config) result.Result {
 	prog := cfg.Program
 	rootScope := &symbol.Scope{GlobalResolver: cfg.Resolver}
-	res := result.Result{}
+	res := result.Result{Symbols: rootScope}
 	// First pass: collect declarations with empty type signatures
 	for _, item := range prog.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
-			_, err := rootScope.AddSymbol(
-				fn.IDENTIFIER().GetText(),
-				symbol.KindFunction,
-				types.Function{
-					Params: make(map[string]symbol.Type),
-				},
-				fn,
-			)
+			name := fn.IDENTIFIER().GetText()
+			_, err := rootScope.AddSymbol(name, symbol.KindFunction, types.NewFunction(), fn)
 			if err != nil {
 				res.AddError(err, fn)
 				return res
 			}
 		} else if task := item.TaskDeclaration(); task != nil {
+			name := task.IDENTIFIER().GetText()
 			_, err := rootScope.AddSymbol(
-				task.IDENTIFIER().GetText(),
+				name,
 				symbol.KindTask,
-				types.Task{
-					Config: make(map[string]symbol.Type),
-					Params: make(map[string]symbol.Type),
-				},
+				types.NewTask(),
 				task,
 			)
 			if err != nil {
@@ -79,7 +73,6 @@ func Analyze(cfg Config) result.Result {
 	return res
 }
 
-
 // visitFunctionDeclaration analyzes a function declaration
 func visitFunctionDeclaration(
 	parentScope *symbol.Scope,
@@ -92,22 +85,57 @@ func visitFunctionDeclaration(
 		result.AddError(err, fn)
 		return false
 	}
-	
+
 	// Get the function type from the symbol
 	fnType := fnScope.Symbol.Type.(types.Function)
-	
-	// Parse parameters and add them to the function's type signature
-	if params := fn.ParameterList(); params != nil {
-		for _, param := range params.AllParameter() {
-			var paramType symbol.Type
-			if typeCtx := param.Type_(); typeCtx != nil {
-				paramType, _ = types.InferFromTypeContext(typeCtx)
-			}
-			paramName := param.IDENTIFIER().GetText()
-			fnType.Params[paramName] = paramType
-			
-			// Also add to scope for use within function body
-			if _, err := fnScope.AddSymbol(
+	if !visitParams(
+		fnScope,
+		result,
+		fn.ParameterList(),
+		&fnType.Params,
+	) {
+		return false
+	}
+
+	// Parse return type
+	if retType := fn.ReturnType(); retType != nil {
+		if typeCtx := retType.Type_(); typeCtx != nil {
+			fnType.Return, _ = types.InferFromTypeContext(typeCtx)
+		}
+	}
+
+	// Update the function's type in the symbol
+	fnScope.Symbol.Type = fnType
+
+	if block := fn.Block(); block != nil {
+		visitBlock(fnScope, result, block)
+	}
+	return true
+}
+
+func visitParams(
+	scope *symbol.Scope,
+	result *result.Result,
+	params parser.IParameterListContext,
+	paramTypes *types.OrderedMap[string, symbol.Type],
+) bool {
+	if params == nil {
+		return true
+	}
+	for _, param := range params.AllParameter() {
+		var paramType symbol.Type
+		if typeCtx := param.Type_(); typeCtx != nil {
+			paramType, _ = types.InferFromTypeContext(typeCtx)
+		}
+		paramName := param.IDENTIFIER().GetText()
+		if !paramTypes.Put(paramName, paramType) {
+			result.AddError(
+				errors.Newf("duplicate parameter %s", paramName),
+				param,
+			)
+
+			// Also add to scope for use within task body
+			if _, err := scope.AddSymbol(
 				paramName,
 				symbol.KindParam,
 				paramType,
@@ -117,20 +145,6 @@ func visitFunctionDeclaration(
 				return false
 			}
 		}
-	}
-	
-	// Parse return type
-	if retType := fn.ReturnType(); retType != nil {
-		if typeCtx := retType.Type_(); typeCtx != nil {
-			fnType.Return, _ = types.InferFromTypeContext(typeCtx)
-		}
-	}
-	
-	// Update the function's type in the symbol
-	fnScope.Symbol.Type = fnType
-	
-	if block := fn.Block(); block != nil {
-		visitBlock(fnScope, result, block)
 	}
 	return true
 }
@@ -147,10 +161,10 @@ func visitTaskDeclaration(
 		result.AddError(err, task)
 		return false
 	}
-	
+
 	// Get the task type from the symbol
 	taskType := taskScope.Symbol.Type.(types.Task)
-	
+
 	// Parse config parameters and add them to the task's type signature
 	if configBlock := task.ConfigBlock(); configBlock != nil {
 		for _, param := range configBlock.AllConfigParameter() {
@@ -160,8 +174,9 @@ func visitTaskDeclaration(
 			if typeCtx := param.Type_(); typeCtx != nil {
 				configType, _ = types.InferFromTypeContext(typeCtx)
 			}
-			taskType.Config[paramName] = configType
-			
+			if !taskType.Config.Put(paramName, configType) {
+				result.AddError(errors.Newf("duplicate configuration parameter %s", param), task)
+			}
 			// Also add to scope for use within task body
 			_, err := taskScope.AddSymbol(
 				paramName,
@@ -175,40 +190,26 @@ func visitTaskDeclaration(
 			}
 		}
 	}
-	
-	// Parse runtime parameters and add them to the task's type signature
-	if params := task.ParameterList(); params != nil {
-		for _, param := range params.AllParameter() {
-			var paramType symbol.Type
-			if typeCtx := param.Type_(); typeCtx != nil {
-				paramType, _ = types.InferFromTypeContext(typeCtx)
-			}
-			paramName := param.IDENTIFIER().GetText()
-			taskType.Params[paramName] = paramType
-			
-			// Also add to scope for use within task body
-			if _, err := taskScope.AddSymbol(
-				paramName,
-				symbol.KindParam,
-				paramType,
-				param,
-			); err != nil {
-				result.AddError(err, param)
-				return false
-			}
-		}
+
+	if !visitParams(
+		taskScope,
+		result,
+		task.ParameterList(),
+		&taskType.Params,
+	) {
+		return false
 	}
-	
+
 	// Parse return type
 	if retType := task.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
 			taskType.Return, _ = types.InferFromTypeContext(typeCtx)
 		}
 	}
-	
+
 	// Update the task's type in the symbol
 	taskScope.Symbol.Type = taskType
-	
+
 	if block := task.Block(); block != nil {
 		if !visitBlock(taskScope, result, block) {
 			return false

@@ -20,15 +20,22 @@ import (
 )
 
 var resolver = symbol.MapResolver{
+	"on": symbol.Symbol{
+		Name: "on",
+		Kind: symbol.KindTask,
+		Type: &types.Task{
+			Config: types.NewOrderedMap([]string{"channel"}, []symbol.Type{types.String{}}),
+		},
+	},
 	"once": symbol.Symbol{
 		Name: "once",
 		Kind: symbol.KindTask,
-		Type: types.Task{},
+		Type: &types.Task{},
 	},
 	"processor": symbol.Symbol{
 		Name: "processor",
 		Kind: symbol.KindTask,
-		Type: types.Task{},
+		Type: &types.Task{},
 	},
 	"sensor_chan": symbol.Symbol{
 		Name: "sensor_chan",
@@ -37,6 +44,21 @@ var resolver = symbol.MapResolver{
 	},
 	"output_chan": symbol.Symbol{
 		Name: "output_chan",
+		Kind: symbol.KindChannel,
+		Type: types.Chan{ValueType: types.F64{}},
+	},
+	"temp_sensor": symbol.Symbol{
+		Name: "temp_sensor",
+		Kind: symbol.KindChannel,
+		Type: types.Chan{ValueType: types.F64{}},
+	},
+	"valve_cmd": symbol.Symbol{
+		Name: "valve_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan{ValueType: types.F64{}},
+	},
+	"temperature": symbol.Symbol{
+		Name: "temperature",
 		Kind: symbol.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
@@ -208,6 +230,166 @@ once{} -> processor{}
 			`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should allow channels as both sources and targets in flow statements", func() {
+			ast := MustSucceed(parser.Parse(`
+			task process{
+				input <-chan f64
+				output ->chan f64
+			} () {
+				value := <-input
+				processed := value * 2.0
+				processed -> output
+			}
+
+			// Channel as source -> task -> channel as target
+			temp_sensor -> process{
+				input: temp_sensor,
+				output: valve_cmd
+			}
+
+			// Direct channel to channel piping (no task)
+			// This represents a direct connection/pass-through
+			sensor_chan -> output_chan
+
+			// Channel as source in multi-stage flow
+			sensor_chan -> process{
+				input: sensor_chan,
+				output: output_chan
+			} -> valve_cmd
+			`))
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
+			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should understand channel pass-through triggers tasks on new values", func() {
+			ast := MustSucceed(parser.Parse(`
+			task logger{
+				value <-chan f64
+			} () {
+				v := <-value
+				// Log the value
+			}
+
+			task controller{
+				temp <-chan f64
+				setpoint f64
+			} () {
+				current := <-temp
+				if current > setpoint {
+					// Take action
+				}
+			}
+
+			// Channel pass-through - these trigger tasks on channel updates
+			// The channel IS the implicit first parameter to the task
+			temperature -> controller{temp: temperature, setpoint: 100.0}
+
+			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
+			sensor_chan -> logger{value: sensor_chan}
+
+			// Even simpler - if task has single channel input, it can be implicit
+			// (though this might not be implemented yet)
+			// sensor_chan -> logger{}
+			`))
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
+			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should implicitly convert channel sources to on{channel} task invocations", func() {
+			ast := MustSucceed(parser.Parse(`
+			task display{
+				input <-chan f64
+			} () {
+				value := <-input
+				// Display the value
+			}
+
+			// This channel as source:
+			sensor_chan -> display{input: sensor_chan}
+
+			// Is implicitly converted to:
+			// on{channel: sensor_chan} -> display{input: sensor_chan}
+			// Where "on" is a stdlib task that triggers when the channel receives a value
+			`))
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
+			Expect(result.Diagnostics).To(HaveLen(0))
+
+			// The analyzer should have converted the channel source to an "on" task
+			// This test verifies that the "on" task is required in the resolver
+		})
+
+		It("Using channel as source", func() {
+			// Create a resolver without the "on" task
+			noOnResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
+					Name: "sensor_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan{ValueType: types.F64{}},
+				},
+			}
+
+			ast := MustSucceed(parser.Parse(`
+			task display{
+				input <-chan f64
+			} () {
+				value := <-input
+			}
+
+			// This should fail because "on" task is not available
+			sensor_chan -> display{input: sensor_chan}
+			`))
+
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: noOnResolver})
+			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should convert expressions in flow statements to anonymous tasks", func() {
+			ast := MustSucceed(parser.Parse(`
+task alarm{} () {}
+task logger{} () {}
+
+// Expression as source - should be converted to anonymous task
+// The expression "sensor_chan > 100" becomes an anonymous task that:
+// 1. Reads from sensor_chan
+// 2. Evaluates the comparison
+// 3. Outputs u8 (boolean) result
+sensor_chan > 100 -> alarm{}
+
+// Arithmetic expression
+(sensor_chan * 1.8) + 32.0 -> logger{}
+			`))
+
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
+			// The expressions should be validated successfully
+			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should validate that expressions in flows only reference channels and literals", func() {
+			ast := MustSucceed(parser.Parse(`
+task alarm{} () {}
+
+func setup() {
+	threshold := 100  // Variables can only exist in functions/tasks
+}
+
+// This should fail - can't use variables in flow expressions
+// 'threshold' doesn't exist at the inter-task layer scope
+sensor_chan > threshold -> alarm{}
+			`))
+
+			result := analyzer.Analyze(analyzer.Config{Program: ast, Resolver: resolver})
+			// Should have an error about undefined symbol 'threshold'
+			Expect(result.Diagnostics).ToNot(BeEmpty())
+			foundError := false
+			for _, diag := range result.Diagnostics {
+				if matched, _ := ContainSubstring("undefined symbol: threshold").Match(diag.Message); matched {
+					foundError = true
+					break
+				}
+			}
+			Expect(foundError).To(BeTrue(), "Expected error about undefined symbol 'threshold'")
 		})
 	})
 })

@@ -59,18 +59,13 @@ configParameter
 // =============================================================================
 
 flowStatement
-    : flowSource ARROW flowTarget (ARROW flowTarget)* SEMICOLON?
+    : flowNode (ARROW flowNode)+ SEMICOLON?
     ;
 
-flowSource
+flowNode
     : channelIdentifier
     | taskInvocation
     | expression
-    ;
-
-flowTarget
-    : channelIdentifier
-    | taskInvocation
     ;
 
 channelIdentifier

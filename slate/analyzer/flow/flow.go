@@ -10,8 +10,6 @@
 package flow
 
 import (
-	"fmt"
-
 	"github.com/synnaxlabs/slate/analyzer/expression"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
@@ -20,214 +18,161 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// FlowStatement represents a parsed flow statement in the inter-task layer
-type FlowStatement struct {
-	Source Source
-	Target Target
-}
-
-// Source represents the source of a flow (channel, task invocation, or expression)
-type Source struct {
-	ChannelID      string
-	TaskInvocation *TaskInvocation
-	Expression     parser.IExpressionContext
-}
-
-// Target represents the target of a flow (channel or task invocation)
-type Target struct {
-	ChannelID      string
-	TaskInvocation *TaskInvocation
-}
-
-// TaskInvocation represents a task invocation with config and arguments
-type TaskInvocation struct {
-	TaskName   string
-	ConfigVals map[string]interface{}
-	Arguments  []parser.IExpressionContext
-}
-
 // Visit processes a flow statement and returns true if successful
 func Visit(scope *symbol.Scope, res *result.Result, ctx parser.IFlowStatementContext) bool {
-	source := parseSource(scope, res, ctx.FlowSource())
-	if source == nil {
-		return false
+	for i, flowNode := range ctx.AllFlowNode() {
+		var prevFlowNode parser.IFlowNodeContext
+		if i != 0 {
+			prevFlowNode = ctx.FlowNode(i - 1)
+		}
+		if !visitSource(scope, res, prevFlowNode, flowNode) {
+			return false
+		}
 	}
-
-	// Flow statements can have multiple targets chained with arrows
-	// For now, just parse the first target
-	if ctx.AllFlowTarget() == nil || len(ctx.AllFlowTarget()) == 0 {
-		res.AddError(errors.New("flow statement must have at least one target"), ctx)
-		return false
-	}
-	target := parseTarget(scope, res, ctx.FlowTarget(0))
-	if target == nil {
-		return false
-	}
-
-	// Store flow information in result context (to be implemented)
-	// For now, just validate the flow
 	return true
 }
 
-func parseSource(scope *symbol.Scope, res *result.Result, ctx parser.IFlowSourceContext) *Source {
-	if ctx == nil {
-		return nil
+func visitSource(
+	scope *symbol.Scope,
+	res *result.Result,
+	prevNode parser.IFlowNodeContext,
+	currNode parser.IFlowNodeContext,
+) bool {
+	// Case 1: Source is a direct task invocation.
+	if taskInv := currNode.TaskInvocation(); taskInv != nil {
+		return parseTaskInvocation(
+			scope,
+			res,
+			prevNode,
+			taskInv,
+		)
+	}
+	// Case 2: Source is a channel identifier
+	if channelID := currNode.ChannelIdentifier(); channelID != nil {
+		return visitChannel(scope, res, channelID)
+	}
+	// Case 3: Source is an expression
+	if expr := currNode.Expression(); expr != nil {
+		return expression.Visit(scope, res, expr)
 	}
 
-	source := &Source{}
-
-	if channelID := ctx.ChannelIdentifier(); channelID != nil {
-		source.ChannelID = channelID.GetText()
-		// Channels are external, so we don't validate them here
-		return source
-	}
-
-	if taskInv := ctx.TaskInvocation(); taskInv != nil {
-		source.TaskInvocation = parseTaskInvocation(scope, res, taskInv)
-		if source.TaskInvocation == nil {
-			return nil
-		}
-		return source
-	}
-
-	if expr := ctx.Expression(); expr != nil {
-		// Validate expression
-		if !expression.Visit(scope, res, expr) {
-			return nil
-		}
-		source.Expression = expr
-		return source
-	}
-
-	res.AddError(errors.New("invalid flow source"), ctx)
-	return nil
+	res.AddError(errors.New("invalid flow source"), currNode)
+	return true
 }
 
-func parseTarget(scope *symbol.Scope, res *result.Result, ctx parser.IFlowTargetContext) *Target {
-	if ctx == nil {
-		return nil
-	}
-
-	target := &Target{}
-
-	if channelID := ctx.ChannelIdentifier(); channelID != nil {
-		target.ChannelID = channelID.GetText()
-		// Channels are external, so we don't validate them here
-		return target
-	}
-
-	if taskInv := ctx.TaskInvocation(); taskInv != nil {
-		target.TaskInvocation = parseTaskInvocation(scope, res, taskInv)
-		if target.TaskInvocation == nil {
-			return nil
-		}
-		return target
-	}
-
-	res.AddError(errors.New("invalid flow target"), ctx)
-	return nil
-}
-
-func parseTaskInvocation(scope *symbol.Scope, res *result.Result, ctx parser.ITaskInvocationContext) *TaskInvocation {
-	if ctx == nil {
-		return nil
-	}
-
-	inv := &TaskInvocation{
-		TaskName:   ctx.IDENTIFIER().GetText(),
-		ConfigVals: make(map[string]interface{}),
-		Arguments:  []parser.IExpressionContext{},
-	}
-
-	// Check if task exists
-	sym, err := scope.Get(inv.TaskName)
+func parseTaskInvocation(
+	scope *symbol.Scope,
+	res *result.Result,
+	prevNode parser.IFlowNodeContext,
+	task parser.ITaskInvocationContext,
+) bool {
+	// Step 1: Check that a symbol for the task exists and it has the right type
+	name := task.IDENTIFIER().GetText()
+	sym, err := scope.Get(name)
 	if err != nil {
-		res.AddError(err, ctx)
-		return nil
+		res.AddError(err, task)
+		return false
 	} else if sym.Symbol != nil && sym.Symbol.Kind != symbol.KindTask {
-		res.AddError(errors.Newf("%s is not a task", inv.TaskName), ctx)
-		return nil
+		res.AddError(errors.Newf("%s is not a task", name), task)
+		return false
 	}
 
-	// Get the task type signature
+	// Step 2: Validate configuration parameters
 	var taskType types.Task
 	if sym.Symbol != nil && sym.Symbol.Type != nil {
 		taskType, _ = sym.Symbol.Type.(types.Task)
 	}
-
-	// Parse config values if present
-	providedParams := make(map[string]bool)
-	if configBlock := ctx.ConfigValues(); configBlock != nil {
+	configParams := make(map[string]bool)
+	// Step 2A: Check for mismatch
+	if configBlock := task.ConfigValues(); configBlock != nil {
 		if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
 			for _, configVal := range namedVals.AllNamedConfigValue() {
 				key := configVal.IDENTIFIER().GetText()
-				providedParams[key] = true
-				
-				// Check if this parameter exists in the task signature
-				if taskType.Config != nil {
-					expectedType, exists := taskType.Config[key]
-					if !exists {
-						res.AddError(errors.Newf("unknown config parameter '%s' for task '%s'", key, inv.TaskName), configVal)
-						return nil
+				configParams[key] = true
+				expectedType, exists := taskType.Config.Get(key)
+				if !exists {
+					res.AddError(errors.Newf("unknown config parameter '%s' for task '%s'", key, name), configVal)
+					return false
+				}
+				if expr := configVal.Expression(); expr != nil {
+					if !expression.Visit(scope, res, expr) {
+						return false
 					}
-					
-					// Type check the expression
-					if expr := configVal.Expression(); expr != nil {
-						// Validate the expression
-						if !expression.Visit(scope, res, expr) {
-							return nil
+					exprType := types.InferFromExpression(scope, expr)
+					if exprType != nil && expectedType != nil {
+						if !types.Compatible(expectedType, exprType) {
+							res.AddError(
+								errors.Newf(
+									"type mismatch: config parameter '%s' expects %s but got %s",
+									key,
+									expectedType,
+									exprType,
+								),
+								configVal,
+							)
+							return false
 						}
-						
-						// Check type compatibility
-						exprType := types.InferFromExpression(scope, expr)
-						if exprType != nil && expectedType != nil {
-							if !types.Compatible(expectedType, exprType) {
-								res.AddError(
-									errors.Newf("type mismatch: config parameter '%s' expects %s but got %s", 
-										key, expectedType, exprType),
-									configVal,
-								)
-								return nil
-							}
-						}
-						
-						inv.ConfigVals[key] = expr
-					}
-				} else {
-					// If no type info, just validate and store the expression
-					if expr := configVal.Expression(); expr != nil {
-						if !expression.Visit(scope, res, expr) {
-							return nil
-						}
-						inv.ConfigVals[key] = expr
 					}
 				}
 			}
 		} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-			// Anonymous config values are just expressions
-			for i, expr := range anonVals.AllExpression() {
-				// Store with numeric keys for anonymous values
-				inv.ConfigVals[fmt.Sprintf("%d", i)] = expr
-			}
+			res.AddError(
+				errors.Newf("anonymous configuration values are not supported"),
+				configBlock.AnonymousConfigValues(),
+			)
 		}
 	}
-	
-	// Check for missing required config parameters
-	if taskType.Config != nil {
-		for paramName := range taskType.Config {
-			if !providedParams[paramName] {
-				res.AddError(errors.Newf("missing required config parameter '%s' for task '%s'", paramName, inv.TaskName), ctx)
-				return nil
-			}
+	// Step 2B: Check for missing required config parameters
+	for paramName := range taskType.Config.Iter() {
+		if !configParams[paramName] {
+			res.AddError(errors.Newf("missing required config parameter '%s' for task '%s'", paramName, name), task)
+			return false
 		}
 	}
-
-	// Parse arguments if present
-	if argList := ctx.Arguments(); argList != nil {
-		if args := argList.ArgumentList(); args != nil {
-			inv.Arguments = args.AllExpression()
-		}
+	if prevNode == nil {
+		return true
 	}
 
-	return inv
+	// Step 3: Validate that task arguments are compatible with previous flow node.
+	if prevTaskNode := prevNode.TaskInvocation(); prevTaskNode != nil {
+		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
+		// lookup task in symbol table
+		sym, err := scope.Get(prevTaskName)
+		if err != nil {
+			res.AddError(err, prevTaskNode)
+			return false
+		}
+		var prevTaskType types.Task
+		if sym.Symbol != nil && sym.Symbol.Kind != symbol.KindTask {
+			res.AddError(errors.Newf("%s is not a task", prevTaskNode), prevTaskNode)
+			prevTaskType, _ = sym.Symbol.Type.(types.Task)
+			return false
+		}
+		if taskType.Params.Count() > 1 {
+			res.AddError(errors.Newf("%s has more than one parameter", name), task)
+			return false
+		}
+		// Validate that the return type of the previous task matches the arg type
+		// of the ntext task.
+		if taskType.Params.Count() > 0 && !types.Equal(prevTaskType.Return, taskType.Params.At(0)) {
+			res.AddError(errors.Newf(
+				"return type %s of %s is not equal to argument type %s of %s",
+				prevTaskType.Return,
+				prevTaskName,
+				name,
+				taskType.Params.At(0),
+			), task)
+		}
+	}
+	return true
+}
+
+func visitChannel(scope *symbol.Scope, res *result.Result, ch parser.IChannelIdentifierContext) bool {
+	name := ch.IDENTIFIER().GetText()
+	_, err := scope.Get(name)
+	if err != nil {
+		res.AddError(err, ch)
+		return false
+	}
+	return true
 }
