@@ -1,17 +1,17 @@
+//go:generate antlr4 -Dlanguage=Go -o . -package parser SlateLexer.g4 SlateParser.g4
 package parser
 
 import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	generated "github.com/synnaxlabs/slate/parser/generated"
 )
 
-func Parse(source string) (generated.IProgramContext, error) {
+func Parse(source string) (IProgramContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := generated.NewSlateLexer(input)
+	lexer := NewSlateLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := generated.NewSlateParser(stream)
+	parser := NewSlateParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)
@@ -38,11 +38,11 @@ func (e *ErrorListener) HasErrors() bool {
 }
 
 // ParseExpression parses a single expression
-func ParseExpression(source string) (generated.IExpressionContext, error) {
+func ParseExpression(source string) (IExpressionContext, error) {
 	input := antlr.NewInputStream(source)
-	lexer := generated.NewSlateLexer(input)
+	lexer := NewSlateLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	parser := generated.NewSlateParser(stream)
+	parser := NewSlateParser(stream)
 	errorListener := &ErrorListener{}
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorListener)

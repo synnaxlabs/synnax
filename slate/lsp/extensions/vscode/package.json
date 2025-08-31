@@ -1,0 +1,69 @@
+{
+  "name": "slate-language",
+  "displayName": "Slate Language Support",
+  "description": "Language support for Slate programming language",
+  "version": "0.1.0",
+  "publisher": "synnaxlabs",
+  "engines": {
+    "vscode": "^1.103.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:slate"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "slate",
+        "aliases": [
+          "Slate",
+          "slate"
+        ],
+        "extensions": [
+          ".slate"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "slate",
+        "scopeName": "source.slate",
+        "path": "./syntaxes/slate.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Slate",
+      "properties": {
+        "slate.lsp.path": {
+          "type": "string",
+          "default": "slate",
+          "description": "Path to the Slate CLI executable"
+        },
+        "slate.lsp.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging for the Slate LSP"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.11",
+    "@types/vscode": "^1.103.0",
+    "@vscode/vsce": "^2.32.0",
+    "typescript": "^5.8.3"
+  }
+}

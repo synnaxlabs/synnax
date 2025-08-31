@@ -93,7 +93,7 @@ func (db *DB) Delete(
 		}
 	} else {
 		// Non-exact: tr.Start is not contained within any domain.
-		// Add 1 since we want the first domain greater than tr.Start.
+		// AddSymbol 1 since we want the first domain greater than tr.Start.
 		startDomain += 1
 
 		if startDomain == len(db.idx.mu.pointers) {
@@ -219,7 +219,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// read positions.
 
 	// There are some potential solutions to this:
-	//     1. Add a lock on readers before each read operation, and swap the underlying
+	//     1. AddSymbol a lock on readers before each read operation, and swap the underlying
 	//        file handle for each reader under a lock.
 	//     2. Use a one-file GC system where no duplicate file is created.
 	//     3. Wait during GC until all file handles are closed, then swap the file under

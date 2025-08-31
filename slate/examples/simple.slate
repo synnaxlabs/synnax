@@ -1,13 +1,13 @@
 // A simple Slate program
 
-func double(x number) number {
+func double(x f64) f64 {
     return x * 2
 }
 
-func triple(x number) number {
+func triple(x f64) f64 {
     return x * 3
 }
 
-func power_of_two(x number) number {
+func power_of_two(x f64) f64 {
     return x * x
 }

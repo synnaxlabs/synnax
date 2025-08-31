@@ -8,113 +8,331 @@ options {
 // Entry Point
 // =============================================================================
 
-program     : topLevelStatement* EOF;
+program
+    : topLevelItem* EOF
+    ;
 
-topLevelStatement
-            : functionDecl
-            | reactiveBinding
-            ;
-
-// =============================================================================
-// Reactive Bindings (Top-level only)
-// =============================================================================
-
-reactiveBinding
-            : channelList CHANNEL_SEND functionCall          // [ch1, ch2] -> func()
-            | IDENTIFIER CHANNEL_SEND functionCall           // ch -> func()  
-            | intervalBinding
-            ;
-
-intervalBinding
-            : INTERVAL LPAREN NUMBER_LITERAL RPAREN CHANNEL_SEND functionCall
-            ;
-
-channelList : LBRACKET IDENTIFIER (COMMA IDENTIFIER)* RBRACKET;
+topLevelItem
+    : functionDeclaration
+    | taskDeclaration  
+    | flowStatement
+    ;
 
 // =============================================================================
-// Functions
+// Function Declarations
 // =============================================================================
 
-functionDecl: FUNC IDENTIFIER LPAREN parameterList? RPAREN returnType? block;
+functionDeclaration
+    : FUNC IDENTIFIER LPAREN parameterList? RPAREN returnType? block
+    ;
 
-parameterList: parameter (COMMA parameter)*;
+parameterList
+    : parameter (COMMA parameter)*
+    ;
 
-parameter   : IDENTIFIER type;
+parameter
+    : IDENTIFIER type
+    ;
 
-type        : NUMBER
-            | BOOL  
-            | VOID
-            | CHAN
-            | CHANNEL_RECV CHAN     // <-chan
-            | CHANNEL_SEND CHAN     // ->chan
-            ;
-
-returnType  : type;
-
-// =============================================================================  
-// Statements (Function body only)
-// =============================================================================
-
-statement   : variableDecl
-            | assignment
-            | channelWrite
-            | ifStatement
-            | returnStatement
-            | expressionStatement
-            ;
-
-variableDecl: IDENTIFIER LOCAL_ASSIGN expression      // x := value
-            | IDENTIFIER STATE_ASSIGN expression      // x $= value
-            ;
-
-assignment  : IDENTIFIER ASSIGN expression;          // x = value
-
-channelWrite: expression CHANNEL_SEND IDENTIFIER     // value -> channel
-            | IDENTIFIER CHANNEL_RECV expression     // channel <- value  
-            ;
-
-channelRead : CHANNEL_RECV IDENTIFIER;               // <- channel
-
-ifStatement : IF LPAREN expression RPAREN statement (ELSE statement)?;
-
-returnStatement: RETURN expression?;
-
-expressionStatement: expression;
-
-block       : LBRACE statement* RBRACE;
+returnType
+    : type
+    ;
 
 // =============================================================================
-// Expressions (with precedence)  
+// Task Declarations
 // =============================================================================
 
-expression  : logicalOrExpr;
+taskDeclaration
+    : TASK IDENTIFIER configBlock? LPAREN parameterList? RPAREN returnType? block
+    ;
 
-logicalOrExpr: logicalAndExpr (OR logicalAndExpr)*;
+configBlock
+    : LBRACE configParameter* RBRACE
+    ;
 
-logicalAndExpr: equalityExpr (AND equalityExpr)*;
+configParameter
+    : IDENTIFIER type
+    ;
 
-equalityExpr: relationalExpr ((EQUAL | NOT_EQUAL) relationalExpr)*;
+// =============================================================================
+// Inter-Task Flow
+// =============================================================================
 
-relationalExpr: additiveExpr ((LESS_THAN | LESS_EQUAL | GREATER_THAN | GREATER_EQUAL) additiveExpr)*;
+flowStatement
+    : flowSource ARROW flowTarget (ARROW flowTarget)* SEMICOLON?
+    ;
 
-additiveExpr: multiplicativeExpr ((PLUS | MINUS) multiplicativeExpr)*;
+flowSource
+    : channelIdentifier
+    | taskInvocation
+    | expression
+    ;
 
-multiplicativeExpr: unaryExpr ((MULTIPLY | DIVIDE) unaryExpr)*;
+flowTarget
+    : channelIdentifier
+    | taskInvocation
+    ;
 
-unaryExpr   : (NOT | MINUS) unaryExpr
-            | primaryExpr
-            ;
+channelIdentifier
+    : IDENTIFIER
+    ;
 
-primaryExpr : NUMBER_LITERAL
-            | STRING
-            | TRUE
-            | FALSE
-            | IDENTIFIER
-            | channelRead
-            | functionCall
-            | LPAREN expression RPAREN
-            ;
+taskInvocation
+    : IDENTIFIER configValues? arguments?
+    ;
 
-functionCall: IDENTIFIER LPAREN argumentList? RPAREN;
+configValues
+    : LBRACE RBRACE                       // Empty config
+    | LBRACE namedConfigValues RBRACE     // All named
+    | LBRACE anonymousConfigValues RBRACE // All anonymous
+    ;
 
-argumentList: expression (COMMA expression)*;
+namedConfigValues
+    : namedConfigValue (COMMA namedConfigValue)*
+    ;
+
+namedConfigValue
+    : IDENTIFIER COLON expression
+    ;
+
+anonymousConfigValues
+    : expression (COMMA expression)*
+    ;
+
+arguments
+    : LPAREN argumentList? RPAREN
+    ;
+
+argumentList
+    : expression (COMMA expression)*
+    ;
+
+// =============================================================================
+// Blocks and Statements
+// =============================================================================
+
+block
+    : LBRACE statement* RBRACE
+    ;
+
+statement
+    : variableDeclaration
+    | channelOperation
+    | assignment
+    | ifStatement
+    | returnStatement
+    | functionCall
+    | expression
+    ;
+
+variableDeclaration
+    : localVariable
+    | statefulVariable
+    ;
+
+localVariable
+    : IDENTIFIER DECLARE expression
+    | IDENTIFIER type DECLARE expression
+    ;
+
+statefulVariable
+    : IDENTIFIER STATE_DECLARE expression
+    | IDENTIFIER type STATE_DECLARE expression
+    ;
+
+assignment
+    : IDENTIFIER ASSIGN expression
+    ;
+
+channelOperation
+    : channelWrite
+    | channelRead
+    ;
+
+channelWrite
+    : expression ARROW IDENTIFIER
+    | IDENTIFIER RECV expression
+    ;
+
+channelRead
+    : blockingRead
+    | nonBlockingRead
+    ;
+
+blockingRead
+    : IDENTIFIER DECLARE RECV IDENTIFIER
+    ;
+
+nonBlockingRead
+    : IDENTIFIER DECLARE IDENTIFIER
+    ;
+
+ifStatement
+    : IF expression block elseIfClause* elseClause?
+    ;
+
+elseIfClause
+    : ELSE IF expression block
+    ;
+
+elseClause
+    : ELSE block
+    ;
+
+returnStatement
+    : RETURN expression?
+    ;
+
+functionCall
+    : IDENTIFIER LPAREN argumentList? RPAREN
+    ;
+
+// =============================================================================
+// Types
+// =============================================================================
+
+type
+    : primitiveType
+    | channelType
+    | seriesType
+    ;
+
+primitiveType
+    : numericType
+    | STRING
+    ;
+
+numericType
+    : integerType
+    | floatType
+    | temporalType
+    ;
+
+integerType
+    : I8 | I16 | I32 | I64
+    | U8 | U16 | U32 | U64
+    ;
+
+floatType
+    : F32 | F64
+    ;
+
+temporalType
+    : TIMESTAMP | TIMESPAN
+    ;
+
+channelType
+    : (CHAN | RECV_CHAN | SEND_CHAN) (primitiveType | seriesType)
+    ;
+
+seriesType
+    : SERIES primitiveType
+    ;
+
+// =============================================================================
+// Expressions
+// =============================================================================
+
+expression
+    : logicalOrExpression
+    ;
+
+logicalOrExpression
+    : logicalAndExpression (OR logicalAndExpression)*
+    ;
+
+logicalAndExpression
+    : equalityExpression (AND equalityExpression)*
+    ;
+
+equalityExpression
+    : relationalExpression ((EQ | NEQ) relationalExpression)*
+    ;
+
+relationalExpression
+    : additiveExpression ((LT | GT | LEQ | GEQ) additiveExpression)*
+    ;
+
+additiveExpression
+    : multiplicativeExpression ((PLUS | MINUS) multiplicativeExpression)*
+    ;
+
+multiplicativeExpression
+    : powerExpression ((STAR | SLASH | PERCENT) powerExpression)*
+    ;
+
+// ^ is right-associative and binds tighter than unary
+powerExpression
+    : unaryExpression (CARET powerExpression)?
+    ;
+
+unaryExpression
+    : MINUS unaryExpression
+    | NOT unaryExpression
+    | blockingReadExpr
+    | postfixExpression
+    ;
+
+// Blocking read as a true unary operator
+blockingReadExpr
+    : RECV IDENTIFIER
+    ;
+
+postfixExpression
+    : primaryExpression (indexOrSlice | functionCallSuffix)*
+    ;
+
+indexOrSlice
+    : LBRACKET expression RBRACKET                           // Index
+    | LBRACKET expression? COLON expression? RBRACKET        // Slice
+    ;
+
+functionCallSuffix
+    : LPAREN argumentList? RPAREN
+    ;
+
+primaryExpression
+    : literal
+    | IDENTIFIER
+    | LPAREN expression RPAREN
+    | typeCast
+    | builtinFunction
+    ;
+
+typeCast
+    : type LPAREN expression RPAREN
+    ;
+
+builtinFunction
+    : LEN LPAREN expression RPAREN
+    | NOW LPAREN RPAREN
+    ;
+
+// =============================================================================
+// Literals
+// =============================================================================
+
+literal
+    : numericLiteral
+    | temporalLiteral
+    | STRING_LITERAL
+    | seriesLiteral
+    ;
+
+numericLiteral
+    : INTEGER_LITERAL
+    | FLOAT_LITERAL
+    ;
+
+temporalLiteral
+    : TEMPORAL_LITERAL
+    | FREQUENCY_LITERAL
+    ;
+
+seriesLiteral
+    : LBRACKET expressionList? RBRACKET
+    ;
+
+expressionList
+    : expression (COMMA expression)*
+    ;

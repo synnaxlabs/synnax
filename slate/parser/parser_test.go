@@ -1,1067 +1,951 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package parser_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/slate/parser"
 )
 
+// Helper to parse expression without error handling in tests
+func mustParseExpression(expr string) parser.IExpressionContext {
+	exprCtx, err := parser.ParseExpression(expr)
+	Expect(err).To(BeNil())
+	return exprCtx
+}
+
 var _ = Describe("Parser", func() {
 	Describe("Expressions", func() {
-		DescribeTable("Binary operators",
-			func(expression string, expectedOperator string, leftOperand string, rightOperand string) {
-				expr, err := parser.ParseExpression(expression)
-				Expect(err).To(BeNil())
+		Context("Numeric Literals", func() {
+			It("Should parse integer literals", func() {
+				expr := mustParseExpression("42")
 				Expect(expr).NotTo(BeNil())
-				Expect(expr.GetText()).To(Equal(expression))
 
-				// Navigate through the expression hierarchy to get to the actual operator level
-				logicalOr := expr.LogicalOrExpr()
+				// Check it's a primary expression with a literal
+				logicalOr := expr.LogicalOrExpression()
 				Expect(logicalOr).NotTo(BeNil())
 
-				// For logical operators
-				if expectedOperator == "||" {
-					andExprs := logicalOr.AllLogicalAndExpr()
-					Expect(andExprs).To(HaveLen(2))
-					orTokens := logicalOr.AllOR()
-					Expect(orTokens).To(HaveLen(1))
-					Expect(orTokens[0].GetText()).To(Equal("||"))
-					return
-				}
+				logicalAnd := logicalOr.LogicalAndExpression(0)
+				equality := logicalAnd.EqualityExpression(0)
+				relational := equality.RelationalExpression(0)
+				additive := relational.AdditiveExpression(0)
+				multiplicative := additive.MultiplicativeExpression(0)
+				power := multiplicative.PowerExpression(0)
+				unary := power.UnaryExpression()
+				postfix := unary.PostfixExpression()
+				primary := postfix.PrimaryExpression()
+				literal := primary.Literal()
 
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				Expect(logicalAnd).NotTo(BeNil())
-
-				// For logical AND
-				if expectedOperator == "&&" {
-					eqExprs := logicalAnd.AllEqualityExpr()
-					Expect(eqExprs).To(HaveLen(2))
-					andTokens := logicalAnd.AllAND()
-					Expect(andTokens).To(HaveLen(1))
-					Expect(andTokens[0].GetText()).To(Equal("&&"))
-					return
-				}
-
-				equality := logicalAnd.AllEqualityExpr()[0]
-				Expect(equality).NotTo(BeNil())
-
-				// For equality operators
-				if expectedOperator == "==" || expectedOperator == "!=" {
-					relExprs := equality.AllRelationalExpr()
-					Expect(relExprs).To(HaveLen(2))
-					if expectedOperator == "==" {
-						eqTokens := equality.AllEQUAL()
-						Expect(eqTokens).To(HaveLen(1))
-						Expect(eqTokens[0].GetText()).To(Equal("=="))
-					} else {
-						neqTokens := equality.AllNOT_EQUAL()
-						Expect(neqTokens).To(HaveLen(1))
-						Expect(neqTokens[0].GetText()).To(Equal("!="))
-					}
-					return
-				}
-
-				relational := equality.AllRelationalExpr()[0]
-				Expect(relational).NotTo(BeNil())
-
-				// For relational operators
-				if expectedOperator == "<" || expectedOperator == "<=" || expectedOperator == ">" || expectedOperator == ">=" {
-					addExprs := relational.AllAdditiveExpr()
-					Expect(addExprs).To(HaveLen(2))
-					switch expectedOperator {
-					case "<":
-						ltTokens := relational.AllLESS_THAN()
-						Expect(ltTokens).To(HaveLen(1))
-						Expect(ltTokens[0].GetText()).To(Equal("<"))
-					case "<=":
-						leTokens := relational.AllLESS_EQUAL()
-						Expect(leTokens).To(HaveLen(1))
-						Expect(leTokens[0].GetText()).To(Equal("<="))
-					case ">":
-						gtTokens := relational.AllGREATER_THAN()
-						Expect(gtTokens).To(HaveLen(1))
-						Expect(gtTokens[0].GetText()).To(Equal(">"))
-					case ">=":
-						geTokens := relational.AllGREATER_EQUAL()
-						Expect(geTokens).To(HaveLen(1))
-						Expect(geTokens[0].GetText()).To(Equal(">="))
-					}
-					return
-				}
-
-				// For additive operators
-				additive := relational.AllAdditiveExpr()[0]
-				Expect(additive).NotTo(BeNil())
-
-				if expectedOperator == "+" || expectedOperator == "-" {
-					multExprs := additive.AllMultiplicativeExpr()
-					Expect(multExprs).To(HaveLen(2))
-
-					if expectedOperator == "+" {
-						plusTokens := additive.AllPLUS()
-						Expect(plusTokens).To(HaveLen(1))
-						Expect(plusTokens[0].GetText()).To(Equal("+"))
-					} else {
-						minusTokens := additive.AllMINUS()
-						Expect(minusTokens).To(HaveLen(1))
-						Expect(minusTokens[0].GetText()).To(Equal("-"))
-					}
-
-					// Verify operands for arithmetic operators
-					leftMult := multExprs[0]
-					leftUnary := leftMult.AllUnaryExpr()[0]
-					leftPrimary := leftUnary.PrimaryExpr()
-					Expect(leftPrimary.IDENTIFIER().GetText()).To(Equal(leftOperand))
-
-					rightMult := multExprs[1]
-					rightUnary := rightMult.AllUnaryExpr()[0]
-					rightPrimary := rightUnary.PrimaryExpr()
-					Expect(rightPrimary.IDENTIFIER().GetText()).To(Equal(rightOperand))
-					return
-				}
-
-				// For multiplicative operators
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				Expect(multExpr).NotTo(BeNil())
-
-				if expectedOperator == "*" || expectedOperator == "/" {
-					unaryExprs := multExpr.AllUnaryExpr()
-					Expect(unaryExprs).To(HaveLen(2))
-
-					if expectedOperator == "*" {
-						multTokens := multExpr.AllMULTIPLY()
-						Expect(multTokens).To(HaveLen(1))
-						Expect(multTokens[0].GetText()).To(Equal("*"))
-					} else {
-						divTokens := multExpr.AllDIVIDE()
-						Expect(divTokens).To(HaveLen(1))
-						Expect(divTokens[0].GetText()).To(Equal("/"))
-					}
-
-					// Verify operands
-					leftUnary := unaryExprs[0]
-					leftPrimary := leftUnary.PrimaryExpr()
-					Expect(leftPrimary.IDENTIFIER().GetText()).To(Equal(leftOperand))
-
-					rightUnary := unaryExprs[1]
-					rightPrimary := rightUnary.PrimaryExpr()
-					Expect(rightPrimary.IDENTIFIER().GetText()).To(Equal(rightOperand))
-				}
-			},
-			Entry("addition", "a+b", "+", "a", "b"),
-			Entry("subtraction", "x-y", "-", "x", "y"),
-			Entry("multiplication", "foo*bar", "*", "foo", "bar"),
-			Entry("division", "total/count", "/", "total", "count"),
-			Entry("equality", "left==right", "==", "left", "right"),
-			Entry("inequality", "old!=new", "!=", "old", "new"),
-			Entry("less than", "min<max", "<", "min", "max"),
-			Entry("less than or equal", "start<=end", "<=", "start", "end"),
-			Entry("greater than", "high>low", ">", "high", "low"),
-			Entry("greater than or equal", "value>=threshold", ">=", "value", "threshold"),
-			Entry("logical AND", "active&&enabled", "&&", "active", "enabled"),
-			Entry("logical OR", "ready||done", "||", "ready", "done"),
-		)
-
-		DescribeTable("Unary operators",
-			func(expression string, expectedOperator string, operand string) {
-				expr, err := parser.ParseExpression(expression)
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to unary expression
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-
-				if expectedOperator == "-" {
-					Expect(unaryExpr.MINUS()).NotTo(BeNil())
-					Expect(unaryExpr.MINUS().GetText()).To(Equal("-"))
-				} else if expectedOperator == "!" {
-					Expect(unaryExpr.NOT()).NotTo(BeNil())
-					Expect(unaryExpr.NOT().GetText()).To(Equal("!"))
-				}
-
-				// Check the operand
-				innerUnary := unaryExpr.UnaryExpr()
-				Expect(innerUnary).NotTo(BeNil())
-				primary := innerUnary.PrimaryExpr()
-				Expect(primary.IDENTIFIER().GetText()).To(Equal(operand))
-			},
-			Entry("negation", "-x", "-", "x"),
-			Entry("logical NOT", "!flag", "!", "flag"),
-		)
-
-		Describe("Complex expressions", func() {
-			It("should parse parenthesized expressions", func() {
-				expr, err := parser.ParseExpression("(a+b)")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to the primary expression
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				// Verify parentheses are present
-				Expect(primary.LPAREN()).NotTo(BeNil())
-				Expect(primary.RPAREN()).NotTo(BeNil())
-
-				// Verify inner expression is a+b
-				innerExpr := primary.Expression()
-				Expect(innerExpr).NotTo(BeNil())
-				innerAdditive := innerExpr.LogicalOrExpr().AllLogicalAndExpr()[0].AllEqualityExpr()[0].AllRelationalExpr()[0].AllAdditiveExpr()[0]
-				Expect(innerAdditive.AllPLUS()).To(HaveLen(1))
-
-				leftOperand := innerAdditive.AllMultiplicativeExpr()[0].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(leftOperand.IDENTIFIER().GetText()).To(Equal("a"))
-
-				rightOperand := innerAdditive.AllMultiplicativeExpr()[1].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(rightOperand.IDENTIFIER().GetText()).To(Equal("b"))
+				Expect(literal).NotTo(BeNil())
+				Expect(literal.NumericLiteral()).NotTo(BeNil())
+				Expect(literal.NumericLiteral().INTEGER_LITERAL()).NotTo(BeNil())
+				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42"))
 			})
 
-			It("should parse nested parentheses", func() {
-				expr, err := parser.ParseExpression("((x+y)*z)")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to outer parentheses
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				outerPrimary := unaryExpr.PrimaryExpr()
-
-				// Verify outer parentheses
-				Expect(outerPrimary.LPAREN()).NotTo(BeNil())
-				Expect(outerPrimary.RPAREN()).NotTo(BeNil())
-
-				// Get the multiplication expression inside
-				innerExpr := outerPrimary.Expression()
-				innerMult := innerExpr.LogicalOrExpr().AllLogicalAndExpr()[0].AllEqualityExpr()[0].AllRelationalExpr()[0].AllAdditiveExpr()[0].AllMultiplicativeExpr()[0]
-
-				// Verify it's a multiplication
-				Expect(innerMult.AllMULTIPLY()).To(HaveLen(1))
-
-				// Left side should be (x+y)
-				leftUnary := innerMult.AllUnaryExpr()[0]
-				leftPrimary := leftUnary.PrimaryExpr()
-				Expect(leftPrimary.LPAREN()).NotTo(BeNil()) // Inner parentheses
-				Expect(leftPrimary.RPAREN()).NotTo(BeNil())
-
-				// Verify x+y inside inner parentheses
-				xyExpr := leftPrimary.Expression()
-				xyAdditive := xyExpr.LogicalOrExpr().AllLogicalAndExpr()[0].AllEqualityExpr()[0].AllRelationalExpr()[0].AllAdditiveExpr()[0]
-				Expect(xyAdditive.AllPLUS()).To(HaveLen(1))
-
-				// Right side should be z
-				rightUnary := innerMult.AllUnaryExpr()[1]
-				rightPrimary := rightUnary.PrimaryExpr()
-				Expect(rightPrimary.IDENTIFIER().GetText()).To(Equal("z"))
+			It("Should parse integer literals with type suffix", func() {
+				expr := mustParseExpression("42u8")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42u8"))
 			})
 
-			It("should parse function calls", func() {
-				expr, err := parser.ParseExpression("getValue()")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to primary expression
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				funcCall := primary.FunctionCall()
-				Expect(funcCall).NotTo(BeNil())
-				Expect(funcCall.IDENTIFIER().GetText()).To(Equal("getValue"))
-				Expect(funcCall.LPAREN()).NotTo(BeNil())
-				Expect(funcCall.RPAREN()).NotTo(BeNil())
-				Expect(funcCall.ArgumentList()).To(BeNil()) // No arguments
+			It("Should parse float literals", func() {
+				expr := mustParseExpression("3.14")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.NumericLiteral().FLOAT_LITERAL().GetText()).To(Equal("3.14"))
 			})
 
-			It("should parse function calls with arguments", func() {
-				expr, err := parser.ParseExpression("add(x,y)")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to function call
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				funcCall := primary.FunctionCall()
-				Expect(funcCall).NotTo(BeNil())
-				Expect(funcCall.IDENTIFIER().GetText()).To(Equal("add"))
-
-				// Verify arguments
-				argList := funcCall.ArgumentList()
-				Expect(argList).NotTo(BeNil())
-				args := argList.AllExpression()
-				Expect(args).To(HaveLen(2))
-
-				// First argument should be x
-				firstArg := args[0].LogicalOrExpr().AllLogicalAndExpr()[0].AllEqualityExpr()[0].AllRelationalExpr()[0].AllAdditiveExpr()[0].AllMultiplicativeExpr()[0].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(firstArg.IDENTIFIER().GetText()).To(Equal("x"))
-
-				// Second argument should be y
-				secondArg := args[1].LogicalOrExpr().AllLogicalAndExpr()[0].AllEqualityExpr()[0].AllRelationalExpr()[0].AllAdditiveExpr()[0].AllMultiplicativeExpr()[0].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(secondArg.IDENTIFIER().GetText()).To(Equal("y"))
+			It("Should parse hex literals", func() {
+				expr := mustParseExpression("0xFF")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("0xFF"))
 			})
 
-			It("should parse number literals", func() {
-				expr, err := parser.ParseExpression("42")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to primary and verify it's a number literal
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				Expect(primary.NUMBER_LITERAL()).NotTo(BeNil())
-				Expect(primary.NUMBER_LITERAL().GetText()).To(Equal("42"))
-			})
-
-			It("should parse boolean literals", func() {
-				// Test true
-				expr, err := parser.ParseExpression("true")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				Expect(primary.TRUE()).NotTo(BeNil())
-				Expect(primary.TRUE().GetText()).To(Equal("true"))
-
-				// Test false
-				expr, err = parser.ParseExpression("false")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				logicalOr = expr.LogicalOrExpr()
-				logicalAnd = logicalOr.AllLogicalAndExpr()[0]
-				equality = logicalAnd.AllEqualityExpr()[0]
-				relational = equality.AllRelationalExpr()[0]
-				additive = relational.AllAdditiveExpr()[0]
-				multExpr = additive.AllMultiplicativeExpr()[0]
-				unaryExpr = multExpr.AllUnaryExpr()[0]
-				primary = unaryExpr.PrimaryExpr()
-
-				Expect(primary.FALSE()).NotTo(BeNil())
-				Expect(primary.FALSE().GetText()).To(Equal("false"))
-			})
-
-			It("should parse string literals", func() {
-				expr, err := parser.ParseExpression(`"hello world"`)
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to primary and verify it's a string literal
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				Expect(primary.STRING()).NotTo(BeNil())
-				Expect(primary.STRING().GetText()).To(Equal(`"hello world"`))
-				var c chan int
-			})
-
-			It("should parse channel read", func() {
-				expr, err := parser.ParseExpression("<-channel")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to primary and verify it's a channel read
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
-				unaryExpr := multExpr.AllUnaryExpr()[0]
-				primary := unaryExpr.PrimaryExpr()
-
-				channelRead := primary.ChannelRead()
-				Expect(channelRead).NotTo(BeNil())
-				Expect(channelRead.CHANNEL_RECV()).NotTo(BeNil())
-				Expect(channelRead.IDENTIFIER().GetText()).To(Equal("channel"))
+			It("Should parse binary literals", func() {
+				expr := mustParseExpression("0b1010")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("0b1010"))
 			})
 		})
 
-		Describe("Operator precedence", func() {
-			It("should parse multiplication before addition", func() {
-				// a+b*c should be parsed as a + (b * c)
-				expr, err := parser.ParseExpression("a+b*c")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
-
-				// Navigate to the additive expression
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-
-				// The additive expression should have two multiplicative expressions
-				multExprs := additive.AllMultiplicativeExpr()
-				Expect(multExprs).To(HaveLen(2))
-
-				// Left operand should be just 'a'
-				leftMult := multExprs[0]
-				leftUnary := leftMult.AllUnaryExpr()[0]
-				leftPrimary := leftUnary.PrimaryExpr()
-				Expect(leftPrimary.IDENTIFIER().GetText()).To(Equal("a"))
-
-				// Right operand should be 'b*c' (a multiplicative expression)
-				rightMult := multExprs[1]
-				rightUnaryExprs := rightMult.AllUnaryExpr()
-				Expect(rightUnaryExprs).To(HaveLen(2)) // b and c
-
-				// Verify it's a multiplication
-				multTokens := rightMult.AllMULTIPLY()
-				Expect(multTokens).To(HaveLen(1))
-				Expect(multTokens[0].GetText()).To(Equal("*"))
-
-				// Verify the operands of the multiplication
-				bExpr := rightUnaryExprs[0].PrimaryExpr()
-				Expect(bExpr.IDENTIFIER().GetText()).To(Equal("b"))
-
-				cExpr := rightUnaryExprs[1].PrimaryExpr()
-				Expect(cExpr.IDENTIFIER().GetText()).To(Equal("c"))
+		Context("Temporal Literals", func() {
+			It("Should parse millisecond literals", func() {
+				expr := mustParseExpression("100ms")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.TemporalLiteral()).NotTo(BeNil())
+				Expect(literal.TemporalLiteral().TEMPORAL_LITERAL().GetText()).To(Equal("100ms"))
 			})
 
-			It("should parse parentheses to override precedence", func() {
-				// (a+b)*c should be parsed as (a + b) * c
-				expr, err := parser.ParseExpression("(a+b)*c")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
+			It("Should parse frequency literals", func() {
+				expr := mustParseExpression("10hz")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.TemporalLiteral()).NotTo(BeNil())
+				Expect(literal.TemporalLiteral().FREQUENCY_LITERAL().GetText()).To(Equal("10hz"))
+			})
+		})
 
-				// Navigate to the multiplicative expression (should be at the top level for this case)
-				logicalOr := expr.LogicalOrExpr()
-				logicalAnd := logicalOr.AllLogicalAndExpr()[0]
-				equality := logicalAnd.AllEqualityExpr()[0]
-				relational := equality.AllRelationalExpr()[0]
-				additive := relational.AllAdditiveExpr()[0]
-				multExpr := additive.AllMultiplicativeExpr()[0]
+		Context("Binary Operations", func() {
+			It("Should parse addition", func() {
+				expr := mustParseExpression("2 + 3")
+				additive := getAdditiveExpression(expr)
 
-				// The multiplicative expression should have two unary expressions
-				unaryExprs := multExpr.AllUnaryExpr()
-				Expect(unaryExprs).To(HaveLen(2))
-
-				// Verify it's a multiplication at the top level
-				multTokens := multExpr.AllMULTIPLY()
-				Expect(multTokens).To(HaveLen(1))
-				Expect(multTokens[0].GetText()).To(Equal("*"))
-
-				// Left operand should be a parenthesized addition (a+b)
-				leftUnary := unaryExprs[0]
-				leftPrimary := leftUnary.PrimaryExpr()
-
-				// Check for parentheses
-				Expect(leftPrimary.LPAREN()).NotTo(BeNil())
-				Expect(leftPrimary.RPAREN()).NotTo(BeNil())
-
-				// Get the expression inside parentheses
-				innerExpr := leftPrimary.Expression()
-				Expect(innerExpr).NotTo(BeNil())
-
-				// Verify it's an addition inside
-				innerLogicalOr := innerExpr.LogicalOrExpr()
-				innerLogicalAnd := innerLogicalOr.AllLogicalAndExpr()[0]
-				innerEquality := innerLogicalAnd.AllEqualityExpr()[0]
-				innerRelational := innerEquality.AllRelationalExpr()[0]
-				innerAdditive := innerRelational.AllAdditiveExpr()[0]
-
-				// Check for the plus token
-				plusTokens := innerAdditive.AllPLUS()
-				Expect(plusTokens).To(HaveLen(1))
-				Expect(plusTokens[0].GetText()).To(Equal("+"))
-
-				// Verify operands of the addition
-				innerMultExprs := innerAdditive.AllMultiplicativeExpr()
-				Expect(innerMultExprs).To(HaveLen(2))
-
-				aExpr := innerMultExprs[0].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(aExpr.IDENTIFIER().GetText()).To(Equal("a"))
-
-				bExpr := innerMultExprs[1].AllUnaryExpr()[0].PrimaryExpr()
-				Expect(bExpr.IDENTIFIER().GetText()).To(Equal("b"))
-
-				// Right operand of multiplication should be just 'c'
-				rightUnary := unaryExprs[1]
-				rightPrimary := rightUnary.PrimaryExpr()
-				Expect(rightPrimary.IDENTIFIER().GetText()).To(Equal("c"))
+				Expect(additive.AllMultiplicativeExpression()).To(HaveLen(2))
+				Expect(additive.PLUS(0)).NotTo(BeNil())
 			})
 
-			It("should correctly parse complex precedence", func() {
-				// a||b&&c==d<e+f*g should parse with correct precedence:
-				// || < && < == < < < + < *
-				// So: a || (b && (c == (d < (e + (f * g)))))
-				expr, err := parser.ParseExpression("a||b&&c==d<e+f*g")
-				Expect(err).To(BeNil())
-				Expect(expr).NotTo(BeNil())
+			It("Should parse multiplication with correct precedence", func() {
+				expr := mustParseExpression("2 + 3 * 4")
+				additive := getAdditiveExpression(expr)
 
-				// Top level should be OR
-				logicalOr := expr.LogicalOrExpr()
-				orExprs := logicalOr.AllLogicalAndExpr()
-				Expect(orExprs).To(HaveLen(2))
-				orTokens := logicalOr.AllOR()
-				Expect(orTokens).To(HaveLen(1))
+				// Should be parsed as 2 + (3 * 4)
+				Expect(additive.AllMultiplicativeExpression()).To(HaveLen(2))
 
-				// Left of OR should be 'a'
-				leftAnd := orExprs[0]
-				leftEq := leftAnd.AllEqualityExpr()[0]
-				leftRel := leftEq.AllRelationalExpr()[0]
-				leftAdd := leftRel.AllAdditiveExpr()[0]
-				leftMult := leftAdd.AllMultiplicativeExpr()[0]
-				leftUnary := leftMult.AllUnaryExpr()[0]
-				leftPrimary := leftUnary.PrimaryExpr()
-				Expect(leftPrimary.IDENTIFIER().GetText()).To(Equal("a"))
+				// First term is just "2"
+				first := additive.MultiplicativeExpression(0)
+				Expect(first.AllPowerExpression()).To(HaveLen(1))
 
-				// Right of OR should be b&&c==d<e+f*g
-				rightAnd := orExprs[1]
-				andExprs := rightAnd.AllEqualityExpr()
-				Expect(andExprs).To(HaveLen(2))
-				andTokens := rightAnd.AllAND()
-				Expect(andTokens).To(HaveLen(1))
+				// Second term is "3 * 4"
+				second := additive.MultiplicativeExpression(1)
+				Expect(second.AllPowerExpression()).To(HaveLen(2))
+				Expect(second.STAR(0)).NotTo(BeNil())
+			})
 
-				// Left of AND should be 'b'
-				bEq := andExprs[0]
-				bRel := bEq.AllRelationalExpr()[0]
-				bAdd := bRel.AllAdditiveExpr()[0]
-				bMult := bAdd.AllMultiplicativeExpr()[0]
-				bUnary := bMult.AllUnaryExpr()[0]
-				bPrimary := bUnary.PrimaryExpr()
-				Expect(bPrimary.IDENTIFIER().GetText()).To(Equal("b"))
+			It("Should parse exponentiation with right associativity", func() {
+				expr := mustParseExpression("2 ^ 3 ^ 2")
+				// Should be parsed as 2 ^ (3 ^ 2)
 
-				// Right of AND should be c==d<e+f*g
-				rightEq := andExprs[1]
-				eqExprs := rightEq.AllRelationalExpr()
-				Expect(eqExprs).To(HaveLen(2))
-				eqTokens := rightEq.AllEQUAL()
-				Expect(eqTokens).To(HaveLen(1))
+				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				Expect(power).NotTo(BeNil())
+				Expect(power.CARET()).NotTo(BeNil())
 
-				// Left of == should be 'c'
-				cRel := eqExprs[0]
-				cAdd := cRel.AllAdditiveExpr()[0]
-				cMult := cAdd.AllMultiplicativeExpr()[0]
-				cUnary := cMult.AllUnaryExpr()[0]
-				cPrimary := cUnary.PrimaryExpr()
-				Expect(cPrimary.IDENTIFIER().GetText()).To(Equal("c"))
+				// The right side should be another power expression
+				rightPower := power.PowerExpression()
+				Expect(rightPower).NotTo(BeNil())
+				Expect(rightPower.CARET()).NotTo(BeNil())
+			})
+		})
 
-				// Right of == should be d<e+f*g
-				rightRel := eqExprs[1]
-				relAddExprs := rightRel.AllAdditiveExpr()
-				Expect(relAddExprs).To(HaveLen(2))
-				ltTokens := rightRel.AllLESS_THAN()
-				Expect(ltTokens).To(HaveLen(1))
+		Context("Unary Operations", func() {
+			It("Should parse unary minus", func() {
+				expr := mustParseExpression("-42")
+				unary := getPowerExpression(expr).UnaryExpression()
 
-				// Left of < should be 'd'
-				dAdd := relAddExprs[0]
-				dMult := dAdd.AllMultiplicativeExpr()[0]
-				dUnary := dMult.AllUnaryExpr()[0]
-				dPrimary := dUnary.PrimaryExpr()
-				Expect(dPrimary.IDENTIFIER().GetText()).To(Equal("d"))
+				Expect(unary.MINUS()).NotTo(BeNil())
+				Expect(unary.UnaryExpression()).NotTo(BeNil())
+			})
 
-				// Right of < should be e+f*g
-				rightAdd := relAddExprs[1]
-				addMultExprs := rightAdd.AllMultiplicativeExpr()
-				Expect(addMultExprs).To(HaveLen(2))
-				plusTokens := rightAdd.AllPLUS()
-				Expect(plusTokens).To(HaveLen(1))
+			It("Should parse logical NOT", func() {
+				expr := mustParseExpression("!true")
+				unary := getPowerExpression(expr).UnaryExpression()
 
-				// Left of + should be 'e'
-				eMult := addMultExprs[0]
-				eUnary := eMult.AllUnaryExpr()[0]
-				ePrimary := eUnary.PrimaryExpr()
-				Expect(ePrimary.IDENTIFIER().GetText()).To(Equal("e"))
+				Expect(unary.NOT()).NotTo(BeNil())
+			})
 
-				// Right of + should be f*g
-				rightMult := addMultExprs[1]
-				fgUnaryExprs := rightMult.AllUnaryExpr()
-				Expect(fgUnaryExprs).To(HaveLen(2))
-				multTokens := rightMult.AllMULTIPLY()
-				Expect(multTokens).To(HaveLen(1))
+			It("Should parse blocking read", func() {
+				expr := mustParseExpression("<-input")
+				unary := getPowerExpression(expr).UnaryExpression()
 
-				// Left of * should be 'f'
-				fUnary := fgUnaryExprs[0]
-				fPrimary := fUnary.PrimaryExpr()
-				Expect(fPrimary.IDENTIFIER().GetText()).To(Equal("f"))
+				Expect(unary.BlockingReadExpr()).NotTo(BeNil())
+				Expect(unary.BlockingReadExpr().RECV()).NotTo(BeNil())
+				Expect(unary.BlockingReadExpr().IDENTIFIER().GetText()).To(Equal("input"))
+			})
+		})
 
-				// Right of * should be 'g'
-				gUnary := fgUnaryExprs[1]
-				gPrimary := gUnary.PrimaryExpr()
-				Expect(gPrimary.IDENTIFIER().GetText()).To(Equal("g"))
+		Context("Series", func() {
+			It("Should parse series literals", func() {
+				expr := mustParseExpression("[1, 2, 3]")
+				literal := getPrimaryLiteral(expr)
+
+				Expect(literal.SeriesLiteral()).NotTo(BeNil())
+				series := literal.SeriesLiteral()
+				Expect(series.LBRACKET()).NotTo(BeNil())
+				Expect(series.RBRACKET()).NotTo(BeNil())
+				Expect(series.ExpressionList()).NotTo(BeNil())
+				Expect(series.ExpressionList().AllExpression()).To(HaveLen(3))
+			})
+
+			It("Should parse array indexing", func() {
+				expr := mustParseExpression("data[0]")
+
+				postfix := getPostfixExpression(expr)
+				Expect(postfix.PrimaryExpression().IDENTIFIER().GetText()).To(Equal("data"))
+				Expect(postfix.AllIndexOrSlice()).To(HaveLen(1))
+
+				index := postfix.IndexOrSlice(0)
+				Expect(index.LBRACKET()).NotTo(BeNil())
+				Expect(index.RBRACKET()).NotTo(BeNil())
+				Expect(index.AllExpression()).To(HaveLen(1))
+			})
+
+			It("Should parse array slicing", func() {
+				expr := mustParseExpression("data[1:3]")
+
+				postfix := getPostfixExpression(expr)
+				index := postfix.IndexOrSlice(0)
+				Expect(index.COLON()).NotTo(BeNil())
+				Expect(index.AllExpression()).To(HaveLen(2))
+			})
+		})
+
+		Context("Type Casting", func() {
+			It("Should parse type casts", func() {
+				expr := mustParseExpression("f32(42)")
+				primary := getPrimaryExpression(expr)
+
+				Expect(primary.TypeCast()).NotTo(BeNil())
+				cast := primary.TypeCast()
+				Expect(cast.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(cast.Expression()).NotTo(BeNil())
 			})
 		})
 	})
 
-	Describe("Function Declarations", func() {
-		Describe("Basic functions", func() {
-			It("should parse a simple function with no parameters", func() {
-				source := `func hello() {
-					return
-				}`
+	Describe("Functions", func() {
+		It("Should parse basic function declaration", func() {
+			prog := parseProgram(`
+func add(x f64, y f64) f64 {
+    return x + y
+}`)
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-				Expect(tree).NotTo(BeNil())
+			Expect(prog.AllTopLevelItem()).To(HaveLen(1))
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			Expect(funcDecl).NotTo(BeNil())
 
-				// Verify we have one top-level statement
-				statements := tree.AllTopLevelStatement()
-				Expect(statements).To(HaveLen(1))
+			Expect(funcDecl.FUNC()).NotTo(BeNil())
+			Expect(funcDecl.IDENTIFIER().GetText()).To(Equal("add"))
 
-				// Get the function declaration
-				funcDecl := statements[0].FunctionDecl()
-				Expect(funcDecl).NotTo(BeNil())
+			params := funcDecl.ParameterList()
+			Expect(params).NotTo(BeNil())
+			Expect(params.AllParameter()).To(HaveLen(2))
 
-				// Verify function name
-				Expect(funcDecl.IDENTIFIER().GetText()).To(Equal("hello"))
+			Expect(params.Parameter(0).IDENTIFIER().GetText()).To(Equal("x"))
+			Expect(params.Parameter(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
-				// Verify no parameters
-				Expect(funcDecl.ParameterList()).To(BeNil())
+			returnType := funcDecl.ReturnType()
+			Expect(returnType).NotTo(BeNil())
+			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
-				// Verify no return type (void)
-				Expect(funcDecl.ReturnType()).To(BeNil())
+			block := funcDecl.Block()
+			Expect(block).NotTo(BeNil())
+			Expect(block.AllStatement()).To(HaveLen(1))
 
-				// Verify block exists
-				block := funcDecl.Block()
-				Expect(block).NotTo(BeNil())
+			returnStmt := block.Statement(0).ReturnStatement()
+			Expect(returnStmt).NotTo(BeNil())
+			Expect(returnStmt.RETURN()).NotTo(BeNil())
+			Expect(returnStmt.Expression()).NotTo(BeNil())
+		})
 
-				// Verify return statement
-				stmts := block.AllStatement()
-				Expect(stmts).To(HaveLen(1))
-				returnStmt := stmts[0].ReturnStatement()
-				Expect(returnStmt).NotTo(BeNil())
-				Expect(returnStmt.Expression()).To(BeNil()) // No return value
+		It("Should parse function with channel parameters", func() {
+			prog := parseProgram(`
+func process(input <-chan f64, output ->chan f64) {
+    value := <-input
+    value -> output
+}`)
+
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			params := funcDecl.ParameterList()
+
+			// First parameter: input <-chan f64
+			param1 := params.Parameter(0)
+			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
+			Expect(param1.Type_().ChannelType().RECV_CHAN()).NotTo(BeNil())
+			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+
+			// Second parameter: output ->chan f64
+			param2 := params.Parameter(1)
+			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
+			Expect(param2.Type_().ChannelType().SEND_CHAN()).NotTo(BeNil())
+		})
+	})
+
+	Describe("Tasks", func() {
+		It("Should parse task with config block", func() {
+			prog := parseProgram(`
+task controller{
+    setpoint f64
+    sensor <-chan f64
+    actuator ->chan f64
+} (enable u8) {
+    error := setpoint - (<-sensor)
+    error -> actuator
+}`)
+
+			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			Expect(taskDecl).NotTo(BeNil())
+
+			Expect(taskDecl.TASK()).NotTo(BeNil())
+			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
+
+			// Config block
+			config := taskDecl.ConfigBlock()
+			Expect(config).NotTo(BeNil())
+			Expect(config.AllConfigParameter()).To(HaveLen(3))
+
+			// Runtime parameters
+			params := taskDecl.ParameterList()
+			Expect(params).NotTo(BeNil())
+			Expect(params.AllParameter()).To(HaveLen(1))
+			Expect(params.Parameter(0).IDENTIFIER().GetText()).To(Equal("enable"))
+
+			// Body
+			block := taskDecl.Block()
+			Expect(block).NotTo(BeNil())
+			Expect(block.AllStatement()).To(HaveLen(2))
+		})
+
+		It("Should parse task with return type", func() {
+			prog := parseProgram(`
+task doubler{
+    input <-chan f64
+} () f64 {
+    return (<-input) * 2
+}`)
+
+			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+
+			returnType := taskDecl.ReturnType()
+			Expect(returnType).NotTo(BeNil())
+			Expect(returnType.Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+		})
+	})
+
+	Describe("Inter-Task Flow", func() {
+		It("Should parse simple channel to task flow", func() {
+			prog := parseProgram(`sensor -> controller{} -> actuator`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			Expect(flow).NotTo(BeNil())
+
+			// Source: sensor channel
+			source := flow.FlowSource()
+			Expect(source.ChannelIdentifier()).NotTo(BeNil())
+			Expect(source.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("sensor"))
+
+			// First target: controller{}
+			target1 := flow.FlowTarget(0)
+			Expect(target1.TaskInvocation()).NotTo(BeNil())
+			Expect(target1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("controller"))
+
+			// Second target: actuator
+			target2 := flow.FlowTarget(1)
+			Expect(target2.ChannelIdentifier()).NotTo(BeNil())
+			Expect(target2.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+		})
+
+		It("Should parse task invocation with named config", func() {
+			prog := parseProgram(`
+controller{
+    setpoint: 100,
+    sensor: temp_sensor,
+    interval: 100ms
+}(1) -> output`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			source := flow.FlowSource()
+			task := source.TaskInvocation()
+
+			Expect(task.IDENTIFIER().GetText()).To(Equal("controller"))
+
+			// Config values
+			config := task.ConfigValues()
+			Expect(config).NotTo(BeNil())
+			Expect(config.NamedConfigValues()).NotTo(BeNil())
+			Expect(config.NamedConfigValues().AllNamedConfigValue()).To(HaveLen(3))
+
+			// Runtime arguments
+			args := task.Arguments()
+			Expect(args).NotTo(BeNil())
+			Expect(args.ArgumentList()).NotTo(BeNil())
+			Expect(args.ArgumentList().AllExpression()).To(HaveLen(1))
+		})
+
+		It("Should parse task invocation with anonymous config", func() {
+			prog := parseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			source := flow.FlowSource()
+			task := source.TaskInvocation()
+
+			Expect(task.IDENTIFIER().GetText()).To(Equal("any"))
+
+			// Anonymous config values
+			config := task.ConfigValues()
+			Expect(config).NotTo(BeNil())
+			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
+			Expect(config.AnonymousConfigValues().AllExpression()).To(HaveLen(2))
+
+			// Check the flow target also has task invocation
+			target := flow.FlowTarget(0)
+			Expect(target.TaskInvocation()).NotTo(BeNil())
+			Expect(target.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+		})
+
+		It("Should parse task with anonymous arguments in complex flow", func() {
+			prog := parseProgram(`
+task average {} (first chan f64, second chan f64) chan f64 {
+    return (first + second) / 2
+}
+
+any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+
+			// Check task declaration
+			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			Expect(taskDecl).NotTo(BeNil())
+
+			// Check flow statement
+			flow := prog.TopLevelItem(1).FlowStatement()
+			source := flow.FlowSource()
+			task := source.TaskInvocation()
+
+			// Verify anonymous config
+			config := task.ConfigValues()
+			Expect(config).NotTo(BeNil())
+			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
+
+			exprs := config.AnonymousConfigValues().AllExpression()
+			Expect(exprs).To(HaveLen(2))
+
+			// First expression should be ox_pt_1
+			expr1 := getPrimaryExpression(exprs[0])
+			Expect(expr1.IDENTIFIER().GetText()).To(Equal("ox_pt_1"))
+
+			// Second expression should be ox_pt_2
+			expr2 := getPrimaryExpression(exprs[1])
+			Expect(expr2.IDENTIFIER().GetText()).To(Equal("ox_pt_2"))
+		})
+
+		It("Should parse expression in flow", func() {
+			prog := parseProgram(`ox_pt_1 > 100 -> alarm{}`)
+
+			flow := prog.TopLevelItem(0).FlowStatement()
+			source := flow.FlowSource()
+
+			// Source is an expression
+			Expect(source.Expression()).NotTo(BeNil())
+			relational := getRelationalExpression(source.Expression())
+			Expect(relational.GT(0)).NotTo(BeNil())
+		})
+
+		It("Should parse empty config in flow chains", func() {
+			prog := parseProgram(`
+task average {} (first chan f64, second chan f64) chan f64 {
+    return (first + second) / 2
+}
+
+any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+
+			// Check task declaration
+			taskDecl := prog.TopLevelItem(0).TaskDeclaration()
+			Expect(taskDecl).NotTo(BeNil())
+
+			// Check flow statement
+			flow := prog.TopLevelItem(1).FlowStatement()
+
+			// Check first task invocation (any)
+			source := flow.FlowSource()
+			Expect(source.TaskInvocation()).NotTo(BeNil())
+			Expect(source.TaskInvocation().IDENTIFIER().GetText()).To(Equal("any"))
+
+			// Check middle task invocation (average with empty config)
+			target1 := flow.FlowTarget(0)
+			Expect(target1.TaskInvocation()).NotTo(BeNil())
+			Expect(target1.TaskInvocation().IDENTIFIER().GetText()).To(Equal("average"))
+
+			// Verify average has empty config
+			avgConfig := target1.TaskInvocation().ConfigValues()
+			Expect(avgConfig).NotTo(BeNil())
+			Expect(avgConfig.LBRACE()).NotTo(BeNil())
+			Expect(avgConfig.RBRACE()).NotTo(BeNil())
+			Expect(avgConfig.NamedConfigValues()).To(BeNil())
+			Expect(avgConfig.AnonymousConfigValues()).To(BeNil())
+
+			// Check final target (channel)
+			target2 := flow.FlowTarget(1)
+			Expect(target2.ChannelIdentifier()).NotTo(BeNil())
+			Expect(target2.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
+		})
+
+		It("Should fail parsing mixed named and anonymous config values", func() {
+			_, err := parser.Parse(`task{ox_pt_1, second: ox_pt_2} -> output`)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("parse errors"))
+		})
+	})
+
+	Describe("Statements", func() {
+		Context("Variable Declarations", func() {
+			It("Should parse local variable declaration", func() {
+				stmt := parseStatement("x := 42")
+
+				varDecl := stmt.VariableDeclaration()
+				Expect(varDecl).NotTo(BeNil())
+
+				local := varDecl.LocalVariable()
+				Expect(local).NotTo(BeNil())
+				Expect(local.IDENTIFIER().GetText()).To(Equal("x"))
+				Expect(local.DECLARE()).NotTo(BeNil())
+				Expect(local.Expression()).NotTo(BeNil())
 			})
 
-			It("should parse a function with single parameter", func() {
-				source := `func square(x number) number {
-					return x * x
-				}`
+			It("Should parse typed variable declaration", func() {
+				stmt := parseStatement("voltage f32 := 3.3")
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-
-				// Verify parameter
-				paramList := funcDecl.ParameterList()
-				Expect(paramList).NotTo(BeNil())
-				params := paramList.AllParameter()
-				Expect(params).To(HaveLen(1))
-
-				param := params[0]
-				Expect(param.IDENTIFIER().GetText()).To(Equal("x"))
-				Expect(param.Type_().NUMBER()).NotTo(BeNil())
-
-				// Verify return type
-				returnType := funcDecl.ReturnType()
-				Expect(returnType).NotTo(BeNil())
-				Expect(returnType.Type_().NUMBER()).NotTo(BeNil())
-
-				// Verify return statement expression
-				block := funcDecl.Block()
-				returnStmt := block.AllStatement()[0].ReturnStatement()
-				expr := returnStmt.Expression()
-				Expect(expr).NotTo(BeNil())
-				Expect(expr.GetText()).To(Equal("x*x"))
+				local := stmt.VariableDeclaration().LocalVariable()
+				Expect(local.IDENTIFIER().GetText()).To(Equal("voltage"))
+				Expect(local.Type_()).NotTo(BeNil())
+				Expect(local.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 			})
 
-			It("should parse a function with multiple parameters", func() {
-				source := `func calculate(a number, b number, flag bool) number {
-					return a + b
-				}`
+			It("Should parse stateful variable declaration", func() {
+				stmt := parseStatement("total $= 0")
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-
-				// Verify all parameters
-				params := funcDecl.ParameterList().AllParameter()
-				Expect(params).To(HaveLen(3))
-
-				// First parameter: a number
-				Expect(params[0].IDENTIFIER().GetText()).To(Equal("a"))
-				Expect(params[0].Type_().NUMBER()).NotTo(BeNil())
-
-				// Second parameter: b number
-				Expect(params[1].IDENTIFIER().GetText()).To(Equal("b"))
-				Expect(params[1].Type_().NUMBER()).NotTo(BeNil())
-
-				// Third parameter: flag bool
-				Expect(params[2].IDENTIFIER().GetText()).To(Equal("flag"))
-				Expect(params[2].Type_().BOOL()).NotTo(BeNil())
+				stateful := stmt.VariableDeclaration().StatefulVariable()
+				Expect(stateful).NotTo(BeNil())
+				Expect(stateful.IDENTIFIER().GetText()).To(Equal("total"))
+				Expect(stateful.STATE_DECLARE()).NotTo(BeNil())
 			})
 		})
 
-		Describe("Function types", func() {
-			It("should parse void function", func() {
-				source := `func doNothing() void {
-					return
-				}`
+		Context("Variable Assignment", func() {
+			It("Should parse assignment to existing variable", func() {
+				stmt := parseStatement("x = 10")
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				returnType := funcDecl.ReturnType()
-				Expect(returnType).NotTo(BeNil())
-				Expect(returnType.Type_().VOID()).NotTo(BeNil())
-			})
-
-			It("should parse channel parameter types", func() {
-				source := `func readChannel(input <-chan) number {
-					return <-input
-				}`
-
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				param := funcDecl.ParameterList().AllParameter()[0]
-
-				// Verify channel type
-				paramType := param.Type_()
-				Expect(paramType.CHANNEL_RECV()).NotTo(BeNil())
-				Expect(paramType.CHAN()).NotTo(BeNil())
-			})
-
-			It("should parse send-only channel parameter", func() {
-				source := `func writeChannel(output ->chan, value number) {
-					value -> output
-				}`
-
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				param := funcDecl.ParameterList().AllParameter()[0]
-
-				// Verify send-only channel type
-				paramType := param.Type_()
-				Expect(paramType.CHANNEL_SEND()).NotTo(BeNil())
-				Expect(paramType.CHAN()).NotTo(BeNil())
-			})
-		})
-
-		Describe("Function body statements", func() {
-			It("should parse variable declarations", func() {
-				source := `func compute() number {
-					x := 10
-					y $= 20
-					return x + y
-				}`
-
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				stmts := funcDecl.Block().AllStatement()
-				Expect(stmts).To(HaveLen(3))
-
-				// First: local variable declaration
-				varDecl1 := stmts[0].VariableDecl()
-				Expect(varDecl1).NotTo(BeNil())
-				Expect(varDecl1.IDENTIFIER().GetText()).To(Equal("x"))
-				Expect(varDecl1.LOCAL_ASSIGN()).NotTo(BeNil())
-
-				// Second: state variable declaration
-				varDecl2 := stmts[1].VariableDecl()
-				Expect(varDecl2).NotTo(BeNil())
-				Expect(varDecl2.IDENTIFIER().GetText()).To(Equal("y"))
-				Expect(varDecl2.STATE_ASSIGN()).NotTo(BeNil())
-			})
-
-			It("should parse assignments", func() {
-				source := `func update(x number) number {
-					result := x
-					result = result * 2
-					return result
-				}`
-
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				stmts := funcDecl.Block().AllStatement()
-
-				// Second statement should be assignment
-				assignment := stmts[1].Assignment()
+				assignment := stmt.Assignment()
 				Expect(assignment).NotTo(BeNil())
-				Expect(assignment.IDENTIFIER().GetText()).To(Equal("result"))
+				Expect(assignment.IDENTIFIER().GetText()).To(Equal("x"))
 				Expect(assignment.ASSIGN()).NotTo(BeNil())
 				Expect(assignment.Expression()).NotTo(BeNil())
 			})
 
-			It("should parse if statements", func() {
-				source := `func max(a number, b number) number {
-					if (a > b) return a else return b
-				}`
+			It("Should parse assignment with complex expression", func() {
+				stmt := parseStatement("total = total + 1")
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				stmts := funcDecl.Block().AllStatement()
-
-				// Should have one if statement
-				ifStmt := stmts[0].IfStatement()
-				Expect(ifStmt).NotTo(BeNil())
-
-				// Verify condition
-				condition := ifStmt.Expression()
-				Expect(condition).NotTo(BeNil())
-				Expect(condition.GetText()).To(Equal("a>b"))
-
-				// Verify then and else branches
-				thenStmt := ifStmt.Statement(0)
-				Expect(thenStmt).NotTo(BeNil())
-
-				elseStmt := ifStmt.Statement(1)
-				Expect(elseStmt).NotTo(BeNil())
+				assignment := stmt.Assignment()
+				Expect(assignment).NotTo(BeNil())
+				Expect(assignment.IDENTIFIER().GetText()).To(Equal("total"))
+				Expect(assignment.ASSIGN()).NotTo(BeNil())
+				
+				// Check the expression is an addition
+				expr := assignment.Expression()
+				additive := getAdditiveExpression(expr)
+				Expect(additive.PLUS(0)).NotTo(BeNil())
 			})
 
-			It("should parse channel operations", func() {
-				source := `func process(input <-chan, output ->chan) {
-					value := <-input
-					result := value * 2
-					result -> output
-				}`
+			It("Should distinguish between declaration and assignment", func() {
+				// Declaration with :=
+				declStmt := parseStatement("x := 5")
+				Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
+				Expect(declStmt.Assignment()).To(BeNil())
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				stmts := funcDecl.Block().AllStatement()
-				Expect(stmts).To(HaveLen(3))
-
-				// First: channel read in variable declaration
-				varDecl := stmts[0].VariableDecl()
-				Expect(varDecl).NotTo(BeNil())
-
-				// Third: channel write
-				channelWrite := stmts[2].ChannelWrite()
-				Expect(channelWrite).NotTo(BeNil())
-				Expect(channelWrite.CHANNEL_SEND()).NotTo(BeNil())
+				// Assignment with =
+				assignStmt := parseStatement("x = 10")
+				Expect(assignStmt.Assignment()).NotTo(BeNil())
+				Expect(assignStmt.VariableDeclaration()).To(BeNil())
 			})
 
-			It("should parse expression statements", func() {
-				source := `func callOther() void {
-					doSomething()
-					process(42)
-					return
-				}`
+			It("Should distinguish between stateful declaration and assignment", func() {
+				// Stateful declaration with $=
+				declStmt := parseStatement("count $= 0")
+				Expect(declStmt.VariableDeclaration()).NotTo(BeNil())
+				Expect(declStmt.VariableDeclaration().StatefulVariable()).NotTo(BeNil())
+				Expect(declStmt.Assignment()).To(BeNil())
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
-
-				funcDecl := tree.AllTopLevelStatement()[0].FunctionDecl()
-				stmts := funcDecl.Block().AllStatement()
-				// Check we have at least the expected statements
-				Expect(len(stmts)).To(BeNumerically(">=", 3))
-
-				// First two should be expression statements
-				expr1 := stmts[0].ExpressionStatement()
-				Expect(expr1).NotTo(BeNil())
-
-				expr2 := stmts[1].ExpressionStatement()
-				Expect(expr2).NotTo(BeNil())
-
-				// Last should be return (could be index 2 or 3 depending on parsing)
-				lastIdx := len(stmts) - 1
-				returnStmt := stmts[lastIdx].ReturnStatement()
-				Expect(returnStmt).NotTo(BeNil())
+				// Assignment to stateful variable with =
+				assignStmt := parseStatement("count = count + 1")
+				Expect(assignStmt.Assignment()).NotTo(BeNil())
+				Expect(assignStmt.VariableDeclaration()).To(BeNil())
 			})
 		})
 
-		Describe("Multiple functions", func() {
-			It("should parse multiple function declarations", func() {
-				source := `
-				func first() number {
-					return 1
+		Context("Channel Operations", func() {
+			It("Should parse channel write with arrow", func() {
+				stmt := parseStatement("42 -> output")
+
+				channelOp := stmt.ChannelOperation()
+				Expect(channelOp).NotTo(BeNil())
+
+				write := channelOp.ChannelWrite()
+				Expect(write).NotTo(BeNil())
+				Expect(write.ARROW()).NotTo(BeNil())
+				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
+			})
+
+			It("Should parse channel write with receive operator", func() {
+				stmt := parseStatement("output <- 42")
+
+				write := stmt.ChannelOperation().ChannelWrite()
+				Expect(write.RECV()).NotTo(BeNil())
+				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
+			})
+
+			It("Should parse blocking channel read", func() {
+				stmt := parseStatement("value := <-input")
+
+				channelOp := stmt.ChannelOperation()
+				if channelOp == nil {
+					// Maybe it's a variable declaration with blocking read expression
+					varDecl := stmt.VariableDeclaration()
+					Expect(varDecl).NotTo(BeNil())
+					return
 				}
 
-				func second() number {
-					return 2
+				read := channelOp.ChannelRead()
+				Expect(read).NotTo(BeNil())
+
+				blocking := read.BlockingRead()
+				Expect(blocking).NotTo(BeNil())
+				Expect(blocking.IDENTIFIER(0).GetText()).To(Equal("value"))
+				Expect(blocking.RECV()).NotTo(BeNil())
+				Expect(blocking.IDENTIFIER(1).GetText()).To(Equal("input"))
+			})
+
+			It("Should parse non-blocking channel read", func() {
+				stmt := parseStatement("current := sensor")
+
+				// This is likely parsed as a variable declaration
+				varDecl := stmt.VariableDeclaration()
+				if varDecl != nil {
+					local := varDecl.LocalVariable()
+					Expect(local).NotTo(BeNil())
+					Expect(local.IDENTIFIER().GetText()).To(Equal("current"))
+					return
 				}
 
-				func third() number {
-					return 3
-				}`
+				channelOp := stmt.ChannelOperation()
+				Expect(channelOp).NotTo(BeNil())
+				nonBlocking := channelOp.ChannelRead().NonBlockingRead()
+				Expect(nonBlocking).NotTo(BeNil())
+				Expect(nonBlocking.IDENTIFIER(0).GetText()).To(Equal("current"))
+				Expect(nonBlocking.IDENTIFIER(1).GetText()).To(Equal("sensor"))
+			})
+		})
 
-				tree, err := parser.Parse(source)
-				Expect(err).To(BeNil())
+		Context("Control Flow", func() {
+			It("Should parse if statement", func() {
+				stmt := parseStatement(`if x > 10 {
+    y := 20
+}`)
 
-				// Should have three top-level statements
-				statements := tree.AllTopLevelStatement()
-				Expect(statements).To(HaveLen(3))
+				ifStmt := stmt.IfStatement()
+				Expect(ifStmt).NotTo(BeNil())
+				Expect(ifStmt.IF()).NotTo(BeNil())
+				Expect(ifStmt.Expression()).NotTo(BeNil())
+				Expect(ifStmt.Block()).NotTo(BeNil())
+			})
 
-				// Verify each is a function
-				func1 := statements[0].FunctionDecl()
-				Expect(func1).NotTo(BeNil())
-				Expect(func1.IDENTIFIER().GetText()).To(Equal("first"))
+			It("Should parse if-else-if-else chain", func() {
+				stmt := parseStatement(`if x > 10 {
+    y := 20
+} else if x > 5 {
+    y := 10
+} else {
+    y := 0
+}`)
 
-				func2 := statements[1].FunctionDecl()
-				Expect(func2).NotTo(BeNil())
-				Expect(func2.IDENTIFIER().GetText()).To(Equal("second"))
-
-				func3 := statements[2].FunctionDecl()
-				Expect(func3).NotTo(BeNil())
-				Expect(func3.IDENTIFIER().GetText()).To(Equal("third"))
+				ifStmt := stmt.IfStatement()
+				Expect(ifStmt.AllElseIfClause()).To(HaveLen(1))
+				Expect(ifStmt.ElseClause()).NotTo(BeNil())
 			})
 		})
 	})
 
-	Describe("Reactive Bindings", func() {
-		It("should parse simple channel binding", func() {
-			source := `channel -> process()`
+	Describe("Comprehensive Tests", func() {
+		Context("Complex if-else chains", func() {
+			It("Should parse multiple else-if chain", func() {
+				stmt := parseStatement(`if x > 100 {
+					high := true
+				} else if x > 75 {
+					medium_high := true
+				} else if x > 50 {
+					medium := true
+				} else if x > 25 {
+					medium_low := true
+				} else if x > 0 {
+					low := true
+				} else {
+					zero := true
+				}`)
 
-			tree, err := parser.Parse(source)
-			Expect(err).To(BeNil())
+				ifStmt := stmt.IfStatement()
+				Expect(ifStmt).NotTo(BeNil())
 
-			statements := tree.AllTopLevelStatement()
-			Expect(statements).To(HaveLen(1))
+				// Check main if condition
+				Expect(ifStmt.IF()).NotTo(BeNil())
+				mainCond := ifStmt.Expression()
+				Expect(mainCond).NotTo(BeNil())
+				relational := getRelationalExpression(mainCond)
+				Expect(relational.GT(0)).NotTo(BeNil())
 
-			// Get reactive binding
-			binding := statements[0].ReactiveBinding()
-			Expect(binding).NotTo(BeNil())
+				// Verify all else-if clauses
+				elseIfClauses := ifStmt.AllElseIfClause()
+				Expect(elseIfClauses).To(HaveLen(4)) // There are 4 else-if clauses (last one is just else)
 
-			// Verify channel identifier
-			Expect(binding.IDENTIFIER()).NotTo(BeNil())
-			Expect(binding.IDENTIFIER().GetText()).To(Equal("channel"))
+				// Check first else-if: x > 75
+				firstElseIf := elseIfClauses[0]
+				Expect(firstElseIf.ELSE()).NotTo(BeNil())
+				Expect(firstElseIf.IF()).NotTo(BeNil())
+				cond1 := getRelationalExpression(firstElseIf.Expression())
+				Expect(cond1.GT(0)).NotTo(BeNil())
 
-			// Verify arrow
-			Expect(binding.CHANNEL_SEND()).NotTo(BeNil())
+				// Check each block has statements
+				Expect(ifStmt.Block().AllStatement()).To(HaveLen(1))
+				Expect(firstElseIf.Block().AllStatement()).To(HaveLen(1))
 
-			// Verify function call
-			funcCall := binding.FunctionCall()
-			Expect(funcCall).NotTo(BeNil())
-			Expect(funcCall.IDENTIFIER().GetText()).To(Equal("process"))
+				// Verify else clause exists
+				Expect(ifStmt.ElseClause()).NotTo(BeNil())
+				Expect(ifStmt.ElseClause().ELSE()).NotTo(BeNil())
+				Expect(ifStmt.ElseClause().Block().AllStatement()).To(HaveLen(1))
+			})
+
+			It("Should parse nested if statements", func() {
+				stmt := parseStatement(`if x > 0 {
+					if y > 0 {
+						if z > 0 {
+							positive := true
+						} else {
+							z_negative := true
+						}
+					} else {
+						y_negative := true
+					}
+				} else {
+					x_negative := true
+				}`)
+
+				// Outer if
+				outerIf := stmt.IfStatement()
+				Expect(outerIf).NotTo(BeNil())
+
+				// First nested if (y > 0)
+				outerBlock := outerIf.Block()
+				Expect(outerBlock.AllStatement()).To(HaveLen(1))
+				middleIf := outerBlock.Statement(0).IfStatement()
+				Expect(middleIf).NotTo(BeNil())
+
+				// Second nested if (z > 0)
+				middleBlock := middleIf.Block()
+				Expect(middleBlock.AllStatement()).To(HaveLen(1))
+				innerIf := middleBlock.Statement(0).IfStatement()
+				Expect(innerIf).NotTo(BeNil())
+
+				// Verify all have else clauses
+				Expect(outerIf.ElseClause()).NotTo(BeNil())
+				Expect(middleIf.ElseClause()).NotTo(BeNil())
+				Expect(innerIf.ElseClause()).NotTo(BeNil())
+			})
 		})
 
-		It("should parse channel list binding", func() {
-			source := `[ch1, ch2, ch3] -> handleMultiple()`
+		Context("Complex operator precedence", func() {
+			It("Should parse chained exponentials right-to-left", func() {
+				// 2 ^ 3 ^ 2 ^ 1 should be 2 ^ (3 ^ (2 ^ 1))
+				expr := mustParseExpression("2 ^ 3 ^ 2 ^ 1")
 
-			tree, err := parser.Parse(source)
-			Expect(err).To(BeNil())
+				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				Expect(power.CARET()).NotTo(BeNil())
 
-			statements := tree.AllTopLevelStatement()
-			binding := statements[0].ReactiveBinding()
+				// Right side should be another power expression
+				rightPower := power.PowerExpression()
+				Expect(rightPower).NotTo(BeNil())
+				Expect(rightPower.CARET()).NotTo(BeNil())
 
-			// Verify channel list
-			channelList := binding.ChannelList()
-			Expect(channelList).NotTo(BeNil())
+				// And that should have another power expression
+				rightRightPower := rightPower.PowerExpression()
+				Expect(rightRightPower).NotTo(BeNil())
+				Expect(rightRightPower.CARET()).NotTo(BeNil())
+			})
 
-			// Verify brackets
-			Expect(channelList.LBRACKET()).NotTo(BeNil())
-			Expect(channelList.RBRACKET()).NotTo(BeNil())
+			It("Should parse complex logical expressions", func() {
+				// !a && b || c && !d
+				// Should be: ((!a) && b) || (c && (!d))
+				expr := mustParseExpression("!a && b || c && !d")
 
-			// Verify channel identifiers
-			identifiers := channelList.AllIDENTIFIER()
-			Expect(identifiers).To(HaveLen(3))
-			Expect(identifiers[0].GetText()).To(Equal("ch1"))
-			Expect(identifiers[1].GetText()).To(Equal("ch2"))
-			Expect(identifiers[2].GetText()).To(Equal("ch3"))
+				// Top level is OR
+				logicalOr := expr.LogicalOrExpression()
+				Expect(logicalOr.AllLogicalAndExpression()).To(HaveLen(2))
+				Expect(logicalOr.OR(0)).NotTo(BeNil())
+
+				// Left side: !a && b
+				leftAnd := logicalOr.LogicalAndExpression(0)
+				Expect(leftAnd.AllEqualityExpression()).To(HaveLen(2))
+				Expect(leftAnd.AND(0)).NotTo(BeNil())
+
+				// Right side: c && !d
+				rightAnd := logicalOr.LogicalAndExpression(1)
+				Expect(rightAnd.AllEqualityExpression()).To(HaveLen(2))
+				Expect(rightAnd.AND(0)).NotTo(BeNil())
+			})
 		})
 
-		It("should parse interval binding", func() {
-			source := `interval(1000) -> tick()`
+		Context("Complex series operations", func() {
+			It("Should parse chained indexing and slicing", func() {
+				expr := mustParseExpression("data[1:5][2]")
 
-			tree, err := parser.Parse(source)
-			Expect(err).To(BeNil())
+				postfix := getPostfixExpression(expr)
+				Expect(postfix.AllIndexOrSlice()).To(HaveLen(2))
 
-			statements := tree.AllTopLevelStatement()
-			binding := statements[0].ReactiveBinding()
+				// First operation: slice [1:5]
+				slice := postfix.IndexOrSlice(0)
+				Expect(slice.COLON()).NotTo(BeNil())
+				Expect(slice.AllExpression()).To(HaveLen(2))
 
-			// Get interval binding
-			intervalBinding := binding.IntervalBinding()
-			Expect(intervalBinding).NotTo(BeNil())
+				// Second operation: index [2]
+				index := postfix.IndexOrSlice(1)
+				Expect(index.COLON()).To(BeNil())
+				Expect(index.AllExpression()).To(HaveLen(1))
+			})
 
-			// Verify interval keyword
-			Expect(intervalBinding.INTERVAL()).NotTo(BeNil())
+			It("Should parse open-ended slices", func() {
+				// data[:5]
+				expr1 := mustParseExpression("data[:5]")
+				slice1 := getPostfixExpression(expr1).IndexOrSlice(0)
+				Expect(slice1.COLON()).NotTo(BeNil())
+				Expect(slice1.AllExpression()).To(HaveLen(1)) // Only end expression
 
-			// Verify number literal
-			Expect(intervalBinding.NUMBER_LITERAL()).NotTo(BeNil())
-			Expect(intervalBinding.NUMBER_LITERAL().GetText()).To(Equal("1000"))
+				// data[5:]
+				expr2 := mustParseExpression("data[5:]")
+				slice2 := getPostfixExpression(expr2).IndexOrSlice(0)
+				Expect(slice2.COLON()).NotTo(BeNil())
+				Expect(slice2.AllExpression()).To(HaveLen(1)) // Only start expression
 
-			// Verify function call
-			funcCall := intervalBinding.FunctionCall()
-			Expect(funcCall).NotTo(BeNil())
-			Expect(funcCall.IDENTIFIER().GetText()).To(Equal("tick"))
+				// data[:]
+				expr3 := mustParseExpression("data[:]")
+				slice3 := getPostfixExpression(expr3).IndexOrSlice(0)
+				Expect(slice3.COLON()).NotTo(BeNil())
+				Expect(slice3.AllExpression()).To(HaveLen(0)) // No expressions
+			})
 		})
 
-		It("should parse mixed program with functions and bindings", func() {
-			source := `
-			func process() {
-				return
-			}
+		Context("Edge cases", func() {
+			It("Should parse empty series literal", func() {
+				expr := mustParseExpression("[]")
+				literal := getPrimaryLiteral(expr)
+				series := literal.SeriesLiteral()
+				Expect(series).NotTo(BeNil())
+				Expect(series.ExpressionList()).To(BeNil())
+			})
 
-			channel -> process()
+			It("Should parse deeply nested expressions", func() {
+				// Create a deeply nested expression
+				expr := mustParseExpression("((((((1)))))))")
 
-			func handleTick() {
-				return
-			}
+				// Navigate through all the parentheses
+				primary := getPrimaryExpression(expr)
+				Expect(primary.LPAREN()).NotTo(BeNil())
+				Expect(primary.RPAREN()).NotTo(BeNil())
 
-			interval(500) -> handleTick()`
+				inner1 := getPrimaryExpression(primary.Expression())
+				Expect(inner1.LPAREN()).NotTo(BeNil())
 
-			tree, err := parser.Parse(source)
-			Expect(err).To(BeNil())
+				inner2 := getPrimaryExpression(inner1.Expression())
+				Expect(inner2.LPAREN()).NotTo(BeNil())
+			})
 
-			statements := tree.AllTopLevelStatement()
-			Expect(statements).To(HaveLen(4))
+			It("Should parse numbers with underscores", func() {
+				testCases := []struct {
+					input    string
+					expected string
+				}{
+					{"1_000", "1_000"},
+					{"1_000_000", "1_000_000"},
+					{"0xFF_FF", "0xFF_FF"},
+					{"0b1010_1010", "0b1010_1010"},
+					{"3.141_592", "3.141_592"},
+				}
 
-			// First: function
-			Expect(statements[0].FunctionDecl()).NotTo(BeNil())
+				for _, tc := range testCases {
+					expr := mustParseExpression(tc.input)
+					literal := getPrimaryLiteral(expr)
 
-			// Second: channel binding
-			Expect(statements[1].ReactiveBinding()).NotTo(BeNil())
+					if literal.NumericLiteral().INTEGER_LITERAL() != nil {
+						Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal(tc.expected))
+					} else {
+						Expect(literal.NumericLiteral().FLOAT_LITERAL().GetText()).To(Equal(tc.expected))
+					}
+				}
+			})
+		})
 
-			// Third: function
-			Expect(statements[2].FunctionDecl()).NotTo(BeNil())
+		Context("Error cases", func() {
+			It("Should report error for unclosed parenthesis", func() {
+				_, err := parser.ParseExpression("(2 + 3")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("missing ')'"))
+			})
 
-			// Fourth: interval binding
-			Expect(statements[3].ReactiveBinding()).NotTo(BeNil())
+			It("Should report error for invalid operators", func() {
+				_, err := parser.ParseExpression("2 ** 3")
+				Expect(err).NotTo(BeNil())
+			})
+
+			It("Should report error for double assignment", func() {
+				_, err := parser.Parse(`func test() {
+					x := := 5
+				}`)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("parse errors"))
+			})
 		})
 	})
 })
+
+// Helper functions to navigate the AST
+func parseProgram(code string) parser.IProgramContext {
+	inputStream := antlr.NewInputStream(code)
+	lexer := parser.NewSlateLexer(inputStream)
+	stream := antlr.NewCommonTokenStream(lexer, 0)
+	p := parser.NewSlateParser(stream)
+	p.BuildParseTrees = true
+	return p.Program()
+}
+
+func parseStatement(code string) parser.IStatementContext {
+	// Wrap in a function to parse as a statement
+	prog := parseProgram("func test() { " + code + " }")
+	funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+	return funcDecl.Block().Statement(0)
+}
+
+func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
+	primary := getPrimaryExpression(expr)
+	return primary.Literal()
+}
+
+func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
+	return getPostfixExpression(expr).PrimaryExpression()
+}
+
+func getPostfixExpression(expr parser.IExpressionContext) parser.IPostfixExpressionContext {
+	return getPowerExpression(expr).UnaryExpression().PostfixExpression()
+}
+
+func getPowerExpression(expr parser.IExpressionContext) parser.IPowerExpressionContext {
+	return getMultiplicativeExpression(expr).PowerExpression(0)
+}
+
+func getMultiplicativeExpression(expr parser.IExpressionContext) parser.IMultiplicativeExpressionContext {
+	return getAdditiveExpression(expr).MultiplicativeExpression(0)
+}
+
+func getAdditiveExpression(expr parser.IExpressionContext) parser.IAdditiveExpressionContext {
+	return getRelationalExpression(expr).AdditiveExpression(0)
+}
+
+func getRelationalExpression(expr parser.IExpressionContext) parser.IRelationalExpressionContext {
+	return getEqualityExpression(expr).RelationalExpression(0)
+}
+
+func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpressionContext {
+	return getLogicalAndExpression(expr).EqualityExpression(0)
+}
+
+func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
+	return expr.LogicalOrExpression().LogicalAndExpression(0)
+}

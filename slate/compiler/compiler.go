@@ -1,358 +1,300 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package compiler
 
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
-	"github.com/synnaxlabs/slate/compiler/codegen"
+	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
-	generated "github.com/synnaxlabs/slate/parser/generated"
+	"github.com/synnaxlabs/slate/resolver"
 )
 
-// Metadata contains information about the compiled module for the runtime
-type Metadata struct {
-	Functions []FunctionMeta
-	Bindings  []BindingMeta
-}
-
-// FunctionMeta describes an exported function
-type FunctionMeta struct {
-	Name       string
-	Parameters []ParameterMeta
-	ReturnType string
-}
-
-// ParameterMeta describes a function parameter
-type ParameterMeta struct {
-	Name string
-	Type string // "number", "bool", "<-chan", "->chan", "chan"
-}
-
-// BindingMeta describes a reactive binding
-type BindingMeta struct {
-	Type         string // "channel", "channel_list", "interval"
-	Trigger      string // channel name or interval duration
-	FunctionName string // exported function name
-}
-
-// CompiledModule contains the WASM binary and metadata
-type CompiledModule struct {
-	WASM     []byte
-	Metadata *Metadata
-}
-
-// Compiler compiles Slate source to WASM
+// Compiler compiles Slate source code to WASM and metadata.
 type Compiler struct {
-	module   *wasm.Module
-	metadata *Metadata
-	exprComp *codegen.ExpressionCompiler
-	
-	// Track imported functions for channel operations
-	channelReadIdx  uint32
-	channelWriteIdx uint32
+	resolver resolver.GlobalResolver
+
+	// Code generation
+	wasmModule *wasm.Module
+	imports    *wasm.ImportIndex
 }
 
-// New creates a new compiler
-func New() *Compiler {
+// New creates a new compiler with the given resolver.
+func New(r resolver.GlobalResolver) *Compiler {
+	if r == nil {
+		r = resolver.NewStubResolver()
+	}
 	return &Compiler{
-		module: wasm.NewModule(),
-		metadata: &Metadata{
-			Functions: make([]FunctionMeta, 0),
-			Bindings:  make([]BindingMeta, 0),
-		},
-		exprComp: codegen.NewExpressionCompiler(),
+		resolver: r,
 	}
 }
 
-// Compile compiles Slate source code to WASM
-func (c *Compiler) Compile(source string) (*CompiledModule, error) {
-	// Parse the source
-	tree, err := parser.Parse(source)
+// Compile compiles Slate source code to a Module.
+func (c *Compiler) Compile(source string) (*analyzer.Module, error) {
+	// Parse
+	ast, err := parser.Parse(source)
 	if err != nil {
 		return nil, fmt.Errorf("parse error: %w", err)
 	}
-	
-	// Setup standard imports
-	c.setupImports()
-	
-	// Compile each top-level statement
-	for _, stmt := range tree.AllTopLevelStatement() {
-		if funcDecl := stmt.FunctionDecl(); funcDecl != nil {
-			if err := c.compileFunction(funcDecl); err != nil {
-				return nil, err
-			}
-		} else if binding := stmt.ReactiveBinding(); binding != nil {
-			if err := c.compileBinding(binding); err != nil {
-				return nil, err
-			}
+
+	// Analyze with resolver - this extracts all metadata
+	a := analyzer.NewAnalyzer(c.resolver)
+	analysis := a.Analyze(ast)
+
+	// Check for analysis errors
+	for _, diag := range analysis.Diagnostics {
+		if diag.Severity == analyzer.SeverityError {
+			return nil, fmt.Errorf("analysis error at %d:%d: %s",
+				diag.Line, diag.Column, diag.Message)
 		}
 	}
-	
-	// Generate WASM binary
-	wasmBytes := c.module.Generate()
-	
-	return &CompiledModule{
-		WASM:     wasmBytes,
-		Metadata: c.metadata,
+
+	// Generate WASM code from analysis results
+	wasmBytes, err := c.generateCode(analysis)
+	if err != nil {
+		return nil, fmt.Errorf("code generation error: %w", err)
+	}
+
+	// Build final module
+	return &analyzer.Module{
+		Version:   "1.0.0",
+		Module:    wasmBytes,
+		Tasks:     analysis.Tasks,
+		Functions: analysis.Functions,
+		Nodes:     analysis.FlowGraph.Nodes,
+		Edges:     analysis.FlowGraph.Edges,
 	}, nil
 }
 
-func (c *Compiler) setupImports() {
-	// Import channel read function
-	c.channelReadIdx = c.module.AddImport("env", "channel_read", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // channel ID
-		Results: []wasm.ValueType{wasm.F64},  // value
-	})
-	
-	// Import channel write function
-	c.channelWriteIdx = c.module.AddImport("env", "channel_write", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.F64}, // channel ID, value
-		Results: []wasm.ValueType{},
-	})
+// generateCode generates WASM code from analysis results.
+func (c *Compiler) generateCode(analysis *analyzer.Result) ([]byte, error) {
+	c.wasmModule = wasm.NewModule()
+
+	// Setup imports for all typed host functions
+	if err := c.setupImports(); err != nil {
+		return nil, err
+	}
+
+	// Generate code for each task
+	for _, task := range analysis.Tasks {
+		if err := c.generateTaskCode(task); err != nil {
+			return nil, err
+		}
+	}
+
+	// Generate code for each function
+	for _, function := range analysis.Functions {
+		if err := c.generateFunctionCode(function); err != nil {
+			return nil, err
+		}
+	}
+
+	return c.wasmModule.Generate(), nil
 }
 
-func (c *Compiler) compileFunction(funcDecl generated.IFunctionDeclContext) error {
-	name := funcDecl.IDENTIFIER().GetText()
-	
-	// Build function metadata
-	funcMeta := FunctionMeta{
-		Name:       name,
-		Parameters: make([]ParameterMeta, 0),
+// setupImports adds all typed host function imports.
+func (c *Compiler) setupImports() error {
+	// Use the typed imports setup from wasm package
+	c.imports = wasm.SetupTypedImports(c.wasmModule)
+	return nil
+}
+
+// generateTaskCode generates WASM code for a task.
+func (c *Compiler) generateTaskCode(spec analyzer.TaskSpec) error {
+	// Create function type for the task
+	// Tasks take (task_id: i32, args...) and return result if any
+	params := []wasm.ValueType{wasm.I32} // task ID
+
+	// AddSymbol runtime argument types
+	for _, arg := range spec.Args {
+		params = append(params, slateTypeToWASM(arg.Type))
 	}
-	
-	// Build function type
+
+	// AddSymbol return type if present
+	var results []wasm.ValueType
+	if spec.Return != nil {
+		results = append(results, slateTypeToWASM(*spec.Return))
+	}
+
 	funcType := wasm.FunctionType{
-		Params:  make([]wasm.ValueType, 0),
-		Results: make([]wasm.ValueType, 0),
+		Params:  params,
+		Results: results,
 	}
-	
-	// Reset expression compiler for this function
-	c.exprComp.Reset()
-	
-	// Process parameters
-	if paramList := funcDecl.ParameterList(); paramList != nil {
-		for i, param := range paramList.AllParameter() {
-			paramName := param.IDENTIFIER().GetText()
-			paramType := c.getParameterType(param.Type_())
-			
-			funcMeta.Parameters = append(funcMeta.Parameters, ParameterMeta{
-				Name: paramName,
-				Type: paramType,
-			})
-			
-			// Add to function signature
-			if paramType == "<-chan" || paramType == "->chan" || paramType == "chan" {
-				// Channel parameters are passed as i32 (channel ID)
-				funcType.Params = append(funcType.Params, wasm.I32)
-			} else if paramType == "bool" {
-				funcType.Params = append(funcType.Params, wasm.I32)
-			} else { // number
-				funcType.Params = append(funcType.Params, wasm.F64)
-			}
-			
-			// Register parameter in expression compiler
-			c.exprComp.SetParameter(paramName, uint32(i))
+
+	typeIdx := c.wasmModule.AddType(funcType)
+
+	// Generate function body
+	var body bytes.Buffer
+
+	// 1. Load stateful variables at the start
+	for _, stateVar := range spec.StatefulVars {
+		// Get the appropriate load function for the type
+		typeSuffix := getTypeSuffix(stateVar.Type)
+		if loadFunc, ok := c.imports.StateLoad[typeSuffix]; ok {
+			// local.get 0 (task ID)
+			body.WriteByte(byte(wasm.OpLocalGet))
+			wasm.WriteLEB128(&body, 0)
+
+			// i32.const var_id
+			wasm.WriteI32Const(&body, int32(stateVar.Key))
+
+			// call state_load_<type>
+			body.WriteByte(byte(wasm.OpCall))
+			wasm.WriteLEB128(&body, uint64(loadFunc))
+
+			// Store in local variable
+			// TODO: Need to track local variable indices
 		}
 	}
-	
-	// Process return type
-	if returnType := funcDecl.ReturnType(); returnType != nil {
-		retType := c.getReturnType(returnType.Type_())
-		funcMeta.ReturnType = retType
-		
-		if retType == "number" {
-			funcType.Results = append(funcType.Results, wasm.F64)
-		} else if retType == "bool" {
-			funcType.Results = append(funcType.Results, wasm.I32)
+
+	// 2. TODO: Generate task body code
+	// This would involve walking the task's AST and generating
+	// appropriate WASM instructions
+
+	// 3. Store stateful variables at the end
+	for _, stateVar := range spec.StatefulVars {
+		typeSuffix := getTypeSuffix(stateVar.Type)
+		if storeFunc, ok := c.imports.StateStore[typeSuffix]; ok {
+			// local.get 0 (task ID)
+			body.WriteByte(byte(wasm.OpLocalGet))
+			wasm.WriteLEB128(&body, 0)
+
+			// i32.const var_id
+			wasm.WriteI32Const(&body, int32(stateVar.Key))
+
+			// TODO: Get value from local variable
+
+			// call state_store_<type>
+			body.WriteByte(byte(wasm.OpCall))
+			wasm.WriteLEB128(&body, uint64(storeFunc))
 		}
-		// void has no results
 	}
-	
-	// Add function type to module
-	typeIdx := c.module.AddType(funcType)
-	
-	// Compile function body
-	bodyCode, locals, err := c.compileFunctionBody(funcDecl.Block())
-	if err != nil {
-		return fmt.Errorf("error compiling function %s: %w", name, err)
-	}
-	
-	// Create WASM function
-	wasmFunc := wasm.Function{
-		Name:    name,
+
+	// AddSymbol function to module
+	function := wasm.Function{
+		Name:    spec.Key,
 		TypeIdx: typeIdx,
-		Locals:  locals,
-		Body:    bodyCode,
-		Export:  true, // Export all functions for runtime to call
+		Locals:  []wasm.ValueType{}, // TODO: Calculate needed locals
+		Body:    body.Bytes(),
+		Export:  true,
 	}
-	
-	// Add function to module
-	c.module.AddFunction(wasmFunc)
-	
-	// Add to metadata
-	c.metadata.Functions = append(c.metadata.Functions, funcMeta)
-	
+
+	c.wasmModule.AddFunction(function)
+
 	return nil
 }
 
-func (c *Compiler) compileFunctionBody(block generated.IBlockContext) ([]byte, []wasm.ValueType, error) {
-	var code bytes.Buffer
-	locals := make([]wasm.ValueType, 0)
-	localCount := uint32(0)
-	
-	// Compile each statement
-	for _, stmt := range block.AllStatement() {
-		// Clear the expression compiler code buffer for each statement
-		c.exprComp.ResetCode()
-		
-		if returnStmt := stmt.ReturnStatement(); returnStmt != nil {
-			// Compile return expression
-			if expr := returnStmt.Expression(); expr != nil {
-				if err := c.exprComp.CompileExpression(expr); err != nil {
-					return nil, nil, err
-				}
-				code.Write(c.exprComp.GetCode())
-			}
-			// Add return instruction
-			code.WriteByte(byte(wasm.OpReturn))
-			
-		} else if varDecl := stmt.VariableDecl(); varDecl != nil {
-			// Handle variable declaration
-			varName := varDecl.IDENTIFIER().GetText()
-			
-			// Compile initialization expression
-			if err := c.exprComp.CompileExpression(varDecl.Expression()); err != nil {
-				return nil, nil, err
-			}
-			code.Write(c.exprComp.GetCode())
-			
-			// Store in local
-			code.WriteByte(byte(wasm.OpLocalSet))
-			paramCount := uint32(c.exprComp.GetParameterCount())
-			wasm.WriteLEB128(&code, uint64(paramCount+localCount))
-			
-			// Register the local for future use
-			c.exprComp.SetLocal(varName, localCount)
-			
-			// Add local variable
-			locals = append(locals, wasm.F64) // Assume number for now
-			localCount++
-			
-		} else if assignment := stmt.Assignment(); assignment != nil {
-			// Handle assignment
-			varName := assignment.IDENTIFIER().GetText()
-			
-			// Compile expression
-			if err := c.exprComp.CompileExpression(assignment.Expression()); err != nil {
-				return nil, nil, err
-			}
-			code.Write(c.exprComp.GetCode())
-			
-			// Store in variable
-			if idx, ok := c.exprComp.GetParameterIndex(varName); ok {
-				code.WriteByte(byte(wasm.OpLocalSet))
-				wasm.WriteLEB128(&code, uint64(idx))
-			} else if idx, ok := c.exprComp.GetLocalIndex(varName); ok {
-				code.WriteByte(byte(wasm.OpLocalSet))
-				paramCount := uint32(c.exprComp.GetParameterCount())
-				wasm.WriteLEB128(&code, uint64(paramCount+idx))
-			} else {
-				return nil, nil, fmt.Errorf("undefined variable: %s", varName)
-			}
-			
-		} else if channelWrite := stmt.ChannelWrite(); channelWrite != nil {
-			// Handle channel write: value -> channel
-			// Compile the value expression
-			if err := c.exprComp.CompileExpression(channelWrite.Expression()); err != nil {
-				return nil, nil, err
-			}
-			code.Write(c.exprComp.GetCode())
-			
-			// Get channel ID (assuming it's a parameter)
-			channelName := channelWrite.IDENTIFIER().GetText()
-			if idx, ok := c.exprComp.GetParameterIndex(channelName); ok {
-				// Load channel ID
-				code.WriteByte(byte(wasm.OpLocalGet))
-				wasm.WriteLEB128(&code, uint64(idx))
-				// Swap so we have: channel_id, value
-				// (WASM doesn't have swap, so we need to use locals)
-				// For now, assuming the value is on top and channel param is loaded
-			}
-			
-			// Call channel_write
-			code.WriteByte(byte(wasm.OpCall))
-			wasm.WriteLEB128(&code, uint64(c.channelWriteIdx))
-			
-		} else if ifStmt := stmt.IfStatement(); ifStmt != nil {
-			// Handle if statement (simplified for now)
-			return nil, nil, fmt.Errorf("if statements not yet implemented")
-			
-		} else if exprStmt := stmt.ExpressionStatement(); exprStmt != nil {
-			// Handle expression statement
-			if err := c.exprComp.CompileExpression(exprStmt.Expression()); err != nil {
-				return nil, nil, err
-			}
-			code.Write(c.exprComp.GetCode())
-			// Drop the result if any
-			// For now, assuming expressions used as statements don't produce values
-		}
+// generateFunctionCode generates WASM code for a function.
+func (c *Compiler) generateFunctionCode(spec analyzer.FunctionSpec) error {
+	// Create function type
+	var params []wasm.ValueType
+	for _, param := range spec.Params {
+		params = append(params, slateTypeToWASM(param.Type))
 	}
-	
-	return code.Bytes(), locals, nil
-}
 
-func (c *Compiler) compileBinding(binding generated.IReactiveBindingContext) error {
-	meta := BindingMeta{}
-	
-	// Determine binding type
-	if intervalBinding := binding.IntervalBinding(); intervalBinding != nil {
-		meta.Type = "interval"
-		meta.Trigger = intervalBinding.NUMBER_LITERAL().GetText()
-		meta.FunctionName = intervalBinding.FunctionCall().IDENTIFIER().GetText()
-		
-	} else if channelList := binding.ChannelList(); channelList != nil {
-		meta.Type = "channel_list"
-		// Collect channel names
-		channels := ""
-		for i, ident := range channelList.AllIDENTIFIER() {
-			if i > 0 {
-				channels += ","
-			}
-			channels += ident.GetText()
-		}
-		meta.Trigger = channels
-		meta.FunctionName = binding.FunctionCall().IDENTIFIER().GetText()
-		
-	} else if ident := binding.IDENTIFIER(); ident != nil {
-		meta.Type = "channel"
-		meta.Trigger = ident.GetText()
-		meta.FunctionName = binding.FunctionCall().IDENTIFIER().GetText()
+	var results []wasm.ValueType
+	if spec.Return != nil {
+		results = append(results, slateTypeToWASM(*spec.Return))
 	}
-	
-	// Add to metadata (runtime will handle the actual binding)
-	c.metadata.Bindings = append(c.metadata.Bindings, meta)
-	
+
+	funcType := wasm.FunctionType{
+		Params:  params,
+		Results: results,
+	}
+
+	typeIdx := c.wasmModule.AddType(funcType)
+
+	// Generate function body
+	var body bytes.Buffer
+
+	// TODO: Generate function body code
+	// This would involve walking the function's AST and generating
+	// appropriate WASM instructions
+
+	// For now, just return a default value if needed
+	if len(results) > 0 {
+		switch results[0] {
+		case wasm.I32:
+			wasm.WriteI32Const(&body, 0)
+		case wasm.I64:
+			body.WriteByte(byte(wasm.OpI64Const))
+			wasm.WriteLEB128(&body, 0)
+		case wasm.F32:
+			wasm.WriteF32Const(&body, 0.0)
+		case wasm.F64:
+			wasm.WriteF64Const(&body, 0.0)
+		}
+	}
+
+	// AddSymbol function to module
+	function := wasm.Function{
+		Name:    spec.Key,
+		TypeIdx: typeIdx,
+		Locals:  []wasm.ValueType{}, // TODO: Calculate needed locals
+		Body:    body.Bytes(),
+		Export:  true,
+	}
+
+	c.wasmModule.AddFunction(function)
+
 	return nil
 }
 
-func (c *Compiler) getParameterType(typeNode generated.ITypeContext) string {
-	if typeNode.NUMBER() != nil {
-		return "number"
-	} else if typeNode.BOOL() != nil {
-		return "bool"
-	} else if typeNode.VOID() != nil {
-		return "void"
-	} else if typeNode.CHANNEL_RECV() != nil {
-		return "<-chan"
-	} else if typeNode.CHANNEL_SEND() != nil {
-		return "->chan"
-	} else if typeNode.CHAN() != nil {
-		return "chan"
+// slateTypeToWASM converts a Slate type to a WASM value type.
+func slateTypeToWASM(slateType string) wasm.ValueType {
+	switch slateType {
+	case "i8", "i16", "i32", "u8", "u16", "u32", "bool":
+		return wasm.I32
+	case "i64", "u64", "timestamp":
+		return wasm.I64
+	case "f32":
+		return wasm.F32
+	case "f64":
+		return wasm.F64
+	case "string":
+		return wasm.I32 // String handle
+	default:
+		// For series and channels, return handle (i32)
+		if strings.HasPrefix(slateType, "series") || strings.HasPrefix(slateType, "channel") {
+			return wasm.I32
+		}
+		return wasm.I32 // Default to i32 for unknown types
 	}
-	return "unknown"
 }
 
-func (c *Compiler) getReturnType(typeNode generated.ITypeContext) string {
-	return c.getParameterType(typeNode)
+// getTypeSuffix extracts the type suffix for host function selection.
+func getTypeSuffix(slateType string) string {
+	// Handle basic types
+	switch slateType {
+	case "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "bool", "string":
+		if slateType == "bool" {
+			return "u8" // Booleans are stored as u8
+		}
+		return slateType
+	}
+
+	// Handle series types (e.g., "series<f64>" -> "f64")
+	if strings.HasPrefix(slateType, "series<") && strings.HasSuffix(slateType, ">") {
+		inner := slateType[7 : len(slateType)-1]
+		return inner
+	}
+
+	// Handle channel types (e.g., "channel<f64>" -> "f64")
+	if strings.HasPrefix(slateType, "channel<") && strings.HasSuffix(slateType, ">") {
+		inner := slateType[8 : len(slateType)-1]
+		return inner
+	}
+
+	// Default to f64 for unknown types
+	return "f64"
 }
