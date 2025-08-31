@@ -80,7 +80,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.Symbol.REGISTRY[props.key as Schematic.Symbol.Variant];
+  const C = Schematic.Symbol.REGISTRY[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {

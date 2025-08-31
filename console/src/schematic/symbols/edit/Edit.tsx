@@ -1,4 +1,4 @@
-import "@/schematic/symbols/Create.css";
+import "@/schematic/symbols/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
 import {

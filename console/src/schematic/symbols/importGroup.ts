@@ -49,77 +49,54 @@ export const useImportGroup = (): (() => void) => {
         throw new Error(
           "Cannot import symbol groups from a dialog when running Synnax in the browser.",
         );
-      
-      if (client == null) throw new DisconnectedError();
 
-      // Open directory picker
+      if (client == null) throw new DisconnectedError();
       const dirPath = await open({
         title: "Import Symbol Group",
         directory: true,
         multiple: false,
       });
-      
       if (dirPath == null) return;
-
-      // Read manifest
       const manifestPath = await join(dirPath, "manifest.json");
       const manifestData = await readTextFile(manifestPath);
       const manifest = manifestZ.parse(JSON.parse(manifestData));
-      
-      // Get the symbol group to use as parent
       const symbolGroup = await client.workspaces.schematic.symbols.retrieveGroup();
-      
-      // Create a new group for the imported symbols using the same API as the UI
       const newGroupKey = uuid.create();
       await createGroup({
         key: newGroupKey,
         name: manifest.name,
         parent: group.ontologyID(symbolGroup.key),
       });
-      
+
       const parentID = group.ontologyID(newGroupKey);
-      
-      // Import each symbol
       let successCount = 0;
-      const errors: string[] = [];
-      
-      for (const symbolRef of manifest.symbols) {
+
+      const errors: unknown[] = [];
+      for (const symbolRef of manifest.symbols)
         try {
           const symbolPath = await join(dirPath, symbolRef.file);
           const symbolData = await readTextFile(symbolPath);
           const parsed = exportedSymbolZ.parse(JSON.parse(symbolData));
-          
-          // Create the symbol with a new key
           await client.workspaces.schematic.symbols.create({
             ...parsed.symbol,
             key: uuid.create(),
             parent: parentID,
           });
-          
           successCount++;
         } catch (e) {
-          errors.push(`Failed to import ${symbolRef.name}: ${e}`);
-          console.error(`Failed to import symbol ${symbolRef.name}:`, e);
+          errors.push(e);
         }
-      }
-      
-      // Report results
-      if (successCount === manifest.symbols.length) {
+
+      if (successCount === manifest.symbols.length)
         addStatus({
           variant: "success",
           message: `Successfully imported ${successCount} symbols into group "${manifest.name}"`,
         });
-      } else if (successCount > 0) {
+      else if (successCount > 0)
         addStatus({
           variant: "warning",
           message: `Imported ${successCount}/${manifest.symbols.length} symbols. Some imports failed.`,
         });
-      } else {
-        throw new Error("Failed to import any symbols from the group");
-      }
-      
-      // Log any errors for debugging
-      errors.forEach((error) => console.error(error));
     }, "Failed to import symbol group");
   }, [client, handleError, addStatus, createGroup]);
 };
