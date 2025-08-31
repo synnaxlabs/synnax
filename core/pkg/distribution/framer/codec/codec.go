@@ -116,7 +116,7 @@ type Codec struct {
 	// when Update is called.
 	channels channel.Readable
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
-	// of sorting the frame directly in order ot avoid excess heap allocations
+	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
 }
 
