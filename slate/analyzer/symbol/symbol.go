@@ -35,7 +35,7 @@ const (
 )
 
 type Scope struct {
-	globalResolver Resolver
+	GlobalResolver Resolver
 	Symbol         *Symbol
 	Parent         *Scope
 	Children       []*Scope
@@ -61,9 +61,9 @@ func (s *Scope) checkForNameConflicts(name string) error {
 		}
 	}
 	if s.Parent == nil {
-		if s.globalResolver != nil {
-			_, err := s.globalResolver.Resolve(name)
-			if errors.Is(query.NotFound, err) {
+		if s.GlobalResolver != nil {
+			_, err := s.GlobalResolver.Resolve(name)
+			if errors.Is(err, query.NotFound) {
 				return nil
 			}
 			return errors.Newf("name %s conflicts with global symbol", name)
@@ -105,6 +105,11 @@ func (s *Scope) Get(name string) (*Scope, error) {
 		}
 	}
 	if s.Parent == nil {
+		if s.GlobalResolver != nil {
+			if s, err := s.GlobalResolver.Resolve(name); err == nil {
+				return &Scope{Symbol: s}, nil
+			}
+		}
 		return nil, errors.Newf("undefined symbol: %s", name)
 	}
 	return s.Parent.Get(name)

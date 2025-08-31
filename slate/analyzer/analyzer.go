@@ -12,6 +12,7 @@ package analyzer
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/slate/analyzer/expression"
+	"github.com/synnaxlabs/slate/analyzer/flow"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/analyzer/types"
@@ -19,75 +20,65 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func Analyze(prog parser.IProgramContext) result.Result {
-	rootScope := &symbol.Scope{}
-	result := result.Result{}
+type Config struct {
+	Program  parser.IProgramContext
+	Resolver symbol.Resolver
+}
+
+func Analyze(cfg Config) result.Result {
+	prog := cfg.Program
+	rootScope := &symbol.Scope{GlobalResolver: cfg.Resolver}
+	res := result.Result{}
+	// First pass: collect declarations with empty type signatures
 	for _, item := range prog.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			_, err := rootScope.AddSymbol(
 				fn.IDENTIFIER().GetText(),
 				symbol.KindFunction,
-				types.Function{},
+				types.Function{
+					Params: make(map[string]symbol.Type),
+				},
 				fn,
 			)
 			if err != nil {
-				result.AddError(err, fn)
-				return result
+				res.AddError(err, fn)
+				return res
 			}
 		} else if task := item.TaskDeclaration(); task != nil {
 			_, err := rootScope.AddSymbol(
 				task.IDENTIFIER().GetText(),
 				symbol.KindTask,
-				types.Task{},
+				types.Task{
+					Config: make(map[string]symbol.Type),
+					Params: make(map[string]symbol.Type),
+				},
 				task,
 			)
 			if err != nil {
-				result.AddError(err, task)
-				return result
+				res.AddError(err, task)
+				return res
 			}
 		}
 	}
 
 	for _, item := range prog.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
-			if !visitFunctionDeclaration(rootScope, &result, funcDecl) {
-				return result
+			if !visitFunctionDeclaration(rootScope, &res, funcDecl) {
+				return res
 			}
 		} else if taskDecl := item.TaskDeclaration(); taskDecl != nil {
-			if !visitTaskDeclaration(rootScope, &result, taskDecl) {
-				return result
+			if !visitTaskDeclaration(rootScope, &res, taskDecl) {
+				return res
 			}
 		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
+			if !flow.Visit(rootScope, &res, flowStmt) {
+				return res
+			}
 		}
 	}
-	return result
+	return res
 }
 
-func parseParamList(
-	fnScope *symbol.Scope,
-	result *result.Result,
-	params parser.IParameterListContext,
-) bool {
-	if params == nil {
-		return true
-	}
-	for _, param := range params.AllParameter() {
-		var paramType symbol.Type
-		if typeCtx := param.Type_(); typeCtx != nil {
-			paramType, _ = types.InferFromTypeContext(typeCtx)
-		}
-		if _, err := fnScope.AddSymbol(
-			param.IDENTIFIER().GetText(),
-			symbol.KindParam,
-			paramType,
-			param,
-		); err != nil {
-			result.AddError(err, param)
-			return false
-		}
-	}
-	return true
-}
 
 // visitFunctionDeclaration analyzes a function declaration
 func visitFunctionDeclaration(
@@ -101,9 +92,43 @@ func visitFunctionDeclaration(
 		result.AddError(err, fn)
 		return false
 	}
-	if !parseParamList(fnScope, result, fn.ParameterList()) {
-		return false
+	
+	// Get the function type from the symbol
+	fnType := fnScope.Symbol.Type.(types.Function)
+	
+	// Parse parameters and add them to the function's type signature
+	if params := fn.ParameterList(); params != nil {
+		for _, param := range params.AllParameter() {
+			var paramType symbol.Type
+			if typeCtx := param.Type_(); typeCtx != nil {
+				paramType, _ = types.InferFromTypeContext(typeCtx)
+			}
+			paramName := param.IDENTIFIER().GetText()
+			fnType.Params[paramName] = paramType
+			
+			// Also add to scope for use within function body
+			if _, err := fnScope.AddSymbol(
+				paramName,
+				symbol.KindParam,
+				paramType,
+				param,
+			); err != nil {
+				result.AddError(err, param)
+				return false
+			}
+		}
 	}
+	
+	// Parse return type
+	if retType := fn.ReturnType(); retType != nil {
+		if typeCtx := retType.Type_(); typeCtx != nil {
+			fnType.Return, _ = types.InferFromTypeContext(typeCtx)
+		}
+	}
+	
+	// Update the function's type in the symbol
+	fnScope.Symbol.Type = fnType
+	
 	if block := fn.Block(); block != nil {
 		visitBlock(fnScope, result, block)
 	}
@@ -122,6 +147,11 @@ func visitTaskDeclaration(
 		result.AddError(err, task)
 		return false
 	}
+	
+	// Get the task type from the symbol
+	taskType := taskScope.Symbol.Type.(types.Task)
+	
+	// Parse config parameters and add them to the task's type signature
 	if configBlock := task.ConfigBlock(); configBlock != nil {
 		for _, param := range configBlock.AllConfigParameter() {
 			paramName := param.IDENTIFIER().GetText()
@@ -130,6 +160,9 @@ func visitTaskDeclaration(
 			if typeCtx := param.Type_(); typeCtx != nil {
 				configType, _ = types.InferFromTypeContext(typeCtx)
 			}
+			taskType.Config[paramName] = configType
+			
+			// Also add to scope for use within task body
 			_, err := taskScope.AddSymbol(
 				paramName,
 				symbol.KindConfigParam,
@@ -142,9 +175,40 @@ func visitTaskDeclaration(
 			}
 		}
 	}
-	if !parseParamList(taskScope, result, task.ParameterList()) {
-		return false
+	
+	// Parse runtime parameters and add them to the task's type signature
+	if params := task.ParameterList(); params != nil {
+		for _, param := range params.AllParameter() {
+			var paramType symbol.Type
+			if typeCtx := param.Type_(); typeCtx != nil {
+				paramType, _ = types.InferFromTypeContext(typeCtx)
+			}
+			paramName := param.IDENTIFIER().GetText()
+			taskType.Params[paramName] = paramType
+			
+			// Also add to scope for use within task body
+			if _, err := taskScope.AddSymbol(
+				paramName,
+				symbol.KindParam,
+				paramType,
+				param,
+			); err != nil {
+				result.AddError(err, param)
+				return false
+			}
+		}
 	}
+	
+	// Parse return type
+	if retType := task.ReturnType(); retType != nil {
+		if typeCtx := retType.Type_(); typeCtx != nil {
+			taskType.Return, _ = types.InferFromTypeContext(typeCtx)
+		}
+	}
+	
+	// Update the task's type in the symbol
+	taskScope.Symbol.Type = taskType
+	
 	if block := task.Block(); block != nil {
 		if !visitBlock(taskScope, result, block) {
 			return false
@@ -355,17 +419,17 @@ func visitIfStatement(
 }
 
 func visitReturnStatement(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IReturnStatementContext,
+	*symbol.Scope,
+	*result.Result,
+	parser.IReturnStatementContext,
 ) bool {
 	return true
 }
 
 func visitChannelOperation(
-	parentScope *symbol.Scope,
-	result *result.Result,
-	ctx parser.IChannelOperationContext,
+	*symbol.Scope,
+	*result.Result,
+	parser.IChannelOperationContext,
 ) bool {
 	return true
 }

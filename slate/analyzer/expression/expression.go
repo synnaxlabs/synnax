@@ -29,12 +29,11 @@ func Visit(
 	return true
 }
 
-// Helper functions to extract operators from contexts
-func getLogicalOrOperator(ctx antlr.ParserRuleContext) string {
+func getLogicalOrOperator(antlr.ParserRuleContext) string {
 	return "||"
 }
 
-func getLogicalAndOperator(ctx antlr.ParserRuleContext) string {
+func getLogicalAndOperator(antlr.ParserRuleContext) string {
 	return "&&"
 }
 

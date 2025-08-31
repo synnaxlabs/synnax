@@ -175,10 +175,40 @@ func inferLiteralType(ctx parser.ILiteralContext) symbol.Type {
 		return U8{}
 	}
 
+	// Check for numeric type suffixes
+	if len(text) >= 3 {
+		// Check for type suffixes (u8, u16, u32, u64, i8, i16, i32, i64, f32, f64)
+		if text[len(text)-3:] == "u16" {
+			return U16{}
+		} else if text[len(text)-3:] == "u32" {
+			return U32{}
+		} else if text[len(text)-3:] == "u64" {
+			return U64{}
+		} else if text[len(text)-3:] == "i16" {
+			return I16{}
+		} else if text[len(text)-3:] == "i32" {
+			return I32{}
+		} else if text[len(text)-3:] == "i64" {
+			return I64{}
+		} else if text[len(text)-3:] == "f32" {
+			return F32{}
+		} else if text[len(text)-3:] == "f64" {
+			return F64{}
+		}
+	}
+	if len(text) >= 2 {
+		if text[len(text)-2:] == "u8" {
+			return U8{}
+		} else if text[len(text)-2:] == "i8" {
+			return I8{}
+		}
+	}
+
+	// No suffix, use defaults
 	for _, ch := range text {
 		if ch == '.' || ch == 'e' || ch == 'E' {
 			return F64{} // Default to f64 for float literals
 		}
 	}
-	return I32{}
+	return I32{} // Default to i32 for integer literals
 }

@@ -63,11 +63,18 @@ type Series struct {
 
 func (s Series) String() string { return "series " + s.ValueType.String() }
 
-type Function struct{}
+type Function struct {
+	Params map[string]symbol.Type
+	Return symbol.Type
+}
 
 func (f Function) String() string { return "function" }
 
-type Task struct{}
+type Task struct {
+	Config map[string]symbol.Type
+	Params map[string]symbol.Type
+	Return symbol.Type
+}
 
 func (t Task) String() string { return "task" }
 
