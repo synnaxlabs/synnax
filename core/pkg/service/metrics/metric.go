@@ -25,7 +25,7 @@ type metric struct {
 var all = []metric{
 	{
 		ch: channel.Channel{
-			Name:     "mem",
+			Name:     "mem_percentage",
 			DataType: telem.Float32T,
 		},
 		collect: func() (float32, error) {
@@ -38,7 +38,7 @@ var all = []metric{
 	},
 	{
 		ch: channel.Channel{
-			Name:     "cpu",
+			Name:     "cpu_percentage",
 			DataType: telem.Float32T,
 		},
 		collect: func() (float32, error) {

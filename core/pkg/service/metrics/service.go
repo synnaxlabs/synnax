@@ -48,7 +48,7 @@ type Config struct {
 	// CollectionInterval sets the interval at which metrics will be collected
 	// from the host machine.
 	//
-	// [OPTIONAL] - Defaults to 3s
+	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
 }
 
