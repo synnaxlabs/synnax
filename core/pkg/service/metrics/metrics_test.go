@@ -131,7 +131,7 @@ var _ = Describe("Metrics", Ordered, func() {
 
 		It("Should create CPU metric channel", func() {
 			hostKey := dist.Cluster.HostKey()
-			expectedName := "sy_node_" + hostKey.String() + "_cpu"
+			expectedName := "sy_node_" + hostKey.String() + "_cpu_percentage"
 
 			var ch channel.Channel
 			Eventually(func(g Gomega) {
@@ -147,7 +147,7 @@ var _ = Describe("Metrics", Ordered, func() {
 
 		It("Should create memory metric channel", func() {
 			hostKey := dist.Cluster.HostKey()
-			expectedName := "sy_node_" + hostKey.String() + "_mem"
+			expectedName := "sy_node_" + hostKey.String() + "_mem_percentage"
 
 			var ch channel.Channel
 			Eventually(func(g Gomega) {
@@ -175,8 +175,8 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(dist.Channel.NewRetrieve().
 				WhereNames(
 					"sy_node_"+hostKey.String()+"_time",
-					"sy_node_"+hostKey.String()+"_cpu",
-					"sy_node_"+hostKey.String()+"_mem",
+					"sy_node_"+hostKey.String()+"_cpu_percentage",
+					"sy_node_"+hostKey.String()+"_mem_percentage",
 				).
 				Entries(&channels).
 				Exec(ctx, nil)).To(Succeed())
@@ -205,8 +205,8 @@ var _ = Describe("Metrics", Ordered, func() {
 				err := dist.Channel.NewRetrieve().
 					WhereNames(
 						"sy_node_"+hostKey.String()+"_time",
-						"sy_node_"+hostKey.String()+"_cpu",
-						"sy_node_"+hostKey.String()+"_mem",
+						"sy_node_"+hostKey.String()+"_cpu_percentage",
+						"sy_node_"+hostKey.String()+"_mem_percentage",
 					).
 					Entries(&channels).
 					Exec(ctx, nil)
