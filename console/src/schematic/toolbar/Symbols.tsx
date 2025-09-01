@@ -9,7 +9,7 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { group, type ontology, type schematic } from "@synnaxlabs/client";
+import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -527,7 +527,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
     itemKey,
   );
   if (item == null) return null;
-  const isRemote = "specKey" in item;
+  const isRemote = schematic.symbol.keyZ.safeParse(itemKey).success;
   if (isRemote) return <RemoteListItem {...props} />;
   return <StaticListItem {...props} />;
 };
@@ -552,15 +552,16 @@ const SearchSymbolList = ({
     second: remote,
   });
   const { search } = List.usePager({
-    retrieve: (args) => {
-      remote.retrieve(args);
-      staticData.retrieve(args);
-    },
+    retrieve: useCallback(
+      (args) => {
+        remote.retrieve(args);
+        staticData.retrieve(args);
+      },
+      [remote.retrieve, staticData.retrieve],
+    ),
   });
 
-  useEffect(() => {
-    search(searchTerm);
-  }, [search, searchTerm]);
+  useEffect(() => search(searchTerm), [search, searchTerm]);
   return (
     <Select.Frame<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>
       data={data}
