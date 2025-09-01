@@ -121,7 +121,9 @@ export const useList = Flux.createList<
       });
       return symbols;
     }
-    return await client.workspaces.schematic.symbols.retrieve(rest);
+    const res = await client.workspaces.schematic.symbols.retrieve(rest);
+    store.schematicSymbols.set(res);
+    return res;
   },
   retrieveByKey: async ({ client, key, store }) =>
     await retrieveByKey(client, key, store),

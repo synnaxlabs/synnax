@@ -27,7 +27,6 @@ describe("OPC Write Task Types", () => {
           nodeName: "test",
         } as WriteChannel,
       ],
-      dataSaving: true,
       device: "1",
     };
     const result = writeConfigZ.safeParse(config);
