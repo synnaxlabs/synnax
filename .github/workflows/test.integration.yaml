@@ -1,21 +1,15 @@
 name: Test - Integration
-#run-name: Test - Integration (${{ github.run_id }})
 
 on:
   pull_request:
     branches:
       - main
-  # DELETE LINES BEFORE MERGING
-  push:
-    branches:
-      - "sy-2769-integration-test-development"
   workflow_dispatch:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  # SET TO FALSE BEFORE MERGE
-  SKIP_BUILD: true 
-  REF_RUN_ID: '17309620670'
+  SKIP_BUILD: false
+  REF_RUN_ID: '0000000000'
 
 jobs:
   setup:
