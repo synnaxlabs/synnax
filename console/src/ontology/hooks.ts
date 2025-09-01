@@ -18,7 +18,7 @@ interface UseConfirmDeleteProps {
   description?: string;
 }
 
-const CONFIRM_DELETE_DELAY = TimeSpan.milliseconds(0);
+const CONFIRM_DELETE_DELAY = TimeSpan.milliseconds(500);
 
 interface ConfirmDeleteItem {
   name: string;
