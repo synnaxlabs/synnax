@@ -444,13 +444,30 @@ export class TimeStamp
   }
 
   /**
+   * @returns the integer hour that the timestamp corresponds to within its day in local time.
+   */
+  get localHour(): number {
+    return this.date().getHours();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the hour changed.
+   * @param hour the value to set the hour to.
+   */
+  setLocalHour(hour: number): TimeStamp {
+    const d = this.date();
+    d.setHours(hour);
+    return new TimeStamp(d);
+  }
+
+  /**
    * @returns a copy of the timestamp with the hour changed.
    * @param hour the value to set the hour to.
    */
   setHour(hour: number): TimeStamp {
     const d = this.date();
     d.setUTCHours(hour);
-    return new TimeStamp(d, "UTC");
+    return new TimeStamp(d);
   }
 
   /** @returns the integer minute that the timestamp corresponds to within its hour. */

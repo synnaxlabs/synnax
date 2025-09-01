@@ -9,19 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dialog__frame {
-    > .pluto--visible {
-        &:first-child {
-            z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
-        }
-    }
-    &.pluto--visible {
-        & > *:first-child {
-            z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
-        }
-    }
-}
-
 .pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;

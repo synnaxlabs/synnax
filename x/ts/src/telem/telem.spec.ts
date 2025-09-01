@@ -446,6 +446,69 @@ describe("TimeStamp", () => {
       expect(updated.month).toEqual(ts.month);
       expect(updated.day).toEqual(ts.day);
     });
+
+    test("localHour", () => {
+      const ts = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(10));
+      const localHour = ts.localHour;
+      const expectedLocalHour = ts.date().getHours();
+      expect(localHour).toEqual(expectedLocalHour);
+      const utcHour = ts.hour;
+      const tzOffsetHours = new Date().getTimezoneOffset() / 60;
+      if (tzOffsetHours !== 0) expect(localHour).not.toEqual(utcHour);
+    });
+
+    test("setLocalHour", () => {
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30))
+        .add(TimeSpan.seconds(20));
+      const targetLocalHour = 15;
+      const updated = ts.setLocalHour(targetLocalHour);
+      expect(updated.localHour).toEqual(targetLocalHour);
+      expect(updated.date().getMinutes()).toEqual(ts.date().getMinutes());
+      expect(updated.date().getSeconds()).toEqual(ts.date().getSeconds());
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setLocalHour edge cases", () => {
+      // Test setting hour to 0 (midnight)
+      const ts1 = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(12));
+      const midnight = ts1.setLocalHour(0);
+      expect(midnight.localHour).toEqual(0);
+
+      // Test setting hour to 23 (11 PM)
+      const ts2 = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(12));
+      const elevenPM = ts2.setLocalHour(23);
+      expect(elevenPM.localHour).toEqual(23);
+
+      // Test that setting local hour might change the day in UTC
+      const ts3 = new TimeStamp([2022, 12, 15]);
+      const updated = ts3.setLocalHour(23);
+      // Depending on timezone, this might be a different day in UTC
+      expect(updated.localHour).toEqual(23);
+    });
+
+    test("localHour and setLocalHour round trip", () => {
+      // Test that getting and setting local hour is consistent
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30));
+
+      const originalLocalHour = ts.localHour;
+      const roundTrip = ts.setLocalHour(originalLocalHour);
+
+      // The timestamp should remain effectively the same
+      expect(roundTrip.localHour).toEqual(originalLocalHour);
+      expect(roundTrip.date().getMinutes()).toEqual(ts.date().getMinutes());
+      expect(roundTrip.date().getSeconds()).toEqual(ts.date().getSeconds());
+
+      // The valueOf() might differ slightly due to milliseconds precision
+      // but should be within 1 second
+      const diff = Math.abs(Number(roundTrip.valueOf() - ts.valueOf()));
+      expect(diff).toBeLessThan(1000000000); // Less than 1 second in nanoseconds
+    });
   });
 
   describe("remainder", () => {

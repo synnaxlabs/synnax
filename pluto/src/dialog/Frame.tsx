@@ -96,6 +96,8 @@ export const useInternalContext = () => useRequiredContext(InternalContext);
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+
 const positionsEqual = (
   variant: Variant,
   next: box.Box,
@@ -265,8 +267,27 @@ export const Frame = ({
     [zIndex, visibleRef],
   );
 
+  const handleEscape = useCallback(
+    ({ stage }: Triggers.UseEvent) => {
+      if (
+        stage !== "start" ||
+        visibleRef.current === false ||
+        dialogRef.current == null
+      )
+        return;
+      if (variant !== "modal") return close();
+      const dialogEl = dialogRef.current;
+      const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
+      const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
+      const children = dialogEl.getElementsByClassName(CSS.visible(true));
+      if (thisModalIndex === allModals.length - 1 && children.length === 0)
+        return close();
+    },
+    [close, variant],
+  );
+
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
-  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
+  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, loose: true });
 
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
