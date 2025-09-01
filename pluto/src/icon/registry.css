@@ -65,5 +65,5 @@
 }
 
 .pluto-icon--reset {
-    fill: white;
+    fill: var(--pluto-gray-l11);
 }
