@@ -163,6 +163,7 @@ const Internal = ({
             <Form.Field<rack.Key>
               path="config.rack"
               label="Location"
+              required
               padHelpText={false}
               onChange={(v, { set }) => set("rackKey", v)}
               grow
