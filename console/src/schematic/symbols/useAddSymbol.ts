@@ -9,7 +9,7 @@
 
 import { type Dispatch } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
-import { Flux, Schematic, Theming } from "@synnaxlabs/pluto";
+import { type Diagram, Flux, Schematic, Theming } from "@synnaxlabs/pluto";
 import { id, type xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -42,11 +42,13 @@ export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
         initialProps.specKey = key;
         initialProps.label.label = initialName;
       }
+      const node: Partial<Diagram.Node> = { zIndex: spec.zIndex };
+      if (position != null) node.position = position;
       dispatch(
         addElement({
           key: layoutKey,
           elKey: id.create(),
-          node: { zIndex: spec.zIndex, position },
+          node,
           props: { key: variant, ...initialProps, ...parsedData.data },
         }),
       );

@@ -104,7 +104,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{stopCollector: make(chan struct{})}
-	nameBase := fmt.Sprintf("sy_node_%s_", cfg.HostProvider.HostKey())
+	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	c := &collector{
 		ins:      cfg.Instrumentation.Child("collector"),
 		interval: cfg.CollectionInterval,
