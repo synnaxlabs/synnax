@@ -1086,23 +1086,25 @@ export const ZERO_DO_CHANNEL: DOChannel = {
 
 export type DigitalChannel = DIChannel | DOChannel;
 
-const baseReadConfigZ = Common.Task.baseConfigZ.extend({
+const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
   sampleRate: z.number().positive().max(100000),
   streamRate: z.number().positive().max(20000),
 });
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
 const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_READ_CONFIG,
   sampleRate: 10,
   streamRate: 5,
 };
 
 const baseWriteConfigZ = Common.Task.baseConfigZ.extend({
+  dataSaving: z.boolean().default(true),
   stateRate: z.number().positive().max(50000),
 });
 interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
+  dataSaving: true,
   stateRate: 10,
 };
 

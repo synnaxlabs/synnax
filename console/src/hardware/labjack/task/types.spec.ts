@@ -196,6 +196,7 @@ describe("readConfigZ", () => {
       ],
       sampleRate: 1000,
       streamRate: 500,
+      dataSaving: true,
     };
 
     const result = readConfigZ.safeParse(configWithLinearScale);
