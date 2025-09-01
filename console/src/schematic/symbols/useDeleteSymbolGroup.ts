@@ -17,13 +17,12 @@ export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const confirmDelete = useConfirmDelete({
-    type: "Group",
-  });
+  const confirmDelete = useConfirmDelete({ type: "Group" });
   return useCallback(
     (g: group.Payload) => {
       handleError(async () => {
-        await confirmDelete(g);
+        const confirmed = await confirmDelete(g);
+        if (!confirmed) return;
         if (client == null) throw new DisconnectedError();
         const children = await client.ontology.retrieveChildren(
           group.ontologyID(g.key),
@@ -43,6 +42,6 @@ export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
         });
       }, "Failed to delete symbol group");
     },
-    [client, handleError, addStatus],
+    [client, handleError, addStatus, confirmDelete],
   );
 };
