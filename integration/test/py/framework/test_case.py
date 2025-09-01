@@ -263,13 +263,8 @@ class TestCase(ABC):
                 if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
                     self.STATUS = STATUS.TIMEOUT
 
-<<<<<<< HEAD
                 # Check for completion due to failure
                 if self._status.value >= STATUS.FAILED.value:
-=======
-                # Check for completion
-                if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
->>>>>>> origin/rc
                     self.tlm[f"{self.name}_state"] = self._status.value
                     self._should_stop = True
 
@@ -287,11 +282,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-<<<<<<< HEAD
             self._log_message("Shutting down")
-=======
-            self._log_message("writer shutting down")
->>>>>>> origin/rc
 
         except Exception as e:
             if is_websocket_error(e):
@@ -473,12 +464,9 @@ class TestCase(ABC):
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
 
-<<<<<<< HEAD
         # Sleep for 2 loops to ensure the status is updated
         time.sleep(self.DEFAULT_LOOP_RATE*2)
 
-=======
->>>>>>> origin/rc
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
         self._log_message("Shutting down test case...")
@@ -568,7 +556,6 @@ class TestCase(ABC):
         return self.tlm.get(name_ch, default)
 
     @property
-<<<<<<< HEAD
     def name(self) -> str:
         """Get the name of the test case."""
         return self._name
@@ -579,8 +566,6 @@ class TestCase(ABC):
         self._name = value
 
     @property
-=======
->>>>>>> origin/rc
     def STATUS(self) -> STATUS:
         """Get the current test status."""
         return self._status
@@ -737,13 +722,7 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self._log_message(f"EXCEPTION: {e}")
         finally:
-<<<<<<< HEAD
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
             
-=======
-            self._stop_client()
-            self._wait_for_client_completion()
-            self._check_expectation()
->>>>>>> origin/rc

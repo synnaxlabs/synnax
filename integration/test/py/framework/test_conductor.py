@@ -158,11 +158,7 @@ class TestConductor:
 
     def _client_manager(self) -> None:
         """Manage telemetry channels and writer for test conductor."""
-<<<<<<< HEAD
         loop = sy.Loop(0.2)  # 5Hz
-=======
-        loop = sy.Loop(1)  # 1Hz
->>>>>>> origin/rc
 
         # Create telemetry channels
         time = self.client.channels.create(
@@ -317,10 +313,6 @@ class TestConductor:
                     + "\n".join(f"  - {p}" for p in [sequence_path] + possible_paths)
                 )
 
-<<<<<<< HEAD
-=======
-        time.sleep(1)
->>>>>>> origin/rc
         with open(sequence_path, "r") as f:
             sequence_data = json.load(f)
 
