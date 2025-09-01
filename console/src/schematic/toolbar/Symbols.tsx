@@ -37,7 +37,6 @@ import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
-import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import {
   useExport as useExportSymbol,
@@ -48,6 +47,7 @@ import {
   useImportGroup,
 } from "@/schematic/symbols/import";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
+import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
