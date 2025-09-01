@@ -12,7 +12,7 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { updateIfExists } from "@/range/slice";
+import { remove, updateIfExists } from "@/range/slice";
 
 export const useListenForChanges = (): void => {
   const dispatch = useDispatch();
@@ -29,4 +29,11 @@ export const useListenForChanges = (): void => {
     [dispatch],
   );
   Ranger.useSetSynchronizer(handleRangeSet);
+  const handleRangeDelete = useCallback(
+    (key: ranger.Key) => {
+      dispatch(remove({ keys: [key] }));
+    },
+    [dispatch],
+  );
+  Ranger.useDeleteSynchronizer(handleRangeDelete);
 };
