@@ -135,7 +135,7 @@ const VirtualFrame = <
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
-      if (ref.current == null || hasData) return;
+      if (ref.current == null) return;
       onFetchMoreRef.current?.();
     },
     [onFetchMoreRef, visible, hasData],
@@ -225,7 +225,7 @@ const StaticFrame = <
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
-      if (ref.current == null || hasData) return;
+      if (ref.current == null) return;
       onFetchMoreRef.current?.();
     },
     [onFetchMoreRef, visible, hasData],

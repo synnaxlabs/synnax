@@ -247,7 +247,11 @@ export const createForm =
     });
     const noNotifySet = useCallback(
       (path: string, value: unknown, options?: Form.SetOptions) =>
-        form.set(path, value, { ...options, notifyOnChange: false }),
+        form.set(path, value, {
+          ...options,
+          notifyOnChange: false,
+          markTouched: false,
+        }),
       [form],
     );
     const retrieveAsync = useCallback(

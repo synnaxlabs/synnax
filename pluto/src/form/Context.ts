@@ -19,6 +19,7 @@ export interface RemoveFunc {
 
 export interface SetOptions {
   notifyOnChange?: boolean;
+  markTouched?: boolean;
 }
 
 export interface SetFunc {

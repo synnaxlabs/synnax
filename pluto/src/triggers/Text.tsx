@@ -59,7 +59,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   ...rest
 }: TextProps<E>): ReactElement => (
   <Core.Text level={level} gap="small" {...rest}>
-    <Core.Text level={level} gap="tiny">
+    <Core.Text level={level} gap="tiny" el="span">
       {sortTriggers(trigger).map((t) => (
         <Core.Text key={t} el="span" variant="keyboard" level={level}>
           {getCustomText(t)}

@@ -873,6 +873,128 @@ describe("Form", () => {
       expect(field.touched).toBe(true);
     });
 
+    describe("markTouched option", () => {
+      it("should not mark field as touched when markTouched is false", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: false });
+        const field = result.current.get("name");
+        expect(field.touched).toBe(false);
+      });
+
+      it("should explicitly mark field as touched when markTouched is true", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: true });
+        const field = result.current.get("name");
+        expect(field.touched).toBe(true);
+      });
+
+      it("should not trigger onHasTouched when markTouched is false", () => {
+        const onHasTouched = vi.fn();
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+            onHasTouched,
+          }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: false });
+        expect(onHasTouched).not.toHaveBeenCalled();
+      });
+
+      it("should trigger onHasTouched when markTouched is true", () => {
+        const onHasTouched = vi.fn();
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+            onHasTouched,
+          }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: true });
+        expect(onHasTouched).toHaveBeenCalledWith(true);
+      });
+
+      it("should work with nested fields and markTouched option", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("nested.ssn", "999-99-9999", { markTouched: false });
+        expect(result.current.get("nested.ssn").touched).toBe(false);
+
+        result.current.set("nested.ein", "12-3456789", { markTouched: true });
+        expect(result.current.get("nested.ein").touched).toBe(true);
+      });
+
+      it("should work with array fields and markTouched option", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("array.0.name", "Modified Name", { markTouched: false });
+        expect(result.current.get("array.0.name").touched).toBe(false);
+
+        result.current.set("array.0.key", "modifiedKey", { markTouched: true });
+        expect(result.current.get("array.0.key").touched).toBe(true);
+      });
+
+      it("should still clear touched when value equals initial regardless of markTouched", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: true });
+        expect(result.current.get("name").touched).toBe(true);
+        result.current.set("name", "John Doe", { markTouched: true });
+        expect(result.current.get("name").touched).toBe(false);
+      });
+
+      it("should affect validation when markTouched is false", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("age", 3, { markTouched: false });
+        const isValid = result.current.validate();
+        expect(isValid).toBe(false);
+        expect(result.current.get("age").status.variant).toBe("error");
+      });
+
+      it("should trigger validation when markTouched is true and value is invalid", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("age", 3, { markTouched: true });
+        const isValid = result.current.validate();
+        expect(isValid).toBe(false);
+        expect(result.current.get("age").status.variant).toBe("error");
+      });
+
+      it("should handle multiple fields with different markTouched settings", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: false });
+        result.current.set("age", 30, { markTouched: true });
+        result.current.set("nested.ssn", "111-11-1111", { markTouched: false });
+
+        expect(result.current.get("name").touched).toBe(false);
+        expect(result.current.get("age").touched).toBe(true);
+        expect(result.current.get("nested.ssn").touched).toBe(false);
+      });
+
+      it("should preserve markTouched behavior through form operations", () => {
+        const { result } = renderHook(() =>
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
+        );
+        result.current.set("name", "Jane Doe", { markTouched: false });
+        expect(result.current.get("name").touched).toBe(false);
+        result.current.set("age", 30);
+        expect(result.current.get("age").touched).toBe(true);
+        expect(result.current.get("name").touched).toBe(false);
+      });
+    });
+
     it("should not mark a field as touched when setting it to its initial value", () => {
       const { result } = renderHook(() =>
         Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
@@ -914,16 +1036,10 @@ describe("Form", () => {
           onHasTouched,
         }),
       );
-
-      // Should call with true when first field is touched
       result.current.set("name", "Jane Doe");
       expect(onHasTouched).toHaveBeenLastCalledWith(true);
-
-      // Should not call again when another field is touched
       result.current.set("age", 25);
       expect(onHasTouched).toHaveBeenCalledTimes(1);
-
-      // Should call with false when all fields return to initial values
       result.current.set("name", "John Doe");
       result.current.set("age", 42);
       expect(onHasTouched).toHaveBeenLastCalledWith(false);
@@ -933,21 +1049,13 @@ describe("Form", () => {
       const { result } = renderHook(() =>
         Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
       );
-
-      // Change some values and verify they're marked as touched
       result.current.set("name", "Jane Doe");
       result.current.set("age", 25);
       expect(result.current.get("name").touched).toBe(true);
       expect(result.current.get("age").touched).toBe(true);
-
-      // Take a snapshot - this should become the new "initial" state
       result.current.setCurrentStateAsInitialValues();
-
-      // Verify fields are now untouched
       expect(result.current.get("name").touched).toBe(false);
       expect(result.current.get("age").touched).toBe(false);
-
-      // Verify changing back to the old initial values now marks as touched
       result.current.set("name", "John Doe");
       expect(result.current.get("name").touched).toBe(true);
     });
@@ -956,26 +1064,16 @@ describe("Form", () => {
       const { result } = renderHook(() =>
         Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
       );
-
-      // Change value and verify touched
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);
-
-      // Reset should clear touched state
       result.current.reset();
       expect(result.current.get("name").touched).toBe(false);
-
-      // Change again and set as initial values
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(true);
       result.current.setCurrentStateAsInitialValues();
       expect(result.current.get("name").touched).toBe(false);
-
-      // Now changing back to original should mark as touched
       result.current.set("name", "John Doe");
       expect(result.current.get("name").touched).toBe(true);
-
-      // And changing back to new initial should clear touched
       result.current.set("name", "Jane Doe");
       expect(result.current.get("name").touched).toBe(false);
     });

@@ -109,6 +109,8 @@ export class TimeStamp
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
+      if (typeof value === "object" && "value" in value)
+        value = (value as { value: bigint }).value;
       super(BigInt(value.valueOf()) + offset);
     }
   }
@@ -1996,7 +1998,8 @@ export type CrudeTimeStamp =
   | number
   | Date
   | string
-  | DateComponents;
+  | DateComponents
+  | { value: bigint };
 export type TimeStampT = number;
 export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
 export type TimeSpanT = number;
