@@ -16,8 +16,7 @@ class Schematic_Edit_Value(Schematic):
     Add a value component and edit its properties
     """
     def run(self) -> None:
-
-
+        
         self._log_message("Checking default properties of schematic value")
         # Create a schematic value with default properties
         node_id = self.add_schematic_value(f"{self.name}_uptime")

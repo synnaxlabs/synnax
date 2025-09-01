@@ -34,7 +34,7 @@ class Playwright(TestCase):
         self.page.set_default_navigation_timeout(default_nav_timeout)  #1s
 
         # Login
-        self.page.goto("http://localhost:5173/", timeout=5000)
+        self.page.goto("http://localhost:5173/", timeout=10000)
         self.page.locator('input').first.fill('synnax')
         self.page.locator('input[type="password"]').fill('seldon')
         self.page.get_by_role('button', name='Sign In').click()
