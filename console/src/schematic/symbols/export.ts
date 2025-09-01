@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  DisconnectedError,
-  group,
-  type ontology,
-  type Synnax,
-} from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
+import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -32,15 +27,14 @@ export const extract: Export.Extractor = async (key, { client }) => {
     type: "symbol",
     symbol,
   };
-  return { data: JSON.stringify(exportData, null, 2), name: symbol.name };
+  return { data: JSON.stringify(exportData), name: symbol.name };
 };
 
 export const useExport = () => Export.use(extract, "symbol");
 
 interface ExportGroupArgs {
-  client: Synnax;
-  groupKey: string;
-  groupName: string;
+  client: Client | null;
+  group: group.Payload;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
   confirm: Modals.PromptConfirm;
@@ -48,51 +42,44 @@ interface ExportGroupArgs {
 
 const exportGroup = async ({
   client,
-  groupKey,
-  groupName,
+  group: { key, name },
   addStatus,
   confirm,
 }: ExportGroupArgs): Promise<void> => {
   if (client == null) throw new DisconnectedError();
-
-  const children = await client.ontology.retrieveChildren(group.ontologyID(groupKey));
-
+  const children = await client.ontology.retrieveChildren(group.ontologyID(key));
   const symbolKeys = children
-    .filter((c: ontology.Resource) => c.id.type === "schematic_symbol")
-    .map((c: ontology.Resource) => c.id.key);
+    .filter((c) => c.id.type === "schematic_symbol")
+    .map((c) => c.id.key);
 
-  if (symbolKeys.length === 0) {
-    addStatus({
+  if (symbolKeys.length === 0)
+    return addStatus({
       variant: "warning",
       message: "No symbols found in this group to export",
     });
-    return;
-  }
 
   const symbols = await client.workspaces.schematic.symbols.retrieve({
     keys: symbolKeys,
   });
 
-  if (!symbols || symbols.length === 0) {
-    addStatus({
+  if (!symbols || symbols.length === 0)
+    return addStatus({
       variant: "warning",
       message: "No symbols found in this group to export",
     });
-    return;
-  }
 
   if (Runtime.ENGINE !== "tauri")
     throw new Error("Group export is only available in the desktop application");
 
   const parentDir = await open({
     directory: true,
-    title: `Select a location to export ${groupName}`,
+    title: `Select a location to export ${name}`,
     recursive: true,
   });
 
   if (parentDir == null) return;
 
-  const directoryName = groupName.replace(/[^a-z0-9]/gi, "_");
+  const directoryName = name.replace(/[^a-z0-9]/gi, "_");
   const savePath = await join(parentDir, directoryName);
 
   if (await exists(savePath)) {
@@ -109,8 +96,8 @@ const exportGroup = async ({
 
   const manifest: GroupManifest = {
     version: 1,
-    type: "symbol-group",
-    name: groupName,
+    type: "symbol_group",
+    name,
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
         const fileName = `${symbol.name.replace(/[^a-z0-9]/gi, "_")}_${symbol.key.slice(0, 8)}.json`;
@@ -123,7 +110,7 @@ const exportGroup = async ({
 
         await writeTextFile(
           await join(savePath, fileName),
-          JSON.stringify(exportedSymbol, null, 2),
+          JSON.stringify(exportedSymbol),
         );
 
         return {
@@ -135,10 +122,7 @@ const exportGroup = async ({
     ),
   };
 
-  await writeTextFile(
-    await join(savePath, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-  );
+  await writeTextFile(await join(savePath, "manifest.json"), JSON.stringify(manifest));
 
   addStatus({
     variant: "success",
@@ -146,17 +130,15 @@ const exportGroup = async ({
   });
 };
 
-export const useExportGroup = (
-  client: any,
-): ((groupKey: string, groupName: string) => void) => {
+export const useExportGroup = (): ((group: group.Payload) => void) => {
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   return useCallback(
-    (groupKey: string, groupName: string) => {
+    (group: group.Payload) => {
       handleError(
-        () =>
-          exportGroup({ client, groupKey, groupName, handleError, addStatus, confirm }),
+        () => exportGroup({ client, group, handleError, addStatus, confirm }),
         "Failed to export symbol group",
       );
     },

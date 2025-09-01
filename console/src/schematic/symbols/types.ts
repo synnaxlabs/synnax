@@ -10,42 +10,32 @@
 import { schematic } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export interface ExportedSymbol {
-  version: 1;
-  type: "symbol";
-  symbol: schematic.symbol.Symbol;
-}
-
 export const exportedSymbolZ = z.object({
   version: z.literal(1),
   type: z.literal("symbol"),
   symbol: schematic.symbol.symbolZ,
 });
 
-export interface SymbolManifest {
-  file: string;
-  key: string;
-  name: string;
-}
+export interface ExportedSymbol extends z.infer<typeof exportedSymbolZ> {}
 
-export interface GroupManifest {
-  version: 1;
-  type: "symbol-group";
-  name: string;
-  symbols: SymbolManifest[];
-}
+const manifestZ = z.object({
+  file: z.string(),
+  key: z.string(),
+  name: z.string(),
+});
+
+export interface SymbolManifest extends z.infer<typeof manifestZ> {}
 
 export const groupManifestZ = z.object({
   version: z.literal(1),
-  type: z.literal("symbol-group"),
+  type: z.literal("symbol_group"),
   name: z.string(),
-  symbols: z.array(
-    z.object({
-      file: z.string(),
-      key: z.string(),
-      name: z.string(),
-    }),
-  ),
+  symbols: manifestZ.array(),
 });
 
+export interface GroupManifest extends z.infer<typeof groupManifestZ> {}
+
 export const SYMBOL_FILE_FILTERS = [{ name: "JSON", extensions: ["json"] }];
+
+export const isStatic = (symbol: schematic.symbol.Symbol): boolean =>
+  symbol.data.variant === "static" || symbol.data.states.length === 1;

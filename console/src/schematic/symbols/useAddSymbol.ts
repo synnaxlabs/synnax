@@ -41,7 +41,6 @@ export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
       if (symbol != null) {
         initialProps.specKey = key;
         initialProps.label.label = initialName;
-        variant = "customStatic";
       }
       dispatch(
         addElement({

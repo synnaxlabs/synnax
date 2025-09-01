@@ -23,7 +23,6 @@ import {
   Schematic,
   Select,
   Status,
-  Synnax,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -40,8 +39,14 @@ import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
-import { useExport as useExportSymbol, useExportGroup } from "@/schematic/symbols/export";
-import { useImport as useImportSymbol, useImportGroup } from "@/schematic/symbols/import";
+import {
+  useExport as useExportSymbol,
+  useExportGroup,
+} from "@/schematic/symbols/export";
+import {
+  useImport as useImportSymbol,
+  useImportGroup,
+} from "@/schematic/symbols/import";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
@@ -433,8 +438,7 @@ const GroupListContextMenu = ({
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Payload>(firstKey);
   const renameModal = Modals.useRename();
-  const client = Synnax.use();
-  const exportGroup = useExportGroup(client);
+  const exportGroup = useExportGroup();
   const deleteSymbolGroup = useDeleteSymbolGroup();
   const rename = Group.useRename({
     params: { key: item?.key ?? "" },
@@ -452,7 +456,10 @@ const GroupListContextMenu = ({
       deleteSymbolGroup(item);
     },
     rename: () => rename.update(item?.name ?? ""),
-    export: () => exportGroup(firstKey, item?.name ?? "Group"),
+    export: () => {
+      if (item == null) return;
+      exportGroup(item);
+    },
   };
   if (!isRemoteGroup) return null;
   return (

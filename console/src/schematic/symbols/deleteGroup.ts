@@ -36,7 +36,10 @@ export const useDeleteSymbolGroup = (): ((group: group.Payload) => void) => {
         await client.ontology.groups.delete(g.key);
         addStatus({
           variant: "success",
-          message: `Deleted group and ${symbolKeys.length} symbols`,
+          message:
+            symbolKeys.length > 0
+              ? `Deleted group and ${symbolKeys.length} symbols`
+              : "Deleted group",
         });
       }, "Failed to delete symbol group");
     },
