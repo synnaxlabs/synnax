@@ -46,7 +46,7 @@ export const FileDrop = ({
     handleError(async () => {
       const svg = await file.text();
       const nameWithoutExt = file.name.replace(/\.svg$/i, "");
-      const properName = caseconv.toProperNoun(nameWithoutExt) as string;
+      const properName = caseconv.toProperNoun(nameWithoutExt);
       onContentsChange(svg, properName);
     }, "Failed to load dropped SVG file");
     return items;
@@ -65,9 +65,7 @@ export const FileDrop = ({
         .split(/[/\\]/)
         .pop()
         ?.replace(/\.svg$/i, "");
-      const properName = filename
-        ? (caseconv.toProperNoun(filename) as string)
-        : undefined;
+      const properName = filename ? caseconv.toProperNoun(filename) : undefined;
       onContentsChange(contents, properName);
     }, "Failed to load SVG file");
 
