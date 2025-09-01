@@ -96,6 +96,8 @@ export const useInternalContext = () => useRequiredContext(InternalContext);
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+
 const positionsEqual = (
   variant: Variant,
   next: box.Box,
@@ -285,7 +287,7 @@ export const Frame = ({
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
-  Triggers.use({ triggers: [["Escape"]], callback: handleEscape, loose: true });
+  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, loose: true });
 
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
