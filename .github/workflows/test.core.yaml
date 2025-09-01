@@ -3,15 +3,15 @@ name: Test - Core
 on:
   pull_request:
     paths:
-      - .github/workflows/test.synnax.yaml
+      - .github/workflows/test.core.yaml
       - alamos/go/**
       - aspen/**
       - cesium/**
+      - core/**
       - freighter/go/**
       - go.work
       - go.work.sum
       - scripts/check-gofmt.sh
-      - synnax/**
       - x/go/**
   push:
     branches:

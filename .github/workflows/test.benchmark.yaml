@@ -23,7 +23,7 @@ jobs:
             changed:
                 - "client/**"
                 - "freighter/py/**"
-                - "synnax/**"
+                - "core/**"
                 - "cesium/**"
                 - "aspen/**"
                 - "x/**"

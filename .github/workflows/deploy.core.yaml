@@ -45,14 +45,14 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/deploy.synnax.yaml
+              - .github/workflows/deploy.core.yaml
               - alamos/go/**
               - aspen/**
               - cesium/**
               - client/cpp/**
+              - core/**
               - driver/**
               - freighter/go/**
-              - synnax/**
               - x/cpp/**
               - x/go/**
               - WORKSPACE
