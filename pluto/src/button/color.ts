@@ -10,17 +10,14 @@
 import { color } from "@synnaxlabs/x";
 
 import { type Variant } from "@/button/Button";
-import { type Text } from "@/text";
 
 export const parseColor = (
   variant: Variant,
   disabled?: boolean,
   crudeColor?: color.Crude,
-  shade?: Text.Shade,
 ): string | undefined => {
   if (disabled === true) return "var(--pluto-gray-l7)";
   if (crudeColor != null) return color.cssString(crudeColor);
   if (variant === "filled") return "var(--pluto-text-on-primary)";
-  if (shade != null) return undefined;
-  return "var(--pluto-text-color)";
+  return undefined;
 };

@@ -13,8 +13,10 @@ import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Flex } from "@/flex";
+import { Divider } from "@/divider";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { Text } from "@/text";
 
 export interface TimeRangeChipProps
@@ -22,6 +24,11 @@ export interface TimeRangeChipProps
     Pick<Text.TextProps, "level" | "color"> {
   timeRange: CrudeTimeRange;
   showSpan?: boolean;
+  labeled?: boolean;
+  collapseZero?: boolean;
+  offsetFrom?: TimeStamp;
+  showAgo?: boolean;
+  variant?: "text" | "outlined";
 }
 
 export const TimeRangeChip = ({
@@ -29,24 +36,29 @@ export const TimeRangeChip = ({
   level = "p",
   color = 9,
   showSpan = false,
+  labeled = false,
+  collapseZero = false,
+  offsetFrom,
+  showAgo = false,
+  variant = "text",
   ...rest
 }: TimeRangeChipProps): ReactElement => {
   const startTS = new TimeStamp(timeRange.start);
   const startFormat = startTS.isToday ? "time" : "dateTime";
   const endTS = new TimeStamp(timeRange.end);
   const isOpen = endTS.equals(TimeStamp.MAX);
+  const isZero = startTS.equals(endTS);
   const endFormat = endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime";
   const span = startTS.span(endTS);
 
-  const startTime = (
-    <Text.Text x align="center" gap="small">
+  let startTime = (
+    <Flex.Box x align="center" gap="small">
       {startTS.isToday && (
         <Text.Text level={level} color={color} weight={450}>
           Today
         </Text.Text>
       )}
       <Text.DateTime
-        el="span"
         level={level}
         displayTZ="local"
         format={startFormat}
@@ -55,19 +67,16 @@ export const TimeRangeChip = ({
       >
         {startTS}
       </Text.DateTime>
-    </Text.Text>
+    </Flex.Box>
   );
 
-  const endTime = (
+  let endTime: ReactElement | null = (
     <>
       {isOpen ? (
-        <Text.Text level={level} el="span">
-          Now
-        </Text.Text>
+        <Text.Text level={level}>Now</Text.Text>
       ) : (
         <Text.DateTime
           level={level}
-          el="span"
           displayTZ="local"
           format={endFormat}
           color={color}
@@ -77,26 +86,96 @@ export const TimeRangeChip = ({
         </Text.DateTime>
       )}
       {!span.isZero && showSpan && (
-        <Text.Text level={level} color={color} weight={450} el="span">
-          ({startTS.span(endTS).truncate(TimeSpan.MILLISECOND).toString()})
+        <Text.Text level={level} color={color} weight={450}>
+          ({span.truncate(TimeSpan.MILLISECOND).toString()})
         </Text.Text>
       )}
     </>
   );
 
+  if (labeled) {
+    startTime = (
+      <Input.Item label="Start" showHelpText={false}>
+        {startTime}
+      </Input.Item>
+    );
+    endTime = (
+      <Input.Item label="End" showHelpText={false}>
+        {endTime}
+      </Input.Item>
+    );
+  }
+
+  let arrow: ReactElement | null = (
+    <Icon.Arrow.Right
+      color={9}
+      style={{
+        width: "1em",
+        height: "1em",
+      }}
+    />
+  );
+
+  if (collapseZero && isZero) {
+    endTime = null;
+    arrow = null;
+  }
+
+  if (collapseZero && isZero) {
+    endTime = null;
+    arrow = null;
+  }
+
+  let offset: ReactElement | null = null;
+  if (offsetFrom != null) {
+    let offsetSpan = offsetFrom.span(startTS);
+    let character = "+";
+    if (offsetSpan.lessThan(0)) {
+      character = "-";
+      offsetSpan = offsetSpan.mult(-1);
+    }
+    offset = (
+      <Text.Text level={level} color={color} weight={450}>
+        T{character} {offsetSpan.truncate(TimeSpan.MILLISECOND).toString()}
+      </Text.Text>
+    );
+  }
+
+  let ago: ReactElement | null = null;
+  if (showAgo) {
+    let agoSpan = startTS.span(TimeStamp.now());
+    if (agoSpan.lessThan(0)) agoSpan = agoSpan.mult(-1);
+
+    ago = (
+      <Text.Text level={level} color={color} weight={450}>
+        {agoSpan.truncate(TimeSpan.MINUTE).toString()} ago
+      </Text.Text>
+    );
+  }
+
   return (
-    <Text.Text
+    <Flex.Box
       x
       gap="small"
-      className={CSS(CSS.B("time-range-chip"))}
+      className={CSS(CSS.B("time-range-chip"), CSS.M(variant))}
       align="center"
-      level={level}
-      color={color}
       {...rest}
     >
       {startTime}
-      <Icon.Arrow.Right color={9} />
+      {arrow}
       {endTime}
-    </Text.Text>
+      {offset && (
+        <>
+          <Divider.Divider y />
+          {offset}
+        </>
+      )}
+      {ago && (
+        <>
+          <Divider.Divider y />
+          {ago}
+        </>
+      )}
+    </Flex.Box>
   );
 };

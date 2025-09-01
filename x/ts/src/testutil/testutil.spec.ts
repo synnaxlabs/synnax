@@ -18,7 +18,7 @@ describe("testutil", () => {
       expect(testutil.toString(123)).toBe("123");
       expect(testutil.toString(true)).toBe("true");
       expect(testutil.toString(null)).toBe("null");
-      expect(testutil.toString(undefined)).toBe(undefined);
+      expect(testutil.toString(undefined)).toBeUndefined();
     });
 
     it("should handle arrays", () => {

@@ -30,6 +30,7 @@ import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
+import { User } from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
@@ -59,7 +60,8 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useFetchPermissions();
+  // Permissions.useSync();
+  User.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };

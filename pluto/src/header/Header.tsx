@@ -13,13 +13,14 @@ import { createContext, type ReactElement, type ReactNode, use } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Text } from "@/text";
+import { Text } from "@/text";
 
 export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   bordered?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
+  padded?: boolean;
 }
 
 export interface ContextValue {
@@ -45,6 +46,7 @@ export const Header = ({
   className,
   level = "p",
   divided = false,
+  padded,
   bordered = true,
   ...rest
 }: HeaderProps): ReactElement => (
@@ -56,6 +58,7 @@ export const Header = ({
       justify="between"
       className={CSS(
         CSS.B("header"),
+        padded && CSS.M(`padded-${Text.LEVEL_COMPONENT_SIZES[level]}`),
         bordered && CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
         className,

@@ -57,11 +57,11 @@ const INPUT_PLACEHOLDER = (
 );
 
 export interface InputShowcaseTextAreaProps
-  extends Optional<Input.TextAreaProps, "value" | "onChange"> {}
+  extends Optional<Input.TextProps, "value" | "onChange"> {}
 
 export const InputShowcaseTextArea = (props: InputShowcaseTextAreaProps) => {
   const [value, setValue] = useState("");
-  return <Input.TextArea {...props} value={value} onChange={setValue} />;
+  return <Input.Text {...props} value={value} onChange={setValue} area />;
 };
 
 export const InputShowcase = () => (
@@ -363,7 +363,7 @@ export const InputShowcase = () => (
       description="Text area component with different sizes and variants"
     >
       <Flex.Box x gap="large">
-        <InputShowcaseTextArea placeholder="Catalyst" />
+        <InputShowcaseText placeholder="Catalyst" area />
       </Flex.Box>
     </SubcategorySection>
   </Flex.Box>

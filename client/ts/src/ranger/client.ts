@@ -29,6 +29,7 @@ import {
   type Params,
   type Payload,
   payloadZ,
+  type Stage,
 } from "@/ranger/payload";
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -53,6 +54,7 @@ export class Range {
   readonly kv: KV;
   readonly timeRange: TimeRange;
   readonly color: string | undefined;
+  readonly stage: Stage;
   readonly parent: Payload | null;
   readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
@@ -63,7 +65,15 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    { name, timeRange = TimeRange.ZERO, key, color, parent, labels }: Payload,
+    {
+      name,
+      timeRange = TimeRange.ZERO,
+      key,
+      color,
+      parent,
+      stage,
+      labels,
+    }: Payload,
     {
       frameClient,
       kv,
@@ -77,6 +87,7 @@ export class Range {
     this.key = key;
     this.name = name;
     this.timeRange = timeRange;
+    this.stage = stage;
     this.parent = parent;
     this.labels = labels;
     this.frameClient = frameClient;
@@ -102,6 +113,7 @@ export class Range {
       key: this.key,
       name: this.name,
       timeRange: this.timeRange,
+      stage: this.stage,
       color: this.color,
       labels: this.labels,
       parent,
@@ -316,6 +328,7 @@ export class Client {
       key: resource.id.key,
       name: resource.data?.name as string,
       timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+      stage: resource.data?.stage as Stage,
       color: resource.data?.color as string,
       labels: [],
       parent: null,
@@ -343,5 +356,6 @@ export const convertOntologyResourceToPayload = ({
     color: typeof data?.color === "string" ? data.color : undefined,
     labels: [],
     parent: null,
+    stage: data?.stage as Stage,
   };
 };

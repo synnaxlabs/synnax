@@ -193,7 +193,7 @@ export class ChannelData
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.isZero || channel === 0) return [bounds.ZERO, this.data];
+    if (timeRange.span.isZero || channel === 0) return [bounds.ZERO, this.data];
     if (!this.valid) void this.read();
     const { channel: ch, data } = this;
     if (ch == null) return [bounds.ZERO, this.data];

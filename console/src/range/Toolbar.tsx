@@ -11,6 +11,7 @@ import "@/range/Toolbar.css";
 
 import { DisconnectedError } from "@synnaxlabs/client";
 import {
+  Button,
   Component,
   Flex,
   Haul,
@@ -33,6 +34,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
+import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
@@ -126,13 +128,14 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
-          <Text.Text className="save-button" weight={700} level="small">
+          <Text.Text className="save-button" weight={700} level="small" color={11}>
             L
           </Text.Text>
         </Tooltip.Dialog>
       )}
       <Text.MaybeEditable
         id={`text-${key}`}
+        level="p"
         value={name}
         onChange={onRename}
         allowDoubleClick={false}
@@ -141,9 +144,9 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {labels.length > 0 && (
         <Flex.Box
           x
-          gap="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
+          gap="small"
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
@@ -165,6 +168,9 @@ const Content = (): ReactElement => {
         <Toolbar.Actions>
           <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
             <Icon.Add />
+          </Toolbar.Action>
+          <Toolbar.Action onClick={() => placeLayout(EXPLORER_LAYOUT)} variant="filled">
+            <Icon.Explore />
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
