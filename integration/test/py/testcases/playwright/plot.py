@@ -17,7 +17,7 @@ class Plot(Playwright):
     """
     def setup(self) -> None:
         super().setup()
-        self.open_page("Line Plot")
+        self.create_page("Line Plot")
 
 
     def get_latest_value(self, node_id: str) -> float:

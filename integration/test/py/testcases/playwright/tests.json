@@ -3,10 +3,7 @@
         "sequence_name": "Playwright_Tests",
         "tests": [
           {
-            "case": "testcases/playwright/tabs_open_close",
-            "parameters": {
-              "headless": false
-            }
+            "case": "testcases/playwright/tabs_open_close"
           },
           {
             "case": "testcases/playwright/plot_simple"

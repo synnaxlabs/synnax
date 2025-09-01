@@ -24,6 +24,6 @@ cd integration/test/py
 export PATH="$HOME/.local/bin:$PATH"
 
 # Run the test conductor
-poetry run test-conductor --name test-conductor-unix --sequence testcases/basic_tests.json
+poetry run test-conductor --name test-conductor-unix --sequence testcases/all_tests.json
 
 echo "Integration test conductor completed successfully"

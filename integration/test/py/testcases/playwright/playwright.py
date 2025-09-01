@@ -50,14 +50,29 @@ class Playwright(TestCase):
     def teardown(self) -> None:
         self.browser.close()
 
-    def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
-        self.page.locator("[id=\"«r5»\"]").click() # New Page (+)
-        self.page.get_by_role("button", name=page_name).first.click()
-        # Apply inputs
-        for i in inputs_items:
-            self.page.get_by_role("textbox", name="Name").fill(i)
-            self.page.get_by_role("textbox", name="Name").press("ControlOrMeta+Enter")
 
     def close_page(self, page_name: str) -> None:
         tab = self.page.locator("div").filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
         tab.get_by_label("pluto-tabs__close").click()
+
+    
+
+    def create_page(self, page_type: str, page_name: str = None) -> None:
+        # Handle "a" vs "an" article for proper command matching
+        vowels = ['A', 'E', 'I', 'O', 'U']
+        # Special case for "NI" (en-eye)
+        article = "an" if page_type[0].upper() in vowels or page_type.startswith("NI") else "a"
+        page_command = f"Create {article} {page_type}"
+
+        self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.wait_for_selector(f"text={page_command}")
+        self.page.get_by_text(page_command).click()
+        
+        if page_name is not None:
+            tab = self.page.locator("div").filter(has_text=re.compile(f"^{re.escape(page_type)}$"))
+            tab.dblclick()
+            self.page.get_by_text(page_type).first.fill(page_name)
+            self.page.keyboard.press("Enter")  # Confirm the change
+            return page_name
+        else:
+            return page_type

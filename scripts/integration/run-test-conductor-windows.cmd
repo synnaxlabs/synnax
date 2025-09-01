@@ -22,7 +22,7 @@ rem Change to test directory
 cd integration\test\py
 
 rem Run test conductor
-poetry run test-conductor --name test-conductor-windows --sequence testcases\basic_tests.json
+poetry run test-conductor --name test-conductor-windows --sequence testcases\all_tests.json
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo ✅ Test conductor completed

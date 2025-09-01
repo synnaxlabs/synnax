@@ -17,7 +17,7 @@ class Schematic(Playwright):
     """
     def setup(self) -> None:
         super().setup()
-        self.open_page("Schematic")  
+        self.create_page("Schematic")  
 
     def _get_node(self, node_id: str):
         if not node_id:
@@ -49,6 +49,7 @@ class Schematic(Playwright):
         nodes_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         # Add new component. Assume we are already on a schematic page.
+        self.page.wait_for_selector(".react-flow__pane", timeout=5000)
         self.page.locator(".react-flow__pane").dblclick()
         self.page.get_by_text("Value").click()
         
@@ -68,8 +69,6 @@ class Schematic(Playwright):
         search_input = self.page.locator("input[placeholder*='Search']")
         search_input.fill(channel_name)
         self.page.get_by_text(channel_name).click()
-
-
 
         if notation is not None:
             if notation.lower() == "scientific":
@@ -121,7 +120,6 @@ class Schematic(Playwright):
             "stale_color": "",
             "stale_timeout": -1,
         }
-        
 
         # Channel Name
         channel_display = self.page.locator("text=Input Channel").locator("..").locator("button")
@@ -136,7 +134,7 @@ class Schematic(Playwright):
         avg_input = self.page.locator("text=Averaging Window").locator("..").locator("input")
         props["averaging_window"] = int(avg_input.input_value())
 
-            
+    
         # Staleness Timeout
         timeout_input = self.page.locator("text=Stale Timeout").locator("..").locator("input")
         props["stale_timeout"] = int(timeout_input.input_value())
@@ -184,7 +182,6 @@ class Schematic(Playwright):
         """
         self._get_node(node_id)
         
-        # Channel Name - click the channel dropdown button
         if channel_name is not None:
             channel_button = self.page.locator("text=Input Channel").locator("..").locator("button").first
             channel_button.click()

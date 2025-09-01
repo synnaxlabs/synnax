@@ -3,13 +3,13 @@ name: Test - Integration
 on:
   pull_request:
     branches:
-      - main
+      - sy-2780-implement-e2e-testing-for-console
   workflow_dispatch:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: '0000000000'
+  SKIP_BUILD: true
+  REF_RUN_ID: '17309620670'
 
 jobs:
   setup:
