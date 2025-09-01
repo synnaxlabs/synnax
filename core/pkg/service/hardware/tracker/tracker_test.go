@@ -12,6 +12,7 @@ package tracker_test
 import (
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -174,6 +175,8 @@ var _ = Describe("Tracker", Ordered, func() {
 				g.Expect(ok).To(BeTrue())
 				g.Expect(r.Status.Variant).To(Equal(status.InfoVariant))
 				g.Expect(r.Status.Message).To(Equal("Rack is alive"))
+				g.Expect(r.Status.Time).ToNot(BeZero())
+				g.Expect(r.Status.Time).To(BeNumerically(">", telem.TimeStamp(0)))
 			}).Should(Succeed())
 		})
 
@@ -250,6 +253,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
+				g.Expect(t.Time).ToNot(BeZero())
 				g.Expect(t.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 			}).Should(Succeed())
 		})
@@ -270,9 +274,13 @@ var _ = Describe("Tracker", Ordered, func() {
 			MustSucceed(w.Write(core.UnaryFrame(
 				taskStateCh.Key(),
 				telem.NewSeriesStaticJSONV(task.Status{
+					Key:     uuid.New().String(),
 					Variant: status.ErrorVariant,
 					Message: "Task is in error",
-					Details: task.StatusDetails{Task: tsk.Key},
+					Time:    telem.Now(),
+					Details: task.StatusDetails{
+						Task: tsk.Key,
+					},
 				}),
 			)))
 			Expect(w.Close()).To(Succeed())
@@ -280,12 +288,14 @@ var _ = Describe("Tracker", Ordered, func() {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
+				g.Expect(t.Time).ToNot(BeZero())
 			}).Should(Succeed())
 			Expect(tr.Close()).To(Succeed())
 			tr = MustSucceed(tracker.Open(ctx, cfg))
 			state, ok := tr.GetTask(ctx, tsk.Key)
 			Expect(ok).To(BeTrue())
 			Expect(state.Variant).To(Equal(status.ErrorVariant))
+			Expect(state.Time).ToNot(BeZero())
 		})
 	})
 
@@ -318,6 +328,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(ok).To(BeTrue())
 			Expect(s.Variant).To(Equal(status.WarningVariant))
 			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running"))
+			Expect(s.Time).ToNot(BeZero())
 			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
@@ -390,6 +401,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				g.Expect(state.Key).To(Equal(dev.Key))
 				g.Expect(state.Details.Rack).To(Equal(rck.Key))
 				g.Expect(state.Variant).To(Equal(status.InfoVariant))
+				g.Expect(state.Time).ToNot(BeZero())
 			}).Should(Succeed())
 		})
 
@@ -440,6 +452,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			state := device.Status{
 				Key:     dev.Key,
+				Time:    telem.Now(),
 				Variant: status.WarningVariant,
 				Message: "Device is warming up",
 				Details: device.StatusDetails{
@@ -460,6 +473,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Variant).To(Equal(status.WarningVariant))
 				g.Expect(devState.Message).To(ContainSubstring("Device is warming up"))
+				g.Expect(devState.Time).ToNot(BeZero())
 			}).Should(Succeed())
 		})
 
@@ -485,6 +499,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			state := device.Status{
 				Key:     dev.Key,
+				Time:    telem.Now(),
 				Variant: status.ErrorVariant,
 				Message: "Device error state",
 				Details: device.StatusDetails{
@@ -504,6 +519,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				devState, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Variant).To(Equal(status.ErrorVariant))
+				g.Expect(devState.Time).ToNot(BeZero())
 			}).Should(Succeed())
 
 			Expect(tr.Close()).To(Succeed())
@@ -512,6 +528,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			devState, ok := tr.GetDevice(ctx, dev.Key)
 			Expect(ok).To(BeTrue())
 			Expect(devState.Variant).To(Equal(status.ErrorVariant))
+			Expect(devState.Time).ToNot(BeZero())
 		})
 
 		It("Should reject device state updates from incorrect racks", func() {
@@ -564,6 +581,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Details.Rack).To(Equal(rack1.Key))     // Should still be rack1
 				g.Expect(devState.Variant).To(Equal(status.InfoVariant)) // Should remain unchanged
+				g.Expect(devState.Time).ToNot(BeZero())
 			}).Should(Succeed())
 		})
 	})

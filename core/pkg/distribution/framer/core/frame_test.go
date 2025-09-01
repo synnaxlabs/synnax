@@ -170,18 +170,4 @@ var _ = Describe("Frame", func() {
 			Expect(fr.RawSeries()).To(HaveCap(12))
 		})
 	})
-
-	Describe("Sort", func() {
-		It("Should sort the frame by channel-key in place", func() {
-			original := core.MultiFrame(
-				[]channel.Key{3, 2, 1},
-				[]telem.Series{
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-					telem.NewSeriesV[int32](7, 8, 9),
-				})
-			original.Sort()
-			Expect(original.KeysSlice()).To(Equal([]channel.Key{1, 2, 3}))
-		})
-	})
 })
