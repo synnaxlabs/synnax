@@ -98,13 +98,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
         handles: [],
         variant: "static",
         scaleStroke: false,
-        states: [
-          {
-            key: "base",
-            name: "Base",
-            regions: [],
-          },
-        ],
+        states: [{ key: "base", name: "Base", regions: [] }],
         scale: 1,
       },
     },
