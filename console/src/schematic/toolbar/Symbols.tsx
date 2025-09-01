@@ -40,10 +40,8 @@ import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
-import { useExport as useExportSymbol } from "@/schematic/symbols/export";
-import { useExportGroup } from "@/schematic/symbols/exportGroup";
-import { useImport as useImportSymbol } from "@/schematic/symbols/import";
-import { useImportGroup } from "@/schematic/symbols/importGroup";
+import { useExport as useExportSymbol, useExportGroup } from "@/schematic/symbols/export";
+import { useImport as useImportSymbol, useImportGroup } from "@/schematic/symbols/import";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
