@@ -213,6 +213,11 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   },
 });
 
+export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
+  path: string,
+  opts?: ContextOptions<z.ZodType>,
+): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
+
 export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
   extends FieldListUtils<K, E> {
   data: K[];
@@ -224,7 +229,7 @@ export const useFieldList = <
   Z extends z.ZodType = z.ZodType,
 >(
   path: string,
-  opts: ContextOptions<Z> = {},
+  opts: ContextOptions<Z> & GetOptions<E[]> = {},
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);

@@ -187,6 +187,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}

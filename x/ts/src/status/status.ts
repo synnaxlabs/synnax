@@ -90,13 +90,26 @@ export const create = <D = undefined, V extends Variant = Variant>(
     ...spec,
   }) as unknown as Status<D, V>;
 
-export const filterVariant = (
-  variant: Variant,
-  only: Variant | Variant[] = [],
+export const keepVariants = (
+  variant?: Variant,
+  keep: Variant | Variant[] = [],
 ): Variant | undefined => {
-  if (Array.isArray(only)) {
-    if (only.includes(variant)) return variant;
+  if (variant == null) return undefined;
+  if (Array.isArray(keep)) {
+    if (keep.includes(variant)) return variant;
     return undefined;
   }
-  return only === variant ? variant : undefined;
+  return keep === variant ? variant : undefined;
+};
+
+export const removeVariants = (
+  variant?: Variant,
+  remove: Variant | Variant[] = [],
+): Variant | undefined => {
+  if (variant == null) return undefined;
+  if (Array.isArray(remove)) {
+    if (remove.includes(variant)) return undefined;
+    return variant;
+  }
+  return remove === variant ? undefined : variant;
 };

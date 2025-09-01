@@ -225,31 +225,51 @@ export const useSelectNavDrawer = (
     [loc],
   );
 
-export const selectActiveMosaicTabKey = (
+export interface SelectActiveMosaicTabState {
+  layoutKey: string | null;
+  blurred: boolean;
+}
+
+export const selectActiveMosaicTabState = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): string | null => {
+): SelectActiveMosaicTabState => {
   const winKey = selectWindowKey(state, windowKey);
-  if (winKey == null) return null;
+  if (winKey == null) return { layoutKey: null, blurred: false };
   const sliceState = selectSliceState(state);
   const hasModals = Object.values(sliceState.layouts).some(
     (l) => l.location === "modal" && l.windowKey === winKey,
   );
-  if (hasModals) return null;
-  return sliceState.mosaics[winKey].activeTab;
+  return {
+    layoutKey: sliceState.mosaics[winKey].activeTab,
+    blurred: hasModals,
+  };
 };
+
+export const selectActiveMosaicTabKeyAndNotBlurred = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string | null => {
+  const active = selectActiveMosaicTabState(state, windowKey);
+  if (active.layoutKey == null) return null;
+  if (active.blurred) return null;
+  return active.layoutKey;
+};
+
+export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null =>
+  useMemoSelect(selectActiveMosaicTabKeyAndNotBlurred, []);
 
 export const selectActiveMosaicTabName = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
 ): string | null => {
-  const key = selectActiveMosaicTabKey(state, windowKey);
-  if (key == null) return null;
-  return select(state, key)?.name ?? null;
+  const active = selectActiveMosaicTabState(state, windowKey);
+  if (active.layoutKey == null) return null;
+  return select(state, active.layoutKey)?.name ?? null;
 };
 
-export const useSelectActiveMosaicTabKey = (): string | null =>
-  useMemoSelect(selectActiveMosaicTabKey, []);
+export const useSelectActiveMosaicTabState = (): SelectActiveMosaicTabState =>
+  useMemoSelect(selectActiveMosaicTabState, []);
 
 export const useSelectActiveMosaicTabName = (): string | null =>
   useMemoSelect(selectActiveMosaicTabName, []);
@@ -258,9 +278,9 @@ export const selectActiveMosaicLayout = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
 ): State | undefined => {
-  const activeTabKey = selectActiveMosaicTabKey(state, windowKey);
-  if (activeTabKey == null) return undefined;
-  return select(state, activeTabKey);
+  const activeTabKey = selectActiveMosaicTabState(state, windowKey);
+  if (activeTabKey.layoutKey == null) return undefined;
+  return select(state, activeTabKey.layoutKey);
 };
 
 export const useSelectActiveMosaicLayout = (): State | undefined =>

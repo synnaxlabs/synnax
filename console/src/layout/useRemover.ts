@@ -56,9 +56,11 @@ export const useRemover = (...baseKeys: string[]): Remover => {
         const results: (boolean | null)[] = [];
         for (const layout of unsavedLayouts) {
           const { name, icon } = layout;
+          let message = `${name} has unsaved changes. Are you sure you want to close it?`;
+          if (name.includes(".")) message = `Are you sure you want to exit?`;
           const result = await promptConfirm(
             {
-              message: `${name} has unsaved changes. Are you sure you want to close it?`,
+              message,
               description: "Any unsaved changes will be lost.",
             },
             { icon, name: `${name}.Lose Unsaved Changes` },

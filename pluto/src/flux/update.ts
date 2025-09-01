@@ -93,7 +93,7 @@ export interface UseObservableUpdateArgs<
   scope?: string;
   /** Function to run before the update operation. If the function returns undefined,
    * the update will be cancelled. */
-  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | undefined>;
+  beforeUpdate?: (args: BeforeUpdateArgs<Data>) => Promise<Data | boolean>;
   /** Function to run after the update operation. */
   afterUpdate?: (args: AfterUpdateArgs<Data>) => Promise<void>;
 }
@@ -113,10 +113,10 @@ export interface AfterUpdateArgs<Data extends state.State> {
  *
  * @template UpdateParams The type of parameters for the update operation
  */
-export interface UseDirectUpdateArgs<UpdateParams extends Params> {
-  /** Parameters for the update operation */
-  params: UpdateParams;
-}
+export interface UseDirectUpdateArgs<
+  UpdateParams extends Params,
+  Data extends state.State,
+> extends Omit<UseObservableUpdateArgs<UpdateParams, Data>, "onChange"> {}
 
 /**
  * Return type for the direct update hook, combining result state with update functions.
@@ -141,7 +141,9 @@ export interface CreateUpdateReturn<
     args: UseObservableUpdateArgs<UpdateParams, Data>,
   ) => UseObservableUpdateReturn<Data>;
   /** Hook that provides update functions with internal state management */
-  useDirect: (args: UseDirectUpdateArgs<UpdateParams>) => UseDirectUpdateReturn<Data>;
+  useDirect: (
+    args: UseDirectUpdateArgs<UpdateParams, Data>,
+  ) => UseDirectUpdateReturn<Data>;
 }
 
 /**
@@ -180,8 +182,8 @@ const useObservable = <
         let updated = false;
         if (beforeUpdate != null) {
           const updatedValue = await beforeUpdate({ client, value });
-          if (updatedValue == null) return false;
-          value = updatedValue;
+          if (updatedValue === false) return false;
+          if (updatedValue !== true) value = updatedValue;
         }
         await update({
           client,
@@ -226,7 +228,7 @@ const useDirect = <
   params,
   name,
   ...restArgs
-}: UseDirectUpdateArgs<UpdateParams> &
+}: UseDirectUpdateArgs<UpdateParams, Data> &
   CreateUpdateArgs<UpdateParams, Data, ScopedStore>): UseDirectUpdateReturn<Data> => {
   const [result, setResult] = useState<Result<Data | undefined>>(
     successResult(name, "updated", undefined),
@@ -297,6 +299,6 @@ export const createUpdate = <
 ): CreateUpdateReturn<UpdateParams, Data> => ({
   useObservable: (args: UseObservableUpdateArgs<UpdateParams, Data>) =>
     useObservable<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
-  useDirect: (args: UseDirectUpdateArgs<UpdateParams>) =>
+  useDirect: (args: UseDirectUpdateArgs<UpdateParams, Data>) =>
     useDirect<UpdateParams, Data, ScopedStore>({ ...args, ...createArgs }),
 });
