@@ -69,7 +69,7 @@ export class Setpoint
 
   afterDelete(): void {
     const { internal: i } = this;
-    i.stopListening();
+    i.stopListening?.();
     i.source.cleanup?.();
     i.sink.cleanup?.();
   }

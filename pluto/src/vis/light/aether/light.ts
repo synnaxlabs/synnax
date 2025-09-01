@@ -49,7 +49,7 @@ export class Light
   }
 
   afterDelete(): void {
-    this.internal.stopListening();
+    this.internal.stopListening?.();
     this.internal.source.cleanup?.();
   }
 }
