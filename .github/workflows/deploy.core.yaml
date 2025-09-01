@@ -341,7 +341,7 @@ jobs:
           Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
 
           # Prepare the binary for packaging
-          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer
           & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
