@@ -2465,4 +2465,8 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
+<<<<<<< HEAD
 content-hash = "e7638ba7b7be92ceec13a8a86927b97bf7bbee4bf49f9aa7130786ff9f877b9e"
+=======
+content-hash = "07c828612c58a89d0cb0acc506600aa6257cfbeabff47b463183cda09d9aa6a2"
+>>>>>>> origin/rc

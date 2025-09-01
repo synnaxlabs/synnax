@@ -94,6 +94,10 @@ func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) 
 	return s.Framer.NewStreamWriter(ctx, cfg)
 }
 
+func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	return s.Framer.OpenWriter(ctx, cfg)
+}
+
 func (s *Service) NewDeleter() framer.Deleter {
 	return s.Framer.NewDeleter()
 }

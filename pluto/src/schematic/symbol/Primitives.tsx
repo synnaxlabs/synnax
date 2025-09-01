@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/primitives/Primitives.css";
+import "@/schematic/symbol/Primitives.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import {
   color,
   dimensions,
@@ -25,6 +26,7 @@ import {
 } from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
   type CSSProperties,
   type MouseEventHandler,
   type PropsWithChildren,
@@ -39,6 +41,8 @@ import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { Input } from "@/input";
+import { Symbol } from "@/schematic/symbol";
+import { useCustom } from "@/schematic/symbol/Custom";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -209,8 +213,7 @@ const Handle = ({
   );
 };
 
-interface ToggleProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
+interface ToggleProps extends Omit<ComponentPropsWithRef<"button">, "color" | "value"> {
   triggered?: boolean;
   enabled?: boolean;
   color?: color.Crude;
@@ -241,7 +244,7 @@ const Toggle = ({
 );
 
 interface DivProps
-  extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
+  extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">,
     OrientableProps {}
 
 const Div = ({ className, ...rest }: DivProps): ReactElement => (
@@ -494,6 +497,116 @@ export const SolenoidValve = ({
     </InternalSVG>
   </Toggle>
 );
+
+export interface CustomActuatorProps extends ToggleProps, SVGBasedPrimitiveProps {
+  specKey: string;
+  stateOverrides?: schematic.symbol.State[];
+}
+
+export const CustomActuator = ({
+  specKey,
+  enabled = false,
+  triggered = false,
+  orientation = "left",
+  color: colorProp,
+  scale = 1,
+  className,
+  stateOverrides,
+  ...rest
+}: CustomActuatorProps): ReactElement | null => {
+  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const svgContainerRef = useRef<HTMLButtonElement>(null);
+  useCustom({
+    container: svgContainerRef.current,
+    orientation,
+    activeState: enabled ? "active" : "base",
+    externalScale: scale,
+    spec: spec?.data?.data,
+    stateOverrides,
+  });
+  const handles = spec?.data?.data?.handles || [];
+  return (
+    <Toggle
+      ref={svgContainerRef}
+      className={CSS(
+        CSS.BM("symbol", "custom"),
+        CSS.B("custom-actuator"),
+        orientation != null && CSS.loc(orientation),
+        enabled && CSS.M("enabled"),
+        triggered && CSS.M("triggered"),
+        className,
+      )}
+      enabled={enabled}
+      triggered={triggered}
+      {...rest}
+    >
+      <HandleBoundary orientation={orientation}>
+        {handles.map((handle) => (
+          <Handle
+            key={handle.key}
+            id={handle.key}
+            location={handle.orientation}
+            orientation={orientation}
+            left={handle.position.x * 100}
+            top={handle.position.y * 100}
+          />
+        ))}
+      </HandleBoundary>
+    </Toggle>
+  );
+};
+
+export interface CustomStaticProps extends DivProps, SVGBasedPrimitiveProps {
+  specKey: string;
+  stateOverrides?: schematic.symbol.State[];
+}
+
+export const CustomStatic = ({
+  specKey,
+  orientation = "left",
+  color: colorProp,
+  scale = 1,
+  className,
+  stateOverrides,
+  ...rest
+}: CustomStaticProps): ReactElement | null => {
+  const spec = Symbol.retrieve.useDirect({ params: { key: specKey } });
+  const svgContainerRef = useRef<HTMLDivElement>(null);
+  useCustom({
+    container: svgContainerRef.current,
+    orientation,
+    activeState: "base",
+    externalScale: scale,
+    spec: spec?.data?.data,
+    stateOverrides,
+  });
+  const handles = spec?.data?.data?.handles || [];
+  return (
+    <Div
+      ref={svgContainerRef}
+      className={CSS(
+        CSS.BM("symbol", "custom"),
+        CSS.B("custom-static"),
+        orientation != null && CSS.loc(orientation),
+        className,
+      )}
+      {...rest}
+    >
+      <HandleBoundary orientation={orientation}>
+        {handles.map((handle) => (
+          <Handle
+            key={handle.key}
+            id={handle.key}
+            location={handle.orientation}
+            orientation={orientation}
+            left={handle.position.x * 100}
+            top={handle.position.y * 100}
+          />
+        ))}
+      </HandleBoundary>
+    </Div>
+  );
+};
 
 export interface ReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
@@ -1820,7 +1933,6 @@ export const Value = ({
       style={{
         borderColor,
         height: dimensions?.height,
-        width: "100%",
       }}
     >
       <div

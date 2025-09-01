@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sort"
 	"sync/atomic"
 
 	"github.com/samber/lo"
@@ -46,6 +47,40 @@ func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
 func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 	w.Uint64(uint64(tr.Start))
 	w.Uint64(uint64(tr.End))
+}
+
+type sorter struct {
+	rawIndices []int
+	keys       []channel.Key
+	offset     int
+}
+
+func (s *sorter) reset(size int) {
+	s.offset = 0
+	if cap(s.rawIndices) < size {
+		s.rawIndices = make([]int, size)
+		s.keys = make([]channel.Key, size)
+	}
+}
+
+func (s *sorter) insert(key channel.Key, rawIndex int) {
+	s.keys[s.offset] = key
+	s.rawIndices[s.offset] = rawIndex
+	s.offset++
+}
+
+func (s *sorter) sort() { sort.Sort(s) }
+
+// Len implements sort.Interface.
+func (s *sorter) Len() int { return s.offset }
+
+// Less implements sort.Interface.
+func (s *sorter) Less(i, j int) bool { return s.keys[i] < s.keys[j] }
+
+// Swap implements sort.Interface.
+func (s *sorter) Swap(i, j int) {
+	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
+	s.rawIndices[i], s.rawIndices[j] = s.rawIndices[j], s.rawIndices[i]
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
@@ -80,6 +115,9 @@ type Codec struct {
 	// channels used in dynamic codecs to retrieve information about channels
 	// when Update is called.
 	channels channel.Readable
+	// encodeSorter is used to sort source frames that are being encoded. Used instead
+	// of sorting the frame directly in order to avoid excess heap allocations
+	encodeSorter sorter
 }
 
 var byteOrder = telem.ByteOrder
@@ -257,6 +295,7 @@ const (
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
+	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	var (
@@ -274,12 +313,12 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		fgs.allChannelsPresent = false
 		byteArraySize += src.Count() * 4
 	}
-	src.Sort()
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
+		c.encodeSorter.insert(key, rawI)
 		dt, ok := currState.keyDataTypes[key]
 		if !ok {
 			return errors.Wrapf(
@@ -346,10 +385,13 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		c.buf.Uint64(uint64(refAlignment))
 	}
-	for rawI, s := range src.RawSeries() {
+	c.encodeSorter.sort()
+	for offset := range c.encodeSorter.offset {
+		rawI := c.encodeSorter.rawIndices[offset]
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
+		s := src.RawSeriesAt(rawI)
 		if !fgs.allChannelsPresent {
 			c.buf.Uint32(uint32(src.RawKeyAt(rawI)))
 		}
@@ -397,7 +439,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid values are %v", seqNum, states)
+		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
 		return
 	}
 	fgs := decodeFlags(flagB)

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/schematic/Symbols.css";
+import "@/schematic/symbol/Symbols.css";
 
 import {
   box,
@@ -22,19 +22,19 @@ import { type CSSProperties, type FC, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import {
+  DRAG_HANDLE_CLASS,
+  Grid,
+  type GridItem,
+  type GridProps,
+} from "@/schematic/symbol/Grid";
+import * as Primitives from "@/schematic/symbol/Primitives";
 import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
 import { Light as CoreLight } from "@/vis/light";
-import {
-  DRAG_HANDLE_CLASS,
-  Grid,
-  type GridItem,
-  type GridProps,
-} from "@/vis/schematic/Grid";
-import { Primitives } from "@/vis/schematic/primitives";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
@@ -311,7 +311,10 @@ export const createDummyToggle = <P extends object = record.Unknown>(
 };
 
 // ||||||||| TOGGLE ||||||||
-
+export const RemoteActuator = createToggle<Primitives.CustomActuatorProps>(
+  Primitives.CustomActuator,
+);
+export type RemoteActuatorProps = ToggleProps<Primitives.CustomActuatorProps>;
 export const ThreeWayValve = createToggle(Primitives.ThreeWayValve);
 export type ThreeWayValveProps = ToggleProps<Primitives.ThreeWayValveProps>;
 export const Valve = createToggle(Primitives.Valve);
@@ -420,6 +423,8 @@ export const HeaterElement = createLabeled(Primitives.HeaterElement);
 export type HeaterElementProps = LabeledProps<Primitives.HeaterElementProps>;
 export const ISOBurstDisc = createLabeled(Primitives.ISOBurstDisc);
 export type ISOBurstDiscProps = LabeledProps<Primitives.ISOBurstDiscProps>;
+export const CustomStatic = createLabeled(Primitives.CustomStatic);
+export type CustomStaticProps = LabeledProps<Primitives.CustomStaticProps>;
 export const TJunction = createLabeled(Primitives.TJunction);
 export type TJunctionProps = LabeledProps<Primitives.TJunctionProps>;
 export const CrossJunction = createLabeled(Primitives.CrossJunction, {
@@ -733,7 +738,7 @@ export interface ValueProps
   redline?: CoreValue.Redline;
 }
 
-const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -1);
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
 const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Value = ({

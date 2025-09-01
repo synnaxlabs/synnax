@@ -87,6 +87,7 @@ const List = (): ReactElement => {
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <CoreList.Items
+        full="y"
         emptyContent={<NoRanges />}
         {...dropProps}
         onContextMenu={menuProps.open}

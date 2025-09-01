@@ -11,6 +11,9 @@
 
 .pluto-color-swatch {
     border-radius: 1rem;
+    background:
+        linear-gradient(var(--pluto-swatch-color), var(--pluto-swatch-color)),
+        repeating-conic-gradient(#e0e0e0 0% 25%, white 0% 50%) 50% / 1rem 1rem;
 
     &.pluto--no-border {
         border-color: transparent;

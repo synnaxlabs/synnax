@@ -9,11 +9,11 @@ on:
       - aspen/**
       - cesium/**
       - client/py/**
+      - core/**
       - freighter/go/**
       - freighter/py/**
       - go.work
       - go.work.sum
-      - synnax/**
       - x/go/**
   push:
     branches:

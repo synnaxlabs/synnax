@@ -97,7 +97,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     <Tabs.Provider
       value={{
         tabs: TABS,
-        selected: toolbar.activeTab,
+        selected: toolbar?.activeTab,
         onSelect: handleTabSelect,
         content,
       }}

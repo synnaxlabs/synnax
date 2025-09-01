@@ -550,12 +550,14 @@ export const { actions, reducer } = createSlice({
       const layout = select(state, payload.key);
       if (layout == null) return;
       layout.unsavedChanges = payload.unsavedChanges;
-      const mosaic = state.mosaics[layout.windowKey];
-      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
-        ...tabFromLayout(layout),
-        unsavedChanges: payload.unsavedChanges,
-      }));
-      state.mosaics[layout.windowKey] = mosaic;
+
+      if (layout.location === "mosaic") {
+        const mosaic = state.mosaics[layout.windowKey];
+        mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+          ...tabFromLayout(layout),
+          unsavedChanges: payload.unsavedChanges,
+        }));
+      }
     },
   },
 });

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -114,6 +115,8 @@ type Layer struct {
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
 	Console *console.Service
+	// Metrics is used for collecting host machine metrics and publishing them over channels
+	Metrics *metrics.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -184,6 +187,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
@@ -229,5 +234,15 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l.Console = console.NewService()
+	if l.Metrics, err = metrics.OpenService(
+		ctx,
+		metrics.Config{
+			Instrumentation: cfg.Instrumentation.Child("metrics"),
+			Framer:          l.Framer,
+			Channel:         cfg.Distribution.Channel,
+			HostProvider:    cfg.Distribution.Cluster,
+		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
 	return l, nil
 }

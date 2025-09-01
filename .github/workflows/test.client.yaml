@@ -19,6 +19,7 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
+      - core/**
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -31,7 +32,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - scripts/check-clang-format.sh
-      - synnax/**
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -65,10 +65,10 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
+              - core/**
               - freighter/go/**
               - go.work
               - go.work.sum
-              - synnax/**
               - x/go/**
             cpp:
               - *shared
