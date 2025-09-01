@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/symbol/Custom";
+export * from "@/schematic/symbol/extractRegions";
 export * from "@/schematic/symbol/queries";
 export * from "@/schematic/symbol/registry";
 export type * from "@/schematic/symbol/Symbols";

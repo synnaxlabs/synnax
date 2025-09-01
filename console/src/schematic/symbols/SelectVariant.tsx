@@ -37,24 +37,19 @@ export const SelectVariantField = () => {
         const prev = get("data.variant").value;
         if (prev === next) return;
         const prevStates = get<schematic.symbol.State[]>("data.states").value;
-        if (next === "actuator")
+        if (next === "actuator") {
+          const baseState = prevStates.find((s) => s.key === "base");
+          const baseRegions = baseState?.regions ?? [];
           set("data.states", [
             ...prevStates,
             {
               key: "active",
               name: "Active",
-              regions: [
-                {
-                  key: "default",
-                  name: "Default",
-                  selectors: [],
-                  strokeColor: color.hex(theme.colors.gray.l10),
-                  fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
-                },
-              ],
+              regions: [...baseRegions],
               color: color.hex(theme.colors.gray.l10),
             },
           ]);
+        }
         else if (next === "static")
           set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
       }}

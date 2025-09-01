@@ -189,10 +189,20 @@ export const Preview = ({
     onMount,
   });
 
+  const form = Form.useContext();
   const handleContentsChange = (contents: string) => {
     const processedSVG = preprocessSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
+
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
+    const svgElement = svgDoc.documentElement as unknown as SVGElement;
+    const extractedRegions = Schematic.Symbol.extractRegions(svgElement);
+    const states = form.get<schematic.symbol.State[]>("data.states").value;
+    states.forEach((state) =>
+      form.set(`data.states.${state.key}.regions`, extractedRegions),
+    );
   };
 
   const fileDropEnabled = spec.svg.length === 0;

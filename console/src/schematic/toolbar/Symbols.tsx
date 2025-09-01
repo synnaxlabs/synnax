@@ -21,7 +21,6 @@ import {
   List,
   Menu,
   Schematic,
-  SchematicSymbol,
   Select,
   Status,
   Synnax,
@@ -185,7 +184,7 @@ const RemoteSymbolListContextMenu = (
   const placeLayout = Layout.usePlacer();
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
-  const rename = SchematicSymbol.useRename({
+  const rename = Schematic.Symbol.useRename({
     params: { key: firstKey },
     beforeUpdate: async ({ value }) => {
       if (item == null) return false;
@@ -204,7 +203,7 @@ const RemoteSymbolListContextMenu = (
       return newName;
     },
   });
-  const del = SchematicSymbol.useDelete({
+  const del = Schematic.Symbol.useDelete({
     params: { key: firstKey },
     beforeUpdate: async () => {
       if (item == null) return false;
@@ -276,7 +275,7 @@ const RemoteListEmptyContent = ({
 };
 
 const RemoteSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
-  const listData = SchematicSymbol.useList({
+  const listData = Schematic.Symbol.useList({
     initialParams: { parent: group.ontologyID(groupKey) },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
@@ -555,7 +554,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   );
 
   const [search, setSearch] = useState("");
-  const g = SchematicSymbol.useGroup.useDirect({ params: {} });
+  const g = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>

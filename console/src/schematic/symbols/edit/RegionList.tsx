@@ -34,14 +34,11 @@ export interface RegionListItemProps extends List.ItemRenderProps<string> {
 export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps) => {
   const { itemKey } = props;
   const path = `data.states.${selectedState}.regions.${itemKey}`;
-  const region = Form.useFieldValue<schematic.symbol.Region>(path);
+  const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
   const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );
-
-  // Check if this is the default region
-  const isDefaultRegion = region?.key === "default";
-
+  if (region == null) return null;
   return (
     <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
       <Flex.Box x align="center" gap={1}>
@@ -50,7 +47,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
             <Text.MaybeEditable
               level="small"
               value={value}
-              onChange={isDefaultRegion ? undefined : onChange}
+              onChange={onChange}
               style={{ minWidth: 80 }}
             />
           )}
@@ -79,14 +76,10 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           )}
         </Form.Field>
         <Button.Button
-          onClick={() => {
-            if (isDefaultRegion) return;
-            remove(itemKey);
-          }}
+          onClick={() => remove(itemKey)}
           size="small"
           variant="text"
           ghost
-          style={{ opacity: isDefaultRegion ? 0 : undefined }}
         >
           <Icon.Close />
         </Button.Button>

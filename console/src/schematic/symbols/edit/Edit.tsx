@@ -18,7 +18,7 @@ import {
   Header,
   Input,
   Nav,
-  SchematicSymbol,
+  Schematic,
   Theming,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
@@ -38,7 +38,7 @@ import { Triggers } from "@/triggers";
 
 export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
-export interface CreateLayoutArgs extends SchematicSymbol.UseFormParams {
+export interface CreateLayoutArgs extends Schematic.Symbol.UseFormParams {
   scale?: number;
 }
 
@@ -86,7 +86,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   );
 
   const theme = Theming.use();
-  const { form, save } = SchematicSymbol.useForm({
+  const { form, save } = Schematic.Symbol.useForm({
     params,
     onHasTouched: handleUnsavedChanges,
     initialValues: {
@@ -180,12 +180,12 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
     form.set(regionPath, { ...region, selectors: updatedSelectors });
   };
   const hasSVG =
-    Form.useFieldValue<string, string, typeof SchematicSymbol.formSchema>("data.svg", {
+    Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
       ctx: form,
     }).length > 0;
 
   return (
-    <Form.Form<typeof SchematicSymbol.formSchema> {...form}>
+    <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
       <Flex.Box
         className={CSS.BE("schematic", "symbol-create-layout")}
         empty
