@@ -20,6 +20,7 @@ export const diagramStateZ = z.object({
   region: box.box,
   clearOverScan: xy.crudeZ.optional().default(10),
   visible: z.boolean().optional().default(true),
+  autoRenderInterval: z.number().optional(),
 });
 
 interface ElementProps {
@@ -34,6 +35,7 @@ interface InternalState {
   renderCtx: render.Context;
   viewportScale: scale.XY;
   handleError: status.ErrorHandler;
+  autoRenderInterval: ReturnType<typeof setInterval>;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -50,6 +52,10 @@ export class Diagram extends aether.Composite<
   afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     this.internal.handleError = status.useErrorHandler(ctx);
+    this.internal.autoRenderInterval ??= setInterval(() => {
+      if (this.state.visible) this.requestRender("low");
+    }, this.state.autoRenderInterval);
+
     render.control(ctx, () => {
       if (!this.state.visible) return;
       this.requestRender("low");
@@ -62,6 +68,8 @@ export class Diagram extends aether.Composite<
   }
 
   afterDelete(): void {
+    if (this.internal.autoRenderInterval != null)
+      clearInterval(this.internal.autoRenderInterval);
     this.requestRender("high");
   }
 

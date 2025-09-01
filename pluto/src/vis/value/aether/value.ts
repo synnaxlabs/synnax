@@ -56,8 +56,7 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
-  staleTimeout?: NodeJS.Timeout;
-  isStale: boolean;
+  lastReceived: number;
 }
 
 export class Value
@@ -73,16 +72,10 @@ export class Value
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
 
-    i.isStale = true;
-
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      const value = i.telem.value();
-      if (value !== undefined && value !== null) {
-        i.isStale = false;
-        this.resetStaleTimeout();
-      }
+      i.lastReceived = performance.now();
       this.requestRender();
     });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
@@ -101,21 +94,11 @@ export class Value
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
-    clearTimeout(i.staleTimeout);
     i.telem.cleanup?.();
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
       i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender("layout");
-  }
-
-  private resetStaleTimeout(): void {
-    const { internal: i } = this;
-    clearTimeout(i.staleTimeout);
-    i.staleTimeout = setTimeout(() => {
-      i.isStale = true;
-      this.requestRender();
-    }, this.state.stalenessTimeout * 1000); // Convert to milliseconds
   }
 
   private requestRender(): void {
@@ -144,9 +127,11 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.internal.isStale) {
-      if (color.isZero(this.state.stalenessColor))
-        return theme.colors.warning.m1;
+    if (
+      performance.now() - this.internal.lastReceived >
+      this.state.stalenessTimeout * 1000
+    ) {
+      if (color.isZero(this.state.stalenessColor)) return theme.colors.warning.m1;
       return this.state.stalenessColor;
     }
 
