@@ -570,7 +570,9 @@ describe("Form", () => {
         ]);
       });
       rerender();
-      act(() => result.current.utils.remove(["key1", "key3"]));
+      act(() => {
+        result.current.utils.remove(["key1", "key3"]);
+      });
       rerender();
       expect(result.current.field).toHaveLength(1);
       expect(result.current.field?.[0]).toEqual({ key: "key2", name: "Jane Doe" });
@@ -591,7 +593,9 @@ describe("Form", () => {
         ]);
       });
       rerender();
-      act(() => result.current.utils.keepOnly("key2"));
+      act(() => {
+        result.current.utils.keepOnly("key2");
+      });
       rerender();
       expect(result.current.field).toHaveLength(1);
       expect(result.current.field?.[0]).toEqual({ key: "key2", name: "Jane Doe" });
