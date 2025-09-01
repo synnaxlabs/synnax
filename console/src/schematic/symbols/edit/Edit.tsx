@@ -76,10 +76,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const isCreate = params.key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
-    (hasUnsavedChanges: boolean) => {
-      dispatch(
-        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
-      );
+    (unsavedChanges: boolean) => {
+      dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges }));
     },
     [dispatch, layoutKey],
   );
