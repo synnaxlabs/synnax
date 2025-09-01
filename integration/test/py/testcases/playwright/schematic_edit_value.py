@@ -15,7 +15,6 @@ class Schematic_Edit_Value(Schematic):
     """
     Add a value component and edit its properties
     """
-
     def run(self) -> None:
 
 
@@ -29,8 +28,8 @@ class Schematic_Edit_Value(Schematic):
             "notation": "standard",
             "precision": 2,
             "averaging_window": 1,
-            "staleness_color": "#C29D0A", #pluto-warning-m1
-            "staleness_timeout": 5,
+            "stale_color": "#C29D0A", #pluto-warning-m1
+            "stale_timeout": 5,
         }
 
         assert default_props == expected_default_props, f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
@@ -42,16 +41,16 @@ class Schematic_Edit_Value(Schematic):
             notation="scientific", 
             precision=4, 
             averaging_window=4, 
-            staleness_color="#FF0000", 
-            staleness_timeout=10
+            stale_color="#FF0000", 
+            stale_timeout=10
         )
         expected_edited_props = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
             "precision": 4,
             "averaging_window": 4,
-            "staleness_color": "#FF0000", #pluto-warning-m1
-            "staleness_timeout": 10,
+            "stale_color": "#FF0000", #pluto-warning-m1
+            "stale_timeout": 10,
         }
         edited_props = self.get_schematic_value_props(node_id)
         assert edited_props == expected_edited_props, f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"

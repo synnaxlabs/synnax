@@ -33,17 +33,17 @@ class Schematic(Playwright):
         notation=None, 
         precision=None, 
         averaging_window=None, 
-        staleness_color: str = None,
-        staleness_timeout=None,
+        stale_color: str = None,
+        stale_timeout=None,
     ) -> str:
         
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
         
         # Validate hex color if provided
-        if staleness_color is not None:
-            if not re.match(r'^#[0-9A-Fa-f]{6}$', staleness_color):
-                raise ValueError("staleness_color must be a valid hex color (e.g., #FF5733)")
+        if stale_color is not None:
+            if not re.match(r'^#[0-9A-Fa-f]{6}$', stale_color):
+                raise ValueError("stale_color must be a valid hex color (e.g., #FF5733)")
 
         # Count existing nodes before adding
         nodes_count = len(self.page.locator("[data-testid^='rf__node-']").all())
@@ -89,19 +89,19 @@ class Schematic(Playwright):
             averaging_window_input.fill(str(averaging_window))
             averaging_window_input.press("Enter")
 
-        if staleness_color is not None:
+        if stale_color is not None:
             color_button = self.page.locator("text=Color").locator("..").locator("button")
             color_button.click()
             hex_input = self.page.locator("text=Hex").locator("..").locator("input")
-            hex_input.fill(staleness_color.replace("#", ""))  # Remove # since it might be auto-added
+            hex_input.fill(stale_color.replace("#", ""))  # Remove # since it might be auto-added
             hex_input.press("Enter")
             self.page.keyboard.press("Escape")
             
         
-        if staleness_timeout is not None:
-            staleness_timeout_input = self.page.locator("text=Staleness Timeout").locator("..").locator("input")
-            staleness_timeout_input.fill(str(staleness_timeout))
-            staleness_timeout_input.press("Enter")
+        if stale_timeout is not None:
+            stale_timeout_input = self.page.locator("text=Stale Timeout").locator("..").locator("input")
+            stale_timeout_input.fill(str(stale_timeout))
+            stale_timeout_input.press("Enter")
 
         return node_id
         
@@ -118,8 +118,8 @@ class Schematic(Playwright):
             "notation": "",
             "precision": -1,
             "averaging_window": -1,
-            "staleness_color": "",
-            "staleness_timeout": -1,
+            "stale_color": "",
+            "stale_timeout": -1,
         }
         
 
@@ -138,8 +138,8 @@ class Schematic(Playwright):
 
             
         # Staleness Timeout
-        timeout_input = self.page.locator("text=Staleness Timeout").locator("..").locator("input")
-        props["staleness_timeout"] = int(timeout_input.input_value())
+        timeout_input = self.page.locator("text=Stale Timeout").locator("..").locator("input")
+        props["stale_timeout"] = int(timeout_input.input_value())
             
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]
@@ -161,7 +161,7 @@ class Schematic(Playwright):
         if hex_input.count() > 0:
             hex_value = hex_input.input_value()
             if hex_value:
-                props["staleness_color"] = f"#{hex_value}" if not hex_value.startswith("#") else hex_value
+                props["stale_color"] = f"#{hex_value}" if not hex_value.startswith("#") else hex_value
         # Close color picker
         self.page.keyboard.press("Escape")
 
@@ -175,8 +175,8 @@ class Schematic(Playwright):
         notation=None, 
         precision=None, 
         averaging_window=None, 
-        staleness_color: str = None,
-        staleness_timeout=None,
+        stale_color: str = None,
+        stale_timeout=None,
     ) -> None:
         """
         Get properties of a schematic value node by its ID
@@ -207,18 +207,18 @@ class Schematic(Playwright):
             averaging_window_input.fill(str(averaging_window))
             averaging_window_input.press("Enter")
 
-        if staleness_color is not None:
+        if stale_color is not None:
             color_button = self.page.locator("text=Color").locator("..").locator("button")
             color_button.click()
             hex_input = self.page.locator("text=Hex").locator("..").locator("input")
-            hex_input.fill(staleness_color.replace("#", ""))  # Remove # since it might be auto-added
+            hex_input.fill(stale_color.replace("#", ""))  # Remove # since it might be auto-added
             hex_input.press("Enter")
             self.page.keyboard.press("Escape")
 
-        if staleness_timeout is not None:
-            staleness_timeout_input = self.page.locator("text=Staleness Timeout").locator("..").locator("input")
-            staleness_timeout_input.fill(str(staleness_timeout))
-            staleness_timeout_input.press("Enter")
+        if stale_timeout is not None:
+            stale_timeout_input = self.page.locator("text=Stale Timeout").locator("..").locator("input")
+            stale_timeout_input.fill(str(stale_timeout))
+            stale_timeout_input.press("Enter")
 
     def get_value(self, node_id: str) -> float:
         """
