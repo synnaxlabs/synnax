@@ -190,10 +190,13 @@ export const Preview = ({
   });
 
   const form = Form.useContext();
-  const handleContentsChange = (contents: string) => {
+  const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = preprocessSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
+    
+    if (filename != null && form.get("name").value === "")
+      form.set("name", filename);
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");

@@ -104,6 +104,7 @@ export const useList = Flux.createList<
   },
   name: "Schematic Symbols",
   retrieve: async ({ client, store, params: { parent, ...rest } }) => {
+    console.log("retrieve", parent, rest);
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);

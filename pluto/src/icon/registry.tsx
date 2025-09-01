@@ -56,7 +56,7 @@ import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
-import { IoMdHeart, IoMdRefresh } from "react-icons/io";
+import { IoMdColorFill, IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
@@ -77,6 +77,7 @@ import {
   MdAutoAwesome,
   MdBlurLinear,
   MdBook,
+  MdBorderColor,
   MdCalendarToday,
   MdCommit,
   MdDarkMode,
@@ -402,6 +403,8 @@ export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");
 export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 export const Reset = wrapSVGIcon(RxReset, "reset");
+export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
+export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -544,6 +547,8 @@ const icons = {
   Fitting,
   Pump,
   Reset,
+  FillColor,
+  StrokeColor,
 };
 
 export const resolve = ((

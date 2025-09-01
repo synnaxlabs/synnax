@@ -55,6 +55,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   return (
     <List.Frame data={lineKeys}>
       <List.Items<string, LineState>
+        full="y"
         className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >

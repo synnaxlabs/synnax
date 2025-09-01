@@ -104,6 +104,10 @@ export const RegionList = ({
           Colors
         </Header.Title>
         <Header.Actions>
+          <Text.Text level="p" color={7} gap={3}>
+            <Icon.StrokeColor />
+            <Icon.FillColor />
+          </Text.Text>
           <Button.Button onClick={onAddRegion} size="small" variant="outlined">
             <Icon.Add />
           </Button.Button>

@@ -95,14 +95,12 @@ export interface StaticGroupProps extends Pick<GroupProps, "onSelect"> {
 }
 
 const StaticSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElement => {
-  const group = Schematic.Symbol.GROUPS.find((g) => g.key === groupKey);
-  const symbols = useMemo(
-    () =>
-      Object.values(Schematic.Symbol.REGISTRY).filter((s) =>
-        group?.symbols.includes(s.key),
-      ),
-    [group],
-  );
+  const symbols = useMemo(() => {
+    const group = Schematic.Symbol.GROUPS.find((g) => g.key === groupKey);
+    return Object.values(Schematic.Symbol.REGISTRY).filter((s) =>
+      group?.symbols.includes(s.key),
+    );
+  }, [groupKey]);
   const { data, getItem } = List.useStaticData<string, Schematic.Symbol.Spec>({
     data: symbols,
   });
@@ -121,9 +119,7 @@ const StaticSymbolList = ({ groupKey, onSelect }: StaticGroupProps): ReactElemen
   );
 };
 
-export interface RemoteListItemProps extends List.ItemProps<string> {
-  itemKey: string;
-}
+export interface RemoteListItemProps extends List.ItemProps<string> {}
 
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
@@ -512,6 +508,69 @@ const GroupList = ({
   );
 };
 
+interface SearchSymbolListProps {
+  searchTerm: string;
+  onSelect: (key: string) => void;
+}
+
+const ALL_STATIC_SYMBOLS = Object.values(Schematic.Symbol.REGISTRY);
+
+const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
+  const { itemKey } = props;
+  const item = List.useItem<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>(
+    itemKey,
+  );
+  if (item == null) return null;
+  const isRemote = "specKey" in item;
+  if (isRemote) return <RemoteListItem {...props} />;
+  return <StaticListItem {...props} />;
+};
+
+const searchListItem = Component.renderProp(SearchListItem);
+
+const SearchSymbolList = ({
+  searchTerm,
+  onSelect,
+}: SearchSymbolListProps): ReactElement => {
+  const remote = Schematic.Symbol.useList({
+    initialParams: { searchTerm },
+  });
+  const staticData = List.useStaticData<string, Schematic.Symbol.Spec>({
+    data: ALL_STATIC_SYMBOLS,
+  });
+  const { data, getItem, subscribe } = List.useCombinedData<
+    string,
+    Schematic.Symbol.Spec | schematic.symbol.Symbol
+  >({
+    first: staticData,
+    second: remote,
+  });
+  const { search } = List.usePager({
+    retrieve: (args) => {
+      remote.retrieve(args);
+      staticData.retrieve(args);
+    },
+  });
+
+  useEffect(() => {
+    search(searchTerm);
+  }, [search, searchTerm]);
+  return (
+    <Select.Frame<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      value={undefined}
+      allowNone
+      onChange={onSelect}
+    >
+      <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
+        {searchListItem}
+      </List.Items>
+    </Select.Frame>
+  );
+};
+
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = Theming.use();
   const dispatch = useDispatch();
@@ -553,14 +612,30 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey, theme, isRemoteGroup],
   );
 
-  const [search, setSearch] = useState("");
-  const g = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
+  const [searchTerm, setSearchTerm] = useState("");
+  const symbolGroup = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
+  const searchMode = searchTerm.length > 0;
+  let symbolList = (
+    <StaticSymbolList key={groupKey} groupKey={groupKey} onSelect={handleAddElement} />
+  );
+  if (isRemoteGroup)
+    symbolList = (
+      <RemoteSymbolList
+        key={groupKey}
+        groupKey={groupKey}
+        onSelect={handleAddElement}
+      />
+    );
+  else if (searchMode)
+    symbolList = (
+      <SearchSymbolList searchTerm={searchTerm} onSelect={handleAddElement} />
+    );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
         <Input.Text
-          value={search}
-          onChange={setSearch}
+          value={searchTerm}
+          onChange={setSearchTerm}
           placeholder={
             <>
               <Icon.Search />
@@ -569,25 +644,21 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }
           size="small"
         />
-        {g.data != null && (
-          <GroupList
-            value={groupKey}
-            onChange={setGroupKey}
-            symbolGroupID={group.ontologyID(g.data.key)}
-          />
-        )}
-        {g.data != null && (
-          <Actions
-            symbolGroupID={group.ontologyID(g.data.key)}
-            selectedGroup={groupKey}
-          />
+        {symbolGroup.data != null && (
+          <>
+            <GroupList
+              value={groupKey}
+              onChange={setGroupKey}
+              symbolGroupID={group.ontologyID(symbolGroup.data.key)}
+            />
+            <Actions
+              symbolGroupID={group.ontologyID(symbolGroup.data.key)}
+              selectedGroup={groupKey}
+            />
+          </>
         )}
       </Flex.Box>
-      {isRemoteGroup ? (
-        <RemoteSymbolList groupKey={groupKey} onSelect={handleAddElement} />
-      ) : (
-        <StaticSymbolList groupKey={groupKey} onSelect={handleAddElement} />
-      )}
+      {symbolList}
     </Flex.Box>
   );
 };

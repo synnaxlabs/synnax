@@ -63,3 +63,7 @@
     --pluto-base-scale: 1.8;
     transform: scale(var(--pluto-base-scale));
 }
+
+.pluto-icon--reset {
+    fill: white;
+}

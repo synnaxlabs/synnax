@@ -210,6 +210,7 @@ const Content = () => {
           replaceOnSingle
         >
           <List.Items<task.Key, task.Task>
+            full="y"
             emptyContent={<EmptyContent />}
             onContextMenu={menuProps.open}
           >

@@ -171,15 +171,15 @@ const ColorControl: Form.FieldT<color.Crude> = (props): ReactElement => (
   </Form.Field>
 );
 
+const SCALE_CONTROL_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
+const SCALE_CONTROL_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };
+
 const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
   <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <Input.Numeric
-        dragScale={{
-          x: 0.75,
-          y: 0.5,
-        }}
-        bounds={{ lower: 50, upper: 1000 }}
+        dragScale={SCALE_CONTROL_DRAG_SCALE}
+        bounds={SCALE_CONTROL_BOUNDS}
         endContent="%"
         value={Math.round(value * 100)}
         onChange={(v) => onChange(parseFloat((v / 100).toFixed(2)))}

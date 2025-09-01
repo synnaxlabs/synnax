@@ -183,6 +183,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
     Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
       ctx: form,
     }).length > 0;
+  const createSaveText = isCreate ? "Create" : "Save";
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
@@ -206,6 +207,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                   boxShadow: "var(--pluto-shadow-v2)",
                   minWidth: 300,
                   maxWidth: 300,
+                  overflowY: "scroll",
                 }}
               >
                 <Flex.Box style={{ padding: "2rem 2rem 0 2rem" }}>
@@ -293,10 +295,10 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
         </Flex.Box>
         {hasSVG && (
           <Modals.BottomNavBar background={0}>
-            <Triggers.SaveHelpText action="Save to Synnax" />
+            <Triggers.SaveHelpText action={createSaveText} />
             <Nav.Bar.End>
               <Button.Button variant="filled" onClick={() => save()}>
-                {isCreate ? "Create" : "Save"}
+                {createSaveText}
               </Button.Button>
             </Nav.Bar.End>
           </Modals.BottomNavBar>
