@@ -10,6 +10,7 @@
 import re
 from framework.test_case import TestCase
 from playwright.sync_api import sync_playwright
+import time
 
 class Playwright(TestCase):
     """
@@ -40,7 +41,9 @@ class Playwright(TestCase):
         self.page.wait_for_load_state('networkidle')
 
         # Toggle theme
+        time.sleep(0.1)
         self.page.keyboard.press("ControlOrMeta+Shift+p")
+        time.sleep(0.1)
         self.page.wait_for_selector("#toggle-theme", timeout=5000)
         self.page.locator("#toggle-theme").click()
 

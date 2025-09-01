@@ -9,13 +9,13 @@
 
 import time
 import re
-from testcases.playwright.plot import Plot
+from testcases.playwright.schematic import Schematic
 
-class Plot_Simple(Plot):
+class Schematic_Staleness(Schematic):
     """
-    Simple plot test
+    Verify staleness behavior of schematic value nodes
+    This test must run alongside "schematic_staleness_producer.py"
     """
-
     def run(self) -> None:
 
-        time.sleep(1)
+        time.sleep(10)

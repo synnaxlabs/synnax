@@ -63,7 +63,13 @@ class Schematic(Playwright):
         self.page.get_by_test_id(node_id).locator("div").first.click()
         self.page.get_by_text("Telemetry").click()
         self.page.get_by_role("button", name="pluto-icon--channel Select a").click()
+        
+        # Search for channel
+        search_input = self.page.locator("input[placeholder*='Search']")
+        search_input.fill(channel_name)
         self.page.get_by_text(channel_name).click()
+
+
 
         if notation is not None:
             if notation.lower() == "scientific":
@@ -182,6 +188,8 @@ class Schematic(Playwright):
         if channel_name is not None:
             channel_button = self.page.locator("text=Input Channel").locator("..").locator("button").first
             channel_button.click()
+            search_input = self.page.locator("input[placeholder*='Search']")
+            search_input.fill(channel_name)
             self.page.get_by_text(channel_name).click()
 
         if notation is not None:
