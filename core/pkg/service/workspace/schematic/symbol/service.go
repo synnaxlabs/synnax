@@ -119,6 +119,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, Symbol](),
 		baseTX: s.DB,
+		otg:    s.Ontology,
 	}
 }
 
