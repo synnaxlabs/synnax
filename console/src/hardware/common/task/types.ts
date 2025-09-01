@@ -119,14 +119,21 @@ export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) 
 
 export const baseConfigZ = z.object({
   autoStart: z.boolean().default(false),
-  dataSaving: z.boolean(),
   device: Device.keyZ,
 });
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 export const ZERO_BASE_CONFIG: BaseConfig = {
   autoStart: false,
-  dataSaving: true,
   device: "",
+};
+
+export const baseReadConfigZ = baseConfigZ.extend({
+  dataSaving: z.boolean().default(true),
+});
+export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+export const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
+  ...ZERO_BASE_CONFIG,
+  dataSaving: true,
 };
 
 interface ConfigWithSampleRateAndStreamRate {

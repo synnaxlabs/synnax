@@ -123,13 +123,13 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
         setCellProps({
           key: tableRef.current,
           cellKey: cellRef.current,
-          props: values,
+          props: deep.copy(values),
         }),
       );
     },
     [],
   );
-  const methods = Form.use({
+  const methods = Form.use<typeof record.unknownZ>({
     values: deep.copy(cell.props),
     schema: record.unknownZ,
     onChange: handleChange,

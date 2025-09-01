@@ -9,7 +9,7 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { group, type ontology, type schematic } from "@synnaxlabs/client";
+import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -37,7 +37,6 @@ import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
-import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import {
   useExport as useExportSymbol,
@@ -48,6 +47,7 @@ import {
   useImportGroup,
 } from "@/schematic/symbols/import";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
+import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
@@ -346,11 +346,14 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 });
 
 export interface ActionsProps {
-  symbolGroupID: ontology.ID;
+  symbolGroupID?: ontology.ID;
   selectedGroup: string;
 }
 
-const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement => {
+const Actions = ({
+  symbolGroupID,
+  selectedGroup,
+}: ActionsProps): ReactElement | null => {
   const { updateAsync } = Group.create.useDirect({ params: {} });
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -360,6 +363,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
+      if (symbolGroupID == null) return;
       const result = await rename(
         {
           initialValue: "",
@@ -372,7 +376,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
           icon: "Group",
         },
       );
-      if (result == null) return;
+      if (result == null || result.length === 0) return;
       await updateAsync({
         key: uuid.create(),
         name: result,
@@ -384,7 +388,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
 
   const handleCreateSymbol = useCallback(() => {
-    if (!isRemoteGroup) return;
+    if (!isRemoteGroup || symbolGroupID == null) return;
     placeLayout(
       createEditLayout({
         args: { parent: group.ontologyID(selectedGroup) },
@@ -392,10 +396,17 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     );
   }, [isRemoteGroup, placeLayout, selectedGroup]);
 
+  if (symbolGroupID == null) return null;
+
   return (
     <Flex.Box x>
-      <Button.Button variant="outlined" size="small" tooltip="Create new symbol group">
-        <CreateGroupIcon onClick={handleCreateGroup} />
+      <Button.Button
+        variant="outlined"
+        size="small"
+        tooltip="Create new symbol group"
+        onClick={handleCreateGroup}
+      >
+        <CreateGroupIcon />
       </Button.Button>
       <Button.Button
         variant="outlined"
@@ -428,7 +439,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
 };
 
 export interface GroupListProps extends Input.Control<group.Key> {
-  symbolGroupID: ontology.ID;
+  symbolGroupID?: ontology.ID;
 }
 
 const GroupListContextMenu = ({
@@ -491,12 +502,11 @@ const GroupList = ({
     data: Schematic.Symbol.GROUPS,
   });
   const remoteData = Group.useList({ initialParams: { parent: symbolGroupID } });
-  const data = List.useCombinedData({
-    first: staticData,
-    second: remoteData,
-  });
-  const { fetchMore } = List.usePager({ retrieve: remoteData.retrieve });
-  useEffect(() => fetchMore(), [fetchMore]);
+  useEffect(
+    () => remoteData.retrieve({ parent: symbolGroupID }),
+    [remoteData, symbolGroupID],
+  );
+  const data = List.useCombinedData({ first: staticData, second: remoteData });
   const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Payload>
@@ -527,7 +537,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
     itemKey,
   );
   if (item == null) return null;
-  const isRemote = "specKey" in item;
+  const isRemote = schematic.symbol.keyZ.safeParse(itemKey).success;
   if (isRemote) return <RemoteListItem {...props} />;
   return <StaticListItem {...props} />;
 };
@@ -552,15 +562,16 @@ const SearchSymbolList = ({
     second: remote,
   });
   const { search } = List.usePager({
-    retrieve: (args) => {
-      remote.retrieve(args);
-      staticData.retrieve(args);
-    },
+    retrieve: useCallback(
+      (args) => {
+        remote.retrieve(args);
+        staticData.retrieve(args);
+      },
+      [remote.retrieve, staticData.retrieve],
+    ),
   });
 
-  useEffect(() => {
-    search(searchTerm);
-  }, [search, searchTerm]);
+  useEffect(() => search(searchTerm), [search, searchTerm]);
   return (
     <Select.Frame<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>
       data={data}
@@ -606,6 +617,8 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     symbolList = (
       <SearchSymbolList searchTerm={searchTerm} onSelect={handleAddElement} />
     );
+  const symbolGroupID =
+    symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
@@ -620,19 +633,12 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }
           size="small"
         />
-        {symbolGroup.data != null && (
-          <>
-            <GroupList
-              value={groupKey}
-              onChange={setGroupKey}
-              symbolGroupID={group.ontologyID(symbolGroup.data.key)}
-            />
-            <Actions
-              symbolGroupID={group.ontologyID(symbolGroup.data.key)}
-              selectedGroup={groupKey}
-            />
-          </>
-        )}
+        <GroupList
+          value={groupKey}
+          onChange={setGroupKey}
+          symbolGroupID={symbolGroupID}
+        />
+        <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
       </Flex.Box>
       {symbolList}
     </Flex.Box>

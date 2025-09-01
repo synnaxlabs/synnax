@@ -9,6 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 
@@ -46,7 +47,7 @@ export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) =
           {
             key: "active",
             name: "Active",
-            regions: [...baseRegions],
+            regions: [...deep.copy(baseRegions)],
           },
         ]);
       } else if (next === "static") {
