@@ -110,7 +110,7 @@ class TestCase(ABC):
 
     # Configuration constants
     DEFAULT_READ_TIMEOUT = 1
-    DEFAULT_LOOP_RATE = 5  # Hz
+    DEFAULT_LOOP_RATE = 0.2  # 5 Hz
     WEBSOCKET_RETRY_DELAY = 0.5 #s
     MAX_CLEANUP_RETRIES = 3
     CLIENT_THREAD_START_DELAY = 1
@@ -263,8 +263,8 @@ class TestCase(ABC):
                 if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
                     self.STATUS = STATUS.TIMEOUT
 
-                # Check for completion
-                if self._status in [STATUS.FAILED, STATUS.KILLED, STATUS.TIMEOUT]:
+                # Check for completion due to failure
+                if self._status.value >= STATUS.FAILED.value:
                     self.tlm[f"{self.name}_state"] = self._status.value
                     self._should_stop = True
 
@@ -282,7 +282,7 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-            self._log_message("writer shutting down")
+            self._log_message("Shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -463,6 +463,9 @@ class TestCase(ABC):
             )
         elif self._status == STATUS.KILLED:
             self._log_message(f"KILLED ({status_symbol})")
+
+        # Sleep for 2 loops to ensure the status is updated
+        time.sleep(self.DEFAULT_LOOP_RATE*2)
 
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
@@ -709,6 +712,7 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self._log_message(f"EXCEPTION: {e}")
         finally:
+            self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
-            self._check_expectation()
+            

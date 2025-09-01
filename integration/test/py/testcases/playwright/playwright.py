@@ -17,18 +17,23 @@ class Playwright(TestCase):
     """
 
     def setup(self) -> None:
+        
+        headless = self.params.get("headless", True)
+        default_timeout = self.params.get("default_timeout", 1000) # 1s
+        default_nav_timeout = self.params.get("default_nav_timeout", 1000) # 1s
 
         # Open page
+        self._log_message(f"Opening browser in {'headless' if headless else 'visible'} mode")
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=False)
+        self.browser = self.playwright.chromium.launch(headless=headless)
         self.page = self.browser.new_page()
         
         # Set timeouts
-        self.page.set_default_timeout(1000)  # 1s
-        self.page.set_default_navigation_timeout(1000)  #1s
+        self.page.set_default_timeout(default_timeout)  # 1s
+        self.page.set_default_navigation_timeout(default_nav_timeout)  #1s
 
         # Login
-        self.page.goto("http://localhost:5173/")
+        self.page.goto("http://localhost:5173/", timeout=5000)
         self.page.locator('input').first.fill('synnax')
         self.page.locator('input[type="password"]').fill('seldon')
         self.page.get_by_role('button', name='Sign In').click()
@@ -36,6 +41,7 @@ class Playwright(TestCase):
 
         # Toggle theme
         self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.wait_for_selector("#toggle-theme", timeout=2000)
         self.page.locator("#toggle-theme").click()
 
     def teardown(self) -> None:

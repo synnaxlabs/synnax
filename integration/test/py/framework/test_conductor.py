@@ -158,7 +158,7 @@ class TestConductor:
 
     def _client_manager(self) -> None:
         """Manage telemetry channels and writer for test conductor."""
-        loop = sy.Loop(5)  # 1Hz
+        loop = sy.Loop(0.2)  # 5Hz
 
         # Create telemetry channels
         time = self.client.channels.create(
