@@ -1,5 +1,20 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type channel, type Synnax } from "@synnaxlabs/client";
-import { array, type Destructor, type observe, type record } from "@synnaxlabs/x";
+import {
+  array,
+  type Destructor,
+  type IsExactlyUndefined,
+  type observe,
+  type record,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
 import { state } from "@/state";
@@ -181,7 +196,7 @@ export class ScopedUnaryStore<
  * Configuration for listening to changes on a specific Synnax channel.
  *
  * @template ScopedStore - The type of the store available to the listener
- * @template Z - Zod schema type for validating channel data
+ * @template Schema - Zod schema type for validating channel data
  */
 export interface ChannelListener<
   ScopedStore extends Store = {},
@@ -220,11 +235,11 @@ export type ChannelListenerArgs<
  */
 export interface UnaryStoreConfig<
   ScopedStore extends Store = {},
-  K extends record.Key = record.Key,
-  V extends state.State = state.State,
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
 > {
   /** Function to determine if two values are equal */
-  equal?: (a: V, b: V, key: K) => boolean;
+  equal?: (a: Value, b: Value, key: Key) => boolean;
   /** Array of channel listeners to register for this store */
   listeners: ChannelListener<ScopedStore>[];
 }
@@ -239,32 +254,26 @@ export interface StoreConfig<ScopedStore extends Store = {}> {
   [key: string]: UnaryStoreConfig<ScopedStore, any, any>;
 }
 
-type IsExactlyUndefined<T> = [T] extends [undefined] // T can be assigned to undefined
-  ? [undefined] extends [T] // undefined can be assigned to T
-    ? true // both directions → exactly undefined
-    : false
-  : false;
-
 export type UnaryStore<
-  K extends record.Key = record.Key,
-  V extends state.State = state.State,
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
   SetExtra extends unknown | undefined = undefined,
 > = {
-  get(key: K): V | undefined;
-  get(keys: K[] | ((value: V) => boolean)): V[];
-  list(): V[];
-  has(key: K): boolean;
-  delete(key: K | K[]): void;
-  onSet(callback: SetHandler<V, SetExtra>, key?: K): Destructor;
-  onDelete(callback: DeleteHandler<K>, key?: K): Destructor;
+  get(key: Key): Value | undefined;
+  get(keys: Key[] | ((value: Value) => boolean)): Value[];
+  list(): Value[];
+  has(key: Key): boolean;
+  delete(key: Key | Key[]): void;
+  onSet(callback: SetHandler<Value, SetExtra>, key?: Key): Destructor;
+  onDelete(callback: DeleteHandler<Key>, key?: Key): Destructor;
 } & (IsExactlyUndefined<SetExtra> extends true
   ? {
-      set(key: K, value: state.SetArg<V | undefined>): void;
-      set(values: Array<V & record.Keyed<K>>): void;
+      set(key: Key, value: state.SetArg<Value | undefined>): void;
+      set(values: Array<Value & record.Keyed<Key>>): void;
     }
   : {
-      set(key: K, value: state.SetArg<V | undefined>, variant: SetExtra): void;
-      set(values: Array<V & record.Keyed<K>>, variant: SetExtra): void;
+      set(key: Key, value: state.SetArg<Value | undefined>, variant: SetExtra): void;
+      set(values: Array<Value & record.Keyed<Key>>, variant: SetExtra): void;
     });
 
 /**
