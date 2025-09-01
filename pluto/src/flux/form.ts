@@ -160,8 +160,8 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.St
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
-  markTouched: true,
-  notifyOnChange: true,
+  markTouched: false,
+  notifyOnChange: false,
 };
 
 /**
