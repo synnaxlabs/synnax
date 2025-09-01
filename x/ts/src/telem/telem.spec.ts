@@ -44,6 +44,11 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeStamp.MIN)).toBe(true);
   });
 
+  test("construct from CrudeValueExtension", () => {
+    const ts = new TimeStamp({ value: 1000n });
+    expect(ts.equals(1000)).toBe(true);
+  });
+
   test("toString", () => {
     const ts = new TimeStamp(TimeSpan.days(90))
       .add(TimeSpan.minutes(20))
@@ -671,6 +676,11 @@ describe("TimeSpan", () => {
     expect(TimeSpan.seconds(1).equals(1e9)).toBe(true);
     expect(TimeSpan.minutes(1).equals(6e10)).toBe(true);
     expect(TimeSpan.hours(1).equals(36e11)).toBe(true);
+  });
+
+  test("construct from CrudeValueExtension", () => {
+    const ts = new TimeSpan({ value: 1000n });
+    expect(ts.equals(1000)).toBe(true);
   });
 
   describe("fromMilliseconds", () => {
@@ -1316,6 +1326,23 @@ describe("TimeRange", () => {
 });
 
 describe("Density", () => {
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const density = new Density({ value: 8 });
+      expect(density.valueOf()).toBe(8);
+    });
+
+    test("construct from number", () => {
+      const density = new Density(8);
+      expect(density.valueOf()).toBe(8);
+    });
+
+    test("construct from Density", () => {
+      const density = new Density(8);
+      expect(density.valueOf()).toBe(8);
+    });
+  });
+
   describe("schema", () => {
     it("should parse number", () => {
       const density = Density.z.parse(8);
@@ -1415,6 +1442,42 @@ describe("DataType", () => {
     });
     it("should return false if the data type does not have a variable length", () => {
       expect(DataType.STRING.isVariable).toBe(true);
+    });
+  });
+
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const dt = new DataType({ value: "int32" });
+      expect(dt.toString()).toBe("int32");
+    });
+
+    [
+      [new Int32Array(), DataType.INT32],
+      [new Int8Array(), DataType.INT8],
+      [new Uint8Array(), DataType.UINT8],
+      [new Uint16Array(), DataType.UINT16],
+      [new Uint32Array(), DataType.UINT32],
+      [new BigInt64Array(), DataType.INT64],
+      [new BigUint64Array(), DataType.UINT64],
+      [new Float32Array(), DataType.FLOAT32],
+      [new Float64Array(), DataType.FLOAT64],
+      [new BigInt64Array(), DataType.INT64],
+      [new BigUint64Array(), DataType.UINT64],
+    ].forEach(([array, expected]) => {
+      test(`construct from ${array.constructor.name} to ${expected.toString()}`, () => {
+        const dt = new DataType(array);
+        expect(dt.toString()).toBe(expected.toString());
+      });
+    });
+
+    test("from data type", () => {
+      const dt = new DataType(DataType.INT32);
+      expect(dt.toString()).toBe(DataType.INT32.toString());
+    });
+
+    test("from string", () => {
+      const dt = new DataType("int32");
+      expect(dt.toString()).toBe("int32");
     });
   });
 
@@ -1534,6 +1597,22 @@ describe("DataType", () => {
 });
 
 describe("Size", () => {
+  describe("construct", () => {
+    test("construct from CrudeValueExtension", () => {
+      const size = new Size({ value: 1024 });
+      expect(size.valueOf()).toBe(1024);
+    });
+
+    test("construct from number", () => {
+      const size = new Size(1024);
+      expect(size.valueOf()).toBe(1024);
+    });
+
+    test("construct from Size", () => {
+      const size = new Size(1024);
+      expect(size.valueOf()).toBe(1024);
+    });
+  });
   const TO_STRING_TESTS = [
     [Size.bytes(1), "1B"],
     [Size.kilobytes(1), "1KB"],

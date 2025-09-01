@@ -10,6 +10,15 @@
 /** Union of types that are primitive values or can be converted to primitive values */
 export type Value = string | number | bigint | boolean | Stringer | null | undefined;
 
+export type CrudeValueExtension<V extends NonNullable<Value>> = {
+  value: V;
+};
+
+export const isCrudeValueExtension = <V extends NonNullable<Value>>(
+  value: unknown,
+): value is CrudeValueExtension<V> =>
+  value != null && typeof value === "object" && "value" in value;
+
 /**
  * ValueExtension is a utility class that can be extended in order to implement objects
  * that pseudo-extend a primitive value with additional functionality.
