@@ -283,7 +283,7 @@ export const Frame = ({
       if (thisModalIndex === allModals.length - 1 && children.length === 0)
         return close();
     },
-    [close],
+    [close, variant],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });

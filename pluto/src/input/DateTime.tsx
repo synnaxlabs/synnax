@@ -12,7 +12,7 @@ import "@/input/DateTime.css";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
-import { type FC, type ReactElement, useState } from "react";
+import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
@@ -376,17 +376,16 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
+const TIME_LIST_ITEM_STYLE: CSSProperties = {
+  padding: "0rem",
+  paddingLeft: "2rem",
+  height: "4rem",
+  minHeight: "4rem",
+  maxHeight: "4rem",
+};
+
 const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => (
-  <Select.ListItem
-    {...props}
-    style={{
-      padding: "0rem",
-      paddingLeft: "2rem",
-      height: "4rem",
-      minHeight: "4rem",
-      maxHeight: "4rem",
-    }}
-  >
+  <Select.ListItem {...props} style={TIME_LIST_ITEM_STYLE}>
     {props.index}
   </Select.ListItem>
 );
