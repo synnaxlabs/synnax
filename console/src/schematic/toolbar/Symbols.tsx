@@ -376,7 +376,7 @@ const Actions = ({
           icon: "Group",
         },
       );
-      if (result == null) return;
+      if (result == null || result.length === 0) return;
       await updateAsync({
         key: uuid.create(),
         name: result,
@@ -400,8 +400,13 @@ const Actions = ({
 
   return (
     <Flex.Box x>
-      <Button.Button variant="outlined" size="small" tooltip="Create new symbol group">
-        <CreateGroupIcon onClick={handleCreateGroup} />
+      <Button.Button
+        variant="outlined"
+        size="small"
+        tooltip="Create new symbol group"
+        onClick={handleCreateGroup}
+      >
+        <CreateGroupIcon />
       </Button.Button>
       <Button.Button
         variant="outlined"
