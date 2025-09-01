@@ -211,3 +211,11 @@ class Schematic(Playwright):
             staleness_timeout_input = self.page.locator("text=Staleness Timeout").locator("..").locator("input")
             staleness_timeout_input.fill(str(staleness_timeout))
             staleness_timeout_input.press("Enter")
+
+    def get_value(self, node_id: str) -> float:
+        """
+        Get the value of a schematic value node by its ID
+        """
+        self._get_node(node_id)
+        value_str = self.page.locator("text=Value").locator("..").locator("input").input_value()
+        return float(value_str)

@@ -6,8 +6,6 @@ This script creates a test case with timeout=-1 and verifies that
 the test conductor does not monitor it for timeouts.
 """
 
-import os
-import sys
 import time
 
 from framework.test_case import STATUS, TestCase
