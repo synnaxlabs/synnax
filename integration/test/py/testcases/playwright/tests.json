@@ -3,7 +3,7 @@
         "sequence_name": "Playwright_Tests",
         "tests": [
           {
-            "case": "testcases/playwright/simple_schematic",
+            "case": "testcases/playwright/schematic_edit_value",
             "parameters": {
               "headless": false
             }

@@ -11,27 +11,13 @@ import time
 import re
 from testcases.playwright.playwright import Playwright
 
-class Simple_Schematic(Playwright):
+class Schematic(Playwright):
     """
-    Open all pages in the "New Component" window and close them
+    Parent class for schematic tests
     """
     def setup(self) -> None:
-
         super().setup()
-        self.open_page("Schematic")
-        
-        
-        #self.page.locator(".pluto-resize__handle.pluto--bordered-top").click()
-        
-        #new_component = self.page.locator("[data-testid^='psi']").last()
-        #new_component.wait_for
-        # test_id = new_component.get_attribute("data-testid")
-        #print(test_id)
-        #self.page.get_by_test_id(test_id).locator("div").filter(has_text="psi").first.click()
-        #self.page.get_by_text("Telemetry").click()
-        #self.page.get_by_role("button", name="pluto-icon--channel Select a").click()
-        #page.get_by_text("test_conductor_time").click()
-        #page.locator(".pluto-resize__handle.pluto--bordered-top").click()
+        self.open_page("Schematic")  
 
     def _get_node(self, node_id: str):
         if not node_id:
@@ -225,45 +211,3 @@ class Simple_Schematic(Playwright):
             staleness_timeout_input = self.page.locator("text=Staleness Timeout").locator("..").locator("input")
             staleness_timeout_input.fill(str(staleness_timeout))
             staleness_timeout_input.press("Enter")
-
-    def run(self) -> None:
-
-        self._log_message("Checking default properties of schematic value")
-        # Create a schematic value with default properties
-        node_id = self.add_schematic_value("simple_schematic_uptime")
-        default_props = self.get_schematic_value_props(node_id)
-
-        expected_default_props = {
-            "channel": "simple_schematic_uptime",
-            "notation": "standard",
-            "precision": 2,
-            "averaging_window": 1,
-            "staleness_color": "#C29D0A", #pluto-warning-m1
-            "staleness_timeout": 5,
-        }
-
-        assert default_props == expected_default_props, f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
-    
-
-        self._log_message("Checking edited properties of schematic value")
-        self.edit_schematic_value_props(node_id, 
-            channel_name="simple_schematic_time", 
-            notation="scientific", 
-            precision=4, 
-            averaging_window=4, 
-            staleness_color="#FF0000", 
-            staleness_timeout=10
-        )
-        expected_edited_props = {
-            "channel": "simple_schematic_time",
-            "notation": "scientific",
-            "precision": 4,
-            "averaging_window": 4,
-            "staleness_color": "#FF0000", #pluto-warning-m1
-            "staleness_timeout": 10,
-        }
-        edited_props = self.get_schematic_value_props(node_id)
-        assert edited_props == expected_edited_props, f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
-        
-
-        time.sleep(10)

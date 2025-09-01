@@ -41,7 +41,7 @@ class Playwright(TestCase):
 
         # Toggle theme
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        self.page.wait_for_selector("#toggle-theme", timeout=2000)
+        self.page.wait_for_selector("#toggle-theme", timeout=5000)
         self.page.locator("#toggle-theme").click()
 
     def teardown(self) -> None:

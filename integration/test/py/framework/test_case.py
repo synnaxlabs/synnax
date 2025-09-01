@@ -556,6 +556,16 @@ class TestCase(ABC):
         return self.tlm.get(name_ch, default)
 
     @property
+    def name(self) -> str:
+        """Get the name of the test case."""
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        """Set the name of the test case."""
+        self._name = value
+
+    @property
     def STATUS(self) -> STATUS:
         """Get the current test status."""
         return self._status
