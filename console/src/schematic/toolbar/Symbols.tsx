@@ -27,7 +27,7 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { id, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -37,13 +37,14 @@ import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
-import { addElement, setSelectedSymbolGroup } from "@/schematic/slice";
+import { setSelectedSymbolGroup } from "@/schematic/slice";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/deleteGroup";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { useExport as useExportSymbol } from "@/schematic/symbols/export";
 import { useExportGroup } from "@/schematic/symbols/exportGroup";
 import { useImport as useImportSymbol } from "@/schematic/symbols/import";
 import { useImportGroup } from "@/schematic/symbols/importGroup";
+import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
@@ -572,45 +573,15 @@ const SearchSymbolList = ({
 };
 
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
-  const theme = Theming.use();
   const dispatch = useDispatch();
   const groupKey = useSelectSelectedSymbolGroup(layoutKey);
   const setGroupKey = useCallback(
-    (group: group.Key) => {
-      dispatch(setSelectedSymbolGroup({ key: layoutKey, group }));
-    },
+    (group: group.Key) => dispatch(setSelectedSymbolGroup({ key: layoutKey, group })),
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
-
-  const handleAddElement = useCallback(
-    (key: string) => {
-      let variant: Schematic.Symbol.Variant;
-      if (isRemoteGroup)
-        // For remote symbols, we determine if it's static or dynamic based on the data
-        // Since we can't access the symbol data directly in the callback, we'll use
-        // the pattern from RemoteListItem where we determine the variant
-        variant = "customStatic"; // Default to static, the actual variant will be determined when rendering
-      else variant = key as Schematic.Symbol.Variant;
-
-      const spec = Schematic.Symbol.REGISTRY[variant];
-      const initialProps = spec.defaultProps(theme);
-      if (isRemoteGroup) {
-        initialProps.specKey = key;
-        // The actual variant (static vs actuator) will be determined when the symbol is loaded
-        variant = "customStatic"; // This will be overridden based on the symbol data
-      }
-      dispatch(
-        addElement({
-          key: layoutKey,
-          elKey: id.create(),
-          node: { zIndex: spec.zIndex },
-          props: { key: variant, ...initialProps },
-        }),
-      );
-    },
-    [dispatch, layoutKey, theme, isRemoteGroup],
-  );
+  const addElement = useAddSymbol(dispatch, layoutKey);
+  const handleAddElement = useCallback((key: string) => addElement(key), [addElement]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const symbolGroup = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });

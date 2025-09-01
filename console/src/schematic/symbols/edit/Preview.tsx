@@ -73,11 +73,9 @@ export const Preview = ({
   const handleResetZoom = () => resetViewport();
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      zoom.onChange(Math.max(0.1, Math.min(5, zoom.value * delta)));
-    }
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoom.onChange(Math.max(0.1, Math.min(5, zoom.value * delta)));
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -194,9 +192,8 @@ export const Preview = ({
     const processedSVG = preprocessSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
-    
-    if (filename != null && form.get("name").value === "")
-      form.set("name", filename);
+
+    if (filename != null && form.get("name").value === "") form.set("name", filename);
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");

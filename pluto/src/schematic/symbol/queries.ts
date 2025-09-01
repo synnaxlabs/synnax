@@ -17,7 +17,7 @@ export const FLUX_STORE_KEY = "schematicSymbols";
 export interface FluxStore
   extends Flux.UnaryStore<schematic.symbol.Key, schematic.symbol.Symbol> {}
 
-interface SubStore extends Flux.Store {
+export interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
@@ -104,7 +104,6 @@ export const useList = Flux.createList<
   },
   name: "Schematic Symbols",
   retrieve: async ({ client, store, params: { parent, ...rest } }) => {
-    console.log("retrieve", parent, rest);
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);

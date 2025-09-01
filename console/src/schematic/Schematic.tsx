@@ -31,7 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
+import { box, deep, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -57,7 +57,6 @@ import {
   useSelectVersion,
 } from "@/schematic/selectors";
 import {
-  addElement,
   calculatePos,
   clearSelection,
   copySelection,
@@ -78,6 +77,7 @@ import {
   toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
@@ -255,6 +255,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
+
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
@@ -271,14 +273,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           ),
           0,
         );
-        undoableDispatch(
-          addElement({
-            key: layoutKey,
-            elKey: id.create(),
-            node: { position: pos, zIndex: spec.zIndex },
-            props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
-          }),
-        );
+        handleAddElement(key.toString(), pos, data);
       });
       return valid;
     },
