@@ -26,7 +26,6 @@ export interface Region extends z.infer<typeof regionZ> {}
 
 export const stateZ = z.object({
   key: z.string(),
-  color: z.string(),
   name: z.string(),
   regions: regionZ.array(),
 });
@@ -60,6 +59,7 @@ export interface Spec extends z.infer<typeof specZ> {}
 
 export const symbolZ = z.object({
   key: keyZ,
+  version: z.literal(1).optional().default(1),
   name: z.string().min(1, "Name is required"),
   data: specZ,
 });

@@ -129,9 +129,11 @@ describe("Ontology Queries", () => {
     });
 
     it("should respect pagination parameters", async () => {
-      const groups: group.Group[] = [];
-      for (let i = 0; i < 5; i++)
-        groups.push(await client.ontology.groups.create(ontology.ROOT_ID, `group${i}`));
+      const groups: group.Group[] = await Promise.all(
+        Array.from({ length: 5 }, async (_, i) =>
+          client.ontology.groups.create(ontology.ROOT_ID, `group${i}`),
+        ),
+      );
 
       const groupIDStrings = groups.map((g) => ontology.idToString(g.ontologyID));
 

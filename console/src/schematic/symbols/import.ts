@@ -11,7 +11,7 @@ import {
   DisconnectedError,
   group,
   type ontology,
-  type schematic,
+  schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Group, Status, Synnax } from "@synnaxlabs/pluto";
@@ -22,11 +22,7 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 
 import { Runtime } from "@/runtime";
-import {
-  exportedSymbolZ,
-  groupManifestZ,
-  SYMBOL_FILE_FILTERS,
-} from "@/schematic/symbols/types";
+import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/schematic/symbols/types";
 
 const parseAndCreateSymbol = async (
   client: Client,
@@ -34,9 +30,9 @@ const parseAndCreateSymbol = async (
   parentID: ontology.ID,
 ): Promise<schematic.symbol.Symbol> => {
   const data = await readTextFile(filePath);
-  const parsed = exportedSymbolZ.parse(JSON.parse(data));
+  const parsed = schematic.symbol.symbolZ.parse(JSON.parse(data));
   return await client.workspaces.schematic.symbols.create({
-    ...parsed.symbol,
+    ...parsed,
     key: uuid.create(),
     parent: parentID,
   });

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Form, Icon, type Input, Select, Theming } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 
@@ -27,34 +26,35 @@ const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
   />
 );
 
-export const SelectVariantField = () => {
-  const theme = Theming.use();
-  return (
-    <Form.Field<string>
-      path="data.variant"
-      showLabel={false}
-      onChange={(next, { get, set }) => {
-        const prev = get("data.variant").value;
-        if (prev === next) return;
-        const prevStates = get<schematic.symbol.State[]>("data.states").value;
-        if (next === "actuator") {
-          const baseState = prevStates.find((s) => s.key === "base");
-          const baseRegions = baseState?.regions ?? [];
-          set("data.states", [
-            ...prevStates,
-            {
-              key: "active",
-              name: "Active",
-              regions: [...baseRegions],
-              color: color.hex(theme.colors.gray.l10),
-            },
-          ]);
-        }
-        else if (next === "static")
-          set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
-      }}
-    >
-      {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}
-    </Form.Field>
-  );
-};
+export interface SelectVariantFieldProps {
+  onSelectState: (state: string) => void;
+}
+
+export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) => (
+  <Form.Field<string>
+    path="data.variant"
+    showLabel={false}
+    onChange={(next, { get, set }) => {
+      const prev = get("data.variant").value;
+      if (prev === next) return;
+      const prevStates = get<schematic.symbol.State[]>("data.states").value;
+      if (next === "actuator") {
+        const baseState = prevStates.find((s) => s.key === "base");
+        const baseRegions = baseState?.regions ?? [];
+        set("data.states", [
+          ...prevStates,
+          {
+            key: "active",
+            name: "Active",
+            regions: [...baseRegions],
+          },
+        ]);
+      } else if (next === "static") {
+        onSelectState("base");
+        set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
+      }
+    }}
+  >
+    {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}
+  </Form.Field>
+);

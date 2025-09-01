@@ -17,17 +17,12 @@ import { useCallback } from "react";
 import { Export } from "@/export";
 import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
-import { type ExportedSymbol, type GroupManifest } from "@/schematic/symbols/types";
+import { type GroupManifest } from "@/schematic/symbols/types";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const symbol = await client.workspaces.schematic.symbols.retrieve({ key });
-  const exportData: ExportedSymbol = {
-    version: 1,
-    type: "symbol",
-    symbol,
-  };
-  return { data: JSON.stringify(exportData), name: symbol.name };
+  return { data: JSON.stringify(symbol), name: symbol.name };
 };
 
 export const useExport = () => Export.use(extract, "symbol");
@@ -101,17 +96,7 @@ const exportGroup = async ({
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
         const fileName = `${symbol.name.replace(/[^a-z0-9]/gi, "_")}_${symbol.key.slice(0, 8)}.json`;
-
-        const exportedSymbol: ExportedSymbol = {
-          version: 1,
-          type: "symbol",
-          symbol,
-        };
-
-        await writeTextFile(
-          await join(savePath, fileName),
-          JSON.stringify(exportedSymbol),
-        );
+        await writeTextFile(await join(savePath, fileName), JSON.stringify(symbol));
 
         return {
           file: fileName,

@@ -159,6 +159,7 @@ export const formSchema = schematic.symbol.symbolZ
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStore>({
   name: "SchematicSymbols",
   initialValues: {
+    version: 1,
     name: "",
     data: {
       svg: "",
@@ -182,6 +183,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
       parent = parents[0].id;
     }
     reset({
+      version: 1,
       name: symbol.name,
       data: symbol.data,
       key: symbol.key,

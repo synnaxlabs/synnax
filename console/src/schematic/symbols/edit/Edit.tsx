@@ -70,7 +70,6 @@ export const createEditLayout = (
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 
 const DEFAULT_REGION_KEY = "default";
-const DEFAULT_REGION_NAME = "Default";
 
 export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const params = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
@@ -90,6 +89,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
     params,
     onHasTouched: handleUnsavedChanges,
     initialValues: {
+      version: 1,
       name: "",
       parent: ontology.ROOT_ID,
       data: {
@@ -102,16 +102,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
           {
             key: "base",
             name: "Base",
-            regions: [
-              {
-                key: DEFAULT_REGION_KEY,
-                name: DEFAULT_REGION_NAME,
-                selectors: [],
-                strokeColor: color.hex(theme.colors.gray.l10),
-                fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
-              },
-            ],
-            color: "#000000",
+            regions: [],
           },
         ],
         scale: 1,
@@ -228,7 +219,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box style={{ padding: "0 2rem" }}>
-                    <SelectVariantField />
+                    <SelectVariantField onSelectState={setSelectedState} />
                     <StateList value={selectedState} onChange={setSelectedState} />
                   </Flex.Box>
                 </Flex.Box>

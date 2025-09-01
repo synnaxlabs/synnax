@@ -229,7 +229,7 @@ export const useFieldList = <
   Z extends z.ZodType = z.ZodType,
 >(
   path: string,
-  opts: ContextOptions<Z> = {},
+  opts: ContextOptions<Z> & GetOptions<E[]> = {},
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);

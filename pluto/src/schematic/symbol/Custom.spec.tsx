@@ -23,7 +23,6 @@ describe("useCustom", () => {
       {
         key: "inactive",
         name: "Inactive",
-        color: "#gray",
         regions: [
           {
             key: "main",
@@ -37,7 +36,6 @@ describe("useCustom", () => {
       {
         key: "active",
         name: "Active",
-        color: "#green",
         regions: [
           {
             key: "main",
@@ -284,7 +282,6 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [
               {
                 key: "all",
@@ -297,7 +294,6 @@ describe("useCustom", () => {
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [
               {
                 key: "all",
@@ -710,7 +706,6 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [
               {
                 key: "main",
@@ -722,7 +717,6 @@ describe("useCustom", () => {
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [
               {
                 key: "main",
@@ -756,7 +750,6 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [
               {
                 key: "nonexistent",
@@ -769,7 +762,6 @@ describe("useCustom", () => {
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [
               {
                 key: "nonexistent",
@@ -819,13 +811,11 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [],
           },
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [],
           },
         ],
@@ -854,7 +844,6 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [
               {
                 key: "main",
@@ -867,7 +856,6 @@ describe("useCustom", () => {
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [
               {
                 key: "main",
@@ -915,7 +903,6 @@ describe("useCustom", () => {
           {
             key: "inactive",
             name: "Inactive",
-            color: "#gray",
             regions: [
               {
                 key: "main",
@@ -930,7 +917,6 @@ describe("useCustom", () => {
           {
             key: "active",
             name: "Active",
-            color: "#green",
             regions: [
               {
                 key: "both",
@@ -990,7 +976,6 @@ describe("useCustom", () => {
           {
             key: "state1",
             name: "State 1",
-            color: "#gray",
             regions: [
               {
                 key: "main",
@@ -1003,7 +988,6 @@ describe("useCustom", () => {
           {
             key: "state2",
             name: "State 2",
-            color: "#green",
             regions: [
               {
                 key: "main",

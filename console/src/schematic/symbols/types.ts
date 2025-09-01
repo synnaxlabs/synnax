@@ -7,16 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export const exportedSymbolZ = z.object({
-  version: z.literal(1),
-  type: z.literal("symbol"),
-  symbol: schematic.symbol.symbolZ,
-});
-
-export interface ExportedSymbol extends z.infer<typeof exportedSymbolZ> {}
+export interface ExportedSymbol extends schematic.symbol.Symbol {}
 
 const manifestZ = z.object({
   file: z.string(),
