@@ -720,7 +720,7 @@ class TestCase(ABC):
                 pass
             else:
                 self.STATUS = STATUS.FAILED
-                self._log_message(f"EXCEPTION: {e}")
+                self._log_message(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
             self._check_expectation()
             self._stop_client()
