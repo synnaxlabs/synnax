@@ -281,12 +281,20 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: pnpm build
 
+      - name: Rename Console Executable
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        shell: cmd
+        run: |
+          if exist console\src-tauri\target\release\app.exe (
+            ren console\src-tauri\target\release\app.exe synnax-console.exe
+          )
+
       - name: Upload Console Executable as Artifact
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: synnax-console-windows
-          path: console/src-tauri/target/release/app.exe
+          path: console/src-tauri/target/release/synnax-console.exe
           retention-days: 7
 
       - name: Build Driver (Windows)

@@ -169,6 +169,14 @@ if "%SKIP_BUILD%"=="true" (
             exit /b 1
         )
         
+        echo "Downloading synnax-console-windows artifact..."
+        "%gh_cmd%" run download %REF_RUN_ID% --name synnax-console-windows --dir .\binaries --repo synnaxlabs/synnax
+        if %errorlevel% neq 0 (
+            echo ❌ Error: Failed to download synnax-console-windows artifact
+            echo ❌ Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
+            exit /b 1
+        )
+        
     ) else (
         echo ❌ Error: SKIP_BUILD is true but no REF_RUN_ID provided
         exit /b 1
@@ -197,6 +205,14 @@ if "%SKIP_BUILD%"=="true" (
         exit /b 1
     )
     
+    echo "Downloading synnax-console-windows artifact from current run..."
+    "%gh_cmd%" run download --name synnax-console-windows --dir .\binaries --repo synnaxlabs/synnax
+    if %errorlevel% neq 0 (
+        echo ❌ Error: Failed to download synnax-console-windows artifact from current run
+        echo ❌ Debug: gh_cmd=%gh_cmd%
+        exit /b 1
+    )
+    
     echo ✅ Current run artifacts downloaded successfully
 )
 
@@ -205,6 +221,7 @@ echo 📦 Setting up binaries...
 if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
 copy /Y ".\binaries\driver.exe" "%USERPROFILE%\Desktop\synnax-driver.exe"
 for %%f in (.\binaries\synnax-*-windows.exe) do copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
+copy /Y ".\binaries\synnax-console.exe" "%USERPROFILE%\Desktop\synnax-console.exe"
 
 dir "%USERPROFILE%\Desktop\synnax*"
 
