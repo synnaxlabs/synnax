@@ -250,8 +250,8 @@ describe("line", () => {
       expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 60 }],
     };
 
-    const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT: Spec = {
-      name: "align multiple less than 1 misalignment",
+    const ALIGNMENT_MULTIPLE_4_MISALIGNMENT: Spec = {
+      name: "align multiple 4 misalignment",
       x: [
         {
           timeRange: { start: 0, end: 100 },
@@ -266,7 +266,7 @@ describe("line", () => {
           alignmentMultiple: 4n,
         },
       ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 20, count: 60 }],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 5, count: 60 }],
     };
 
     const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL: Spec = {
@@ -290,10 +290,41 @@ describe("line", () => {
           xSeries: 0,
           ySeries: 0,
           xOffset: 0,
-          yOffset: 13,
+          yOffset: 1,
           count: 67,
         },
       ],
+    };
+
+    const REGRESSION_1: Spec = {
+      name: "no alignment no overlap",
+      x: [
+        {
+          timeRange: {
+            start: 1756835746434000000n,
+            end: 1756835776214375534n,
+          },
+          alignmentBounds: {
+            lower: 81604381164n,
+            upper: 81604381314n,
+          },
+          alignmentMultiple: 3n,
+        },
+      ],
+      y: [
+        {
+          timeRange: {
+            start: 1756835767973000000n,
+            end: 1756835797172750864n,
+          },
+          alignmentBounds: {
+            lower: 81604381272n,
+            upper: 81604381419n,
+          },
+          alignmentMultiple: 3n,
+        },
+      ],
+      expected: [{ count: 114, xSeries: 0, ySeries: 0, xOffset: 36, yOffset: 0 }],
     };
 
     const SPECS: Spec[] = [
@@ -305,8 +336,9 @@ describe("line", () => {
       MULTIPLE_PARTIAL_OVERLAPS,
       ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP,
       ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT,
-      ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT,
+      ALIGNMENT_MULTIPLE_4_MISALIGNMENT,
       ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL,
+      REGRESSION_1,
     ];
 
     SPECS.forEach(({ name, x, y, expected }) => {

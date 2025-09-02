@@ -17,6 +17,7 @@ import {
   DataType,
   type Destructor,
   type direction,
+  math,
   type MultiSeries,
   type scale,
   type Series,
@@ -474,25 +475,27 @@ export const buildDrawOperations = (
   xSeries.series.forEach((x) =>
     ySeries.series.forEach((y) => {
       if (!seriesOverlap(x, y, overlapThreshold)) return;
-      let xOffset = 0;
-      let yOffset = 0;
+      let xAlignmentOffset = 0n;
+      let yAlignmentOffset = 0n;
       // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
+      if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
       // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
+      else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
       // The total number of alignment steps that are common to the two series.
-      const alignmentCount = Math.min(
-        Number(bounds.span(x.alignmentBounds)) - xOffset,
-        Number(bounds.span(y.alignmentBounds)) - yOffset,
+      const alignmentCount = math.min(
+        bounds.span(x.alignmentBounds) - xAlignmentOffset,
+        bounds.span(y.alignmentBounds) - yAlignmentOffset,
       );
-      if (alignmentCount === 0) return;
+      if (alignmentCount === 0n) return;
       let downsample = clamp(
-        Math.round(exposure * 4 * alignmentCount),
+        Math.round(exposure * 4 * Number(alignmentCount)),
         userSpecifiedDownSampling,
         51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
-      const count = alignmentCount / Number(x.alignmentMultiple);
+      const count = Number(alignmentCount / x.alignmentMultiple);
+      const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
+      const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
       ops.push({ x, y, xOffset, yOffset, count, downsample });
     }),
   );
