@@ -91,7 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -150,7 +150,7 @@ jobs:
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-15" ]; then
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
@@ -171,7 +171,7 @@ jobs:
           fi
 
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -185,7 +185,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: Sign macOS Driver Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         run: |
           # Create entitlements file to disable library validation for LabJack support
           cat > driver-entitlements.plist << 'EOF'
@@ -308,7 +308,7 @@ jobs:
           go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         working-directory: core
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
