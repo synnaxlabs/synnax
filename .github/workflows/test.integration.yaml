@@ -40,7 +40,6 @@ jobs:
     runs-on:
       - self-hosted
       - Linux
-    needs: setup
     if: false
     steps:
       - name: Checkout Repository
@@ -55,7 +54,6 @@ jobs:
     runs-on:
       - self-hosted
       - Linux
-    needs: setup
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -68,7 +66,6 @@ jobs:
     runs-on:
       - self-hosted
       - windows
-    needs: setup
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -82,7 +79,6 @@ jobs:
     runs-on:
       - self-hosted
       - macos
-    needs: setup
     if: false
     steps:
       - name: Checkout Repository
@@ -95,7 +91,7 @@ jobs:
     name: Build Synnax (Ubuntu-22.04)
     timeout-minutes: 60
     runs-on: ubuntu-22.04
-    needs: setup
+    needs: [setup, confirm-host-ubuntu-22-04]
     if: false
     steps:
       - name: Checkout Repository
