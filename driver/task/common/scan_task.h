@@ -274,18 +274,18 @@ public:
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
-        
+
         xerrors::Error last_err = xerrors::NIL;
-        for (auto &device : to_create) {
+        for (auto &device: to_create) {
             std::vector<synnax::Device> single_device = {device};
             if (const auto err = this->client->create_devices(single_device)) {
-                LOG(WARNING) << "[scan_task] failed to create device " << device.key 
-                           << ": " << err.message();
+                LOG(WARNING) << "[scan_task] failed to create device " << device.key
+                             << ": " << err.message();
                 last_err = err;
             } else {
                 LOG(INFO) << "[scan_task] successfully created device " << device.key;
             }
-         }
+        }
         return last_err;
     }
 

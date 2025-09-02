@@ -49,13 +49,13 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
                 NISysCfgResourcePropertySerialNumber,
                 property_value_buf
             )) {
-            LOG(WARNING) << "Physical device missing serial number, skipping: " << err.message();
+            LOG(WARNING) << "Physical device missing serial number, skipping: "
+                         << err.message();
             return {Device(), SKIP_DEVICE_ERR};
         }
         dev.key = property_value_buf;
         VLOG(1) << "Physical device serial number: " << dev.key;
-    }
-    else {
+    } else {
         VLOG(1) << "Simulated device detected";
     }
 
@@ -77,7 +77,8 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             0,
             property_value_buf
         )) {
-        LOG(WARNING) << "Device missing user alias, using empty location: " << err.message();
+        LOG(WARNING) << "Device missing user alias, using empty location: "
+                     << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.location = property_value_buf;
@@ -110,10 +111,12 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     auto err = xerrors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << "Device ignored by filter: " << dev.key << " (model: " << dev.model << ")";
+        LOG(WARNING) << "Device ignored by filter: " << dev.key
+                     << " (model: " << dev.model << ")";
         err = SKIP_DEVICE_ERR;
     } else {
-        LOG(INFO) << "Device validated successfully: " << dev.key << " (model: " << dev.model << ")";
+        LOG(INFO) << "Device validated successfully: " << dev.key
+                  << " (model: " << dev.model << ")";
     }
     return {dev, err};
 }
@@ -201,5 +204,4 @@ xerrors::Error ni::Scanner::start() {
         ))
         return err;
     return xerrors::NIL;
-
 }
