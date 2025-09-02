@@ -179,8 +179,8 @@ export const wrapForm = <
           if (!confirmed) return false;
           await client.hardware.tasks.delete(taskKey);
         }
-        if ("channels" in (newConfig as { channels: any }))
-          form.set("config.channels", (newConfig as { channels: any }).channels);
+        form.set("rackKey", rackKey);
+        form.set("config", newConfig);
         return true;
       },
       afterSave: ({ client, ...form }) => {
