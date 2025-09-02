@@ -250,7 +250,7 @@ describe("line", () => {
       expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 60 }],
     };
 
-    const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT: Spec = {
+    const ALIGNMENT_MULTIPLE_4_MISALIGNMENT: Spec = {
       name: "align multiple 4 misalignment",
       x: [
         {
@@ -336,7 +336,7 @@ describe("line", () => {
       MULTIPLE_PARTIAL_OVERLAPS,
       ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP,
       ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT,
-      ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT,
+      ALIGNMENT_MULTIPLE_4_MISALIGNMENT,
       ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL,
       REGRESSION_1,
     ];
