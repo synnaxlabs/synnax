@@ -8,8 +8,8 @@ on:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: '17309620670'
+  SKIP_BUILD: true
+  REF_RUN_ID: '17309620670' # 17410837642
 
 jobs:
   setup:
@@ -473,10 +473,28 @@ jobs:
           cd integration\test\py
           poetry run playwright install --with-deps
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
       - name: Start Synnax Server
         timeout-minutes: 1
         shell: powershell
         run: scripts/integration/start-synnax-server-windows.ps1
+
+      - name: Start Console Dev Server
+        shell: powershell
+        run: |
+          cd console
+          Start-Process powershell -ArgumentList "-Command", "pnpm dev-vite" -WindowStyle Hidden
 
       - name: Test Conductor
         id: test-conductor
