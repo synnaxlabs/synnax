@@ -455,7 +455,13 @@ const GroupListContextMenu = ({
     params: { key: item?.key ?? "" },
     beforeUpdate: async ({ value }) => {
       if (item == null) return false;
-      const newName = await renameModal({ initialValue: value });
+      const newName = await renameModal(
+        { initialValue: value, allowEmpty: false, label: "Gorup Name" },
+        {
+          name: "Schematic.Symbols.Rename Group",
+          icon: "Group",
+        },
+      );
       if (newName == null) return false;
       return newName;
     },
