@@ -597,7 +597,10 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
   const addElement = useAddSymbol(dispatch, layoutKey);
-  const handleAddElement = useCallback((key: string) => addElement(key), [addElement]);
+  const handleAddElement = useCallback(
+    (key: string) => addElement(key, undefined, { specKey: key }),
+    [addElement],
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const symbolGroup = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
