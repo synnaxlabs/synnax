@@ -222,7 +222,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <Label.SelectMultiple
               zIndex={100}
               variant="floating"
-              location="bottom"
               style={{ width: "fit-content" }}
               value={value}
               onChange={onChange}

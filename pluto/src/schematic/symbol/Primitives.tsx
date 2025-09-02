@@ -449,6 +449,7 @@ export const SolenoidValve = ({
       normallyOpen && CSS.M("normally-open"),
       className,
     )}
+    orientation={orientation}
     {...rest}
   >
     <HandleBoundary orientation={orientation}>
