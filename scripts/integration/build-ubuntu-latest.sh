@@ -28,12 +28,12 @@ bazel build --enable_platform_specific_config -c opt --config=hide_symbols --ann
 
 # Move Driver to Assets
 echo "Moving driver to assets..."
-mkdir -p synnax/pkg/service/hardware/embedded/assets
-cp bazel-bin/driver/driver synnax/pkg/service/hardware/embedded/assets/driver
+mkdir -p core/pkg/service/hardware/embedded/assets
+cp bazel-bin/driver/driver core/pkg/service/hardware/embedded/assets/driver
 
 # Get Version
 echo "Getting version..."
-cd synnax
+cd core
 VERSION=$(cat pkg/version/VERSION)
 echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 echo "Building version: $VERSION"
@@ -49,10 +49,10 @@ cd ..
 
 # Test Binary Execution
 echo "Testing binary execution..."
-./synnax/synnax-v${VERSION}-linux version || echo "WARNING: Server binary check failed"
+./core/synnax-v${VERSION}-linux version || echo "WARNING: Server binary check failed"
 bazel-bin/driver/driver --help || echo "WARNING: Driver binary check failed"
 
 echo "Ubuntu Latest build completed successfully!"
 echo "Built artifacts:"
 echo "  - Driver: bazel-bin/driver/driver"
-echo "  - Server: synnax/synnax-v${VERSION}-linux"
+echo "  - Server: core/synnax-v${VERSION}-linux"
