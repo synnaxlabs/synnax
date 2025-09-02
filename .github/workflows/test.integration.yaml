@@ -35,6 +35,62 @@ jobs:
             echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
           fi
 
+  confirm-host-ubuntu-22-04:
+    name: Confirm Host (Ubuntu-22.04)
+    runs-on:
+      - self-hosted
+      - Linux
+    needs: setup
+    if: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Confirm Host
+        run: scripts/integration/confirm-host-unix.sh
+
+
+  confirm-host-ubuntu-latest:
+    name: Confirm Host (Ubuntu-Latest)
+    runs-on:
+      - self-hosted
+      - Linux
+    needs: setup
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Confirm Host
+        run: scripts/integration/confirm-host-unix.sh
+
+  confirm-host-windows-latest:
+    name: Confirm Host (Windows)
+    runs-on:
+      - self-hosted
+      - windows
+    needs: setup
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Confirm Host
+        shell: cmd
+        run: scripts/integration/confirm-host-windows.cmd
+
+  confirm-host-macos-latest:
+    name: Confirm Hosts (macOS)
+    runs-on:
+      - self-hosted
+      - macos
+    needs: setup
+    if: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Confirm Host
+        run: scripts/integration/confirm-host-unix.sh
+
   build-ubuntu-22-04:
     name: Build Synnax (Ubuntu-22.04)
     timeout-minutes: 60
@@ -89,7 +145,7 @@ jobs:
     name: Build Synnax (ubuntu-latest)
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, confirm-host-ubuntu-latest]
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -147,7 +203,7 @@ jobs:
     name: Build Synnax (windows-latest)
     timeout-minutes: 60
     runs-on: windows-latest
-    needs: setup
+    needs: [setup, confirm-host-windows-latest]
     steps:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -246,7 +302,7 @@ jobs:
     name: Build Synnax (macos-latest)
     timeout-minutes: 60
     runs-on: macos-latest
-    needs: setup
+    needs: [setup, confirm-host-macos-latest]
     if: false
     steps:
       - name: Checkout Repository
