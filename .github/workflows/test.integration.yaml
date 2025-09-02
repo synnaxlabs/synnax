@@ -1,15 +1,17 @@
 name: Test - Integration
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - sy-2780-implement-e2e-testing-for-console
   workflow_dispatch:
 
 env:
   CACHE_SCOPE: deploy-synnax
   SKIP_BUILD: false
-  REF_RUN_ID: "0000000000"
+  REF_RUN_ID: "17309620670" # 17410837642
+
+  
 
 jobs:
   setup:
@@ -66,7 +68,7 @@ jobs:
     name: Confirm Host (windows-latest)
     runs-on:
       - self-hosted
-      - windows-latest
+      - windows
     needs: setup
     steps:
       - name: Checkout Repository
@@ -233,6 +235,32 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
+      - name: Set up pnpm
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Node Dependencies
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: pnpm install
+
+      - name: Build Console Web Assets
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: pnpm build:console-vite
+
+      - name: Copy Console Assets to Server
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        shell: cmd
+        run: |
+          if not exist core\pkg\service\console\dist mkdir core\pkg\service\console\dist
+          xcopy /E /I /Y console\dist\* core\pkg\service\console\dist\
+
       - name: Build Driver (Windows)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run:
@@ -264,7 +292,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: core
         run:
-          go build -tags driver -o synnax-v${{
+          go build -tags driver,console -o synnax-v${{
           steps.version.outputs.VERSION}}-windows.exe
 
       - name: Test Binary Execution
@@ -292,7 +320,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-server-windows
+          name: synnax-core-console-windows
           path: core/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
           retention-days: 7
 
@@ -367,7 +395,7 @@ jobs:
     timeout-minutes: 1
     runs-on:
       - self-hosted
-      - windows-latest
+      - windows
     needs: [build-windows-latest]
     steps:
       - name: Checkout Repository
@@ -385,7 +413,7 @@ jobs:
     name: Deploy and Test (windows)
     runs-on:
       - self-hosted
-      - windows-latest
+      - windows
     needs: download-artifacts-windows
     steps:
       - name: Checkout Repository
