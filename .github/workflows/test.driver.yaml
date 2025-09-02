@@ -13,6 +13,7 @@ on:
       - cesium/**
       - client/cpp/**
       - core/**
+      - driver/**
       - freighter/cpp/**
       - freighter/go/**
       - go.work
@@ -20,6 +21,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check-clang-format.sh
+      - vendor/**
       - x/cpp/**
       - x/go/**
   push:
