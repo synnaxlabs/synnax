@@ -82,7 +82,7 @@ export const ConnectionBadge = (): ReactElement => {
   return (
     <>
       {serving != null && <RemoteVersionUpdater />}
-      <ConnectionStatusBadge state={state} />;
+      <ConnectionStatusBadge state={state} />
     </>
   );
 };
