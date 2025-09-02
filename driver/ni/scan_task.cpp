@@ -183,22 +183,22 @@ xerrors::Error ni::Scanner::start() {
         ))
         return err;
     if (const auto err = this->syscfg->SetFilterProperty(
-           this->filter,
+            this->filter,
             NISysCfgFilterPropertyIsPresent,
             NISysCfgIsPresentTypePresent
-         ))
+        ))
         return err;
     if (const auto err = this->syscfg->SetFilterProperty(
             this->filter,
             NISysCfgFilterPropertyIsChassis,
-             NISysCfgBoolFalse
-       ))
+            NISysCfgBoolFalse
+        ))
         return err;
     if (const auto err = this->syscfg->SetFilterProperty(
             this->filter,
             NISysCfgFilterPropertyIsNIProduct,
             NISysCfgBoolTrue
-       ))
+        ))
         return err;
     return xerrors::NIL;
 
