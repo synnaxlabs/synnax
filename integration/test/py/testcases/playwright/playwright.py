@@ -41,9 +41,9 @@ class Playwright(TestCase):
         self.page.wait_for_load_state('networkidle')
 
         # Toggle theme
-        time.sleep(0.1)
+        time.sleep(0.5)
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        time.sleep(0.1)
+        time.sleep(0.5)
         self.page.wait_for_selector("#toggle-theme", timeout=5000)
         self.page.locator("#toggle-theme").click()
 
