@@ -8,8 +8,8 @@ on:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: "17309620670" # 17410837642
+  SKIP_BUILD: true
+  REF_RUN_ID: "17414295186"
 
   
 
@@ -45,9 +45,6 @@ jobs:
     needs: setup
     if: false
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Confirm Host
         run: scripts/integration/confirm-host-unix.sh
 
@@ -58,9 +55,6 @@ jobs:
       - ubuntu-latest
     needs: setup
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Confirm Host
         run: scripts/integration/confirm-host-unix.sh
 
@@ -71,9 +65,6 @@ jobs:
       - windows
     needs: setup
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Confirm Host
         shell: cmd
         run: scripts/integration/confirm-host-windows.cmd
@@ -86,9 +77,6 @@ jobs:
     needs: setup
     if: false
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Confirm Host
         run: scripts/integration/confirm-host-unix.sh
 
