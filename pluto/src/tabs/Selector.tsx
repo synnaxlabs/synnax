@@ -152,10 +152,11 @@ const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement =
   return closeIcon;
 };
 
+const TABS_SELECTOR_BUTTON_CLASS = CSS.BE("tabs-selector", "btn");
+
 const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
-  const b = box.construct(
-    (e.target as HTMLElement).closest(".pluto-tabs-selector__btn"),
-  );
+  if (!(e.target instanceof HTMLElement)) return "right";
+  const b = box.construct(e.target.closest(`.${TABS_SELECTOR_BUTTON_CLASS}`));
   const cursor = xy.construct(e);
   const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
   if (s < 0.5) return "left";
@@ -247,6 +248,7 @@ const SelectorButton = ({
       sharp
       className={CSS(
         Menu.CONTEXT_TARGET,
+        TABS_SELECTOR_BUTTON_CLASS,
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
         CSS.altColor(altColor),
