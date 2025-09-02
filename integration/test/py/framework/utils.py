@@ -195,7 +195,7 @@ def get_synnax_version():
     """Get the current Synnax version from the VERSION file."""
     try:
         # Try to read from the VERSION file in the synnax package
-        version_file = "../../../synnax/pkg/version/VERSION"
+        version_file = "../../../core/pkg/version/VERSION"
         with open(version_file, "r") as f:
             version = f.read().strip()
             return version

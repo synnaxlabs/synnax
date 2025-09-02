@@ -21,12 +21,12 @@ bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt -
 
 rem Move Driver to Assets
 echo Moving driver to assets...
-if not exist synnax\pkg\service\hardware\embedded\assets mkdir synnax\pkg\service\hardware\embedded\assets
-copy bazel-bin\driver\driver.exe synnax\pkg\service\hardware\embedded\assets\driver.exe
+if not exist core\pkg\service\hardware\embedded\assets mkdir core\pkg\service\hardware\embedded\assets
+copy bazel-bin\driver\driver.exe core\pkg\service\hardware\embedded\assets\driver.exe
 
 rem Get Version
 echo 📋 Getting version...
-cd synnax
+cd core
 for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
 echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
 echo Building version: %VERSION%
@@ -43,10 +43,10 @@ cd ..
 rem Test Binary Execution
 echo Testing binary execution...
 echo Testing binary execution...
-synnax\synnax-v%VERSION%-windows.exe version || echo ⚠️ Server binary check failed
+core\synnax-v%VERSION%-windows.exe version || echo ⚠️ Server binary check failed
 bazel-bin\driver\driver.exe --help || echo ⚠️ Driver binary check failed
 
 echo ✅ Windows Latest build completed successfully!
 echo 📁 Built artifacts:
 echo   - Driver: bazel-bin\driver\driver.exe
-echo   - Server: synnax\synnax-v%VERSION%-windows.exe
+echo   - Server: core\synnax-v%VERSION%-windows.exe
