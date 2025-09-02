@@ -34,6 +34,7 @@ const stateListItem = Component.renderProp(StateListItem);
 
 export const StateList = ({ value, onChange }: StateListProps) => {
   const { data } = Form.useFieldList<string, schematic.symbol.State>("data.states");
+  if (data.length === 1) return null;
   return (
     <Select.Frame
       value={value}
