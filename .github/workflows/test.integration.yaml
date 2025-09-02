@@ -1,7 +1,7 @@
 name: Test - Integration
 
 on:
-  pull_request:
+  push:
     branches:
       - sy-2780-implement-e2e-testing-for-console
   workflow_dispatch:

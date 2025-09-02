@@ -22,7 +22,7 @@ mkdir -p $HOME/synnax-data
 
 # Start Synnax in background
 cd $HOME/synnax-data
-$HOME/synnax-binaries/synnax start -mi &
+$HOME/synnax-binaries/synnax start -mi --license-key "${LICENSE_KEY}" &
 
 # Wait for startup
 echo "Waiting for server startup..."

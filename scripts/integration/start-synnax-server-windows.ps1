@@ -25,7 +25,7 @@ Set-Location "$env:USERPROFILE\synnax-data"
 $synnaxPath = "$env:USERPROFILE\Desktop\synnax.exe"
 
 Write-Host "Starting Synnax server..."
-$process = Start-Process -FilePath $synnaxPath -ArgumentList "start", "-mi" -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
+$process = Start-Process -FilePath $synnaxPath -ArgumentList "start", "-mi", "--license-key", "$env:LICENSE_KEY" -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
 
 # Store the process ID for tracking
 $process.Id | Out-File -FilePath "$env:USERPROFILE\synnax-pid.txt" -Encoding ASCII
