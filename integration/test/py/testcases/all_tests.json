@@ -1,5 +1,19 @@
 [
   {
+    "sequence_name": "Playwright_Tests",
+    "tests": [
+      {
+        "case": "testcases/playwright/plot_simple"
+      },
+      {
+        "case": "testcases/playwright/schematic_edit_value"
+      },
+      {
+        "case": "testcases/playwright/tabs_open_close"
+      }
+    ]
+  },
+  {
     "sequence_name": "Async_ABC",
     "sequence_order": "asynchronous",
     "tests": [
@@ -59,20 +73,6 @@
       },
       {
         "case": "testcases/test_no_timeout"
-      }
-    ]
-  },
-  {
-    "sequence_name": "Playwright_Tests",
-    "tests": [
-      {
-        "case": "testcases/playwright/plot_simple"
-      },
-      {
-        "case": "testcases/playwright/schematic_edit_value"
-      },
-      {
-        "case": "testcases/playwright/tabs_open_close"
       }
     ]
   }

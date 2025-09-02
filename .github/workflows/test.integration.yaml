@@ -404,6 +404,12 @@ jobs:
         shell: cmd
         run: scripts/integration/install-poetry-deps-windows.cmd
 
+      - name: Install Playwright browsers
+        shell: cmd
+        run: |
+          cd integration\test\py
+          poetry run playwright install --with-deps
+
       - name: Start Synnax Server
         timeout-minutes: 1
         shell: powershell
@@ -479,6 +485,12 @@ jobs:
         run: echo "macOS Poetry installation disabled - hardware not available"
         # run: scripts/integration/install-poetry-deps-unix.sh
 
+      - name: Install Playwright browsers
+        run: echo "macOS Playwright installation disabled - hardware not available"
+        # run: |
+        #   cd integration/test/py
+        #   poetry run playwright install --with-deps
+
       - name: Start Synnax Server
         timeout-minutes: 1
         run: echo "macOS server startup disabled - hardware not available"
@@ -506,7 +518,7 @@ jobs:
         # run: scripts/integration/debug-test-environment-unix.sh
 
   download-artifacts-linux:
-    name: Download Artifacts (Linux)
+    name: Download Artifacts (Ubuntu-Latest)
     timeout-minutes: 1
     runs-on:
       - self-hosted
@@ -547,6 +559,11 @@ jobs:
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh
+
+      - name: Install Playwright browsers
+        run: |
+          cd integration/test/py
+          poetry run playwright install --with-deps
 
       - name: Start Synnax Server
         timeout-minutes: 1
