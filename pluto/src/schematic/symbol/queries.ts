@@ -97,16 +97,17 @@ export const useList = Flux.createList<
   retrieveCached: ({ params, store }) => {
     if (params.searchTerm != null && params.searchTerm.length > 0) return [];
     if (params.parent == null) return store.schematicSymbols.list();
-    const keys = store.relationships
-      .get((r) => matchSymbolRelationship(r, params.parent as ontology.ID))
-      .map((r) => r.to.key);
-    return store.schematicSymbols.get(keys);
+    const keys = store.relationships.get((r) =>
+      matchSymbolRelationship(r, params.parent as ontology.ID),
+    );
+    return store.schematicSymbols.get(keys.map((k) => k.to.key));
   },
   name: "Schematic Symbols",
   retrieve: async ({ client, store, params: { parent, ...rest } }) => {
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);
+      if (keys.length === 0) return [];
       const symbols = await client.workspaces.schematic.symbols.retrieve({
         ...rest,
         keys,
