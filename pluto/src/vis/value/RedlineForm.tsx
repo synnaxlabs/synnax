@@ -41,14 +41,12 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
         style={boundsStyle}
         label="Lower"
         path={`${path}.bounds.lower`}
-        defaultValue={0}
       />
       <Form.Field<color.Gradient>
         path={`${path}.gradient`}
         label="Gradient"
         align="start"
         padHelpText={false}
-        defaultValue={[]}
       >
         {({ value, onChange }) => (
           <Color.GradientPicker
@@ -83,7 +81,6 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
         style={boundsStyle}
         label="Upper"
         path={`${path}.bounds.upper`}
-        defaultValue={1}
       />
     </Flex.Box>
   );
