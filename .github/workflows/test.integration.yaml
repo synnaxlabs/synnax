@@ -1,15 +1,15 @@
 name: Test - Integration
 
 on:
-  push:
+  pull_request:
     branches:
-      - sy-2780-implement-e2e-testing-for-console
+      - main
   workflow_dispatch:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: true
-  REF_RUN_ID: "17309620670" # 17410837642
+  SKIP_BUILD: false
+  REF_RUN_ID: "0000000000"
 
 jobs:
   setup:
@@ -39,7 +39,7 @@ jobs:
     name: Confirm Host (Ubuntu-22.04)
     runs-on:
       - self-hosted
-      - Linux
+      - ubuntu-22.04
     needs: setup
     if: false
     steps:
@@ -49,12 +49,11 @@ jobs:
       - name: Confirm Host
         run: scripts/integration/confirm-host-unix.sh
 
-
   confirm-host-ubuntu-latest:
-    name: Confirm Host (Ubuntu-Latest)
+    name: Confirm Host (ubuntu-latest)
     runs-on:
       - self-hosted
-      - Linux
+      - ubuntu-latest
     needs: setup
     steps:
       - name: Checkout Repository
@@ -64,10 +63,10 @@ jobs:
         run: scripts/integration/confirm-host-unix.sh
 
   confirm-host-windows-latest:
-    name: Confirm Host (Windows)
+    name: Confirm Host (windows-latest)
     runs-on:
       - self-hosted
-      - windows
+      - windows-latest
     needs: setup
     steps:
       - name: Checkout Repository
@@ -78,10 +77,10 @@ jobs:
         run: scripts/integration/confirm-host-windows.cmd
 
   confirm-host-macos-latest:
-    name: Confirm Hosts (macOS)
+    name: Confirm Host (macos-latest)
     runs-on:
       - self-hosted
-      - macos
+      - macos-latest
     needs: setup
     if: false
     steps:
@@ -233,69 +232,6 @@ jobs:
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
-
-      - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Rust
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: rustup update
-
-      - name: Rust Cache
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: console/src-tauri -> target
-          shared-key: ${{ runner.os }}
-
-      - name: Turbo Cache
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
-        with:
-          path: .turbo-cache
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      - name: Install Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: pnpm install
-
-      - name: Build TypeScript
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: pnpm build:console-vite
-
-      - name: Build Console
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: console
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: pnpm build
-
-      - name: Rename Console Executable
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        shell: cmd
-        run: |
-          if exist console\src-tauri\target\release\app.exe (
-            ren console\src-tauri\target\release\app.exe synnax-console.exe
-          )
-
-      - name: Upload Console Executable as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: synnax-console-windows
-          path: console/src-tauri/target/release/synnax-console.exe
-          retention-days: 7
 
       - name: Build Driver (Windows)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -471,32 +407,14 @@ jobs:
         shell: cmd
         run: scripts/integration/install-poetry-deps-windows.cmd
 
-      - name: Install Playwright browsers
+      - name: Install Playwright
         shell: cmd
         run: scripts/integration/install-playwright-windows.cmd
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
 
       - name: Start Synnax Server
         timeout-minutes: 1
         shell: powershell
         run: scripts/integration/start-synnax-server-windows.ps1
-
-      - name: Start Console Dev Server
-        shell: powershell
-        run: |
-          cd console
-          Start-Process powershell -ArgumentList "-Command", "pnpm dev-vite" -WindowStyle Hidden
 
       - name: Test Conductor
         id: test-conductor
@@ -570,12 +488,6 @@ jobs:
         run: echo "macOS Poetry installation disabled - hardware not available"
         # run: scripts/integration/install-poetry-deps-unix.sh
 
-      - name: Install Playwright browsers
-        run: echo "macOS Playwright installation disabled - hardware not available"
-        # run: |
-        #   cd integration/test/py
-        #   poetry run playwright install --with-deps
-
       - name: Start Synnax Server
         timeout-minutes: 1
         run: echo "macOS server startup disabled - hardware not available"
@@ -602,7 +514,7 @@ jobs:
         run: echo "macOS debug disabled - hardware not available"
         # run: scripts/integration/debug-test-environment-unix.sh
 
-  download-artifacts-linux:
+  download-artifacts-ubuntu:
     name: Download Artifacts (Ubuntu-Latest)
     timeout-minutes: 1
     runs-on:
@@ -620,12 +532,12 @@ jobs:
           REF_RUN_ID: ${{ env.REF_RUN_ID }}
         run: scripts/integration/download-artifacts-linux.sh
 
-  deploy-and-test-linux:
-    name: Deploy and Test (linux)
+  deploy-and-test-ubuntu:
+    name: Deploy and Test (ubuntu)
     runs-on:
       - self-hosted
       - ubuntu-latest
-    needs: download-artifacts-linux
+    needs: download-artifacts-ubuntu
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -644,11 +556,6 @@ jobs:
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh
-
-      - name: Install Playwright browsers
-        run: |
-          cd integration/test/py
-          poetry run playwright install --with-deps
 
       - name: Start Synnax Server
         timeout-minutes: 1
