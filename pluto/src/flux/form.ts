@@ -159,6 +159,11 @@ export interface UseForm<FormParams extends Params, Z extends z.ZodType<state.St
   (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
 }
 
+const DEFAULT_SET_OPTIONS: Form.SetOptions = {
+  markTouched: false,
+  notifyOnChange: false,
+};
+
 /**
  * Creates a form query hook that combines data fetching, form management, and real-time updates.
  *
@@ -247,7 +252,7 @@ export const createForm =
     });
     const noNotifySet = useCallback(
       (path: string, value: unknown, options?: Form.SetOptions) =>
-        form.set(path, value, { ...options, notifyOnChange: false }),
+        form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
     const retrieveAsync = useCallback(

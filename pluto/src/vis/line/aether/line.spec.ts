@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds } from "@synnaxlabs/x/spatial";
+import { bounds } from "@synnaxlabs/x/spatial";
 import {
   type CrudeTimeRange,
   DataType,
@@ -25,6 +25,7 @@ describe("line", () => {
     interface SpecEntry {
       timeRange: CrudeTimeRange;
       alignmentBounds: bounds.Bounds<bigint>;
+      alignmentMultiple: bigint;
     }
 
     interface SpecExpected {
@@ -45,14 +46,13 @@ describe("line", () => {
     const buildSeriesFromEntries = (entries: SpecEntry[]): MultiSeries =>
       new MultiSeries(
         entries.map(
-          ({ alignmentBounds, timeRange }) =>
+          ({ alignmentBounds, timeRange, alignmentMultiple }) =>
             new Series({
-              data: new Float32Array(
-                Number(alignmentBounds.upper - alignmentBounds.lower),
-              ),
+              data: new Float32Array(Number(bounds.span(alignmentBounds))),
               dataType: DataType.FLOAT32,
               timeRange: new TimeRange(timeRange.start, timeRange.end),
               alignment: alignmentBounds.lower,
+              alignmentMultiple,
             }),
         ),
       );
@@ -63,20 +63,24 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 100, end: 200 },
           alignmentBounds: { lower: 100n, upper: 200n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 100, end: 200 },
           alignmentBounds: { lower: 100n, upper: 200n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [
@@ -91,16 +95,19 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 50 },
           alignmentBounds: { lower: 0n, upper: 50n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 50, end: 100 },
           alignmentBounds: { lower: 50n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [
@@ -115,12 +122,14 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 50, end: 150 },
           alignmentBounds: { lower: 50n, upper: 150n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
@@ -132,12 +141,14 @@ describe("line", () => {
         {
           timeRange: { start: 50, end: 100 },
           alignmentBounds: { lower: 50n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 200 },
           alignmentBounds: { lower: 0n, upper: 200n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 50, count: 50 }],
@@ -149,12 +160,14 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 200 },
           alignmentBounds: { lower: 0n, upper: 200n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 50, end: 100 },
           alignmentBounds: { lower: 50n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
@@ -166,24 +179,29 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 100, end: 150 },
           alignmentBounds: { lower: 100n, upper: 150n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 25, end: 75 },
           alignmentBounds: { lower: 25n, upper: 75n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 75, end: 125 },
           alignmentBounds: { lower: 75n, upper: 125n },
+          alignmentMultiple: 1n,
         },
         {
           timeRange: { start: 125, end: 175 },
           alignmentBounds: { lower: 125n, upper: 175n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [
@@ -200,15 +218,82 @@ describe("line", () => {
         {
           timeRange: { start: 0, end: 100 },
           alignmentBounds: { lower: 0n, upper: 100n },
+          alignmentMultiple: 1n,
         },
       ],
       y: [
         {
           timeRange: { start: 100, end: 150 },
           alignmentBounds: { lower: 50n, upper: 150n },
+          alignmentMultiple: 1n,
         },
       ],
       expected: [],
+    };
+
+    const ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT: Spec = {
+      name: "positive align multiple",
+      x: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 60n },
+          alignmentMultiple: 3n,
+        },
+      ],
+      y: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 60n },
+          alignmentMultiple: 3n,
+        },
+      ],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 60 }],
+    };
+
+    const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT: Spec = {
+      name: "align multiple less than 1 misalignment",
+      x: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 20n, upper: 80n },
+          alignmentMultiple: 4n,
+        },
+      ],
+      y: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 80n },
+          alignmentMultiple: 4n,
+        },
+      ],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 20, count: 60 }],
+    };
+
+    const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL: Spec = {
+      name: "align multiple less than 1 misalignment bad interval",
+      x: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 13n, upper: 80n },
+          alignmentMultiple: 7n,
+        },
+      ],
+      y: [
+        {
+          timeRange: { start: 0, end: 100 },
+          alignmentBounds: { lower: 0n, upper: 80n },
+          alignmentMultiple: 7n,
+        },
+      ],
+      expected: [
+        {
+          xSeries: 0,
+          ySeries: 0,
+          xOffset: 0,
+          yOffset: 13,
+          count: 67,
+        },
+      ],
     };
 
     const SPECS: Spec[] = [
@@ -219,6 +304,9 @@ describe("line", () => {
       X_COMPLETELY_CONTAINS_Y,
       MULTIPLE_PARTIAL_OVERLAPS,
       ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP,
+      ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT,
+      ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT,
+      ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL,
     ];
 
     SPECS.forEach(({ name, x, y, expected }) => {
@@ -239,6 +327,7 @@ describe("line", () => {
           expect(drawOperation.y).toBe(ySeries.series[expected[i].ySeries]);
           expect(drawOperation.xOffset).toBe(expected[i].xOffset);
           expect(drawOperation.yOffset).toBe(expected[i].yOffset);
+          expect(drawOperation.count).toBe(expected[i].count);
         });
       });
     });

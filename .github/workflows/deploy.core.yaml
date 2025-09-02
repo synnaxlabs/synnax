@@ -45,14 +45,14 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/deploy.synnax.yaml
+              - .github/workflows/deploy.core.yaml
               - alamos/go/**
               - aspen/**
               - cesium/**
               - client/cpp/**
+              - core/**
               - driver/**
               - freighter/go/**
-              - synnax/**
               - x/cpp/**
               - x/go/**
               - WORKSPACE
@@ -341,7 +341,7 @@ jobs:
           Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
 
           # Prepare the binary for packaging
-          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer
           & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi

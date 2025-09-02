@@ -55,7 +55,11 @@ const Properties = () => (
 );
 
 const NameComponent = ({ channel, key }: DIChannel) => (
-  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
+  <Common.Task.ChannelName
+    channel={channel}
+    id={Common.Task.getChannelNameID(key)}
+    level="p"
+  />
 );
 
 const name = Component.renderProp(NameComponent);

@@ -57,7 +57,7 @@ const validateNodeIDs = ({
   });
 };
 
-const baseReadConfigZ = Common.Task.baseConfigZ.extend({
+const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
   channels: z
     .array(readChannelZ)
     .check(Common.Task.validateReadChannels)
@@ -100,7 +100,7 @@ const arraySamplingConfigZ = baseReadConfigZ
 export const readConfigZ = z.union([nonArraySamplingConfigZ, arraySamplingConfigZ]);
 export type ReadConfig = z.infer<typeof readConfigZ>;
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_READ_CONFIG,
   arrayMode: false,
   channels: [],
   sampleRate: 50,

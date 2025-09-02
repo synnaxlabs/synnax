@@ -16,7 +16,8 @@ import { Flux } from "@/flux";
 
 export const FLUX_STORE_KEY = "tasks";
 
-export interface FluxStore extends Flux.UnaryStore<task.Key, task.Task> {}
+export interface FluxStore
+  extends Flux.UnaryStore<task.Key, task.Task, ChangeVariant> {}
 
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -27,6 +28,8 @@ interface SubStore extends Flux.Store {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
+type ChangeVariant = "config" | "status";
+
 const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.keyZ,
@@ -34,6 +37,7 @@ const SET_LISTENER: Flux.ChannelListener<SubStore, typeof task.keyZ> = {
     store.tasks.set(
       key,
       await client.hardware.tasks.retrieve({ key, includeStatus: true }),
+      "config",
     ),
 };
 
@@ -52,10 +56,13 @@ const SET_STATUS_LISTENER: Flux.ChannelListener<SubStore, typeof unknownStatusZ>
     const hasTask = store.tasks.has(changed.details.task);
     if (!hasTask) {
       const task = await client.hardware.tasks.retrieve({ key: changed.details.task });
-      store.tasks.set(changed.details.task, task);
+      store.tasks.set(changed.details.task, task, "config");
     }
-    store.tasks.set(changed.details.task, (prev) =>
-      prev == null ? prev : client.hardware.tasks.sugar({ ...prev, status: changed }),
+    store.tasks.set(
+      changed.details.task,
+      (prev) =>
+        prev == null ? prev : client.hardware.tasks.sugar({ ...prev, status: changed }),
+      "status",
     );
   },
 };
@@ -64,18 +71,22 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<SubStore, typeof task.commandZ>
   channel: task.COMMAND_CHANNEL_NAME,
   schema: task.commandZ,
   onChange: ({ store, changed, client }) =>
-    store.tasks.set(changed.task, (prev) => {
-      if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-      return client.hardware.tasks.sugar({
-        ...prev,
-        status: {
-          ...prev.status,
-          variant: "loading",
-          message: `Running ${changed.type} command...`,
-          details: { task: changed.task, running: true, data: {} },
-        },
-      } as task.Task);
-    }),
+    store.tasks.set(
+      changed.task,
+      (prev) => {
+        if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+        return client.hardware.tasks.sugar({
+          ...prev,
+          status: {
+            ...prev.status,
+            variant: "loading",
+            message: `Running ${changed.type} command...`,
+            details: { task: changed.task, running: true, data: {} },
+          },
+        } as task.Task);
+      },
+      "status",
+    ),
 };
 
 export const useStatusSynchronizer = (
@@ -117,7 +128,7 @@ const retrieveByKey = async <
     includeStatus: true,
     schemas,
   });
-  store.tasks.set(params.key, task as unknown as task.Task);
+  store.tasks.set(params.key, task as unknown as task.Task, "config");
   return task;
 };
 
@@ -165,7 +176,7 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task, SubStore
       includeStatus: true,
       ...params,
     });
-    tasks.forEach((task) => store.tasks.set(task.key, task));
+    tasks.forEach((task) => store.tasks.set(task.key, task, "config"));
     return tasks;
   },
 
@@ -262,16 +273,13 @@ export const createForm = <
       initialValues: actualInitialValues,
       retrieve: async ({ client, store, params: { key }, reset }): Promise<void> => {
         if (key == null) return;
-        reset(
-          taskToFormValues(
-            await retrieveByKey<Type, Config, StatusData>(
-              client,
-              store,
-              { key },
-              schemas,
-            ),
-          ),
+        const task = await retrieveByKey<Type, Config, StatusData>(
+          client,
+          store,
+          { key },
+          schemas,
         );
+        reset(taskToFormValues(task.payload));
       },
       update: async ({ client, params, store, ...form }) => {
         const value = form.value();
@@ -282,11 +290,15 @@ export const createForm = <
           type: value.type,
           config: value.config,
         });
-        store.tasks.set(task.key, (p) => {
-          if (p == null) return p;
-          task.status = p.status;
-          return task;
-        });
+        store.tasks.set(
+          task.key,
+          (p) => {
+            if (p == null) return p;
+            task.status = p.status;
+            return task;
+          },
+          "config",
+        );
         const updatedValues = taskToFormValues<Type, Config, StatusData>(
           task.payload as task.Payload<Type, Config, StatusData>,
         );
@@ -297,13 +309,14 @@ export const createForm = <
         form.set("config", updatedValues.config);
         form.set("snapshot", updatedValues.snapshot);
       },
-      mountListeners: ({ store, get, reset }) => [
-        store.tasks.onSet((task) => {
+      mountListeners: ({ store, get, reset, set }) => [
+        store.tasks.onSet((task, variant) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || prevKey !== task.key) return;
-          reset(
-            taskToFormValues(task as unknown as task.Payload<Type, Config, StatusData>),
-          );
+          if (variant === "config") {
+            const payload = task.payload as task.Payload<Type, Config, StatusData>;
+            reset(taskToFormValues(payload));
+          } else if (variant === "status") set("status", task.status);
         }),
       ],
     },

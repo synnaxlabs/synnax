@@ -14,8 +14,12 @@
     justify-content: center;
     align-items: center;
     position: relative;
-    cursor: pointer;
+    cursor: pointer !important;
     padding: 0;
+
+    &:not(.pluto--disabled).pluto-btn--prevent-click input {
+        cursor: pointer;
+    }
 
     &:focus-within {
         .pluto-input__checkbox-indicator {

@@ -17,11 +17,9 @@ import {
   Ranger,
   Status,
   Text,
-  usePrevious,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { type NumericTimeRange } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
@@ -29,7 +27,6 @@ import { CSV } from "@/csv";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
-import { rename } from "@/layout/slice";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
 interface ParentRangeButtonProps {
@@ -71,9 +68,6 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const layoutName = Layout.useSelect(rangeKey)?.name;
-  const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
   const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
@@ -84,26 +78,23 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     },
     autoSave: true,
   });
+
+  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleError = Status.useErrorHandler();
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
-  useEffect(() => {
-    if (
-      prevLayoutName == layoutName ||
-      prevLayoutName == null ||
-      status.variant !== "success"
-    )
-      return;
-    form.set("name", layoutName);
-  }, [layoutName, status]);
-  useEffect(() => {
-    if (primitive.isNonZero(name)) dispatch(rename({ key: rangeKey, name }));
-  }, [name]);
+  const handleLayoutNameChange = useCallback(
+    (name: string) => {
+      if (status.variant !== "success") return;
+      form.set("name", name);
+    },
+    [form.set, status?.variant],
+  );
+  Layout.useSyncName(rangeKey, name, handleLayoutNameChange);
 
   const copy = useCopyToClipboard();
   const handleCopyPythonCode = () => {
@@ -222,7 +213,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <Label.SelectMultiple
               zIndex={100}
               variant="floating"
-              location="bottom"
               style={{ width: "fit-content" }}
               value={value}
               onChange={onChange}

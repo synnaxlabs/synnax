@@ -13,7 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -29,6 +32,12 @@ type Config struct {
 	// the Synnax resource graph.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Group is used to create and manage groups for symbols.
+	// [OPTIONAL]
+	Group *group.Service
+	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
+	// [OPTIONAL]
+	Signals *signals.Provider
 }
 
 var (
@@ -41,6 +50,8 @@ var (
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
@@ -53,7 +64,10 @@ func (c Config) Validate() error {
 }
 
 // Service is the primary service for retrieving and modifying schematics from Synnax.
-type Service struct{ Config }
+type Service struct {
+	Config
+	Symbol *symbol.Service
+}
 
 // NewService instantiates a new schematic service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
@@ -65,6 +79,16 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
+
+	if s.Symbol, err = symbol.NewService(ctx, symbol.Config{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+		Group:    cfg.Group,
+		Signals:  cfg.Signals,
+	}); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 

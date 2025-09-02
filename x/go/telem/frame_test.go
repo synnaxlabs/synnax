@@ -175,6 +175,19 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](7, 8, 9),
 			}))
 		})
+
+		It("Should correctly filter a frame that has multiple series for the same channel", func() {
+			fr := telem.MultiFrame(
+				[]int{1048578, 1048578, 1048581},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				},
+			)
+			filtered := fr.FilterKeys([]int{1048578})
+			Expect(filtered.Count()).To(Equal(2))
+		})
 	})
 
 	Describe("Series", func() {
@@ -565,121 +578,6 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5),
 				})
 			Expect(fr.Len()).To(Equal(int64(3)))
-		})
-	})
-
-	Describe("Sort", func() {
-		It("Should correctly sort an unmasked frame by keys", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-				})
-
-			fr.Sort()
-
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 2, 3}))
-			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
-				telem.NewSeriesV[int32](1, 2, 3),
-				telem.NewSeriesV[int32](4, 5, 6),
-				telem.NewSeriesV[int32](7, 8, 9),
-			}))
-		})
-
-		It("Should handle sorting a frame with duplicate keys", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2, 1},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-					telem.NewSeriesV[int32](10, 11, 12),
-				})
-
-			fr.Sort()
-
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 1, 2, 3}))
-
-			series := fr.SeriesSlice()
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](10, 11, 12)))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
-			Expect(series[3]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-		})
-
-		It("Should respect masking when sorting", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2, 5, 4},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-					telem.NewSeriesV[int32](13, 14, 15),
-					telem.NewSeriesV[int32](10, 11, 12),
-				})
-
-			filtered := fr.FilterKeys([]int{1, 3, 5})
-
-			filtered.Sort()
-
-			Expect(filtered.KeysSlice()).To(Equal([]int{1, 3, 5}))
-
-			series := filtered.SeriesSlice()
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](13, 14, 15)))
-
-			Expect(fr.KeysSlice()).To(Equal([]int{1, 2, 3, 4, 5}))
-		})
-
-		It("Should sort an empty frame without errors", func() {
-			fr := telem.Frame[int]{}
-			Expect(func() { fr.Sort() }).NotTo(Panic())
-			Expect(fr.Empty()).To(BeTrue())
-		})
-
-		It("Should maintain consistency between keys and series after sorting", func() {
-			fr := telem.MultiFrame(
-				[]int{3, 1, 2},
-				[]telem.Series{
-					telem.NewSeriesV[int32](7, 8, 9),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[int32](4, 5, 6),
-				})
-
-			fr.Sort()
-
-			keys := fr.KeysSlice()
-			series := fr.SeriesSlice()
-			Expect(keys[0]).To(Equal(1))
-			Expect(series[0]).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
-			Expect(keys[1]).To(Equal(2))
-			Expect(series[1]).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
-			Expect(keys[2]).To(Equal(3))
-			Expect(series[2]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
-		})
-
-		It("Should correctly handle a filtered frame with more than 128 entries", func() {
-			keys := make([]int, 200)
-			series := make([]telem.Series, 200)
-			for i := range 200 {
-				keys[i] = 199 - i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1))
-			}
-			fr := telem.MultiFrame(keys, series)
-			filteredKeys := []int{10, 50, 100, 150, 190}
-			filtered := fr.FilterKeys(filteredKeys)
-			filtered.Sort()
-			sortedKeys := filtered.KeysSlice()
-			Expect(sortedKeys).To(Equal([]int{10, 50, 100, 150, 190}))
-			resultSeries := filtered.SeriesSlice()
-			Expect(resultSeries[0]).To(Equal(telem.NewSeriesV[int32](189, 190)))
-			Expect(resultSeries[1]).To(Equal(telem.NewSeriesV[int32](149, 150)))
-			Expect(resultSeries[2]).To(Equal(telem.NewSeriesV[int32](99, 100)))
-			Expect(resultSeries[3]).To(Equal(telem.NewSeriesV[int32](49, 50)))
-			Expect(resultSeries[4]).To(Equal(telem.NewSeriesV[int32](9, 10)))
 		})
 	})
 

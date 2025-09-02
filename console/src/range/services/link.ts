@@ -19,5 +19,5 @@ export const handleLink: Link.Handler = async ({
   const range = await client.ranges.retrieve(key);
   dispatch(Range.add({ ranges: Range.fromClientRange(range) }));
   dispatch(Range.setActive(range.key));
-  placeLayout({ ...Range.OVERVIEW_LAYOUT, key });
+  placeLayout({ ...Range.OVERVIEW_LAYOUT, key, name: range.name });
 };
