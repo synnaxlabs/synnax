@@ -274,7 +274,6 @@ public:
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
-        // return this->client->create_devices(to_create);
         
         xerrors::Error last_err = xerrors::NIL;
         for (auto &device : to_create) {

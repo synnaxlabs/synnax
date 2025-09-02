@@ -39,13 +39,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {dev, err};
     dev.is_simulated = is_simulated;
-    LOG(INFO) << "Processing device resource: " << resource;
-    LOG(INFO) << "Device Key: " << dev.key;
-    LOG(INFO) << "Device Model: " << dev.model;
-    LOG(INFO) << "Device Rack: " << dev.rack;
+    VLOG(1) << "Processing device resource: " << resource;
+    VLOG(1) << "Device Rack: " << dev.rack;
 
     if (!is_simulated) {
-        LOG(INFO) << "Physical device detected";
+        VLOG(1) << "Physical device detected";
         if (const auto err = this->syscfg->GetResourceProperty(
                 resource,
                 NISysCfgResourcePropertySerialNumber,
@@ -55,10 +53,10 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             return {Device(), SKIP_DEVICE_ERR};
         }
         dev.key = property_value_buf;
-        LOG(INFO) << "Physical device serial number: " << dev.key;
+        VLOG(1) << "Physical device serial number: " << dev.key;
     }
     else {
-        LOG(INFO) << "Simulated device detected";
+        VLOG(1) << "Simulated device detected";
     }
 
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -93,7 +91,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         LOG(WARNING) << "Device missing resource name, skipping: " << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
-    LOG(INFO) << "Resource name: " << property_value_buf;
+    VLOG(1) << "Resource name: " << property_value_buf;
     dev.resource_name = property_value_buf;
     if (dev.resource_name.size() > 2)
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
