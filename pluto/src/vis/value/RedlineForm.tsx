@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
+import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;
 
@@ -26,7 +27,12 @@ const baseScale = scale.Scale.scale<number>(0, 1);
 
 export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const { set, get } = Form.useContext();
-  const bounds = Form.useFieldValue<bounds.Bounds>(`${path}.bounds`);
+  const { bounds } = Form.useFieldValue<Redline>(`${path}`, {
+    defaultValue: {
+      bounds: { ...ZERO_READLINE.bounds },
+      gradient: [...ZERO_READLINE.gradient],
+    },
+  });
   const scale = baseScale.scale(bounds);
   return (
     <Flex.Box x grow>
@@ -35,12 +41,14 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
         style={boundsStyle}
         label="Lower"
         path={`${path}.bounds.lower`}
+        defaultValue={0}
       />
       <Form.Field<color.Gradient>
         path={`${path}.gradient`}
         label="Gradient"
         align="start"
         padHelpText={false}
+        defaultValue={[]}
       >
         {({ value, onChange }) => (
           <Color.GradientPicker
@@ -75,6 +83,7 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
         style={boundsStyle}
         label="Upper"
         path={`${path}.bounds.upper`}
+        defaultValue={1}
       />
     </Flex.Box>
   );
