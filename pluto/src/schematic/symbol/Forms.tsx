@@ -915,7 +915,7 @@ export const TextBoxForm = (): ReactElement => {
                 <Button.Button
                   onClick={() => autoFit?.onChange(true)}
                   disabled={autoFit?.value === true}
-                  variant="text"
+                  variant="outlined"
                   style={{ borderLeft: "var(--pluto-border-l5)" }}
                   tooltip={
                     autoFit?.value === true
