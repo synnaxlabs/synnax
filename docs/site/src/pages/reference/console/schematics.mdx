@@ -317,7 +317,7 @@ toolbar, opening the context menu, and snapshotting the schematic to a range.
 
 <Divider.Divider x />
 
-## Loading a Schematic from a JSON File
+## Import a Schematic
 
 You can download a schematic as a JSON file so that it can be easily sent and loaded.
 
@@ -330,6 +330,8 @@ To import a schematic, you can drag and drop from your file system or right clic
 workspace name in the ontology menu:
 
 <Video client:only="react" id="console/schematics/upload" />
+
+<Divider.Divider x />
 
 ## Creating Custom Symbols
 
@@ -360,7 +362,7 @@ state is what the symbol looks like when it is not activated, meaning the channe
 it is connected to has a zero value. The active state is what the symbol looks like when
 it is activated, meaning the channel that it is connected to has a one value.
 
-#### Choosing Color Palettes
+### Choosing Color Palettes
 
 Each state state in an actuator has its own color palette, which can be used to change
 the colors of the symbol when it is activated.
@@ -379,3 +381,9 @@ choose a new color.
 
 To edit how an actuator will look when clicked, select the "active" tab under the states
 section, and edit the colors of the region.
+
+### Scaling the Symbol
+
+By default, Synnax uses the dimensions of the imported SVG to determin the default size
+of the symbol when it is added to a schematic. To change this scale, simply drag the
+slider or enter a new value in the properties field.
