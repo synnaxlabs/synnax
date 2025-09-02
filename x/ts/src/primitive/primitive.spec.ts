@@ -124,6 +124,15 @@ describe("primitive", () => {
         });
         expect(decoded.myDog).toBeInstanceOf(MyValueExtension);
       });
+
+      describe("isCrudeValueExtension", () => {
+        it("should return true for a CrudeValueExtension", () => {
+          expect(primitive.isCrudeValueExtension({ value: 12n })).toEqual(true);
+        });
+        it("should return false for a non-CrudeValueExtension", () => {
+          expect(primitive.isCrudeValueExtension(12n)).toEqual(false);
+        });
+      });
     });
   });
 });

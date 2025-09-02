@@ -19,6 +19,7 @@ import {
   List,
   Select,
   Text,
+  Tooltip,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 
@@ -105,8 +106,18 @@ export const RegionList = ({
         </Header.Title>
         <Header.Actions>
           <Text.Text level="p" color={7} gap={3}>
-            <Icon.StrokeColor />
-            <Icon.FillColor />
+            <Tooltip.Dialog>
+              <Text.Text level="small">Stroke Color</Text.Text>
+              <Flex.Box>
+                <Icon.StrokeColor />
+              </Flex.Box>
+            </Tooltip.Dialog>
+            <Tooltip.Dialog>
+              <Text.Text level="small">Fill Color</Text.Text>
+              <Flex.Box>
+                <Icon.FillColor />
+              </Flex.Box>
+            </Tooltip.Dialog>
           </Text.Text>
           <Button.Button onClick={onAddRegion} size="small" variant="outlined">
             <Icon.Add />

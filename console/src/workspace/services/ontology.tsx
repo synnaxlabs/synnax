@@ -376,6 +376,14 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(rename({ key: id.key, name: prevName })),
 };
 
+const VALID_CHILDREN: ontology.ResourceType[] = [
+  "schematic",
+  "lineplot",
+  "log",
+  "table",
+  "group",
+];
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "workspace",
@@ -384,4 +392,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename: () => true,
   onRename: handleRename,
   TreeContextMenu,
+  canDrop: ({ items }) =>
+    items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
 };

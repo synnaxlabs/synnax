@@ -52,7 +52,7 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
     <EmptyAction
-      message="No channels in task"
+      message="No channels in task."
       action="Add a channel"
       onClick={isSnapshot ? undefined : onAdd}
     />

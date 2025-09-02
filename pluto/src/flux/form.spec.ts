@@ -421,5 +421,60 @@ describe("useForm", () => {
         expect(result.current.variant).toEqual("success");
       });
     });
+
+    it("should not mark form fields as touched when setting them view the listener", async () => {
+      const label = await client.labels.create({
+        name: "Initial Name",
+        color: "#000000",
+      });
+
+      const initialValues = {
+        key: label.key.toString(),
+        name: "Initial Name",
+        age: 25,
+      };
+
+      const retrieve = async ({
+        reset,
+      }: Flux.FormRetrieveArgs<Params, typeof formSchema, SubStore>) =>
+        reset(initialValues);
+      const update = vi.fn();
+
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema, SubStore>({
+            initialValues: {
+              key: label.key.toString(),
+              name: "",
+              age: 0,
+            },
+            schema: formSchema,
+            name: "test",
+            retrieve,
+            update,
+            mountListeners: ({ store, set }) =>
+              store.labels.onSet((changed) => set("name", changed.name), label.key),
+          })({ params: { key: label.key } }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.form.value()).toEqual(initialValues);
+        expect(result.current.variant).toEqual("success");
+      });
+
+      await act(async () => {
+        await client.labels.create({
+          ...label,
+          name: "Updated Label Name",
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.form.value().name).toEqual("Updated Label Name");
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.form.get("name").touched).toBe(false);
+      });
+    });
   });
 });

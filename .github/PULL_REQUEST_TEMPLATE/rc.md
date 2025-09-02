@@ -226,6 +226,7 @@ I can successfully:
   - [ ] Rename a line plot from its tab title.
   - [ ] Export a line plot.
   - [ ] Copy a link to a line plot.
+  - [ ] Download a line plot as a CSV from the toolbar.
 - **Resources Toolbar**
   - [ ] Open a plot by selecting it.
   - [ ] Drag a plot onto the mosaic.
@@ -335,6 +336,8 @@ I can successfully:
   - [ ] Add child ranges.
   - [ ] Open snapshots.
   - [ ] Navigate to and from child ranges.
+  - [ ] Download a range as a CSV.
+  - [ ] Download multiple channels for a range as a CSV.
 - **Search and Command Palette**
   - [ ] Open an existing range layout window.
   - [ ] Open the "Create Range" dialog.
@@ -431,6 +434,36 @@ I can successfully:
   - Resources Toolbar
   - Visualization Toolbar
   - Range Details Overview
+
+### Schematic Symbols
+
+I can successfully:
+
+- [ ] Use custom symbols in a schematic.
+- [ ] Use custom symbols as actuators in a schematic.
+- **Symbol Editor**
+  - [ ] Create a new symbol.
+  - [ ] Rename a symbol.
+  - [ ] Add handles to a symbol.
+  - [ ] Add default scaling to a symbol.
+  - [ ] Select color and color regions for the symbol.
+  - [ ] Have multiple color regions for an actuator.
+- **Schematic Symbols Toolbar**
+  - [ ] Add a symbol to a symbol group.
+  - [ ] Import a symbol group.
+  - [ ] Import a symbol to a symbol group.
+  - [ ] Create a new symbol group.
+    - **Context Menu**
+      - [ ] Rename a symbol group.
+      - [ ] Delete a symbol group.
+      - [ ] Export a symbol group.
+      - [ ] Delete a symbol.
+      - [ ] Export a symbol.
+      - [ ] Edit a symbol.
+      - [ ] Rename a symbol.
+- **Search and Command Palette**
+  - [ ] Open the "Create Symbol" modal.
+  - [ ] Create a symbol from the "Create Symbol" modal.
 
 ### Tables
 

@@ -211,7 +211,8 @@ func (s *SchematicService) CreateSymbol(ctx context.Context, req SymbolCreateReq
 
 type (
 	SymbolRetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+		SearchTerm string      `json:"search_term" msgpack:"search_term"`
 	}
 	SymbolRetrieveResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -219,15 +220,21 @@ type (
 )
 
 func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SymbolRetrieveRequest) (res SymbolRetrieveResponse, err error) {
-	err = s.internal.Symbol.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.Symbols).Exec(ctx, nil)
+	q := s.internal.Symbol.NewRetrieve()
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
+	}
+	err = q.Entries(&res.Symbols).Exec(ctx, nil)
 	if err != nil {
 		return SymbolRetrieveResponse{}, err
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: symbol.OntologyIDs(req.Keys),
+		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
 	}); err != nil {
 		return SymbolRetrieveResponse{}, err
 	}

@@ -9,7 +9,7 @@ on:
 env:
   CACHE_SCOPE: deploy-synnax
   SKIP_BUILD: true
-  REF_RUN_ID: '17309620670' # 17410837642
+  REF_RUN_ID: "17309620670" # 17410837642
 
 jobs:
   setup:
@@ -174,7 +174,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         id: version
         run: scripts/integration/build-ubuntu-latest.sh
-      
+
       - name: Skip Build (Ubuntu Latest)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
         run: echo "Build skipped - using reference artifacts"
@@ -299,9 +299,11 @@ jobs:
 
       - name: Build Driver (Windows)
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc //driver
+        run:
+          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
+          --announce_rc //driver
 
-      - name: Move Driver to Assets  
+      - name: Move Driver to Assets
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
@@ -325,7 +327,9 @@ jobs:
       - name: Build Server
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         working-directory: core
-        run: go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
+        run:
+          go build -tags driver -o synnax-v${{
+          steps.version.outputs.VERSION}}-windows.exe
 
       - name: Test Binary Execution
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -427,7 +431,7 @@ jobs:
     timeout-minutes: 1
     runs-on:
       - self-hosted
-      - windows
+      - windows-latest
     needs: [build-windows-latest]
     steps:
       - name: Checkout Repository
@@ -445,7 +449,7 @@ jobs:
     name: Deploy and Test (windows)
     runs-on:
       - self-hosted
-      - windows
+      - windows-latest
     needs: download-artifacts-windows
     steps:
       - name: Checkout Repository
@@ -504,7 +508,9 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
-        if: steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome == 'failure'
+        if:
+          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
+          'failure'
         with:
           name: test-results-windows
           path: |
@@ -524,7 +530,7 @@ jobs:
     if: false
     runs-on:
       - self-hosted
-      - macos
+      - macos-latest
     needs: [build-macos-latest]
     steps:
       - name: Checkout Repository
@@ -542,7 +548,7 @@ jobs:
     name: Deploy and Test (macos)
     runs-on:
       - self-hosted
-      - macos
+      - macos-latest
     needs: download-artifacts-macos
     steps:
       - name: Checkout Repository
@@ -601,7 +607,7 @@ jobs:
     timeout-minutes: 1
     runs-on:
       - self-hosted
-      - Linux
+      - ubuntu-latest
     needs: [build-ubuntu-latest]
     steps:
       - name: Checkout Repository
@@ -618,7 +624,7 @@ jobs:
     name: Deploy and Test (linux)
     runs-on:
       - self-hosted
-      - Linux
+      - ubuntu-latest
     needs: download-artifacts-linux
     steps:
       - name: Checkout Repository
@@ -655,7 +661,9 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
-        if: steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome == 'failure'
+        if:
+          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
+          'failure'
         with:
           name: test-results-linux
           path: |

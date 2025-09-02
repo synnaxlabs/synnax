@@ -69,6 +69,10 @@ input[type="date"]::-moz-calendar-picker-indicator {
     }
 
     .pluto-calendar {
+        width: 37rem;
+        & div:nth-child(3) {
+            border: var(--pluto-border-l5);
+        }
         .pluto-calendar-header {
             border-top-left-radius: var(--pluto-border-radius) !important;
         }
@@ -76,12 +80,8 @@ input[type="date"]::-moz-calendar-picker-indicator {
             border-top: var(--pluto-border-l5);
             border-bottom: var(--pluto-border-l5);
         }
-        width: 37rem;
         & > * > .pluto-text-icon {
             border-top: var(--pluto-border-l5);
-        }
-        & *:nth-child(3) {
-            border: var(--pluto-border-l5);
         }
     }
 
@@ -89,8 +89,11 @@ input[type="date"]::-moz-calendar-picker-indicator {
         padding: 2rem;
     }
 
+    .pluto-time-selector-list {
+        height: calc(100% - 4rem);
+    }
+
     .pluto-time-list {
-        height: 100%;
         width: 100%;
         max-height: 100%;
         border-top-left-radius: 0 !important;

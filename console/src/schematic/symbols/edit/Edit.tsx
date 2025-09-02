@@ -76,10 +76,8 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const isCreate = params.key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
-    (hasUnsavedChanges: boolean) => {
-      dispatch(
-        Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges: hasUnsavedChanges }),
-      );
+    (unsavedChanges: boolean) => {
+      dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges }));
     },
     [dispatch, layoutKey],
   );
@@ -98,13 +96,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
         handles: [],
         variant: "static",
         scaleStroke: false,
-        states: [
-          {
-            key: "base",
-            name: "Base",
-            regions: [],
-          },
-        ],
+        states: [{ key: "base", name: "Base", regions: [] }],
         scale: 1,
       },
     },
@@ -162,13 +154,29 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   };
 
   const handleElementClick = (selector: string) => {
-    const regionPath = `data.states.${selectedStateRef.current}.regions.${selectedRegionRef.current}`;
+    const currentState = selectedStateRef.current;
+    const currentRegion = selectedRegionRef.current;
+    const regionPath = `data.states.${currentState}.regions.${currentRegion}`;
     const region = form.get<schematic.symbol.Region>(regionPath).value;
     const hasSelector = region.selectors.includes(selector);
-    const updatedSelectors = hasSelector
-      ? region.selectors.filter((s) => s !== selector)
-      : [...region.selectors, selector];
-    form.set(regionPath, { ...region, selectors: updatedSelectors });
+    if (hasSelector) {
+      const updatedSelectors = region.selectors.filter((s) => s !== selector);
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    } else {
+      const allRegions = form.get<schematic.symbol.Region[]>(
+        `data.states.${currentState}.regions`,
+      ).value;
+      allRegions.forEach((r, index) => {
+        if (!r.selectors.includes(selector)) return;
+        const updatedRegion = {
+          ...r,
+          selectors: r.selectors.filter((s) => s !== selector),
+        };
+        form.set(`data.states.${currentState}.regions.${index}`, updatedRegion);
+      });
+      const updatedSelectors = [...region.selectors, selector];
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    }
   };
   const hasSVG =
     Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
