@@ -9,7 +9,7 @@ next: "Tables"
 nextURL: "/reference/console/tables"
 ---
 
-import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -330,3 +330,52 @@ To import a schematic, you can drag and drop from your file system or right clic
 workspace name in the ontology menu:
 
 <Video client:only="react" id="console/schematics/upload" />
+
+## Creating Custom Symbols
+
+You can create your own schematic symbols by using the built-in symbol editor. These
+symbols can be used as part of a schematic, and can also actuate channels when clicked.
+
+### Creating a Symbol Group
+
+The first step is to create a new symbol group within the schematic symbols browser.
+
+<Video client:only="react" id="console/schematics/symbol-create-group" />
+
+### Opening the Editing Dialog
+
+Once you've created a group, open the create symbol dialog and import an SVG file.
+
+<Video client:only="react" id="console/schematics/symbol-import-svg" />
+
+### Static Symbols vs. Actuators
+
+Custom symbols come in two flavors: static symbols and actuators. Static symbols are
+used for background images and other non-interactive elements. They have a single color
+palette, and are not connected to any telemetry sources.
+
+Actuators are interactive elements that can command outputs to 1 or 0 (much like the
+built-in valves and switches). Actuators have two states, "base" and "active". The base
+state is what the symbol looks like when it is not activated, meaning the channel that
+it is connected to has a zero value. The active state is what the symbol looks like when
+it is activated, meaning the channel that it is connected to has a one value.
+
+#### Choosing Color Palettes
+
+Each state state in an actuator has its own color palette, which can be used to change
+the colors of the symbol when it is activated.
+
+<Flex.Box x justify="center">
+  <Image
+    client:only="react"
+    id="console/schematics/symbol-color-regions"
+    style={{ width: 250 }}
+  />
+</Flex.Box>
+
+When an SVG is imported, we'll automatically identify regions of the SVG by their color.
+To change the colors of a particular region, simply click on the color swatches and and
+choose a new color.
+
+To edit how an actuator will look when clicked, select the "active" tab under the states
+section, and edit the colors of the region.
