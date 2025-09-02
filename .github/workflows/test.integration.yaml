@@ -469,9 +469,7 @@ jobs:
 
       - name: Install Playwright browsers
         shell: cmd
-        run: |
-          cd integration\test\py
-          poetry run playwright install --with-deps
+        run: scripts/integration/install-playwright-windows.cmd
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
