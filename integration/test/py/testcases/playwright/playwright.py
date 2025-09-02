@@ -65,6 +65,7 @@ class Playwright(TestCase):
         page_command = f"Create {article} {page_type}"
 
         self.page.keyboard.press("ControlOrMeta+Shift+p")
+        time.sleep(0.5)
         self.page.wait_for_selector(f"text={page_command}")
         self.page.get_by_text(page_command).click()
         
