@@ -480,25 +480,20 @@ export const buildDrawOperations = (
       if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
       // This means that the y series starts before the x series.
       else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
-      const count = Math.min(
+      // The total number of alignment steps that are common to the two series.
+      const alignmentCount = Math.min(
         Number(bounds.span(x.alignmentBounds)) - xOffset,
         Number(bounds.span(y.alignmentBounds)) - yOffset,
       );
-      if (count === 0) return;
+      if (alignmentCount === 0) return;
       let downsample = clamp(
-        Math.round(exposure * 4 * count),
+        Math.round(exposure * 4 * alignmentCount),
         userSpecifiedDownSampling,
         51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
-      ops.push({
-        x,
-        y,
-        xOffset,
-        yOffset,
-        count: count / Number(x.alignmentMultiple),
-        downsample,
-      });
+      const count = alignmentCount / Number(x.alignmentMultiple);
+      ops.push({ x, y, xOffset, yOffset, count, downsample });
     }),
   );
   return ops;
@@ -508,6 +503,13 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
+  if (x.alignmentMultiple !== ys.alignmentMultiple) {
+    console.warn(
+      "encountered two series with different alignment multiples in draw operations",
+      { x: x.digest, y: ys.digest },
+    );
+    return false;
+  }
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a
