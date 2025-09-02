@@ -128,7 +128,7 @@ const Line = ({
   } = typedLineKeyFromString(line.key);
 
   return (
-    <List.Item itemKey={itemKey} index={0} key={itemKey} bordered gap="large">
+    <List.Item itemKey={itemKey} index={0} key={itemKey} gap="large">
       <Channel.AliasInput
         channelKey={yChannel}
         variant="shadow"
