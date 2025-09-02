@@ -480,7 +480,10 @@ export const buildDrawOperations = (
       if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
       // This means that the y series starts before the x series.
       else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
-      const count = Math.min(x.length - xOffset, y.length - yOffset);
+      const count = Math.min(
+        Number(bounds.span(x.alignmentBounds)) - xOffset,
+        Number(bounds.span(y.alignmentBounds)) - yOffset,
+      );
       if (count === 0) return;
       let downsample = clamp(
         Math.round(exposure * 4 * count),
@@ -488,7 +491,14 @@ export const buildDrawOperations = (
         51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
-      ops.push({ x, y, xOffset, yOffset, count, downsample });
+      ops.push({
+        x,
+        y,
+        xOffset,
+        yOffset,
+        count: count / Number(x.alignmentMultiple),
+        downsample,
+      });
     }),
   );
   return ops;
