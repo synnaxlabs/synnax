@@ -14,7 +14,7 @@ import { z } from "zod";
 export const VERSION = "0.0.0";
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.variantZ,
+  key: Schematic.Symbol.variantZ,
   color: color.crudeZ.optional(),
   label: z.looseObject({ label: z.string().optional() }).optional(),
 });
@@ -40,7 +40,11 @@ export const stateZ = z.object({
     .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ).transform((p) => {
     for (const key in p)
-      if (p[key].key === "value") p[key].redline = Value.ZERO_READLINE;
+      if (p[key].key === "value") {
+        p[key].redline = Value.ZERO_READLINE;
+        p[key].stalenessTimeout = 5;
+        p[key].stalenessColor = color.ZERO;
+      }
     return p;
   }),
   control: control.statusZ,
@@ -73,9 +77,15 @@ const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props
 export const toolbarTabZ = z.enum(["symbols", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
+export const toolbarStateZ = z.object({
+  activeTab: toolbarTabZ,
+  selectedSymbolGroup: z.string().optional().default("general"),
+});
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
-export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "symbols" };
+export const ZERO_TOOLBAR_STATE: ToolbarState = {
+  activeTab: "symbols",
+  selectedSymbolGroup: "general",
+};
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),

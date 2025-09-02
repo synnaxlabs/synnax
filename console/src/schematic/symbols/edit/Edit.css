@@ -1,0 +1,142 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-schematic__symbol-create-layout {
+    overflow: hidden;
+    .console-schematic__create-symbol-content {
+        padding: 2rem;
+    }
+
+    .console-form {
+        padding: 2rem;
+        overflow: hidden;
+        max-height: 100%;
+        max-width: 100%;
+        & > div {
+            height: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+    }
+
+    .console-file-drop {
+        max-width: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        position: relative;
+        transition:
+            border-color 0.2s ease-in,
+            background-color 0.2s ease-in;
+        &.console--dragging-over {
+            background-color: var(--pluto-gray-l2);
+            border-color: var(--pluto-primary-z);
+            border-width: 1px;
+        }
+        &.console--enabled:hover {
+            background-color: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l3);
+            cursor: pointer;
+        }
+    }
+
+    .console-preview {
+        svg {
+            width: auto;
+            height: auto;
+            overflow: visible;
+            * {
+                pointer-events: all;
+                cursor: pointer;
+            }
+        }
+    }
+
+    .console-schematic__svg-region--hoverable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .console-schematic__svg-region--hover {
+        cursor: pointer;
+    }
+
+    .console-schematic__handle-preview {
+        cursor: grab;
+        z-index: 1000;
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        &:hover {
+            transform: scale(1.1) translate(-50%, -50%);
+        }
+
+        &.console--dragging {
+            cursor: grabbing;
+        }
+    }
+
+    .console-schematic__handle-dot {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        background: var(--pluto-text-color);
+        border: 2px solid var(--pluto-gray-l8);
+        position: absolute;
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+
+        .console-schematic__handle-preview.console--selected & {
+            border-color: var(--pluto-primary-z);
+        }
+    }
+
+    .console-schematic__handle-arrow {
+        position: absolute;
+        color: var(--pluto-gray-l8);
+        pointer-events: none;
+        width: round(1.666rem, 1px);
+        height: round(1.666rem, 1px);
+        stroke-width: 3px;
+
+        .console-schematic__handle-preview.console--selected & {
+            color: var(--pluto-primary-z);
+        }
+
+        .console-schematic__handle-preview[data-orientation="left"] & {
+            left: -2rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .console-schematic__handle-preview[data-orientation="right"] & {
+            right: -2rem;
+            left: auto;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .console-schematic__handle-preview[data-orientation="top"] & {
+            top: -2rem;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .console-schematic__handle-preview[data-orientation="bottom"] & {
+            bottom: -2rem;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    }
+}

@@ -18,7 +18,7 @@ VERSION=$1
 
 # Function to update the version in the VERSION file
 update_version_file() {
-    local version_file="../synnax/pkg/version/VERSION"
+    local version_file="../core/pkg/version/VERSION"
     echo "$VERSION" > "$version_file"
     echo "Updated VERSION file to $VERSION"
 }
@@ -49,7 +49,7 @@ done
 
 echo "Version update complete."
 
-./check_version.sh
+./check-version.sh
 
 CHECK_VERSION_STATUS=$?
 

@@ -142,7 +142,8 @@ public:
                 synnax::WriterConfig{.channels = {ch.key}}
             );
             if (err) {
-                LOG(ERROR
+                LOG(
+                    ERROR
                 ) << "[task.context] failed to open writer to update task state"
                   << su_err.message();
                 return;

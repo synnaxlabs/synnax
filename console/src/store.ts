@@ -38,33 +38,33 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 ];
 
 const ZERO_STATE: RootState = {
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
-  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
-  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
-  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
-  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
+  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
-  [Drift.SLICE_NAME]: Drift.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
-  [Range.SLICE_NAME]: Range.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
+  [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
-  [Permissions.SLICE_NAME]: Permissions.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Range.SLICE_NAME]: Range.reducer,
+  [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
+  [Version.SLICE_NAME]: Version.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -154,8 +154,8 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 };
 
 const BASE_MIDDLEWARE = [
-  ...LinePlot.MIDDLEWARE,
   ...Layout.MIDDLEWARE,
+  ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
 ];
 

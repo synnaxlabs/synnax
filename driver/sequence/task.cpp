@@ -23,14 +23,15 @@ sequence::Task::Task(
     breaker(breaker_config),
     ctx(ctx),
     seq(std::move(seq)),
-    status(synnax::TaskStatus{
-        .variant = status::variant::SUCCESS,
-        .details =
-            synnax::TaskStatusDetails{
+    status(
+        synnax::TaskStatus{
+            .variant = status::variant::SUCCESS,
+            .details = synnax::TaskStatusDetails{
                 .task = task.key,
                 .running = false,
             }
-    }) {}
+        }
+    ) {}
 
 void sequence::Task::run() {
     if (const auto err = this->seq->begin(); err) {
@@ -158,11 +159,10 @@ std::unique_ptr<task::Task> sequence::Task::configure(
             .channels = cfg.write,
             .start = telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject =
-                telem::ControlSubject{
-                    .name = task.name,
-                    .key = std::to_string(task.key),
-                }
+            .subject = telem::ControlSubject{
+                .name = task.name,
+                .key = std::to_string(task.key),
+            }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);
         auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(

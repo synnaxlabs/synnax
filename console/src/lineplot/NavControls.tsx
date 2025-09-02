@@ -19,12 +19,12 @@ import {
   type ClickMode,
   setControlState,
   setViewport,
-  setViewportMode,
+  setViewportMode
 } from "@/lineplot/slice";
 
 const TOOLTIP_LOCATION: location.XY = {
   x: "left",
-  y: "bottom",
+  y: "bottom"
 };
 
 const style = { zIndex: 500 };
@@ -35,7 +35,7 @@ export interface NavControlsProps {
 
 export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
-  const vis = Layout.useSelectActiveMosaicTabKey();
+  const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode(layoutKey);
   const dispatch = useDispatch();
 

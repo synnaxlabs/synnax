@@ -76,10 +76,12 @@ struct SynnaxClusterAPI final : ClusterAPI {
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->client->telem.open_writer(synnax::WriterConfig{
-                .channels = {this->state_channel.key},
-                .start = telem::TimeStamp::now(),
-            });
+            auto [w, err] = this->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .channels = {this->state_channel.key},
+                    .start = telem::TimeStamp::now(),
+                }
+            );
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
@@ -250,11 +252,10 @@ public:
                 .variant = status::variant::WARNING,
                 .message = "Device disconnected",
                 .time = dev.last_available,
-                .details =
-                    synnax::DeviceStatusDetails{
-                        .rack = dev.dev.rack,
-                        .device = dev.dev.key,
-                    },
+                .details = synnax::DeviceStatusDetails{
+                    .rack = dev.dev.rack,
+                    .device = dev.dev.key,
+                },
             };
             std::vector keys{dev.dev.key};
             auto [remote_devs, err] = this->client->retrieve_devices(keys);
@@ -273,7 +274,19 @@ public:
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
-        return this->client->create_devices(to_create);
+
+        xerrors::Error last_err = xerrors::NIL;
+        for (auto &device: to_create) {
+            std::vector<synnax::Device> single_device = {device};
+            if (const auto err = this->client->create_devices(single_device)) {
+                LOG(WARNING) << "[scan_task] failed to create device " << device.key
+                             << ": " << err.message();
+                last_err = err;
+            } else {
+                LOG(INFO) << "[scan_task] successfully created device " << device.key;
+            }
+        }
+        return last_err;
     }
 
     xerrors::Error propagate_state() {

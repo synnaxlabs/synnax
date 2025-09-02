@@ -9,11 +9,11 @@ on:
       - aspen/**
       - cesium/**
       - client/py/**
+      - core/**
       - freighter/go/**
       - freighter/py/**
       - go.work
       - go.work.sum
-      - synnax/**
       - x/go/**
   push:
     branches:
@@ -87,7 +87,7 @@ jobs:
 
       - name: Build Current Server Image
         run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: synnax
+        working-directory: core
 
       - name: Push Current Server Image to Github Container Registry
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}

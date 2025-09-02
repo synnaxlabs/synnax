@@ -49,6 +49,10 @@ const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
   return "error";
 };
 
+interface SetValueOptions {
+  markTouched?: boolean;
+}
+
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
   values: z.infer<Z>;
@@ -68,14 +72,15 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.initialValues = deep.copy(this.values);
   }
 
-  setValue(path: string, value: unknown) {
+  setValue(path: string, value: unknown, options?: SetValueOptions) {
     if (path == "") this.values = deep.copy(value) as z.infer<Z>;
     else deep.set(this.values, path, value);
-    this.checkTouched(path, value);
+    this.checkTouched(path, value, options);
     this.updateCachedRefs(path);
   }
 
-  private checkTouched(path: string, value: unknown) {
+  private checkTouched(path: string, value: unknown, options: SetValueOptions = {}) {
+    const { markTouched = true } = options;
     const initialValue = deep.get(this.initialValues, path, { optional: true });
     const equalsInitial = deep.equal(initialValue, value);
     if (equalsInitial) {
@@ -83,7 +88,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       // When a value equals its initial value, we should also clear
       // any touched child paths that no longer exist in the current value
       this.clearOrphanedTouchedPaths(path);
-    } else this.setTouched(path);
+    } else if (markTouched) this.setTouched(path);
   }
 
   private clearOrphanedTouchedPaths(parentPath: string) {

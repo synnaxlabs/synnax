@@ -54,6 +54,7 @@ export interface SeriesDigest {
   alignment: {
     lower: AlignmentDigest;
     upper: AlignmentDigest;
+    multiple: bigint;
   };
   timeRange?: string;
   length: number;
@@ -866,6 +867,7 @@ export class Series<T extends TelemValue = TelemValue>
       alignment: {
         lower: alignmentDigest(this.alignmentBounds.lower),
         upper: alignmentDigest(this.alignmentBounds.upper),
+        multiple: this.alignmentMultiple,
       },
       timeRange: this.timeRange.toString(),
       length: this.length,

@@ -12,7 +12,7 @@ import { Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/workspace/Create";
@@ -39,8 +39,20 @@ const Content = (): ReactElement => {
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
-      <Ontology.Tree root={group.data} />
+      <Ontology.Tree root={group.data} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
+  );
+};
+
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  const handleClick = () => placeLayout(CREATE_LAYOUT);
+  return (
+    <EmptyAction
+      message="No workspaces found."
+      action="Create a workspace"
+      onClick={handleClick}
+    />
   );
 };
 

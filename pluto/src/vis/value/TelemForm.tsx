@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type notation } from "@synnaxlabs/x";
+import { color, type notation } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { telem } from "@/ether";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
@@ -21,6 +22,8 @@ import { Notation } from "@/notation";
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
   tooltip: string[];
+  stalenessTimeout?: number;
+  stalenessColor?: color.Color;
 }
 
 const VALUE_CONNECTIONS: telem.Connection[] = [
@@ -110,6 +113,28 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
+        <Form.Field<color.Crude>
+          hideIfNull
+          label="Stale Color"
+          align="start"
+          path="stalenessColor"
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch
+              value={value ?? color.setAlpha(color.ZERO, 1)}
+              onChange={onChange}
+              bordered
+            />
+          )}
+        </Form.Field>
+        <Form.NumericField
+          path="stalenessTimeout"
+          label="Stale Timeout"
+          inputProps={{
+            bounds: { lower: 1, upper: Infinity },
+            endContent: "s",
+          }}
+        />
       </Flex.Box>
     </>
   );

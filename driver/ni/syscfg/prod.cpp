@@ -72,7 +72,8 @@ ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
 
     function_pointers_
         .GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
-        const_cast<void *>(this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")
+        const_cast<void *>(
+            this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")
         )
     );
 

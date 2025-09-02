@@ -51,10 +51,9 @@ bool ni::Factory::check_health(
     ctx->set_status({
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details =
-            synnax::TaskStatusDetails{
-                .task = task.key,
-            },
+        .details = synnax::TaskStatusDetails{
+            .task = task.key,
+        },
     });
     return false;
 }
