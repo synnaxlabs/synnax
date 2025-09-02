@@ -22,25 +22,48 @@ rem Install Poetry on Windows using PowerShell within CMD
 powershell -Command "(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -"
 if %errorlevel% neq 0 exit /b %errorlevel%
 
-rem Add Poetry to PATH for current session
-set PATH=%APPDATA%\Python\Scripts;%PATH%
+rem Add multiple possible Poetry locations to PATH
+set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%USERPROFILE%\.local\bin;%PATH%
 
 rem Verify Poetry is available
 echo Verifying Poetry installation...
 poetry --version
 if %errorlevel% neq 0 (
-    echo ❌ Poetry not found in PATH, trying alternative location...
-    set PATH=%APPDATA%\pypoetry\venv\Scripts;%PATH%
-    poetry --version
-    if %errorlevel% neq 0 exit /b %errorlevel%
+    echo ❌ Poetry not found in PATH, trying to locate Poetry executable...
+    
+    rem Try common Poetry installation locations
+    if exist "%APPDATA%\Python\Scripts\poetry.exe" (
+        set "POETRY_CMD=%APPDATA%\Python\Scripts\poetry.exe"
+        echo Found Poetry at: %POETRY_CMD%
+        goto :poetry_found
+    )
+    
+    if exist "%APPDATA%\pypoetry\venv\Scripts\poetry.exe" (
+        set "POETRY_CMD=%APPDATA%\pypoetry\venv\Scripts\poetry.exe"
+        echo Found Poetry at: %POETRY_CMD%
+        goto :poetry_found
+    )
+    
+    if exist "%USERPROFILE%\.local\bin\poetry.exe" (
+        set "POETRY_CMD=%USERPROFILE%\.local\bin\poetry.exe"
+        echo Found Poetry at: %POETRY_CMD%
+        goto :poetry_found
+    )
+    
+    echo ❌ Poetry executable not found in expected locations
+    exit /b 1
 )
+
+:poetry_found
+rem If we get here, poetry command is available
+set "POETRY_CMD=poetry"
 
 rem Remove existing lock file and recreate it fresh
 if exist "poetry.lock" del "poetry.lock"
 
-rem Install dependencies
-poetry env remove --all 2>nul
-poetry install --no-cache
+rem Install dependencies using the located Poetry command
+"%POETRY_CMD%" env remove --all 2>nul
+"%POETRY_CMD%" install --no-cache
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo ✅ Poetry and dependencies installed successfully
