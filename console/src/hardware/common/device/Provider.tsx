@@ -60,7 +60,7 @@ export const Provider = <
     return (
       <EmptyAction
         message={`${name} is not configured.`}
-        action={canConfigure ? `Configure ${name}.` : ""}
+        action={canConfigure ? `Configure ${name}` : ""}
         onClick={handleConfigure}
       />
     );
