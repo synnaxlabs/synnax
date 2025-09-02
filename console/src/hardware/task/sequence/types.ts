@@ -16,7 +16,7 @@ export type Type = z.infer<typeof typeZ>;
 
 export const configZ = z.object({
   rate: z.number().min(1),
-  rack: rack.keyZ.optional().default(0),
+  rack: rack.keyZ,
   read: z.array(channel.keyZ),
   write: z.array(channel.keyZ),
   script: z.string(),
