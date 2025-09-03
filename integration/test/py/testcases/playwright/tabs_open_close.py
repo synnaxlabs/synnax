@@ -8,14 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from testcases.playwright.playwright import Playwright
-import time
+
 class Tabs_Open_Close(Playwright):
     """
     Open all pages in the "New Component" window and close them
     """
 
     def run(self) -> None:
-
+        
         self._log_message("(1/2) Creating pages by commmand palette")
         page_names = [
             ("Schematic", "S_Name"),
@@ -36,13 +36,10 @@ class Tabs_Open_Close(Playwright):
         for page_name in page_names:
             self.create_page(page_name[0], page_name[1])
             names.append(page_name[1])
-        
         for name in names:
             self.close_page(name)
         
         
-        
-    
         self._log_message("(2/2) Creating pages by manual add")
         pages=[
             "Line Plot",
@@ -59,17 +56,30 @@ class Tabs_Open_Close(Playwright):
             "OPC UA Write Task",
         ]
 
-        self.open_page("Control", ["Case_Sensitive_Name"])
+        self.open_page("Control", ["Control Sequence"])
         for p in pages:
             self.open_page(p)
 
-        self.close_page("Case_Sensitive_Name")
+        self.close_page("Control Sequence")
         for p in pages:
             self.close_page(p)
 
+        self.close_page("Get Started")
+
+        # Should see "New Component" if all pages closed successfully
+        if self.page.get_by_text("New Component").count() > 0:
+            self._log_message("All pages closed - 'New Component' screen visible")
+        else:
+            self._log_message("FAILED: Pages still be open - 'New Component' screen not visible")
+            self.fail()
+        
 
     def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
-        self.page.locator("[id=\"«r5»\"]").click() # New Page (+)
+        """
+        This differs from create_page in that it uses the manual
+        New Page (+) button instead of the command palette.
+        """
+        self.page.locator("[id=\"«r5»\"]").click() # (+)
         self.page.get_by_role("button", name=page_name).first.click()
         # Apply inputs
         for i in inputs_items:

@@ -917,27 +917,28 @@ class TestConductor:
         # Store stats for reuse in the finally block]
         stats = self._get_test_statistics()
         self._last_stats = stats
-
-        self.log_message("\n" + "=" * 50, False)
+        # Header
+        self.log_message("\n" + "=" * 55, False)
         self.log_message("TEST EXECUTION SUMMARY", False)
-        self.log_message("=" * 50, False)
+        self.log_message("=" * 55, False)
+
+        # Individual results
+        for result in self.test_results:
+            status_symbol = SYMBOLS.get_symbol(result.status)
+            # Keep everything after the first "/" (the root testcase directory)
+            self.log_message(f"{status_symbol} {'/'.join(str(result).split('/')[1:])}")
+            if result.error_message:
+                self.log_message(f"ERROR: {result.error_message}")
+
+        # Summary Counts
+        self.log_message("=" * 55, False)
         self.log_message(f"Total tests: {stats['total']}", False)
         self.log_message(f"Passed: {stats['passed']}", False)
         self.log_message(
             f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)",
             False,
         )
-        self.log_message("=" * 50, False)
-
-        for result in self.test_results:
-
-            status_symbol = SYMBOLS.get_symbol(result.status)
-
-            duration_str = f"({result.duration:.2f}s)" if result.duration else ""
-            self.log_message(f"{status_symbol} {result} {duration_str}")
-            if result.error_message:
-                self.log_message(f"ERROR: {result.error_message}")
-
+        self.log_message("=" * 55, False)
         self.log_message("\n", False)
 
     def _signal_handler(self, signum, frame):

@@ -243,7 +243,7 @@ class TestCase(ABC):
                 enable_auto_commit=True,
             )
 
-            while self.loop.wait() and not self._should_stop:
+            while self.loop.wait() and not self.should_stop:
                 """
                 # Update telemetry
 
@@ -261,6 +261,7 @@ class TestCase(ABC):
 
                 # Check for timeout
                 if self._timeout_limit > 0 and uptime_value > self._timeout_limit:
+                    self._log_message(f"Timeout at {uptime_value}s")
                     self.STATUS = STATUS.TIMEOUT
 
                 # Check for completion due to failure

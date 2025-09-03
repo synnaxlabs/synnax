@@ -33,8 +33,17 @@ class Playwright(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  #1s
 
-        # Login
-        self.page.goto("http://localhost:9090/", timeout=10000)
+        # Try embedded console first, fallback to dev server if no console found
+        port = "9090"
+        self.page.goto(f"http://localhost:{port}/", timeout=5000)
+        if "Core built without embedded console" in self.page.content():
+            port = "5173"
+            self.page.goto(f"http://localhost:{port}/", timeout=5000)
+
+        self._log_message(f"Console found on port {port}")
+        
+        # Wait for and fill login form
+        self.page.wait_for_selector('input', timeout=10000)
         self.page.locator('input').first.fill('synnax')
         self.page.locator('input[type="password"]').fill('seldon')
         self.page.get_by_role('button', name='Sign In').click()
@@ -42,20 +51,21 @@ class Playwright(TestCase):
 
         # Toggle theme
         time.sleep(0.5)
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        time.sleep(0.5)
-        self.page.wait_for_selector("#toggle-theme", timeout=5000)
-        self.page.locator("#toggle-theme").click()
+        self.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:
         self.browser.close()
 
-
     def close_page(self, page_name: str) -> None:
+        """
+        Close a page by name.
+        Ignore unsaved changes.
+        """
         tab = self.page.locator("div").filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
         tab.get_by_label("pluto-tabs__close").click()
-
-    
+        
+        if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
+            self.page.get_by_role("button", name="Confirm").click()
 
     def create_page(self, page_type: str, page_name: str = None) -> None:
         # Handle "a" vs "an" article for proper command matching
@@ -63,12 +73,8 @@ class Playwright(TestCase):
         # Special case for "NI" (en-eye)
         article = "an" if page_type[0].upper() in vowels or page_type.startswith("NI") else "a"
         page_command = f"Create {article} {page_type}"
+        self.command_palette(page_command)
 
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        time.sleep(0.5)
-        self.page.wait_for_selector(f"text={page_command}")
-        self.page.get_by_text(page_command).click()
-        
         if page_name is not None:
             tab = self.page.locator("div").filter(has_text=re.compile(f"^{re.escape(page_type)}$"))
             tab.dblclick()
@@ -77,3 +83,8 @@ class Playwright(TestCase):
             return page_name
         else:
             return page_type
+
+    def command_palette(self, command: str) -> None:
+        self.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.page.wait_for_selector(f"text={command}", timeout=1000)
+        self.page.get_by_text(command).click()
