@@ -13,8 +13,9 @@ import (
 	"github.com/synnaxlabs/slate/analyzer/expression"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
-	"github.com/synnaxlabs/slate/analyzer/types"
+	atypes "github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -98,9 +99,9 @@ func parseTaskInvocation(
 					if !expression.Visit(scope, res, expr) {
 						return false
 					}
-					exprType := types.InferFromExpression(scope, expr)
+					exprType := atypes.InferFromExpression(scope, expr)
 					if exprType != nil && expectedType != nil {
-						if !types.Compatible(expectedType, exprType) {
+						if !atypes.Compatible(expectedType, exprType) {
 							res.AddError(
 								errors.Newf(
 									"type mismatch: config parameter '%s' expects %s but got %s",

@@ -10,16 +10,11 @@
 package symbol
 
 import (
-	"fmt"
-
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
-
-type Type interface {
-	fmt.Stringer
-}
 
 type Kind int
 
@@ -44,7 +39,7 @@ type Scope struct {
 type Symbol struct {
 	Name       string
 	Kind       Kind
-	Type       Type
+	Type       types.Type
 	ParserRule antlr.ParserRuleContext
 }
 
@@ -82,7 +77,7 @@ func (s *Scope) AddBlock() *Scope {
 func (s *Scope) AddSymbol(
 	name string,
 	kind Kind,
-	t Type,
+	t types.Type,
 	parserRule antlr.ParserRuleContext,
 ) (*Scope, error) {
 	if err := s.checkForNameConflicts(name); err != nil {

@@ -10,10 +10,13 @@
 package types
 
 import (
+	"fmt"
 	"iter"
-
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 )
+
+type Type interface {
+	fmt.Stringer
+}
 
 type U8 struct{}
 
@@ -60,18 +63,18 @@ type String struct{}
 func (s String) String() string { return "string" }
 
 type Series struct {
-	ValueType symbol.Type
+	ValueType Type
 }
 
 func (s Series) String() string { return "series " + s.ValueType.String() }
 
 type Function struct {
-	Params OrderedMap[string, symbol.Type]
-	Return symbol.Type
+	Params OrderedMap[string, Type]
+	Return Type
 }
 
 func NewFunction() Function {
-	return Function{Params: OrderedMap[string, symbol.Type]{}}
+	return Function{Params: OrderedMap[string, Type]{}}
 }
 
 func (f Function) String() string { return "function" }
@@ -87,8 +90,8 @@ func NewOrderedMap[K comparable, V any](keys []K, values []V) OrderedMap[K, V] {
 
 func NewTask() Task {
 	return Task{
-		Params: OrderedMap[string, symbol.Type]{},
-		Config: OrderedMap[string, symbol.Type]{},
+		Params: OrderedMap[string, Type]{},
+		Config: OrderedMap[string, Type]{},
 	}
 }
 
@@ -132,15 +135,15 @@ func (m *OrderedMap[K, V]) Put(key K, value V) bool {
 }
 
 type Task struct {
-	Config OrderedMap[string, symbol.Type]
-	Params OrderedMap[string, symbol.Type]
-	Return symbol.Type
+	Config OrderedMap[string, Type]
+	Params OrderedMap[string, Type]
+	Return Type
 }
 
 func (t Task) String() string { return "task" }
 
 type Chan struct {
-	ValueType symbol.Type
+	ValueType Type
 }
 
 func (c Chan) String() string { return "chan " + c.ValueType.String() }
@@ -153,7 +156,7 @@ type TimeStamp struct{}
 
 func (t TimeStamp) String() string { return "timestamp" }
 
-func IsNumeric(t symbol.Type) bool {
+func IsNumeric(t Type) bool {
 	if ch, isChan := t.(Chan); isChan {
 		t = ch.ValueType
 	}
@@ -165,7 +168,7 @@ func IsNumeric(t symbol.Type) bool {
 	}
 }
 
-func IsInteger(t symbol.Type) bool {
+func IsInteger(t Type) bool {
 	switch t {
 	case U8{}, U16{}, U32{}, U64{}, I8{}, I16{}, I32{}, I64{}:
 		return true
@@ -174,7 +177,7 @@ func IsInteger(t symbol.Type) bool {
 	}
 }
 
-func IsSignedInteger(t symbol.Type) bool {
+func IsSignedInteger(t Type) bool {
 	switch t {
 	case I8{}, I16{}, I32{}, I64{}:
 		return true
@@ -183,7 +186,7 @@ func IsSignedInteger(t symbol.Type) bool {
 	}
 }
 
-func IsUnsignedInteger(t symbol.Type) bool {
+func IsUnsignedInteger(t Type) bool {
 	switch t {
 	case U8{}, U16{}, U32{}, U64{}:
 		return true
@@ -192,7 +195,7 @@ func IsUnsignedInteger(t symbol.Type) bool {
 	}
 }
 
-func IsFloat(t symbol.Type) bool {
+func IsFloat(t Type) bool {
 	switch t {
 	case F32{}, F64{}:
 		return true
@@ -201,11 +204,44 @@ func IsFloat(t symbol.Type) bool {
 	}
 }
 
-func IsBool(t symbol.Type) bool {
+func IsBool(t Type) bool {
 	_, ok := t.(U8)
 	return ok
 }
 
-func Equal(t symbol.Type, v symbol.Type) bool {
+func Equal(t Type, v Type) bool {
 	return t == v
+}
+
+func FromPrimitiveString(v string) Type {
+	switch v {
+	case "i8":
+		return I8{}
+	case "i16":
+		return I16{}
+	case "i32":
+		return I32{}
+	case "i64":
+		return I64{}
+	case "u8":
+		return U8{}
+	case "u16":
+		return U16{}
+	case "u32":
+		return U32{}
+	case "u64":
+		return U64{}
+	case "f32":
+		return F32{}
+	case "f64":
+		return F64{}
+	case "timestamp":
+		return TimeStamp{}
+	case "timespan":
+		return TimeSpan{}
+	case "string":
+		return String{}
+	default:
+		panic(fmt.Sprintf("unknown type: %s", v))
+	}
 }

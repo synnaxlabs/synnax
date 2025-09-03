@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
-	"github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +24,7 @@ var resolver = symbol.MapResolver{
 		Name: "on",
 		Kind: symbol.KindTask,
 		Type: &types.Task{
-			Config: types.NewOrderedMap([]string{"channel"}, []symbol.Type{types.String{}}),
+			Config: types.NewOrderedMap([]string{"channel"}, []types.Type{types.String{}}),
 		},
 	},
 	"once": symbol.Symbol{

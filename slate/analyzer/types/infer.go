@@ -10,13 +10,13 @@
 package types
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// InferFromTypeContext infers a symbol.Type from a parser type context
-func InferFromTypeContext(ctx parser.ITypeContext) (symbol.Type, error) {
+// InferFromTypeContext infers a types.Type from a parser type context
+func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if ctx == nil {
 		return nil, nil
 	}
@@ -32,17 +32,17 @@ func InferFromTypeContext(ctx parser.ITypeContext) (symbol.Type, error) {
 	return nil, errors.New("unknown type")
 }
 
-func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (symbol.Type, error) {
+func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
 	if ctx.STRING() != nil {
-		return String{}, nil
+		return types.String{}, nil
 	}
 	return nil, errors.New("unknown primitive type")
 }
 
-func inferNumericType(ctx parser.INumericTypeContext) (symbol.Type, error) {
+func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if integer := ctx.IntegerType(); integer != nil {
 		return inferIntegerType(integer)
 	}
@@ -55,56 +55,56 @@ func inferNumericType(ctx parser.INumericTypeContext) (symbol.Type, error) {
 	return nil, errors.New("unknown numeric type")
 }
 
-func inferTemporalType(ctx parser.ITemporalTypeContext) (symbol.Type, error) {
+func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "timestamp":
-		return TimeStamp{}, nil
+		return types.TimeStamp{}, nil
 	case "timespan":
-		return TimeSpan{}, nil
+		return types.TimeSpan{}, nil
 	default:
 		return nil, errors.New("unknown temporal type")
 	}
 }
 
-func inferIntegerType(ctx parser.IIntegerTypeContext) (symbol.Type, error) {
+func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "i8":
-		return I8{}, nil
+		return types.I8{}, nil
 	case "i16":
-		return I16{}, nil
+		return types.I16{}, nil
 	case "i32":
-		return I32{}, nil
+		return types.I32{}, nil
 	case "i64":
-		return I64{}, nil
+		return types.I64{}, nil
 	case "u8":
-		return U8{}, nil
+		return types.U8{}, nil
 	case "u16":
-		return U16{}, nil
+		return types.U16{}, nil
 	case "u32":
-		return U32{}, nil
+		return types.U32{}, nil
 	case "u64":
-		return U64{}, nil
+		return types.U64{}, nil
 	default:
 		return nil, errors.Newf("unknown integer type: %s", text)
 	}
 }
 
-func inferFloatType(ctx parser.IFloatTypeContext) (symbol.Type, error) {
+func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "f32":
-		return F32{}, nil
+		return types.F32{}, nil
 	case "f64":
-		return F64{}, nil
+		return types.F64{}, nil
 	default:
 		return nil, errors.Newf("unknown float type: %s", text)
 	}
 }
 
-func inferChannelType(ctx parser.IChannelTypeContext) (symbol.Type, error) {
-	var valueType symbol.Type
+func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
+	var valueType types.Type
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err = inferPrimitiveType(primitive)
@@ -114,31 +114,31 @@ func inferChannelType(ctx parser.IChannelTypeContext) (symbol.Type, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Chan{ValueType: valueType}, nil
+	return types.Chan{ValueType: valueType}, nil
 }
 
-func inferSeriesType(ctx parser.ISeriesTypeContext) (symbol.Type, error) {
+func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err := inferPrimitiveType(primitive)
 		if err != nil {
 			return nil, err
 		}
-		return Series{ValueType: valueType}, nil
+		return types.Series{ValueType: valueType}, nil
 	}
 	return nil, errors.New("series must have primitive type")
 }
 
 // Compatible checks if two types are compatible for operations
 func Compatible(
-	t1, t2 symbol.Type,
+	t1, t2 types.Type,
 ) bool {
 	if t1 == nil || t2 == nil {
 		return false
 	}
-	if t1Chan, ok := t1.(Chan); ok {
+	if t1Chan, ok := t1.(types.Chan); ok {
 		t1 = t1Chan.ValueType
 	}
-	if t2Chan, ok := t2.(Chan); ok {
+	if t2Chan, ok := t2.(types.Chan); ok {
 		t2 = t2Chan.ValueType
 	}
 	// Same type is always compatible
@@ -149,7 +149,7 @@ func Compatible(
 }
 
 func LiteralCompatible(
-	t1, t2 symbol.Type,
+	t1, t2 types.Type,
 ) bool {
 	if t1 == nil || t2 == nil {
 		return false
@@ -157,10 +157,10 @@ func LiteralCompatible(
 	if t1.String() == t2.String() {
 		return true
 	}
-	if IsInteger(t1) && IsSignedInteger(t2) {
+	if types.IsInteger(t1) && types.IsSignedInteger(t2) {
 		return true
 	}
-	if IsFloat(t1) && IsFloat(t2) {
+	if types.IsFloat(t1) && types.IsFloat(t2) {
 		return true
 	}
 	return false

@@ -13,8 +13,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
-	"github.com/synnaxlabs/slate/analyzer/types"
+	atypes "github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -82,8 +83,8 @@ func validateExpressionType[T any](
 	result *result.Result,
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,
-	infer func(scope *symbol.Scope, ctx T) symbol.Type,
-	check func(t symbol.Type) bool,
+	infer func(scope *symbol.Scope, ctx T) types.Type,
+	check func(t types.Type) bool,
 ) bool {
 	if len(items) <= 1 {
 		return true
@@ -99,7 +100,7 @@ func validateExpressionType[T any](
 	}
 	for i := 1; i < len(items); i++ {
 		nextType := infer(scope, items[i])
-		if firstType != nil && nextType != nil && !types.Compatible(firstType, nextType) {
+		if firstType != nil && nextType != nil && !atypes.Compatible(firstType, nextType) {
 			result.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
 				ctx,
@@ -127,7 +128,7 @@ func visitLogicalOr(
 		result,
 		logicalAnds,
 		getLogicalOrOperator,
-		types.InferLogicalAnd,
+		atypes.InferLogicalAnd,
 		types.IsBool,
 	)
 }
@@ -149,7 +150,7 @@ func visitLogicalAnd(
 		result,
 		equalities,
 		getLogicalAndOperator,
-		types.InferEquality,
+		atypes.InferEquality,
 		types.IsBool,
 	)
 }
@@ -171,8 +172,8 @@ func visitEquality(
 		result,
 		relationals,
 		getEqualityOperator,
-		types.InferRelational,
-		func(t symbol.Type) bool { return true },
+		atypes.InferRelational,
+		func(t types.Type) bool { return true },
 	)
 }
 
@@ -206,7 +207,7 @@ func visitAdditive(
 		result,
 		multiplicatives,
 		getAdditiveOperator,
-		types.InferMultiplicative,
+		atypes.InferMultiplicative,
 		types.IsNumeric,
 	)
 }
@@ -228,7 +229,7 @@ func visitMultiplicative(
 		result,
 		powers,
 		getMultiplicativeOperator,
-		types.InferPower,
+		atypes.InferPower,
 		types.IsNumeric,
 	)
 }
@@ -262,7 +263,7 @@ func visitUnary(
 		if !visitUnary(parentScope, result, innerUnary) {
 			return false
 		}
-		operandType := types.InferFromUnaryExpression(parentScope, innerUnary)
+		operandType := atypes.InferFromUnaryExpression(parentScope, innerUnary)
 		if ctx.MINUS() != nil {
 			if operandType != nil && !types.IsNumeric(operandType) {
 				result.AddError(

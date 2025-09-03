@@ -15,8 +15,9 @@ import (
 	"github.com/synnaxlabs/slate/analyzer/flow"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/analyzer/symbol"
-	"github.com/synnaxlabs/slate/analyzer/types"
+	atypes "github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -100,7 +101,7 @@ func visitFunctionDeclaration(
 	// Parse return type
 	if retType := fn.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
-			fnType.Return, _ = types.InferFromTypeContext(typeCtx)
+			fnType.Return, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 	}
 
@@ -117,15 +118,15 @@ func visitParams(
 	scope *symbol.Scope,
 	result *result.Result,
 	params parser.IParameterListContext,
-	paramTypes *types.OrderedMap[string, symbol.Type],
+	paramTypes *types.OrderedMap[string, types.Type],
 ) bool {
 	if params == nil {
 		return true
 	}
 	for _, param := range params.AllParameter() {
-		var paramType symbol.Type
+		var paramType types.Type
 		if typeCtx := param.Type_(); typeCtx != nil {
-			paramType, _ = types.InferFromTypeContext(typeCtx)
+			paramType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 		paramName := param.IDENTIFIER().GetText()
 		if !paramTypes.Put(paramName, paramType) {
@@ -170,9 +171,9 @@ func visitTaskDeclaration(
 		for _, param := range configBlock.AllConfigParameter() {
 			paramName := param.IDENTIFIER().GetText()
 			// Infer config parameter type
-			var configType symbol.Type
+			var configType types.Type
 			if typeCtx := param.Type_(); typeCtx != nil {
-				configType, _ = types.InferFromTypeContext(typeCtx)
+				configType, _ = atypes.InferFromTypeContext(typeCtx)
 			}
 			if !taskType.Config.Put(paramName, configType) {
 				result.AddError(errors.Newf("duplicate configuration parameter %s", param), task)
@@ -203,7 +204,7 @@ func visitTaskDeclaration(
 	// Parse return type
 	if retType := task.ReturnType(); retType != nil {
 		if typeCtx := retType.Type_(); typeCtx != nil {
-			taskType.Return, _ = types.InferFromTypeContext(typeCtx)
+			taskType.Return, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 	}
 
@@ -308,12 +309,12 @@ func visitVariableDeclarationType(
 	declaration antlr.ParserRuleContext,
 	expression parser.IExpressionContext,
 	typeCtx parser.ITypeContext,
-) (symbol.Type, bool) {
+) (types.Type, bool) {
 	if typeCtx != nil {
-		var varType symbol.Type
+		var varType types.Type
 		var err error
 		// Explicit type annotation
-		varType, err = types.InferFromTypeContext(typeCtx)
+		varType, err = atypes.InferFromTypeContext(typeCtx)
 		if err != nil {
 			result.AddError(err, declaration)
 			return nil, false
@@ -321,12 +322,12 @@ func visitVariableDeclarationType(
 		// If there's an initializer, check type compatibility
 		if expression != nil {
 			// Check if the expression is a literal
-			exprType := types.InferFromExpression(parentScope, expression)
+			exprType := atypes.InferFromExpression(parentScope, expression)
 			if exprType != nil && varType != nil {
 				isLiteral := isLiteralExpression(expression)
 				// If it's a literal, we might allow some implicit conversions
 				// For now, we still check compatibility the same way
-				if (isLiteral && !types.LiteralCompatible(varType, exprType)) && !types.Compatible(varType, exprType) {
+				if (isLiteral && !atypes.LiteralCompatible(varType, exprType)) && !atypes.Compatible(varType, exprType) {
 					result.AddError(
 						errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
 						declaration,
@@ -338,7 +339,7 @@ func visitVariableDeclarationType(
 		return varType, true
 	}
 	if expression != nil {
-		return types.InferFromExpression(parentScope, expression), true
+		return atypes.InferFromExpression(parentScope, expression), true
 	}
 	result.AddError(errors.Newf("no type declaration found for %s", declaration), declaration)
 	return nil, false
@@ -451,10 +452,10 @@ func visitAssignment(
 			return false
 		}
 		if varScope.Symbol != nil && varScope.Symbol.Type != nil {
-			exprType := types.InferFromExpression(parentScope, expr)
+			exprType := atypes.InferFromExpression(parentScope, expr)
 			if exprType != nil {
-				varType := varScope.Symbol.Type.(symbol.Type)
-				if !types.Compatible(varType, exprType) {
+				varType := varScope.Symbol.Type.(types.Type)
+				if !atypes.Compatible(varType, exprType) {
 					result.AddError(
 						errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
 						assignment,
