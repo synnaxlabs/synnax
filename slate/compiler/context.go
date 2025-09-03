@@ -19,8 +19,8 @@ import (
 type Context struct {
 	Module  *wasm.Module      // The WASM module being built
 	Imports *wasm.ImportIndex // Imported host functions
-	Current *FunctionContext  // Current function being compiled
 	Symbols *symbol.Scope     // Symbol table from analyzer
+	Current *FunctionContext  // Current function being compiled
 }
 
 // FunctionContext tracks state for the current function being compiled

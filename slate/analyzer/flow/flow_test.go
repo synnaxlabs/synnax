@@ -223,7 +223,7 @@ once{} -> processor{}
 			// All types match correctly
 			sensor_chan -> typed_task{
 				threshold: 100.5,
-				count: 42u32,
+				count: u32(42),
 				message: "hello",
 				input: sensor_chan
 			}

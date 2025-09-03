@@ -85,44 +85,28 @@ SEMICOLON   : ';';
 // Literals
 // =============================================================================
 
-// Helpers that forbid leading/trailing underscores and forbid `_` next to '.'
-fragment DEC_DIGITS : DIGIT ('_'? DIGIT)* ;
-fragment HEX_DIGITS : HEX_DIGIT ('_'? HEX_DIGIT)* ;
-fragment BIN_DIGITS : BINARY_DIGIT ('_'? BINARY_DIGIT)* ;
+// Simple digit sequences without separators or suffixes
+fragment DIGITS : DIGIT+ ;
 
 fragment DIGIT: [0-9];
-fragment HEX_DIGIT: [0-9a-fA-F];
-fragment BINARY_DIGIT: [01];
-
-fragment TYPE_SUFFIX
-    : 'i8' | 'i16' | 'i32' | 'i64'
-    | 'u8' | 'u16' | 'u32' | 'u64'
-    | 'f32' | 'f64'
-    ;
-
-fragment EXPONENT
-    : [eE] [+-]? DEC_DIGITS
-    ;
 
 // Temporal and frequency literals must be checked before plain numeric literals
 TEMPORAL_LITERAL
-    : (DEC_DIGITS | (DEC_DIGITS '.' DEC_DIGITS?) | ('.' DEC_DIGITS)) ('ns' | 'us' | 'ms' | 's' | 'm' | 'h')
+    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ('ns' | 'us' | 'ms' | 's' | 'm' | 'h')
     ;
 
 FREQUENCY_LITERAL
-    : (DEC_DIGITS | (DEC_DIGITS '.' DEC_DIGITS?) | ('.' DEC_DIGITS)) ([hH][zZ] | [kK][hH][zZ] | [mM][hH][zZ])
+    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ([hH][zZ] | [kK][hH][zZ] | [mM][hH][zZ])
     ;
 
-// Numeric literals with optional suffixes and separators
+// Simple numeric literals without suffixes or special formats
 INTEGER_LITERAL
-    : DEC_DIGITS TYPE_SUFFIX?
-    | '0' [xX] HEX_DIGITS TYPE_SUFFIX?
-    | '0' [bB] BIN_DIGITS TYPE_SUFFIX?
+    : DIGITS
     ;
 
 FLOAT_LITERAL
-    : (DEC_DIGITS '.' DEC_DIGITS? | '.' DEC_DIGITS) EXPONENT? TYPE_SUFFIX?
-    | DEC_DIGITS EXPONENT TYPE_SUFFIX?
+    : DIGITS '.' DIGITS?
+    | '.' DIGITS
     ;
 
 // String literal
@@ -132,7 +116,7 @@ STRING_LITERAL
 
 fragment ESCAPE_SEQUENCE
     : '\\' [btnfr"\\]
-    | '\\u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT
+    | '\\u' [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]
     ;
 
 // =============================================================================

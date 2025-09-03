@@ -129,48 +129,31 @@ data series f32
 ```
 NumericLiteral ::= IntegerLiteral | FloatLiteral
 
-IntegerLiteral ::= DecimalLiteral | HexLiteral | BinaryLiteral
+IntegerLiteral ::= Digit+
 
-DecimalLiteral ::= Digit+ TypeSuffix?
-
-HexLiteral ::= '0x' HexDigit+ TypeSuffix?
-
-BinaryLiteral ::= '0b' BinaryDigit+ TypeSuffix?
-
-FloatLiteral ::= (Digit+ ('.' Digit*)? | '.' Digit+) Exponent? TypeSuffix?
-Exponent ::= ('e' | 'E') ('+' | '-')? Digit+
-
-TypeSuffix ::= 'i8' | 'i16' | 'i32' | 'i64' | 'u8' | 'u16' | 'u32' | 'u64' | 'f32' | 'f64'
+FloatLiteral ::= Digit+ '.' Digit* | '.' Digit+
 
 Digit ::= '0'..'9'
-HexDigit ::= '0'..'9' | 'a'..'f' | 'A'..'F'
-BinaryDigit ::= '0' | '1'
-
-// Digit separators:
-// Underscores may appear between digits in any numeric literal (decimal, hex, binary, float).
-// They are ignored by the parser. Not allowed at the start/end of the numeric part,
-// adjacent to a radix point, or immediately after a base prefix ('0x', '0b').
 
 // Examples:
 42                 // i64 (default integer type)
-42u8               // u8 with explicit suffix
-1_000_000          // i64 with separators
-0xFF               // i64 (255 in decimal, default type)
-0xFF_FF            // i64 with separators
-0xFFu32            // u32 with explicit suffix
-0b1010             // i64 (10 in decimal, default type)
-0b1010_1100u8      // u8 with separators
+u8(42)             // u8 via explicit cast
+1000000            // i64
+255                // i64
+u32(65535)         // u32 via explicit cast
+10                 // i64
+u8(172)            // u8 via explicit cast
 3.14               // f64 (default float type)
-3.141_592f32       // f32 with separators
-100.0              // f64 (default float type)
-6.022e23           // f64 scientific notation
-1e-3f64            // f64 with exponent
+f32(3.141592)      // f32 via explicit cast
+100.0              // f64
+0.001              // f64
+f32(1000.0)        // f32 via explicit cast
 ```
 
 **Default Types**:
-- Integer literals without suffix default to `i64`
-- Float literals without suffix default to `f64`
-- Type suffixes override the default type
+- Integer literals default to `i64`
+- Float literals default to `f64`
+- Use type casting (e.g., `i32(42)`) to specify a different type
 
 ### Temporal Literals
 

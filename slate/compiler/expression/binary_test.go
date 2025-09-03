@@ -8,47 +8,11 @@
 package expression_test
 
 import (
-	"encoding/hex"
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
-	"github.com/synnaxlabs/slate/compiler"
-	"github.com/synnaxlabs/slate/compiler/expression"
-	"github.com/synnaxlabs/slate/compiler/wasm"
-	"github.com/synnaxlabs/slate/parser"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
-	// Helper function to compile an expression and return bytecode
-	compileExpression := func(source string) ([]byte, string) {
-		// Parse the expression
-		expr := MustSucceed(parser.ParseExpression(source))
-
-		// Create minimal context
-		module := wasm.NewModule()
-		symbols := &symbol.Scope{}
-		ctx := compiler.NewContext(module, symbols)
-
-		// Create a dummy function context
-		ctx.EnterFunction("test", nil)
-
-		// Compile the expression
-		compiler := expression.NewCompiler(ctx)
-		exprType := MustSucceed(compiler.Compile(expr))
-
-		return compiler.Bytes(), exprType.String()
-	}
-
-	// Helper to convert hex string to bytes for comparison
-	hexToBytes := func(hexStr string) []byte {
-		cleanHex := strings.ReplaceAll(hexStr, " ", "")
-		bytes := MustSucceed(hex.DecodeString(cleanHex))
-		return bytes
-	}
-
 	Describe("Arithmetic Operations", func() {
 		Context("Addition", func() {
 			It("Should compile i32 addition", func() {

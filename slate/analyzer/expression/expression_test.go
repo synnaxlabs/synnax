@@ -126,19 +126,6 @@ var _ = Describe("Expressions", func() {
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
-
-		//Skip("Should reject modulo operation on floats", func() {
-		//	ast := MustSucceed(parser.Parse(`
-		//		func testFunc() {
-		//			x f32 := 10.5
-		//			y f32 := 3.2
-		//			z := x % y
-		//		}
-		//	`))
-		//	result := analyzer.Analyze(ast)
-		//	Expect(result.Diagnostics).To(HaveLen(1))
-		//	Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator % not supported for type f32"))
-		//})
 	})
 
 	Describe("Unary Expressions", func() {

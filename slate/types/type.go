@@ -245,3 +245,9 @@ func FromPrimitiveString(v string) Type {
 		panic(fmt.Sprintf("unknown type: %s", v))
 	}
 }
+
+var Integers = []Type{U8{}, U16{}, U32{}, U64{}, I8{}, I16{}, I32{}, I64{}}
+var UnsignedIntegers = []Type{U8{}, U16{}, U32{}, U64{}}
+var SignedIntegers = []Type{I8{}, I16{}, I32{}, I64{}}
+var Floats = []Type{F32{}, F64{}}
+var Temporals = []Type{TimeStamp{}, TimeSpan{}}

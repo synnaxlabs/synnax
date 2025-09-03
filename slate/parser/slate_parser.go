@@ -575,13 +575,15 @@ func (s *ProgramContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ProgramContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitProgram(s)
+func (s *ProgramContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterProgram(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ProgramContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitProgram(s)
 	}
 }
 
@@ -737,13 +739,15 @@ func (s *TopLevelItemContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TopLevelItemContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTopLevelItem(s)
+func (s *TopLevelItemContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTopLevelItem(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TopLevelItemContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTopLevelItem(s)
 	}
 }
 
@@ -920,13 +924,15 @@ func (s *FunctionDeclarationContext) ToStringTree(ruleNames []string, recog antl
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FunctionDeclarationContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFunctionDeclaration(s)
+func (s *FunctionDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFunctionDeclaration(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FunctionDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFunctionDeclaration(s)
 	}
 }
 
@@ -1120,13 +1126,15 @@ func (s *ParameterListContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ParameterListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitParameterList(s)
+func (s *ParameterListContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterParameterList(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ParameterListContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitParameterList(s)
 	}
 }
 
@@ -1257,13 +1265,15 @@ func (s *ParameterContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ParameterContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitParameter(s)
+func (s *ParameterContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterParameter(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ParameterContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitParameter(s)
 	}
 }
 
@@ -1367,13 +1377,15 @@ func (s *ReturnTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ReturnTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitReturnType(s)
+func (s *ReturnTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterReturnType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ReturnTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitReturnType(s)
 	}
 }
 
@@ -1540,13 +1552,15 @@ func (s *TaskDeclarationContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TaskDeclarationContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTaskDeclaration(s)
+func (s *TaskDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTaskDeclaration(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TaskDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTaskDeclaration(s)
 	}
 }
 
@@ -1754,13 +1768,15 @@ func (s *ConfigBlockContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigBlockContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitConfigBlock(s)
+func (s *ConfigBlockContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterConfigBlock(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ConfigBlockContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitConfigBlock(s)
 	}
 }
 
@@ -1895,13 +1911,15 @@ func (s *ConfigParameterContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigParameterContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitConfigParameter(s)
+func (s *ConfigParameterContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterConfigParameter(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ConfigParameterContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitConfigParameter(s)
 	}
 }
 
@@ -2046,13 +2064,15 @@ func (s *FlowStatementContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FlowStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFlowStatement(s)
+func (s *FlowStatementContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFlowStatement(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FlowStatementContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFlowStatement(s)
 	}
 }
 
@@ -2230,13 +2250,15 @@ func (s *FlowNodeContext) ToStringTree(ruleNames []string, recog antlr.Recognize
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FlowNodeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFlowNode(s)
+func (s *FlowNodeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFlowNode(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FlowNodeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFlowNode(s)
 	}
 }
 
@@ -2346,13 +2368,15 @@ func (s *ChannelIdentifierContext) ToStringTree(ruleNames []string, recog antlr.
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ChannelIdentifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitChannelIdentifier(s)
+func (s *ChannelIdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterChannelIdentifier(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ChannelIdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitChannelIdentifier(s)
 	}
 }
 
@@ -2474,13 +2498,15 @@ func (s *TaskInvocationContext) ToStringTree(ruleNames []string, recog antlr.Rec
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TaskInvocationContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTaskInvocation(s)
+func (s *TaskInvocationContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTaskInvocation(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TaskInvocationContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTaskInvocation(s)
 	}
 }
 
@@ -2635,13 +2661,15 @@ func (s *ConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitConfigValues(s)
+func (s *ConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterConfigValues(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitConfigValues(s)
 	}
 }
 
@@ -2843,13 +2871,15 @@ func (s *NamedConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NamedConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitNamedConfigValues(s)
+func (s *NamedConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterNamedConfigValues(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NamedConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitNamedConfigValues(s)
 	}
 }
 
@@ -2985,13 +3015,15 @@ func (s *NamedConfigValueContext) ToStringTree(ruleNames []string, recog antlr.R
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NamedConfigValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitNamedConfigValue(s)
+func (s *NamedConfigValueContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterNamedConfigValue(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NamedConfigValueContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitNamedConfigValue(s)
 	}
 }
 
@@ -3139,13 +3171,15 @@ func (s *AnonymousConfigValuesContext) ToStringTree(ruleNames []string, recog an
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *AnonymousConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitAnonymousConfigValues(s)
+func (s *AnonymousConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterAnonymousConfigValues(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *AnonymousConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitAnonymousConfigValues(s)
 	}
 }
 
@@ -3281,13 +3315,15 @@ func (s *ArgumentsContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ArgumentsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitArguments(s)
+func (s *ArgumentsContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterArguments(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ArgumentsContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitArguments(s)
 	}
 }
 
@@ -3447,13 +3483,15 @@ func (s *ArgumentListContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ArgumentListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitArgumentList(s)
+func (s *ArgumentListContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterArgumentList(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ArgumentListContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitArgumentList(s)
 	}
 }
 
@@ -3615,13 +3653,15 @@ func (s *BlockContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) 
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *BlockContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitBlock(s)
+func (s *BlockContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterBlock(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *BlockContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitBlock(s)
 	}
 }
 
@@ -3853,13 +3893,15 @@ func (s *StatementContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *StatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitStatement(s)
+func (s *StatementContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterStatement(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *StatementContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitStatement(s)
 	}
 }
 
@@ -4026,13 +4068,15 @@ func (s *VariableDeclarationContext) ToStringTree(ruleNames []string, recog antl
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *VariableDeclarationContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitVariableDeclaration(s)
+func (s *VariableDeclarationContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterVariableDeclaration(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *VariableDeclarationContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitVariableDeclaration(s)
 	}
 }
 
@@ -4174,13 +4218,15 @@ func (s *LocalVariableContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *LocalVariableContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitLocalVariable(s)
+func (s *LocalVariableContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterLocalVariable(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *LocalVariableContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitLocalVariable(s)
 	}
 }
 
@@ -4358,13 +4404,15 @@ func (s *StatefulVariableContext) ToStringTree(ruleNames []string, recog antlr.R
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *StatefulVariableContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitStatefulVariable(s)
+func (s *StatefulVariableContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterStatefulVariable(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *StatefulVariableContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitStatefulVariable(s)
 	}
 }
 
@@ -4525,13 +4573,15 @@ func (s *AssignmentContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *AssignmentContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitAssignment(s)
+func (s *AssignmentContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterAssignment(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *AssignmentContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitAssignment(s)
 	}
 }
 
@@ -4660,13 +4710,15 @@ func (s *ChannelOperationContext) ToStringTree(ruleNames []string, recog antlr.R
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ChannelOperationContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitChannelOperation(s)
+func (s *ChannelOperationContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterChannelOperation(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ChannelOperationContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitChannelOperation(s)
 	}
 }
 
@@ -4796,13 +4848,15 @@ func (s *ChannelWriteContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ChannelWriteContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitChannelWrite(s)
+func (s *ChannelWriteContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterChannelWrite(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ChannelWriteContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitChannelWrite(s)
 	}
 }
 
@@ -4966,13 +5020,15 @@ func (s *ChannelReadContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ChannelReadContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitChannelRead(s)
+func (s *ChannelReadContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterChannelRead(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ChannelReadContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitChannelRead(s)
 	}
 }
 
@@ -5090,13 +5146,15 @@ func (s *BlockingReadContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *BlockingReadContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitBlockingRead(s)
+func (s *BlockingReadContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterBlockingRead(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *BlockingReadContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitBlockingRead(s)
 	}
 }
 
@@ -5218,13 +5276,15 @@ func (s *NonBlockingReadContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NonBlockingReadContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitNonBlockingRead(s)
+func (s *NonBlockingReadContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterNonBlockingRead(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NonBlockingReadContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitNonBlockingRead(s)
 	}
 }
 
@@ -5422,13 +5482,15 @@ func (s *IfStatementContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *IfStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitIfStatement(s)
+func (s *IfStatementContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterIfStatement(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *IfStatementContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitIfStatement(s)
 	}
 }
 
@@ -5608,13 +5670,15 @@ func (s *ElseIfClauseContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ElseIfClauseContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitElseIfClause(s)
+func (s *ElseIfClauseContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterElseIfClause(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ElseIfClauseContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitElseIfClause(s)
 	}
 }
 
@@ -5735,13 +5799,15 @@ func (s *ElseClauseContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ElseClauseContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitElseClause(s)
+func (s *ElseClauseContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterElseClause(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ElseClauseContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitElseClause(s)
 	}
 }
 
@@ -5850,13 +5916,15 @@ func (s *ReturnStatementContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ReturnStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitReturnStatement(s)
+func (s *ReturnStatementContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterReturnStatement(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ReturnStatementContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitReturnStatement(s)
 	}
 }
 
@@ -5983,13 +6051,15 @@ func (s *FunctionCallContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FunctionCallContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFunctionCall(s)
+func (s *FunctionCallContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFunctionCall(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FunctionCallContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFunctionCall(s)
 	}
 }
 
@@ -6155,13 +6225,15 @@ func (s *TypeContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) s
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitType(s)
+func (s *TypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitType(s)
 	}
 }
 
@@ -6289,13 +6361,15 @@ func (s *PrimitiveTypeContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PrimitiveTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitPrimitiveType(s)
+func (s *PrimitiveTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterPrimitiveType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *PrimitiveTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitPrimitiveType(s)
 	}
 }
 
@@ -6449,13 +6523,15 @@ func (s *NumericTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NumericTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitNumericType(s)
+func (s *NumericTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterNumericType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NumericTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitNumericType(s)
 	}
 }
 
@@ -6601,13 +6677,15 @@ func (s *IntegerTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *IntegerTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitIntegerType(s)
+func (s *IntegerTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterIntegerType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *IntegerTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitIntegerType(s)
 	}
 }
 
@@ -6705,13 +6783,15 @@ func (s *FloatTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FloatTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFloatType(s)
+func (s *FloatTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFloatType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FloatTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFloatType(s)
 	}
 }
 
@@ -6809,13 +6889,15 @@ func (s *TemporalTypeContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TemporalTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTemporalType(s)
+func (s *TemporalTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTemporalType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TemporalTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTemporalType(s)
 	}
 }
 
@@ -6952,13 +7034,15 @@ func (s *ChannelTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogn
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ChannelTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitChannelType(s)
+func (s *ChannelTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterChannelType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ChannelTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitChannelType(s)
 	}
 }
 
@@ -7091,13 +7175,15 @@ func (s *SeriesTypeContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *SeriesTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitSeriesType(s)
+func (s *SeriesTypeContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterSeriesType(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *SeriesTypeContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitSeriesType(s)
 	}
 }
 
@@ -7201,13 +7287,15 @@ func (s *ExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitExpression(s)
+func (s *ExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitExpression(s)
 	}
 }
 
@@ -7339,13 +7427,15 @@ func (s *LogicalOrExpressionContext) ToStringTree(ruleNames []string, recog antl
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *LogicalOrExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitLogicalOrExpression(s)
+func (s *LogicalOrExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterLogicalOrExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *LogicalOrExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitLogicalOrExpression(s)
 	}
 }
 
@@ -7507,13 +7597,15 @@ func (s *LogicalAndExpressionContext) ToStringTree(ruleNames []string, recog ant
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *LogicalAndExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitLogicalAndExpression(s)
+func (s *LogicalAndExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterLogicalAndExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *LogicalAndExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitLogicalAndExpression(s)
 	}
 }
 
@@ -7685,13 +7777,15 @@ func (s *EqualityExpressionContext) ToStringTree(ruleNames []string, recog antlr
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *EqualityExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitEqualityExpression(s)
+func (s *EqualityExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterEqualityExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *EqualityExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitEqualityExpression(s)
 	}
 }
 
@@ -7886,13 +7980,15 @@ func (s *RelationalExpressionContext) ToStringTree(ruleNames []string, recog ant
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *RelationalExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitRelationalExpression(s)
+func (s *RelationalExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterRelationalExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *RelationalExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitRelationalExpression(s)
 	}
 }
 
@@ -8067,13 +8163,15 @@ func (s *AdditiveExpressionContext) ToStringTree(ruleNames []string, recog antlr
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *AdditiveExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitAdditiveExpression(s)
+func (s *AdditiveExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterAdditiveExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *AdditiveExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitAdditiveExpression(s)
 	}
 }
 
@@ -8267,13 +8365,15 @@ func (s *MultiplicativeExpressionContext) ToStringTree(ruleNames []string, recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *MultiplicativeExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitMultiplicativeExpression(s)
+func (s *MultiplicativeExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterMultiplicativeExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *MultiplicativeExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitMultiplicativeExpression(s)
 	}
 }
 
@@ -8424,13 +8524,15 @@ func (s *PowerExpressionContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PowerExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitPowerExpression(s)
+func (s *PowerExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterPowerExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *PowerExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitPowerExpression(s)
 	}
 }
 
@@ -8594,13 +8696,15 @@ func (s *UnaryExpressionContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *UnaryExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitUnaryExpression(s)
+func (s *UnaryExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterUnaryExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *UnaryExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitUnaryExpression(s)
 	}
 }
 
@@ -8739,13 +8843,15 @@ func (s *BlockingReadExprContext) ToStringTree(ruleNames []string, recog antlr.R
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *BlockingReadExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitBlockingReadExpr(s)
+func (s *BlockingReadExprContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterBlockingReadExpr(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *BlockingReadExprContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitBlockingReadExpr(s)
 	}
 }
 
@@ -8939,13 +9045,15 @@ func (s *PostfixExpressionContext) ToStringTree(ruleNames []string, recog antlr.
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PostfixExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitPostfixExpression(s)
+func (s *PostfixExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterPostfixExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *PostfixExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitPostfixExpression(s)
 	}
 }
 
@@ -9130,13 +9238,15 @@ func (s *IndexOrSliceContext) ToStringTree(ruleNames []string, recog antlr.Recog
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *IndexOrSliceContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitIndexOrSlice(s)
+func (s *IndexOrSliceContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterIndexOrSlice(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *IndexOrSliceContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitIndexOrSlice(s)
 	}
 }
 
@@ -9327,13 +9437,15 @@ func (s *FunctionCallSuffixContext) ToStringTree(ruleNames []string, recog antlr
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FunctionCallSuffixContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitFunctionCallSuffix(s)
+func (s *FunctionCallSuffixContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterFunctionCallSuffix(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FunctionCallSuffixContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitFunctionCallSuffix(s)
 	}
 }
 
@@ -9523,13 +9635,15 @@ func (s *PrimaryExpressionContext) ToStringTree(ruleNames []string, recog antlr.
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PrimaryExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitPrimaryExpression(s)
+func (s *PrimaryExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterPrimaryExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *PrimaryExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitPrimaryExpression(s)
 	}
 }
 
@@ -9713,13 +9827,15 @@ func (s *TypeCastContext) ToStringTree(ruleNames []string, recog antlr.Recognize
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TypeCastContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTypeCast(s)
+func (s *TypeCastContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTypeCast(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TypeCastContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTypeCast(s)
 	}
 }
 
@@ -9855,13 +9971,15 @@ func (s *BuiltinFunctionContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *BuiltinFunctionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitBuiltinFunction(s)
+func (s *BuiltinFunctionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterBuiltinFunction(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *BuiltinFunctionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitBuiltinFunction(s)
 	}
 }
 
@@ -10060,13 +10178,15 @@ func (s *LiteralContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *LiteralContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitLiteral(s)
+func (s *LiteralContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterLiteral(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *LiteralContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitLiteral(s)
 	}
 }
 
@@ -10193,13 +10313,15 @@ func (s *NumericLiteralContext) ToStringTree(ruleNames []string, recog antlr.Rec
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NumericLiteralContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitNumericLiteral(s)
+func (s *NumericLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterNumericLiteral(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NumericLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitNumericLiteral(s)
 	}
 }
 
@@ -10297,13 +10419,15 @@ func (s *TemporalLiteralContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TemporalLiteralContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitTemporalLiteral(s)
+func (s *TemporalLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterTemporalLiteral(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TemporalLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitTemporalLiteral(s)
 	}
 }
 
@@ -10418,13 +10542,15 @@ func (s *SeriesLiteralContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *SeriesLiteralContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitSeriesLiteral(s)
+func (s *SeriesLiteralContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterSeriesLiteral(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *SeriesLiteralContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitSeriesLiteral(s)
 	}
 }
 
@@ -10584,13 +10710,15 @@ func (s *ExpressionListContext) ToStringTree(ruleNames []string, recog antlr.Rec
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ExpressionListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SlateParserVisitor:
-		return t.VisitExpressionList(s)
+func (s *ExpressionListContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.EnterExpressionList(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ExpressionListContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SlateParserListener); ok {
+		listenerT.ExitExpressionList(s)
 	}
 }
 

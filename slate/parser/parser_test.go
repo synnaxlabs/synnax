@@ -51,28 +51,10 @@ var _ = Describe("Parser", func() {
 				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42"))
 			})
 
-			It("Should parse integer literals with type suffix", func() {
-				expr := mustParseExpression("42u8")
-				literal := getPrimaryLiteral(expr)
-				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42u8"))
-			})
-
 			It("Should parse float literals", func() {
 				expr := mustParseExpression("3.14")
 				literal := getPrimaryLiteral(expr)
 				Expect(literal.NumericLiteral().FLOAT_LITERAL().GetText()).To(Equal("3.14"))
-			})
-
-			It("Should parse hex literals", func() {
-				expr := mustParseExpression("0xFF")
-				literal := getPrimaryLiteral(expr)
-				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("0xFF"))
-			})
-
-			It("Should parse binary literals", func() {
-				expr := mustParseExpression("0b1010")
-				literal := getPrimaryLiteral(expr)
-				Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("0b1010"))
 			})
 		})
 
@@ -532,7 +514,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(assignment).NotTo(BeNil())
 				Expect(assignment.IDENTIFIER().GetText()).To(Equal("total"))
 				Expect(assignment.ASSIGN()).NotTo(BeNil())
-				
+
 				// Check the expression is an addition
 				expr := assignment.Expression()
 				additive := getAdditiveExpression(expr)
@@ -846,30 +828,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 				inner2 := getPrimaryExpression(inner1.Expression())
 				Expect(inner2.LPAREN()).NotTo(BeNil())
-			})
-
-			It("Should parse numbers with underscores", func() {
-				testCases := []struct {
-					input    string
-					expected string
-				}{
-					{"1_000", "1_000"},
-					{"1_000_000", "1_000_000"},
-					{"0xFF_FF", "0xFF_FF"},
-					{"0b1010_1010", "0b1010_1010"},
-					{"3.141_592", "3.141_592"},
-				}
-
-				for _, tc := range testCases {
-					expr := mustParseExpression(tc.input)
-					literal := getPrimaryLiteral(expr)
-
-					if literal.NumericLiteral().INTEGER_LITERAL() != nil {
-						Expect(literal.NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal(tc.expected))
-					} else {
-						Expect(literal.NumericLiteral().FLOAT_LITERAL().GetText()).To(Equal(tc.expected))
-					}
-				}
 			})
 		})
 
