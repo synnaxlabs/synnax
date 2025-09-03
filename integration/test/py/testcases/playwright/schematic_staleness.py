@@ -11,11 +11,13 @@ import time
 import re
 from testcases.playwright.schematic import Schematic
 
+
 class Schematic_Staleness(Schematic):
     """
     Verify staleness behavior of schematic value nodes
     This test must run alongside "schematic_staleness_producer.py"
     """
+
     def run(self) -> None:
 
         time.sleep(10)

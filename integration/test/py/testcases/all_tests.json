@@ -14,6 +14,35 @@
     ]
   },
   {
+    "sequence_name": "Sequential_Tests",
+    "sequence_order": "Sequential",
+    "tests": [
+      {
+        "case": "testcases/example_basic"
+      },
+      {
+        "case": "testcases/example_basic",
+        "name": "inject_timeout",
+        "parameters": {
+          "timeout": 2,
+          "wait_time": 5
+        },
+        "expect": "TIMEOUT"
+      },
+      {
+        "case": "testcases/example_basic",
+        "name": "inject_failure",
+        "parameters": {
+          "fail_test": true
+        },
+        "expect": "FAILED"
+      },
+      {
+        "case": "testcases/test_no_timeout"
+      }
+    ]
+  },
+  {
     "sequence_name": "Async_ABC",
     "sequence_order": "asynchronous",
     "tests": [
@@ -44,35 +73,6 @@
       },
       {
         "case": "testcases/latency/bench_latency_report"
-      }
-    ]
-  },
-  {
-    "sequence_name": "Sequential_Tests",
-    "sequence_order": "Sequential",
-    "tests": [
-      {
-        "case": "testcases/example_basic",
-        "name": "inject_timeout",
-        "parameters": {
-          "timeout": 2,
-          "wait_time": 5
-        },
-        "expect": "TIMEOUT"
-      },
-      {
-        "case": "testcases/example_basic",
-        "name": "inject_failure",
-        "parameters": {
-          "fail_test": true
-        },
-        "expect": "FAILED"
-      },
-      {
-        "case": "testcases/example_basic"
-      },
-      {
-        "case": "testcases/test_no_timeout"
       }
     ]
   }

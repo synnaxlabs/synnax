@@ -111,7 +111,7 @@ class TestCase(ABC):
     # Configuration constants
     DEFAULT_READ_TIMEOUT = 1
     DEFAULT_LOOP_RATE = 0.2  # 5 Hz
-    WEBSOCKET_RETRY_DELAY = 0.5 #s
+    WEBSOCKET_RETRY_DELAY = 0.5  # s
     MAX_CLEANUP_RETRIES = 3
     CLIENT_THREAD_START_DELAY = 1
     DEFAULT_TIMEOUT_LIMIT = -1
@@ -466,7 +466,7 @@ class TestCase(ABC):
             self._log_message(f"KILLED ({status_symbol})")
 
         # Sleep for 2 loops to ensure the status is updated
-        time.sleep(self.DEFAULT_LOOP_RATE*2)
+        time.sleep(self.DEFAULT_LOOP_RATE * 2)
 
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
@@ -726,4 +726,3 @@ class TestCase(ABC):
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
-            

@@ -9,21 +9,22 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# install-poetry-deps-unix.sh
-# Installs Poetry and Python dependencies on Unix systems (Linux/macOS)
+# install-playwright-unix.sh
+# Installs Playwright browsers using Poetry on Unix systems (Linux/macOS)
 # Used by GitHub Actions workflow: test.integration.yaml
 
 set -euo pipefail
 
-echo "Installing Poetry and dependencies..."
+echo "📦 Installing Playwright browsers on Unix..."
 
 # Change to the integration test directory
 cd integration/test/py
 
-# Install Poetry and dependencies via pyproject.toml
-curl -sSL https://install.python-poetry.org | python3 -
+# Ensure Poetry is in PATH
 export PATH="$HOME/.local/bin:$PATH"
-poetry lock
-poetry install
 
-echo "Poetry and dependencies installed successfully"
+# Install Playwright browsers with system dependencies
+echo "Installing Playwright browsers..."
+poetry run playwright install --with-deps
+
+echo "✅ Playwright browsers installed successfully"

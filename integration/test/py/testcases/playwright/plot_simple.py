@@ -11,6 +11,7 @@ import time
 import re
 from testcases.playwright.plot import Plot
 
+
 class Plot_Simple(Plot):
     """
     Simple plot test

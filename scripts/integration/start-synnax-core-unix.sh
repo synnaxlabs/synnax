@@ -22,11 +22,11 @@ mkdir -p $HOME/synnax-data
 
 # Start Synnax in background
 cd $HOME/synnax-data
-$HOME/synnax-binaries/synnax start -mi --license-key "${LICENSE_KEY}" &
+$HOME/synnax-binaries/synnax start -mi &
 
 # Wait for startup
 echo "Waiting for server startup..."
-sleep 10
+sleep 5
 
 # Verify Synnax is running
 if pgrep -f "synnax" >/dev/null; then
@@ -56,5 +56,4 @@ fi
 echo "Synnax server started successfully and is ready!"
 
 # Output Synnax version
-echo "Synnax version:"
 $HOME/synnax-binaries/synnax version

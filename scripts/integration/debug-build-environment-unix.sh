@@ -9,8 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# debug-build-environment-macos.sh
-# Provides debugging information when build fails on macOS
+# Provides debugging information when build fails on Ubuntu
 # Used by GitHub Actions workflow: test.integration.yaml
 
 set -euo pipefail

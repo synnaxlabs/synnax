@@ -11,14 +11,15 @@ import time
 import re
 from testcases.playwright.playwright import Playwright
 
+
 class Plot(Playwright):
     """
     Parent class for Plot tests
     """
+
     def setup(self) -> None:
         super().setup()
         self.create_page("Line Plot")
-
 
     def get_latest_value(self, node_id: str) -> float:
         """

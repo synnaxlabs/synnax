@@ -13,6 +13,13 @@ set -euo pipefail
 
 echo "Building Synnax..."
 
+# Install system dependencies (Linux only)
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "Installing system dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y libsystemd-dev
+fi
+
 # Build Driver
 echo "Building driver with Bazel..."
 bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
@@ -35,17 +42,27 @@ echo "Downloading Go dependencies..."
 cd core
 go mod download
 
+# Detect platform
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    PLATFORM="macos"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    PLATFORM="linux"
+else
+    echo "Unsupported platform: $OSTYPE"
+    exit 1
+fi
+
 # Build Server
-echo "Building Synnax server..."
-go build -tags driver -o synnax-v${VERSION}-macos
+echo "Building Synnax server for $PLATFORM..."
+go build -tags driver,console -o synnax-v${VERSION}-${PLATFORM}
 cd ..
 
 # Test Binary Execution
 echo "Testing binary execution..."
-./core/synnax-v${VERSION}-macos version || echo "WARNING: Server binary check failed"
+./core/synnax-v${VERSION}-${PLATFORM} version || echo "WARNING: Server binary check failed"
 bazel-bin/driver/driver --help || echo "WARNING: Driver binary check failed"
 
-echo "macOS build completed successfully!"
+echo "$PLATFORM build completed successfully!"
 echo "Built artifacts:"
 echo "  - Driver: bazel-bin/driver/driver"
-echo "  - Server: core/synnax-v${VERSION}-macos"
+echo "  - Server: core/synnax-v${VERSION}-${PLATFORM}"

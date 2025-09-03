@@ -29,22 +29,31 @@ install_github_cli() {
     fi
 }
 
-# Download artifacts from reference run
-download_reference_artifacts() {
+# Download artifacts from run
+download_artifacts() {
     local run_id=$1
-    echo "Downloading artifacts from reference run: $run_id"
+    echo "Downloading artifacts from run: $run_id"
+    
+    # Verify the run exists
+    echo "Verifying run $run_id exists..."
+    gh run view $run_id
     
     # Create binaries directory
     mkdir -p ./binaries
     
     # Download artifacts using GitHub CLI
-    echo "Downloading driver-macos artifact..."
-    gh run download $run_id --name driver-macos --dir ./binaries
+    echo "Downloading synnax-core-console-macos artifact..."
+    gh run download $run_id --name synnax-core-console-macos --dir ./binaries
     
-    echo "Downloading synnax-server-macos artifact..."
-    gh run download $run_id --name synnax-server-macos --dir ./binaries
+    # Verify artifacts were downloaded
+    if [ ! -f "./binaries/synnax-"*"-macos" ]; then
+        echo "❌ Error: No synnax executable found in binaries directory"
+        echo "Available files in binaries directory:"
+        ls -la ./binaries/
+        exit 1
+    fi
     
-    echo "Reference artifacts downloaded successfully"
+    echo "✅ Artifacts downloaded successfully"
 }
 
 # Setup binaries in home directory
@@ -53,27 +62,17 @@ setup_binaries() {
     
     # Create a binaries directory in a reliable location
     mkdir -p $HOME/synnax-binaries
-    cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
     cp ./binaries/synnax-*-macos $HOME/synnax-binaries/synnax
     chmod +x $HOME/synnax-binaries/synnax*
     
-    echo "Binaries prepared in $HOME/synnax-binaries:"
+    # Verify setup
+    if [ ! -f "$HOME/synnax-binaries/synnax" ]; then
+        echo "❌ Error: synnax binary not found in $HOME/synnax-binaries after setup"
+        exit 1
+    fi
+    
+    echo "✅ Binaries prepared in $HOME/synnax-binaries:"
     ls -la $HOME/synnax-binaries/synnax*
-}
-
-# Download current run artifacts
-download_current_artifacts() {
-    echo "Downloading current run artifacts..."
-    mkdir -p ./binaries
-    
-    # Use GitHub CLI to download from current run
-    echo "Downloading driver-macos artifact..."
-    gh run download --name driver-macos --dir ./binaries
-    
-    echo "Downloading synnax-server-macos artifact..."
-    gh run download --name synnax-server-macos --dir ./binaries
-    
-    echo "Current run artifacts downloaded successfully"
 }
 
 # Main execution
@@ -89,24 +88,19 @@ main() {
     install_github_cli
     
     # Debug: Print environment variables
-    echo "DEBUG: SKIP_BUILD='${SKIP_BUILD:-}'"
     echo "DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
     
-    # Check if we should skip build and use reference artifacts
-    if [ "${SKIP_BUILD:-false}" = "true" ] && [ -n "${REF_RUN_ID:-}" ]; then
-        echo "SKIP build mode: using reference run $REF_RUN_ID"
-        download_reference_artifacts "$REF_RUN_ID"
-    elif [ "${SKIP_BUILD:-false}" != "true" ]; then
-        echo "Build mode: using current run artifacts"
-        download_current_artifacts
+    # Download artifacts from the specified run
+    if [ -n "${REF_RUN_ID:-}" ]; then
+        download_artifacts "$REF_RUN_ID"
     else
-        echo "ERROR: SKIP_BUILD is true but no REF_RUN_ID provided"
+        echo "❌ Error: REF_RUN_ID not provided"
         exit 1
     fi
     
     setup_binaries
     
-    echo "macOS artifacts setup completed successfully"
+    echo "✅ macOS artifacts setup completed successfully"
 }
 
 # Run main function

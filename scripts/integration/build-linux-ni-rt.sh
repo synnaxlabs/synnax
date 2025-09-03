@@ -9,22 +9,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# build-ubuntu-latest.sh
-# Builds Synnax driver and server binaries for Ubuntu Latest
+# Builds Synnax driver and server binaries for Ubuntu 22.04 (NI Linux RT)
 # Used by GitHub Actions workflow: test.integration.yaml
 
 set -euo pipefail
 
 echo "Building Synnax..."
 
-# Install system dependencies
-echo "Installing system dependencies..."
-sudo apt-get update
-sudo apt-get install -y libsystemd-dev
-
-# Build Driver
-echo "Building driver with Bazel..."
-bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+# Build Driver (NI Linux RT specific)
+echo "Building driver with Bazel (NI Linux RT platform)..."
+bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
 
 # Move Driver to Assets
 echo "Moving driver to assets..."
@@ -42,17 +36,17 @@ echo "Building version: $VERSION"
 echo "Downloading Go dependencies..."
 go mod download
 
-# Build Server
-echo "Building Synnax server..."
-go build -tags driver -o synnax-v${VERSION}-linux
+# Build Server (NI Linux RT target)
+echo "Building Synnax server for NI Linux RT..."
+go build -tags driver,console -o synnax-v${VERSION}-nilinuxrt
 cd ..
 
 # Test Binary Execution
 echo "Testing binary execution..."
-./core/synnax-v${VERSION}-linux version || echo "WARNING: Server binary check failed"
+./core/synnax-v${VERSION}-nilinuxrt version || echo "WARNING: Server binary check failed"
 bazel-bin/driver/driver --help || echo "WARNING: Driver binary check failed"
 
-echo "Ubuntu Latest build completed successfully!"
+echo "Ubuntu 22.04 (NI Linux RT) build completed successfully!"
 echo "Built artifacts:"
 echo "  - Driver: bazel-bin/driver/driver"
-echo "  - Server: core/synnax-v${VERSION}-linux"
+echo "  - Server: core/synnax-v${VERSION}-nilinuxrt"

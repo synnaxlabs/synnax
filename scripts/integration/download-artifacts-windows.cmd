@@ -16,19 +16,6 @@ rem Used by GitHub Actions workflow: test.integration.yaml
 
 rem SY-2814: Simplify this script
 
-rem Clean up any existing binaries
-if exist ".\binaries" (
-    echo 🧹 Cleaning existing binaries directory...
-    rmdir /s /q ".\binaries"
-) else (
-    echo 🧹 No existing binaries directory to clean
-)
-
-rem Clean up any existing desktop binaries
-echo Cleaning up desktop binaries...
-del /q "%USERPROFILE%\Desktop\synnax*.exe" 2>nul
-echo Desktop cleanup completed
-
 echo Setting up Windows artifacts download...
 
 rem Setup GitHub CLI (Windows)
@@ -136,76 +123,76 @@ if %errorlevel% neq 0 (
 )
 echo ✅ GitHub CLI authentication verified
 
-rem Check build mode and download appropriate artifacts  
-if "%SKIP_BUILD%"=="true" (
-    if defined REF_RUN_ID (
-        echo Downloading artifacts from reference run: %REF_RUN_ID%
-        
-        rem Verify the run exists and has artifacts
-        echo Verifying run %REF_RUN_ID% exists...
-        "%gh_cmd%" run view %REF_RUN_ID% --repo synnaxlabs/synnax
-        if %errorlevel% neq 0 (
-            echo ❌ Error: Cannot access run %REF_RUN_ID%
-        )
-        
-        rem Create binaries directory
-        if not exist ".\binaries" mkdir ".\binaries"
-        
-        rem Download artifacts using GitHub CLI
-        echo "Downloading driver-windows artifact..."
-        "%gh_cmd%" run download %REF_RUN_ID% --name driver-windows --dir .\binaries --repo synnaxlabs/synnax
-        if %errorlevel% neq 0 (
-            echo ❌ Error: Failed to download driver-windows artifact
-            echo ❌ Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
-            "%gh_cmd%" --version
-            exit /b 1
-        )
-        
-        echo "Downloading synnax-core-console-windows artifact..."
-        "%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-console-windows --dir .\binaries --repo synnaxlabs/synnax
-        if %errorlevel% neq 0 (
-            echo ❌ Error: Failed to download synnax-core-console-windows artifact
-            echo ❌ Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
-            exit /b 1
-        )
-        
-    ) else (
-        echo ❌ Error: SKIP_BUILD is true but no REF_RUN_ID provided
-        exit /b 1
-    )
-) else (
-    echo 📦 Build mode: downloading current run artifacts
-    
-    rem Create binaries directory
-    if not exist ".\binaries" mkdir ".\binaries"
-    
-    rem Download current run artifacts
-    echo "Downloading driver-windows artifact from current run..."
-    "%gh_cmd%" run download --name driver-windows --dir .\binaries --repo synnaxlabs/synnax
-    if %errorlevel% neq 0 (
-        echo ❌ Error: Failed to download driver-windows artifact from current run
-        echo ❌ Debug: gh_cmd=%gh_cmd%
-        "%gh_cmd%" --version
-        exit /b 1
-    )
-    
-    echo "Downloading synnax-core-console-windows artifact from current run..."
-    "%gh_cmd%" run download --name synnax-core-console-windows --dir .\binaries --repo synnaxlabs/synnax
-    if %errorlevel% neq 0 (
-        echo ❌ Error: Failed to download synnax-core-console-windows artifact from current run
-        echo ❌ Debug: gh_cmd=%gh_cmd%
-        exit /b 1
-    )
-    
-    echo ✅ Current run artifacts downloaded successfully
+rem Download artifacts from run: %REF_RUN_ID%
+echo Downloading artifacts from run: %REF_RUN_ID%
+
+rem Verify the run exists and has artifacts
+echo Verifying run %REF_RUN_ID% exists...
+"%gh_cmd%" run view %REF_RUN_ID% --repo synnaxlabs/synnax
+if %errorlevel% neq 0 (
+    echo ❌ Error: Cannot access run %REF_RUN_ID%
+    exit /b 1
 )
+
+rem Create binaries directory
+if not exist ".\binaries" mkdir ".\binaries"
+
+rem Download artifacts using GitHub CLI
+echo "Downloading synnax-core-console-windows artifact..."
+"%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-console-windows --dir .\binaries --repo synnaxlabs/synnax
+
+rem Check both exit code and if files were actually downloaded
+if %errorlevel% neq 0 (
+    echo ❌ Error: GitHub CLI returned error code %errorlevel%
+    echo ❌ Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
+    echo ❌ This is a critical failure - cannot proceed without artifacts
+    exit /b 1
+)
+
+rem Verify the binaries directory was created and contains files
+if not exist ".\binaries" (
+    echo ❌ Error: Binaries directory was not created - download likely failed
+    echo ❌ This is a critical failure - cannot proceed without artifacts
+    exit /b 1
+)
+
+rem Check if any synnax executable was downloaded
+dir /b .\binaries\synnax-*-windows.exe >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ❌ Error: No synnax executable found in binaries directory
+    echo Available files in binaries directory:
+    dir .\binaries
+    echo ❌ This is a critical failure - cannot proceed without artifacts
+    exit /b 1
+)
+
 
 rem Setup Binaries (Windows) - Easy access for RDP Session
 echo 📦 Setting up binaries...
 if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
-copy /Y ".\binaries\driver.exe" "%USERPROFILE%\Desktop\synnax-driver.exe"
-for %%f in (.\binaries\synnax-*-windows.exe) do copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
 
+rem Copy the Synnax binary to desktop
+echo Copying Synnax binary to desktop...
+for %%f in (.\binaries\synnax-*-windows.exe) do (
+    echo Found binary: %%f
+    copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
+    if %errorlevel% neq 0 (
+        echo ❌ Error: Failed to copy %%f to desktop
+        exit /b 1
+    )
+)
+
+rem Verify the binary was copied successfully
+if not exist "%USERPROFILE%\Desktop\synnax.exe" (
+    echo ❌ Error: synnax.exe not found on desktop after copy
+    echo Available files in binaries directory:
+    dir .\binaries
+    echo Available files on desktop:
+    dir "%USERPROFILE%\Desktop\synnax*"
+    exit /b 1
+)
+
+echo ✅ Synnax binary copied to desktop successfully
 dir "%USERPROFILE%\Desktop\synnax*"
 
 echo ✅ Windows artifacts setup completed successfully

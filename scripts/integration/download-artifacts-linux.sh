@@ -31,22 +31,31 @@ install_github_cli() {
     fi
 }
 
-# Download artifacts from reference run
-download_reference_artifacts() {
+# Download artifacts from run
+download_artifacts() {
     local run_id=$1
-    echo "Downloading artifacts from reference run: $run_id"
+    echo "Downloading artifacts from run: $run_id"
+    
+    # Verify the run exists
+    echo "Verifying run $run_id exists..."
+    gh run view $run_id
     
     # Create binaries directory
     mkdir -p ./binaries
     
     # Download artifacts using GitHub CLI
-    echo "Downloading driver-linux artifact..."
-    gh run download $run_id --name driver-linux --dir ./binaries
+    echo "Downloading synnax-core-console-linux artifact..."
+    gh run download $run_id --name synnax-core-console-linux --dir ./binaries
     
-    echo "Downloading synnax-server-linux artifact..."
-    gh run download $run_id --name synnax-server-linux --dir ./binaries
+    # Verify artifacts were downloaded
+    if ! ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
+        echo "❌ Error: No synnax executable found in binaries directory"
+        echo "Available files in binaries directory:"
+        ls -la ./binaries/ || echo "No ./binaries directory found"
+        exit 1
+    fi
     
-    echo "Reference artifacts downloaded successfully"
+    echo "✅ Artifacts downloaded successfully"
 }
 
 # Setup binaries in home directory
@@ -60,42 +69,25 @@ setup_binaries() {
     echo "Contents of ./binaries directory:"
     ls -la ./binaries/ || echo "No ./binaries directory found"
     
-    # Check if files exist before copying
-    if [ -f "./binaries/driver" ]; then
-        cp ./binaries/driver $HOME/synnax-binaries/synnax-driver
-        echo "Driver copied successfully"
-    else
-        echo "ERROR: Driver binary not found in ./binaries/"
-        exit 1
-    fi
-    
+    # Copy the synnax binary
     if ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
         cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
-        echo "Server binary copied successfully"
+        echo "✅ Server binary copied successfully"
     else
-        echo "ERROR: Server binary (synnax-*-linux) not found in ./binaries/"
+        echo "❌ Error: Server binary (synnax-*-linux) not found in ./binaries/"
         exit 1
     fi
     
     chmod +x $HOME/synnax-binaries/synnax*
     
-    echo "Binaries prepared in $HOME/synnax-binaries:"
+    # Verify setup
+    if [ ! -f "$HOME/synnax-binaries/synnax" ]; then
+        echo "❌ Error: synnax binary not found in $HOME/synnax-binaries after setup"
+        exit 1
+    fi
+    
+    echo "✅ Binaries prepared in $HOME/synnax-binaries:"
     ls -la $HOME/synnax-binaries/synnax*
-}
-
-# Download current run artifacts
-download_current_artifacts() {
-    echo "Downloading current run artifacts..."
-    mkdir -p ./binaries
-    
-    # Use GitHub CLI to download from current run
-    echo "Downloading driver-linux artifact..."
-    gh run download --name driver-linux --dir ./binaries
-    
-    echo "Downloading synnax-server-linux artifact..."
-    gh run download --name synnax-server-linux --dir ./binaries
-    
-    echo "Current run artifacts downloaded successfully"
 }
 
 # Main execution
@@ -112,21 +104,20 @@ main() {
     
     install_github_cli
     
-    # Check if we should skip build and use reference artifacts
-    if [ "${SKIP_BUILD:-false}" = "true" ] && [ -n "${REF_RUN_ID:-}" ]; then
-        echo "SKIP build mode: using reference run $REF_RUN_ID"
-        download_reference_artifacts "$REF_RUN_ID"
-    elif [ "${SKIP_BUILD:-false}" != "true" ]; then
-        echo "Build mode: using current run artifacts"
-        download_current_artifacts
+    # Debug: Print environment variables
+    echo "DEBUG: REF_RUN_ID='${REF_RUN_ID:-}'"
+    
+    # Download artifacts from the specified run
+    if [ -n "${REF_RUN_ID:-}" ]; then
+        download_artifacts "$REF_RUN_ID"
     else
-        echo "ERROR: SKIP_BUILD is true but no REF_RUN_ID provided"
+        echo "❌ Error: REF_RUN_ID not provided"
         exit 1
     fi
     
     setup_binaries
     
-    echo "Linux artifacts setup completed successfully"
+    echo "✅ Linux artifacts setup completed successfully"
 }
 
 # Run main function

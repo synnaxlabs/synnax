@@ -9,13 +9,14 @@
 
 from testcases.playwright.playwright import Playwright
 
+
 class Tabs_Open_Close(Playwright):
     """
     Open all pages in the "New Component" window and close them
     """
 
     def run(self) -> None:
-        
+
         self._log_message("(1/2) Creating pages by commmand palette")
         page_names = [
             ("Schematic", "S_Name"),
@@ -38,10 +39,9 @@ class Tabs_Open_Close(Playwright):
             names.append(page_name[1])
         for name in names:
             self.close_page(name)
-        
-        
+
         self._log_message("(2/2) Creating pages by manual add")
-        pages=[
+        pages = [
             "Line Plot",
             "Schematic",
             "Log",
@@ -70,16 +70,17 @@ class Tabs_Open_Close(Playwright):
         if self.page.get_by_text("New Component").count() > 0:
             self._log_message("All pages closed - 'New Component' screen visible")
         else:
-            self._log_message("FAILED: Pages still be open - 'New Component' screen not visible")
+            self._log_message(
+                "FAILED: Pages still be open - 'New Component' screen not visible"
+            )
             self.fail()
-        
 
     def open_page(self, page_name: str, inputs_items: list[str] = []) -> None:
         """
         This differs from create_page in that it uses the manual
         New Page (+) button instead of the command palette.
         """
-        self.page.locator("[id=\"«r5»\"]").click() # (+)
+        self.page.locator('[id="«r5»"]').click()  # (+)
         self.page.get_by_role("button", name=page_name).first.click()
         # Apply inputs
         for i in inputs_items:
