@@ -150,10 +150,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: matrix.os == 'windows-latest'
-        with:
-          sdk-version: 22000
+      # - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+      #   if: matrix.os == 'windows-latest'
+      #   with:
+      #     sdk-version: 22000
 
       - name: Update Submodules
         run: git submodule update --init --recursive
