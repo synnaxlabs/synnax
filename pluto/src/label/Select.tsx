@@ -30,7 +30,7 @@ const ListItem = ({
   return (
     <List.Item
       itemKey={itemKey}
-      onSelect={onSelect}
+      onClick={onSelect}
       selected={selected}
       hovered={hovered}
       {...rest}

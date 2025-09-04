@@ -25,7 +25,14 @@ export const ListItem = <
   props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
-  const selectProps = useItemState(itemKey);
-  // @ts-expect-error - generic element issues
-  return <List.Item<E> {...selectProps} {...props} />;
+  const { onSelect, ...restSelectProps } = useItemState(itemKey);
+  return (
+    // @ts-expect-error - generic element issues
+    <List.Item<E>
+      {...restSelectProps}
+      {...props}
+      onClick={onSelect}
+      onContextMenu={onSelect}
+    />
+  );
 };
