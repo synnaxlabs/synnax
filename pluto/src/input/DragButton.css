@@ -9,31 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input--shadow .pluto-input__drag-btn {
-    opacity: 0;
-}
-
-.pluto-input--shadow:hover .pluto-input__drag-btn {
-    opacity: 1;
-}
-
 .pluto-input__drag-btn {
     cursor: move !important;
-}
-
-.pluto-input__drag-btn.pluto--x {
-    cursor: col-resize;
-}
-
-.pluto-input__drag-btn.pluto--y {
-    cursor: row-resize;
-}
-
-.pluto-input__drag-btn > svg > * {
-    fill: var(--pluto-gray-l9);
-    stroke: var(--pluto-gray-l9);
-}
-
-.pluto-input__drag-tn.pluto--x > svg {
-    transform: rotate(90deg);
+    &.pluto-input__drag-btn--direction-x {
+        cursor: col-resize;
+        & > svg {
+            transform: rotate(90deg);
+        }
+    }
+    &.pluto-input__drag-btn--direction-y {
+        cursor: row-resize;
+    }
 }

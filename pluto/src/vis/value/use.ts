@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { text } from "@/text/core";
 import { Value } from "@/vis/value/aether/value";
 
@@ -38,8 +38,13 @@ export const use = ({
   backgroundTelem,
   notation,
   location,
+  stalenessColor,
+  stalenessTimeout,
+  useWidthForBackground,
+  valueBackgroundOverScan,
+  valueBackgroundShift,
 }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqualProps({
+  const memoProps = useMemoDeepEqual({
     box,
     telem,
     color,
@@ -48,7 +53,12 @@ export const use = ({
     minWidth,
     notation,
     backgroundTelem,
+    stalenessColor,
+    stalenessTimeout,
     location,
+    useWidthForBackground,
+    valueBackgroundOverScan,
+    valueBackgroundShift,
   });
   const [, state, setState] = Aether.use({
     aetherKey,

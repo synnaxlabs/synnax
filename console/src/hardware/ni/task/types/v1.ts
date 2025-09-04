@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
@@ -270,9 +270,9 @@ const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
 
 export interface AnalogReadPayload
   extends task.Payload<
-    AnalogReadConfig,
-    v0.AnalogReadStateDetails,
-    v0.AnalogReadType
+    typeof v0.analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof v0.analogReadStatusDataZ
   > {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   ...v0.ZERO_ANALOG_READ_PAYLOAD,
@@ -280,6 +280,10 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 };
 
 export interface AnalogReadTask
-  extends task.Task<AnalogReadConfig, v0.AnalogReadStateDetails, v0.AnalogReadType> {}
+  extends task.Task<
+    typeof v0.analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof v0.analogReadStatusDataZ
+  > {}
 export interface NewAnalogReadTask
-  extends task.Task<AnalogReadConfig, v0.AnalogReadStateDetails, v0.AnalogReadType> {}
+  extends task.New<typeof v0.analogReadTypeZ, typeof analogReadConfigZ> {}

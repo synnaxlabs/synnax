@@ -18,21 +18,26 @@ export const useFetchPermissions = (): void => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      dispatch(giveAll());
-      return;
-    }
-    const username = client.props.username;
-    try {
-      const user = await client.user.retrieveByName(username);
-      const policies = await client.access.policy.retrieveFor(
-        clientUser.ontologyID(user.key),
-      );
-      dispatch(set({ policies }));
-    } catch (e) {
-      if (Unreachable.matches(e)) return;
-      handleError(e, `Failed to fetch permissions for ${username}`);
-    }
-  }, [client]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        dispatch(giveAll());
+        return;
+      }
+      const username = client.props.username;
+      try {
+        const user = await client.user.retrieve({ username });
+        if (signal.aborted) return;
+        const policies = await client.access.policy.retrieve({
+          for: clientUser.ontologyID(user.key),
+        });
+        if (signal.aborted) return;
+        dispatch(set({ policies }));
+      } catch (e) {
+        if (Unreachable.matches(e)) return;
+        handleError(e, `Failed to fetch permissions for ${username}`);
+      }
+    },
+    [client],
+  );
 };

@@ -7,20 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x";
-import { Fragment, isValidElement, type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { useContext } from "@/header/Header";
-import { Text } from "@/text";
+import { Flex } from "@/flex";
 
-export type ActionSpec = Button.IconProps | ReactElement;
-
-export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direction"> {
-  children?: ActionSpec | ActionSpec[];
+export interface ActionsProps extends Omit<Flex.BoxProps, "children" | "direction"> {
+  children?: ReactNode;
 }
 
 /**
@@ -31,53 +24,14 @@ export interface ActionsProps extends Omit<Align.SpaceProps, "children" | "direc
  * using the given props. If the action is a JSX element, it is renderered directly.
  * It's a good idea to prefer the latter in almost all cases for simplicity.
  */
-export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => {
-  const { level, divided } = useContext();
-  return (
-    <Align.Space
-      x
-      size="small"
-      align="center"
-      className={CSS.BE("header", "actions")}
-      {...rest}
-    >
-      {array.toArray(children).map((action, i) => (
-        <Action key={i} index={i} level={level} divided={divided}>
-          {action}
-        </Action>
-      ))}
-    </Align.Space>
-  );
-};
-
-interface ActionProps {
-  index: number;
-  level: Text.Level;
-  children: ReactElement | Button.IconProps;
-  divided: boolean;
-}
-
-const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
-  let content: ReactElement = children as ReactElement;
-  if (!isValidElement(children)) {
-    const { onClick, key, ...rest } = children;
-    content = (
-      <Button.Icon
-        key={key ?? index}
-        onClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          onClick?.(e);
-        }}
-        size={Text.LevelComponentSizes[level]}
-        {...rest}
-      />
-    );
-  }
-  return (
-    <Fragment key={index}>
-      {divided && <Divider.Divider />}
-      {content}
-    </Fragment>
-  );
-};
+export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => (
+  <Flex.Box
+    x
+    gap="small"
+    align="center"
+    className={CSS.BE("header", "actions")}
+    {...rest}
+  >
+    {children}
+  </Flex.Box>
+);

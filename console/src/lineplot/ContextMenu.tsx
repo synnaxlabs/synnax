@@ -12,7 +12,7 @@ import { Menu } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <Menu.Menu level="small" iconSpacing="small">
+  <Menu.Menu level="small" gap="small">
     <Layout.MenuItems layoutKey={layoutKey} />
   </Menu.Menu>
 );

@@ -7,23 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { BottomNavBar } from "@/modals/BottomNavBar";
 
-export interface ModalContentLayoutProps extends PropsWithChildren {
+export interface ModalContentLayoutProps extends PropsWithChildren, Flex.BoxProps {
   footer: React.ReactNode;
 }
 
 export const ModalContentLayout = ({
   children,
   footer,
+  style,
+  ...rest
 }: ModalContentLayoutProps): ReactElement => (
-  <Align.Space y grow justify="center">
-    <Align.Space y grow align="start" justify="center" style={{ padding: "5rem" }}>
+  <Flex.Box y grow justify="center">
+    <Flex.Box
+      y
+      grow
+      align="start"
+      justify="center"
+      style={{ padding: "5rem", ...style }}
+      {...rest}
+    >
       {children}
-    </Align.Space>
+    </Flex.Box>
     <BottomNavBar>{footer}</BottomNavBar>
-  </Align.Space>
+  </Flex.Box>
 );

@@ -21,7 +21,6 @@ on:
       - pnpm-workspace.yaml
       - scripts/check-gofmt.sh
       - turbo.json
-      - vitest.workspace.ts
       - x/go/**
       - x/ts/**
   push:
@@ -74,7 +73,6 @@ jobs:
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - turbo.json
-              - vitest.workspace.ts
               - x/ts/**
 
   server:
@@ -97,6 +95,8 @@ jobs:
 
       - name: Download Earthly
         uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
         run: earthly --push +docker

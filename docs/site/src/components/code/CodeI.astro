@@ -1,6 +1,5 @@
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import Code from "astro/components/Code.astro";
 import { Fragment } from "react";
 
@@ -8,10 +7,10 @@ const props = Astro.props;
 ---
 
 <div class="astro-code-wrapper">
-    <Button.Icon variant="outlined" size="medium">
+    <Button.Button variant="outlined" size="medium">
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
         </Fragment>
-    </Button.Icon>
+    </Button.Button>
     <Code {...props} />
 </div>

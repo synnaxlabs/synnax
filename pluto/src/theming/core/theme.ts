@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { text } from "@/text/core";
 
@@ -140,7 +140,7 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
+const WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
 
 // Grayscale
 

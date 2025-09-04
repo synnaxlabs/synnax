@@ -14,5 +14,6 @@ import { Workspace } from "@/workspace";
 export const handleLink: Link.Handler = async ({ client, dispatch, key }) => {
   const workspace = await client.workspaces.retrieve(key);
   dispatch(Layout.setWorkspace({ slice: workspace.layout as Layout.SliceState }));
+  dispatch(Workspace.add(workspace));
   dispatch(Workspace.setActive(workspace.key));
 };

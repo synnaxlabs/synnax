@@ -34,7 +34,7 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
   const handleChange = vi.fn();
   source.onChange(handleChange);
-  await expect.poll(() => handleChange.mock.calls.length > 0).toBeTruthy();
+  await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
   return source.value();
 };
 
@@ -88,21 +88,21 @@ describe("remote", () => {
       vi.resetAllMocks();
     });
 
-    it("should return a zero value when no channel has been set", async () => {
+    it("should return a NaN value when no channel has been set", async () => {
       const props: StreamChannelValueProps = {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(0);
+      expect(scv.value()).toBe(NaN);
       expect(scv.testingOnlyValid).toBe(false);
     });
 
-    it("should return a zero value when no leading buffer has been set", async () => {
+    it("should return a NaN value when no leading buffer has been set", async () => {
       const props: StreamChannelValueProps = {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(0);
+      expect(scv.value()).toBe(NaN);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
 
@@ -135,13 +135,13 @@ describe("remote", () => {
       const handleChange = vi.fn();
       scv.onChange(handleChange);
       scv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
       });
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
       expect(scv.value()).toBe(3);
     });
@@ -153,17 +153,17 @@ describe("remote", () => {
       const scv = new StreamChannelValue(c, props);
       const handleChange = vi.fn();
       scv.onChange(handleChange);
-      expect(scv.value()).toBe(0);
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
+      expect(scv.value()).toBe(NaN);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
       // Call onChange to set the leading buffer
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       // Append to the leading buffer
       series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
+      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
       const v = scv.value();
       expect(v).toBe(5);
     });
@@ -191,7 +191,7 @@ describe("remote", () => {
       expect(scv.value()).toBe(3);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesTwo])]]));
       expect(newSeriesOne.refCount).toBe(0);
-      await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
+      await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
       expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
@@ -611,7 +611,7 @@ describe("remote", () => {
       const args = c.readMock.mock.calls[0];
       expect(args).toHaveLength(2);
       const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(20)));
-      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[0].equals(expectedTr)).toBe(true);
       expect(args[1]).toBe(c.channel.key);
     });
 
@@ -647,7 +647,7 @@ describe("remote", () => {
       const args = c.readMock.mock.calls[0];
       expect(args).toHaveLength(2);
       const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(1)));
-      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[0].equals(expectedTr)).toBe(true);
       expect(args[1]).toBe(c.channel.key);
     });
 

@@ -21,7 +21,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("DB Metadata Operations", func() {
@@ -112,10 +111,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 					It("Should return an error when attempting to set an index key that is different than the channel key", func() {
 						newIndexKey := testutil.GenerateChannelKey()
-						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(MatchError(validate.FieldError{
-							Field:   "index",
-							Message: "index channel cannot be indexed by another channel",
-						}))
+						Expect(indexDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
 					})
 				})
 

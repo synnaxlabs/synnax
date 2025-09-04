@@ -8,43 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { useEffect } from "react";
 
 import { CSS } from "@/css";
+import { useKey } from "@/hardware/common/task/Form";
 
-interface RackProps {
-  taskKey: task.Key;
-}
-
-export const Rack = ({ taskKey }: RackProps) => {
-  const client = Synnax.use();
-  const rackKey = task.getRackKey(taskKey);
-  const rack = useQuery({
-    queryKey: ["rack", rackKey, client?.key],
-    queryFn: async () =>
-      !rackKey ? null : await client?.hardware.racks.retrieve(rackKey),
-  }).data;
-  if (rack == null) return null;
+export const Rack = () => {
+  const { data: rack, retrieve } = PRack.retrieve.useStateful();
+  const taskKey = useKey();
+  useEffect(() => {
+    if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
+  }, [taskKey]);
+  if (rack == null) return;
   return (
     <Tooltip.Dialog>
-      <Text.Text level="small" shade={10} weight={450}>
+      <Text.Text level="small" color={10} weight={450}>
         Task is deployed to {rack.name}
       </Text.Text>
-      <Text.WithIcon
-        className={CSS.B("rack-name")}
-        startIcon={<Icon.Rack />}
-        level="small"
-        shade={9}
-        weight={350}
-        style={{
-          paddingRight: "0.5rem",
-        }}
-        ellipsis
-      >
+      <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
+        <Icon.Rack />
         {rack?.name}
-      </Text.WithIcon>
+      </Text.Text>
     </Tooltip.Dialog>
   );
 };

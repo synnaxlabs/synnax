@@ -9,7 +9,7 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon } from "@synnaxlabs/media";
+import { Icon } from "@synnaxlabs/pluto";
 import { renderHook } from "@testing-library/react";
 import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
@@ -109,13 +109,16 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabKey(),
+          activeTab: Layout.useSelectActiveMosaicTabState(),
         }),
         { wrapper },
       );
 
       // Initially there should be no active tab
-      expect(result.current.activeTab).toBeNull();
+      expect(result.current.activeTab).toEqual({
+        blurred: false,
+        layoutKey: null,
+      });
 
       // Place a layout in the mosaic
       act(() => {
@@ -131,9 +134,12 @@ describe("layout hooks", () => {
       });
 
       // Now the active tab should be the one we just placed
-      expect(result.current.activeTab).toBe("test-tab");
+      expect(result.current.activeTab).toEqual({
+        blurred: false,
+        layoutKey: "test-tab",
+      });
     });
-    it("should return null if there is a modal open", () => {
+    it("should return true for blurred if there is a modal open", () => {
       const store = configureStore({
         reducer: combineReducers({
           layout: reducer,
@@ -147,7 +153,7 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabKey(),
+          activeTab: Layout.useSelectActiveMosaicTabState(),
         }),
         { wrapper },
       );
@@ -166,7 +172,10 @@ describe("layout hooks", () => {
       });
 
       // Verify the tab is active
-      expect(result.current.activeTab).toBe("test-tab");
+      expect(result.current.activeTab).toEqual({
+        blurred: false,
+        layoutKey: "test-tab",
+      });
 
       // Place a modal
       act(() => {
@@ -182,7 +191,10 @@ describe("layout hooks", () => {
       });
 
       // Now the active tab should be null because a modal is open
-      expect(result.current.activeTab).toBeNull();
+      expect(result.current.activeTab).toEqual({
+        blurred: true,
+        layoutKey: "test-tab",
+      });
     });
   });
 

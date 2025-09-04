@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
@@ -54,6 +54,7 @@ export interface SeriesDigest {
   alignment: {
     lower: AlignmentDigest;
     upper: AlignmentDigest;
+    multiple: bigint;
   };
   timeRange?: string;
   length: number;
@@ -66,6 +67,7 @@ interface BaseSeriesArgs {
   sampleOffset?: math.Numeric;
   glBufferUsage?: GLBufferUsage;
   alignment?: bigint;
+  alignmentMultiple?: bigint;
   key?: string;
 }
 
@@ -118,8 +120,6 @@ const NEW_LINE = 10;
 type JSType = "string" | "number" | "bigint";
 
 const checkAsType = (jsType: JSType, dataType: DataType) => {
-  if (jsType === "string" && !dataType.isVariable)
-    throw new Error(`cannot convert series of type ${dataType.toString()} to string`);
   if (jsType === "number" && !dataType.isNumeric)
     throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
   if (jsType === "bigint" && !dataType.usesBigInt)
@@ -167,6 +167,12 @@ export class Series<T extends TelemValue = TelemValue>
    * group. Useful for defining the position of the series within a channel's data.
    */
   readonly alignment: bigint = 0n;
+  /**
+   * Alignment multiple defines the number of alignment steps taken per sample. This is
+   * useful for when the samples in a series represent a partial view of the raw data
+   * i.e. decimation or averaging.
+   */
+  readonly alignmentMultiple: bigint = 1n;
   /** A cached minimum value. */
   private cachedMin?: math.Numeric;
   /** A cached maximum value. */
@@ -284,6 +290,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset = 0,
       glBufferUsage = "static",
       alignment = 0n,
+      alignmentMultiple = 1n,
       key = id.create(),
       data,
     } = props;
@@ -296,6 +303,7 @@ export class Series<T extends TelemValue = TelemValue>
       this._data = data_._data;
       this.timeRange = data_.timeRange;
       this.alignment = data_.alignment;
+      this.alignmentMultiple = data_.alignmentMultiple;
       this.cachedMin = data_.cachedMin;
       this.cachedMax = data_.cachedMax;
       this.writePos = data_.writePos;
@@ -338,6 +346,8 @@ export class Series<T extends TelemValue = TelemValue>
     } else this.dataType = new DataType(data);
 
     if (!isArray && !isSingle) this._data = data as ArrayBuffer;
+    else if (isArray && data.length === 0)
+      this._data = new this.dataType.Array([]).buffer;
     else {
       let data_ = isSingle ? [data] : data;
       const first = data_[0];
@@ -362,13 +372,14 @@ export class Series<T extends TelemValue = TelemValue>
         ).buffer;
       else if (!this.dataType.usesBigInt && typeof first === "bigint")
         this._data = new this.dataType.Array(
-          data_.map((v) => Number(v)) as number[] & bigint[],
+          data_.map(Number) as number[] & bigint[],
         ).buffer;
       else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
 
     this.key = key;
     this.alignment = alignment;
+    this.alignmentMultiple = alignmentMultiple;
     this.sampleOffset = sampleOffset ?? 0;
     this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {
@@ -505,19 +516,6 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.isVariable)
       return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
     return Array.from(this).map((d) => d.toString());
-  }
-
-  /**
-   * Returns a parsed array of UUIDs from the series.
-   * @throws Error if the series does not have a data type of UUID.
-   * @returns An array of UUID strings.
-   */
-  toUUIDs(): string[] {
-    if (!this.dataType.equals(DataType.UUID))
-      throw new Error("cannot convert non-uuid series to uuids");
-    const den = DataType.UUID.density.valueOf();
-    const d = new Uint8Array(this.underlyingData.buffer);
-    return Array.from({ length: this.length }, (_, i) => uuid.parse(d, i * den));
   }
 
   /**
@@ -698,7 +696,7 @@ export class Series<T extends TelemValue = TelemValue>
   atAlignment(alignment: bigint, required?: false): T | undefined;
 
   atAlignment(alignment: bigint, required?: boolean): T | undefined {
-    const index = Number(alignment - this.alignment);
+    const index = Number((alignment - this.alignment) / this.alignmentMultiple);
     if (index < 0 || index >= this.length) {
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
@@ -720,8 +718,9 @@ export class Series<T extends TelemValue = TelemValue>
    */
   at(index: number, required?: false): T | undefined;
 
-  at(index: number, required?: boolean): T | undefined {
+  at(index: number, required: boolean = false): T | undefined {
     if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
@@ -729,6 +728,18 @@ export class Series<T extends TelemValue = TelemValue>
       return undefined;
     }
     return addSamples(v, this.sampleOffset) as T;
+  }
+
+  private atUUID(index: number, required: boolean): string | undefined {
+    if (index < 0) index = this.length + index;
+    const uuidString = uuid.parse(
+      new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
+    );
+    if (uuidString == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return uuidString;
   }
 
   private atVariable(index: number, required: boolean): T | undefined {
@@ -856,6 +867,7 @@ export class Series<T extends TelemValue = TelemValue>
       alignment: {
         lower: alignmentDigest(this.alignmentBounds.lower),
         upper: alignmentDigest(this.alignmentBounds.upper),
+        multiple: this.alignmentMultiple,
       },
       timeRange: this.timeRange.toString(),
       length: this.length,
@@ -873,7 +885,10 @@ export class Series<T extends TelemValue = TelemValue>
    * is exclusive.
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    return bounds.construct(this.alignment, this.alignment + BigInt(this.length));
+    return bounds.construct(
+      this.alignment,
+      this.alignment + BigInt(this.length) * this.alignmentMultiple,
+    );
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
@@ -903,6 +918,9 @@ export class Series<T extends TelemValue = TelemValue>
         return new JSONSeriesIterator(s) as Iterator<T>;
       return s as Iterator<T>;
     }
+    if (this.dataType.equals(DataType.UUID))
+      return new UUIDSeriesIterator(this) as Iterator<T>;
+
     return new FixedSeriesIterator(this) as Iterator<T>;
   }
 
@@ -943,11 +961,13 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns An iterator over the specified alignment range.
    */
   subAlignmentIterator(start: bigint, end: bigint): Iterator<T> {
-    return new SubIterator(
-      this,
-      Number(start - this.alignment),
-      Number(end - this.alignment),
+    const startIdx = Math.ceil(
+      Number(start - this.alignment) / Number(this.alignmentMultiple),
     );
+    const endIdx = Math.ceil(
+      Number(end - this.alignment) / Number(this.alignmentMultiple),
+    );
+    return new SubIterator(this, startIdx, endIdx);
   }
 
   private subBytes(start: number, end?: number): Series {
@@ -1038,7 +1058,7 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const b = bounds.construct(0, series.length);
+    const b = bounds.construct(0, series.length + 1);
     this.end = bounds.clamp(b, end);
     this.index = bounds.clamp(b, start);
   }
@@ -1091,6 +1111,29 @@ class JSONSeriesIterator implements Iterator<unknown> {
       done: false,
       value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.schema),
     };
+  }
+}
+
+class UUIDSeriesIterator implements Iterator<string> {
+  private readonly series: Series;
+  private index: number;
+  private readonly data: Uint8Array;
+  private readonly density: number;
+
+  constructor(series: Series) {
+    if (!series.dataType.equals(DataType.UUID))
+      throw new Error("cannot create a UUID series iterator for a non-UUID series");
+    this.series = series;
+    this.index = 0;
+    this.data = new Uint8Array(series.buffer);
+    this.density = DataType.UUID.density.valueOf();
+  }
+
+  next(): IteratorResult<string> {
+    if (this.index >= this.series.length) return { done: true, value: undefined };
+    const uuidString = uuid.parse(this.data, this.index * this.density);
+    this.index++;
+    return { done: false, value: uuidString };
   }
 }
 
@@ -1334,7 +1377,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (start < ser.alignment) break;
       else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Number(start - ser.alignment);
+        startIdx += Math.ceil(
+          Number(start - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
@@ -1344,7 +1389,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (end < ser.alignment) break;
       else if (end >= ser.alignmentBounds.upper) endIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, end)) {
-        endIdx += Number(end - ser.alignment);
+        endIdx += Math.ceil(
+          Number(end - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
@@ -1471,6 +1518,15 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
         },
       };
     return new MultiSeriesIterator<T>(this.series);
+  }
+
+  /**
+   * Returns an array of the values in the multi-series as strings.
+   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * @returns An array of string representations of the multi-series values.
+   */
+  toStrings(): string[] {
+    return this.series.flatMap((s) => s.toStrings());
   }
 }
 

@@ -10,6 +10,15 @@
 /** Union of types that are primitive values or can be converted to primitive values */
 export type Value = string | number | bigint | boolean | Stringer | null | undefined;
 
+export type CrudeValueExtension<V extends NonNullable<Value>> = {
+  value: V;
+};
+
+export const isCrudeValueExtension = <V extends NonNullable<Value>>(
+  value: unknown,
+): value is CrudeValueExtension<V> =>
+  value != null && typeof value === "object" && "value" in value;
+
 /**
  * ValueExtension is a utility class that can be extended in order to implement objects
  * that pseudo-extend a primitive value with additional functionality.
@@ -53,6 +62,16 @@ export const isStringer = (value: unknown): boolean =>
   value != null && typeof value === "object" && "toString" in value;
 
 /**
+ * Type representing zero values for each primitive type
+ */
+export type ZeroValue = "" | 0 | 0n | false | null | undefined;
+
+/**
+ * Type representing non-zero values for each primitive type
+ */
+export type NonZeroValue = Exclude<Value, ZeroValue>;
+
+/**
  * @returns true if the given primitive is the zero value for its type.
  * For strings value == ""
  * For numbers value == 0
@@ -61,7 +80,7 @@ export const isStringer = (value: unknown): boolean =>
  * For objects value == null
  * For undefined returns true
  */
-export const isZero = <V extends Value>(value: V): boolean => {
+export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
   if (isStringer(value)) return value?.toString().length === 0;
   switch (typeof value) {
     case "string":
@@ -80,3 +99,9 @@ export const isZero = <V extends Value>(value: V): boolean => {
       return false;
   }
 };
+
+/**
+ * Type predicate function that narrows to non-zero values
+ */
+export const isNonZero = <V extends Value>(value: V): value is V & NonZeroValue =>
+  !isZero(value);

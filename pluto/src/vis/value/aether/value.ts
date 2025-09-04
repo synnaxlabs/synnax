@@ -9,7 +9,7 @@
 
 import { color, notation } from "@synnaxlabs/x";
 import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -29,10 +29,15 @@ const valueState = z.object({
   level: text.levelZ.optional().default("p"),
   color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
+  stalenessTimeout: z.number().optional().default(5),
+  stalenessColor: color.colorZ.optional().default(color.ZERO),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.optional().default("standard"),
   location: location.xy.optional().default({ x: "left", y: "center" }),
+  useWidthForBackground: z.boolean().optional().default(false),
+  valueBackgroundShift: xy.xy.optional().default(xy.ZERO),
+  valueBackgroundOverScan: xy.xy.optional().default(xy.ZERO),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -51,6 +56,7 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
+  lastReceived: number;
 }
 
 export class Value
@@ -65,11 +71,13 @@ export class Value
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
-    else i.textColor = this.state.color;
+
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
-    i.stopListening = i.telem.onChange(() => this.requestRender());
+    i.stopListening = i.telem.onChange(() => {
+      i.lastReceived = performance.now();
+      this.requestRender();
+    });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
@@ -117,6 +125,30 @@ export class Value
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
   }
 
+  private getTextColor(): color.Color {
+    const { theme } = this.internal;
+    if (
+      performance.now() - this.internal.lastReceived >
+      this.state.stalenessTimeout * 1000
+    ) {
+      if (color.isZero(this.state.stalenessColor)) return theme.colors.warning.m1;
+      return this.state.stalenessColor;
+    }
+
+    if (color.isZero(this.state.color))
+      return color.pickByContrast(
+        theme.colors.border,
+        theme.colors.gray.l11,
+        theme.colors.gray.l0,
+      );
+
+    return color.pickByContrast(
+      theme.colors.border,
+      theme.colors.gray.l11,
+      this.state.color,
+    );
+  }
+
   render({ viewportScale = scale.XY.IDENTITY }): void {
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
@@ -146,30 +178,31 @@ export class Value
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
-    let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const colorValue = backgroundTelem.value();
       const isZero = color.isZero(colorValue);
       if (!isZero) {
-        setDefaultFillStyle = false;
         canvas.fillStyle = color.hex(colorValue);
-        canvas.fillRect(...xy.couple(bTopLeft), bWidth, bHeight);
-        const textColor = color.pickByContrast(
-          colorValue,
-          theme.colors.gray.l0,
-          theme.colors.gray.l11,
+        const width = this.state.useWidthForBackground
+          ? (this.state.width ?? this.state.minWidth)
+          : box.width(b);
+        canvas.fillRect(
+          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+          width + this.state.valueBackgroundOverScan.x,
+          bHeight + this.state.valueBackgroundOverScan.y,
         );
-        canvas.fillStyle = color.hex(textColor);
       }
     }
-    if (setDefaultFillStyle) canvas.fillStyle = color.hex(this.internal.textColor);
+
+    const textColor = this.getTextColor();
+    canvas.fillStyle = color.hex(textColor);
 
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
     if (isNegative)
       canvas.fillText(
         "-",
-        // 0.55 is a multiplier of the font height that seems to keep the sign in
+        // 0.6 is a multiplier of the font height that seems to keep the sign in
         // the right place.
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
         undefined,

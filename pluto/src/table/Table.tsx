@@ -18,7 +18,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -174,7 +174,7 @@ const Indicator = ({
       onClick={() => onSelect(index)}
       onContextMenu={() => onSelect(index)}
     >
-      <Text.Text level="p" shade={11} style={{ width: "100%", textAlign: "center" }}>
+      <Text.Text full="x" justify="center" align="center" square={false}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button

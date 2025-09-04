@@ -119,6 +119,28 @@ plt.plot(rng.time, rng.my_precise_tc)
 
 <Divider.Divider x />
 
+## Reading the Latest Data
+
+Sometimes you need to read the most recent data from a channel without knowing the exact
+timestamp. The `read_latest` method allows you to read the latest N samples from one or
+more channels:
+
+```python
+# Read the latest single sample from a channel
+latest_value = client.read_latest("my_precise_tc")
+
+# Read the latest 10 samples from a channel
+latest_samples = client.read_latest("my_precise_tc", n=10)
+
+# Read the latest 5 samples from multiple channels
+frame = client.read_latest(["my_precise_tc", "time", "pressure"], n=5)
+```
+
+The returned data follows the same conventions as regular reads - a `Series` for single
+channels or a `Frame` for multiple channels.
+
+<Divider.Divider x />
+
 ## Reading with Iterators
 
 Single, multiple, and named reads will cover most use cases, but there are situations
@@ -134,3 +156,17 @@ with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
     for frame in it:
         # Do something with the frame
 ```
+
+<Divider.Divider x />
+
+## Examples
+
+Many of the examples on our [examples page](/reference/python-client/examples) show how
+to effectively read data from a Synnax cluster. Some examples of note are:
+
+- [Plot](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/plot.py)
+  - Demonstrates how to plot data retrieved from a Synnax cluster.
+- [Export to CSV](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/export_to_csv.py)
+  - Demonstrates how to export data retrieved from a Synnax cluster to a CSV file.
+- [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/read_latest.py)
+  - Demonstrates how to read the latest x samples from a channel.

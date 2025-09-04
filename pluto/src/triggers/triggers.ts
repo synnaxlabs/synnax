@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { compare, type xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
 
 /** All the mouse keys that can be used in a trigger */
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
+export const MOUSE_LEFT_NUMBER = 0;
+export const MOUSE_MIDDLE_NUMBER = 1;
+export const MOUSE_RIGHT_NUMBER = 2;
 
 export const mouseKeyZ = z.enum(MOUSE_KEYS);
 export type MouseKey = z.infer<typeof mouseKeyZ>;
@@ -326,13 +329,13 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * the triggers will be considered equal.
  * @returns a comparison function that determines if two triggers are semantically equal.
  */
-const compareF = (opts?: MatchOptions): compare.CompareF<Trigger> => {
+const compareF = (opts?: MatchOptions): compare.Comparator<Trigger> => {
   if (opts?.loose === true) return _looseCompare;
   if (opts?.double === true) return compare.uniqueUnorderedPrimitiveArrays;
   return compare.unorderedPrimitiveArrays;
 };
 
-const _looseCompare: compare.CompareF<Trigger> = (a, b) =>
+const _looseCompare: compare.Comparator<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */

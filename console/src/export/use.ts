@@ -14,31 +14,42 @@ import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { type Extractor } from "@/export/extractor";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const use = (
-  extract: Extractor,
-  type = "visualization",
-): ((key: string) => void) => {
+export const use = (extract: Extractor, type: string): ((key: string) => void) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   return useCallback(
     (key: string) => {
-      let name;
+      let name: string | undefined;
       handleError(
         async () => {
           const extractorReturn = await extract(key, { store, client });
           name = extractorReturn.name;
-          const savePath = await save({
-            title: `Export ${name}`,
-            defaultPath: `${name}.json`,
-            filters: FILTERS,
-          });
-          if (savePath == null) return;
-          await writeTextFile(savePath, extractorReturn.data);
+          if (Runtime.ENGINE === "tauri") {
+            const savePath = await save({
+              title: `Export ${name}`,
+              defaultPath: `${name}.json`,
+              filters: FILTERS,
+            });
+            if (savePath == null) return;
+            await writeTextFile(savePath, extractorReturn.data);
+            addStatus({
+              variant: "success",
+              message: `Exported ${name ?? type} to ${savePath}`,
+            });
+            return;
+          }
+          Runtime.downloadFromBrowser(
+            extractorReturn.data,
+            "application/json",
+            `${name}.json`,
+          );
         },
         `Failed to export ${name ?? type}`,
       );

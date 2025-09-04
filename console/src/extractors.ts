@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
+import { Hardware } from "@/hardware";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
-export const EXTRACTORS: Record<string, Export.Extractor> = {
-  [LinePlot.LAYOUT_TYPE]: LinePlot.extract,
-  [Log.LAYOUT_TYPE]: Log.extract,
-  [Schematic.LAYOUT_TYPE]: Schematic.extract,
-  [Table.LAYOUT_TYPE]: Table.extract,
+export const EXTRACTORS: Export.Extractors = {
+  ...Hardware.EXTRACTORS,
+  ...LinePlot.EXTRACTORS,
+  ...Log.EXTRACTORS,
+  ...Schematic.EXTRACTORS,
+  ...Table.EXTRACTORS,
 };

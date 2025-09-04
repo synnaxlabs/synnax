@@ -29,7 +29,7 @@
 #include "driver/labjack/labjack.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/rack/state/state.h"
+#include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
@@ -104,7 +104,7 @@ struct Config {
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
-        os << "[driver] configuration:\n"
+        os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
            << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -127,27 +127,27 @@ struct Config {
                 },
             .integrations = default_integrations(),
         };
-        VLOG(1) << "[driver] loading configuration from persisted state";
+        VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
-        VLOG(1) << "[driver] loading configuration from config file";
+        VLOG(1) << "loading configuration from config file";
         if (const auto err = cfg.load_config_file(parser, breaker)) return {cfg, err};
-        VLOG(1) << "[driver] loading configuration from environment";
+        VLOG(1) << "loading configuration from environment";
         if (const auto err = cfg.load_env()) return {cfg, err};
-        VLOG(1) << "[driver] loading configuration from command line";
+        VLOG(1) << "loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        LOG(INFO) << xlog::BLUE() << "[driver] successfully reached cluster at "
+        LOG(INFO) << xlog::BLUE() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
                   << xlog::RESET();
-        LOG(INFO) << "[driver] remote info" << "\n"
+        LOG(INFO) << "remote info" << "\n"
                   << xlog::SHALE() << "  rack: " << xlog::RESET() << cfg.rack.name
                   << " (" << cfg.remote_info.rack_key << ")\n"
                   << xlog::SHALE() << "  cluster: " << xlog::RESET()
                   << cfg.remote_info.cluster_key;
-        VLOG(1) << "[driver] saving remote info";
+        VLOG(1) << "saving remote info";
         const auto err = Config::save_remote_info(parser, cfg.remote_info);
-        VLOG(1) << "[driver] saved remote info";
+        VLOG(1) << "saved remote info";
         return {cfg, err};
     }
 
@@ -214,6 +214,9 @@ class Rack {
     void run(xargs::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief destructor ensures thread is properly joined
+    ~Rack();
+
     /// @brief starts the rack.
     /// @param args Parser containing command line arguments
     /// @param on_shutdown Optional callback that will be called if the rack shuts

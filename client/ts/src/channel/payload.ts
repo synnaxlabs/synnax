@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDataType, DataType, status } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { type CrudeDataType, DataType, status, zod } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
 
-export const keyZ = z.number();
+const errorMessage = "Channel key must be a valid uint32.";
+export const keyZ = z.uint32().or(
+  z
+    .string()
+    .refine((val) => !isNaN(Number(val)), { message: errorMessage })
+    .transform(Number)
+    .refine((val) => val < 2 ** 32 - 1, { message: errorMessage }),
+);
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
 export const nameZ = z.string();
@@ -21,9 +28,10 @@ export type Names = Name[];
 export type KeyOrName = Key | Name;
 export type KeysOrNames = Keys | Names;
 export type PrimitiveParams = Key | Name | Keys | Names;
-export type Params = Key | Name | Keys | Names | Payload | Payload[];
 
-export const channelZ = z.object({
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
+export const payloadZ = z.object({
   name: nameZ,
   key: keyZ,
   dataType: DataType.z,
@@ -35,10 +43,11 @@ export const channelZ = z.object({
   alias: z.string().optional(),
   expression: z.string().default(""),
   requires: nullableArrayZ(keyZ),
+  status: statusZ.optional(),
 });
-export interface Payload extends z.infer<typeof channelZ> {}
+export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = channelZ.extend({
+export const newZ = payloadZ.extend({
   key: keyZ.optional(),
   leaseholder: z.number().optional(),
   index: keyZ.optional(),
@@ -49,16 +58,14 @@ export const newZ = channelZ.extend({
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
-export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
+export interface New
+  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
   dataType: CrudeDataType;
 }
 
-export const ONTOLOGY_TYPE = "channel";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const calculationStateZ = z.object({
-  key: keyZ,
-  variant: status.variantZ,
-  message: z.string(),
-});
-export interface CalculationState extends z.infer<typeof calculationStateZ> {}
+export const paramsZ = z.union([
+  zod.toArray(keyZ),
+  zod.toArray(nameZ),
+  zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
+]);
+export type Params = Key | Name | Keys | Names | Payload | Payload[];

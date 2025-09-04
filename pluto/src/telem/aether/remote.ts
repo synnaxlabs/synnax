@@ -15,13 +15,14 @@ import {
   MultiSeries,
   primitive,
   type Series,
+  status as xstatus,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
@@ -84,10 +85,10 @@ export class StreamChannelValue
 
   value(): number {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return 0;
+    if (primitive.isZero(this.props.channel)) return NaN;
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
-    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
+    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
     return this.leadingBuffer.at(-1, true) as number;
   }
 
@@ -112,7 +113,7 @@ export class StreamChannelValue
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e, "failed to stream channel value"));
+      this.onStatusChange?.(xstatus.fromException(e, "failed to stream channel value"));
     }
   }
 }
@@ -217,7 +218,7 @@ export class ChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e, "failed to read channel data"));
+      this.onStatusChange?.(xstatus.fromException(e, "failed to read channel data"));
     }
   }
 }
@@ -303,7 +304,7 @@ export class StreamChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e, "failed to stream channel data"));
+      this.onStatusChange?.(xstatus.fromException(e, "failed to stream channel data"));
     }
   }
 

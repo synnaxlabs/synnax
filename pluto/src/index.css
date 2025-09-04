@@ -9,15 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-html {
-    overscroll-behavior: none;
-    overflow: hidden;
-    background: var(--pluto-gray-l0);
-    margin: 0;
-    height: 100%;
-    width: 100%;
-}
-
 body {
     margin: 0;
     height: 100%;

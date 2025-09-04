@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -89,14 +89,14 @@ export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "zoom",
   zoom: [["MouseLeft"]],
   zoomReset: [["MouseLeft", "Control"]],
-  pan: [["MouseLeft", "Shift"]],
+  pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   select: [["MouseLeft", "Alt"]],
   cancel: [["Escape"]],
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "pan",
-  pan: [["MouseLeft"]],
+  pan: [["MouseLeft"], ["MouseMiddle"]],
   zoom: [["MouseLeft", "Shift"]],
   zoomReset: [["MouseLeft", "Control"]],
   select: [["MouseLeft", "Alt"]],
@@ -106,7 +106,7 @@ export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
 export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "select",
   select: [["MouseLeft"]],
-  pan: [["MouseLeft", "Shift"]],
+  pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   zoom: [["MouseLeft", "Alt"]],
   zoomReset: [["MouseLeft", "Control"]],
   cancel: [["Escape"]],

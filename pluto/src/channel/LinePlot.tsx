@@ -42,6 +42,7 @@ export interface BaseLineProps {
   strokeWidth?: number;
   label?: string;
   downsample?: number;
+  downsampleMode?: telem.DownsampleMode;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -68,36 +69,27 @@ export interface RuleProps {
 }
 
 export interface LinePlotProps extends Core.LinePlotProps {
-  // Axes
   axes: AxisProps[];
   onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   onAxisChange?: (axis: Partial<AxisProps> & { key: string }) => void;
-  // Lines
   lines: LineProps[];
   onLineChange?: (line: Partial<LineProps> & { key: string }) => void;
-  // Rules
   rules?: RuleProps[];
   onRuleChange?: (rule: Partial<RuleProps> & { key: string }) => void;
   onSelectRule?: (key: string) => void;
-  // Title
   title?: string;
   showTitle?: boolean;
   onTitleChange?: (value: string) => void;
   titleLevel?: Text.Level;
-  // Legend
   showLegend?: boolean;
   legendVariant?: Core.LegendProps["variant"];
   legendPosition?: xy.XY;
   onLegendPositionChange?: (value: xy.XY) => void;
-  // Tooltip
   enableTooltip?: boolean;
-  // Measure
   enableMeasure?: boolean;
-  // Viewport
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
-  // Annotation
   rangeAnnotationProvider?: Range.ProviderProps;
 }
 
@@ -106,10 +98,6 @@ const canDrop = Haul.canDropOfType(HAUL_TYPE);
 /**
  * A line plot component that automatically pulls data from specified channels and
  * displays it. Can be used to render both real-time and historical data.
- *
- * @param props - The props for the line plot
- * @param
- * @returns
  */
 export const LinePlot = ({
   lines,
@@ -251,6 +239,7 @@ const XAxis = ({
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {yAxes.map((a, i) => {
         const yLines = lines.filter((l) => l.axes.y === a.key);
@@ -336,6 +325,7 @@ const YAxis = ({
       axisKey={key}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
+      onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
       {lines.map((l) => (
         <Line key={lineKey(l)} line={l} />
@@ -363,7 +353,7 @@ const DynamicLine = ({
     key,
     timeSpan,
     channels: { x, y },
-    axes: _,
+    axes,
     ...rest
   },
 }: {
@@ -385,7 +375,16 @@ const DynamicLine = ({
     });
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return (
+    <Core.Line
+      key={key}
+      aetherKey={key}
+      y={yTelem}
+      x={xTelem}
+      legendGroup={axes.y.toUpperCase()}
+      {...rest}
+    />
+  );
 };
 
 const StaticLine = ({
@@ -408,5 +407,14 @@ const StaticLine = ({
     });
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
-  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...rest} />;
+  return (
+    <Core.Line
+      key={key}
+      aetherKey={key}
+      y={yTelem}
+      x={xTelem}
+      legendGroup={rest.axes.y.toUpperCase()}
+      {...rest}
+    />
+  );
 };

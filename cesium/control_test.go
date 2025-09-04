@@ -308,7 +308,7 @@ var _ = Describe("Control", func() {
 			Describe("Error paths", func() {
 				It("Should not allow control channel with key 0", func() {
 					db := openDBOnFS(fs)
-					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key:must be positive")))
+					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key: must be positive")))
 					Expect(db.Close()).To(Succeed())
 				})
 				It("Should not allow configuring a control channel with datatype not string", func() {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -27,8 +27,8 @@ export type LinearScaleType = typeof LINEAR_SCALE_TYPE;
 
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().finite(),
-  offset: z.number().finite(),
+  slope: z.number(),
+  offset: z.number(),
 });
 interface LinearScale extends z.infer<typeof linearScaleZ> {}
 const ZERO_LINEAR_SCALE: LinearScale = { type: LINEAR_SCALE_TYPE, slope: 1, offset: 0 };
@@ -57,7 +57,7 @@ export type AIChannelType = typeof AI_CHANNEL_TYPE;
 
 const aiChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(AI_CHANNEL_TYPE),
-  range: z.number().positive().finite().optional(),
+  range: z.number().positive().optional(),
   scale: scaleZ,
   port: portZ.regex(
     Device.AIN_PORT_REGEX,
@@ -127,8 +127,8 @@ const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
   posChan: z.number().int(),
   negChan: z.number().int(),
   cjcSource: z.string().min(1, "CJC Source must be specified"),
-  cjcSlope: z.number().finite(),
-  cjcOffset: z.number().finite(),
+  cjcSlope: z.number(),
+  cjcOffset: z.number(),
   units: temperatureUnitsZ,
 });
 interface TCChannel extends z.infer<typeof tcChannelZ> {}
@@ -246,7 +246,7 @@ export interface BaseStateDetails {
   running: boolean;
 }
 
-export const readConfigZ = Common.Task.baseConfigZ
+export const readConfigZ = Common.Task.baseReadConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
@@ -258,23 +258,26 @@ export const readConfigZ = Common.Task.baseConfigZ
   .check(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
 };
 
-export interface ReadStateDetails extends BaseStateDetails {
-  message: string;
-  errors?: { message: string; path: string }[];
-}
-export interface ReadState extends task.State<ReadStateDetails> {}
+export const readStatusDataZ = z
+  .object({
+    errors: z.array(z.object({ message: z.string(), path: z.string() })),
+  })
+  .or(z.null());
+
+export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
+export const readTypeZ = z.literal(READ_TYPE);
 export type ReadType = typeof READ_TYPE;
 
 export interface ReadPayload
-  extends task.Payload<ReadConfig, ReadStateDetails, ReadType> {}
+  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   name: "LabJack Read Task",
@@ -282,8 +285,19 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   type: READ_TYPE,
 };
 
-export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
-export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
+export interface ReadTask
+  extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
+
+export const READ_SCHEMAS: task.Schemas<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> = {
+  typeSchema: readTypeZ,
+  configSchema: readConfigZ,
+  statusDataSchema: readStatusDataZ,
+};
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
@@ -299,22 +313,29 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
     .check(Common.Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
+  dataSaving: z.boolean().default(true),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 const ZERO_WRITE_CONFIG: WriteConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
   channels: [],
+  dataSaving: true,
   stateRate: 10,
 };
 
-export interface WriteStateDetails extends BaseStateDetails {}
-export interface WriteState extends task.State<WriteStateDetails> {}
+export const writeStatusDataZ = z.unknown();
+export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
+export const writeTypeZ = z.literal(WRITE_TYPE);
 export type WriteType = typeof WRITE_TYPE;
 
 export interface WritePayload
-  extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
+  extends task.Payload<
+    typeof writeTypeZ,
+    typeof writeConfigZ,
+    typeof writeStatusDataZ
+  > {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   name: "LabJack Write Task",
@@ -323,5 +344,16 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 };
 
 export interface WriteTask
-  extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
-export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}
+  extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
+export interface NewWriteTask
+  extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
+
+export const WRITE_SCHEMAS: task.Schemas<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> = {
+  typeSchema: writeTypeZ,
+  configSchema: writeConfigZ,
+  statusDataSchema: writeStatusDataZ,
+};

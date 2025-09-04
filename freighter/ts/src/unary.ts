@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { breaker } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
 import { type Middleware } from "@/middleware";
@@ -59,6 +59,7 @@ export const unaryWithBreaker = (
         const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
         if (err == null) return [res, null];
         if (!Unreachable.matches(err)) return [null, err];
+        console.warn(`[freighter] ${brk.retryMessage}`, err);
         if (!(await brk.wait())) return [res, err];
       } while (true);
     }

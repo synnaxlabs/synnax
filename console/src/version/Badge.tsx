@@ -13,6 +13,7 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
+import { Runtime } from "@/runtime";
 import { INFO_LAYOUT } from "@/version/Info";
 import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
@@ -24,12 +25,13 @@ export const Badge = (): ReactElement => {
   return (
     <Button.Button
       onClick={() => placeLayout(INFO_LAYOUT)}
+      preventClick={Runtime.ENGINE !== "tauri"}
       variant="text"
       size="small"
       level="small"
-      color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-gray-l9)"}
+      textColor={updateAvailable ? "var(--pluto-secondary-z)" : 9}
       weight={500}
-      shade={2}
+      contrast={2}
     >
       {`v${version}`}
     </Button.Button>

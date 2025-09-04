@@ -13,15 +13,20 @@ import "@/main.css";
 import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Align } from "@/align";
-import { CSS } from "@/css";
 import { Pluto } from "@/pluto";
+import { Showcase } from "@/showcase";
 
 const Main = (): ReactElement => (
-  <Pluto.Provider>
-    <div style={{ padding: "2rem" }}>
-      <Align.Space x className={CSS.B("stack")} />
-    </div>
+  <Pluto.Provider
+    connParams={{
+      host: "localhost",
+      port: 9090,
+      secure: false,
+      username: "synnax",
+      password: "seldon",
+    }}
+  >
+    <Showcase />
   </Pluto.Provider>
 );
 

@@ -22,9 +22,11 @@ public:
     Mock() = default;
     ~Mock() override = default;
 
-    xerrors::Error
-    e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog)
-        const override {
+    xerrors::Error e_stream_read(
+        double *data,
+        int *dev_scan_backlog,
+        int *ljm_scan_backlog
+    ) const override {
         if (should_fail_) return xerrors::Error("mock failure");
         *dev_scan_backlog = 0;
         *ljm_scan_backlog = 0;
@@ -75,9 +77,12 @@ public:
         return xerrors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error
-    names_to_addrs(size_t num_frames, const char **names, int *addrs, int *types)
-        const override {
+    [[nodiscard]] xerrors::Error names_to_addrs(
+        size_t num_frames,
+        const char **names,
+        int *addrs,
+        int *types
+    ) const override {
         if (should_fail_) return xerrors::Error("mock failure");
         return xerrors::NIL;
     }

@@ -24,11 +24,13 @@ protected:
     breaker::Breaker brk;
 
     void SetUp() override {
-        args = xargs::Parser(std::vector<std::string>{
-            "program",
-            "--state-file",
-            "/tmp/rack-config-test/state.json"
-        });
+        args = xargs::Parser(
+            std::vector<std::string>{
+                "program",
+                "--state-file",
+                "/tmp/rack-config-test/state.json"
+            }
+        );
         std::cout << args.required<std::string>("--state-file") << std::endl;
         const auto c_err = rack::Config::clear_persisted_state(args);
         ASSERT_FALSE(c_err) << c_err;
@@ -138,13 +140,15 @@ TEST_F(RackConfigTest, loadTimingConfigFromFile) {
     config_file.close();
 
     // Set up args with config file
-    xargs::Parser config_args(std::vector<std::string>{
-        "program",
-        "--state-file",
-        "/tmp/rack-config-test/state.json",
-        "--config",
-        config_path
-    });
+    xargs::Parser config_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--config",
+            config_path
+        }
+    );
 
     // Load config and verify timing settings
     auto [cfg, err] = rack::Config::load(config_args, brk);
@@ -156,19 +160,21 @@ TEST_F(RackConfigTest, loadTimingConfigFromFile) {
 }
 
 TEST_F(RackConfigTest, loadFromCommandLineArgs) {
-    xargs::Parser args_with_config(std::vector<std::string>{
-        "program",
-        "--state-file",
-        "/tmp/rack-config-test/state.json",
-        "--host",
-        "arghost",
-        "--port",
-        "8080",
-        "--username",
-        "arguser",
-        "--password",
-        "argpass"
-    });
+    xargs::Parser args_with_config(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--host",
+            "arghost",
+            "--port",
+            "8080",
+            "--username",
+            "arguser",
+            "--password",
+            "argpass"
+        }
+    );
 
     auto [cfg, err] = rack::Config::load(args_with_config, brk);
     ASSERT_EQ(cfg.connection.host, "arghost");
@@ -223,17 +229,19 @@ TEST_F(RackConfigTest, configurationPrecedence) {
     });
 
     // Set command line args (should override environment)
-    xargs::Parser args_with_config(std::vector<std::string>{
-        "program",
-        "--state-file",
-        "/tmp/rack-config-test/state.json",
-        "--config",
-        config_path,
-        "--username",
-        "arguser",
-        "--password",
-        "argpass"
-    });
+    xargs::Parser args_with_config(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--config",
+            config_path,
+            "--username",
+            "arguser",
+            "--password",
+            "argpass"
+        }
+    );
 
     auto [cfg, err] = rack::Config::load(args_with_config, brk);
 

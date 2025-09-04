@@ -9,19 +9,19 @@
 
 import "@/fs/LoadFileContents.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, type Input, Status } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
+import { Runtime } from "@/runtime";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
-    Omit<Align.PackProps, "value" | "onChange"> {
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   filters?: DialogFilter[];
 }
 
@@ -35,29 +35,34 @@ export const InputFilePath = ({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
+      if (Runtime.ENGINE !== "tauri")
+        throw new Error(
+          "Cannot open a file dialog when running Synnax in the browser.",
+        );
       const path = await open({ directory: false, filters });
       if (path == null) return;
       onChange(path);
     }, "Failed to open file");
   return (
-    <Align.Pack className={CSS.B("input-file-path")} borderShade={5} {...rest}>
+    <Flex.Box pack className={CSS.B("input-file-path")} borderColor={5} {...rest}>
       <Button.Button
         level="small"
         className={CSS.B("path")}
         variant="outlined"
-        shade={0}
         grow
         onClick={handleClick}
-        startIcon={
-          path == null ? undefined : (
-            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
-          )
-        }
         size="medium"
-        textShade={8}
+        textColor={8}
         weight={450}
       >
-        {path == null ? "No file selected" : path}
+        {path == null ? (
+          "No file selected"
+        ) : (
+          <>
+            <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
+            {path}
+          </>
+        )}
       </Button.Button>
       <Button.Button
         variant="outlined"
@@ -66,7 +71,7 @@ export const InputFilePath = ({
       >
         Select file
       </Button.Button>
-    </Align.Pack>
+    </Flex.Box>
   );
 };
 

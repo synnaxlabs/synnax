@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   type ClientXY,
@@ -20,6 +20,7 @@ import {
   type XY,
   xy,
 } from "@/spatial/base";
+import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXY, type XY, xy };
 
@@ -109,15 +110,27 @@ interface Translate {
   (a: Crude, b: Crude, ...cb: Crude[]): XY;
   /** @returns the coordinates translated in the given direction by the given value. */
   (a: Crude, direction: Direction, value: number): XY;
+  /** @returns the coordinates translated by the given amount. */
+  (a: Crude, direction: location.XY, xy: Crude): XY;
 }
 
 export const translate: Translate = (a, b, v, ...cb): XY => {
-  if (typeof b === "string" && typeof v === "number") {
+  if (typeof b === "string") {
+    if (typeof v !== "number") throw new Error("The value must be a number.");
     if (b === "x") return translateX(a, v);
     return translateY(a, v);
   }
+  if (typeof b === "object" && "x" in b && typeof b.x === "string") {
+    const amnt = construct(v);
+    const root = construct(a);
+    if (b.x === "left") amnt.x = -amnt.x;
+    else if (b.x === "center") amnt.x = 0;
+    if (b.y === "top") amnt.y = -amnt.y;
+    else if (b.y === "center") amnt.y = 0;
+    return { x: root.x + amnt.x, y: root.y + amnt.y };
+  }
   return [a, b, v ?? ZERO, ...cb].reduce((p: XY, c) => {
-    const xy = construct(c as Crude);
+    const xy = construct(c);
     return { x: p.x + xy.x, y: p.y + xy.y };
   }, ZERO);
 };
@@ -292,4 +305,9 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
 export const swap = (a: Crude): XY => {
   const xy = construct(a);
   return { x: xy.y, y: xy.x };
+};
+
+export const round = (a: Crude): XY => {
+  const xy = construct(a);
+  return { x: Math.round(xy.x), y: Math.round(xy.y) };
 };

@@ -8,20 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
   Channel,
   Color,
+  Icon,
   Input,
   List,
-  Status,
+  Select,
   Tabs,
-  Text,
+  type telem,
 } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { type bounds, color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelect } from "@/lineplot/selectors";
+import { EmptyAction } from "@/components";
+import { CSS } from "@/css";
+import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
 import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
 
 export interface LinesProps {
@@ -29,7 +31,7 @@ export interface LinesProps {
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const vis = useSelect(layoutKey);
+  const lineKeys = useSelectLineKeys(layoutKey);
   const dispatch = useDispatch();
 
   const handleChange = (line: LineState): void => {
@@ -39,103 +41,129 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
-    <Align.Center x size="small">
-      <Status.Text variant="disabled" hideIcon>
-        No lines plotted. Use the
-      </Status.Text>
-      <Text.Link
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect?.("data");
-        }}
-        level="p"
-      >
-        data
-      </Text.Link>
-      <Status.Text variant="disabled" hideIcon>
-        tab to select channels on an axis.
-      </Status.Text>
-    </Align.Center>
+    <EmptyAction
+      x
+      message="No lines plotted. Select channels using the"
+      action="data tab."
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.("data");
+      }}
+    />
   );
 
   return (
-    <List.List data={vis.lines} emptyContent={emptyContent}>
-      <List.Column.Header
-        columns={[
-          { key: "label", name: "Label", width: 305 },
-          { key: "strokeWidth", name: "Line Width", width: 150 },
-          { key: "downsample", name: "Downsampling", width: 110 },
-          { key: "color", name: "Color", width: 100 },
-        ]}
-        level="small"
-        weight={450}
-      />
-      <List.Core<string, LineState> style={{ height: "calc(100% - 28px)" }}>
-        {(p) => <Line onChange={handleChange} {...p} />}
-      </List.Core>
-    </List.List>
+    <List.Frame data={lineKeys}>
+      <List.Items<string, LineState>
+        full="y"
+        className={CSS.BE("line-plot", "toolbar", "lines")}
+        emptyContent={emptyContent}
+      >
+        {({ key, ...rest }) => (
+          <Line key={key} layoutKey={layoutKey} onChange={handleChange} {...rest} />
+        )}
+      </List.Items>
+    </List.Frame>
   );
 };
 
-interface LinePlotLineControlsProps extends List.ItemProps<string, LineState> {
+interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChange"> {
+  layoutKey: string;
   onChange: (line: LineState) => void;
 }
 
-const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
+const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 11 };
+const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 51 };
+const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
+const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
+
+interface SelectDownsampleModeProps
+  extends Omit<Select.StaticProps<telem.DownsampleMode>, "data"> {}
+
+const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
+
+const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement => (
+  <Select.Buttons {...props} keys={KEYS}>
+    <Select.Button itemKey="average" size="small">
+      Average
+    </Select.Button>
+    <Select.Button itemKey="decimate" size="small">
+      Decimate
+    </Select.Button>
+  </Select.Buttons>
+);
+
+const Line = ({
+  itemKey,
+  onChange,
+  layoutKey,
+}: LinePlotLineControlsProps): ReactElement | null => {
+  const line = useSelectLine(layoutKey, itemKey);
+  if (line == null) return null;
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
-    onChange({ ...entry, label: value });
+    onChange({ ...line, label: value });
   };
 
   const handleWidthChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...entry, strokeWidth: value });
+    onChange({ ...line, strokeWidth: value });
   };
 
   const handleDownsampleChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...entry, downsample: value });
+    onChange({ ...line, downsample: value });
   };
+
+  const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
+    (value: telem.DownsampleMode) => {
+      onChange({ ...line, downsampleMode: value });
+    };
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (
     value: color.Color,
   ) => {
-    onChange({ ...entry, color: color.hex(value) });
+    onChange({ ...line, color: color.hex(value) });
   };
 
   const {
     channels: { y: yChannel },
-  } = typedLineKeyFromString(entry.key);
+  } = typedLineKeyFromString(line.key);
 
   return (
-    <Align.Space style={{ padding: "0.5rem", width: "100%" }} x>
+    <List.Item itemKey={itemKey} index={0} key={itemKey} gap="large">
       <Channel.AliasInput
         channelKey={yChannel}
-        style={{ width: 305 }}
-        value={entry.label ?? ""}
+        variant="shadow"
+        value={line.label ?? ""}
         onChange={handleLabelChange}
-        variant="shadow"
+        full="x"
       />
       <Input.Numeric
-        value={entry.strokeWidth}
+        value={line.strokeWidth}
+        variant="shadow"
+        startContent={<Icon.StrokeWidth />}
         onChange={handleWidthChange}
-        dragScale={{ x: 0.1, y: 0.1 }}
-        bounds={{ lower: 1, upper: 11 }}
-        style={{ width: 140, marginRight: "2rem" }}
-        variant="shadow"
+        dragScale={STROKE_WIDTH_DRAG_SCALE}
+        bounds={STROKE_WIDTH_BOUNDS}
+        shrink={false}
+        tooltip="Stroke Width"
       />
       <Input.Numeric
-        style={{ width: 100, marginRight: "2rem" }}
-        value={entry.downsample ?? 1}
-        onChange={handleDownsampleChange}
         variant="shadow"
-        dragScale={{
-          x: 0.1,
-          y: 0.1,
-        }}
-        bounds={{
-          lower: 1,
-          upper: 51,
-        }}
+        startContent={<Icon.Downsample />}
+        value={line.downsample ?? 1}
+        onChange={handleDownsampleChange}
+        dragScale={DOWNSAMPLE_DRAG_SCALE}
+        bounds={DOWNSAMPLE_BOUNDS}
+        shrink={false}
+        tooltip={
+          line.downsampleMode === "average" ? "Averaging Window" : "Downsampling Factor"
+        }
       />
-      <Color.Swatch value={entry.color} onChange={handleColorChange} size="small" />
-    </Align.Space>
+      <SelectDownsampleMode
+        value={line.downsampleMode}
+        onChange={handleDownsampleModeChange}
+        resourceName="Downsample Mode"
+      />
+      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
+    </List.Item>
   );
 };

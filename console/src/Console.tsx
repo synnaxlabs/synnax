@@ -24,10 +24,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
+import { COMMANDS } from "@/commands";
+import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -38,6 +41,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+import { Palette } from "@/palette";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -53,6 +57,7 @@ import { Workspace } from "@/workspace";
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
+  ...CSV.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,
@@ -123,47 +128,45 @@ const useBlockDefaultDropBehavior = (): void =>
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
-  const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
-    <QueryClientProvider client={queryClient}>
-      <Pluto.Provider
-        theming={theme}
-        channelAlias={{
-          // Set the alias active range to undefined if the range is not saved in Synnax,
-          // otherwise it will try to pull aliases from a range that doesn't exist.
-          activeRange: activeRange?.persisted ? activeRange.key : undefined,
-        }}
-        workerEnabled
-        connParams={cluster ?? undefined}
-        workerURL={WorkerURL}
-        triggers={TRIGGERS_PROVIDER_PROPS}
-        haul={{ useState: useHaulState }}
-        color={{ useState: useColorContextState }}
-        alamos={{ level: "info" }}
-      >
+    <Pluto.Provider
+      theming={theme}
+      workerEnabled
+      connParams={cluster ?? undefined}
+      workerURL={WorkerURL}
+      triggers={TRIGGERS_PROVIDER_PROPS}
+      haul={{ useState: useHaulState }}
+      color={{ useState: useColorContextState }}
+      alamos={{ level: "info" }}
+    >
+      <Auth.Guard>
         <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
         </Code.Provider>
-      </Pluto.Provider>
-    </QueryClientProvider>
+      </Auth.Guard>
+    </Pluto.Provider>
   );
 };
 
 export const Console = (): ReactElement => (
-  <Error.OverlayWithoutStore>
-    <Provider store={store}>
-      <Error.OverlayWithStore>
-        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
-            </Ontology.ServicesProvider>
-          </Layout.ContextMenuProvider>
-        </Layout.RendererProvider>
-      </Error.OverlayWithStore>
-    </Provider>
-  </Error.OverlayWithoutStore>
+  <QueryClientProvider client={queryClient}>
+    <Error.OverlayWithoutStore>
+      <Provider store={store}>
+        <Error.OverlayWithStore>
+          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+              <Ontology.ServicesProvider services={SERVICES}>
+                <Palette.CommandProvider commands={COMMANDS}>
+                  <MainUnderContext />
+                </Palette.CommandProvider>
+              </Ontology.ServicesProvider>
+            </Layout.ContextMenuProvider>
+          </Layout.RendererProvider>
+        </Error.OverlayWithStore>
+      </Provider>
+    </Error.OverlayWithoutStore>
+  </QueryClientProvider>
 );

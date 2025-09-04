@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
-  Align,
   Button,
+  type Component,
   Divider,
+  Flex,
   Form,
   Header,
-  type RenderProp,
+  Icon,
 } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
@@ -28,7 +28,7 @@ import { type Channel } from "@/hardware/common/task/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface CreateChannel<C extends Channel> {
-  (channels: C[], index: number): C | null;
+  (channels: C[], channelKeyToCopy?: string): C | null;
 }
 
 export interface DetailsProps {
@@ -38,42 +38,28 @@ export interface DetailsProps {
 export interface ListAndDetailsProps<C extends Channel>
   extends Pick<
     ChannelListProps<C>,
-    "onTare" | "allowTare" | "isSnapshot" | "listItem" | "contextMenuItems"
+    "onTare" | "allowTare" | "listItem" | "contextMenuItems"
   > {
-  details: RenderProp<DetailsProps>;
+  details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
-  initialChannels: C[];
 }
 
 export const ListAndDetails = <C extends Channel>({
   details,
-  initialChannels,
   createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
-  const [selected, setSelected] = useState<string[]>(
-    initialChannels.length ? [initialChannels[0].key] : [],
-  );
-  const [selectedIndex, setSelectedIndex] = useState<number>(
-    initialChannels.length ? 0 : -1,
-  );
+  const [selected, setSelected] = useState<string[]>([]);
   const { get } = Form.useContext();
-  const handleSelect = useCallback(
-    (keys: string[], index: number) => {
-      setSelected(keys);
-      setSelectedIndex(index);
-    },
-    [setSelected, setSelectedIndex],
-  );
   const handleCreateChannel = useCallback(
-    (channels: C[]) => createChannel(channels, selectedIndex),
-    [selectedIndex],
+    (channels: C[]) => createChannel(channels, selected[0]),
+    [createChannel, selected],
   );
   const handleDuplicateChannels = useCallback(
-    (allChannels: C[], indices: number[]) => {
+    (allChannels: C[], keys: string[]) => {
       const newlyMade: C[] = [];
-      indices.forEach((index) => {
-        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], index);
+      keys.forEach((key) => {
+        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], key);
         if (newlyMadeChannel != null) newlyMade.push(newlyMadeChannel);
       });
       return newlyMade;
@@ -82,46 +68,46 @@ export const ListAndDetails = <C extends Channel>({
   );
   const copy = useCopyToClipboard();
   const handleCopyChannelDetails = useCallback(() => {
-    if (selectedIndex === -1) return;
+    if (selected.length === 0) return;
     copy(
-      binary.JSON_CODEC.encodeString(get(`config.channels.${selectedIndex}`).value),
+      binary.JSON_CODEC.encodeString(get(`config.channels.${selected[0]}`).value),
       "channel details",
     );
-  }, [selectedIndex, copy, get]);
+  }, [copy, get, selected]);
   return (
     <>
       <ChannelList<C>
         {...rest}
         selected={selected}
-        onSelect={handleSelect}
+        onSelect={setSelected}
         createChannel={handleCreateChannel}
         createChannels={handleDuplicateChannels}
       />
       <Divider.Divider y />
-      <Align.Space y grow empty className={CSS.B("details")}>
-        <Header.Header level="p">
-          <Header.Title weight={500} wrap={false} shade={10}>
+      <Flex.Box y grow empty className={CSS.B("details")}>
+        <Header.Header>
+          <Header.Title weight={500} wrap={false} color={10}>
             Details
           </Header.Title>
           <Header.Actions>
-            <Button.Icon
-              disabled={selectedIndex === -1}
+            <Button.Button
+              disabled={selected.length === 0}
               tooltip="Copy channel details as JSON"
               tooltipLocation="left"
               variant="text"
               onClick={handleCopyChannelDetails}
-              shade={2}
+              contrast={2}
             >
               <Icon.JSON style={{ color: "var(--pluto-gray-l9)" }} />
-            </Button.Icon>
+            </Button.Button>
           </Header.Actions>
         </Header.Header>
-        {selectedIndex === -1 ? null : (
-          <Align.Space y className={CSS.BE("details", "form")} empty grow>
-            {details({ path: `config.channels.${selectedIndex}` })}
-          </Align.Space>
+        {selected.length > 0 && (
+          <Flex.Box y className={CSS.BE("details", "form")} empty grow>
+            {details({ path: `config.channels.${selected[0]}` })}
+          </Flex.Box>
         )}
-      </Align.Space>
+      </Flex.Box>
     </>
   );
 };

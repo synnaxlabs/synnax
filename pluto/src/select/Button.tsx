@@ -10,266 +10,65 @@
 import "@/select/Button.css";
 
 import { type record } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
-import { Caret } from "@/caret";
-import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
-import { type Input } from "@/input";
-import { type List as CoreList } from "@/list";
-import {
-  useSelect,
-  type UseSelectOnChangeExtra,
-  type UseSelectProps,
-} from "@/list/useSelect";
-import { Core } from "@/select/List";
-import { type ComponentSize } from "@/util/component";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
+import { Flex } from "@/flex";
+import { List } from "@/list";
+import { Select } from "@/select";
+import { type FrameProps, useContext, useItemState } from "@/select/Frame";
 
-export interface ButtonOptionProps<
+export interface ButtonsProps<
   K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
-> extends Pick<
-    CoreButton.ButtonProps,
-    "onClick" | "size" | "tooltipLocation" | "tooltipDelay"
-  > {
-  key: K;
-  selected: boolean;
-  entry: E;
-  title: E[keyof E];
-  tooltip?: E[keyof E];
+  E extends record.Keyed<K> | undefined = record.Keyed<K>,
+> extends Omit<Flex.BoxProps, "onSelect" | "onChange">,
+    Omit<FrameProps<K, E>, "getItem" | "subscribe" | "data"> {
+  keys: K[] | readonly K[];
 }
 
-export type ButtonProps<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
-> = Omit<UseSelectProps<K, E>, "data"> &
-  Omit<Align.PackProps, "children" | "onChange" | "size"> &
-  Pick<CoreButton.ButtonProps, "tooltipLocation" | "tooltipDelay"> & {
-    data?: E[];
-    children?: RenderProp<ButtonOptionProps<K, E>>;
-    entryRenderKey?: keyof E;
-    size?: ComponentSize;
-    actions?: Align.PackProps["children"];
-    pack?: boolean;
-    variant?: Input.Variant;
-    tooltipKey?: keyof E;
-  };
-
-export const Button = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->({
-  children = defaultSelectButtonOption,
+export const Buttons = <K extends record.Key = record.Key>({
+  keys,
   value,
   onChange,
-  entryRenderKey = "key",
-  tooltipKey,
-  allowNone = false,
-  allowMultiple = false,
-  data,
-  replaceOnSingle,
-  className,
-  size = "medium",
-  actions,
-  pack = true,
-  variant,
-  tooltipLocation,
-  tooltipDelay,
+  allowNone,
+  multiple,
   ...rest
-}: ButtonProps<K, E>): ReactElement => {
-  const { onSelect } = useSelect<K, E>({
-    allowMultiple,
-    allowNone,
-    replaceOnSingle,
-    data,
-    value,
-    onChange,
-  } as const as UseSelectProps<K, E>);
-
-  const handleClick = (key: E["key"]) => {
-    if (variant === "preview") return;
-    onSelect(key);
-  };
-
-  const mapped = data?.map((e) =>
-    children({
-      key: e.key,
-      onClick: () => handleClick(e.key),
-      size,
-      selected: e.key === value,
-      entry: e,
-      title: e[entryRenderKey],
-      tooltip: tooltipKey ? e[tooltipKey] : undefined,
-      tooltipLocation,
-      tooltipDelay,
-    }),
-  );
-
-  if (!pack) return <>{mapped}</>;
-
+}: ButtonsProps<K>): ReactElement => {
+  const listProps = List.useKeysData<K>(keys);
   return (
-    <Align.Pack
-      borderShade={5}
-      className={CSS(CSS.B("select-button"), className)}
-      size={size}
-      {...rest}
+    <Select.Frame<K, record.Keyed<K>>
+      closeDialogOnSelect={false}
+      {...listProps}
+      allowNone={allowNone}
+      multiple={multiple}
+      value={value as any}
+      onChange={onChange as any}
     >
-      {mapped}
-      {actions}
-    </Align.Pack>
+      <Flex.Box pack {...rest} />
+    </Select.Frame>
   );
 };
 
-const defaultSelectButtonOption = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->({
-  key,
-  onClick,
-  selected,
-  title,
-  size,
-  tooltip,
-  tooltipLocation,
-  tooltipDelay,
-}: ButtonOptionProps<K, E>): ReactElement => (
-  <CoreButton.Button
-    key={key}
-    onClick={onClick}
-    variant={selected ? "filled" : "outlined"}
-    size={size}
-    tooltip={tooltip as ReactNode}
-    tooltipLocation={tooltipLocation}
-    tooltipDelay={tooltipDelay}
-  >
-    {title as ReactNode}
-  </CoreButton.Button>
-);
-
-export interface DropdownButtonButtonProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends CoreButton.ButtonProps {
-  selected: E | null;
-  renderKey: keyof E;
-  toggle: () => void;
-  visible: boolean;
+export interface ButtonProps<K extends record.Key = record.Key>
+  extends Omit<CoreButton.ToggleProps, "onChange" | "value"> {
+  itemKey: K;
 }
 
-export interface DropdownButtonProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<
-      Dropdown.DialogProps,
-      "onChange" | "visible" | "children" | "close" | "variant"
-    >,
-    Input.Control<K>,
-    Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<CoreButton.ButtonProps, "disabled" | "variant"> {
-  columns?: Array<CoreList.ColumnSpec<K, E>>;
-  children?: RenderProp<DropdownButtonButtonProps<K, E>>;
-  entryRenderKey?: keyof E;
-  dropdownVariant?: Dropdown.Variant;
-  allowNone?: boolean;
-  hideColumnHeader?: boolean;
-  disabled?: boolean;
-  omit?: K[];
-}
-
-export const BaseButton = ({
-  selected,
-  renderKey,
-  toggle,
-  visible,
-  children,
+export const Button = <K extends record.Key = record.Key>({
+  itemKey,
   ...rest
-}: DropdownButtonButtonProps<any, any>): ReactElement => (
-  <CoreButton.Button
-    className={CSS.B("select-dropdown-button")}
-    onClick={toggle}
-    variant="outlined"
-    endIcon={
-      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
-    }
-    {...rest}
-  >
-    {children ?? selected?.[renderKey]}
-  </CoreButton.Button>
-);
-
-export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
-  componentRenderProp(BaseButton);
-
-export const DropdownButton = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->({
-  data,
-  value,
-  columns = [],
-  children = defaultButton,
-  entryRenderKey = "key",
-  allowNone = false,
-  onChange,
-  disabled,
-  hideColumnHeader = true,
-  variant,
-  dropdownVariant,
-  ...rest
-}: DropdownButtonProps<K, E>): ReactElement => {
-  const { close, visible, toggle } = Dropdown.use();
-  const [selected, setSelected] = useState<E | null>(
-    data?.find((e) => e.key === value) ?? null,
-  );
-
-  useEffect(() => {
-    setSelected(data?.find((e) => e.key === value) ?? null);
-  }, [data, value]);
-
-  const handleChange = useCallback(
-    (next: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
-      if (Array.isArray(next) || next === null) return;
-      close();
-      if (next == null) {
-        setSelected(null);
-        return onChange(value);
-      }
-      setSelected(e.entries[0]);
-      onChange(next);
-    },
-    [onChange, value, close, setSelected],
-  );
-
-  const childrenProps: DropdownButtonButtonProps<K, E> = {
-    selected,
-    renderKey: entryRenderKey,
-    toggle,
-    visible,
-    disabled,
-  };
-  if (variant != null) childrenProps.variant = variant;
-
+}: ButtonProps<K>): ReactElement | null => {
+  const { setSelected } = useContext();
+  const { selected, onSelect } = useItemState<K>(itemKey);
   return (
-    <Core<K, E>
-      close={close}
-      data={data}
-      visible={visible}
-      value={value}
-      onChange={handleChange}
-      allowMultiple={false}
-      allowNone={allowNone}
-      columns={columns}
-      hideColumnHeader={hideColumnHeader}
-      variant={dropdownVariant}
-      trigger={<>{children(childrenProps)}</>}
+    <CoreButton.Toggle
       {...rest}
+      onChange={onSelect}
+      value={selected}
+      onContextMenu={(e) => {
+        setSelected([itemKey]);
+        e.preventDefault();
+      }}
     />
   );
 };

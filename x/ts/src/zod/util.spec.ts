@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it, test } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { zod } from "@/zod";
 
@@ -110,7 +110,7 @@ describe("zod", () => {
           });
         const v = zod.getFieldSchema(schema, "name");
         expect(v).toBeInstanceOf(z.ZodString);
-        expect(v.isOptional()).toBe(false);
+        expect(v.safeParse(undefined).success).toBe(false);
       });
     });
   });

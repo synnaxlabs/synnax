@@ -757,6 +757,46 @@ describe("color.Color", () => {
     });
   });
 
+  describe("fromCSS", () => {
+    test("parses hex colors", () => {
+      expect(color.fromCSS("#ff0000")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("#00ff00")).toEqual([0, 255, 0, 1]);
+      expect(color.fromCSS("#0000ff")).toEqual([0, 0, 255, 1]);
+      expect(color.fromCSS("#f00")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("#0f0")).toEqual([0, 255, 0, 1]);
+      expect(color.fromCSS("#00f")).toEqual([0, 0, 255, 1]);
+    });
+
+    test("parses rgb/rgba colors", () => {
+      expect(color.fromCSS("rgb(255, 0, 0)")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("rgb(0, 255, 0)")).toEqual([0, 255, 0, 1]);
+      expect(color.fromCSS("rgba(0, 0, 255, 0.5)")).toEqual([0, 0, 255, 0.5]);
+      expect(color.fromCSS("rgba(128, 128, 128, 1)")).toEqual([128, 128, 128, 1]);
+    });
+
+    test("parses named colors", () => {
+      expect(color.fromCSS("red")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("green")).toEqual([0, 128, 0, 1]);
+      expect(color.fromCSS("blue")).toEqual([0, 0, 255, 1]);
+      expect(color.fromCSS("black")).toEqual([0, 0, 0, 1]);
+      expect(color.fromCSS("white")).toEqual([255, 255, 255, 1]);
+    });
+
+    test("handles case insensitive input", () => {
+      expect(color.fromCSS("RED")).toEqual([255, 0, 0, 1]);
+      expect(color.fromCSS("Green")).toEqual([0, 128, 0, 1]);
+      expect(color.fromCSS("BLUE")).toEqual([0, 0, 255, 1]);
+    });
+
+    test("returns undefined for invalid input", () => {
+      expect(color.fromCSS("")).toBeUndefined();
+      expect(color.fromCSS("none")).toBeUndefined();
+      expect(color.fromCSS("transparent")).toBeUndefined();
+      expect(color.fromCSS("invalid")).toBeUndefined();
+      expect(color.fromCSS("#gggggg")).toBeUndefined();
+    });
+  });
+
   describe("isZero", () => {
     test("returns true for zero color", () => {
       expect(color.isZero([0, 0, 0, 0])).toBe(true);

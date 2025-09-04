@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import {
@@ -20,6 +20,7 @@ import {
   DIRECTIONS,
   type Location,
   location,
+  OUTER_LOCATIONS,
   type OuterLocation,
   outerLocation,
   X_LOCATIONS,
@@ -35,6 +36,7 @@ export {
   type Location,
   location,
   outerLocation as outer,
+  OUTER_LOCATIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
 };

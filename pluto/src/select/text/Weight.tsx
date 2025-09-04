@@ -9,24 +9,18 @@
 
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/select/Button";
+import { Select } from "@/select";
 import { type text } from "@/text/core";
 
-export interface WeightEntry {
-  key: text.Weight;
-  label: string;
-}
+const DATA = [250, 400, 500, 600];
 
-const WEIGHT_DATA: WeightEntry[] = [
-  { key: 600, label: "Bold" },
-  { key: 500, label: "Medium" },
-  { key: 400, label: "Normal" },
-  { key: 250, label: "Light" },
-];
-
-export interface WeightProps
-  extends Omit<ButtonProps<text.Weight, WeightEntry>, "data" | "entryRenderKey"> {}
+export interface WeightProps extends Omit<Select.ButtonsProps<text.Weight>, "keys"> {}
 
 export const Weight = (props: WeightProps): ReactElement => (
-  <Button {...props} data={WEIGHT_DATA} entryRenderKey="label" />
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={250}>Light</Select.Button>
+    <Select.Button itemKey={400}>Normal</Select.Button>
+    <Select.Button itemKey={500}>Medium</Select.Button>
+    <Select.Button itemKey={600}>Bold</Select.Button>
+  </Select.Buttons>
 );

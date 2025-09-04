@@ -20,7 +20,7 @@
 
 /// internal
 #include "driver/pipeline/base.h"
-#include "driver/task/common/state.h"
+#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace common {
@@ -72,14 +72,16 @@ struct SynnaxClusterAPI final : ClusterAPI {
     xerrors::Error propagate_state(telem::Series &states) override {
         if (this->state_writer == nullptr) {
             const auto [state_channel, ch_err] = this->client->channels.retrieve(
-                synnax::DEVICE_STATE_CHAN_NAME
+                synnax::DEVICE_STATUS_CHANNEL_NAME
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->client->telem.open_writer(synnax::WriterConfig{
-                .channels = {this->state_channel.key},
-                .start = telem::TimeStamp::now(),
-            });
+            auto [w, err] = this->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .channels = {this->state_channel.key},
+                    .start = telem::TimeStamp::now(),
+                }
+            );
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
@@ -100,7 +102,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     loop::Timer timer;
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
-    task::State state;
+    synnax::TaskStatus state;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, DeviceInfo> dev_state;
@@ -134,8 +136,7 @@ public:
         ctx(ctx),
         client(std::move(client)) {
         this->key = task.key;
-        this->state.task = task.key;
-        this->ctx->set_state(this->state);
+        this->state.details.task = task.key;
     }
 
     ScanTask(
@@ -157,31 +158,31 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::VARIANT_ERROR;
-            this->state.details["message"] = err.message();
-            this->ctx->set_state(this->state);
+            this->state.variant = status::variant::ERR;
+            this->state.message = err.message();
+            this->ctx->set_status(this->state);
             return;
         }
-        this->state.variant = status::VARIANT_SUCCESS;
-        this->state.details["message"] = "scan task started";
-        this->ctx->set_state(this->state);
+        this->state.variant = status::variant::SUCCESS;
+        this->state.message = "scan task started";
+        this->ctx->set_status(this->state);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->state.variant = status::VARIANT_WARNING;
-                this->state.details["message"] = err.message();
-                this->ctx->set_state(this->state);
+                this->state.variant = status::variant::WARNING;
+                this->state.message = err.message();
+                this->ctx->set_status(this->state);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
             }
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::VARIANT_ERROR;
-            this->state.details["message"] = err.message();
+            this->state.variant = status::variant::ERR;
+            this->state.message = err.message();
         } else {
-            this->state.variant = status::VARIANT_SUCCESS;
-            this->state.details["message"] = "scan task stopped";
+            this->state.variant = status::variant::SUCCESS;
+            this->state.message = "scan task stopped";
         }
-        this->ctx->set_state(this->state);
+        this->ctx->set_status(this->state);
     }
 
     void exec(task::Command &cmd) override {
@@ -191,9 +192,9 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::VARIANT_ERROR;
-            this->state.details["message"] = err.message();
-            this->ctx->set_state(this->state);
+            this->state.variant = status::variant::ERR;
+            this->state.message = err.message();
+            this->ctx->set_status(this->state);
         }
     }
 
@@ -236,7 +237,7 @@ public:
                 scanned_dev.configured = remote_dev.configured;
                 to_create.push_back(scanned_dev);
             }
-            scanned_dev.state.details["last_available"] = last_available.nanoseconds();
+            scanned_dev.status.time = last_available;
             this->dev_state[scanned_dev.key] = DeviceInfo{
                 .dev = scanned_dev,
                 .last_available = last_available
@@ -246,15 +247,15 @@ public:
         std::vector<std::string> to_erase;
         for (auto &[key, dev]: this->dev_state) {
             if (present.find(key) != present.end()) continue;
-            this->dev_state[key].dev.state = synnax::DeviceState{
+            this->dev_state[key].dev.status = synnax::DeviceStatus{
                 .key = dev.dev.key,
-                .variant = status::VARIANT_WARNING,
-                .rack = dev.dev.rack,
-                .details =
-                    json{
-                        {"message", "Device disconnected"},
-                        {"last_available", dev.last_available.nanoseconds()}
-                    }
+                .variant = status::variant::WARNING,
+                .message = "Device disconnected",
+                .time = dev.last_available,
+                .details = synnax::DeviceStatusDetails{
+                    .rack = dev.dev.rack,
+                    .device = dev.dev.key,
+                },
             };
             std::vector keys{dev.dev.key};
             auto [remote_devs, err] = this->client->retrieve_devices(keys);
@@ -273,14 +274,26 @@ public:
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
-        return this->client->create_devices(to_create);
+
+        xerrors::Error last_err = xerrors::NIL;
+        for (auto &device: to_create) {
+            std::vector<synnax::Device> single_device = {device};
+            if (const auto err = this->client->create_devices(single_device)) {
+                LOG(WARNING) << "[scan_task] failed to create device " << device.key
+                             << ": " << err.message();
+                last_err = err;
+            } else {
+                LOG(INFO) << "[scan_task] successfully created device " << device.key;
+            }
+        }
+        return last_err;
     }
 
     xerrors::Error propagate_state() {
         std::vector<json> states;
         states.reserve(this->dev_state.size());
         for (auto &[key, info]: this->dev_state)
-            states.push_back(info.dev.state.to_json());
+            states.push_back(info.dev.status.to_json());
         telem::Series s(states);
         return this->client->propagate_state(s);
     }

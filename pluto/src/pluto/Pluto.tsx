@@ -13,8 +13,18 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Flux } from "@/flux";
+import { Group } from "@/group";
+import { Device } from "@/hardware/device";
+import { Rack } from "@/hardware/rack";
+import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
+import { Label } from "@/label";
+import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Ranger } from "@/ranger";
+import { ranger } from "@/ranger/aether";
+import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
@@ -24,6 +34,8 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Worker } from "@/worker";
+import { Workspace } from "@/workspace";
+
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
@@ -35,10 +47,39 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   tooltip?: Tooltip.ConfigProps;
   triggers?: Triggers.ProviderProps;
   haul?: Haul.ProviderProps;
-  channelAlias?: Channel.AliasProviderProps;
   telem?: CanDisabledProps<Telem.ProviderProps>;
   color?: Color.ProviderProps;
 }
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
+  [Label.FLUX_STORE_KEY]: Label.FluxStore;
+  [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
+  [Device.FLUX_STORE_KEY]: Device.FluxStore;
+  [Task.FLUX_STORE_KEY]: Task.FluxStore;
+  [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
+  [Group.FLUX_STORE_KEY]: Group.FluxStore;
+}> = {
+  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
+  [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
+  [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
+  [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
+  [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
+  [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_FLUX_STORE_CONFIG,
+  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
+  [Channel.FLUX_STORE_KEY]: Channel.FLUX_STORE_CONFIG,
+  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
+  [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
+};
 
 export const Provider = ({
   children,
@@ -50,7 +91,6 @@ export const Provider = ({
   triggers,
   alamos,
   haul,
-  channelAlias,
   telem,
   color,
 }: ProviderProps): ReactElement => (
@@ -62,7 +102,7 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Channel.AliasProvider {...channelAlias}>
+                  <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                     <Color.Provider {...color}>
                       <Theming.Provider {...theming}>
                         <CanDisableTelem {...telem}>
@@ -70,7 +110,7 @@ export const Provider = ({
                         </CanDisableTelem>
                       </Theming.Provider>
                     </Color.Provider>
-                  </Channel.AliasProvider>
+                  </Flux.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

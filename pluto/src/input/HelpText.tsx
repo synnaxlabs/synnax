@@ -9,14 +9,15 @@
 
 import "@/input/HelpText.css";
 
-import { type status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Text } from "@/text";
 
 /** Props for the {@link HelpText} component. */
-export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "ref"> {
+export interface HelpTextProps
+  extends Omit<Text.TextProps<"small">, "level" | "ref" | "variant"> {
   variant?: status.Variant;
 }
 
@@ -33,15 +34,13 @@ export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "
  */
 export const HelpText = ({
   className,
-  variant = "error",
+  variant,
   ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">
-    className={CSS(
-      CSS.B("input-help-text"),
-      CSS.BM("input-help-text", variant),
-      className,
-    )}
+    className={CSS(CSS.B("input-help-text"), className)}
+    color={8}
+    status={status.removeVariants(variant, "success")}
     level="small"
     {...rest}
   />

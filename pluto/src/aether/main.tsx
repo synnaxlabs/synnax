@@ -23,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
@@ -33,8 +33,8 @@ import { prettyParse } from "@/util/zod";
 import { Worker } from "@/worker";
 
 type RawSetArg<S extends z.ZodType<state.State>> =
-  | (z.input<S> | z.output<S>)
-  | ((prev: z.output<S>) => z.input<S> | z.output<S>);
+  | (z.input<S> | z.infer<S>)
+  | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
 
 /**
  * return value of the create function in the Aether context.
@@ -142,7 +142,17 @@ export const Provider = ({
         const err = new Error(message);
         err.stack = stack;
         err.name = name;
-        setError(err);
+        setError((prev) => {
+          if (prev != null) {
+            console.error(`
+              [aether] - received new error after error was already set, but before
+              previous error was thrown. This likely means that multiple errors occurred
+              in succession before react could throw the first one that occurred.
+            `);
+            console.error(err);
+          }
+          return err;
+        });
         return;
       }
       const { key, state } = msg;
@@ -340,7 +350,7 @@ export const useUnidirectional = <S extends z.ZodType<state.State>>({
   ...rest
 }: UseUnidirectionalProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle<S>({ ...rest, initialState: state });
-  const ref = useRef<z.input<S> | z.output<S> | null>(null);
+  const ref = useRef<z.input<S> | z.infer<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
@@ -386,7 +396,7 @@ export const use = <S extends z.ZodType<state.State>>(
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (rawState: z.output<S>) => {
+    (rawState: z.infer<S>) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
       onAetherChangeRef.current?.(state);

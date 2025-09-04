@@ -1,12 +1,12 @@
-go 1.24.4
+go 1.25.0
 
 use (
 	./alamos/go
 	./aspen
 	./cesium
+	./core
 	./freighter/go
 	./freighter/integration
 	./integration
-	./synnax
 	./x/go
 )

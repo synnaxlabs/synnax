@@ -5,7 +5,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp/fgrpc",
-        "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "//x/cpp/xos",
         "@grpc//:grpc++",

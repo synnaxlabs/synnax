@@ -15,14 +15,12 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type ClusterHandler, type Handler, PREFIX } from "@/link/types";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
 
-const INCORRECT_FORMAT_ERROR = new Error(
-  `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`,
-);
+const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
 export const useDeep = (
   clusterHandler: ClusterHandler,
@@ -30,7 +28,7 @@ export const useDeep = (
 ): void => {
   // While early returns are usually bad in hooks, this is fine because IS_TAURI is a
   // constant and so the hook will be the exact same for a given runtime.
-  if (RUNTIME !== "tauri") return;
+  if (Runtime.ENGINE !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
@@ -41,9 +39,10 @@ export const useDeep = (
 
       // Processing URL, making sure is has valid form
       if (urls.length === 0 || !urls[0].startsWith(PREFIX))
-        throw INCORRECT_FORMAT_ERROR;
+        throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
       const urlParts = urls[0].slice(PREFIX.length).split("/");
-      if (urlParts.length !== 1 && urlParts.length !== 3) throw INCORRECT_FORMAT_ERROR;
+      if (urlParts.length !== 1 && urlParts.length !== 3)
+        throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
 
       const clusterKey = urlParts[0];
       const client = await clusterHandler({ store, key: clusterKey });
@@ -61,12 +60,24 @@ export const useDeep = (
   };
 
   // Handles the case where the app is opened from a link
-  useAsyncEffect(async () => {
+  useAsyncEffect(async (signal) => {
     const urls = await getCurrent();
-    if (urls == null) return;
+    const shouldIgnore = localStorage.getItem(SHOULD_IGNORE_LINK_KEY) === "true";
+    if (shouldIgnore) {
+      localStorage.setItem(SHOULD_IGNORE_LINK_KEY, "false");
+      return;
+    }
+    if (urls == null || signal.aborted) return;
     await urlHandler(urls);
   }, []);
 
   // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => await onOpenUrl((urls) => void urlHandler(urls)), []);
 };
+
+// We need to use this SHOULD_IGNORE_LINK_KEY because triggering a hard reload will
+// mean that the first useAsyncEffect hook with the getCurrent() function will run again
+// and receive the same link. We need to ignore the link the second time around. Redux
+// is also too slow to store it in there, as the hard reload gets triggered before Redux
+// finishes updating the global store.
+export const SHOULD_IGNORE_LINK_KEY = "shouldIgnoreLink";

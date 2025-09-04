@@ -7,86 +7,78 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { caseconv, location } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { caseconv } from "@synnaxlabs/x";
+import { type ReactElement, useMemo } from "react";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
-import { type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
+import { type Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
-interface Entry {
-  key: FilteredMode;
-  icon: PIcon.Element;
-  tooltip: ReactNode;
-}
-
 interface TooltipProps {
   mode: FilteredMode;
   triggers: Trigger[];
 }
 
-const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
-  <Align.Space x align="center">
-    <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Align.Space empty x align="center">
-      <Triggers.Text trigger={triggers[0]} level="small" />
-    </Align.Space>
-  </Align.Space>
+export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
+  <Text.Text level="small">
+    {caseconv.capitalize(mode)}
+    <Triggers.Text trigger={triggers[0]} el="span" />
+  </Text.Text>
 );
 
-const MODE_ICONS: Record<FilteredMode, ReactElement> = {
-  zoom: <Icon.Zoom />,
-  pan: <Icon.Pan />,
-  select: <Icon.Selection />,
-  zoomReset: <Icon.Expand />,
-  click: <Icon.Bolt />,
-};
-
-export interface SelectModeProps extends Omit<Select.ButtonProps<Mode>, "data"> {
+export interface SelectModeProps
+  extends Omit<Select.ButtonsProps<Mode>, "keys">,
+    Omit<Tooltip.WrapProps, "tooltip"> {
   triggers: UseTriggers;
-  disable?: FilteredMode[];
+  disable?: Mode[];
 }
 
 export const SelectMode = ({
   triggers,
-  disable = ["zoomReset", "click"],
+  value,
+  onChange,
+  disable = ["zoomReset", "click", "cancel"],
+  tooltipDelay,
+  tooltipLocation,
+  hideTooltip,
   ...rest
 }: SelectModeProps): ReactElement => {
-  const vDisabled = [...disable, "cancel"];
-  const data = Object.entries(triggers)
-    .filter(
-      ([key]) =>
-        !vDisabled.includes(key as FilteredMode) && MODES.includes(key as FilteredMode),
-    )
-    .map(([key, value]) => ({
-      key: key as FilteredMode,
-      icon: MODE_ICONS[key as FilteredMode],
-      tooltip: <Tooltip mode={key as FilteredMode} triggers={value as Trigger[]} />,
-    }))
-    .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key)) as Entry[];
-
+  const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
+  const commonProps: Partial<Select.ButtonProps<Mode>> = {
+    tooltipDelay,
+    tooltipLocation,
+    hideTooltip,
+    size: "small",
+  };
   return (
-    <Select.Button<Mode, Entry> {...rest} data={data} entryRenderKey="icon">
-      {({ title: _, entry, ...rest }) => (
-        <Button.Icon
-          {...rest}
-          key={entry.key}
-          variant={rest.selected ? "filled" : "outlined"}
-          size="small"
-          tooltip={entry.tooltip}
-          tooltipLocation={location.BOTTOM_LEFT}
-        >
-          {entry.icon}
-        </Button.Icon>
-      )}
-    </Select.Button>
+    <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
+      <Select.Button
+        itemKey="zoom"
+        tooltip={<TooltipText mode="zoom" triggers={triggers.zoom} />}
+        {...commonProps}
+      >
+        <Icon.Zoom />
+      </Select.Button>
+      <Select.Button
+        itemKey="pan"
+        tooltip={<TooltipText mode="pan" triggers={triggers.pan} />}
+        {...commonProps}
+      >
+        <Icon.Pan />
+      </Select.Button>
+      <Select.Button
+        itemKey="select"
+        tooltip={<TooltipText mode="select" triggers={triggers.select} />}
+        {...commonProps}
+      >
+        <Icon.Selection />
+      </Select.Button>
+    </Select.Buttons>
   );
 };

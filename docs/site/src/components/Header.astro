@@ -1,72 +1,71 @@
 ---
-import { Align } from "@synnaxlabs/pluto/align";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
+import { Icon, Button, Text, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
-import { Button, Text } from "@synnaxlabs/pluto";
 import { PageNavMobile } from "@/components/PageNav/PageNav";
 const url = Astro.url.pathname;
 ---
 
-<Align.Space className="main-header" justify="center" align="center" el="header" empty>
-    <Align.Space className="top" justify="center" align="center">
-        <Align.Space
+<Flex.Box className="main-header" justify="center" align="center" el="header" empty>
+    <Flex.Box className="top" justify="center" align="center">
+        <Flex.Box
             className="header-content"
             direction="x"
-            justify="spaceBetween"
+            justify="between"
             align="center"
         >
             <a href="https://synnaxlabs.com">
                 <Logo variant="title" />
             </a>
-            <Align.Space direction="x" align="center" justify="center">
-                <Align.Space direction="x" size="small">
+            <Flex.Box direction="x" align="center" justify="center">
+                <Flex.Box direction="x" gap="small">
                     <Search />
                     <PageNavMobile
                         client:only="react"
                         currentPage={Astro.url.pathname}
                     />
-                </Align.Space>
-                <Button.Link
+                </Flex.Box>
+                <Button.Button
                     className="version-button"
                     variant="text"
                     href="https://github.com/synnaxlabs/synnax"
-                    iconSpacing="small"
                 >
-                    <Icon.Logo.Github slot="endIcon" />
                     <p class="version" transition:persist></p>
-                </Button.Link>
-            </Align.Space>
-        </Align.Space>
-    </Align.Space>
-    <Align.Space className="bottom" justify="center" align="center">
-        <Align.Space direction="x" className="header-content" size={5} justify="start">
-            <Text.Link
+                    <Icon.Logo.Github />
+                </Button.Button>
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box className="bottom" justify="center" align="center">
+        <Flex.Box direction="x" className="header-content" gap={5} justify="start">
+            <Text.Text
                 href="/"
                 className={url === "/" ? "active" : ""}
                 level="h5"
-                noWrap>Docs Home</Text.Link
+                overflow="nowrap">Docs Home</Text.Text
             >
-            <Text.Link
+            <Text.Text
                 href="/guides/"
                 className={url.includes("guides") ? "active" : ""}
                 level="h5"
-                noWrap>Guides</Text.Link
+                variant="prose"
+                overflow="nowrap">Guides</Text.Text
             >
-            <Text.Link
+            <Text.Text
                 href="/reference/"
                 className={url.includes("reference") ? "active" : ""}
                 level="h5"
-                noWrap>Reference</Text.Link
+                overflow="nowrap">Reference</Text.Text
             >
-            <Text.Link
+            <Text.Text
                 href="/releases/"
                 className={url.includes("releases") ? "active" : ""}
                 level="h5"
-                noWrap>Releases</Text.Link
+                overflow="nowrap">Releases</Text.Text
             >
-        </Align.Space>
-    </Align.Space>
-</Align.Space>
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .main-header {
@@ -88,7 +87,7 @@ const url = Astro.url.pathname;
                     color: var(--pluto-gray-l8);
                     font-weight: 400;
                 }
-                & .synnax-icon {
+                & .pluto-icon {
                     color: var(--pluto-gray-l9);
                     transform: scale(115%) translateY(-5%);
                 }
@@ -108,11 +107,13 @@ const url = Astro.url.pathname;
             border-color: var(--pluto-gray-l3);
             width: 100%;
 
-            .pluto-text-link {
+            .pluto-text:is(a) {
                 font-size: 13.5px;
                 font-weight: 425;
                 color: var(--pluto-gray-l9);
                 position: relative;
+                padding: 0 1rem;
+                text-decoration: none;
                 &:before {
                     transition: all 0.2s ease-in-out;
                     content: "";
@@ -127,17 +128,17 @@ const url = Astro.url.pathname;
                 }
                 &.active {
                     color: var(--pluto-gray-l11);
+                    font-weight: 500;
                     &:before {
                         width: 50% !important;
                     }
                 }
-            }
-
-            .pluto-text-link:hover {
-                text-decoration: none;
-                color: var(--pluto-gray-l10);
-                &:before {
-                    width: 50%;
+                &:hover {
+                    text-decoration: none;
+                    color: var(--pluto-gray-l10);
+                    &:before {
+                        width: 50%;
+                    }
                 }
             }
         }

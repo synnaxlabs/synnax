@@ -7,7 +7,7 @@ cc_library(
         "//client/cpp/errors",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
-        "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/go/telem:telem_grpc",

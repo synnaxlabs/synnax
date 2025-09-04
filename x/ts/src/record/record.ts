@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 /**
  * Represents valid key types for record objects.
@@ -25,7 +25,7 @@ export type Unknown = Record<Key, unknown>;
  * Interface for objects that have a key property.
  * @template K - The type of the key (must extend Key)
  */
-export interface Keyed<K extends Key> {
+export interface Keyed<K extends Key = Key> {
   /** The key identifier for this object */
   key: K;
 }
@@ -116,3 +116,26 @@ export const map = <T extends Record<Key, unknown>, U>(
  */
 export const purgeUndefined = <T extends Record<Key, unknown>>(obj: T): T =>
   Object.fromEntries(entries(obj).filter(([_, value]) => value !== undefined)) as T;
+
+/**
+ * Removes specified keys from an object. This creates a shallow copy of the object and
+ * removes the keys instead of mutating the original object.
+ *
+ * @template T - The type of the input object
+ * @template K - The type of the keys to remove
+ * @param obj - The object to remove keys from
+ * @param keys - The keys to remove from the object
+ * @returns A new object with the specified keys removed
+ *
+ * @example
+ * ```typescript
+ * const obj = { a: 1, b: 2, c: 3 };
+ * const omitted = record.omit(obj, "b", "c");
+ * // Result: { a: 1 }
+ * ```
+ */
+export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => {
+  const result = { ...obj };
+  for (const key of keys) delete result[key];
+  return result;
+};

@@ -9,35 +9,25 @@
 
 import "@/range/overview/Overview.css";
 
-import { Align, Divider } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
-import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
-  <Align.Space
+  <Flex.Box
     y
-    style={{
-      padding: "5rem",
-      maxWidth: 1050,
-      margin: "0 auto",
-      overflowY: "auto",
-    }}
+    style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
-    size="medium"
+    gap="medium"
   >
     <Details rangeKey={layoutKey} />
-    <Labels rangeKey={layoutKey} />
-    <Divider.Divider x />
     <MetaData rangeKey={layoutKey} />
-    <Divider.Divider x />
     <ChildRanges rangeKey={layoutKey} />
-    <Divider.Divider x />
     <Snapshots rangeKey={layoutKey} />
-  </Align.Space>
+  </Flex.Box>
 );

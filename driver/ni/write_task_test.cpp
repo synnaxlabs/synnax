@@ -143,16 +143,17 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
         reads
     );
     auto written_data = std::make_shared<std::vector<std::vector<double>>>();
-    auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>(written_data)
+    auto wt = create_task(
+        std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
-    EXPECT_EQ(first_state.task, task.key);
-    EXPECT_EQ(first_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
@@ -161,9 +162,9 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
-    EXPECT_EQ(second_state.task, task.key);
-    EXPECT_EQ(second_state.variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(second_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(second_state.message, "Task stopped successfully");
 
     auto first = std::move(
         mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
