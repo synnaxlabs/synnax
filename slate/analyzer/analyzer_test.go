@@ -309,7 +309,21 @@ var _ = Describe("Analyzer", func() {
 			result := analyzer.Analyze(prog, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
-			Expect(first.Message).To(ContainSubstring("unexpected return value in function/task with void return type"))
+			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
+		})
+
+		It("Should return an error for a function that doesn't have a return type on all code paths", func() {
+			prog := MustSucceed(parser.Parse(`
+				func dog() f64 {
+					if (5 > 3) {
+						return 2.3
+					}
+				}
+			`))
+			result := analyzer.Analyze(prog, analyzer.Options{})
+			Expect(result.Diagnostics).To(HaveLen(1))
+			first := result.Diagnostics[0]
+			Expect(first.Message).To(Equal("function 'dog' must return a value of type f64 on all paths"))
 		})
 	})
 

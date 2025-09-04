@@ -127,7 +127,18 @@ func analyzeFunctionDeclaration(
 	}
 	fnScope.Symbol.Type = fnType
 	if block := fn.Block(); block != nil {
-		statement.AnalyzeBlock(fnScope, result, block)
+		if !statement.AnalyzeBlock(fnScope, result, block) {
+			return false
+		}
+
+		// Check if the function has a return type and if all paths return
+		if fnType.Return != nil && !blockAlwaysReturns(block) {
+			result.AddError(
+				errors.Newf("function '%s' must return a value of type %s on all paths", name, fnType.Return),
+				fn,
+			)
+			return false
+		}
 	}
 	return true
 }
@@ -167,6 +178,55 @@ func analyzeParams(
 		}
 	}
 	return true
+}
+
+// blockAlwaysReturns checks if a block always returns a value on all execution paths
+func blockAlwaysReturns(block parser.IBlockContext) bool {
+	if block == nil {
+		return false
+	}
+	statements := block.AllStatement()
+	if len(statements) == 0 {
+		return false
+	}
+	// Check statements from last to first
+	for i := len(statements) - 1; i >= 0; i-- {
+		stmt := statements[i]
+		// Check if it's a return statement
+		if stmt.ReturnStatement() != nil {
+			return true
+		}
+		// Check if it's an if statement that covers all paths
+		if ifStmt := stmt.IfStatement(); ifStmt != nil {
+			// An if statement guarantees a return only if:
+			// 1. It has an else clause
+			// 2. All branches (if, else-ifs, else) return
+			if ifStmt.ElseClause() != nil {
+				// Check if the main if block returns
+				if !blockAlwaysReturns(ifStmt.Block()) {
+					continue // This if doesn't guarantee return
+				}
+				// Check all else-if branches
+				allElseIfsReturn := true
+				for _, elseIf := range ifStmt.AllElseIfClause() {
+					if !blockAlwaysReturns(elseIf.Block()) {
+						allElseIfsReturn = false
+						break
+					}
+				}
+				if !allElseIfsReturn {
+					continue
+				}
+				if blockAlwaysReturns(ifStmt.ElseClause().Block()) {
+					return true //
+				}
+			}
+			// No else or not all branches return, continue checking previous statements
+		}
+		// For other statement types, continue checking previous statements
+		// (assignments, expressions, etc. don't affect return paths)
+	}
+	return false
 }
 
 func analyzeTaskDeclaration(
@@ -223,6 +283,15 @@ func analyzeTaskDeclaration(
 	taskScope.Symbol.Type = taskType
 	if block := task.Block(); block != nil {
 		if !statement.AnalyzeBlock(taskScope, result, block) {
+			return false
+		}
+
+		// Check if the task has a return type and if all paths return
+		if taskType.Return != nil && !blockAlwaysReturns(block) {
+			result.AddError(
+				errors.Newf("task '%s' must return a value of type %s on all paths", name, taskType.Return),
+				task,
+			)
 			return false
 		}
 	}
