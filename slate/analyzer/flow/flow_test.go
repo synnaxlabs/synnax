@@ -70,10 +70,7 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 once{} -> processor{}
 `))
-			result := analyzer.Analyze(analyzer.Options{
-				Program:  ast,
-				Resolver: resolver,
-			})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -81,7 +78,7 @@ once{} -> processor{}
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("undefined symbol: once"))
 		})
@@ -92,7 +89,7 @@ once{} -> processor{}
 			}
 			once{} -> dog{}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("dog is not a task"))
 		})
@@ -117,7 +114,7 @@ once{} -> processor{}
 				output: output_chan
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -139,7 +136,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			// We should get an error about the first missing parameter
 			Expect(result.Diagnostics[0].Message).To(Or(
@@ -162,7 +159,7 @@ once{} -> processor{}
 				extra: 42.0
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("unknown config parameter 'extra' for task 'simple'"))
 		})
@@ -192,7 +189,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			// Should have at least one type mismatch error
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			// Check that at least one error mentions type mismatch
@@ -228,7 +225,7 @@ once{} -> processor{}
 				input: sensor_chan
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -259,7 +256,7 @@ once{} -> processor{}
 				output: output_chan
 			} -> valve_cmd
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -293,7 +290,7 @@ once{} -> processor{}
 			// (though this might not be implemented yet)
 			// sensor_chan -> logger{}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -313,7 +310,7 @@ once{} -> processor{}
 			// on{channel: sensor_chan} -> display{input: sensor_chan}
 			// Where "on" is a stdlib task that triggers when the channel receives a value
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
 			// The analyzer should have converted the channel source to an "on" task
@@ -341,7 +338,7 @@ once{} -> processor{}
 			sensor_chan -> display{input: sensor_chan}
 			`))
 
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: noOnResolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: noOnResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -361,7 +358,7 @@ sensor_chan > 100 -> alarm{}
 (sensor_chan * 1.8) + 32.0 -> logger{}
 			`))
 
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			// The expressions should be validated successfully
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
@@ -379,7 +376,7 @@ func setup() {
 sensor_chan > threshold -> alarm{}
 			`))
 
-			result := analyzer.Analyze(analyzer.Options{Program: ast, Resolver: resolver})
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
 			// Should have an error about undefined symbol 'threshold'
 			Expect(result.Diagnostics).ToNot(BeEmpty())
 			foundError := false

@@ -31,7 +31,7 @@ var _ = Describe("Expressions", func() {
 						u := x / y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
@@ -43,7 +43,7 @@ var _ = Describe("Expressions", func() {
 						z := x + y
 					}
 				`))
-			res := analyzer.Analyze(analyzer.Options{Program: ast})
+			res := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(res.Ok()).To(BeFalse())
 			Expect(res.Diagnostics).To(HaveLen(1))
 			first := res.Diagnostics[0]
@@ -59,7 +59,7 @@ var _ = Describe("Expressions", func() {
 						z := x + y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch"))
 		})
@@ -77,7 +77,7 @@ var _ = Describe("Expressions", func() {
 						f := x != y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -89,7 +89,7 @@ var _ = Describe("Expressions", func() {
 					z := x > y
 				}`,
 			))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
 		})
@@ -101,7 +101,7 @@ var _ = Describe("Expressions", func() {
 					z := x > 5
 				}`,
 			))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
@@ -112,7 +112,7 @@ var _ = Describe("Expressions", func() {
 				z := x > 5.0
 			}
 			`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Ok()).To(BeFalse())
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
@@ -128,7 +128,7 @@ var _ = Describe("Expressions", func() {
 						d := a || b
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -140,7 +140,7 @@ var _ = Describe("Expressions", func() {
 						z := x && y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
 		})
@@ -153,7 +153,7 @@ var _ = Describe("Expressions", func() {
 					z := x || y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 		})
 
@@ -165,7 +165,7 @@ var _ = Describe("Expressions", func() {
 						z := x % y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
@@ -180,7 +180,7 @@ var _ = Describe("Expressions", func() {
 						w := -z
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -191,7 +191,7 @@ var _ = Describe("Expressions", func() {
 						y := -x
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator - not supported for type string"))
 		})
@@ -203,7 +203,7 @@ var _ = Describe("Expressions", func() {
 						y := !x
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -214,7 +214,7 @@ var _ = Describe("Expressions", func() {
 						y := !x
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
 		})
@@ -229,7 +229,7 @@ var _ = Describe("Expressions", func() {
 						z i64 := 1000000
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -241,7 +241,7 @@ var _ = Describe("Expressions", func() {
 						z f64 := 1.414213
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -252,7 +252,7 @@ var _ = Describe("Expressions", func() {
 						y string := "test"
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -263,7 +263,7 @@ var _ = Describe("Expressions", func() {
 						y u8 := 1
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
@@ -279,7 +279,7 @@ var _ = Describe("Expressions", func() {
 						result2 := (x + y) * z
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -292,7 +292,7 @@ var _ = Describe("Expressions", func() {
 						result := x + y < z
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -306,7 +306,7 @@ var _ = Describe("Expressions", func() {
 						result2 := a || b && c
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -321,7 +321,7 @@ var _ = Describe("Expressions", func() {
 						result := a && b || (x + y == z)
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -334,7 +334,7 @@ var _ = Describe("Expressions", func() {
 						result := x + y * z
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).ToNot(HaveLen(0))
 		})
 	})
@@ -350,7 +350,7 @@ var _ = Describe("Expressions", func() {
 						result := add(10, 20)
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -360,7 +360,7 @@ var _ = Describe("Expressions", func() {
 						result := undefinedFunc(10, 20)
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedFunc"))
 		})
@@ -379,7 +379,7 @@ var _ = Describe("Expressions", func() {
 						result := add(double(5), double(10))
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
@@ -392,7 +392,7 @@ var _ = Describe("Expressions", func() {
 						y := x + 5
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
@@ -402,7 +402,7 @@ var _ = Describe("Expressions", func() {
 						y := undefinedVar + 5
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
@@ -417,7 +417,7 @@ var _ = Describe("Expressions", func() {
 						}
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			Expect(result.Diagnostics[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 3, col 6"))
 		})
@@ -428,7 +428,7 @@ var _ = Describe("Expressions", func() {
 						return x + y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
@@ -439,17 +439,17 @@ var _ = Describe("Expressions", func() {
 					func testFunc() {
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 
 		It("Should handle very deeply nested expressions", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
-						x i32 := ((((1 + 2) * 3) - 4) / 5) % 6
+						x i64 := ((((1 + 2) * 3) - 4) / 5) % 6
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
