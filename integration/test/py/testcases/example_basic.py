@@ -56,7 +56,8 @@ class CheckConnectionBasic(TestCase):
 
         # You might NOT need to override
         # ... but then what are you testing?
-        super().run()
+        # super().run()  # Don't call super() on abstract method
+        pass
 
     def teardown(self) -> None:
         """

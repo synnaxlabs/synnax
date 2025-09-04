@@ -73,7 +73,7 @@ class BenchLatencyResponse(TestCase):
                             writer.write(state_channel, frame[cmd_channel])
                         else:
                             # Only check uptime if we're not getting frames
-                            uptime = time.time() - start
+                            uptime = int(time.time() - start)
 
         except Exception as e:
             raise Exception(f"EXCEPTION: {e}")

@@ -10,6 +10,7 @@
 import random
 import re
 import time
+from typing import Any, Optional
 
 from playwright.sync_api import sync_playwright
 
@@ -77,7 +78,7 @@ class Playwright(TestCase):
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
 
-    def create_page(self, page_type: str, page_name: str = None) -> None:
+    def create_page(self, page_type: str, page_name: Optional[str] = None) -> None:
         # Handle "a" vs "an" article for proper command matching
         vowels = ["A", "E", "I", "O", "U"]
         # Special case for "NI" (en-eye)
@@ -96,16 +97,16 @@ class Playwright(TestCase):
             tab.dblclick()
             self.page.get_by_text(page_type).first.fill(page_name)
             self.page.keyboard.press("Enter")  # Confirm the change
-            return page_name
+            return None
         else:
-            return page_type
+            return None
 
     def command_palette(self, command: str) -> None:
         self.page.keyboard.press("ControlOrMeta+Shift+p")
         self.page.wait_for_selector(f"text={command}", timeout=5000)
         self.page.get_by_text(command).click()
 
-    def determine_browser(self):
+    def determine_browser(self) -> Any:
         """
         Provide random coverage for all browsers.
         """

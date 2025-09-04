@@ -9,6 +9,7 @@
 
 import re
 import time
+from typing import Any, Dict, List, Optional, Union
 
 from testcases.playwright.playwright import Playwright
 
@@ -18,7 +19,7 @@ class Plot(Playwright):
     Parent class for Plot tests
     """
 
-    DATA = {
+    DATA: Dict[str, Any] = {
         "Y1": [],
         "Y2": [],
         "Ranges": [],
@@ -31,19 +32,19 @@ class Plot(Playwright):
         self.create_page("Line Plot", f"{self.name}")
         self.page.locator(".pluto--no-select").dblclick()
 
-    def sub_Y1(self, channel_ids: str) -> None:
+    def sub_Y1(self, channel_ids: Union[str, List[str]]) -> None:
         self.subscribe(channel_ids)
 
-    def sub_Y2(self, channel_ids: str) -> None:
+    def sub_Y2(self, channel_ids: Union[str, List[str]]) -> None:
         self.subscribe(channel_ids)
 
-    def add_Y1(self, channel_ids: str) -> None:
+    def add_Y1(self, channel_ids: Union[str, List[str]]) -> None:
         self.add_Y("Y1", channel_ids)
 
-    def add_Y2(self, channel_ids: str) -> None:
+    def add_Y2(self, channel_ids: Union[str, List[str]]) -> None:
         self.add_Y("Y2", channel_ids)
 
-    def add_Y(self, axis: str, channel_ids: str) -> None:
+    def add_Y(self, axis: str, channel_ids: Union[str, List[str]]) -> None:
 
         if axis != "Y1" and axis != "Y2":
             raise ValueError(f"Invalid axis: {axis}")
@@ -59,7 +60,9 @@ class Plot(Playwright):
         # Wait for the channel list to be visible
         self.page.wait_for_selector(".pluto-list__item", timeout=3000)
 
-        for channel in channel_ids:
+        # Handle both string and list inputs
+        channels = channel_ids if isinstance(channel_ids, list) else [channel_ids]
+        for channel in channels:
             # Clear search box first to ensure all channels are visible
             search_box = self.page.locator("input[placeholder*='Search']")
             if search_box.count() > 0:
@@ -94,7 +97,7 @@ class Plot(Playwright):
                 self.DATA["Ranges"].append(range)
         self.ESCAPE
 
-    def save_screenshot(self, path: str = None) -> None:
+    def save_screenshot(self, path: Optional[str] = None) -> None:
         """
         Save a screenshot of the plot area including axes with margin
         """
@@ -132,16 +135,16 @@ class Plot(Playwright):
                 scale="device",
             )
 
-    def set_X1_axis(self, config: dict) -> None:
+    def set_X1_axis(self, config: Dict[str, Any]) -> None:
         self.set_axis("X1", config)
 
-    def set_Y1_axis(self, config: dict) -> None:
+    def set_Y1_axis(self, config: Dict[str, Any]) -> None:
         self.set_axis("Y1", config)
 
-    def set_Y2_axis(self, config: dict) -> None:
+    def set_Y2_axis(self, config: Dict[str, Any]) -> None:
         self.set_axis("Y2", config)
 
-    def set_axis(self, axis: str, config: dict) -> None:
+    def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
         self.page.get_by_text("Axes").click()
         self.page.locator("div").filter(has_text=re.compile(rf"^{axis}$")).click()
 

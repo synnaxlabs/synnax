@@ -12,14 +12,15 @@ import platform
 import re
 import subprocess
 import sys
+from typing import Any
 
 
 # Also suppress stderr for WebSocket errors
 class WebSocketErrorFilter:
-    def __init__(self):
+    def __init__(self) -> None:
         self.original_stderr = sys.stderr
 
-    def write(self, text):
+    def write(self, text: str) -> None:
         if any(
             phrase in text
             for phrase in [
@@ -33,12 +34,12 @@ class WebSocketErrorFilter:
             return
         self.original_stderr.write(text)
 
-    def flush(self):
+    def flush(self) -> None:
         self.original_stderr.flush()
 
 
 # More aggressive WebSocket error suppression
-def ignore_websocket_errors(type, value, traceback):
+def ignore_websocket_errors(type: type, value: Exception, traceback: Any) -> None:
     error_str = str(value)
     if any(
         phrase in error_str
@@ -68,7 +69,7 @@ def validate_and_sanitize_name(name: str) -> str:
     return sanitized
 
 
-def get_machine_info():
+def get_machine_info() -> str:
     """Get machine information programmatically."""
 
     # TODO: SY-2811 Move Test Framework Utils to X/os
@@ -151,7 +152,7 @@ def get_machine_info():
         return system
 
 
-def get_memory_info():
+def get_memory_info() -> str:
     """Get memory information."""
     try:
         if platform.system() == "Darwin":  # macOS
@@ -191,7 +192,7 @@ def get_memory_info():
     return ""
 
 
-def get_synnax_version():
+def get_synnax_version() -> str:
     """Get the current Synnax version from the VERSION file."""
     try:
         # Try to read from the VERSION file in the synnax package

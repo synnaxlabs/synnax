@@ -12,7 +12,7 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: true
+  SKIP_BUILD: false
   REF_RUN_ID: "17444251433"
 
 jobs:
@@ -69,7 +69,7 @@ jobs:
         working-directory: integration/test/py
 
       - name: Type Check (mypy)
-        run: poetry run mypy --namespace-packages -p framework
+        run: poetry run mypy . --ignore-missing-imports
         working-directory: integration/test/py
 
   lint-typescript:

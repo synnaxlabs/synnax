@@ -65,7 +65,7 @@ class LatencyABC(TestCase):
                 data_type=sy.DataType.TIMESTAMP,
                 initial_value=sy.TimeStamp.now(),
                 append_name=False,
-            ),
+            )
             self.add_channel(
                 name="t_d",
                 data_type=sy.DataType.TIMESTAMP,

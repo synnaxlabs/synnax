@@ -7,6 +7,7 @@ the test conductor does not monitor it for timeouts.
 """
 
 import time
+from typing import Any
 
 from framework.test_case import STATUS, TestCase
 from framework.test_conductor import TestConductor, TestDefinition
@@ -15,7 +16,7 @@ from framework.test_conductor import TestConductor, TestDefinition
 class NoTimeoutTest(TestCase):
     """Test case with no timeout (Expected_Timeout=-1) to test timeout ignoring."""
 
-    def setup(self):
+    def setup(self) -> None:
         """Setup the test."""
 
         # Set no timeout (-1) to test that timeout checks are ignored
@@ -23,7 +24,7 @@ class NoTimeoutTest(TestCase):
         super().setup()
         self._log_message("Setup complete")
 
-    def run(self):
+    def run(self) -> None:
         """Main test logic that should not be killed by timeout."""
         self._log_message("Starting test execution...")
         self._log_message(
@@ -39,13 +40,13 @@ class NoTimeoutTest(TestCase):
             "Test execution complete (this should be reached since no timeout)"
         )
 
-    def teardown(self):
+    def teardown(self) -> None:
         """Teardown the test."""
         self._log_message("Teardown called")
         super().teardown()
 
 
-def test_no_timeout(self):
+def test_no_timeout(self: Any) -> bool:
     """Test that the test conductor ignores timeout checks when Expected_Timeout=-1."""
     self._log_message("Testing no timeout functionality (Expected_Timeout=-1)...")
 

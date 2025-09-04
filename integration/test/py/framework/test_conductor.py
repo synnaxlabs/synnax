@@ -51,13 +51,13 @@ class TestResult:
 
     test_name: str
     status: STATUS
-    name: str = None  # Custom name from test definition
+    name: Optional[str] = None  # Custom name from test definition
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     error_message: Optional[str] = None
     duration: Optional[float] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.start_time and self.end_time:
             self.duration = (self.end_time - self.start_time).total_seconds()
 
@@ -73,7 +73,7 @@ class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
 
     case: str
-    name: str = None  # Optional custom name for the test case
+    name: Optional[str] = None  # Optional custom name for the test case
     params: Dict[str, Any] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
 
@@ -87,7 +87,11 @@ class TestDefinition:
 class TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
 
-    def __init__(self, name: str = None, synnax_connection: SynnaxConnection = None):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        synnax_connection: Optional[SynnaxConnection] = None,
+    ) -> None:
         """Initialize test conductor with connection parameters.
 
         Args:
@@ -126,7 +130,7 @@ class TestConductor:
         self.state = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
-        self.sequences: List[dict] = []
+        self.sequences: List[Dict[str, Any]] = []
         self.current_test: Optional[TestCase] = None
         self.current_test_thread: Optional[threading.Thread] = None
         self.current_test_start_time: Optional[datetime] = None
@@ -242,7 +246,8 @@ class TestConductor:
 
         # Force unbuffered output in CI environments
         if is_ci:
-            sys.stdout.reconfigure(line_buffering=True)
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(line_buffering=True)
 
         # Create logger for this test conductor (don't configure root logger)
         self.logger = logging.getLogger(self.name)
@@ -264,13 +269,17 @@ class TestConductor:
 
         # Force immediate flush for real-time output in CI
         for handler in self.logger.handlers:
-            if hasattr(handler.stream, "flush"):
-                handler.flush = lambda h=handler: h.stream.flush()
+            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
+
+                def make_flush(h: Any) -> Any:
+                    return lambda: h.stream.flush()
+
+                handler.flush = make_flush(handler)  # type: ignore
 
         if is_ci:
             self.logger.info("CI environment detected - enabling real-time logging")
 
-    def log_message(self, message: str, use_name=True) -> None:
+    def log_message(self, message: str, use_name: bool = True) -> None:
         """Log message with real-time output using logging module."""
         if use_name:
             self.logger.info(f"{self.name} > {message}")
@@ -282,7 +291,7 @@ class TestConductor:
             if hasattr(handler, "flush"):
                 handler.flush()
 
-    def load_test_sequence(self, sequence: str = None) -> None:
+    def load_test_sequence(self, sequence: Optional[str] = None) -> None:
         """Load test sequence from JSON configuration file."""
         self.state = STATE.LOADING
 
@@ -314,7 +323,7 @@ class TestConductor:
                 )
 
         with open(sequence_path, "r") as f:
-            sequence_data = json.load(f)
+            sequence_data: Any = json.load(f)
 
         # Load test definitions - support both single sequence and multi-sequence format
         self.test_definitions = []
@@ -323,9 +332,10 @@ class TestConductor:
         if isinstance(sequence_data, list):
             # New format: array of sequences
             for seq_idx, sequence in enumerate(sequence_data):
-                seq_name = sequence.get("sequence_name", f"Sequence_{seq_idx + 1}")
-                seq_order = sequence.get("sequence_order", "Sequential").lower()
-                seq_tests = sequence.get("tests", [])
+                seq_dict = sequence if isinstance(sequence, dict) else {}
+                seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
+                seq_order = seq_dict.get("sequence_order", "Sequential").lower()
+                seq_tests = seq_dict.get("tests", [])
 
                 # Create sequence object
                 seq_obj = {
@@ -454,7 +464,9 @@ class TestConductor:
         self._print_summary()
         return self.test_results
 
-    def _execute_sequence(self, sequence: dict, tests_to_execute: list) -> None:
+    def _execute_sequence(
+        self, sequence: Dict[str, Any], tests_to_execute: List[TestDefinition]
+    ) -> None:
         """Execute tests in a sequence one after another."""
         for i, test_def in enumerate(tests_to_execute):
             if self.should_stop:
@@ -468,7 +480,7 @@ class TestConductor:
             )
 
             # Run test in separate thread
-            result_container = []
+            result_container: List[TestResult] = []
             test_thread = threading.Thread(
                 target=self._test_runner_thread, args=(test_def, result_container)
             )
@@ -493,7 +505,7 @@ class TestConductor:
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
-        self, sequence: dict, tests_to_execute: list
+        self, sequence: Dict[str, Any], tests_to_execute: List[TestDefinition]
     ) -> None:
         """Execute tests in a sequence simultaneously."""
         # Launch all tests in this sequence at once
@@ -512,7 +524,7 @@ class TestConductor:
             )
 
             # Create result container and thread for each test
-            result_container = []
+            result_container: List[TestResult] = []
             test_thread = threading.Thread(
                 target=self._test_runner_thread, args=(test_def, result_container)
             )
@@ -650,7 +662,8 @@ class TestConductor:
                 )
 
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            if spec.loader is not None:
+                spec.loader.exec_module(module)
 
             # Try to get the class by name
             try:
@@ -675,7 +688,7 @@ class TestConductor:
 
             if not issubclass(test_class, TestCase):
                 raise TypeError(f"{class_name} is not a subclass of TestCase")
-            return test_class
+            return test_class  # type: ignore
         except Exception as e:
             raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
 
@@ -880,7 +893,7 @@ class TestConductor:
             ],
         }
 
-    def _get_test_statistics(self) -> dict:
+    def _get_test_statistics(self) -> Dict[str, int]:
         """Calculate and return test execution statistics."""
         if not self.test_results:
             return {
@@ -941,7 +954,7 @@ class TestConductor:
         self.log_message("=" * 60, False)
         self.log_message("\n", False)
 
-    def _signal_handler(self, signum, frame):
+    def _signal_handler(self, signum: int, frame: Any) -> None:
         """Handle system signals for graceful shutdown."""
         self.log_message(f"Received signal {signum}. Stopping test execution...")
         self.shutdown()
@@ -960,7 +973,7 @@ def monitor_test_execution(conductor: TestConductor) -> None:
         time.sleep(1)
 
 
-def main():
+def main() -> None:
     """Main entry point for the test conductor."""
     gc.disable()
 

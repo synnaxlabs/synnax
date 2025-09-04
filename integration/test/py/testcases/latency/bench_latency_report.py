@@ -120,9 +120,9 @@ class BenchLatencyReport(TestCase):
 
         # Top plot: Latency over time with percentiles
         ax1.plot(times_ms, label="Latency", alpha=0.6)
-        ax1.axhline(y=p90, color="r", linestyle="--", label=f"P90: {p90:.2f}ms")
-        ax1.axhline(y=p95, color="g", linestyle="--", label=f"P95: {p95:.2f}ms")
-        ax1.axhline(y=p99, color="b", linestyle="--", label=f"P99: {p99:.2f}ms")
+        ax1.axhline(y=float(p90), color="r", linestyle="--", label=f"P90: {p90:.2f}ms")
+        ax1.axhline(y=float(p95), color="g", linestyle="--", label=f"P95: {p95:.2f}ms")
+        ax1.axhline(y=float(p99), color="b", linestyle="--", label=f"P99: {p99:.2f}ms")
         ax1.set_title("Latency Over Time")
         ax1.set_xlabel("Sample Number")
         ax1.set_ylabel("Latency (ms)")

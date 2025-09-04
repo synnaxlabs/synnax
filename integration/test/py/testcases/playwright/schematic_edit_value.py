@@ -43,10 +43,10 @@ class Schematic_Edit_Value(Schematic):
             node_id,
             channel_name=f"{self.name}_time",
             notation="scientific",
-            precision=4,
-            averaging_window=4,
+            precision="4",
+            averaging_window="4",
             stale_color="#FF0000",
-            stale_timeout=10,
+            stale_timeout="10",
         )
         expected_edited_props = {
             "channel": f"{self.name}_time",

@@ -21,10 +21,11 @@ import threading
 import time
 import traceback
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from selectors import SelectorKey
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, TextIO, Union
 
 import synnax as sy
 
@@ -35,7 +36,7 @@ from framework.utils import (
 )
 
 # Error filter
-sys.excepthook = ignore_websocket_errors
+sys.excepthook = ignore_websocket_errors  # type: ignore
 sys.stderr = WebSocketErrorFilter()
 
 
@@ -85,7 +86,7 @@ class SYMBOLS(Enum):
     TIMEOUT = "⏰"  # Alarm clock
 
     @classmethod
-    def get_symbol(cls, status):
+    def get_symbol(cls, status: STATUS) -> str:
         """Get symbol for a given status, with fallback to '?' if not found."""
         try:
             return cls[status.name].value
@@ -120,10 +121,10 @@ class TestCase(ABC):
     def __init__(
         self,
         synnax_connection: SynnaxConnection,
-        name: str = None,
+        name: Optional[str] = None,
         expect: str = "PASSED",
-        **params,
-    ):
+        **params: Any,
+    ) -> None:
 
         self.synnax_connection = synnax_connection
 
@@ -142,7 +143,7 @@ class TestCase(ABC):
         self.params = params
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
-        self.read_frame = None
+        self.read_frame: Optional[Dict[str, Any]] = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
 
         if name is None:
@@ -169,7 +170,7 @@ class TestCase(ABC):
         self._should_stop = False
         self.is_running = True
 
-        self.subscribed_channels = set()
+        self.subscribed_channels: Set[str] = set()
 
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -187,11 +188,11 @@ class TestCase(ABC):
             name="state", data_type=sy.DataType.UINT8, initial_value=self._status.value
         )
 
-    def __enter__(self):
+    def __enter__(self) -> "TestCase":
         """Context manager entry point."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit point - ensures cleanup."""
         self._shutdown()
 
@@ -205,7 +206,8 @@ class TestCase(ABC):
 
         # Force unbuffered output in CI environments
         if is_ci:
-            sys.stdout.reconfigure(line_buffering=True)
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(line_buffering=True)
 
         # Create logger for this test case (don't configure root logger)
         self.logger = logging.getLogger(self.name)
@@ -227,8 +229,12 @@ class TestCase(ABC):
 
         # Force immediate flush for real-time output in CI
         for handler in self.logger.handlers:
-            if hasattr(handler.stream, "flush"):
-                handler.flush = lambda h=handler: h.stream.flush()
+            if hasattr(handler, "stream") and hasattr(handler.stream, "flush"):
+
+                def make_flush(h: Any) -> Any:
+                    return lambda: h.stream.flush()
+
+                handler.flush = make_flush(handler)  # type: ignore
 
     def _writer_loop(self) -> None:
         """Writer thread that writes telemetry at consistent interval."""
@@ -413,7 +419,7 @@ class TestCase(ABC):
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: float = None) -> None:
+    def _wait_for_client_completion(self, timeout: Optional[float] = None) -> None:
         """Wait for client threads to complete."""
         # Wait for streamer thread
         if (
@@ -472,7 +478,7 @@ class TestCase(ABC):
         """Gracefully shutdown test case and stop all threads."""
         self._log_message("Shutting down test case...")
         self.STATUS = STATUS.KILLED
-        self.stop_client()
+        self._stop_client()
         self._log_message("Test case shutdown complete")
 
     def add_channel(
@@ -481,7 +487,7 @@ class TestCase(ABC):
         data_type: sy.DataType,
         initial_value: Any = None,
         append_name: bool = True,
-    ):
+    ) -> None:
         """Create a telemetry channel with name {self.name}_{name}."""
         if append_name:
             tlm_name = f"{self.name}_{name}"
@@ -497,7 +503,7 @@ class TestCase(ABC):
 
         self.tlm[tlm_name] = initial_value
 
-    def subscribe(self, channels) -> None:
+    def subscribe(self, channels: Union[str, List[str]]) -> None:
         """Subscribe to channels. Can take either a single channel name or a list of channels."""
         if isinstance(channels, str):
             # Single channel name
@@ -538,9 +544,11 @@ class TestCase(ABC):
         #    raise KeyError(f"Key {channel} not found in telemetry dictionary ({self.tlm.keys()})")
 
     def read_tlm(self, key: str, default: Any = None) -> Any:
-
         try:
-            return self.read_frame.get(key, default)
+            if self.read_frame is not None:
+                return self.read_frame.get(key, default)
+            else:
+                return default
         except:
             return default
 
@@ -586,26 +594,26 @@ class TestCase(ABC):
         else:
             self._log_message(f"Invalid status change: {self._status} -> {value}")
 
-    def _set_status(self, value: STATUS) -> STATUS:
+    def _set_test_status(self, value: "STATUS") -> "STATUS":  # type: ignore
         """Set the test status and update telemetry if client is running."""
         # Alternative to STATUS setter that returns the status
         self.STATUS = value
-        return self.STATUS
+        return self._status
 
     @property
     def uptime(self) -> float:
         """Get the uptime of the test case."""
-        return self.tlm.get(f"{self.name}_uptime", -1)
+        return float(self.tlm.get(f"{self.name}_uptime", -1))
 
     @property
     def time(self) -> float:
         """Get the uptime of the test case."""
-        return self.tlm.get(f"{self.name}_time", -1)
+        return float(self.tlm.get(f"{self.name}_time", -1))
 
     @property
     def state(self) -> float:
         """Get the state of the test case."""
-        return self.tlm.get(f"{self.name}_state", -1)
+        return float(self.tlm.get(f"{self.name}_state", -1))
 
     @property
     def manual_timeout(self) -> int:
@@ -623,7 +631,7 @@ class TestCase(ABC):
     def should_continue(self) -> bool:
         return not self.should_stop
 
-    def wait_for_tlm_init(self):
+    def wait_for_tlm_init(self) -> bool:
         self._log_message("Waiting for all channels to be initialized")
 
         non_initialized_channels = self.subscribed_channels.copy()
@@ -640,17 +648,15 @@ class TestCase(ABC):
         self._log_message(f"Channels failed to initialize: {non_initialized_channels}")
         raise TimeoutError("Channels failed to initialize")
 
-    def wait_for_tlm_stale(self, buffer_size=5):
+    def wait_for_tlm_stale(self, buffer_size: int = 5) -> bool:
         self._log_message("Waiting for all channels to be Stale (inactive)")
 
         """
         Wait for all subscribed channels to be Stale (inactive).
         Requires the last buffer_size frames to be identical.
         """
-        from collections import deque
-
         # Buffer to store the last n vals arrays
-        vals_buffer = deque(maxlen=buffer_size)
+        vals_buffer: deque[Any] = deque(maxlen=buffer_size)
 
         while self.loop.wait() and self.should_continue:
             vals_now = []
@@ -676,7 +682,7 @@ class TestCase(ABC):
         self._manual_timeout = value
         self._log_message(f"Manual timeout set ({value}s)")
 
-    def configure(self, **kwargs) -> None:
+    def configure(self, **kwargs: Any) -> None:
         """Configure test case parameters.
 
         Args:
@@ -708,7 +714,7 @@ class TestCase(ABC):
             and self.writer_thread
             and self.writer_thread.is_alive()
         )
-        return streamer_running or writer_running
+        return bool(streamer_running or writer_running)
 
     def get_client_status(self) -> str:
         """Get client thread status."""

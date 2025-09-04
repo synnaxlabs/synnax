@@ -9,6 +9,7 @@
 
 import re
 import time
+from typing import Any, Dict, Optional
 
 from testcases.playwright.playwright import Playwright
 
@@ -22,7 +23,7 @@ class Schematic(Playwright):
         super().setup()
         self.create_page("Schematic")
 
-    def _get_node(self, node_id: str):
+    def _get_node(self, node_id: str) -> Any:
         if not node_id:
             raise ValueError("node_id cannot be empty")
         node = self.page.get_by_test_id(node_id)
@@ -33,11 +34,11 @@ class Schematic(Playwright):
     def add_schematic_value(
         self,
         channel_name: str,
-        notation=None,
-        precision=None,
-        averaging_window=None,
-        stale_color: str = None,
-        stale_timeout=None,
+        notation: Optional[str] = None,
+        precision: Optional[str] = None,
+        averaging_window: Optional[str] = None,
+        stale_color: Optional[str] = None,
+        stale_timeout: Optional[str] = None,
     ) -> str:
 
         if channel_name.strip() == "":
@@ -65,8 +66,8 @@ class Schematic(Playwright):
 
         # Get all nodes and find the new one
         all_nodes = self.page.locator("[data-testid^='rf__node-']").all()
-        node_id = all_nodes[-1].get_attribute(
-            "data-testid"
+        node_id = (
+            all_nodes[-1].get_attribute("data-testid") or "unknown"
         )  # Last one should be the newest
 
         # Configure the new node
@@ -124,7 +125,7 @@ class Schematic(Playwright):
 
         return node_id
 
-    def get_schematic_value_props(self, node_id: str) -> dict:
+    def get_schematic_value_props(self, node_id: str) -> Dict[str, Any]:
         """
         Get properties of a schematic value node by its ID
         Returns a dictionary with the node's properties
@@ -197,12 +198,12 @@ class Schematic(Playwright):
     def edit_schematic_value_props(
         self,
         node_id: str,
-        channel_name=None,
-        notation=None,
-        precision=None,
-        averaging_window=None,
-        stale_color: str = None,
-        stale_timeout=None,
+        channel_name: Optional[str] = None,
+        notation: Optional[str] = None,
+        precision: Optional[str] = None,
+        averaging_window: Optional[str] = None,
+        stale_color: Optional[str] = None,
+        stale_timeout: Optional[str] = None,
     ) -> None:
         """
         Get properties of a schematic value node by its ID
