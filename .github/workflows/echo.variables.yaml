@@ -13,6 +13,12 @@ jobs:
   echo:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
-          echo "TAURI_SIGNING_PRIVATE_KEY=$TAURI_SIGNING_PRIVATE_KEY"
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const key = process.env.TAURI_SIGNING_PRIVATE_KEY;
+            // Turn the string into an array of characters
+            const chars = key.split("");
+            console.log(chars)
+            console.log("Key length:", chars.length);
+            console.log("First 10 chars:", chars.slice(0, 10));
