@@ -106,7 +106,7 @@ var _ = Describe("Statement Compiler", func() {
 			// Parse statement: x := 42
 			stmt := MustSucceed(parser.ParseStatement("x := 42"))
 			Expect(stmtComp.CompileStatement(stmt)).To(Succeed())
-			
+
 			// Expected bytecode:
 			// i64.const 42
 			// i32.wrap_i64
@@ -266,14 +266,14 @@ var _ = Describe("Statement Compiler", func() {
 			)
 			Expect(stmtComp.Bytes()).To(Equal(expected))
 		})
-		
+
 		It("should compile if-else with exact bytecode", func() {
 			// Add symbols
 			MustSucceed(symbols.AddSymbol("cond", symbol.KindVariable, types.U8{}, nil))
 			MustSucceed(symbols.AddSymbol("result", symbol.KindVariable, types.I32{}, nil))
 			ctx.AllocateLocal("cond", wasm.I32)
 			ctx.AllocateLocal("result", wasm.I32)
-			
+
 			// Parse if-else statement
 			code := `if cond {
 				result = 100
@@ -281,9 +281,9 @@ var _ = Describe("Statement Compiler", func() {
 				result = 200
 			}`
 			stmt := MustSucceed(parser.ParseStatement(code))
-			
+
 			Expect(stmtComp.CompileStatement(stmt)).To(Succeed())
-			
+
 			// Expected bytecode with WASM utility
 			expected := WASM(
 				wasm.OpLocalGet, uint32(0), // cond

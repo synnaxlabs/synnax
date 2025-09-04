@@ -176,45 +176,6 @@ func (c *Compiler) compileChannelRead(read parser.IChannelReadContext) error {
 	return errors.New("standalone channel reads not implemented")
 }
 
-// compileChannelPipe handles channel -> channel piping
-func (c *Compiler) compileChannelPipe() error {
-	// Get source and target channel names
-	// This would come from the parser context
-	srcName := "src" // placeholder
-	dstName := "dst" // placeholder
-
-	// Get source channel type
-	srcScope, err := c.ctx.Symbols.Get(srcName)
-	if err != nil {
-		return errors.Wrapf(err, "source channel '%s' not found", srcName)
-	}
-
-	// Get channel indices
-	srcIdx, ok := c.ctx.GetLocal(srcName)
-	if !ok {
-		return errors.Newf("source channel '%s' not in local context", srcName)
-	}
-
-	dstIdx, ok := c.ctx.GetLocal(dstName)
-	if !ok {
-		return errors.Newf("destination channel '%s' not in local context", dstName)
-	}
-
-	// Read from source channel (non-blocking)
-	c.enc.WriteLocalGet(srcIdx)
-	channelType := srcScope.Symbol.Type.(types.Chan).ValueType // Get element type
-	importIdx := c.ctx.Imports.GetChannelRead(channelType)
-	c.enc.WriteCall(importIdx)
-
-	// Write to destination channel
-	c.enc.WriteLocalGet(dstIdx)
-	// Value is on stack from read
-	importIdx = c.ctx.Imports.GetChannelWrite(channelType)
-	c.enc.WriteCall(importIdx)
-
-	return nil
-}
-
 // compileFunctionCall handles function calls (may return a value)
 func (c *Compiler) compileFunctionCall(call parser.IFunctionCallContext) (types.Type, error) {
 	// TODO: Implement function calls
