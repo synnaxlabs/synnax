@@ -22,3 +22,23 @@ type Context struct {
 	Writer  *wasm.Writer
 	Module  *wasm.Module
 }
+
+func (c *Context) WithScope(scope *symbol.Scope) *Context {
+	return &Context{Scope: scope, Module: c.Module, Writer: c.Writer, Imports: c.Imports}
+}
+
+func (c *Context) WithNewWriter() *Context {
+	return &Context{Writer: wasm.NewWriter(), Module: c.Module, Scope: c.Scope, Imports: c.Imports}
+}
+
+func NewContext(
+	symbols *symbol.Scope,
+	disableHostImports bool,
+) *Context {
+	mod := wasm.NewModule()
+	ctx := &Context{Module: mod, Scope: symbols, Writer: wasm.NewWriter()}
+	if !disableHostImports {
+		ctx.Imports = runtime.SetupImports(mod)
+	}
+	return ctx
+}

@@ -19,21 +19,21 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Visit processes a flow statement and returns true if successful
-func Visit(scope *symbol.Scope, res *result.Result, ctx parser.IFlowStatementContext) bool {
+// Analyze processes a flow statement and returns true if successful
+func Analyze(scope *symbol.Scope, res *result.Result, ctx parser.IFlowStatementContext) bool {
 	for i, flowNode := range ctx.AllFlowNode() {
 		var prevFlowNode parser.IFlowNodeContext
 		if i != 0 {
 			prevFlowNode = ctx.FlowNode(i - 1)
 		}
-		if !visitSource(scope, res, prevFlowNode, flowNode) {
+		if !analyzeSource(scope, res, prevFlowNode, flowNode) {
 			return false
 		}
 	}
 	return true
 }
 
-func visitSource(
+func analyzeSource(
 	scope *symbol.Scope,
 	res *result.Result,
 	prevNode parser.IFlowNodeContext,
@@ -50,11 +50,11 @@ func visitSource(
 	}
 	// Case 2: Source is a channel identifier
 	if channelID := currNode.ChannelIdentifier(); channelID != nil {
-		return visitChannel(scope, res, channelID)
+		return analyzeChannel(scope, res, channelID)
 	}
 	// Case 3: Source is an expression
 	if expr := currNode.Expression(); expr != nil {
-		return expression.Visit(scope, res, expr)
+		return expression.Analyze(scope, res, expr)
 	}
 
 	res.AddError(errors.New("invalid flow source"), currNode)
@@ -96,10 +96,10 @@ func parseTaskInvocation(
 					return false
 				}
 				if expr := configVal.Expression(); expr != nil {
-					if !expression.Visit(scope, res, expr) {
+					if !expression.Analyze(scope, res, expr) {
 						return false
 					}
-					exprType := atypes.InferFromExpression(scope, expr)
+					exprType := atypes.InferFromExpression(scope, expr, nil)
 					if exprType != nil && expectedType != nil {
 						if !atypes.Compatible(expectedType, exprType) {
 							res.AddError(
@@ -168,7 +168,7 @@ func parseTaskInvocation(
 	return true
 }
 
-func visitChannel(scope *symbol.Scope, res *result.Result, ch parser.IChannelIdentifierContext) bool {
+func analyzeChannel(scope *symbol.Scope, res *result.Result, ch parser.IChannelIdentifierContext) bool {
 	name := ch.IDENTIFIER().GetText()
 	_, err := scope.Get(name)
 	if err != nil {

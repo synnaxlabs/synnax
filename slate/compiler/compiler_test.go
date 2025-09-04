@@ -10,38 +10,81 @@
 package compiler_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/compiler"
 	"github.com/synnaxlabs/slate/parser"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
 )
 
 func compile(source string) ([]byte, error) {
 	prog := MustSucceed(parser.Parse(source))
-	analysis := analyzer.Analyze(analyzer.Config{Program: prog})
-	return compiler.Compile(prog, &analysis)
+	analysis := analyzer.Analyze(prog, analyzer.Options{})
+	return compiler.Compile(compiler.Config{
+		Program:            prog,
+		Analysis:           &analysis,
+		DisableHostImports: true,
+	})
 }
 
 var _ = Describe("Compiler", func() {
-	Describe("Empty Program", func() {
-		It("should compile an empty program with all imports", func() {
-			wasm := MustSucceed(compile(`
+	var r wazero.Runtime
+	BeforeEach(func() {
+		r = wazero.NewRuntime(ctx)
+	})
+	AfterEach(func() {
+		Expect(r.Close(ctx)).To(Succeed())
+	})
+	Describe("Function Execution", func() {
+		It("should execute a function with conditional returns", func() {
+			wasmBytes := MustSucceed(compile(`
 			func dog(b i64) i64 {
 				a i64 := 2
 				if b == a {
-					return 2
-				} else if a > b {
-					c i64 := 5
+					c := 1
 					return c
-				} else {
-					return 3
+				} else if b > a {
+					d := 2
+					return d
 				}
+				return b
 			}
 			`))
-			os.WriteFile("main.wasm", wasm, 0644)
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			dog := mod.ExportedFunction("dog")
+			Expect(dog).ToNot(BeNil())
+			// Test case 1: b == 2 should return 1
+			results := MustSucceed(dog.Call(ctx, 2))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+
+			// Test case 2: b > 2 (e.g., 5) should return 2
+			results = MustSucceed(dog.Call(ctx, 5))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(2)))
+
+			// Test case 3: b < 2 (e.g., 1) should return 0 (default/unspecified path)
+			results = MustSucceed(dog.Call(ctx, 1))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("should execute a simple addition function", func() {
+			wasmBytes := MustSucceed(compile(`
+			func add(a i64, b i64) i64 {
+				return a + b
+			}
+			`))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			add := mod.ExportedFunction("add")
+			Expect(add).ToNot(BeNil())
+
+			results := MustSucceed(add.Call(ctx, 10, 32))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
 		})
 	})
 })

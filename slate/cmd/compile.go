@@ -47,13 +47,14 @@ var compileCmd = &cobra.Command{
 		if err != nil {
 			return errors.Newf("parse error: %s", err)
 		}
-		analysis := analyzer.Analyze(analyzer.Config{
-			Program: prog,
-		})
+		analysis := analyzer.Analyze(prog, analyzer.Options{})
 		if len(analysis.Diagnostics) > 0 {
 			return errors.Newf("analysis failed %s", analysis.String())
 		}
-		wasmBytes, err := compiler.Compile(prog, &analysis)
+		wasmBytes, err := compiler.Compile(compiler.Config{
+			Program:  prog,
+			Analysis: &analysis,
+		})
 		if err != nil {
 			return errors.Newf("compilation error: %s", err)
 		}

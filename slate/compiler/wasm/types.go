@@ -11,7 +11,6 @@ package wasm
 
 // WASM binary format constants
 const (
-	MagicNumber   = 0x0061736d // \0asm (little endian)
 	Version       = 0x00000001 // version 1 (little endian)
 	SectionCustom = 0x00
 	SectionType   = 0x01
@@ -42,4 +41,4 @@ const (
 	ExportGlobal ExportKind = 0x03
 )
 
-var magicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
+var MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}

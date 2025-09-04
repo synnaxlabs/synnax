@@ -10,105 +10,108 @@
 package types
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 )
 
 // InferFromExpression infers the type of an expression with access to the symbol table
-func InferFromExpression(scope *symbol.Scope, expr parser.IExpressionContext) types.Type {
+func InferFromExpression(scope *symbol.Scope, expr parser.IExpressionContext, hint types.Type) types.Type {
 	if expr == nil {
 		return nil
 	}
 	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
-		return InferLogicalOr(scope, logicalOr)
+		return InferLogicalOr(scope, logicalOr, hint)
 	}
 	return nil
 }
 
-func InferLogicalOr(scope *symbol.Scope, ctx parser.ILogicalOrExpressionContext) types.Type {
+func InferLogicalOr(scope *symbol.Scope, ctx parser.ILogicalOrExpressionContext, hint types.Type) types.Type {
 	ands := ctx.AllLogicalAndExpression()
 	if len(ands) > 1 {
 		return types.U8{}
 	}
 	if len(ands) == 1 {
-		return InferLogicalAnd(scope, ands[0])
+		return InferLogicalAnd(scope, ands[0], hint)
 	}
 	return nil
 }
 
-func InferLogicalAnd(scope *symbol.Scope, ctx parser.ILogicalAndExpressionContext) types.Type {
+func InferLogicalAnd(scope *symbol.Scope, ctx parser.ILogicalAndExpressionContext, hint types.Type) types.Type {
 	equalities := ctx.AllEqualityExpression()
 	if len(equalities) > 1 {
 		return types.U8{}
 	}
 	if len(equalities) == 1 {
-		return InferEquality(scope, equalities[0])
+		return InferEquality(scope, equalities[0], hint)
 	}
 	return nil
 }
 
-func InferEquality(scope *symbol.Scope, ctx parser.IEqualityExpressionContext) types.Type {
+func InferEquality(scope *symbol.Scope, ctx parser.IEqualityExpressionContext, hint types.Type) types.Type {
 	rels := ctx.AllRelationalExpression()
 	if len(rels) > 1 {
 		return types.U8{}
 	}
 	if len(rels) == 1 {
-		return InferRelational(scope, rels[0])
+		return InferRelational(scope, rels[0], hint)
 	}
 	return nil
 }
 
-func InferRelational(scope *symbol.Scope, ctx parser.IRelationalExpressionContext) types.Type {
+func InferRelational(scope *symbol.Scope, ctx parser.IRelationalExpressionContext, hint types.Type) types.Type {
 	additives := ctx.AllAdditiveExpression()
 	if len(additives) > 1 {
 		return types.U8{}
 	}
 	if len(additives) == 1 {
-		return InferAdditive(scope, additives[0])
+		return InferAdditive(scope, additives[0], hint)
 	}
 	return nil
 }
 
-func InferAdditive(scope *symbol.Scope, ctx parser.IAdditiveExpressionContext) types.Type {
+func InferAdditive(scope *symbol.Scope, ctx parser.IAdditiveExpressionContext, hint types.Type) types.Type {
 	multiplicatives := ctx.AllMultiplicativeExpression()
 	if len(multiplicatives) == 0 {
 		return nil
 	}
 	if len(multiplicatives) > 1 {
-		firstType := InferMultiplicative(scope, multiplicatives[0])
+		firstType := InferMultiplicative(scope, multiplicatives[0], hint)
 		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(scope, multiplicatives[i])
+			nextType := InferMultiplicative(scope, multiplicatives[i], hint)
 			if firstType != nil && nextType != nil && !Compatible(firstType, nextType) {
 				return firstType
 			}
 		}
 		return firstType
 	}
-	return InferMultiplicative(scope, multiplicatives[0])
+	return InferMultiplicative(scope, multiplicatives[0], hint)
 }
 
 func InferMultiplicative(
 	scope *symbol.Scope,
 	ctx parser.IMultiplicativeExpressionContext,
+	hint types.Type,
 ) types.Type {
 	powers := ctx.AllPowerExpression()
 	if len(powers) == 0 {
 		return nil
 	}
-	return InferPower(scope, powers[0])
+	return InferPower(scope, powers[0], hint)
 }
 
-func InferPower(scope *symbol.Scope, ctx parser.IPowerExpressionContext) types.Type {
+func InferPower(scope *symbol.Scope, ctx parser.IPowerExpressionContext, hint types.Type) types.Type {
 	if unary := ctx.UnaryExpression(); unary != nil {
-		return InferFromUnaryExpression(scope, unary)
+		return InferFromUnaryExpression(scope, unary, hint)
 	}
 	return nil
 }
 
-func InferFromUnaryExpression(scope *symbol.Scope, ctx parser.IUnaryExpressionContext) types.Type {
+func InferFromUnaryExpression(scope *symbol.Scope, ctx parser.IUnaryExpressionContext, hint types.Type) types.Type {
 	if ctx.UnaryExpression() != nil {
-		return InferFromUnaryExpression(scope, ctx.UnaryExpression())
+		return InferFromUnaryExpression(scope, ctx.UnaryExpression(), hint)
 	}
 	if blockingRead := ctx.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
@@ -123,15 +126,15 @@ func InferFromUnaryExpression(scope *symbol.Scope, ctx parser.IUnaryExpressionCo
 		return nil
 	}
 	if postfix := ctx.PostfixExpression(); postfix != nil {
-		return inferPostfixType(scope, postfix)
+		return inferPostfixType(scope, postfix, hint)
 	}
 	return nil
 }
 
-func inferPostfixType(scope *symbol.Scope, ctx parser.IPostfixExpressionContext) types.Type {
+func inferPostfixType(scope *symbol.Scope, ctx parser.IPostfixExpressionContext, hint types.Type) types.Type {
 	if primary := ctx.PrimaryExpression(); primary != nil {
 		// TODO: Handle function calls and indexing which might change the type
-		return inferPrimaryType(scope, primary)
+		return inferPrimaryType(scope, primary, hint)
 	}
 	return nil
 }
@@ -139,6 +142,7 @@ func inferPostfixType(scope *symbol.Scope, ctx parser.IPostfixExpressionContext)
 func inferPrimaryType(
 	scope *symbol.Scope,
 	ctx parser.IPrimaryExpressionContext,
+	hint types.Type,
 ) types.Type {
 	if id := ctx.IDENTIFIER(); id != nil {
 		if varScope, err := scope.Get(id.GetText()); err == nil {
@@ -151,11 +155,11 @@ func inferPrimaryType(
 		return nil
 	}
 	if literal := ctx.Literal(); literal != nil {
-		return inferLiteralType(literal)
+		return inferLiteralType(literal, hint)
 	}
 
 	if expr := ctx.Expression(); expr != nil {
-		return InferFromExpression(scope, expr)
+		return InferFromExpression(scope, expr, hint)
 	}
 
 	if typeCast := ctx.TypeCast(); typeCast != nil {
@@ -170,6 +174,7 @@ func inferPrimaryType(
 
 func inferLiteralType(
 	ctx parser.ILiteralContext,
+	hint types.Type,
 ) types.Type {
 	text := ctx.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
@@ -178,10 +183,21 @@ func inferLiteralType(
 	if text == "true" || text == "false" {
 		return types.U8{}
 	}
-	for _, ch := range text {
-		if ch == '.' || ch == 'e' || ch == 'E' {
-			return types.F64{} // Default to f64 for float literals
+	if isDecimalLiteral(text) {
+		if hint == nil || !types.IsFloat(hint) {
+			return types.F64{}
 		}
+		return hint
 	}
-	return types.I64{} // Default to i32 for integer literals
+	if hint == nil || !types.IsNumeric(hint) {
+		return types.I64{}
+	}
+	return hint
+}
+
+func isDecimalLiteral(text string) bool {
+	if len(text) == 0 {
+		return false
+	}
+	return strings.ContainsAny(text, ".eE")
 }

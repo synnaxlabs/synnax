@@ -20,12 +20,13 @@ import (
 
 func FunctionScope(t types.Function) *symbol.Scope {
 	symbols := &symbol.Scope{}
-	return MustSucceed(symbols.AddSymbol(
+	s := MustSucceed(symbols.AddSymbol(
 		"test",
 		symbol.KindFunction,
 		t,
 		nil,
 	))
+	return s.AddBlock(nil)
 }
 
 func NewContext() *core.Context {
@@ -75,8 +76,12 @@ func WASM(instructions ...any) []byte {
 			case wasm.OpIf:
 				// Check if there's a block type following
 				if i+1 < len(instructions) {
-					if bt, ok := instructions[i+1].(byte); ok {
-						// It's a block type byte
+					// First check if it's a BlockType interface
+					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
+						encoder.WriteIf(bt)
+						i++ // Skip the block type
+					} else if bt, ok := instructions[i+1].(byte); ok {
+						// It's a block type byte (for backward compatibility)
 						switch wasm.ValueType(bt) {
 						case wasm.I32:
 							encoder.WriteIf(wasm.BlockTypeI32)

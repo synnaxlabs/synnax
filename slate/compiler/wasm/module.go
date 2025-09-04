@@ -107,7 +107,7 @@ func (m *Module) EnableMemory() {
 func (m *Module) Generate() []byte {
 	m.buf.Reset()
 	// Write magic number
-	m.buf.Write(magicNumber)
+	m.buf.Write(MagicNumber)
 	// Write version (must be exact bytes)
 	m.buf.Write([]byte{0x01, 0x00, 0x00, 0x00})
 	// Write type section

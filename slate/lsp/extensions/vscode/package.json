@@ -1,8 +1,8 @@
 {
-  "name": "slate-language",
+  "name": "synnax-slate",
   "displayName": "Slate Language Support",
   "description": "Language support for Slate programming language",
-  "version": "0.1.0",
+  "version": "0.44.4",
   "publisher": "synnaxlabs",
   "engines": {
     "vscode": "^1.103.0"
@@ -13,6 +13,11 @@
   "activationEvents": [
     "onLanguage:slate"
   ],
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
@@ -52,16 +57,13 @@
       }
     }
   },
-  "scripts": {
-    "vscode:prepublish": "pnpm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@types/minimatch": "^3.0.5",
     "@types/node": "^20.19.11",
+    "@types/semver": "^7.3.10",
     "@types/vscode": "^1.103.0",
     "@vscode/vsce": "^2.32.0",
     "typescript": "^5.8.3"

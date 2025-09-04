@@ -41,35 +41,24 @@ func compileIfStatement(
 		// Handle else-if clauses
 		for i, elseIfClause := range ifStmt.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-
-			// Compile else-if condition
 			_, err := expression.Compile(ctx, elseIfClause.Expression())
 			if err != nil {
 				return errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
 			}
-
-			// Nested if for else-if
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-
-			// Compile else-if block
 			if err := CompileBlock(ctx, elseIfClause.Block()); err != nil {
 				return errors.Wrapf(err, "failed to compile else-if[%d] block", i)
 			}
 		}
-
-		// Handle final else clause
 		if elseClause := ifStmt.ElseClause(); elseClause != nil {
 			ctx.Writer.WriteElse()
 			if err := CompileBlock(ctx, elseClause.Block()); err != nil {
 				return errors.Wrap(err, "failed to compile else block")
 			}
 		} else if len(ifStmt.AllElseIfClause()) > 0 {
-			// Close the last else-if without a final else
 			ctx.Writer.WriteElse()
-			// Empty else block
 		}
 
-		// Close all nested ifs
 		for range ifStmt.AllElseIfClause() {
 			ctx.Writer.WriteEnd()
 		}
@@ -78,12 +67,10 @@ func compileIfStatement(
 	} else {
 		// Simple if without else
 		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-
 		// Compile the if block
 		if err := CompileBlock(ctx, ifStmt.Block()); err != nil {
 			return errors.Wrap(err, "failed to compile if block")
 		}
-
 		ctx.Writer.WriteEnd()
 	}
 
@@ -160,12 +147,12 @@ func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) e
 	}
 
 	// Get channel ID from local (channels are passed as parameters)
-	_, chanIdx, err := ctx.Scope.GetIndex(channelName)
+	sym, err := ctx.Scope.Get(channelName)
 	if err != nil {
 		return errors.Newf("channel '%s' not in local context", channelName)
 	}
 	// Push channel ID
-	ctx.Writer.WriteLocalGet(chanIdx)
+	ctx.Writer.WriteLocalGet(sym.Symbol.ID)
 	// Value is already on stack from expression compilation
 	// Call channel write function
 	importIdx, err := ctx.Imports.GetChannelWrite(valueType)

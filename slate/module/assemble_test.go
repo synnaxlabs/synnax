@@ -28,7 +28,7 @@ var _ = Describe("Graph Assembly", func() {
 	parseAndAnalyze := func(code string) (parser.IProgramContext, analyzer.Result) {
 		prog, err := parser.Parse(code)
 		Expect(err).To(BeNil())
-		result := analyzer.Analyze(analyzer.Config{
+		result := analyzer.Analyze(analyzer.Options{
 			Program:  prog,
 			Resolver: nil,
 		})

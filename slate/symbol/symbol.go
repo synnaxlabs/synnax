@@ -38,6 +38,13 @@ type Scope struct {
 	Symbol         *Symbol
 	Parent         *Scope
 	Children       []*Scope
+	Counter        *int
+}
+
+func (s *Scope) Blocks() []*Scope {
+	return lo.Filter(s.Children, func(item *Scope, _ int) bool {
+		return item.Symbol.Kind == KindBlock
+	})
 }
 
 type Symbol struct {
@@ -45,6 +52,7 @@ type Symbol struct {
 	Kind       Kind
 	Type       types.Type
 	ParserRule antlr.ParserRuleContext
+	ID         int
 }
 
 func (s *Scope) checkForNameConflicts(name string) error {
@@ -72,13 +80,23 @@ func (s *Scope) checkForNameConflicts(name string) error {
 	return s.Parent.checkForNameConflicts(name)
 }
 
-func (s *Scope) AddBlock() *Scope {
+func (s *Scope) AddBlock(rule antlr.ParserRuleContext) *Scope {
 	child := &Scope{
 		Parent: s,
-		Symbol: &Symbol{Kind: KindBlock},
+		Symbol: &Symbol{Kind: KindBlock, ParserRule: rule},
 	}
 	s.Children = append(s.Children, child)
 	return child
+}
+
+func (s *Scope) FindByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
+	r, ok := lo.Find(s.Children, func(item *Scope) bool {
+		return item.Symbol != nil && item.Symbol.ParserRule == rule
+	})
+	if !ok {
+		return nil, errors.Newf("could not find")
+	}
+	return r, nil
 }
 
 func (s *Scope) AddSymbol(
@@ -96,47 +114,40 @@ func (s *Scope) AddSymbol(
 		ParserRule: parserRule,
 		Type:       t,
 	}}
+	if kind == KindFunction || kind == KindTask {
+		child.Counter = new(int)
+	}
+	if kind == KindVariable || kind == KindStatefulVariable || kind == KindParam {
+		child.Symbol.ID = s.addIndex()
+	}
 	s.Children = append(s.Children, child)
 	return child, nil
 }
 
-func (s *Scope) baseIndex() int {
-	if s == nil {
-		return 0
+func (s *Scope) addIndex() int {
+	if s.Counter != nil {
+		v := *s.Counter
+		*s.Counter++
+		return v
 	}
-	c := lo.CountBy(s.Children, func(item *Scope) bool {
-		return item.Symbol != nil && (item.Symbol.Kind == KindVariable || item.Symbol.Kind == KindParam)
-	})
-	if s.Parent == nil || (s.Symbol != nil && s.Symbol.Kind == KindFunction) {
-		return c
-	}
-	return c + s.Parent.baseIndex()
+	return s.Parent.addIndex()
 }
 
-func (s *Scope) get(name string) (*Scope, int, error) {
-	for i, child := range s.Children {
+func (s *Scope) Get(name string) (*Scope, error) {
+	for _, child := range s.Children {
 		if child.Symbol != nil && child.Symbol.Name == name {
-			return child, s.Parent.baseIndex() + i, nil
+			return child, nil
 		}
 	}
 	if s.Parent == nil {
 		if s.GlobalResolver != nil {
 			if s, err := s.GlobalResolver.Resolve(name); err == nil {
-				return &Scope{Symbol: s}, -1, nil
+				return &Scope{Symbol: s}, nil
 			}
 		}
-		return nil, -1, errors.Newf("undefined symbol: %s", name)
+		return nil, errors.Newf("undefined symbol: %s", name)
 	}
-	return s.Parent.get(name)
-}
-
-func (s *Scope) Get(name string) (*Scope, error) {
-	sym, _, err := s.get(name)
-	return sym, err
-}
-
-func (s *Scope) GetIndex(name string) (*Scope, int, error) {
-	return s.get(name)
+	return s.Parent.Get(name)
 }
 
 func (s *Scope) String() string {
@@ -175,9 +186,11 @@ func (s *Scope) stringWithIndent(indent string) string {
 		builder.WriteString(s.Symbol.Kind.String())
 		builder.WriteString("\n")
 		builder.WriteString(indent)
-		builder.WriteString("type: ")
-		builder.WriteString(s.Symbol.Type.String())
-		builder.WriteString("\n")
+		if s.Symbol.Type != nil {
+			builder.WriteString("type: ")
+			builder.WriteString(s.Symbol.Type.String())
+			builder.WriteString("\n")
+		}
 	} else {
 		builder.WriteString(indent)
 		builder.WriteString("block\n")

@@ -229,7 +229,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		}
 	} else {
 		// Run semantic analysis if parsing succeeded
-		res := analyzer.Analyze(analyzer.Config{Program: tree})
+		res := analyzer.Analyze(tree, analyzer.Options{})
 
 		// Store analysis results for other features (hover, completion, etc.)
 		s.mu.Lock()

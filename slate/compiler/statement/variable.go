@@ -45,11 +45,11 @@ func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) 
 			return err
 		}
 	}
-	_, localIdx, err := ctx.Scope.GetIndex(name)
+	local, err := ctx.Scope.Get(name)
 	if err != nil {
 		return errors.Wrapf(err, "failed to lookup local variable '%s'", name)
 	}
-	ctx.Writer.WriteLocalSet(localIdx)
+	ctx.Writer.WriteLocalSet(local.Symbol.ID)
 	return nil
 }
 
@@ -62,7 +62,7 @@ func compileStatefulVariable(
 	name := decl.IDENTIFIER().GetText()
 
 	// Look up the symbol to get its type
-	scope, stateIdx, err := ctx.Scope.GetIndex(name)
+	scope, err := ctx.Scope.Get(name)
 	if err != nil {
 		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
 	}
@@ -79,7 +79,7 @@ func compileStatefulVariable(
 	// Push task ID (0 for now - runtime will provide actual ID)
 	ctx.Writer.WriteI32Const(0)
 	// Push state key
-	ctx.Writer.WriteI32Const(int32(stateIdx))
+	ctx.Writer.WriteI32Const(int32(scope.Symbol.ID))
 	// Value is already on stack from expression compilation
 	// Call state store function
 	importIdx, err := ctx.Imports.GetStateStore(varType)
@@ -87,7 +87,7 @@ func compileStatefulVariable(
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
-	ctx.Writer.WriteLocalSet(stateIdx)
+	ctx.Writer.WriteLocalSet(scope.Symbol.ID)
 	return nil
 }
 
@@ -119,18 +119,18 @@ func compileAssignment(
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindParam:
 		// Regular local variable or parameter
-		_, localIdx, err := ctx.Scope.GetIndex(name)
+		local, err := ctx.Scope.Get(name)
 		if err != nil {
 			return errors.Newf("local variable '%s' not allocated", name)
 		}
-		ctx.Writer.WriteLocalSet(localIdx)
+		ctx.Writer.WriteLocalSet(local.Symbol.ID)
 	case symbol.KindStatefulVariable:
-		_, stateIdx, err := ctx.Scope.GetIndex(name)
+		stateIdx, err := ctx.Scope.Get(name)
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}
 		ctx.Writer.WriteI32Const(0) // Task ID
-		ctx.Writer.WriteI32Const(int32(stateIdx))
+		ctx.Writer.WriteI32Const(int32(stateIdx.Symbol.ID))
 		importIdx, err := ctx.Imports.GetStateStore(varType)
 		if err != nil {
 			return err

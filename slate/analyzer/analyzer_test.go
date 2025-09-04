@@ -22,7 +22,7 @@ func dog() {
 func dog() {
 }
 		`))
-			r := analyzer.Analyze(analyzer.Config{Program: ast})
+			r := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(r.Diagnostics).To(HaveLen(1))
 			diagnostic := r.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 0"))
@@ -36,7 +36,7 @@ func dog() {
 	dog := 1
 }
 		`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			diagnostic := result.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 0"))
@@ -47,7 +47,7 @@ func dog() {
 func dog(age i32, age i32) {
 }
 		`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			diagnostic := result.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("duplicate parameter age"))
@@ -62,7 +62,7 @@ func cat() {
 	my_var i32 := "dog"
 }
 `))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(1))
 				Expect(result.Diagnostics[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
 			})
@@ -73,7 +73,7 @@ func cat() {
 					x i32 := 42
 				}
 			`))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(0))
 			})
 
@@ -83,19 +83,16 @@ func cat() {
 					x := 42
 				}
 				`))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
-				Expect(idx).To(Equal(0))
+				funcScope := MustSucceed(result.Symbols.Get("testFunc"))
+				Expect(funcScope.Symbol.ID).To(Equal(0))
 				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-				Expect(idx).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
-				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
-				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
-				Expect(idx).To(Equal(0))
+				varScope := MustSucceed(blockScope.Get("x"))
+				Expect(varScope.Symbol.ID).To(Equal(0))
 				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Symbol.Name).To(Equal("x"))
 				Expect(varScope.Symbol.Type).To(Equal(types.I64{}))
@@ -107,19 +104,16 @@ func cat() {
 					x := 42.0
 				}
 				`))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
-				Expect(idx).To(Equal(0))
+				funcScope := MustSucceed(result.Symbols.Get("testFunc"))
+				Expect(funcScope.Symbol.ID).To(Equal(0))
 				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-				Expect(idx).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
-				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
-				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
-				Expect(idx).To(Equal(0))
+				varScope := MustSucceed(blockScope.Get("x"))
+				Expect(varScope.Symbol.ID).To(Equal(0))
 				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Symbol.Name).To(Equal("x"))
 				Expect(varScope.Symbol.Type).To(Equal(types.F64{}))
@@ -131,19 +125,15 @@ func cat() {
 					x f32 := 42
 				}
 				`))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(0))
-				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
-				Expect(idx).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
+				funcScope := MustSucceed(result.Symbols.Get("testFunc"))
+				Expect(funcScope.Symbol.ID).To(Equal(0))
 				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-				Expect(idx).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
-				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
-				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
-				Expect(idx).To(Equal(0))
+				varScope := MustSucceed(blockScope.Get("x"))
+				Expect(varScope.Symbol.ID).To(Equal(0))
 				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Symbol.Name).To(Equal("x"))
 				Expect(varScope.Symbol.Type).To(Equal(types.F32{}))
@@ -155,7 +145,7 @@ func cat() {
 					x i32 := 42.0
 				}
 				`))
-				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				result := analyzer.Analyze(analyzer.Options{Program: ast})
 				Expect(result.Ok()).To(BeFalse())
 				Expect(result.Diagnostics).To(HaveLen(1))
 				first := result.Diagnostics[0]
@@ -173,7 +163,7 @@ func cat() {
 					bob = cat
 				}
 		`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
@@ -189,7 +179,7 @@ func dog() {
 	cat = bob
 }
 		`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
@@ -203,7 +193,7 @@ func dog() {
 					v2 = v1
 				}
 			`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type string"))
@@ -217,7 +207,7 @@ func dog() {
 					return x + y
 				}
 			`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(0))
 			// The test passes if no errors are generated - the types are properly bound
 		})
@@ -232,7 +222,7 @@ func dog() {
 					return 1.0
 				}
 			`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(0))
 		})
 	})
@@ -248,8 +238,91 @@ func dog() {
 					return 2
 				}
 			`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
 			Expect(result.Ok()).To(BeTrue(), result.String())
+		})
+
+		It("Should return the correct symbol table for an if-else statement", func() {
+			ast := MustSucceed(parser.Parse(`
+				func dog() {
+					if 3 > 5 {
+						return 1
+					} else {
+						return 2
+					}
+				}
+			`))
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			Expect(result.Ok()).To(BeTrue(), result.String())
+			funcScope := MustSucceed(result.Symbols.Get("dog"))
+			Expect(funcScope.Symbol.ID).To(Equal(0))
+			Expect(funcScope.Symbol).ToNot(BeNil())
+			Expect(funcScope.Symbol.Name).To(Equal("dog"))
+			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blocks := blockScope.Blocks()
+			Expect(blocks).To(HaveLen(2))
+			Expect(blocks[0].Children).To(BeEmpty())
+			Expect(blocks[1].Children).To(BeEmpty())
+		})
+
+		It("Should return the correct symbol table for variables declared inside blocks", func() {
+			ast := MustSucceed(parser.Parse(`
+				func dog() {
+					a f32 := 2.0
+					if (a > 5) {
+						b := 2
+						return b
+					}
+					return 2
+				}
+			`))
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			Expect(result.Ok()).To(BeTrue(), result.String())
+			funcScope := MustSucceed(result.Symbols.Get("dog"))
+			Expect(funcScope.Symbol.ID).To(Equal(0))
+			Expect(funcScope.Symbol).ToNot(BeNil())
+			Expect(funcScope.Symbol.Name).To(Equal("dog"))
+			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blocks := blockScope.Blocks()
+			Expect(blocks).To(HaveLen(1))
+			firstBlock := blockScope.Blocks()[0]
+			Expect(firstBlock.Children).To(HaveLen(1))
+			firstChild := firstBlock.Children[0]
+			Expect(firstChild).ToNot(BeNil())
+			Expect(firstChild.Symbol.Name).To(Equal("b"))
+		})
+
+		It("Should return the correct symbol table for variables declared in blocks", func() {
+			ast := MustSucceed(parser.Parse(`
+		func dog(b i64) i64 {
+				a i64 := 2
+			if b == a {
+				return 2
+			} else if a > b {
+				c i64 := 5
+				return c
+			} else {
+				return 3
+			}
+			}
+			`))
+			result := analyzer.Analyze(analyzer.Options{Program: ast})
+			Expect(result.Ok()).To(BeTrue(), result.String())
+			funcScope := MustSucceed(result.Symbols.Get("dog"))
+			Expect(funcScope.Symbol.ID).To(Equal(0))
+			Expect(funcScope.Symbol).ToNot(BeNil())
+			Expect(funcScope.Symbol.Name).To(Equal("dog"))
+			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blocks := blockScope.Blocks()
+			Expect(blocks).To(HaveLen(3))
+			firstBlock := blocks[0]
+			Expect(firstBlock.Children).To(HaveLen(0))
+			secondBlock := blocks[1]
+			Expect(secondBlock.Children).To(HaveLen(1))
+			secondBlockFirstChild := secondBlock.Children[0]
+			Expect(secondBlockFirstChild.Symbol.Name).To(Equal("c"))
+			thirdBlock := blocks[2]
+			Expect(thirdBlock.Children).To(HaveLen(0))
 		})
 	})
 })

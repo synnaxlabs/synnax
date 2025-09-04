@@ -30,16 +30,16 @@ cp slate lsp/extensions/vscode/bin/slate
 # Step 3: Rebuild VSCode VSIX extension
 echo "Step 3: Building VSCode extension..."
 cd lsp/extensions/vscode
-npx vsce package
+pnpm exec vsce package --no-dependencies
 cd ../../..
 
 # Step 4: Copy VSIX to cmd directory for Go embedding
 echo "Step 4: Copying VSIX for Go embedding..."
-cp lsp/extensions/vscode/slate-language-*.vsix cmd/slate-language.vsix
+cp lsp/extensions/vscode/synnax-slate-*.vsix cmd/slate-language.vsix
 
 # Step 5: Rebuild slate again (final build with embedded VSIX)
 echo "Step 5: Final Slate build with embedded VSIX..."
 go build -o slate main.go
 
 echo "=== Compilation pipeline complete ==="
-echo "VSIX extension available at: lsp/extensions/vscode/slate-language-*.vsix"
+echo "VSIX extension available at: lsp/extensions/vscode/synnax-slate-*.vsix"

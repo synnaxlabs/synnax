@@ -9,6 +9,8 @@
 
 # |||| JS ||||
 
+*.vsix
+out/
 node_modules
 dist
 coverage

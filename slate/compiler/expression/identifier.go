@@ -19,7 +19,7 @@ import (
 // compileIdentifier compiles variable references
 func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
-	scope, idx, err := ctx.Scope.GetIndex(name)
+	scope, err := ctx.Scope.Get(name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "identifier '%s' not found", name)
 	}
@@ -32,15 +32,15 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindParam:
-		ctx.Writer.WriteLocalGet(idx)
+		ctx.Writer.WriteLocalGet(sym.ID)
 		return sym.Type, nil
 	case symbol.KindStatefulVariable:
-		if err = emitStatefulLoad(ctx, idx, sym.Type); err != nil {
+		if err = emitStatefulLoad(ctx, sym.ID, sym.Type); err != nil {
 			return nil, err
 		}
 		return sym.Type, nil
 	case symbol.KindChannel:
-		ctx.Writer.WriteLocalGet(idx)
+		ctx.Writer.WriteLocalGet(sym.ID)
 		if err = emitChannelRead(ctx, sym.Type); err != nil {
 			return nil, err
 		}

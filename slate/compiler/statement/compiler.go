@@ -51,8 +51,13 @@ func CompileBlock(ctx *core.Context, block parser.IBlockContext) error {
 	if block == nil {
 		return nil
 	}
+	blockScope, err := ctx.Scope.FindByParserRule(block)
+	if err != nil {
+		panic(err)
+	}
+	blockCtx := ctx.WithScope(blockScope)
 	for _, stmt := range block.AllStatement() {
-		if err := Compile(ctx, stmt); err != nil {
+		if err := Compile(blockCtx, stmt); err != nil {
 			return err
 		}
 	}
