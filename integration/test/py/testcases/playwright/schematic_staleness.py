@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import time
-import re
+
 from testcases.playwright.schematic import Schematic
 
 

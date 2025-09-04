@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Basic Navigation', () => {
   test('should navigate to localhost:5173', async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe('Basic Navigation', () => {
     
     await page.waitForLoadState('networkidle');
     
-    const searchText = await page.getByText('Search & Command');
+    const searchText = page.getByText('Search & Command');
     await expect(searchText).toBeVisible();
   });
 });

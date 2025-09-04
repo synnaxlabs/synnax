@@ -628,8 +628,8 @@ class TestCase(ABC):
 
         non_initialized_channels = self.subscribed_channels.copy()
 
-        while self.loop.wait() and self.should_continue:                
-            if len(non_initialized_channels) >0:
+        while self.loop.wait() and self.should_continue:
+            if len(non_initialized_channels) > 0:
                 for ch in list(non_initialized_channels):
                     if self.read_tlm(ch) is not None:
                         non_initialized_channels.discard(ch)
@@ -648,25 +648,27 @@ class TestCase(ABC):
         Requires the last buffer_size frames to be identical.
         """
         from collections import deque
-        
+
         # Buffer to store the last n vals arrays
         vals_buffer = deque(maxlen=buffer_size)
-        
+
         while self.loop.wait() and self.should_continue:
             vals_now = []
             for ch in self.subscribed_channels:
                 vals_now.append(self.read_tlm(ch))
-            
+
             # Add current values to buffer
             vals_buffer.append(vals_now)
-            
+
             # Check if buffer is full and all entries are identical
             if len(vals_buffer) == buffer_size:
                 first_vals = vals_buffer[0]
                 if all(vals == first_vals for vals in vals_buffer):
-                    self._log_message(f"All Channels are Stale (last {buffer_size} frames identical)")
+                    self._log_message(
+                        f"All Channels are Stale (last {buffer_size} frames identical)"
+                    )
                     return True
-                
+
         raise TimeoutError("Some Channels remain active")
 
     def set_manual_timeout(self, value: int) -> None:

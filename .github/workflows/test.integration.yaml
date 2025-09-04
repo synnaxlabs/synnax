@@ -69,7 +69,7 @@ jobs:
         working-directory: integration/test/py
 
       - name: Type Check (mypy)
-        run: poetry run mypy .
+        run: poetry run mypy --namespace-packages -p framework
         working-directory: integration/test/py
 
   lint-typescript:

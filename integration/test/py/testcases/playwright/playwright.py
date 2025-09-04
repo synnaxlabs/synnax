@@ -7,11 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
-from framework.test_case import TestCase
-from playwright.sync_api import sync_playwright
-import time
 import random
+import re
+import time
+
+from playwright.sync_api import sync_playwright
+
+from framework.test_case import TestCase
+
 
 class Playwright(TestCase):
     """
@@ -107,9 +110,11 @@ class Playwright(TestCase):
         Provide random coverage for all browsers.
         """
 
-        browsers = ['chromium', 'firefox', 'webkit']
-        browsers = ['chromium'] # Failing on Firefox in CI only. Keep as single browser until debugged.
-        
+        browsers = ["chromium", "firefox", "webkit"]
+        browsers = [
+            "chromium"
+        ]  # Failing on Firefox in CI only. Keep as single browser until debugged.
+
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")
         return getattr(self.playwright, selected)

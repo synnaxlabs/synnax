@@ -655,9 +655,21 @@ importers:
 
   integration:
     devDependencies:
+      '@eslint/compat':
+        specifier: 'catalog:'
+        version: 1.3.1(eslint@9.30.1)
       '@playwright/test':
         specifier: ^1.49.1
         version: 1.55.0
+      eslint:
+        specifier: 'catalog:'
+        version: 9.30.1
+      eslint-config-synnaxlabs:
+        specifier: workspace:^
+        version: link:../configs/eslint
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
 
   pluto:
     dependencies:
