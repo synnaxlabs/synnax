@@ -7,6 +7,5 @@ use (
 	./core
 	./freighter/go
 	./freighter/integration
-	./integration
 	./x/go
 )
