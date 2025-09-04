@@ -10,99 +10,103 @@
 package expression
 
 import (
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
 )
 
 // compileLogicalOrImpl handles || operations with short-circuit evaluation
-func (e *Compiler) compileLogicalOrImpl(expr parser.ILogicalOrExpressionContext) (types.Type, error) {
+func compileLogicalOrImpl(
+	ctx *core.Context,
+	expr parser.ILogicalOrExpressionContext,
+) (types.Type, error) {
 	ands := expr.AllLogicalAndExpression()
-	
+
 	// Compile first operand
-	_, err := e.compileLogicalAnd(ands[0])
+	_, err := compileLogicalAnd(ctx, ands[0])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Normalize the first operand
-	e.normalizeBoolean()
-	
+	normalizeBoolean(ctx)
+
 	// Process remaining operands with short-circuit evaluation
 	for i := 1; i < len(ands); i++ {
 		// The stack has the current boolean value (0 or 1)
 		// If it's true (1), we skip evaluation of the right operand
-		
+
 		// Use if-else block for short-circuit evaluation
-		e.encoder.WriteIf(wasm.BlockTypeI32)
-		
+		ctx.Writer.WriteIf(wasm.BlockTypeI32)
+
 		// True case: value is already 1, keep it
-		e.encoder.WriteI32Const(1)
-		
-		e.encoder.WriteOpcode(wasm.OpElse)
-		
+		ctx.Writer.WriteI32Const(1)
+
+		ctx.Writer.WriteOpcode(wasm.OpElse)
+
 		// False case: evaluate right operand
-		_, err := e.compileLogicalAnd(ands[i])
+		_, err := compileLogicalAnd(ctx, ands[i])
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Normalize the result
-		e.normalizeBoolean()
-		
-		e.encoder.WriteOpcode(wasm.OpEnd)
+		normalizeBoolean(ctx)
+
+		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
-	
+
 	return types.U8{}, nil
 }
 
 // compileLogicalAndImpl handles && operations with short-circuit evaluation
-func (e *Compiler) compileLogicalAndImpl(expr parser.ILogicalAndExpressionContext) (types.Type, error) {
+func compileLogicalAndImpl(ctx *core.Context, expr parser.ILogicalAndExpressionContext) (types.Type, error) {
 	eqs := expr.AllEqualityExpression()
-	
+
 	// Compile first operand
-	_, err := e.compileEquality(eqs[0])
+	_, err := compileEquality(ctx, eqs[0])
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Normalize the first operand
-	e.normalizeBoolean()
-	
+	normalizeBoolean(ctx)
+
 	// Process remaining operands with short-circuit evaluation
 	for i := 1; i < len(eqs); i++ {
 		// The stack has the current boolean value (0 or 1)
 		// If it's false (0), we skip evaluation of the right operand
-		
+
 		// Use if-else block for short-circuit evaluation
-		e.encoder.WriteOpcode(wasm.OpI32Eqz) // Invert: 0 -> 1, 1 -> 0
-		e.encoder.WriteIf(wasm.BlockTypeI32)
-		
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz) // Invert: 0 -> 1, 1 -> 0
+		ctx.Writer.WriteIf(wasm.BlockTypeI32)
+
 		// True case (was zero): result is 0
-		e.encoder.WriteI32Const(0)
-		
-		e.encoder.WriteOpcode(wasm.OpElse)
-		
+		ctx.Writer.WriteI32Const(0)
+
+		ctx.Writer.WriteOpcode(wasm.OpElse)
+
 		// False case (was non-zero): evaluate right operand
-		_, err := e.compileEquality(eqs[i])
+		_, err := compileEquality(ctx, eqs[i])
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Normalize the result
-		e.normalizeBoolean()
-		
-		e.encoder.WriteOpcode(wasm.OpEnd)
+		normalizeBoolean(ctx)
+
+		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
-	
+
 	return types.U8{}, nil
 }
 
 // normalizeBoolean converts any non-zero i32 value to 1
-func (e *Compiler) normalizeBoolean() {
+func normalizeBoolean(ctx *core.Context) {
 	// Convert any non-zero value to 1
 	// value != 0 ? 1 : 0
 	// This is equivalent to: (value != 0)
-	e.encoder.WriteI32Const(0)
-	e.encoder.WriteOpcode(wasm.OpI32Ne)
+	ctx.Writer.WriteI32Const(0)
+	ctx.Writer.WriteOpcode(wasm.OpI32Ne)
 }

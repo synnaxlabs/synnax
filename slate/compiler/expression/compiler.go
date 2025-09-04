@@ -10,28 +10,11 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/slate/compiler"
-	"github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
-
-// Compiler compiles expressions to WASM bytecode
-type Compiler struct {
-	ctx     *compiler.Context
-	encoder *wasm.Encoder
-}
-
-// NewCompiler creates a new expression compiler
-func NewCompiler(ctx *compiler.Context) *Compiler {
-	return &Compiler{ctx: ctx, encoder: wasm.NewEncoder()}
-}
-
-// NewCompilerWithEncoder creates a new expression compiler with a specific encoder
-func NewCompilerWithEncoder(ctx *compiler.Context, encoder *wasm.Encoder) *Compiler {
-	return &Compiler{ctx: ctx, encoder: encoder}
-}
 
 func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	if len(exprs) == 0 {
@@ -47,7 +30,10 @@ func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
 }
 
 // Compile compiles an expression and returns its type
-func (e *Compiler) Compile(expr parser.IExpressionContext) (types.Type, error) {
+func Compile(
+	ctx *core.Context,
+	expr parser.IExpressionContext,
+) (types.Type, error) {
 	// Main dispatch based on expression type. Grammar builds expressions in layres
 	// in order of precedence.
 	// Compilation order:
@@ -67,83 +53,95 @@ func (e *Compiler) Compile(expr parser.IExpressionContext) (types.Type, error) {
 	}
 	// Since Expression just wraps LogicalOrExpression, unwrap it
 	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
-		return e.compileLogicalOr(logicalOr)
+		return compileLogicalOr(ctx, logicalOr)
 	}
 	return nil, errors.New("unknown expression type")
 }
 
 // compileLogicalOr handles || operations
-func (e *Compiler) compileLogicalOr(expr parser.ILogicalOrExpressionContext) (types.Type, error) {
+func compileLogicalOr(
+	ctx *core.Context,
+	expr parser.ILogicalOrExpressionContext,
+) (types.Type, error) {
 	ands := validateNonZeroArray(expr.AllLogicalAndExpression(), "logical OR")
 	if len(ands) == 1 {
-		return e.compileLogicalAnd(ands[0])
+		return compileLogicalAnd(ctx, ands[0])
 	}
-	return e.compileLogicalOrImpl(expr)
+	return compileLogicalOrImpl(ctx, expr)
 }
 
 // compileLogicalAnd handles && operations
-func (e *Compiler) compileLogicalAnd(expr parser.ILogicalAndExpressionContext) (types.Type, error) {
+func compileLogicalAnd(
+	ctx *core.Context,
+	expr parser.ILogicalAndExpressionContext,
+) (types.Type, error) {
 	eqs := validateNonZeroArray(expr.AllEqualityExpression(), "logical AND")
 	if len(eqs) == 1 {
-		return e.compileEquality(eqs[0])
+		return compileEquality(ctx, eqs[0])
 	}
-	return e.compileLogicalAndImpl(expr)
+	return compileLogicalAndImpl(ctx, expr)
 }
 
 // compileEquality handles == and != operations
-func (e *Compiler) compileEquality(expr parser.IEqualityExpressionContext) (types.Type, error) {
+func compileEquality(
+	ctx *core.Context,
+	expr parser.IEqualityExpressionContext,
+) (types.Type, error) {
 	rels := validateNonZeroArray(expr.AllRelationalExpression(), "equality")
 	if len(rels) == 1 {
-		return e.compileRelational(rels[0])
+		return compileRelational(ctx, rels[0])
 	}
-	return e.compileBinaryEquality(expr)
+	return compileBinaryEquality(ctx, expr)
 }
 
 // compileRelational handles <, >, <=, >= operations
-func (e *Compiler) compileRelational(expr parser.IRelationalExpressionContext) (types.Type, error) {
+func compileRelational(ctx *core.Context, expr parser.IRelationalExpressionContext) (types.Type, error) {
 	adds := validateNonZeroArray(expr.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
-		return e.compileAdditive(adds[0])
+		return compileAdditive(ctx, adds[0])
 	}
-	return e.compileBinaryRelational(expr)
+	return compileBinaryRelational(ctx, expr)
 }
 
 // compileAdditive handles + and - operations.
-func (e *Compiler) compileAdditive(expr parser.IAdditiveExpressionContext) (types.Type, error) {
+func compileAdditive(ctx *core.Context, expr parser.IAdditiveExpressionContext) (types.Type, error) {
 	muls := validateNonZeroArray(expr.AllMultiplicativeExpression(), "additive")
 	if len(muls) == 1 {
-		return e.compileMultiplicative(muls[0])
+		return compileMultiplicative(ctx, muls[0])
 	}
-	return e.compileBinaryAdditive(expr)
+	return compileBinaryAdditive(ctx, expr)
 }
 
 // compileMultiplicative handles *, /, and % operations
-func (e *Compiler) compileMultiplicative(expr parser.IMultiplicativeExpressionContext) (types.Type, error) {
+func compileMultiplicative(
+	ctx *core.Context,
+	expr parser.IMultiplicativeExpressionContext,
+) (types.Type, error) {
 	pows := validateNonZeroArray(expr.AllPowerExpression(), "multiplicative")
 	if len(pows) == 1 {
-		return e.compilePower(pows[0])
+		return compilePower(ctx, pows[0])
 	}
-	return e.compileBinaryMultiplicative(expr)
+	return compileBinaryMultiplicative(ctx, expr)
 }
 
 // compilePower handles ^ operations
-func (e *Compiler) compilePower(expr parser.IPowerExpressionContext) (types.Type, error) {
+func compilePower(ctx *core.Context, expr parser.IPowerExpressionContext) (types.Type, error) {
 	unary := expr.UnaryExpression()
 	validateNonZero(unary, "power")
 	if expr.CARET() != nil && expr.PowerExpression() != nil {
 		// TODO: Implement exponentiation (needs host function)
-		return e.compileUnary(unary)
+		return compileUnary(ctx, unary)
 	}
-	return e.compileUnary(unary)
+	return compileUnary(ctx, unary)
 }
 
 // compilePostfix handles array indexing, slicing, and function calls
-func (e *Compiler) compilePostfix(expr parser.IPostfixExpressionContext) (types.Type, error) {
+func compilePostfix(ctx *core.Context, expr parser.IPostfixExpressionContext) (types.Type, error) {
 	primary := expr.PrimaryExpression()
 	if primary == nil {
 		return nil, errors.New("empty postfix expression")
 	}
-	primaryType, err := e.compilePrimary(primary)
+	primaryType, err := compilePrimary(ctx, primary)
 	if err != nil {
 		return nil, err
 	}
@@ -151,27 +149,21 @@ func (e *Compiler) compilePostfix(expr parser.IPostfixExpressionContext) (types.
 }
 
 // compilePrimary handles literals, identifiers, parenthesized expressions, etc.
-func (e *Compiler) compilePrimary(expr parser.IPrimaryExpressionContext) (types.Type, error) {
+func compilePrimary(ctx *core.Context, expr parser.IPrimaryExpressionContext) (types.Type, error) {
 	if lit := expr.Literal(); lit != nil {
-		return e.compileLiteral(lit)
+		return compileLiteral(ctx, lit)
 	}
 	if expr.IDENTIFIER() != nil {
-		return e.compileIdentifier(expr.IDENTIFIER().GetText())
+		return compileIdentifier(ctx, expr.IDENTIFIER().GetText())
 	}
 	if expr.LPAREN() != nil && expr.Expression() != nil {
-		return e.Compile(expr.Expression())
+		return Compile(ctx, expr.Expression())
 	}
 	if cast := expr.TypeCast(); cast != nil {
-		return e.compileTypeCast(cast)
+		return compileTypeCast(ctx, cast)
 	}
 	if builtin := expr.BuiltinFunction(); builtin != nil {
 		return nil, errors.New("builtin functions not yet implemented")
 	}
 	return nil, errors.New("unknown primary expression")
 }
-
-// Bytes returns the compiled bytecode
-func (e *Compiler) Bytes() []byte { return e.encoder.Bytes() }
-
-// Reset clears the bytecode buffer
-func (e *Compiler) Reset() { e.encoder.Reset() }

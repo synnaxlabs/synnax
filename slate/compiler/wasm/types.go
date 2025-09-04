@@ -41,3 +41,5 @@ const (
 	ExportMemory ExportKind = 0x02
 	ExportGlobal ExportKind = 0x03
 )
+
+var magicNumber = []byte{0x00, 0x61, 0x73, 0x6d}

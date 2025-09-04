@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
@@ -17,23 +18,23 @@ import (
 )
 
 // compileUnary handles unary -, !, and blocking read operations
-func (e *Compiler) compileUnary(expr parser.IUnaryExpressionContext) (types.Type, error) {
+func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext) (types.Type, error) {
 	if expr.MINUS() != nil {
-		innerType, err := e.compileUnary(expr.UnaryExpression())
+		innerType, err := compileUnary(ctx, expr.UnaryExpression())
 		if err != nil {
 			return nil, err
 		}
 		switch innerType.(type) {
 		case types.I8, types.I16, types.I32, types.U8, types.U16, types.U32:
-			e.encoder.WriteI32Const(-1)
-			e.encoder.WriteBinaryOp(wasm.OpI32Mul)
+			ctx.Writer.WriteI32Const(-1)
+			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
 		case types.I64, types.U64:
-			e.encoder.WriteI64Const(-1)
-			e.encoder.WriteBinaryOp(wasm.OpI64Mul)
+			ctx.Writer.WriteI64Const(-1)
+			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
 		case types.F32:
-			e.encoder.WriteOpcode(wasm.OpF32Neg)
+			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
 		case types.F64:
-			e.encoder.WriteOpcode(wasm.OpF64Neg)
+			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
 		default:
 			return nil, errors.Newf("cannot negate type %s", innerType)
 		}
@@ -43,13 +44,13 @@ func (e *Compiler) compileUnary(expr parser.IUnaryExpressionContext) (types.Type
 
 	if expr.NOT() != nil {
 		// Compile the inner expression
-		_, err := e.compileUnary(expr.UnaryExpression())
+		_, err := compileUnary(ctx, expr.UnaryExpression())
 		if err != nil {
 			return nil, err
 		}
 		// Logical NOT expects a boolean (u8) and returns boolean
 		// Use i32.eqz to check if value is 0 (false becomes true, true becomes false)
-		e.encoder.WriteOpcode(wasm.OpI32Eqz)
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
 		return types.U8{}, nil
 	}
 
@@ -58,7 +59,7 @@ func (e *Compiler) compileUnary(expr parser.IUnaryExpressionContext) (types.Type
 		return types.F64{}, nil // Placeholder
 	}
 	if postfix := expr.PostfixExpression(); postfix != nil {
-		return e.compilePostfix(postfix)
+		return compilePostfix(ctx, postfix)
 	}
 	return nil, errors.New("unknown unary expression")
 }

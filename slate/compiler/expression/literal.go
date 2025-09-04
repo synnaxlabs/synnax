@@ -12,15 +12,19 @@ package expression
 import (
 	"strconv"
 
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // compileLiteral compiles a literal value
-func (e *Compiler) compileLiteral(lit parser.ILiteralContext) (types.Type, error) {
+func compileLiteral(
+	ctx *core.Context,
+	lit parser.ILiteralContext,
+) (types.Type, error) {
 	if num := lit.NumericLiteral(); num != nil {
-		return e.compileNumericLiteral(num)
+		return compileNumericLiteral(ctx, num)
 	}
 	if temp := lit.TemporalLiteral(); temp != nil {
 		return types.TimeSpan{}, nil
@@ -34,14 +38,14 @@ func (e *Compiler) compileLiteral(lit parser.ILiteralContext) (types.Type, error
 	return nil, errors.New("unknown literal type")
 }
 
-func (e *Compiler) compileNumericLiteral(num parser.INumericLiteralContext) (types.Type, error) {
+func compileNumericLiteral(ctx *core.Context, num parser.INumericLiteralContext) (types.Type, error) {
 	if intLit := num.INTEGER_LITERAL(); intLit != nil {
 		text := intLit.GetText()
 		value, err := strconv.ParseInt(text, 10, 64)
 		if err != nil {
 			return nil, errors.Newf("invalid integer literal: %s", text)
 		}
-		e.encoder.WriteI64Const(value)
+		ctx.Writer.WriteI64Const(value)
 		return types.I64{}, nil
 	}
 	if floatLit := num.FLOAT_LITERAL(); floatLit != nil {
@@ -50,7 +54,7 @@ func (e *Compiler) compileNumericLiteral(num parser.INumericLiteralContext) (typ
 		if err != nil {
 			return nil, errors.Newf("invalid float literal: %s", text)
 		}
-		e.encoder.WriteF64Const(value)
+		ctx.Writer.WriteF64Const(value)
 		return types.F64{}, nil
 	}
 	return nil, errors.New("unknown numeric literal")

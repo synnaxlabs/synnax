@@ -10,21 +10,25 @@
 package expression
 
 import (
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
 )
 
 // compileBinaryAdditive handles + and - operations
-func (e *Compiler) compileBinaryAdditive(expr parser.IAdditiveExpressionContext) (types.Type, error) {
+func compileBinaryAdditive(
+	ctx *core.Context,
+	expr parser.IAdditiveExpressionContext,
+) (types.Type, error) {
 	muls := expr.AllMultiplicativeExpression()
-	resultType, err := e.compileMultiplicative(muls[0])
+	resultType, err := compileMultiplicative(ctx, muls[0])
 	if err != nil {
 		return nil, err
 	}
 	// Process remaining operands
 	for i := 1; i < len(muls); i++ {
 		// Compile next operand
-		_, err := e.compileMultiplicative(muls[i])
+		_, err := compileMultiplicative(ctx, muls[i])
 		if err != nil {
 			return nil, err
 		}
@@ -41,18 +45,20 @@ func (e *Compiler) compileBinaryAdditive(expr parser.IAdditiveExpressionContext)
 		if err != nil {
 			return nil, err
 		}
-		e.encoder.WriteBinaryOp(opcode)
+		ctx.Writer.WriteBinaryOp(opcode)
 	}
 
 	return resultType, nil
 }
 
 // compileBinaryMultiplicative handles *, /, % operations
-func (e *Compiler) compileBinaryMultiplicative(expr parser.IMultiplicativeExpressionContext) (types.Type, error) {
+func compileBinaryMultiplicative(
+	ctx *core.Context,
+	expr parser.IMultiplicativeExpressionContext,
+) (types.Type, error) {
 	pows := expr.AllPowerExpression()
-
 	// Compile first operand
-	resultType, err := e.compilePower(pows[0])
+	resultType, err := compilePower(ctx, pows[0])
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +66,7 @@ func (e *Compiler) compileBinaryMultiplicative(expr parser.IMultiplicativeExpres
 	// Process remaining operands
 	for i := 1; i < len(pows); i++ {
 		// Compile next operand
-		_, err := e.compilePower(pows[i])
+		_, err := compilePower(ctx, pows[i])
 		if err != nil {
 			return nil, err
 		}
@@ -80,24 +86,24 @@ func (e *Compiler) compileBinaryMultiplicative(expr parser.IMultiplicativeExpres
 		if err != nil {
 			return nil, err
 		}
-		e.encoder.WriteBinaryOp(opcode)
+		ctx.Writer.WriteBinaryOp(opcode)
 	}
 
 	return resultType, nil
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func (e *Compiler) compileBinaryRelational(expr parser.IRelationalExpressionContext) (types.Type, error) {
+func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressionContext) (types.Type, error) {
 	adds := expr.AllAdditiveExpression()
 
 	// Compile left operand
-	leftType, err := e.compileAdditive(adds[0])
+	leftType, err := compileAdditive(ctx, adds[0])
 	if err != nil {
 		return nil, err
 	}
 
 	// Compile right operand
-	_, err = e.compileAdditive(adds[1])
+	_, err = compileAdditive(ctx, adds[1])
 	if err != nil {
 		return nil, err
 	}
@@ -119,24 +125,24 @@ func (e *Compiler) compileBinaryRelational(expr parser.IRelationalExpressionCont
 	if err != nil {
 		return nil, err
 	}
-	e.encoder.WriteBinaryOp(opcode)
+	ctx.Writer.WriteBinaryOp(opcode)
 
 	// Comparisons return u8 (boolean)
 	return types.U8{}, nil
 }
 
 // compileBinaryEquality handles == and != operations
-func (e *Compiler) compileBinaryEquality(expr parser.IEqualityExpressionContext) (types.Type, error) {
+func compileBinaryEquality(ctx *core.Context, expr parser.IEqualityExpressionContext) (types.Type, error) {
 	rels := expr.AllRelationalExpression()
 
 	// Compile left operand
-	leftType, err := e.compileRelational(rels[0])
+	leftType, err := compileRelational(ctx, rels[0])
 	if err != nil {
 		return nil, err
 	}
 
 	// Compile right operand
-	_, err = e.compileRelational(rels[1])
+	_, err = compileRelational(ctx, rels[1])
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +160,7 @@ func (e *Compiler) compileBinaryEquality(expr parser.IEqualityExpressionContext)
 	if err != nil {
 		return nil, err
 	}
-	e.encoder.WriteBinaryOp(opcode)
+	ctx.Writer.WriteBinaryOp(opcode)
 
 	// Equality comparisons return u8 (boolean)
 	return types.U8{}, nil

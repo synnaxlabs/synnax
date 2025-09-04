@@ -3,7 +3,6 @@ package wasm
 import (
 	"bytes"
 	"encoding/binary"
-	"math"
 )
 
 // FunctionType represents a function signature
@@ -16,9 +15,7 @@ type FunctionType struct {
 type Function struct {
 	Name    string
 	TypeIdx uint32
-	Locals  []ValueType
 	Body    []byte
-	Export  bool
 }
 
 // Import represents an imported function
@@ -88,42 +85,30 @@ func (m *Module) EnableMemory() {
 // Generate generates the WASM binary
 func (m *Module) Generate() []byte {
 	m.buf.Reset()
-
-	// Write magic number and version (must be exact bytes)
-	m.buf.WriteByte(0x00)
-	m.buf.WriteByte(0x61)
-	m.buf.WriteByte(0x73)
-	m.buf.WriteByte(0x6d)
-	m.buf.WriteByte(0x01)
-	m.buf.WriteByte(0x00)
-	m.buf.WriteByte(0x00)
-	m.buf.WriteByte(0x00)
-
+	// Write magic number
+	m.buf.Write(magicNumber)
+	// Write version (must be exact bytes)
+	m.buf.Write([]byte{0x01, 0x00, 0x00, 0x00})
 	// Write type section
 	if len(m.types) > 0 {
 		m.writeTypeSection()
 	}
-
 	// Write import section
 	if len(m.imports) > 0 {
 		m.writeImportSection()
 	}
-
 	// Write function section
 	if len(m.functions) > 0 {
 		m.writeFunctionSection()
 	}
-
 	// Write memory section
 	if m.memory {
 		m.writeMemorySection()
 	}
-
 	// Write export section
 	if m.hasExports() {
 		m.writeExportSection()
 	}
-
 	// Write code section
 	if len(m.functions) > 0 {
 		m.writeCodeSection()
@@ -251,7 +236,6 @@ func (m *Module) writeCodeSection() {
 
 	for _, fn := range m.functions {
 		var code bytes.Buffer
-
 		// Write local declarations
 		if len(fn.Locals) > 0 {
 			// Group locals by type for efficiency
@@ -311,39 +295,6 @@ func WriteLEB128(w *bytes.Buffer, v uint64) {
 			break
 		}
 	}
-}
-
-// writeSignedLEB128 writes a signed LEB128 integer
-func writeSignedLEB128(w *bytes.Buffer, v int64) {
-	for {
-		b := byte(v & 0x7f)
-		v >>= 7
-		if (v == 0 && b&0x40 == 0) || (v == -1 && b&0x40 != 0) {
-			w.WriteByte(b)
-			break
-		}
-		w.WriteByte(b | 0x80)
-	}
-}
-
-// WriteF64 writes a float64 constant instruction
-func WriteF64Const(w *bytes.Buffer, v float64) {
-	w.WriteByte(byte(OpF64Const))
-	bits := math.Float64bits(v)
-	binary.Write(w, binary.LittleEndian, bits)
-}
-
-// WriteF32 writes a float32 constant instruction
-func WriteF32Const(w *bytes.Buffer, v float32) {
-	w.WriteByte(byte(OpF32Const))
-	bits := math.Float32bits(v)
-	binary.Write(w, binary.LittleEndian, bits)
-}
-
-// WriteI32 writes an i32 constant instruction
-func WriteI32Const(w *bytes.Buffer, v int32) {
-	w.WriteByte(byte(OpI32Const))
-	writeSignedLEB128(w, int64(v))
 }
 
 func typesEqual(a, b FunctionType) bool {

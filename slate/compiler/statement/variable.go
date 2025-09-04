@@ -11,172 +11,125 @@ package statement
 
 import (
 	"github.com/synnaxlabs/slate/analyzer/symbol"
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/expression"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // compileVariableDeclaration handles both local (:=) and stateful ($=) variable declarations
-func (c *Compiler) compileVariableDeclaration(decl parser.IVariableDeclarationContext) error {
+func compileVariableDeclaration(ctx *core.Context, decl parser.IVariableDeclarationContext) error {
 	if localVar := decl.LocalVariable(); localVar != nil {
-		return c.compileLocalVariable(localVar)
+		return compileLocalVariable(ctx, localVar)
 	}
-
 	if statefulVar := decl.StatefulVariable(); statefulVar != nil {
-		return c.compileStatefulVariable(statefulVar)
+		return compileStatefulVariable(ctx, statefulVar)
 	}
-
 	return errors.New("unknown variable declaration type")
 }
 
 // compileLocalVariable handles local variable declarations (x := expr)
-func (c *Compiler) compileLocalVariable(decl parser.ILocalVariableContext) error {
-	// Get the variable name
+func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) error {
 	name := decl.IDENTIFIER().GetText()
-
-	// Look up the symbol to get its type
-	scope, err := c.ctx.Symbols.Get(name)
+	varScope, err := ctx.Scope.Get(name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found in symbol table", name)
 	}
-	varType := scope.Symbol.Type
-
-	// Compile the initialization expression (analyzer guarantees type correctness)
-	exprType, err := c.expr.Compile(decl.Expression())
+	varType := varScope.Symbol.Type
+	exprType, err := expression.Compile(ctx, decl.Expression())
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
 	}
-
-	// Add type conversion if needed (e.g., i64 literal to i32 variable)
-	if needsConversion(exprType, varType) {
-		emitTypeConversion(c.enc, exprType, varType)
+	if varType != exprType {
+		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+			return err
+		}
 	}
-
-	// Allocate a local slot if not already allocated
-	wasmType := expression.MapType(varType)
-	localIdx, exists := c.ctx.GetLocal(name)
-	if !exists {
-		localIdx = c.ctx.AllocateLocal(name, wasmType)
+	_, localIdx, err := ctx.Scope.GetIndex(name)
+	if err != nil {
+		return errors.Wrapf(err, "failed to lookup local variable '%s'", name)
 	}
-
-	// Store the value in the local variable
-	c.enc.WriteLocalSet(localIdx)
-
+	ctx.Writer.WriteLocalSet(localIdx)
 	return nil
 }
 
 // compileStatefulVariable handles stateful variable declarations (x $= expr)
-func (c *Compiler) compileStatefulVariable(decl parser.IStatefulVariableContext) error {
+func compileStatefulVariable(
+	ctx *core.Context,
+	decl parser.IStatefulVariableContext,
+) error {
 	// Get the variable name
 	name := decl.IDENTIFIER().GetText()
 
 	// Look up the symbol to get its type
-	scope, err := c.ctx.Symbols.Get(name)
+	scope, stateIdx, err := ctx.Scope.GetIndex(name)
 	if err != nil {
 		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
 	}
 	varType := scope.Symbol.Type
-
 	// Compile the initialization expression (analyzer guarantees type correctness)
-	_, err = c.expr.Compile(decl.Expression())
+	_, err = expression.Compile(
+		ctx,
+		decl.Expression(),
+	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
-
-	// Allocate a stateful storage key if not already allocated
-	stateKey, exists := c.ctx.GetStateful(name)
-	if !exists {
-		stateKey = c.ctx.AllocateStateful(name)
-	}
-
 	// Emit state store operation
 	// Push task ID (0 for now - runtime will provide actual ID)
-	c.enc.WriteI32Const(0)
+	ctx.Writer.WriteI32Const(0)
 	// Push state key
-	c.enc.WriteI32Const(int32(stateKey))
+	ctx.Writer.WriteI32Const(int32(stateIdx))
 	// Value is already on stack from expression compilation
 	// Call state store function
-	importIdx := c.ctx.Imports.GetStateStore(varType)
-	c.enc.WriteCall(importIdx)
-
-	// Also store in a local for immediate use in same execution
-	wasmType := expression.MapType(varType)
-	localIdx, exists := c.ctx.GetLocal(name)
-	if !exists {
-		// Need to duplicate the value before storing to state
-		// This requires loading it again
-		c.emitStatefulLoad(stateKey, varType)
-		localIdx = c.ctx.AllocateLocal(name, wasmType)
-	}
-	c.enc.WriteLocalSet(localIdx)
-
+	importIdx := ctx.Imports.GetStateStore(varType)
+	ctx.Writer.WriteCall(importIdx)
+	ctx.Writer.WriteLocalSet(stateIdx)
 	return nil
 }
 
 // compileAssignment handles variable assignments (x = expr)
-func (c *Compiler) compileAssignment(assign parser.IAssignmentContext) error {
+func compileAssignment(
+	ctx *core.Context,
+	assign parser.IAssignmentContext,
+) error {
 	// Get the variable name
 	name := assign.IDENTIFIER().GetText()
-
 	// Look up the symbol
-	scope, err := c.ctx.Symbols.Get(name)
+	scope, err := ctx.Scope.Get(name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found", name)
 	}
 	sym := scope.Symbol
 	varType := sym.Type
-
 	// Compile the expression (analyzer guarantees type correctness)
-	exprType, err := c.expr.Compile(assign.Expression())
+	exprType, err := expression.Compile(ctx, assign.Expression())
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
 	}
-	
-	// Add type conversion if needed
-	if needsConversion(exprType, varType) {
-		emitTypeConversion(c.enc, exprType, varType)
+	if varType != exprType {
+		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+			return err
+		}
 	}
-
 	// Handle based on variable kind
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindParam:
 		// Regular local variable or parameter
-		localIdx, exists := c.ctx.GetLocal(name)
-		if !exists {
+		_, localIdx, err := ctx.Scope.GetIndex(name)
+		if err != nil {
 			return errors.Newf("local variable '%s' not allocated", name)
 		}
-		c.enc.WriteLocalSet(localIdx)
-
+		ctx.Writer.WriteLocalSet(localIdx)
 	case symbol.KindStatefulVariable:
-		// Stateful variable - store to both state and local
-		if !c.ctx.Current.IsTask {
-			return errors.New("stateful variables can only be used in tasks")
-		}
-
-		stateKey, exists := c.ctx.GetStateful(name)
-		if !exists {
+		_, stateIdx, err := ctx.Scope.GetIndex(name)
+		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}
-
-		// Duplicate value for both state store and local store
-		c.enc.WriteLocalTee(c.ctx.AllocateLocal("_tmp", expression.MapType(varType)))
-
-		// Store to state
-		c.enc.WriteI32Const(0) // Task ID
-		c.enc.WriteI32Const(int32(stateKey))
-		// Value is on stack
-		importIdx := c.ctx.Imports.GetStateStore(varType)
-		c.enc.WriteCall(importIdx)
-
-		// Store to local (value was tee'd)
-		localIdx, exists := c.ctx.GetLocal(name)
-		if !exists {
-			return errors.Newf("local shadow for stateful variable '%s' not allocated", name)
-		}
-		tmpIdx, _ := c.ctx.GetLocal("_tmp")
-		c.enc.WriteLocalGet(tmpIdx)
-		c.enc.WriteLocalSet(localIdx)
-
+		ctx.Writer.WriteI32Const(0) // Task ID
+		ctx.Writer.WriteI32Const(int32(stateIdx))
+		importIdx := ctx.Imports.GetStateStore(varType)
+		ctx.Writer.WriteCall(importIdx)
 	default:
 		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
 	}
@@ -184,12 +137,9 @@ func (c *Compiler) compileAssignment(assign parser.IAssignmentContext) error {
 	return nil
 }
 
-// Helper functions
-
-func (c *Compiler) emitStatefulLoad(key uint32, t interface{}) {
-	c.enc.WriteI32Const(0) // Task ID
-	c.enc.WriteI32Const(int32(key))
-	importIdx := c.ctx.Imports.GetStateLoad(t)
-	c.enc.WriteCall(importIdx)
+func emitStatefulLoad(ctx *core.Context, key uint32, t interface{}) {
+	ctx.Writer.WriteI32Const(0)
+	ctx.Writer.WriteI32Const(int32(key))
+	importIdx := ctx.Imports.GetStateLoad(t)
+	ctx.Writer.WriteCall(importIdx)
 }
-

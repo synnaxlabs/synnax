@@ -10,6 +10,9 @@
 package statement
 
 import (
+	"github.com/synnaxlabs/slate/analyzer/symbol"
+	"github.com/synnaxlabs/slate/compiler/core"
+	"github.com/synnaxlabs/slate/compiler/expression"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
@@ -17,104 +20,108 @@ import (
 )
 
 // compileIfStatement compiles if/else-if/else chains
-func (c *Compiler) compileIfStatement(ifStmt parser.IIfStatementContext) error {
+func compileIfStatement(
+	ctx *core.Context,
+	ifStmt parser.IIfStatementContext,
+) error {
 	// Compile the condition expression
-	if _, err := c.expr.Compile(ifStmt.Expression()); err != nil {
+	if _, err := expression.Compile(ctx, ifStmt.Expression()); err != nil {
 		return errors.Wrap(err, "failed to compile if condition")
 	}
 	// Check if we have an else clause to determine block type
 	hasElse := ifStmt.ElseClause() != nil || len(ifStmt.AllElseIfClause()) > 0
 	if hasElse {
 		// If-else structure
-		c.enc.WriteIf(wasm.BlockTypeEmpty)
+		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 		// Compile the if block
-		if err := c.CompileBlock(ifStmt.Block()); err != nil {
+		if err := CompileBlock(ctx, ifStmt.Block()); err != nil {
 			return errors.Wrap(err, "failed to compile if block")
 		}
 
 		// Handle else-if clauses
 		for i, elseIfClause := range ifStmt.AllElseIfClause() {
-			c.enc.WriteElse()
+			ctx.Writer.WriteElse()
 
 			// Compile else-if condition
-			_, err := c.expr.Compile(elseIfClause.Expression())
+			_, err := expression.Compile(ctx, elseIfClause.Expression())
 			if err != nil {
 				return errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
 			}
 
 			// Nested if for else-if
-			c.enc.WriteIf(wasm.BlockTypeEmpty)
+			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 
 			// Compile else-if block
-			if err := c.CompileBlock(elseIfClause.Block()); err != nil {
+			if err := CompileBlock(ctx, elseIfClause.Block()); err != nil {
 				return errors.Wrapf(err, "failed to compile else-if[%d] block", i)
 			}
 		}
 
 		// Handle final else clause
 		if elseClause := ifStmt.ElseClause(); elseClause != nil {
-			c.enc.WriteElse()
-			if err := c.CompileBlock(elseClause.Block()); err != nil {
+			ctx.Writer.WriteElse()
+			if err := CompileBlock(ctx, elseClause.Block()); err != nil {
 				return errors.Wrap(err, "failed to compile else block")
 			}
 		} else if len(ifStmt.AllElseIfClause()) > 0 {
 			// Close the last else-if without a final else
-			c.enc.WriteElse()
+			ctx.Writer.WriteElse()
 			// Empty else block
 		}
 
 		// Close all nested ifs
 		for range ifStmt.AllElseIfClause() {
-			c.enc.WriteEnd()
+			ctx.Writer.WriteEnd()
 		}
-		c.enc.WriteEnd() // Close main if
+		ctx.Writer.WriteEnd() // Close main if
 
 	} else {
 		// Simple if without else
-		c.enc.WriteIf(wasm.BlockTypeEmpty)
+		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 
 		// Compile the if block
-		if err := c.CompileBlock(ifStmt.Block()); err != nil {
+		if err := CompileBlock(ctx, ifStmt.Block()); err != nil {
 			return errors.Wrap(err, "failed to compile if block")
 		}
 
-		c.enc.WriteEnd()
+		ctx.Writer.WriteEnd()
 	}
 
 	return nil
 }
 
 // compileReturnStatement compiles return statements
-func (c *Compiler) compileReturnStatement(ret parser.IReturnStatementContext) error {
+func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContext) error {
 	// Check if we have a return expression
 	if expr := ret.Expression(); expr != nil {
 		// Compile the return expression
-		exprType, err := c.expr.Compile(expr)
+		exprType, err := expression.Compile(ctx, expr)
 		if err != nil {
 			return errors.Wrap(err, "failed to compile return expression")
 		}
-
-		// Add type conversion if needed (e.g., i64 literal to i32 return)
-		if c.ctx.Current.ReturnType != nil && needsConversion(exprType, c.ctx.Current.ReturnType) {
-			emitTypeConversion(c.enc, exprType, c.ctx.Current.ReturnType)
+		functionScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+		if err != nil {
+			return errors.Wrap(err, "failed to compile function declaration")
+		}
+		fType := functionScope.Symbol.Type.(types.Function)
+		if fType.Return != exprType {
+			expression.EmitCast(ctx, exprType, fType.Return)
 		}
 	}
 	// If no expression, it's a void return
-
 	// Emit return instruction
-	c.enc.WriteReturn()
-
+	ctx.Writer.WriteReturn()
 	return nil
 }
 
 // compileChannelOperation handles channel writes and piping
-func (c *Compiler) compileChannelOperation(chanOp parser.IChannelOperationContext) error {
+func compileChannelOperation(ctx *core.Context, chanOp parser.IChannelOperationContext) error {
 	if chanWrite := chanOp.ChannelWrite(); chanWrite != nil {
-		return c.compileChannelWrite(chanWrite)
+		return compileChannelWrite(ctx, chanWrite)
 	}
 
 	if chanRead := chanOp.ChannelRead(); chanRead != nil {
-		return c.compileChannelRead(chanRead)
+		return compileChannelRead(ctx, chanRead)
 	}
 
 	// Channel piping not yet supported in parser
@@ -126,7 +133,7 @@ func (c *Compiler) compileChannelOperation(chanOp parser.IChannelOperationContex
 }
 
 // compileChannelWrite handles value -> channel or channel <- value
-func (c *Compiler) compileChannelWrite(write parser.IChannelWriteContext) error {
+func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) error {
 	// Grammar: Expression '->' Identifier | Identifier '<-' Expression
 
 	var channelName string
@@ -141,43 +148,40 @@ func (c *Compiler) compileChannelWrite(write parser.IChannelWriteContext) error 
 	}
 
 	// Compile the value expression
-	valueType, err := c.expr.Compile(valueExpr)
+	valueType, err := expression.Compile(ctx, valueExpr)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile channel write value")
 	}
 
 	// Look up the channel to get its ID
-	_, err = c.ctx.Symbols.Get(channelName)
+	_, err = ctx.Scope.Get(channelName)
 	if err != nil {
 		return errors.Wrapf(err, "channel '%s' not found", channelName)
 	}
 
 	// Get channel ID from local (channels are passed as parameters)
-	chanIdx, ok := c.ctx.GetLocal(channelName)
-	if !ok {
+	_, chanIdx, err := ctx.Scope.GetIndex(channelName)
+	if err != nil {
 		return errors.Newf("channel '%s' not in local context", channelName)
 	}
-
 	// Push channel ID
-	c.enc.WriteLocalGet(chanIdx)
-
+	ctx.Writer.WriteLocalGet(chanIdx)
 	// Value is already on stack from expression compilation
 	// Call channel write function
-	importIdx := c.ctx.Imports.GetChannelWrite(valueType)
-	c.enc.WriteCall(importIdx)
-
+	importIdx := ctx.Imports.GetChannelWrite(valueType)
+	ctx.Writer.WriteCall(importIdx)
 	return nil
 }
 
 // compileChannelRead handles blocking reads: x := <-channel
-func (c *Compiler) compileChannelRead(read parser.IChannelReadContext) error {
+func compileChannelRead(ctx *core.Context, read parser.IChannelReadContext) error {
 	// This is handled as part of variable declaration
 	// The parser should not give us standalone channel reads as statements
 	return errors.New("standalone channel reads not implemented")
 }
 
 // compileFunctionCall handles function calls (may return a value)
-func (c *Compiler) compileFunctionCall(call parser.IFunctionCallContext) (types.Type, error) {
+func compileFunctionCall(ctx *core.Context, call parser.IFunctionCallContext) (types.Type, error) {
 	// TODO: Implement function calls
 	return nil, errors.New("function calls not yet implemented")
 }

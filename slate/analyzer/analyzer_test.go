@@ -10,7 +10,7 @@ import (
 )
 
 var _ = Describe("Analyzer", func() {
-	Describe("Duplicate Symbols", func() {
+	Describe("Duplicate Scope", func() {
 
 		It("Should correctly diagnose a duplicate function declaration", func() {
 			ast := MustSucceed(parser.Parse(`

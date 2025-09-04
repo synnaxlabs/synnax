@@ -10,6 +10,8 @@
 package symbol
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
@@ -18,6 +20,7 @@ import (
 
 type Kind int
 
+//go:generate stringer -type=Kind
 const (
 	KindVariable Kind = iota
 	KindStatefulVariable
@@ -93,19 +96,80 @@ func (s *Scope) AddSymbol(
 	return child, nil
 }
 
-func (s *Scope) Get(name string) (*Scope, error) {
-	for _, child := range s.Children {
+func (s *Scope) get(name string) (*Scope, int, error) {
+	for i, child := range s.Children {
 		if child.Symbol != nil && child.Symbol.Name == name {
-			return child, nil
+			return child, i, nil
 		}
 	}
 	if s.Parent == nil {
 		if s.GlobalResolver != nil {
 			if s, err := s.GlobalResolver.Resolve(name); err == nil {
-				return &Scope{Symbol: s}, nil
+				return &Scope{Symbol: s}, -1, nil
 			}
 		}
-		return nil, errors.Newf("undefined symbol: %s", name)
+		return nil, -1, errors.Newf("undefined symbol: %s", name)
 	}
-	return s.Parent.Get(name)
+	return s.Parent.get(name)
+}
+
+func (s *Scope) Get(name string) (*Scope, error) {
+	sym, _, err := s.get(name)
+	return sym, err
+}
+
+func (s *Scope) GetIndex(name string) (*Scope, int, error) {
+	return s.get(name)
+}
+
+func (s *Scope) String() string {
+	return s.stringWithIndent("")
+}
+
+func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
+	if s.Parent == nil {
+		return nil, errors.Newf("undefined symbol")
+	}
+	if s.Symbol != nil && s.Symbol.Kind == kind {
+		return s, nil
+	}
+	return s.Parent.ClosestAncestorOfKind(kind)
+}
+
+func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
+	for _, child := range s.Children {
+		if child.Symbol != nil && child.Symbol.Kind == kind {
+			return child, nil
+		}
+	}
+	return nil, errors.Newf("undefined symbol")
+}
+
+func (s *Scope) stringWithIndent(indent string) string {
+	builder := strings.Builder{}
+
+	if s.Symbol != nil {
+		builder.WriteString(indent)
+		builder.WriteString("name: ")
+		builder.WriteString(s.Symbol.Name)
+		builder.WriteString("\n")
+		builder.WriteString(indent)
+		builder.WriteString("kind: ")
+		builder.WriteString(s.Symbol.Kind.String())
+		builder.WriteString("\n")
+		builder.WriteString(indent)
+		builder.WriteString("type: ")
+		builder.WriteString(s.Symbol.Type.String())
+		builder.WriteString("\n")
+	} else {
+		builder.WriteString(indent)
+		builder.WriteString("block\n")
+	}
+
+	childIndent := indent + "  "
+	for _, child := range s.Children {
+		builder.WriteString(child.stringWithIndent(childIndent))
+	}
+
+	return builder.String()
 }

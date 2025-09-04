@@ -10,24 +10,28 @@
 package expression
 
 import (
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-func (e *Compiler) compileTypeCast(cast parser.ITypeCastContext) (types.Type, error) {
+func compileTypeCast(
+	ctx *core.Context,
+	cast parser.ITypeCastContext,
+) (types.Type, error) {
 	targetType := extractType(cast.Type_())
 	if targetType == nil {
 		return nil, errors.New("unknown cast target type")
 	}
 
-	sourceType, err := e.Compile(cast.Expression())
+	sourceType, err := Compile(ctx, cast.Expression())
 	if err != nil {
 		return nil, err
 	}
 
-	if err := e.emitCast(sourceType, targetType); err != nil {
+	if err := EmitCast(ctx, sourceType, targetType); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +71,7 @@ func extractType(typeCtx parser.ITypeContext) types.Type {
 	return nil
 }
 
-func (e *Compiler) emitCast(from, to types.Type) error {
+func EmitCast(ctx *core.Context, from, to types.Type) error {
 	fromWasm := MapType(from)
 	toWasm := MapType(to)
 
@@ -80,39 +84,39 @@ func (e *Compiler) emitCast(from, to types.Type) error {
 		switch toWasm {
 		case wasm.I64:
 			if types.IsSignedInteger(from) {
-				e.encoder.WriteOpcode(wasm.OpI64ExtendI32S)
+				ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpI64ExtendI32U)
+				ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32U)
 			}
 		case wasm.F32:
 			if types.IsSignedInteger(from) {
-				e.encoder.WriteOpcode(wasm.OpF32ConvertI32S)
+				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI32S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpF32ConvertI32U)
+				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI32U)
 			}
 		case wasm.F64:
 			if types.IsSignedInteger(from) {
-				e.encoder.WriteOpcode(wasm.OpF64ConvertI32S)
+				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI32S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpF64ConvertI32U)
+				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI32U)
 			}
 		}
 
 	case wasm.I64:
 		switch toWasm {
 		case wasm.I32:
-			e.encoder.WriteOpcode(wasm.OpI32WrapI64)
+			ctx.Writer.WriteOpcode(wasm.OpI32WrapI64)
 		case wasm.F32:
 			if types.IsSignedInteger(from) {
-				e.encoder.WriteOpcode(wasm.OpF32ConvertI64S)
+				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI64S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpF32ConvertI64U)
+				ctx.Writer.WriteOpcode(wasm.OpF32ConvertI64U)
 			}
 		case wasm.F64:
 			if types.IsSignedInteger(from) {
-				e.encoder.WriteOpcode(wasm.OpF64ConvertI64S)
+				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI64S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpF64ConvertI64U)
+				ctx.Writer.WriteOpcode(wasm.OpF64ConvertI64U)
 			}
 		}
 
@@ -120,36 +124,36 @@ func (e *Compiler) emitCast(from, to types.Type) error {
 		switch toWasm {
 		case wasm.I32:
 			if types.IsSignedInteger(to) {
-				e.encoder.WriteOpcode(wasm.OpI32TruncF32S)
+				ctx.Writer.WriteOpcode(wasm.OpI32TruncF32S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpI32TruncF32U)
+				ctx.Writer.WriteOpcode(wasm.OpI32TruncF32U)
 			}
 		case wasm.I64:
 			if types.IsSignedInteger(to) {
-				e.encoder.WriteOpcode(wasm.OpI64TruncF32S)
+				ctx.Writer.WriteOpcode(wasm.OpI64TruncF32S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpI64TruncF32U)
+				ctx.Writer.WriteOpcode(wasm.OpI64TruncF32U)
 			}
 		case wasm.F64:
-			e.encoder.WriteOpcode(wasm.OpF64PromoteF32)
+			ctx.Writer.WriteOpcode(wasm.OpF64PromoteF32)
 		}
 
 	case wasm.F64:
 		switch toWasm {
 		case wasm.I32:
 			if types.IsSignedInteger(to) {
-				e.encoder.WriteOpcode(wasm.OpI32TruncF64S)
+				ctx.Writer.WriteOpcode(wasm.OpI32TruncF64S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpI32TruncF64U)
+				ctx.Writer.WriteOpcode(wasm.OpI32TruncF64U)
 			}
 		case wasm.I64:
 			if types.IsSignedInteger(to) {
-				e.encoder.WriteOpcode(wasm.OpI64TruncF64S)
+				ctx.Writer.WriteOpcode(wasm.OpI64TruncF64S)
 			} else {
-				e.encoder.WriteOpcode(wasm.OpI64TruncF64U)
+				ctx.Writer.WriteOpcode(wasm.OpI64TruncF64U)
 			}
 		case wasm.F32:
-			e.encoder.WriteOpcode(wasm.OpF32DemoteF64)
+			ctx.Writer.WriteOpcode(wasm.OpF32DemoteF64)
 		}
 	}
 

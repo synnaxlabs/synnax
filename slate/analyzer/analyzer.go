@@ -134,17 +134,18 @@ func visitParams(
 				errors.Newf("duplicate parameter %s", paramName),
 				param,
 			)
+			return false
+		}
 
-			// Also add to scope for use within task body
-			if _, err := scope.AddSymbol(
-				paramName,
-				symbol.KindParam,
-				paramType,
-				param,
-			); err != nil {
-				result.AddError(err, param)
-				return false
-			}
+		// Also add to scope for use within task body
+		if _, err := scope.AddSymbol(
+			paramName,
+			symbol.KindParam,
+			paramType,
+			param,
+		); err != nil {
+			result.AddError(err, param)
+			return false
 		}
 	}
 	return true

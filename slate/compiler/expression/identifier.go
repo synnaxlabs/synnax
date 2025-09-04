@@ -11,86 +11,56 @@ package expression
 
 import (
 	"github.com/synnaxlabs/slate/analyzer/symbol"
+	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // compileIdentifier compiles variable references
-func (e *Compiler) compileIdentifier(name string) (types.Type, error) {
+func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
-	scope, err := e.ctx.Symbols.Get(name)
+	scope, idx, err := ctx.Scope.GetIndex(name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "identifier '%s' not found", name)
 	}
-	
+
 	if scope.Symbol == nil {
 		return nil, errors.Newf("identifier '%s' has no symbol information", name)
 	}
-	
+
 	sym := scope.Symbol
-	
+
 	switch sym.Kind {
-	case symbol.KindVariable, symbol.KindStatefulVariable:
-		// Local variable - should be in our local map
-		if idx, ok := e.ctx.GetLocal(name); ok {
-			e.encoder.WriteLocalGet(idx)
-			return sym.Type, nil
-		}
-		// If not in locals, it might be a stateful variable
-		if e.ctx.Current != nil && e.ctx.Current.IsTask {
-			if key, ok := e.ctx.GetStateful(name); ok {
-				// Load stateful variable
-				e.emitStatefulLoad(key, sym.Type)
-				return sym.Type, nil
-			}
-		}
-		return nil, errors.Newf("variable '%s' not found in local context", name)
-		
-	case symbol.KindParam:
-		// Function/task parameter - should be in locals
-		if idx, ok := e.ctx.GetLocal(name); ok {
-			e.encoder.WriteLocalGet(idx)
-			return sym.Type, nil
-		}
-		return nil, errors.Newf("parameter '%s' not found in local context", name)
-		
+	case symbol.KindVariable, symbol.KindParam:
+		ctx.Writer.WriteLocalGet(idx)
+		return sym.Type, nil
+	case symbol.KindStatefulVariable:
+		emitStatefulLoad(ctx, idx, sym.Type)
+		return sym.Type, nil
 	case symbol.KindChannel:
-		// Channel reference - for non-blocking read
-		if idx, ok := e.ctx.GetLocal(name); ok {
-			// Channel ID is stored as a local
-			e.encoder.WriteLocalGet(idx)
-			// Emit non-blocking channel read
-			e.emitChannelRead(sym.Type)
-			return sym.Type, nil
-		}
-		return nil, errors.Newf("channel '%s' not accessible", name)
-		
-	case symbol.KindFunction, symbol.KindTask:
-		// Functions and tasks can't be used as values
-		return nil, errors.Newf("'%s' is a %v and cannot be used as a value", 
-			name, sym.Kind)
-		
+		ctx.Writer.WriteLocalGet(idx)
+		emitChannelRead(ctx, sym.Type)
+		return sym.Type, nil
 	default:
 		return nil, errors.Newf("unsupported symbol kind: %v for '%s'", sym.Kind, name)
 	}
 }
 
 // emitStatefulLoad emits code to load a stateful variable
-func (e *Compiler) emitStatefulLoad(key uint32, t types.Type) {
+func emitStatefulLoad(ctx *core.Context, idx int, t types.Type) {
 	// Push task ID (0 for now - would be provided at runtime)
-	e.encoder.WriteI32Const(0)
+	ctx.Writer.WriteI32Const(0)
 	// Push variable key
-	e.encoder.WriteI32Const(int32(key))
-	
+	ctx.Writer.WriteI32Const(int32(idx))
 	// Call appropriate state load function based on type
-	importIdx := e.ctx.Imports.GetStateLoad(t)
-	e.encoder.WriteCall(importIdx)
+	importIdx := ctx.Imports.GetStateLoad(t)
+	ctx.Writer.WriteCall(importIdx)
 }
 
 // emitChannelRead emits code for non-blocking channel read
-func (e *Compiler) emitChannelRead(t types.Type) {
+func emitChannelRead(ctx *core.Context, t types.Type) {
 	// Stack has channel ID
 	// Call appropriate channel read function based on type
-	importIdx := e.ctx.Imports.GetChannelRead(t)
-	e.encoder.WriteCall(importIdx)
+	importIdx := ctx.Imports.GetChannelRead(t)
+	ctx.Writer.WriteCall(importIdx)
 }

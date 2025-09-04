@@ -7,12 +7,12 @@ import (
 	"github.com/synnaxlabs/slate/compiler/wasm"
 )
 
-var _ = Describe("WASM Encoder", func() {
+var _ = Describe("WASM Writer", func() {
 	Describe("Instruction Encoding", func() {
 		var encoder *wasm.Encoder
 
 		BeforeEach(func() {
-			encoder = wasm.NewEncoder()
+			encoder = wasm.NewWriter()
 		})
 
 		Context("Constant Instructions", func() {
