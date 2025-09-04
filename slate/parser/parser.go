@@ -52,3 +52,35 @@ func ParseExpression(source string) (IExpressionContext, error) {
 	}
 	return tree, nil
 }
+
+// ParseStatement parses a single statement
+func ParseStatement(source string) (IStatementContext, error) {
+	input := antlr.NewInputStream(source)
+	lexer := NewSlateLexer(input)
+	stream := antlr.NewCommonTokenStream(lexer, 0)
+	parser := NewSlateParser(stream)
+	errorListener := &ErrorListener{}
+	parser.RemoveErrorListeners()
+	parser.AddErrorListener(errorListener)
+	tree := parser.Statement()
+	if errorListener.HasErrors() {
+		return nil, fmt.Errorf("parse errors: %v", errorListener.Errors)
+	}
+	return tree, nil
+}
+
+// ParseBlock parses a block of statements
+func ParseBlock(source string) (IBlockContext, error) {
+	input := antlr.NewInputStream(source)
+	lexer := NewSlateLexer(input)
+	stream := antlr.NewCommonTokenStream(lexer, 0)
+	parser := NewSlateParser(stream)
+	errorListener := &ErrorListener{}
+	parser.RemoveErrorListeners()
+	parser.AddErrorListener(errorListener)
+	tree := parser.Block()
+	if errorListener.HasErrors() {
+		return nil, fmt.Errorf("parse errors: %v", errorListener.Errors)
+	}
+	return tree, nil
+}

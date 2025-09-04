@@ -193,16 +193,21 @@ func (e *Encoder) WriteLEB128Unsigned(val uint64) {
 func (e *Encoder) WriteLEB128Signed(val int64) {
 	for {
 		b := byte(val & 0x7f)
+		// Sign bit of byte is second high bit (0x40)
+		signBit := b & 0x40
+		
+		// Shift val by 7 to get next group
 		val >>= 7
-
-		// Sign bit of byte is second high order bit
-		signBit := (b & 0x40) != 0
-
-		if (val == 0 && !signBit) || (val == -1 && signBit) {
+		
+		// Check if we're done:
+		// - If val is 0 and sign bit is 0, we're done (positive number)
+		// - If val is -1 and sign bit is 1, we're done (negative number)
+		// - Otherwise we need more bytes
+		if (val == 0 && signBit == 0) || (val == -1 && signBit != 0) {
 			e.buf.WriteByte(b)
 			break
 		}
-
+		
 		e.buf.WriteByte(b | 0x80)
 	}
 }

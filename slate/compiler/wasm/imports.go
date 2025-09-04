@@ -239,3 +239,95 @@ func getWASMType(typeSuffix string) ValueType {
 		return I32 // Default for handles
 	}
 }
+
+// GetChannelRead returns the import index for a channel read function
+func (idx *ImportIndex) GetChannelRead(t interface{}) uint32 {
+	suffix := getTypeSuffix(t)
+	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
+		return funcIdx
+	}
+	panic(fmt.Sprintf("no channel read function for type %v", t))
+}
+
+// GetChannelWrite returns the import index for a channel write function
+func (idx *ImportIndex) GetChannelWrite(t interface{}) uint32 {
+	suffix := getTypeSuffix(t)
+	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
+		return funcIdx
+	}
+	panic(fmt.Sprintf("no channel write function for type %v", t))
+}
+
+// GetStateLoad returns the import index for a state load function
+func (idx *ImportIndex) GetStateLoad(t interface{}) uint32 {
+	suffix := getTypeSuffix(t)
+	if funcIdx, ok := idx.StateLoad[suffix]; ok {
+		return funcIdx
+	}
+	panic(fmt.Sprintf("no state load function for type %v", t))
+}
+
+// GetStateStore returns the import index for a state store function
+func (idx *ImportIndex) GetStateStore(t interface{}) uint32 {
+	suffix := getTypeSuffix(t)
+	if funcIdx, ok := idx.StateStore[suffix]; ok {
+		return funcIdx
+	}
+	panic(fmt.Sprintf("no state store function for type %v", t))
+}
+
+// getTypeSuffix returns the type suffix string for import lookups
+func getTypeSuffix(t interface{}) string {
+	// If it's already a string, use it directly
+	if s, ok := t.(string); ok {
+		return s
+	}
+	
+	// Otherwise get the string representation and extract the type name
+	typeStr := fmt.Sprintf("%T", t)
+	
+	// Remove package prefix if present
+	if idx := len("types."); idx < len(typeStr) && typeStr[:idx] == "types." {
+		typeStr = typeStr[idx:]
+	}
+	
+	// Remove struct suffix
+	if len(typeStr) > 2 && typeStr[len(typeStr)-2:] == "{}" {
+		typeStr = typeStr[:len(typeStr)-2]
+	}
+	
+	// Convert to lowercase
+	switch typeStr {
+	case "I8":
+		return "i8"
+	case "I16":
+		return "i16"
+	case "I32":
+		return "i32"
+	case "I64":
+		return "i64"
+	case "U8":
+		return "u8"
+	case "U16":
+		return "u16"
+	case "U32":
+		return "u32"
+	case "U64":
+		return "u64"
+	case "F32":
+		return "f32"
+	case "F64":
+		return "f64"
+	case "String":
+		return "string"
+	case "TimeStamp", "TimeSpan":
+		return "i64"
+	default:
+		// For channels, extract the element type
+		if len(typeStr) > 5 && typeStr[:5] == "Chan[" {
+			// Extract element type
+			return "i32" // Placeholder - would need proper parsing
+		}
+		return "i32" // Default
+	}
+}

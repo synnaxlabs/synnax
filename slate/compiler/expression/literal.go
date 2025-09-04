@@ -44,7 +44,6 @@ func (e *Compiler) compileNumericLiteral(num parser.INumericLiteralContext) (typ
 		e.encoder.WriteI64Const(value)
 		return types.I64{}, nil
 	}
-
 	if floatLit := num.FLOAT_LITERAL(); floatLit != nil {
 		text := floatLit.GetText()
 		value, err := strconv.ParseFloat(text, 64)
@@ -54,6 +53,5 @@ func (e *Compiler) compileNumericLiteral(num parser.INumericLiteralContext) (typ
 		e.encoder.WriteF64Const(value)
 		return types.F64{}, nil
 	}
-
 	return nil, errors.New("unknown numeric literal")
 }

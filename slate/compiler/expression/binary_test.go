@@ -9,213 +9,369 @@ package expression_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/types"
 )
 
 var _ = Describe("Binary Operations", func() {
-	Describe("Arithmetic Operations", func() {
-		Context("Addition", func() {
-			It("Should compile i32 addition", func() {
-				bytecode, exprType := compileExpression("10i32 + 20i32")
-				// i32.const 10, i32.const 20, i32.add
-				Expect(bytecode).To(Equal(hexToBytes("41 0a 41 14 6a")))
-				Expect(exprType).To(Equal("i32"))
-			})
+	DescribeTable("should compile binary expressions correctly",
+		expectExpression,
 
-			It("Should compile i64 addition", func() {
-				bytecode, exprType := compileExpression("100 + 200")
-				// i64.const 100, i64.const 200, i64.add
-				Expect(bytecode).To(Equal(hexToBytes("42 e4 00 42 c8 01 7c")))
-				Expect(exprType).To(Equal("i64"))
-			})
+		// Arithmetic Operations - Addition
+		Entry(
+			"i32 addition",
+			"i32(10) + i32(20)",
+			types.I32{},
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI32Add,
+		),
 
-			It("Should compile f32 addition", func() {
-				bytecode, exprType := compileExpression("1.5f32 + 2.5f32")
-				// f32.const 1.5, f32.const 2.5, f32.add
-				Expect(bytecode).To(Equal(hexToBytes("43 00 00 c0 3f 43 00 00 20 40 92")))
-				Expect(exprType).To(Equal("f32"))
-			})
+		Entry(
+			"i64 addition",
+			"100 + 200",
+			types.I64{},
+			OpI64Const,
+			int64(100),
+			OpI64Const,
+			int64(200),
+			OpI64Add,
+		),
 
-			It("Should compile f64 addition", func() {
-				bytecode, exprType := compileExpression("1.5 + 2.5")
-				// f64.const 1.5, f64.const 2.5, f64.add
-				Expect(bytecode).To(Equal(hexToBytes("44 00 00 00 00 00 00 f8 3f 44 00 00 00 00 00 00 04 40 a0")))
-				Expect(exprType).To(Equal("f64"))
-			})
+		Entry(
+			"f32 addition",
+			"f32(1.5) + f32(2.5)",
+			types.F32{},
+			OpF64Const,
+			float64(1.5),
+			OpF32DemoteF64,
+			OpF64Const,
+			float64(2.5),
+			OpF32DemoteF64,
+			OpF32Add,
+		),
 
-			It("Should compile multiple additions (left-associative)", func() {
-				bytecode, exprType := compileExpression("1i32 + 2i32 + 3i32")
-				// i32.const 1, i32.const 2, i32.add, i32.const 3, i32.add
-				Expect(bytecode).To(Equal(hexToBytes("41 01 41 02 6a 41 03 6a")))
-				Expect(exprType).To(Equal("i32"))
-			})
-		})
+		Entry(
+			"f64 addition",
+			"1.5 + 2.5",
+			types.F64{},
+			OpF64Const,
+			float64(1.5),
+			OpF64Const,
+			float64(2.5),
+			OpF64Add,
+		),
 
-		Context("Subtraction", func() {
-			It("Should compile i32 subtraction", func() {
-				bytecode, exprType := compileExpression("20i32 - 10i32")
-				// i32.const 20, i32.const 10, i32.sub
-				Expect(bytecode).To(Equal(hexToBytes("41 14 41 0a 6b")))
-				Expect(exprType).To(Equal("i32"))
-			})
+		Entry(
+			"multiple additions (left-associative)",
+			"i32(1) + i32(2) + i32(3)",
+			types.I32{},
+			OpI64Const,
+			int64(1),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(2),
+			OpI32WrapI64,
+			OpI32Add,
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI32Add,
+		),
 
-			It("Should compile f64 subtraction", func() {
-				bytecode, exprType := compileExpression("5.0 - 2.0")
-				// f64.const 5.0, f64.const 2.0, f64.sub
-				Expect(bytecode).To(Equal(hexToBytes("44 00 00 00 00 00 00 14 40 44 00 00 00 00 00 00 00 40 a1")))
-				Expect(exprType).To(Equal("f64"))
-			})
-		})
+		// Arithmetic Operations - Subtraction
+		Entry(
+			"i32 subtraction",
+			"i32(20) - i32(10)",
+			types.I32{},
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI32Sub,
+		),
 
-		Context("Multiplication", func() {
-			It("Should compile i32 multiplication", func() {
-				bytecode, exprType := compileExpression("3i32 * 4i32")
-				// i32.const 3, i32.const 4, i32.mul
-				Expect(bytecode).To(Equal(hexToBytes("41 03 41 04 6c")))
-				Expect(exprType).To(Equal("i32"))
-			})
+		Entry(
+			"f64 subtraction",
+			"5.0 - 2.0",
+			types.F64{},
+			OpF64Const,
+			float64(5.0),
+			OpF64Const,
+			float64(2.0),
+			OpF64Sub,
+		),
 
-			It("Should compile f64 multiplication", func() {
-				bytecode, exprType := compileExpression("2.5 * 4.0")
-				// f64.const 2.5, f64.const 4.0, f64.mul
-				Expect(bytecode).To(Equal(hexToBytes("44 00 00 00 00 00 00 04 40 44 00 00 00 00 00 00 10 40 a2")))
-				Expect(exprType).To(Equal("f64"))
-			})
-		})
+		// Arithmetic Operations - Multiplication
+		Entry(
+			"i32 multiplication",
+			"i32(3) * i32(4)",
+			types.I32{},
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32Mul,
+		),
 
-		Context("Division", func() {
-			It("Should compile signed i32 division", func() {
-				bytecode, exprType := compileExpression("20i32 / 4i32")
-				// i32.const 20, i32.const 4, i32.div_s
-				Expect(bytecode).To(Equal(hexToBytes("41 14 41 04 6d")))
-				Expect(exprType).To(Equal("i32"))
-			})
+		Entry(
+			"f64 multiplication",
+			"2.5 * 4.0",
+			types.F64{},
+			OpF64Const,
+			float64(2.5),
+			OpF64Const,
+			float64(4.0),
+			OpF64Mul,
+		),
 
-			It("Should compile unsigned u32 division", func() {
-				bytecode, exprType := compileExpression("20u32 / 4u32")
-				// i32.const 20, i32.const 4, i32.div_u
-				Expect(bytecode).To(Equal(hexToBytes("41 14 41 04 6e")))
-				Expect(exprType).To(Equal("u32"))
-			})
+		// Arithmetic Operations - Division
+		Entry(
+			"signed i32 division",
+			"i32(20) / i32(4)",
+			types.I32{},
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32DivS,
+		),
 
-			It("Should compile f64 division", func() {
-				bytecode, exprType := compileExpression("10.0 / 2.0")
-				// f64.const 10.0, f64.const 2.0, f64.div
-				Expect(bytecode).To(Equal(hexToBytes("44 00 00 00 00 00 00 24 40 44 00 00 00 00 00 00 00 40 a3")))
-				Expect(exprType).To(Equal("f64"))
-			})
-		})
+		Entry(
+			"unsigned u32 division",
+			"u32(20) / u32(4)",
+			types.U32{},
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32DivU,
+		),
 
-		Context("Modulo", func() {
-			It("Should compile signed i32 modulo", func() {
-				bytecode, exprType := compileExpression("17i32 % 5i32")
-				// i32.const 17, i32.const 5, i32.rem_s
-				Expect(bytecode).To(Equal(hexToBytes("41 11 41 05 6f")))
-				Expect(exprType).To(Equal("i32"))
-			})
+		Entry(
+			"f64 division",
+			"10.0 / 2.0",
+			types.F64{},
+			OpF64Const,
+			float64(10.0),
+			OpF64Const,
+			float64(2.0),
+			OpF64Div,
+		),
 
-			It("Should compile unsigned u32 modulo", func() {
-				bytecode, exprType := compileExpression("17u32 % 5u32")
-				// i32.const 17, i32.const 5, i32.rem_u
-				Expect(bytecode).To(Equal(hexToBytes("41 11 41 05 70")))
-				Expect(exprType).To(Equal("u32"))
-			})
-		})
+		// Arithmetic Operations - Modulo
+		Entry(
+			"signed i32 modulo",
+			"i32(17) % i32(5)",
+			types.I32{},
+			OpI64Const,
+			int64(17),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(5),
+			OpI32WrapI64,
+			OpI32RemS,
+		),
 
-		Context("Operator Precedence", func() {
-			It("Should respect multiplication over addition", func() {
-				bytecode, exprType := compileExpression("2i32 + 3i32 * 4i32")
-				// i32.const 2, i32.const 3, i32.const 4, i32.mul, i32.add
-				Expect(bytecode).To(Equal(hexToBytes("41 02 41 03 41 04 6c 6a")))
-				Expect(exprType).To(Equal("i32"))
-			})
+		Entry(
+			"unsigned u32 modulo",
+			"u32(17) % u32(5)",
+			types.U32{},
+			OpI64Const,
+			int64(17),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(5),
+			OpI32WrapI64,
+			OpI32RemU,
+		),
 
-			It("Should respect parentheses", func() {
-				bytecode, exprType := compileExpression("(2i32 + 3i32) * 4i32")
-				// i32.const 2, i32.const 3, i32.add, i32.const 4, i32.mul
-				Expect(bytecode).To(Equal(hexToBytes("41 02 41 03 6a 41 04 6c")))
-				Expect(exprType).To(Equal("i32"))
-			})
-		})
-	})
+		// Operator Precedence
+		Entry(
+			"multiplication over addition",
+			"i32(2) + i32(3) * i32(4)",
+			types.I32{},
+			OpI64Const,
+			int64(2),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32Mul,
+			OpI32Add,
+		),
 
-	Describe("Comparison Operations", func() {
-		Context("Equality", func() {
-			It("Should compile i32 equality", func() {
-				bytecode, exprType := compileExpression("10i32 == 10i32")
-				// i32.const 10, i32.const 10, i32.eq
-				Expect(bytecode).To(Equal(hexToBytes("41 0a 41 0a 46")))
-				Expect(exprType).To(Equal("u8")) // Returns boolean
-			})
+		Entry(
+			"parentheses precedence",
+			"(i32(2) + i32(3)) * i32(4)",
+			types.I32{},
+			OpI64Const,
+			int64(2),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI32Add,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32Mul,
+		),
 
-			It("Should compile f64 equality", func() {
-				bytecode, exprType := compileExpression("3.14 == 3.14")
-				// f64.const 3.14, f64.const 3.14, f64.eq
-				expectedBytes := hexToBytes("44 1f 85 eb 51 b8 1e 09 40 44 1f 85 eb 51 b8 1e 09 40 61")
-				Expect(bytecode).To(Equal(expectedBytes))
-				Expect(exprType).To(Equal("u8"))
-			})
+		// Comparison Operations - Equality
+		Entry(
+			"i32 equality",
+			"i32(10) == i32(10)",
+			types.U8{},
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI32Eq,
+		),
 
-			It("Should compile i32 inequality", func() {
-				bytecode, exprType := compileExpression("10i32 != 20i32")
-				// i32.const 10, i32.const 20, i32.ne
-				Expect(bytecode).To(Equal(hexToBytes("41 0a 41 14 47")))
-				Expect(exprType).To(Equal("u8"))
-			})
-		})
+		Entry(
+			"f64 equality",
+			"3.14 == 3.14",
+			types.U8{},
+			OpF64Const,
+			float64(3.14),
+			OpF64Const,
+			float64(3.14),
+			OpF64Eq,
+		),
 
-		Context("Relational", func() {
-			It("Should compile signed i32 less than", func() {
-				bytecode, exprType := compileExpression("5i32 < 10i32")
-				// i32.const 5, i32.const 10, i32.lt_s
-				Expect(bytecode).To(Equal(hexToBytes("41 05 41 0a 48")))
-				Expect(exprType).To(Equal("u8"))
-			})
+		Entry(
+			"i32 inequality",
+			"i32(10) != i32(20)",
+			types.U8{},
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI32Ne,
+		),
 
-			It("Should compile unsigned u32 less than", func() {
-				bytecode, exprType := compileExpression("5u32 < 10u32")
-				// i32.const 5, i32.const 10, i32.lt_u
-				Expect(bytecode).To(Equal(hexToBytes("41 05 41 0a 49")))
-				Expect(exprType).To(Equal("u8"))
-			})
+		// Comparison Operations - Relational
+		Entry(
+			"signed i32 less than",
+			"i32(5) < i32(10)",
+			types.U8{},
+			OpI64Const,
+			int64(5),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI32LtS,
+		),
 
-			It("Should compile f64 greater than", func() {
-				bytecode, exprType := compileExpression("5.0 > 2.0")
-				// f64.const 5.0, f64.const 2.0, f64.gt
-				Expect(bytecode).To(Equal(hexToBytes("44 00 00 00 00 00 00 14 40 44 00 00 00 00 00 00 00 40 64")))
-				Expect(exprType).To(Equal("u8"))
-			})
+		Entry(
+			"unsigned u32 less than",
+			"u32(5) < u32(10)",
+			types.U8{},
+			OpI64Const,
+			int64(5),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI32LtU,
+		),
 
-			It("Should compile less than or equal", func() {
-				bytecode, exprType := compileExpression("3i32 <= 3i32")
-				// i32.const 3, i32.const 3, i32.le_s
-				Expect(bytecode).To(Equal(hexToBytes("41 03 41 03 4c")))
-				Expect(exprType).To(Equal("u8"))
-			})
+		Entry(
+			"f64 greater than",
+			"5.0 > 2.0",
+			types.U8{},
+			OpF64Const,
+			float64(5.0),
+			OpF64Const,
+			float64(2.0),
+			OpF64Gt,
+		),
 
-			It("Should compile greater than or equal", func() {
-				bytecode, exprType := compileExpression("10i32 >= 5i32")
-				// i32.const 10, i32.const 5, i32.ge_s
-				Expect(bytecode).To(Equal(hexToBytes("41 0a 41 05 4e")))
-				Expect(exprType).To(Equal("u8"))
-			})
-		})
-	})
+		Entry(
+			"less than or equal",
+			"i32(3) <= i32(3)",
+			types.U8{},
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI32LeS,
+		),
 
-	Describe("Complex Expressions", func() {
-		It("Should compile nested arithmetic", func() {
-			bytecode, exprType := compileExpression("(10i32 + 20i32) * (30i32 - 10i32)")
-			// (10 + 20) * (30 - 10)
-			// i32.const 10, i32.const 20, i32.add, i32.const 30, i32.const 10, i32.sub, i32.mul
-			Expect(bytecode).To(Equal(hexToBytes("41 0a 41 14 6a 41 1e 41 0a 6b 6c")))
-			Expect(exprType).To(Equal("i32"))
-		})
+		Entry(
+			"greater than or equal",
+			"i32(10) >= i32(5)",
+			types.U8{},
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(5),
+			OpI32WrapI64,
+			OpI32GeS,
+		),
 
-		It("Should compile comparison with arithmetic", func() {
-			bytecode, exprType := compileExpression("2i32 + 3i32 > 4i32")
-			// i32.const 2, i32.const 3, i32.add, i32.const 4, i32.gt_s
-			Expect(bytecode).To(Equal(hexToBytes("41 02 41 03 6a 41 04 4a")))
-			Expect(exprType).To(Equal("u8"))
-		})
-	})
+		// Complex Expressions
+		Entry(
+			"nested arithmetic",
+			"(i32(10) + i32(20)) * (i32(30) - i32(10))",
+			types.I32{},
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(20),
+			OpI32WrapI64,
+			OpI32Add,
+			OpI64Const,
+			int64(30),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(10),
+			OpI32WrapI64,
+			OpI32Sub,
+			OpI32Mul,
+		),
+
+		Entry(
+			"comparison with arithmetic",
+			"(i32(2) + i32(3)) > i32(4)",
+			types.U8{},
+			OpI64Const,
+			int64(2),
+			OpI32WrapI64,
+			OpI64Const,
+			int64(3),
+			OpI32WrapI64,
+			OpI32Add,
+			OpI64Const,
+			int64(4),
+			OpI32WrapI64,
+			OpI32GtS,
+		),
+	)
 })

@@ -251,3 +251,12 @@ var UnsignedIntegers = []Type{U8{}, U16{}, U32{}, U64{}}
 var SignedIntegers = []Type{I8{}, I16{}, I32{}, I64{}}
 var Floats = []Type{F32{}, F64{}}
 var Temporals = []Type{TimeStamp{}, TimeSpan{}}
+
+func Is64Bit(t Type) bool {
+	switch t {
+	case I64{}, U64{}, TimeStamp{}, TimeSpan{}, F64{}:
+		return true
+	default:
+		return false
+	}
+}

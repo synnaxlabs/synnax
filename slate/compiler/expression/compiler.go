@@ -28,6 +28,11 @@ func NewCompiler(ctx *compiler.Context) *Compiler {
 	return &Compiler{ctx: ctx, encoder: wasm.NewEncoder()}
 }
 
+// NewCompilerWithEncoder creates a new expression compiler with a specific encoder
+func NewCompilerWithEncoder(ctx *compiler.Context, encoder *wasm.Encoder) *Compiler {
+	return &Compiler{ctx: ctx, encoder: encoder}
+}
+
 func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	if len(exprs) == 0 {
 		panic(errors.Newf("cannot compile an empty %s expression", opName))
@@ -73,7 +78,7 @@ func (e *Compiler) compileLogicalOr(expr parser.ILogicalOrExpressionContext) (ty
 	if len(ands) == 1 {
 		return e.compileLogicalAnd(ands[0])
 	}
-	return e.compileLogicalAnd(ands[0])
+	return e.compileLogicalOrImpl(expr)
 }
 
 // compileLogicalAnd handles && operations
@@ -82,7 +87,7 @@ func (e *Compiler) compileLogicalAnd(expr parser.ILogicalAndExpressionContext) (
 	if len(eqs) == 1 {
 		return e.compileEquality(eqs[0])
 	}
-	return e.compileEquality(eqs[0])
+	return e.compileLogicalAndImpl(expr)
 }
 
 // compileEquality handles == and != operations
@@ -157,7 +162,7 @@ func (e *Compiler) compilePrimary(expr parser.IPrimaryExpressionContext) (types.
 		return e.Compile(expr.Expression())
 	}
 	if cast := expr.TypeCast(); cast != nil {
-		return nil, errors.New("type cast not yet implemented")
+		return e.compileTypeCast(cast)
 	}
 	if builtin := expr.BuiltinFunction(); builtin != nil {
 		return nil, errors.New("builtin functions not yet implemented")

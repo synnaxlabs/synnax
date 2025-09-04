@@ -17,7 +17,6 @@ import (
 // compileBinaryAdditive handles + and - operations
 func (e *Compiler) compileBinaryAdditive(expr parser.IAdditiveExpressionContext) (types.Type, error) {
 	muls := expr.AllMultiplicativeExpression()
-	// Compile first operand
 	resultType, err := e.compileMultiplicative(muls[0])
 	if err != nil {
 		return nil, err

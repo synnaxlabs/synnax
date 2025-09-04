@@ -10,8 +10,9 @@
 package expression
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/types"
@@ -19,21 +20,17 @@ import (
 
 // MapType converts a Slate type to a WASM value type
 func MapType(t types.Type) wasm.ValueType {
-	typeStr := t.String()
-	switch typeStr {
-	// Small integers all use i32 in WASM
-	case "i8", "i16", "i32", "u8", "u16", "u32":
+	switch t {
+	case types.I8{}, types.I16{}, types.I32{}, types.U8{}, types.U16{}, types.U32{}:
 		return wasm.I32
-	// 64-bit integers
-	case "i64", "u64", "timestamp", "timespan":
+	case types.I64{}, types.U64{}, types.TimeStamp{}, types.TimeSpan{}:
 		return wasm.I64
-	// Floats
-	case "f32":
+	case types.F32{}:
 		return wasm.F32
-	case "f64":
+	case types.F64{}:
 		return wasm.F64
-	// Channels, strings, series all use handles (i32)
 	default:
+		typeStr := t.String()
 		if strings.HasPrefix(typeStr, "chan ") ||
 			strings.HasPrefix(typeStr, "<-chan ") ||
 			strings.HasPrefix(typeStr, "->chan ") ||
@@ -41,31 +38,14 @@ func MapType(t types.Type) wasm.ValueType {
 			typeStr == "string" {
 			return wasm.I32 // Handle
 		}
-		// Unknown type - default to i32
 		return wasm.I32
 	}
 }
 
 // GetBinaryOpcode returns the WASM opcode for a binary operation
 func GetBinaryOpcode(op string, t types.Type) (wasm.Opcode, error) {
-	typeStr := t.String()
-	// Determine base type for the operation
-	var isFloat bool
-	var is64bit bool
-	switch typeStr {
-	case "f32":
-		isFloat = true
-		is64bit = false
-	case "f64":
-		isFloat = true
-		is64bit = true
-	case "i64", "u64", "timestamp", "timespan":
-		is64bit = true
-		isFloat = false
-	default:
-		is64bit = false
-		isFloat = false
-	}
+	isFloat := types.IsFloat(t)
+	is64bit := types.Is64Bit(t)
 	switch op {
 	case "+":
 		if isFloat {
@@ -94,189 +74,150 @@ func GetBinaryOpcode(op string, t types.Type) (wasm.Opcode, error) {
 	case "*":
 		if isFloat {
 			if is64bit {
-				return 0xa2, nil // f64.mul
+				return wasm.OpF64Mul, nil
 			}
-			return 0x94, nil // f32.mul
+			return wasm.OpF32Mul, nil
 		}
 		if is64bit {
-			return 0x7e, nil // i64.mul
+			return wasm.OpI64Mul, nil
 		}
-		return 0x6c, nil // i32.mul
+		return wasm.OpI32Mul, nil
 
 	case "/":
 		if isFloat {
 			if is64bit {
-				return 0xa3, nil // f64.div
+				return wasm.OpF64Div, nil
 			}
-			return 0x95, nil // f32.div
+			return wasm.OpF32Div, nil
 		}
 		// Integer division - need to check if signed or unsigned
-		if strings.HasPrefix(typeStr, "u") {
+		if types.IsUnsignedInteger(t) {
 			if is64bit {
-				return 0x80, nil // i64.div_u
+				return wasm.OpI64DivU, nil
 			}
-			return 0x6e, nil // i32.div_u
+			return wasm.OpI32DivU, nil
 		}
 		if is64bit {
-			return 0x7f, nil // i64.div_s
+			return wasm.OpI64DivS, nil
 		}
-		return 0x6d, nil // i32.div_s
+		return wasm.OpI32DivS, nil
 
 	case "%":
 		// Modulo - integers only
 		if isFloat {
 			// Float modulo would need a host function call
-			return 0, fmt.Errorf("float modulo not yet implemented")
+			return 0, errors.New("float modulo not yet implemented")
 		}
-		if strings.HasPrefix(typeStr, "u") {
+		if strings.HasPrefix(t.String(), "u") {
 			if is64bit {
-				return 0x82, nil // i64.rem_u
+				return wasm.OpI64RemU, nil
 			}
-			return 0x70, nil // i32.rem_u
+			return wasm.OpI32RemU, nil
 		}
 		if is64bit {
-			return 0x81, nil // i64.rem_s
+			return wasm.OpI64RemS, nil
 		}
-		return 0x6f, nil // i32.rem_s
+		return wasm.OpI32RemS, nil
 
 	case "==":
 		if isFloat {
 			if is64bit {
-				return 0x61, nil // f64.eq
+				return wasm.OpF64Eq, nil
 			}
-			return 0x5b, nil // f32.eq
+			return wasm.OpF32Eq, nil
 		}
 		if is64bit {
-			return 0x51, nil // i64.eq
+			return wasm.OpI64Eq, nil
 		}
-		return 0x46, nil // i32.eq
+		return wasm.OpI32Eq, nil
 
 	case "!=":
 		if isFloat {
 			if is64bit {
-				return 0x62, nil // f64.ne
+				return wasm.OpF64Ne, nil
 			}
-			return 0x5c, nil // f32.ne
+			return wasm.OpF32Ne, nil
 		}
 		if is64bit {
-			return 0x52, nil // i64.ne
+			return wasm.OpI64Ne, nil
 		}
-		return 0x47, nil // i32.ne
+		return wasm.OpI32Ne, nil
 
 	case "<":
 		if isFloat {
 			if is64bit {
-				return 0x63, nil // f64.lt
+				return wasm.OpF64Lt, nil
 			}
-			return 0x5d, nil // f32.lt
+			return wasm.OpF32Lt, nil
 		}
-		if strings.HasPrefix(typeStr, "u") {
+		if types.IsUnsignedInteger(t) {
 			if is64bit {
-				return 0x53, nil // i64.lt_u
+				return wasm.OpI64LtU, nil
 			}
-			return 0x49, nil // i32.lt_u
+			return wasm.OpI32LtU, nil
 		}
 		if is64bit {
-			return 0x54, nil // i64.lt_s
+			return wasm.OpI64LtS, nil
 		}
-		return 0x48, nil // i32.lt_s
+		return wasm.OpI32LtS, nil
 
 	case ">":
 		if isFloat {
 			if is64bit {
-				return 0x64, nil // f64.gt
+				return wasm.OpF64Gt, nil
 			}
-			return 0x5e, nil // f32.gt
+			return wasm.OpF32Gt, nil
 		}
-		if strings.HasPrefix(typeStr, "u") {
+		if types.IsUnsignedInteger(t) {
 			if is64bit {
-				return 0x55, nil // i64.gt_u
+				return wasm.OpI64GtU, nil
 			}
-			return 0x4b, nil // i32.gt_u
+			return wasm.OpI32GtU, nil
 		}
 		if is64bit {
-			return 0x56, nil // i64.gt_s
+			return wasm.OpI64GtS, nil
 		}
-		return 0x4a, nil // i32.gt_s
+		return wasm.OpI32GtS, nil
 
 	case "<=":
 		if isFloat {
 			if is64bit {
-				return 0x65, nil // f64.le
+				return wasm.OpF64Le, nil
 			}
-			return 0x5f, nil // f32.le
+			return wasm.OpF32Le, nil
 		}
-		if strings.HasPrefix(typeStr, "u") {
+		if types.IsUnsignedInteger(t) {
 			if is64bit {
-				return 0x57, nil // i64.le_u
+				return wasm.OpI64LeU, nil
 			}
-			return 0x4d, nil // i32.le_u
+			return wasm.OpI32LeU, nil
 		}
 		if is64bit {
-			return 0x58, nil // i64.le_s
+			return wasm.OpI64LeS, nil
 		}
-		return 0x4c, nil // i32.le_s
+		return wasm.OpI32LeS, nil
 
 	case ">=":
 		if isFloat {
 			if is64bit {
-				return 0x66, nil // f64.ge
+				return wasm.OpF64Ge, nil
 			}
-			return 0x60, nil // f32.ge
+			return wasm.OpF32Ge, nil
 		}
-		if strings.HasPrefix(typeStr, "u") {
+		if types.IsUnsignedInteger(t) {
 			if is64bit {
-				return 0x59, nil // i64.ge_u
+				return wasm.OpI64GeU, nil
 			}
-			return 0x4f, nil // i32.ge_u
+			return wasm.OpI32GeU, nil
 		}
 		if is64bit {
-			return 0x5a, nil // i64.ge_s
+			return wasm.OpI64GeS, nil
 		}
-		return 0x4e, nil // i32.ge_s
-
-	case "&&", "||":
-		// Logical operations - need special handling
-		// These should normalize to 0 or 1 (u8)
-		return 0, fmt.Errorf("logical operations need special handling")
-
+		return wasm.OpI32GeS, nil
 	case "^":
 		// Exponentiation - needs host function call
-		return 0, fmt.Errorf("exponentiation not yet implemented")
-
+		return 0, errors.New("exponentiation not yet implemented")
 	default:
-		return 0, fmt.Errorf("unknown operator: %s", op)
-	}
-}
-
-// GetUnaryOpcode returns the WASM opcode for a unary operation
-func GetUnaryOpcode(op string, t types.Type) (byte, error) {
-	typeStr := t.String()
-
-	switch op {
-	case "-":
-		// Negation: 0 - value
-		// This is handled by pushing 0 then subtracting
-		// Return the subtract opcode
-		if typeStr == "f32" {
-			return 0x93, nil // f32.sub
-		} else if typeStr == "f64" {
-			return 0xa1, nil // f64.sub
-		} else if typeStr == "i64" || typeStr == "u64" {
-			return 0x7d, nil // i64.sub
-		} else {
-			return 0x6b, nil // i32.sub
-		}
-
-	case "!":
-		// Logical NOT: value == 0
-		// Use eqz instruction
-		if typeStr == "i64" || typeStr == "u64" {
-			return 0x50, nil // i64.eqz
-		}
-		return 0x45, nil // i32.eqz
-
-	default:
-		return 0, fmt.Errorf("unknown unary operator: %s", op)
+		return 0, errors.Newf("unknown operator: %s", op)
 	}
 }
