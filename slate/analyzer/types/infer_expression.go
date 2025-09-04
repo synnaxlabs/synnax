@@ -10,8 +10,8 @@
 package types
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 )
 

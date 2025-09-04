@@ -1,4 +1,4 @@
-// tCopyright 2025 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,53 +7,123 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package graph
+package module
 
 import (
 	"fmt"
 
 	"github.com/synnaxlabs/slate/analyzer"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
+	"github.com/synnaxlabs/slate/types"
 )
 
-type Graph struct {
-	Nodes []Node
-	Edges []Edge
-}
-
 type assembler struct {
-	nodes   map[string]*Node
-	edges   []Edge
-	scope   *symbol.Scope
-	counter int
+	tasks      []Task
+	functions  []Function
+	nodes      map[string]*Node
+	edges      []Edge
+	scope      *symbol.Scope
+	counter    int
+	wasmModule []byte
 }
 
-// Assemble builds an execution graph from the parsed program and analyzed symbol scope
+// Assemble builds a complete Module from the parsed program and analyzed symbol scope
 func Assemble(
 	program parser.IProgramContext,
 	analysisResult analyzer.Result,
-) (*Graph, error) {
+	wasmModule []byte,
+) (*Module, error) {
 	a := &assembler{
-		nodes:   make(map[string]*Node),
-		edges:   []Edge{},
-		scope:   analysisResult.Symbols,
-		counter: 0,
+		tasks:      []Task{},
+		functions:  []Function{},
+		nodes:      make(map[string]*Node),
+		edges:      []Edge{},
+		scope:      analysisResult.Symbols,
+		counter:    0,
+		wasmModule: wasmModule,
 	}
+
+	// First pass: collect task and function definitions
+	for _, item := range program.AllTopLevelItem() {
+		if taskDecl := item.TaskDeclaration(); taskDecl != nil {
+			a.extractTask(taskDecl)
+		} else if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
+			a.extractFunction(funcDecl)
+		}
+	}
+
+	// Second pass: process flow statements to build nodes and edges
 	for _, item := range program.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
 			a.processFlow(flow)
 		}
 	}
-	return a.buildGraph(), nil
+
+	return a.buildModule(), nil
 }
 
-func (a *assembler) buildGraph() *Graph {
+func (a *assembler) buildModule() *Module {
 	nodes := make([]Node, 0, len(a.nodes))
 	for _, node := range a.nodes {
 		nodes = append(nodes, *node)
 	}
-	return &Graph{Nodes: nodes, Edges: a.edges}
+	return &Module{
+		Tasks:     a.tasks,
+		Functions: a.functions,
+		Nodes:     nodes,
+		Edges:     a.edges,
+		Wasm:      a.wasmModule,
+	}
+}
+
+func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) {
+	name := taskDecl.IDENTIFIER().GetText()
+	sym, _ := a.scope.Get(name)
+	if sym == nil || sym.Symbol == nil {
+		return
+	}
+	taskType, ok := sym.Symbol.Type.(types.Task)
+	if !ok {
+		return
+	}
+	// Convert types.Task to graph.Task
+	task := Task{
+		Key:      name,
+		Config:   make(map[string]string),
+		Params:   make(map[string]string),
+		Stateful: make(map[string]Variable),
+	}
+	for key, item := range taskType.Config.Iter() {
+		task.Config[key] = item.String()
+	}
+	for key, item := range taskType.Params.Iter() {
+		task.Params[key] = item.String()
+	}
+	if taskType.Return != nil {
+		task.Returns = taskType.Return.String()
+	}
+	a.tasks = append(a.tasks, task)
+}
+
+func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext) {
+	name := funcDecl.IDENTIFIER().GetText()
+	sym, _ := a.scope.Get(name)
+	if sym == nil || sym.Symbol == nil {
+		return
+	}
+	funcType, ok := sym.Symbol.Type.(types.Function)
+	if !ok {
+		return
+	}
+	function := Function{Key: name, Params: make(map[string]string)}
+	for key, item := range funcType.Params.Iter() {
+		function.Params[key] = item.String()
+	}
+	if funcType.Return != nil {
+		function.Returns = funcType.Return.String()
+	}
+	a.functions = append(a.functions, function)
 }
 
 func (a *assembler) processFlow(flow parser.IFlowStatementContext) {
@@ -141,11 +211,7 @@ func (a *assembler) processExpression(expr parser.IExpressionContext) *Handle {
 			"expression": getExpressionText(expr),
 		},
 	}
-
-	return &Handle{
-		Node:  nodeKey,
-		Param: "output",
-	}
+	return &Handle{Node: nodeKey, Param: "output"}
 }
 
 func (a *assembler) generateKey(prefix string) string {

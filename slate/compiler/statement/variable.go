@@ -10,10 +10,10 @@
 package statement
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/expression"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -82,7 +82,10 @@ func compileStatefulVariable(
 	ctx.Writer.WriteI32Const(int32(stateIdx))
 	// Value is already on stack from expression compilation
 	// Call state store function
-	importIdx := ctx.Imports.GetStateStore(varType)
+	importIdx, err := ctx.Imports.GetStateStore(varType)
+	if err != nil {
+		return err
+	}
 	ctx.Writer.WriteCall(importIdx)
 	ctx.Writer.WriteLocalSet(stateIdx)
 	return nil
@@ -128,18 +131,14 @@ func compileAssignment(
 		}
 		ctx.Writer.WriteI32Const(0) // Task ID
 		ctx.Writer.WriteI32Const(int32(stateIdx))
-		importIdx := ctx.Imports.GetStateStore(varType)
+		importIdx, err := ctx.Imports.GetStateStore(varType)
+		if err != nil {
+			return err
+		}
 		ctx.Writer.WriteCall(importIdx)
 	default:
 		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
 	}
 
 	return nil
-}
-
-func emitStatefulLoad(ctx *core.Context, key uint32, t interface{}) {
-	ctx.Writer.WriteI32Const(0)
-	ctx.Writer.WriteI32Const(int32(key))
-	importIdx := ctx.Imports.GetStateLoad(t)
-	ctx.Writer.WriteCall(importIdx)
 }

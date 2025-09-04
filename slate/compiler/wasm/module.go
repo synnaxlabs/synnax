@@ -2,7 +2,6 @@ package wasm
 
 import (
 	"bytes"
-	"encoding/binary"
 )
 
 // FunctionType represents a function signature
@@ -13,8 +12,8 @@ type FunctionType struct {
 
 // Function represents a WASM function
 type Function struct {
-	Name    string
 	TypeIdx uint32
+	Locals  []ValueType
 	Body    []byte
 }
 
@@ -25,11 +24,19 @@ type Import struct {
 	TypeIdx uint32
 }
 
+// Export represents an exported item
+type Export struct {
+	Name  string
+	Kind  ExportKind
+	Index uint32
+}
+
 // Module represents a complete WASM module
 type Module struct {
 	types     []FunctionType
 	imports   []Import
 	functions []Function
+	exports   []Export
 	memory    bool
 	buf       bytes.Buffer
 }
@@ -40,6 +47,7 @@ func NewModule() *Module {
 		types:     make([]FunctionType, 0),
 		imports:   make([]Import, 0),
 		functions: make([]Function, 0),
+		exports:   make([]Export, 0),
 	}
 }
 
@@ -69,12 +77,25 @@ func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 	return uint32(len(m.imports) - 1)
 }
 
-// AddFunction adds a function to the module
-func (m *Module) AddFunction(f Function) uint32 {
+// AddFunction adds a function to the module and returns its index
+func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) uint32 {
 	// Function index is imports + local functions
 	idx := uint32(len(m.imports) + len(m.functions))
-	m.functions = append(m.functions, f)
+	m.functions = append(m.functions, Function{
+		TypeIdx: typeIdx,
+		Locals:  locals,
+		Body:    body,
+	})
 	return idx
+}
+
+// AddExport adds an export to the module
+func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
+	m.exports = append(m.exports, Export{
+		Name:  name,
+		Kind:  kind,
+		Index: index,
+	})
 }
 
 // EnableMemory enables memory for the module
@@ -106,7 +127,7 @@ func (m *Module) Generate() []byte {
 		m.writeMemorySection()
 	}
 	// Write export section
-	if m.hasExports() {
+	if len(m.exports) > 0 {
 		m.writeExportSection()
 	}
 	// Write code section
@@ -194,36 +215,16 @@ func (m *Module) writeMemorySection() {
 func (m *Module) writeExportSection() {
 	var section bytes.Buffer
 
-	// Count exports
-	exportCount := 0
-	for _, fn := range m.functions {
-		if fn.Export {
-			exportCount++
-		}
-	}
-	if m.memory {
-		exportCount++
-	}
+	WriteLEB128(&section, uint64(len(m.exports)))
 
-	WriteLEB128(&section, uint64(exportCount))
-
-	// Write memory export if enabled
-	if m.memory {
-		WriteLEB128(&section, uint64(len("memory")))
-		section.WriteString("memory")
-		section.WriteByte(byte(ExportMemory))
-		WriteLEB128(&section, 0)
-	}
-
-	// Write function exports
-	for i, fn := range m.functions {
-		if fn.Export {
-			WriteLEB128(&section, uint64(len(fn.Name)))
-			section.WriteString(fn.Name)
-			section.WriteByte(byte(ExportFunc))
-			// Function index includes imports
-			WriteLEB128(&section, uint64(len(m.imports)+i))
-		}
+	for _, exp := range m.exports {
+		// Write export name
+		WriteLEB128(&section, uint64(len(exp.Name)))
+		section.WriteString(exp.Name)
+		// Write export kind
+		section.WriteByte(byte(exp.Kind))
+		// Write export index
+		WriteLEB128(&section, uint64(exp.Index))
 	}
 
 	m.writeSection(SectionExport, section.Bytes())
@@ -239,9 +240,12 @@ func (m *Module) writeCodeSection() {
 		// Write local declarations
 		if len(fn.Locals) > 0 {
 			// Group locals by type for efficiency
-			WriteLEB128(&code, 1) // 1 group
-			WriteLEB128(&code, uint64(len(fn.Locals)))
-			code.WriteByte(byte(fn.Locals[0])) // Assume all same type for now
+			grouped := groupLocalsByType(fn.Locals)
+			WriteLEB128(&code, uint64(len(grouped)))
+			for _, group := range grouped {
+				WriteLEB128(&code, uint64(group.count))
+				code.WriteByte(byte(group.typ))
+			}
 		} else {
 			WriteLEB128(&code, 0) // no locals
 		}
@@ -264,22 +268,6 @@ func (m *Module) writeSection(sectionType byte, data []byte) {
 	m.buf.WriteByte(sectionType)
 	WriteLEB128(&m.buf, uint64(len(data)))
 	m.buf.Write(data)
-}
-
-func (m *Module) hasExports() bool {
-	if m.memory {
-		return true
-	}
-	for _, fn := range m.functions {
-		if fn.Export {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *Module) writeU32(v uint32) {
-	binary.Write(&m.buf, binary.LittleEndian, v)
 }
 
 // WriteLEB128 writes an unsigned LEB128 integer
@@ -312,4 +300,32 @@ func typesEqual(a, b FunctionType) bool {
 		}
 	}
 	return true
+}
+
+type localGroup struct {
+	count uint32
+	typ   ValueType
+}
+
+// groupLocalsByType groups consecutive locals of the same type
+func groupLocalsByType(locals []ValueType) []localGroup {
+	if len(locals) == 0 {
+		return nil
+	}
+
+	var groups []localGroup
+	currentType := locals[0]
+	currentCount := uint32(1)
+
+	for i := 1; i < len(locals); i++ {
+		if locals[i] == currentType {
+			currentCount++
+		} else {
+			groups = append(groups, localGroup{count: currentCount, typ: currentType})
+			currentType = locals[i]
+			currentCount = 1
+		}
+	}
+	groups = append(groups, localGroup{count: currentCount, typ: currentType})
+	return groups
 }

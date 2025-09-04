@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package graph_test
+package module_test
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
-	"github.com/synnaxlabs/slate/graph"
+	"github.com/synnaxlabs/slate/module"
 	"github.com/synnaxlabs/slate/parser"
 )
 
@@ -49,7 +49,7 @@ var _ = Describe("Graph Assembly", func() {
 			first{value: 10.0} -> second{value: 20.0}
 			`
 			prog, scope := parseAndAnalyze(code)
-			g, err := graph.Assemble(prog, scope)
+			g, err := module.Assemble(prog, scope)
 			Expect(err).To(BeNil())
 			Expect(g).NotTo(BeNil())
 			Expect(g.Nodes).To(HaveLen(2))

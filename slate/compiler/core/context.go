@@ -10,18 +10,15 @@
 package core
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
+	"github.com/synnaxlabs/slate/compiler/runtime"
 	"github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/symbol"
 )
 
 // Context maintains compilation state across all code generation
 type Context struct {
-	Imports *wasm.ImportIndex
+	Imports *runtime.ImportIndex
 	Scope   *symbol.Scope
 	Writer  *wasm.Writer
-}
-
-// NewContext creates a new compilation context
-func NewContext(imports *wasm.ImportIndex, symbols *symbol.Scope) *Context {
-	return &Context{Imports: imports, Scope: symbols, Writer: wasm.NewWriter()}
+	Module  *wasm.Module
 }

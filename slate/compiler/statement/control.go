@@ -10,11 +10,11 @@
 package statement
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/compiler/core"
 	"github.com/synnaxlabs/slate/compiler/expression"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -168,7 +168,10 @@ func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) e
 	ctx.Writer.WriteLocalGet(chanIdx)
 	// Value is already on stack from expression compilation
 	// Call channel write function
-	importIdx := ctx.Imports.GetChannelWrite(valueType)
+	importIdx, err := ctx.Imports.GetChannelWrite(valueType)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile channel write import")
+	}
 	ctx.Writer.WriteCall(importIdx)
 	return nil
 }

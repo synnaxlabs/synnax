@@ -12,9 +12,9 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/slate/analyzer/result"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	atypes "github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )

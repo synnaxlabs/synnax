@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -72,7 +73,10 @@ func (s *Scope) checkForNameConflicts(name string) error {
 }
 
 func (s *Scope) AddBlock() *Scope {
-	child := &Scope{Parent: s}
+	child := &Scope{
+		Parent: s,
+		Symbol: &Symbol{Kind: KindBlock},
+	}
 	s.Children = append(s.Children, child)
 	return child
 }
@@ -96,10 +100,23 @@ func (s *Scope) AddSymbol(
 	return child, nil
 }
 
+func (s *Scope) baseIndex() int {
+	if s == nil {
+		return 0
+	}
+	c := lo.CountBy(s.Children, func(item *Scope) bool {
+		return item.Symbol != nil && (item.Symbol.Kind == KindVariable || item.Symbol.Kind == KindParam)
+	})
+	if s.Parent == nil || (s.Symbol != nil && s.Symbol.Kind == KindFunction) {
+		return c
+	}
+	return c + s.Parent.baseIndex()
+}
+
 func (s *Scope) get(name string) (*Scope, int, error) {
 	for i, child := range s.Children {
 		if child.Symbol != nil && child.Symbol.Name == name {
-			return child, i, nil
+			return child, s.Parent.baseIndex() + i, nil
 		}
 	}
 	if s.Parent == nil {

@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("WASM Writer", func() {
 	Describe("Instruction Encoding", func() {
-		var encoder *wasm.Encoder
+		var encoder *wasm.Writer
 
 		BeforeEach(func() {
 			encoder = wasm.NewWriter()

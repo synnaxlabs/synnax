@@ -25,7 +25,7 @@ func dog() {
 			diagnostic := r.Diagnostics[0]
 			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 0"))
 			Expect(diagnostic.Line).To(Equal(5))
-			Expect(diagnostic.Severity).To(Equal(result.SeverityError))
+			Expect(diagnostic.Severity).To(Equal(result.Error))
 		})
 
 		It("Should correctly diagnose a variable declaration that shadows a function", func() {

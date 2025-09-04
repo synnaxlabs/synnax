@@ -10,25 +10,29 @@
 package result
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
+	"github.com/synnaxlabs/slate/symbol"
 )
 
 // Diagnostic represents a semantic analysis issue
 type Diagnostic struct {
-	Severity DiagnosticSeverity
+	Severity Severity
 	Line     int
 	Column   int
 	Message  string
 }
 
-type DiagnosticSeverity int
+type Severity int
 
+//go:generate stringer -type=DiagnosticSeverity
 const (
-	SeverityError DiagnosticSeverity = iota
-	SeverityWarning
-	SeverityInfo
-	SeverityHint
+	Error Severity = iota
+	Warning
+	Info
+	Hint
 )
 
 type Result struct {
@@ -41,9 +45,27 @@ func (r *Result) AddError(
 	ctx antlr.ParserRuleContext,
 ) {
 	r.Diagnostics = append(r.Diagnostics, Diagnostic{
-		Severity: SeverityError,
+		Severity: Error,
 		Line:     ctx.GetStart().GetLine(),
 		Column:   ctx.GetStart().GetColumn(),
 		Message:  err.Error(),
 	})
+}
+
+func (r *Result) Ok() bool {
+	return len(r.Diagnostics) > 0
+}
+
+func (r *Result) String() string {
+	if len(r.Diagnostics) == 0 {
+		return "analysis successful"
+	}
+	var sb strings.Builder
+	for i, diag := range r.Diagnostics {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(fmt.Sprintf("%d:%d %s: %s", diag.Line, diag.Column, diag.Severity, diag.Message))
+	}
+	return sb.String()
 }

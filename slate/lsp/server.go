@@ -242,11 +242,11 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		for _, diag := range res.Diagnostics {
 			severity := protocol.DiagnosticSeverityError
 			switch diag.Severity {
-			case result.SeverityWarning:
+			case result.Warning:
 				severity = protocol.DiagnosticSeverityWarning
-			case result.SeverityInfo:
+			case result.Info:
 				severity = protocol.DiagnosticSeverityInformation
-			case result.SeverityHint:
+			case result.Hint:
 				severity = protocol.DiagnosticSeverityHint
 			}
 

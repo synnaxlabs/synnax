@@ -10,9 +10,10 @@
 package testutil
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/compiler/core"
+	"github.com/synnaxlabs/slate/compiler/runtime"
 	"github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,8 +35,13 @@ func NewContext() *core.Context {
 func NewContextWithFunctionType(t types.Function) *core.Context {
 	var (
 		module    = wasm.NewModule()
-		importIdx = wasm.SetupTypedImports(module)
-		ctx       = core.NewContext(importIdx, FunctionScope(t))
+		importIdx = runtime.SetupImports(module)
+		ctx       = &core.Context{
+			Module:  module,
+			Imports: importIdx,
+			Scope:   FunctionScope(t),
+			Writer:  wasm.NewWriter(),
+		}
 	)
 	return ctx
 }

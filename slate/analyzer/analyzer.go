@@ -14,29 +14,29 @@ import (
 	"github.com/synnaxlabs/slate/analyzer/expression"
 	"github.com/synnaxlabs/slate/analyzer/flow"
 	"github.com/synnaxlabs/slate/analyzer/result"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	atypes "github.com/synnaxlabs/slate/analyzer/types"
 	"github.com/synnaxlabs/slate/parser"
+	symbol2 "github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 type Config struct {
 	Program  parser.IProgramContext
-	Resolver symbol.Resolver
+	Resolver symbol2.Resolver
 }
 
 type Result = result.Result
 
 func Analyze(cfg Config) result.Result {
 	prog := cfg.Program
-	rootScope := &symbol.Scope{GlobalResolver: cfg.Resolver}
+	rootScope := &symbol2.Scope{GlobalResolver: cfg.Resolver}
 	res := result.Result{Symbols: rootScope}
 	// First pass: collect declarations with empty type signatures
 	for _, item := range prog.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
-			_, err := rootScope.AddSymbol(name, symbol.KindFunction, types.NewFunction(), fn)
+			_, err := rootScope.AddSymbol(name, symbol2.KindFunction, types.NewFunction(), fn)
 			if err != nil {
 				res.AddError(err, fn)
 				return res
@@ -45,7 +45,7 @@ func Analyze(cfg Config) result.Result {
 			name := task.IDENTIFIER().GetText()
 			_, err := rootScope.AddSymbol(
 				name,
-				symbol.KindTask,
+				symbol2.KindTask,
 				types.NewTask(),
 				task,
 			)
@@ -76,7 +76,7 @@ func Analyze(cfg Config) result.Result {
 
 // visitFunctionDeclaration analyzes a function declaration
 func visitFunctionDeclaration(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	fn parser.IFunctionDeclarationContext,
 ) bool {
@@ -115,7 +115,7 @@ func visitFunctionDeclaration(
 }
 
 func visitParams(
-	scope *symbol.Scope,
+	scope *symbol2.Scope,
 	result *result.Result,
 	params parser.IParameterListContext,
 	paramTypes *types.OrderedMap[string, types.Type],
@@ -140,7 +140,7 @@ func visitParams(
 		// Also add to scope for use within task body
 		if _, err := scope.AddSymbol(
 			paramName,
-			symbol.KindParam,
+			symbol2.KindParam,
 			paramType,
 			param,
 		); err != nil {
@@ -153,7 +153,7 @@ func visitParams(
 
 // visitTaskDeclaration analyzes a task declaration
 func visitTaskDeclaration(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	task parser.ITaskDeclarationContext,
 ) bool {
@@ -182,7 +182,7 @@ func visitTaskDeclaration(
 			// Also add to scope for use within task body
 			_, err := taskScope.AddSymbol(
 				paramName,
-				symbol.KindConfigParam,
+				symbol2.KindConfigParam,
 				configType,
 				param,
 			)
@@ -222,7 +222,7 @@ func visitTaskDeclaration(
 
 // visitBlock analyzes a block of statements
 func visitBlock(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	block parser.IBlockContext,
 ) bool {
@@ -237,7 +237,7 @@ func visitBlock(
 
 // visitStatement analyzes a statement
 func visitStatement(
-	blockScope *symbol.Scope,
+	blockScope *symbol2.Scope,
 	result *result.Result,
 	ctx parser.IStatementContext,
 ) bool {
@@ -258,7 +258,7 @@ func visitStatement(
 }
 
 func visitVariableDeclaration(
-	blockScope *symbol.Scope,
+	blockScope *symbol2.Scope,
 	result *result.Result,
 	ctx parser.IVariableDeclarationContext,
 ) bool {
@@ -305,7 +305,7 @@ func isLiteralExpression(expr parser.IExpressionContext) bool {
 }
 
 func visitVariableDeclarationType(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	declaration antlr.ParserRuleContext,
 	expression parser.IExpressionContext,
@@ -348,7 +348,7 @@ func visitVariableDeclarationType(
 
 // visitLocalVariable analyzes a local variable declaration
 func visitLocalVariable(
-	blockScope *symbol.Scope,
+	blockScope *symbol2.Scope,
 	result *result.Result,
 	localVar parser.ILocalVariableContext,
 ) bool {
@@ -370,7 +370,7 @@ func visitLocalVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.AddSymbol(name, symbol.KindVariable, varType, localVar)
+	_, err := blockScope.AddSymbol(name, symbol2.KindVariable, varType, localVar)
 	if err != nil {
 		result.AddError(err, localVar)
 		return false
@@ -381,7 +381,7 @@ func visitLocalVariable(
 
 // visitStatefulVariable analyzes a stateful variable declaration
 func visitStatefulVariable(
-	blockScope *symbol.Scope,
+	blockScope *symbol2.Scope,
 	result *result.Result,
 	statefulVar parser.IStatefulVariableContext,
 ) bool {
@@ -397,7 +397,7 @@ func visitStatefulVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.AddSymbol(name, symbol.KindStatefulVariable, varType, statefulVar)
+	_, err := blockScope.AddSymbol(name, symbol2.KindStatefulVariable, varType, statefulVar)
 	if err != nil {
 		result.AddError(err, statefulVar)
 		return false
@@ -409,7 +409,7 @@ func visitStatefulVariable(
 }
 
 func visitIfStatement(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	ctx parser.IIfStatementContext,
 ) bool {
@@ -422,7 +422,7 @@ func visitIfStatement(
 }
 
 func visitReturnStatement(
-	*symbol.Scope,
+	*symbol2.Scope,
 	*result.Result,
 	parser.IReturnStatementContext,
 ) bool {
@@ -430,7 +430,7 @@ func visitReturnStatement(
 }
 
 func visitChannelOperation(
-	*symbol.Scope,
+	*symbol2.Scope,
 	*result.Result,
 	parser.IChannelOperationContext,
 ) bool {
@@ -438,7 +438,7 @@ func visitChannelOperation(
 }
 
 func visitAssignment(
-	parentScope *symbol.Scope,
+	parentScope *symbol2.Scope,
 	result *result.Result,
 	assignment parser.IAssignmentContext,
 ) bool {

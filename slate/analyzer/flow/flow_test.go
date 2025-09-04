@@ -13,53 +13,53 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/parser"
+	symbol2 "github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var resolver = symbol.MapResolver{
-	"on": symbol.Symbol{
+var resolver = symbol2.MapResolver{
+	"on": symbol2.Symbol{
 		Name: "on",
-		Kind: symbol.KindTask,
+		Kind: symbol2.KindTask,
 		Type: &types.Task{
 			Config: types.NewOrderedMap([]string{"channel"}, []types.Type{types.String{}}),
 		},
 	},
-	"once": symbol.Symbol{
+	"once": symbol2.Symbol{
 		Name: "once",
-		Kind: symbol.KindTask,
+		Kind: symbol2.KindTask,
 		Type: &types.Task{},
 	},
-	"processor": symbol.Symbol{
+	"processor": symbol2.Symbol{
 		Name: "processor",
-		Kind: symbol.KindTask,
+		Kind: symbol2.KindTask,
 		Type: &types.Task{},
 	},
-	"sensor_chan": symbol.Symbol{
+	"sensor_chan": symbol2.Symbol{
 		Name: "sensor_chan",
-		Kind: symbol.KindChannel,
+		Kind: symbol2.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
-	"output_chan": symbol.Symbol{
+	"output_chan": symbol2.Symbol{
 		Name: "output_chan",
-		Kind: symbol.KindChannel,
+		Kind: symbol2.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
-	"temp_sensor": symbol.Symbol{
+	"temp_sensor": symbol2.Symbol{
 		Name: "temp_sensor",
-		Kind: symbol.KindChannel,
+		Kind: symbol2.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
-	"valve_cmd": symbol.Symbol{
+	"valve_cmd": symbol2.Symbol{
 		Name: "valve_cmd",
-		Kind: symbol.KindChannel,
+		Kind: symbol2.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
-	"temperature": symbol.Symbol{
+	"temperature": symbol2.Symbol{
 		Name: "temperature",
-		Kind: symbol.KindChannel,
+		Kind: symbol2.KindChannel,
 		Type: types.Chan{ValueType: types.F64{}},
 	},
 }
@@ -322,10 +322,10 @@ once{} -> processor{}
 
 		It("Using channel as source", func() {
 			// Create a resolver without the "on" task
-			noOnResolver := symbol.MapResolver{
-				"sensor_chan": symbol.Symbol{
+			noOnResolver := symbol2.MapResolver{
+				"sensor_chan": symbol2.Symbol{
 					Name: "sensor_chan",
-					Kind: symbol.KindChannel,
+					Kind: symbol2.KindChannel,
 					Type: types.Chan{ValueType: types.F64{}},
 				},
 			}

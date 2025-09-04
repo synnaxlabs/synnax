@@ -10,8 +10,8 @@
 package expression
 
 import (
-	"github.com/synnaxlabs/slate/analyzer/symbol"
 	"github.com/synnaxlabs/slate/compiler/core"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -35,11 +35,15 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 		ctx.Writer.WriteLocalGet(idx)
 		return sym.Type, nil
 	case symbol.KindStatefulVariable:
-		emitStatefulLoad(ctx, idx, sym.Type)
+		if err = emitStatefulLoad(ctx, idx, sym.Type); err != nil {
+			return nil, err
+		}
 		return sym.Type, nil
 	case symbol.KindChannel:
 		ctx.Writer.WriteLocalGet(idx)
-		emitChannelRead(ctx, sym.Type)
+		if err = emitChannelRead(ctx, sym.Type); err != nil {
+			return nil, err
+		}
 		return sym.Type, nil
 	default:
 		return nil, errors.Newf("unsupported symbol kind: %v for '%s'", sym.Kind, name)
@@ -47,20 +51,28 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 }
 
 // emitStatefulLoad emits code to load a stateful variable
-func emitStatefulLoad(ctx *core.Context, idx int, t types.Type) {
+func emitStatefulLoad(ctx *core.Context, idx int, t types.Type) error {
 	// Push task ID (0 for now - would be provided at runtime)
 	ctx.Writer.WriteI32Const(0)
 	// Push variable key
 	ctx.Writer.WriteI32Const(int32(idx))
 	// Call appropriate state load function based on type
-	importIdx := ctx.Imports.GetStateLoad(t)
+	importIdx, err := ctx.Imports.GetStateLoad(t)
+	if err != nil {
+		return err
+	}
 	ctx.Writer.WriteCall(importIdx)
+	return nil
 }
 
 // emitChannelRead emits code for non-blocking channel read
-func emitChannelRead(ctx *core.Context, t types.Type) {
+func emitChannelRead(ctx *core.Context, t types.Type) error {
 	// Stack has channel ID
 	// Call appropriate channel read function based on type
-	importIdx := ctx.Imports.GetChannelRead(t)
+	importIdx, err := ctx.Imports.GetChannelRead(t)
+	if err != nil {
+		return err
+	}
 	ctx.Writer.WriteCall(importIdx)
+	return nil
 }
