@@ -99,8 +99,6 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          elif [ "${GITHUB_REF}" == "refs/heads/sy-2910-fix-macos-core-signing" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)-sy-2910" >> $GITHUB_OUTPUT
           else
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           fi
