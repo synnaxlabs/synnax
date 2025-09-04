@@ -8,10 +8,16 @@
     "test:ui": "playwright test --config=test/playwright/playwright.config.ts --ui",
     "test:debug": "playwright test --config=test/playwright/playwright.config.ts --debug",
     "test:headed": "playwright test --config=test/playwright/playwright.config.ts --headed",
-    "test:report": "playwright show-report test/playwright/playwright-report"
+    "test:report": "playwright show-report test/playwright/playwright-report",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.js,.tsx,.jsx"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1"
+    "@playwright/test": "^1.49.1",
+    "@eslint/compat": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -23,13 +23,6 @@ class Plot(Playwright):
             "Ranges": [],
             "X1": None,
     }
-
-    PROPERTIS = {
-            "Title": "Line Plot",
-            "Show Title": False,
-            "Show Legend": True,
-    }
-
     def setup(self) -> None:
         super().setup()
         

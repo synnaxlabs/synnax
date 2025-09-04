@@ -80,7 +80,7 @@ class Tabs_Open_Close(Playwright):
         This differs from create_page in that it uses the manual
         New Page (+) button instead of the command palette.
         """
-        self.page.locator('[id="«r5»"]').click()  # (+)
+        self.page.locator('.pluto-icon--add').first.click()  # (+)
         self.page.get_by_role("button", name=page_name).first.click()
         # Apply inputs
         for i in inputs_items:

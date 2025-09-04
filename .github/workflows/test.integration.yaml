@@ -39,6 +39,65 @@ jobs:
             echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
           fi
 
+  lint-python:
+    name: Lint - Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: integration/test/py/pyproject.toml
+          cache: poetry
+          cache-dependency-path: integration/test/py/poetry.lock
+
+      - name: Install Dependencies
+        run: poetry install
+        working-directory: integration/test/py
+
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: integration/test/py
+
+      - name: Format (Black)
+        run: poetry run black --check --diff --color .
+        working-directory: integration/test/py
+
+      - name: Type Check (mypy)
+        run: poetry run mypy .
+        working-directory: integration/test/py
+
+  lint-typescript:
+    name: Lint - TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: TypeScript Type Check
+        run: pnpm --filter integration check-types
+
+      - name: Lint
+        run: pnpm --filter integration lint
+
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
     runs-on:
@@ -121,7 +180,6 @@ jobs:
           node-version-file: package.json
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-          cache: pnpm
 
       - name: Install Node Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -215,7 +273,6 @@ jobs:
           node-version-file: package.json
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-          cache: pnpm
 
       - name: Install Node Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -342,7 +399,6 @@ jobs:
           node-version-file: package.json
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-          cache: pnpm
 
       - name: Install Node Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
