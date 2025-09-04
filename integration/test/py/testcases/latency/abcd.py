@@ -55,7 +55,7 @@ class LatencyABC(TestCase):
         Setup the test case.
         """
         self._log_message("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=50)
+        self.configure(loop_rate=0.05, manual_timeout=45)
 
         self.mode = self.name[-1]  # A, B, C, D
 
@@ -108,7 +108,7 @@ class LatencyABC(TestCase):
         Run the test case.
         """
         self._log_message("Starting run()")
-        time.sleep(3)
+        time.sleep(1)
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)

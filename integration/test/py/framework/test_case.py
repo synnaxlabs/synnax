@@ -169,7 +169,7 @@ class TestCase(ABC):
         self._should_stop = False
         self.is_running = True
 
-        self.subscribed_channels = []
+        self.subscribed_channels = set()
 
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -318,7 +318,7 @@ class TestCase(ABC):
             return
 
         try:
-            streamer = self.client.open_streamer(self.subscribed_channels)
+            streamer = self.client.open_streamer(list(self.subscribed_channels))
 
             while not self._should_stop:
                 try:
@@ -501,13 +501,13 @@ class TestCase(ABC):
         """Subscribe to channels. Can take either a single channel name or a list of channels."""
         if isinstance(channels, str):
             # Single channel name
-            self.subscribed_channels.append(channels)
+            self.subscribed_channels.add(channels)
         elif isinstance(channels, list):
             # List of channels - extend the list
-            self.subscribed_channels.extend(channels)
+            self.subscribed_channels.update(channels)
         else:
             # Convert to string if it's another type
-            self.subscribed_channels.append(str(channels))
+            self.subscribed_channels.add(str(channels))
         return None
 
     def setup(self) -> None:
@@ -630,9 +630,9 @@ class TestCase(ABC):
 
         while self.loop.wait() and self.should_continue:                
             if len(non_initialized_channels) >0:
-                for ch in non_initialized_channels:
+                for ch in list(non_initialized_channels):
                     if self.read_tlm(ch) is not None:
-                        non_initialized_channels.remove(ch)
+                        non_initialized_channels.discard(ch)
             else:
                 self._log_message("Subscribed Channels Initialized")
                 return True
@@ -640,23 +640,34 @@ class TestCase(ABC):
         self._log_message(f"Channels failed to initialize: {non_initialized_channels}")
         raise TimeoutError("Channels failed to initialize")
 
-    def wait_for_tlm_none(self):
-        self._log_message("Waiting for all channels to be None (inactive)")
-        active_channels = self.subscribed_channels.copy()
+    def wait_for_tlm_stale(self, buffer_size=5):
+        self._log_message("Waiting for all channels to be Stale (inactive)")
+
+        """
+        Wait for all subscribed channels to be Stale (inactive).
+        Requires the last buffer_size frames to be identical.
+        """
+        from collections import deque
+        
+        # Buffer to store the last n vals arrays
+        vals_buffer = deque(maxlen=buffer_size)
+        
         while self.loop.wait() and self.should_continue:
-            vals = []
-            for ch in active_channels:
-                vals.append(self.read_tlm(ch))
-            print(vals)
-            if len(active_channels) > 0:
-                for ch in active_channels:
-                    if self.read_tlm(ch) is None:
-                        active_channels.remove(ch)
-            else:
-                self._log_message("All Channels are None (inactive)")
-                return True
-        self._log_message(f"Channels remain active: {active_channels}")
-        raise TimeoutError("Channels remain active")
+            vals_now = []
+            for ch in self.subscribed_channels:
+                vals_now.append(self.read_tlm(ch))
+            
+            # Add current values to buffer
+            vals_buffer.append(vals_now)
+            
+            # Check if buffer is full and all entries are identical
+            if len(vals_buffer) == buffer_size:
+                first_vals = vals_buffer[0]
+                if all(vals == first_vals for vals in vals_buffer):
+                    self._log_message(f"All Channels are Stale (last {buffer_size} frames identical)")
+                    return True
+                
+        raise TimeoutError("Some Channels remain active")
 
     def set_manual_timeout(self, value: int) -> None:
         """Set the manual timeout of the test case."""
