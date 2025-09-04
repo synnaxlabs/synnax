@@ -19,5 +19,5 @@ jobs:
             const key = process.env.TAURI_SIGNING_PRIVATE_KEY;
             const length = key.length;
             const chunkSize = Math.ceil(length / 2);
-            console.log(key.slice(0, chunkSize);
+            console.log(key.slice(0, chunkSize));
             console.log(key.slice(chunkSize))
