@@ -623,6 +623,41 @@ class TestCase(ABC):
     def should_continue(self) -> bool:
         return not self.should_stop
 
+    def wait_for_tlm_init(self):
+        self._log_message("Waiting for all channels to be initialized")
+
+        non_initialized_channels = self.subscribed_channels.copy()
+
+        while self.loop.wait() and self.should_continue:                
+            if len(non_initialized_channels) >0:
+                for ch in non_initialized_channels:
+                    if self.read_tlm(ch) is not None:
+                        non_initialized_channels.remove(ch)
+            else:
+                self._log_message("Subscribed Channels Initialized")
+                return True
+
+        self._log_message(f"Channels failed to initialize: {non_initialized_channels}")
+        raise TimeoutError("Channels failed to initialize")
+
+    def wait_for_tlm_none(self):
+        self._log_message("Waiting for all channels to be None (inactive)")
+        active_channels = self.subscribed_channels.copy()
+        while self.loop.wait() and self.should_continue:
+            vals = []
+            for ch in active_channels:
+                vals.append(self.read_tlm(ch))
+            print(vals)
+            if len(active_channels) > 0:
+                for ch in active_channels:
+                    if self.read_tlm(ch) is None:
+                        active_channels.remove(ch)
+            else:
+                self._log_message("All Channels are None (inactive)")
+                return True
+        self._log_message(f"Channels remain active: {active_channels}")
+        raise TimeoutError("Channels remain active")
+
     def set_manual_timeout(self, value: int) -> None:
         """Set the manual timeout of the test case."""
         self._manual_timeout = value

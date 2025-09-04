@@ -55,7 +55,7 @@ class LatencyABC(TestCase):
         Setup the test case.
         """
         self._log_message("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=15)
+        self.configure(loop_rate=0.01, manual_timeout=50)
 
         self.mode = self.name[-1]  # A, B, C, D
 
@@ -131,13 +131,13 @@ class LatencyABC(TestCase):
 
         elif self.mode == "d":
             # 100Hz for 20 seconds
-            delta_a_b = np.zeros(1000 * 20)
-            delta_b_c = np.zeros(1000 * 20)
-            delta_c_d = np.zeros(1000 * 20)
-            delta_d_a = np.zeros(1000 * 20)
+            delta_a_b = np.zeros(1000 * self._manual_timeout)
+            delta_b_c = np.zeros(1000 * self._manual_timeout)
+            delta_c_d = np.zeros(1000 * self._manual_timeout)
+            delta_d_a = np.zeros(1000 * self._manual_timeout)
             idx = 0
 
-            time.sleep(5)  # Let other processes start
+            self.wait_for_tlm_init()
             while self.loop.wait() and self.should_continue:
 
                 # Just assume we'll never exceed

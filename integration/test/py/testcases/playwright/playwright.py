@@ -116,3 +116,11 @@ class Playwright(TestCase):
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")
         return getattr(self.playwright, selected)
+
+    @property
+    def ESCAPE(self) -> None:
+        self.page.keyboard.press("Escape")
+
+    @property
+    def ENTER(self) -> None:
+        self.page.keyboard.press("Enter")
