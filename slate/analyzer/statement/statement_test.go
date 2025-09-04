@@ -292,5 +292,18 @@ var _ = Describe("Statement", func() {
 			Expect(ok).To(BeTrue())
 			Expect(res.Diagnostics).To(HaveLen(0))
 		})
+
+		It("Should return an error when a variable of an incorrect type is assigned to another variable", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				x i32 := 10
+				y f32 := x
+			}`))
+			scope := createScope()
+			res := result.Result{Symbols: scope}
+			Expect(statement.AnalyzeBlock(scope, &res, block)).To(BeFalse())
+			Expect(res.Diagnostics).To(HaveLen(1))
+			first := res.Diagnostics[0]
+			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
+		})
 	})
 })

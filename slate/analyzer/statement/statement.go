@@ -93,7 +93,7 @@ func analyzeVariableDeclarationType(
 				isLiteral := isLiteralExpression(expression)
 				// If it's a literal, we might allow some implicit conversions
 				// For now, we still check compatibility the same way
-				if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) && !atypes.Compatible(varType, exprType) {
+				if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) || (!isLiteral && !atypes.Compatible(varType, exprType)) {
 					result.AddError(
 						errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
 						declaration,
@@ -255,10 +255,70 @@ func analyzeIfStatement(
 }
 
 func analyzeReturnStatement(
-	*symbol.Scope,
-	*result.Result,
-	parser.IReturnStatementContext,
+	scope *symbol.Scope,
+	result *result.Result,
+	returnStmt parser.IReturnStatementContext,
 ) bool {
+	var enclosingScope *symbol.Scope
+	var err error
+	enclosingScope, err = scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
+		enclosingScope, err = scope.ClosestAncestorOfKind(symbol.KindTask)
+		if err != nil {
+			result.AddError(
+				errors.New("return statement not in function or task"),
+				returnStmt,
+			)
+			return false
+		}
+	}
+	var expectedReturnType types.Type
+	if enclosingScope.Symbol.Kind == symbol.KindFunction {
+		fnType := enclosingScope.Symbol.Type.(types.Function)
+		expectedReturnType = fnType.Return
+	} else if enclosingScope.Symbol.Kind == symbol.KindTask {
+		taskType := enclosingScope.Symbol.Type.(types.Task)
+		expectedReturnType = taskType.Return
+	}
+	returnExpr := returnStmt.Expression()
+	if returnExpr != nil {
+		if !expression.Analyze(scope, result, returnExpr) {
+			return false
+		}
+
+		actualReturnType := atypes.InferFromExpression(scope, returnExpr, expectedReturnType)
+		if expectedReturnType == nil {
+			result.AddError(
+				errors.New("unexpected return value in function/task with void return type"),
+				returnStmt,
+			)
+			return false
+		}
+		if actualReturnType != nil {
+			if !atypes.Compatible(expectedReturnType, actualReturnType) {
+				result.AddError(
+					errors.Newf(
+						"type mismatch: cannot return %s, expected %s",
+						actualReturnType,
+						expectedReturnType,
+					),
+					returnStmt,
+				)
+				return false
+			}
+		}
+	} else {
+		if expectedReturnType != nil {
+			result.AddError(
+				errors.Newf(
+					"return statement missing value of type %s",
+					expectedReturnType,
+				),
+				returnStmt,
+			)
+			return false
+		}
+	}
 	return true
 }
 

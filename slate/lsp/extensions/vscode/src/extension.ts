@@ -18,9 +18,14 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Slate Language extension is now active');
+  // Create output channel for logging
+  outputChannel = vscode.window.createOutputChannel('Slate Language Server');
+  outputChannel.show();
+  outputChannel.appendLine('Slate Language extension is now active');
+  outputChannel.appendLine(`Extension path: ${context.extensionPath}`);
   
   // Show activation message
   vscode.window.showInformationMessage('Slate Language extension activated!');
@@ -42,33 +47,53 @@ export function activate(context: vscode.ExtensionContext) {
     path.join(process.env.HOME || '', 'go', 'bin', 'slate'),
   ];
 
+  outputChannel.appendLine('Searching for Slate binary in:');
   for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
+    const exists = fs.existsSync(p);
+    outputChannel.appendLine(`  ${p}: ${exists ? 'FOUND' : 'not found'}`);
+    if (exists) {
       serverPath = p;
+      // Check if it's executable
+      try {
+        fs.accessSync(p, fs.constants.X_OK);
+        outputChannel.appendLine(`  Using this binary (executable)`);
+      } catch (err) {
+        outputChannel.appendLine(`  WARNING: Binary exists but is not executable`);
+      }
       break;
     }
   }
 
-  console.log(`Using Slate binary at: ${serverPath}`);
-  vscode.window.showInformationMessage(`Slate binary path: ${serverPath}`);
+  outputChannel.appendLine(`Using Slate binary at: ${serverPath}`);
+  
+  // Check if the binary actually exists
+  if (!fs.existsSync(serverPath)) {
+    const errorMsg = `Slate binary not found at: ${serverPath}`;
+    outputChannel.appendLine(`ERROR: ${errorMsg}`);
+    vscode.window.showErrorMessage(errorMsg);
+    return;
+  }
 
   // Server options - call 'slate lsp' subcommand with stdio mode (default)
   const serverArgs: string[] = ['lsp'];
-  if (verbose) {
-    serverArgs.push('-v');
-  }
+  // Note: The slate lsp command doesn't support -v flag currently
+  
+  outputChannel.appendLine(`Server command: ${serverPath} ${serverArgs.join(' ')}`);
+  outputChannel.appendLine(`Verbose mode: ${verbose}`);
 
   const serverOptions: ServerOptions = {
     run: {
       command: serverPath,
       args: serverArgs,
+      transport: TransportKind.stdio,
       options: {
         env: { ...process.env }
       }
     },
     debug: {
       command: serverPath,
-      args: [...serverArgs, '-v'],
+      args: serverArgs,
+      transport: TransportKind.stdio,
       options: {
         env: { ...process.env, SLATE_DEBUG: '1' }
       }
@@ -80,7 +105,9 @@ export function activate(context: vscode.ExtensionContext) {
     documentSelector: [{ scheme: 'file', language: 'slate' }],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.slate')
-    }
+    },
+    outputChannel: outputChannel,
+    traceOutputChannel: outputChannel
   };
 
   // Create and start the language client
@@ -92,11 +119,15 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Start the client
+  outputChannel.appendLine('Starting language client...');
   client.start().then(() => {
+    outputChannel.appendLine('Slate LSP client started successfully!');
     vscode.window.showInformationMessage('Slate LSP client started successfully!');
   }, (error) => {
-    vscode.window.showErrorMessage(`Failed to start Slate LSP: ${error}`);
-    console.error('Failed to start LSP client:', error);
+    const errorMsg = `Failed to start Slate LSP: ${error}`;
+    outputChannel.appendLine(`ERROR: ${errorMsg}`);
+    outputChannel.appendLine(`Error details: ${JSON.stringify(error, null, 2)}`);
+    vscode.window.showErrorMessage(errorMsg);
   });
 
   // Register additional commands if needed
@@ -105,6 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(disposable);
+  context.subscriptions.push(outputChannel);
 }
 
 export function deactivate(): Thenable<void> | undefined {

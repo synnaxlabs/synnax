@@ -35,7 +35,7 @@ The repository includes comprehensive integration testing:
 - Tests validate the entire system from Python/TypeScript/C++ clients through Synnax server to Cesium storage
 
 ### Go Development
-- Individual Go modules: `/synnax/`, `/aspen/`, `/cesium/`, `/freighter/go/`
+- Individual Go modules: `/core/`, `/aspen/`, `/cesium/`, `/freighter/go/`
 - Use standard `go test`, `go build` commands within each module
 - Integration tests available via scripts in `/integration/`
 
@@ -46,7 +46,7 @@ Synnax is a **horizontally-scalable observability and control platform** built a
 
 ### Key Components
 
-#### 1. Synnax Server (Go) - `/synnax/`
+#### 1. Synnax Server (Go) - `/core/`
 The core time-series engine with 4-layer architecture:
 - **Storage Layer**: Cesium (time-series) + Pebble (key-value) for disk persistence
 - **Distribution Layer**: Aspen-based clustering with gossip protocols for horizontal scaling

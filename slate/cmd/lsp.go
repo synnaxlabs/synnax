@@ -13,9 +13,15 @@ import (
 	"context"
 	
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/synnaxlabs/slate/lsp"
 	"github.com/synnaxlabs/slate/lsp/transport"
 	xos "github.com/synnaxlabs/x/os"
+)
+
+const (
+	lspStdioFlag   = "stdio"
+	lspVerboseFlag = "verbose"
 )
 
 var lspCmd = &cobra.Command{
@@ -23,6 +29,11 @@ var lspCmd = &cobra.Command{
 	Short: "Start the Slate Language Server",
 	Long:  `Start the Slate Language Server Protocol (LSP) server`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Bind flags to viper
+		if err := viper.BindPFlags(cmd.Flags()); err != nil {
+			return err
+		}
+		
 		server, err := lsp.New()
 		if err != nil {
 			return err
@@ -32,4 +43,20 @@ var lspCmd = &cobra.Command{
 		ctx := context.Background()
 		return transport.ServeJSONRPC(ctx, server, xos.Stdio)
 	},
+}
+
+func init() {
+	// Configure LSP flags - VSCode language client expects these
+	lspCmd.Flags().Bool(
+		lspStdioFlag,
+		true,
+		"Use stdio for communication (default)",
+	)
+	
+	lspCmd.Flags().BoolP(
+		lspVerboseFlag,
+		"v",
+		false,
+		"Enable verbose logging",
+	)
 }

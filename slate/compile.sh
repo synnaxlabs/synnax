@@ -30,7 +30,8 @@ cp slate lsp/extensions/vscode/bin/slate
 # Step 3: Rebuild VSCode VSIX extension
 echo "Step 3: Building VSCode extension..."
 cd lsp/extensions/vscode
-pnpm exec vsce package --no-dependencies
+npm install
+npx vsce package
 cd ../../..
 
 # Step 4: Copy VSIX to cmd directory for Go embedding

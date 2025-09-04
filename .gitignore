@@ -9,6 +9,7 @@
 
 # |||| JS ||||
 
+slate
 *.vsix
 out/
 node_modules

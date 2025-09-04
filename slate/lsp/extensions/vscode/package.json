@@ -11,10 +11,11 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:slate"
+    "onLanguage:slate",
+    "workspaceContains:**/*.slate"
   ],
   "scripts": {
-    "vscode:prepublish": "pnpm run compile",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },
