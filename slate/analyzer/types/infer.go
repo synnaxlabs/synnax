@@ -141,26 +141,25 @@ func Compatible(
 	if t2Chan, ok := t2.(types.Chan); ok {
 		t2 = t2Chan.ValueType
 	}
-	// Same type is always compatible
 	if t1.String() == t2.String() {
 		return true
 	}
 	return false
 }
 
-func LiteralCompatible(
-	t1, t2 types.Type,
+func LiteralAssignmentCompatible(
+	variableType, literalType types.Type,
 ) bool {
-	if t1 == nil || t2 == nil {
+	if variableType == nil || literalType == nil {
 		return false
 	}
-	if t1.String() == t2.String() {
+	if variableType.String() == literalType.String() {
 		return true
 	}
-	if types.IsInteger(t1) && types.IsSignedInteger(t2) {
+	if types.IsInteger(variableType) && types.IsSignedInteger(literalType) {
 		return true
 	}
-	if types.IsFloat(t1) && types.IsFloat(t2) {
+	if types.IsFloat(variableType) && types.IsNumeric(literalType) {
 		return true
 	}
 	return false

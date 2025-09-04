@@ -77,6 +77,24 @@ func getMultiplicativeOperator(ctx antlr.ParserRuleContext) string {
 	return "multiplicative"
 }
 
+func getRelationalOperator(ctx antlr.ParserRuleContext) string {
+	if relCtx, ok := ctx.(parser.IRelationalExpressionContext); ok {
+		if len(relCtx.AllLT()) > 0 {
+			return "<"
+		}
+		if len(relCtx.AllGT()) > 0 {
+			return ">"
+		}
+		if len(relCtx.AllLEQ()) > 0 {
+			return "<="
+		}
+		if len(relCtx.AllGEQ()) > 0 {
+			return ">="
+		}
+	}
+	return "comparison"
+}
+
 func validateExpressionType[T any](
 	ctx antlr.ParserRuleContext,
 	scope *symbol.Scope,
@@ -182,12 +200,21 @@ func visitRelational(
 	result *result.Result,
 	ctx parser.IRelationalExpressionContext,
 ) bool {
-	for _, additive := range ctx.AllAdditiveExpression() {
+	additives := ctx.AllAdditiveExpression()
+	for _, additive := range additives {
 		if !visitAdditive(parentScope, result, additive) {
 			return false
 		}
 	}
-	return true
+	return validateExpressionType(
+		ctx,
+		parentScope,
+		result,
+		additives,
+		getRelationalOperator,
+		atypes.InferAdditive,
+		types.IsNumeric,
+	)
 }
 
 func visitAdditive(

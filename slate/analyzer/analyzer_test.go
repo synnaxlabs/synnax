@@ -6,6 +6,8 @@ import (
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
+	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,7 +54,7 @@ func dog(age i32, age i32) {
 		})
 	})
 
-	Describe("Variable Declarations", func() {
+	Describe("Declaration", func() {
 		Describe("Local", func() {
 			It("Should return an error diagnostic when a string is declared on an i32", func() {
 				ast := MustSucceed(parser.Parse(`
@@ -75,7 +77,7 @@ func cat() {
 				Expect(result.Diagnostics).To(HaveLen(0))
 			})
 
-			It("Should infer types from an initializer expression", func() {
+			It("Should infer types from an int literal", func() {
 				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x := 42
@@ -83,6 +85,81 @@ func cat() {
 				`))
 				result := analyzer.Analyze(analyzer.Config{Program: ast})
 				Expect(result.Diagnostics).To(HaveLen(0))
+				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
+				Expect(idx).To(Equal(0))
+				Expect(varScope.Symbol).ToNot(BeNil())
+				Expect(varScope.Symbol.Name).To(Equal("x"))
+				Expect(varScope.Symbol.Type).To(Equal(types.I64{}))
+			})
+
+			It("Should infer types from a float literal", func() {
+				ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x := 42.0
+				}
+				`))
+				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				Expect(result.Diagnostics).To(HaveLen(0))
+				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
+				Expect(idx).To(Equal(0))
+				Expect(varScope.Symbol).ToNot(BeNil())
+				Expect(varScope.Symbol.Name).To(Equal("x"))
+				Expect(varScope.Symbol.Type).To(Equal(types.F64{}))
+			})
+
+			It("Should automatically cast an int literal to a floating point type", func() {
+				ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f32 := 42
+				}
+				`))
+				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				Expect(result.Diagnostics).To(HaveLen(0))
+				funcScope, idx := MustSucceed2(result.Symbols.GetIndex("testFunc"))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+				Expect(idx).To(Equal(0))
+				Expect(funcScope.Symbol).ToNot(BeNil())
+				Expect(funcScope.Symbol.Name).To(Equal("testFunc"))
+				varScope, idx := MustSucceed2(blockScope.GetIndex("x"))
+				Expect(idx).To(Equal(0))
+				Expect(varScope.Symbol).ToNot(BeNil())
+				Expect(varScope.Symbol.Name).To(Equal("x"))
+				Expect(varScope.Symbol.Type).To(Equal(types.F32{}))
+			})
+
+			It("Should not allow assignment of a float literal to an int type", func() {
+				ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x i32 := 42.0
+				}
+				`))
+				result := analyzer.Analyze(analyzer.Config{Program: ast})
+				Expect(result.Ok()).To(BeFalse())
+				Expect(result.Diagnostics).To(HaveLen(1))
+				first := result.Diagnostics[0]
+				Expect(first.Message).To(Equal("type mismatch: cannot assign f64 to i32"))
 			})
 		})
 	})
@@ -90,26 +167,26 @@ func cat() {
 	Describe("Assignment", func() {
 		It("Should return an error diagnostic when the variable being assigned to was not declared", func() {
 			ast := MustSucceed(parser.Parse(`
-func dog() {
-	my_var i32 := 1
-	cat string := "abc"
-	 bob = cat
-}
+				func dog() {
+					my_var i32 := 1
+					cat string := "abc"
+					bob = cat
+				}
 		`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(1))
 			first := result.Diagnostics[0]
 			Expect(first.Message).To(ContainSubstring("undefined symbol: bob"))
 			Expect(first.Line).To(Equal(5))
-			Expect(first.Column).To(Equal(2))
+			Expect(first.Column).To(Equal(5))
 		})
 
 		It("Should return an error diagnostic when the variable on the right hand side is not declared", func() {
 			ast := MustSucceed(parser.Parse(`
 func dog() {
-my_var i32 := 1
-cat string := "abc"
-cat = bob
+	my_var i32 := 1
+	cat string := "abc"
+	cat = bob
 }
 		`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
@@ -157,8 +234,22 @@ cat = bob
 			`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(0))
-			// The test passes if no errors are generated - the types are properly bound
 		})
 	})
 
+	Describe("Control Flow", func() {
+		It("Should return no diagnostics for a valid if statement", func() {
+			ast := MustSucceed(parser.Parse(`
+				func dog() {
+					a f32 := 2.0
+					if (a > 5) {
+						return 1
+					}
+					return 2
+				}
+			`))
+			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			Expect(result.Ok()).To(BeTrue(), result.String())
+		})
+	})
 })

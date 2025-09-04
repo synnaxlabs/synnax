@@ -328,7 +328,7 @@ func visitVariableDeclarationType(
 				isLiteral := isLiteralExpression(expression)
 				// If it's a literal, we might allow some implicit conversions
 				// For now, we still check compatibility the same way
-				if (isLiteral && !atypes.LiteralCompatible(varType, exprType)) && !atypes.Compatible(varType, exprType) {
+				if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) && !atypes.Compatible(varType, exprType) {
 					result.AddError(
 						errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
 						declaration,

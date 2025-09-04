@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
+	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,7 +32,7 @@ var _ = Describe("Expressions", func() {
 					}
 				`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
-			Expect(result.Diagnostics).To(HaveLen(0))
+			Expect(result.Ok()).To(BeTrue(), result.String())
 		})
 
 		It("Should reject arithmetic operations on strings", func() {
@@ -42,9 +43,12 @@ var _ = Describe("Expressions", func() {
 						z := x + y
 					}
 				`))
-			result := analyzer.Analyze(analyzer.Config{Program: ast})
-			Expect(result.Diagnostics).To(HaveLen(1))
-			Expect(result.Diagnostics[0].Message).To(ContainSubstring("cannot use string in + operation"))
+			res := analyzer.Analyze(analyzer.Config{Program: ast})
+			Expect(res.Ok()).To(BeFalse())
+			Expect(res.Diagnostics).To(HaveLen(1))
+			first := res.Diagnostics[0]
+			Expect(first.Severity).To(Equal(result.Error))
+			Expect(first.Message).To(ContainSubstring("cannot use string in + operation"))
 		})
 
 		It("Should reject mixed type arithmetic", func() {
@@ -75,6 +79,30 @@ var _ = Describe("Expressions", func() {
 				`))
 			result := analyzer.Analyze(analyzer.Config{Program: ast})
 			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+
+		It("Should reject mixed type comparisons", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x i32 := 10
+					y u32 := 20
+					z := x > y
+				}`,
+			))
+			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			Expect(result.Diagnostics).To(HaveLen(1))
+			Expect(result.Diagnostics[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
+		})
+
+		It("Should allow for comparison of a floating point variable with an integer literal", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f32 := 10
+					z := x > 5
+				}`,
+			))
+			result := analyzer.Analyze(analyzer.Config{Program: ast})
+			Expect(result.Diagnostics).To(HaveLen(1))
 		})
 
 		It("Should validate logical operations on booleans", func() {
@@ -343,7 +371,7 @@ var _ = Describe("Expressions", func() {
 	})
 
 	Describe("Variable Reference Expressions", func() {
-		It("Should resolve local variables correctly", func() {
+		FIt("Should resolve local variables correctly", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10

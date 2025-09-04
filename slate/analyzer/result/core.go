@@ -27,7 +27,7 @@ type Diagnostic struct {
 
 type Severity int
 
-//go:generate stringer -type=DiagnosticSeverity
+//go:generate stringer -type=Severity
 const (
 	Error Severity = iota
 	Warning
@@ -53,7 +53,7 @@ func (r *Result) AddError(
 }
 
 func (r *Result) Ok() bool {
-	return len(r.Diagnostics) > 0
+	return len(r.Diagnostics) == 0
 }
 
 func (r *Result) String() string {

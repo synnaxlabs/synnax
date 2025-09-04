@@ -136,7 +136,10 @@ func inferPostfixType(scope *symbol.Scope, ctx parser.IPostfixExpressionContext)
 	return nil
 }
 
-func inferPrimaryType(scope *symbol.Scope, ctx parser.IPrimaryExpressionContext) types.Type {
+func inferPrimaryType(
+	scope *symbol.Scope,
+	ctx parser.IPrimaryExpressionContext,
+) types.Type {
 	if id := ctx.IDENTIFIER(); id != nil {
 		if varScope, err := scope.Get(id.GetText()); err == nil {
 			if varScope.Symbol != nil && varScope.Symbol.Type != nil {
@@ -165,7 +168,9 @@ func inferPrimaryType(scope *symbol.Scope, ctx parser.IPrimaryExpressionContext)
 	return nil
 }
 
-func inferLiteralType(ctx parser.ILiteralContext) types.Type {
+func inferLiteralType(
+	ctx parser.ILiteralContext,
+) types.Type {
 	text := ctx.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		return types.String{}
@@ -173,40 +178,10 @@ func inferLiteralType(ctx parser.ILiteralContext) types.Type {
 	if text == "true" || text == "false" {
 		return types.U8{}
 	}
-	// Check for numeric type suffixes
-	if len(text) >= 3 {
-		// Check for type suffixes (u8, u16, u32, u64, i8, i16, i32, i64, f32, f64)
-		if text[len(text)-3:] == "u16" {
-			return types.U16{}
-		} else if text[len(text)-3:] == "u32" {
-			return types.U32{}
-		} else if text[len(text)-3:] == "u64" {
-			return types.U64{}
-		} else if text[len(text)-3:] == "i16" {
-			return types.I16{}
-		} else if text[len(text)-3:] == "i32" {
-			return types.I32{}
-		} else if text[len(text)-3:] == "i64" {
-			return types.I64{}
-		} else if text[len(text)-3:] == "f32" {
-			return types.F32{}
-		} else if text[len(text)-3:] == "f64" {
-			return types.F64{}
-		}
-	}
-	if len(text) >= 2 {
-		if text[len(text)-2:] == "u8" {
-			return types.U8{}
-		} else if text[len(text)-2:] == "i8" {
-			return types.I8{}
-		}
-	}
-
-	// No suffix, use defaults
 	for _, ch := range text {
 		if ch == '.' || ch == 'e' || ch == 'E' {
 			return types.F64{} // Default to f64 for float literals
 		}
 	}
-	return types.I32{} // Default to i32 for integer literals
+	return types.I64{} // Default to i32 for integer literals
 }
