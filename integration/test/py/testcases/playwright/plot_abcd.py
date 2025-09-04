@@ -40,7 +40,6 @@ class Plot_Abcd(Plot):
         self.set_Y1_axis({
             "Lower Bound": -0.005,
             "Upper Bound": 0.08,
-            "Label": "Hello",
             "Tick Spacing": 50,
         })
         self.set_Y2_axis({
@@ -52,7 +51,6 @@ class Plot_Abcd(Plot):
         self.set_Y1_axis({
             "Lower Bound": -0.05,
             "Upper Bound": 0.08,
-            "Label": "Hello",
             "Tick Spacing": 50,
         })
         self.set_Y2_axis({
