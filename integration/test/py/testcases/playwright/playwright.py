@@ -108,10 +108,7 @@ class Playwright(TestCase):
         """
 
         browsers = ['chromium', 'firefox', 'webkit']
-        browsers = ['chromium'] # Failing on Firefox in CI only
-        # Webkit is not supported on Windows, remove it.
-        #if platform.system() == 'Windows':
-        #    browsers.remove('webkit')
+        browsers = ['chromium'] # Failing on Firefox in CI only. Keep as single browser until debugged.
         
         selected = random.choice(browsers)
         self._log_message(f"Randomly selected browser: {selected}")

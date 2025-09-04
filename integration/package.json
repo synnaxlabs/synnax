@@ -4,11 +4,11 @@
   "type": "module",
   "description": "End-to-end integration tests for Synnax platform",
   "scripts": {
-    "test": "cd test/playwright && playwright test",
-    "test:ui": "cd test/playwright && playwright test --ui",
-    "test:debug": "cd test/playwright && playwright test --debug",
-    "test:headed": "cd test/playwright && playwright test --headed",
-    "test:report": "cd test/playwright && playwright show-report ./playwright-report"
+    "test": "playwright test --config=test/playwright/playwright.config.ts",
+    "test:ui": "playwright test --config=test/playwright/playwright.config.ts --ui",
+    "test:debug": "playwright test --config=test/playwright/playwright.config.ts --debug",
+    "test:headed": "playwright test --config=test/playwright/playwright.config.ts --headed",
+    "test:report": "playwright show-report test/playwright/playwright-report"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1"

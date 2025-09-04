@@ -39,20 +39,6 @@ jobs:
             echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
           fi
 
-  confirm-host-ubuntu-22-04:
-    name: Confirm Host (Ubuntu-22.04)
-    runs-on:
-      - self-hosted
-      - ubuntu-22.04
-    needs: setup
-    if: false
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Confirm Host
-        run: scripts/integration/confirm-host-unix.sh
-
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
     runs-on:
@@ -93,94 +79,6 @@ jobs:
       - name: Confirm Host
         run: scripts/integration/confirm-host-unix.sh
 
-  build-ubuntu-22-04:
-    name: Build Synnax (Ubuntu-22.04)
-    timeout-minutes: 75
-    runs-on: ubuntu-22.04
-    needs: [setup, confirm-host-ubuntu-22-04]
-    if: false
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Cache Bazel
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/bazel
-            ~/.cache/bazelisk
-          key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc', 'MODULE.bazel') }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc') }}
-            ${{ runner.os }}-bazel-
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.work.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.work') }}
-            ${{ runner.os }}-go-
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache: false
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Node Dependencies
-        run: pnpm install
-
-      - name: Build Console Web Assets
-        run: pnpm build:console-vite
-
-      - name: Copy Console Assets to Server
-        run: |
-          mkdir -p core/pkg/service/console/dist
-          cp -r console/dist/* core/pkg/service/console/dist/
-
-      - name: Build Synnax (Ubuntu 22.04 - NI Linux RT)
-        id: version
-        run: scripts/integration/build-linux-ni-rt.sh
-
-      # - name: Upload Driver Binary as Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: driver-nilinuxrt
-      #     path: bazel-bin/driver/driver
-      #     retention-days: 7
-      #     if-no-files-found: error
-
-      - name: Upload Server Binary as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: synnax-core-console-nilinuxrt
-          path: core/synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Debug Build Environment
-        if: failure()
-        run: scripts/integration/debug-build-environment-unix.sh
-
   build-ubuntu-latest:
     name: Build Synnax (ubuntu-latest)
     timeout-minutes: 75
@@ -195,40 +93,22 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
-      - name: Cache Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/bazel
-            ~/.cache/bazelisk
-          key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc', 'MODULE.bazel') }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc') }}
-            ${{ runner.os }}-bazel-
-
       - name: Setup Bazel
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
-
-      - name: Cache Go modules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.work.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.work') }}
-            ${{ runner.os }}-go-
+          bazelisk-cache: true
+          disk-cache: true
+          external-cache: true
+          repository-cache: true
+
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache: false
+          cache: true
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -239,6 +119,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
           cache: pnpm
 
       - name: Install Node Dependencies
@@ -252,7 +134,6 @@ jobs:
       - name: Copy Console Assets to Server
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
-          mkdir -p core/pkg/service/console/dist
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (Ubuntu Latest)
@@ -277,7 +158,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-core-console-linux
+          name: synnax-core-linux
           path: core/synnax-v${{ steps.version.outputs.VERSION }}-linux
           retention-days: 7
           if-no-files-found: error
@@ -306,40 +187,22 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
-      - name: Cache Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
-        with:
-          path: |
-            C:/tmp
-            ~/.cache/bazelisk
-          key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc', 'MODULE.bazel') }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc') }}
-            ${{ runner.os }}-bazel-
-
       - name: Setup Bazel
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
-
-      - name: Cache Go modules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.work.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.work') }}
-            ${{ runner.os }}-go-
+          bazelisk-cache: true
+          disk-cache: true
+          external-cache: true
+          repository-cache: true
+
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache: false
+          cache: true
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -350,6 +213,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
           cache: pnpm
 
       - name: Install Node Dependencies
@@ -364,7 +229,6 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: cmd
         run: |
-          if not exist core\pkg\service\console\dist mkdir core\pkg\service\console\dist
           xcopy /E /I /Y console\dist\* core\pkg\service\console\dist\
 
       - name: Build Driver (Windows)
@@ -427,7 +291,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-core-console-windows
+          name: synnax-core-windows
           path: core/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
           retention-days: 7
           if-no-files-found: error
@@ -451,40 +315,21 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: git submodule update --init --recursive
 
-      - name: Cache Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/Library/Caches/bazel
-            ~/Library/Caches/bazelisk
-          key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc', 'MODULE.bazel') }}
-          restore-keys: |
-            ${{ runner.os }}-bazel-${{ hashFiles('.bazelrc') }}
-            ${{ runner.os }}-bazel-
-
       - name: Setup Bazel
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
-
-      - name: Cache Go modules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.work.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('go.work') }}
-            ${{ runner.os }}-go-
+          bazelisk-cache: true
+          disk-cache: true
+          external-cache: true
+          repository-cache: true
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache: false
+          cache: true
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -495,6 +340,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
           cache: pnpm
 
       - name: Install Node Dependencies
@@ -510,7 +357,6 @@ jobs:
       - name: Copy Console Assets to Server
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         run: |
-          mkdir -p core/pkg/service/console/dist
           cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Build Synnax (macOS)
@@ -535,7 +381,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-core-console-macos
+          name: synnax-core-macos
           path: core/synnax-v${{ steps.version.outputs.VERSION }}-macos
           retention-days: 7
           if-no-files-found: error
@@ -582,7 +428,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: integration/test/py/pyproject.toml
 
       - name: Install Poetry & Dependencies
         shell: cmd
@@ -660,10 +506,9 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Set up Python
-        run: |
-          # Use system Python on macOS self-hosted runner
-          python3 --version
-          pip3 --version
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: integration/test/py/pyproject.toml
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh
@@ -733,7 +578,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: integration/test/py/pyproject.toml
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh

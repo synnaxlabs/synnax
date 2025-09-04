@@ -42,8 +42,8 @@ download_artifacts() {
     mkdir -p ./binaries
     
     # Download artifacts using GitHub CLI
-    echo "Downloading synnax-core-console-macos artifact..."
-    gh run download $run_id --name synnax-core-console-macos --dir ./binaries
+    echo "Downloading synnax-core-macos artifact..."
+    gh run download $run_id --name synnax-core-macos --dir ./binaries
     
     # Verify artifacts were downloaded
     if [ ! -f "./binaries/synnax-"*"-macos" ]; then

@@ -44,8 +44,8 @@ download_artifacts() {
     mkdir -p ./binaries
     
     # Download artifacts using GitHub CLI
-    echo "Downloading synnax-core-console-linux artifact..."
-    gh run download $run_id --name synnax-core-console-linux --dir ./binaries
+    echo "Downloading synnax-core-linux artifact..."
+    gh run download $run_id --name synnax-core-linux --dir ./binaries
     
     # Verify artifacts were downloaded
     if ! ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
