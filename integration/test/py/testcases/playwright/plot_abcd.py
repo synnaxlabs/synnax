@@ -33,15 +33,29 @@ class Plot_Abcd(Plot):
     def run(self) -> None:
 
         self.wait_for_tlm_init()
-        time.sleep(5)
 
         self.add_Y1(["d_ab", "d_bc", "d_cd", "d_da"])
-        self.add_Y2(["async_a_state", 
-            "async_b_state", 
-            "async_c_state", 
-            "async_d_state"
-            ])
+        self.add_Y2(["t_a", "t_b", "t_c", "t_d"])
         self.add_ranges(["30s"])
-
+        self.set_Y1_axis({
+            "Lower Bound": -0.005,
+            "Upper Bound": 0.08,
+            "Label": "Hello",
+            "Tick Spacing": 50,
+        })
+        self.set_Y2_axis({
+            "Tick Spacing": 100,
+        })
         self.wait_for_tlm_stale()
+        
+        # Reset after auto adjust
+        self.set_Y1_axis({
+            "Lower Bound": -0.05,
+            "Upper Bound": 0.08,
+            "Label": "Hello",
+            "Tick Spacing": 50,
+        })
+        self.set_Y2_axis({
+            "Tick Spacing": 100,
+        })
         self.save_screenshot()

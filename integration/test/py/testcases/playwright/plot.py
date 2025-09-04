@@ -24,23 +24,6 @@ class Plot(Playwright):
             "X1": None,
     }
 
-    AXES = {
-        "Y1": {
-            "lower_bound": 0,
-            "upper_bound": 1,
-            "tick_spacing": 75,
-            "label": "Y1",
-            "label_direction": "up",
-            "label_size": "xs"
-        },
-        "X1": {
-            "lower_bound": 1756939752648588300,
-            "upper_bound": 1756939752648588300,
-            "tick_spacing": 75,
-            "label": "X1",
-            "label_size": "xs"
-        }
-    }
     PROPERTIS = {
             "Title": "Line Plot",
             "Show Title": False,
@@ -90,7 +73,7 @@ class Plot(Playwright):
             if search_box.count() > 0:
                 search_box.clear()
                 search_box.fill(channel)
-                time.sleep(0.5)  # Wait for filtering
+                time.sleep(0.1)  # Wait for filtering
             
             # Use first() to handle multiple matches (like t_c matching test_conductor_test_case_count)
             channel_element = self.page.locator(f".pluto-list__item:has-text('{channel}')").first
@@ -107,7 +90,6 @@ class Plot(Playwright):
             
         self.page.keyboard.press("Escape")
 
-
     def add_ranges(self, ranges: list[str]) -> None:
         Range_Options = ["30s", "1m", "5m", "15m", "30m"]
 
@@ -118,10 +100,13 @@ class Plot(Playwright):
                 self.DATA["Ranges"].append(range)
         self.ESCAPE
 
-    def save_screenshot(self, path: str = "plot_screenshot.png") -> None:
+    def save_screenshot(self, path: str = None) -> None:
         """
         Save a screenshot of the plot area including axes with margin
         """
+        if path is None:
+            path = f"{self.name}.png"
+            
         plot_locator = self.page.locator(".pluto-line-plot")
         
         # Get the bounding box and add margin
@@ -152,3 +137,41 @@ class Plot(Playwright):
                 type="png",
                 scale="device"
             )
+
+    def set_X1_axis(self, config: dict) -> None:
+        self.set_axis("X1", config)
+
+    def set_Y1_axis(self, config: dict) -> None:
+        self.set_axis("Y1", config)
+
+    def set_Y2_axis(self, config: dict) -> None:
+        self.set_axis("Y2", config)    
+
+    def set_axis(self, axis: str,config: dict) -> None:
+        self.page.get_by_text("Axes").click()
+        self.page.locator("div").filter(has_text=re.compile(fr"^{axis}$")).click()
+
+        for key, value in config.items():
+            try:
+                if key in ["Lower Bound", "Upper Bound", "Tick Spacing", "Label"]:
+                    # For text input fields, find the input associated with the label
+                    input_field = self.page.locator(f"label:has-text('{key}') + div input")
+                    input_field.clear()
+                    input_field.fill(str(value))
+                elif key == "Label Direction":
+                    # For button groups, click the appropriate button
+                    if str(value).lower() == "up":
+                        self.page.locator("label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-up'])").click()
+                    else:  # right/left/horizontal
+                        self.page.locator("label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-right'])").click()
+                elif key == "Label Size":
+                    # For size buttons, click the appropriate size
+                    size_mapping = {"xs": "XS", "s": "S", "m": "M", "l": "L", "xl": "XL"}
+                    button_text = size_mapping.get(str(value).lower(), str(value).upper())
+                    self.page.locator(f"label:has-text('Label Size') + div button:has-text('{button_text}')").click()
+                else:
+                    # Fallback for unknown keys
+                    self.page.locator(key).fill(str(value))
+            except Exception as e:
+                raise ValueError(f"Warning: Failed to set axis property \"{key}\" to \"{value}\": {e}")
+        self.ENTER
