@@ -213,45 +213,6 @@ func Equal(t Type, v Type) bool {
 	return t == v
 }
 
-func FromPrimitiveString(v string) Type {
-	switch v {
-	case "i8":
-		return I8{}
-	case "i16":
-		return I16{}
-	case "i32":
-		return I32{}
-	case "i64":
-		return I64{}
-	case "u8":
-		return U8{}
-	case "u16":
-		return U16{}
-	case "u32":
-		return U32{}
-	case "u64":
-		return U64{}
-	case "f32":
-		return F32{}
-	case "f64":
-		return F64{}
-	case "timestamp":
-		return TimeStamp{}
-	case "timespan":
-		return TimeSpan{}
-	case "string":
-		return String{}
-	default:
-		panic(fmt.Sprintf("unknown type: %s", v))
-	}
-}
-
-var Integers = []Type{U8{}, U16{}, U32{}, U64{}, I8{}, I16{}, I32{}, I64{}}
-var UnsignedIntegers = []Type{U8{}, U16{}, U32{}, U64{}}
-var SignedIntegers = []Type{I8{}, I16{}, I32{}, I64{}}
-var Floats = []Type{F32{}, F64{}}
-var Temporals = []Type{TimeStamp{}, TimeSpan{}}
-
 func Is64Bit(t Type) bool {
 	switch t {
 	case I64{}, U64{}, TimeStamp{}, TimeSpan{}, F64{}:
