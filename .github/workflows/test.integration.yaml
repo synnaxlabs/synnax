@@ -1,10 +1,24 @@
 name: Test - Integration
 
 on:
-  push:
+  pull_request:
     branches:
-      - sy-2780-implement-e2e-testing-for-console
+      - main
   workflow_dispatch:
+    inputs:
+      SKIP_BUILD:
+        description: 'Skip build process and use artifacts from another run'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      REF_RUN_ID:
+        description: 'Reference run ID for artifacts (when SKIP_BUILD is true)'
+        required: false
+        default: '0000000000'
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,8 +26,8 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: true
-  REF_RUN_ID: "17477639880"
+  SKIP_BUILD: false
+  REF_RUN_ID: "0000000000"
 
 jobs:
   setup:
@@ -25,10 +39,10 @@ jobs:
       - name: Set outputs
         id: set-outputs
         env:
-          SKIP_BUILD: ${{ env.SKIP_BUILD }}
-          REF_RUN_ID: ${{ env.REF_RUN_ID }}
+          # Use workflow inputs if triggered manually, otherwise use env defaults
+          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || env.REF_RUN_ID }}
         run: |
-
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
 
           if [ "${SKIP_BUILD}" = "false" ]; then
