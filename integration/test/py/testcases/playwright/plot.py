@@ -146,7 +146,36 @@ class Plot(Playwright):
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
         self.page.get_by_text("Axes").click()
-        self.page.locator(f"#{axis.lower()}").click()
+        print("Available elements:")
+        print("--------------------------------")
+        for element in self.page.locator("[id*='y']").all():
+            print(f"  ID: {element.get_attribute('id')}, Text: {element.inner_text()}")
+        print("--------------------------------")
+        # Wait for the tabs to be visible
+        self.page.wait_for_selector(".pluto-tabs-selector__btn")
+        
+        # Try multiple selectors as fallback
+        selectors = [
+            f"#{axis}",           # Uppercase ID
+            f"#{axis.lower()}",   # Lowercase ID  
+            f"[id='{axis}']",     # Attribute selector uppercase
+            f"[id='{axis.lower()}']",  # Attribute selector lowercase
+            f".pluto-tabs-selector__btn:has-text('{axis}')"  # Class + text
+        ]
+        
+        clicked = False
+        for selector in selectors:
+            try:
+                if self.page.locator(selector).count() > 0:
+                    self.page.locator(selector).click(timeout=2000)
+                    clicked = True
+                    self._log_message(f"SUCCESS: Found axis tab: {axis}")
+                    break
+            except:
+                continue
+        
+        if not clicked:
+            raise Exception(f"ERROR: Could not find axis tab: {axis}")
 
         for key, value in config.items():
             try:
