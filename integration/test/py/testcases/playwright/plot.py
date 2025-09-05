@@ -146,15 +146,27 @@ class Plot(Playwright):
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
         self.page.get_by_text("Axes").click()
-        print("Available elements:")
-        print("--------------------------------")
-        for element in self.page.locator("[id*='y']").all():
-            print(f"  ID: {element.get_attribute('id')}, Text: {element.inner_text()}")
-        print("--------------------------------")
-        # Wait for the tabs to be visible
-        self.page.wait_for_selector(".pluto-tabs-selector__btn")
         
-        # Try multiple selectors as fallback
+        # Wait longer for the tabs to be visible
+        self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=10000)
+        
+        # Debug: Print available elements safely
+        print("Available tab elements:")
+        print("--------------------------------")
+        try:
+            elements = self.page.locator(".pluto-tabs-selector__btn").all()
+            for i, element in enumerate(elements):
+                try:
+                    element_id = element.get_attribute('id')
+                    element_text = element.text_content() or "No text"
+                    print(f"  Element {i}: ID={element_id}, Text='{element_text}'")
+                except:
+                    print(f"  Element {i}: Could not read properties")
+        except:
+            print("  Could not enumerate elements")
+        print("--------------------------------")
+        
+        # Try multiple selectors as fallback with longer timeouts
         selectors = [
             f"#{axis}",           # Uppercase ID
             f"#{axis.lower()}",   # Lowercase ID  
@@ -166,12 +178,15 @@ class Plot(Playwright):
         clicked = False
         for selector in selectors:
             try:
-                if self.page.locator(selector).count() > 0:
-                    self.page.locator(selector).click(timeout=2000)
+                locator = self.page.locator(selector)
+                if locator.count() > 0:
+                    print(f"Trying selector: {selector}")
+                    locator.click(timeout=5000)
                     clicked = True
-                    self._log_message(f"SUCCESS: Found axis tab: {axis}")
+                    print(f"SUCCESS: Found axis tab: {axis}")
                     break
-            except:
+            except Exception as e:
+                print(f"Failed with selector {selector}: {e}")
                 continue
         
         if not clicked:
