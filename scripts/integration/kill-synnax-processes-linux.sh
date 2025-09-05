@@ -13,30 +13,34 @@
 # Forcibly terminates existing Synnax processes on Linux
 # Used by GitHub Actions workflow: test.integration.yaml
 
-#!/bin/bash
+set -euo pipefail
 
-echo "Checking for existing synnax processes..."
-if pgrep -f "synnax" > /dev/null; then
-  echo "Found synnax processes. Terminating..."
-  set +e
-  pkill -f "synnax" 2>/dev/null
-  KILL_EXIT_CODE=$?
-  set -e 
-  echo "Initial kill exit code: $KILL_EXIT_CODE"
-  sleep 2
-  # Force kill if still running
-  set +e
-  if pgrep -f "synnax" > /dev/null; then
-    echo "Force killing remaining synnax processes..."
-    pkill -9 -f "synnax" 2>/dev/null
-    FORCE_KILL_EXIT_CODE=$?
-    echo "Force kill exit code: $FORCE_KILL_EXIT_CODE"
-  fi
-  set -e
-  echo "All synnax processes terminated."
+echo "Cleaning up synnax directories..."
+[ -d "$HOME/synnax-binaries" ] && rm -rf "$HOME/synnax-binaries" && echo "Removed synnax-binaries directory from $HOME" || echo "No synnax-binaries directory found in $HOME"
+[ -d "$HOME/synnax-data" ] && rm -rf "$HOME/synnax-data" && echo "Removed synnax-data directory from $HOME" || echo "No synnax-data directory found in $HOME"
+
+# Check if directories still exist after cleanup
+echo "Verifying directory cleanup..."
+if [ -d "$HOME/synnax-binaries" ] || [ -d "$HOME/synnax-data" ]; then
+    echo "❌ ERROR: synnax directories still exist after cleanup:"
+    [ -d "$HOME/synnax-binaries" ] && echo "  - $HOME/synnax-binaries still exists"
+    [ -d "$HOME/synnax-data" ] && echo "  - $HOME/synnax-data still exists"
+    echo "Directory cleanup failed"
+    exit 1
 else
-  echo "No synnax processes found."
+    echo "✅ Directory cleanup verified - no synnax directories found"
 fi
 
-echo "Script completed successfully"
+echo "Checking for existing synnax processes..."
+if pgrep -f "synnax" >/dev/null 2>&1; then
+    echo "Found synnax processes, killing them..."
+    pkill -f "synnax" 2>/dev/null || true
+    sleep 2
+    pkill -9 -f "synnax" 2>/dev/null || true
+    echo "Synnax processes killed"
+else
+    echo "No synnax processes found"
+fi
+
+echo "Synnax process cleanup completed"
 exit 0

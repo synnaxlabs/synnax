@@ -22,5 +22,9 @@ pkill -f "synnax" 2>/dev/null && echo "Killed synnax processes" || echo "No synn
 sleep 2
 pkill -9 -f "synnax" 2>/dev/null || true
 
+echo "Cleaning up synnax directories..."
+[ -d "synnax-binaries" ] && rm -rf synnax-binaries && echo "Removed synnax-binaries directory" || echo "No synnax-binaries directory found"
+[ -d "synnax-data" ] && rm -rf synnax-data && echo "Removed synnax-data directory" || echo "No synnax-data directory found"
+
 echo "Synnax process cleanup completed"
 exit 0

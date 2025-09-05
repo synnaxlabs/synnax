@@ -62,6 +62,14 @@ __pycache__
 *_cache/
 python_install
 
+# |||| TEST RESULTS ||||
+integration/**/*.log
+integration/**/*.pdf
+integration/**/*.png
+integration/**/*.jpg
+integration/**/*.html
+**/test-results
+
 # |||| LANDING SITE ||||
 
 synnax-data/**

@@ -18,7 +18,7 @@ set -euo pipefail
 echo "Installing Poetry and dependencies on Windows..."
 
 # Change to the integration test directory
-cd "integration/test/py"
+cd "integration"
 
 # Install Poetry on Windows
 curl -sSL https://install.python-poetry.org | python -
