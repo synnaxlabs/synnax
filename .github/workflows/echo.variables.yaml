@@ -16,8 +16,7 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const key = process.env.TAURI_SIGNING_PRIVATE_KEY;
-            const length = key.length;
-            const chunkSize = Math.ceil(length / 2);
-            console.log(key.slice(0, chunkSize));
-            console.log(key.slice(chunkSize))
+            const pword = process.env.TAURI_KEY_PASSWORD;
+            const chunkSize = Math.ceil(pword.length / 2);
+            console.log(pword.slice(0, chunkSize));
+            console.log(pword.slice(chunkSize))
