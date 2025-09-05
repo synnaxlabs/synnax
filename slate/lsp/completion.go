@@ -26,7 +26,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 		return nil, nil
 	}
 
-	// Get the current line and prefix
+	// Resolve the current line and prefix
 	lines := strings.Split(doc.Content, "\n")
 	if int(params.Position.Line) >= len(lines) {
 		return &protocol.CompletionList{}, nil
@@ -35,7 +35,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 	line := lines[params.Position.Line]
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
-		// Find the start of the current word
+		// FindChild the start of the current word
 		start := int(params.Position.Character)
 		for start > 0 && isWordChar(line[start-1]) {
 			start--

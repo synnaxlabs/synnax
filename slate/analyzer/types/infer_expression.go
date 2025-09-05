@@ -115,9 +115,9 @@ func InferFromUnaryExpression(scope *symbol.Scope, ctx parser.IUnaryExpressionCo
 	}
 	if blockingRead := ctx.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
-			if chanScope, err := scope.Get(id.GetText()); err == nil {
-				if chanScope.Symbol != nil && chanScope.Symbol.Type != nil {
-					if chanType, ok := chanScope.Symbol.Type.(types.Chan); ok {
+			if chanScope, err := scope.Resolve(id.GetText()); err == nil {
+				if chanScope.Type != nil {
+					if chanType, ok := chanScope.Type.(types.Chan); ok {
 						return chanType.ValueType
 					}
 				}
@@ -145,9 +145,9 @@ func inferPrimaryType(
 	hint types.Type,
 ) types.Type {
 	if id := ctx.IDENTIFIER(); id != nil {
-		if varScope, err := scope.Get(id.GetText()); err == nil {
-			if varScope.Symbol != nil && varScope.Symbol.Type != nil {
-				if t, ok := varScope.Symbol.Type.(types.Type); ok {
+		if varScope, err := scope.Resolve(id.GetText()); err == nil {
+			if varScope.Type != nil {
+				if t, ok := varScope.Type.(types.Type); ok {
 					return t
 				}
 			}

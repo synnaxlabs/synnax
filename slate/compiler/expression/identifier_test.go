@@ -26,7 +26,7 @@ var _ = Describe("Expression Compiler", func() {
 		Context("Local Variables", func() {
 			It("Should compile local variable references", func() {
 				ctx := NewContext()
-				ctx.Scope.AddSymbol("x", symbol.KindVariable, types.I32{}, nil)
+				ctx.Scope.Add("x", symbol.KindVariable, types.I32{}, nil)
 				byteCode, exprType := compileWithCtx(ctx, "x")
 				Expect(byteCode).To(Equal(WASM(OpLocalGet, 0)))
 				Expect(exprType).To(Equal(types.I32{}))
@@ -34,15 +34,15 @@ var _ = Describe("Expression Compiler", func() {
 
 			It("Should compile expressions using multiple local variables", func() {
 				ctx := NewContext()
-				MustSucceed(ctx.Scope.AddSymbol("a", symbol.KindVariable, types.I32{}, nil))
-				MustSucceed(ctx.Scope.AddSymbol("b", symbol.KindVariable, types.I32{}, nil))
+				MustSucceed(ctx.Scope.Add("a", symbol.KindVariable, types.I32{}, nil))
+				MustSucceed(ctx.Scope.Add("b", symbol.KindVariable, types.I32{}, nil))
 				// Compile expression using both variables
 				expr := MustSucceed(parser.ParseExpression("a + b"))
 				exprType := MustSucceed(expression.Compile(ctx, expr))
 				bytecode := ctx.Writer.Bytes()
 				expected := WASM(
-					OpLocalGet, 0, // Get 'a'
-					OpLocalGet, 1, // Get 'b'
+					OpLocalGet, 0, // Resolve 'a'
+					OpLocalGet, 1, // Resolve 'b'
 					OpI32Add, // Add them
 				)
 				Expect(bytecode).To(Equal(expected))
@@ -52,15 +52,15 @@ var _ = Describe("Expression Compiler", func() {
 			It("Should compile complex expressions with local variables", func() {
 				ctx := NewContext()
 				// Add variables with different types
-				MustSucceed(ctx.Scope.AddSymbol("x", symbol.KindVariable, types.F64{}, nil))
-				MustSucceed(ctx.Scope.AddSymbol("y", symbol.KindVariable, types.F64{}, nil))
-				MustSucceed(ctx.Scope.AddSymbol("z", symbol.KindVariable, types.F64{}, nil))
+				MustSucceed(ctx.Scope.Add("x", symbol.KindVariable, types.F64{}, nil))
+				MustSucceed(ctx.Scope.Add("y", symbol.KindVariable, types.F64{}, nil))
+				MustSucceed(ctx.Scope.Add("z", symbol.KindVariable, types.F64{}, nil))
 				bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
 				expected := WASM(
-					OpLocalGet, 0, // Get 'x'
-					OpLocalGet, 1, // Get 'y'
+					OpLocalGet, 0, // Resolve 'x'
+					OpLocalGet, 1, // Resolve 'y'
 					OpF64Add,      // x + y
-					OpLocalGet, 2, // Get 'z'
+					OpLocalGet, 2, // Resolve 'z'
 					OpF64Mul, // (x + y) * z
 				)
 				Expect(bytecode).To(Equal(expected))
@@ -69,12 +69,12 @@ var _ = Describe("Expression Compiler", func() {
 
 			It("Should compile comparisons using local variables", func() {
 				ctx := NewContext()
-				MustSucceed(ctx.Scope.AddSymbol("limit", symbol.KindVariable, types.I32{}, nil))
-				MustSucceed(ctx.Scope.AddSymbol("value", symbol.KindVariable, types.I32{}, nil))
+				MustSucceed(ctx.Scope.Add("limit", symbol.KindVariable, types.I32{}, nil))
+				MustSucceed(ctx.Scope.Add("value", symbol.KindVariable, types.I32{}, nil))
 				bytecode, exprType := compileWithCtx(ctx, "value > limit")
 				expected := WASM(
-					OpLocalGet, 1, // Get 'value'
-					OpLocalGet, 0, // Get 'limit'
+					OpLocalGet, 1, // Resolve 'value'
+					OpLocalGet, 0, // Resolve 'limit'
 					OpI32GtS, // value > limit
 				)
 				Expect(bytecode).To(Equal(expected))
@@ -83,8 +83,8 @@ var _ = Describe("Expression Compiler", func() {
 
 			It("Should compile logical operations with local variables", func() {
 				ctx := NewContext()
-				MustSucceed(ctx.Scope.AddSymbol("enabled", symbol.KindVariable, types.U8{}, nil))
-				MustSucceed(ctx.Scope.AddSymbol("ready", symbol.KindVariable, types.U8{}, nil))
+				MustSucceed(ctx.Scope.Add("enabled", symbol.KindVariable, types.U8{}, nil))
+				MustSucceed(ctx.Scope.Add("ready", symbol.KindVariable, types.U8{}, nil))
 				bytecode, exprType := compileWithCtx(ctx, "enabled && ready")
 				expected := WASM(
 					// Load 'enabled'
@@ -112,7 +112,7 @@ var _ = Describe("Expression Compiler", func() {
 		Context("Function Parameters", func() {
 			It("Should compile parameter references", func() {
 				ctx := NewContext()
-				MustSucceed(ctx.Scope.AddSymbol(
+				MustSucceed(ctx.Scope.Add(
 					"value",
 					symbol.KindParam,
 					types.F64{},

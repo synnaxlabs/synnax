@@ -26,28 +26,24 @@ type Options struct {
 
 type Result = result.Result
 
-func newRootScope(opts Options) *symbol.Scope {
-	return &symbol.Scope{GlobalResolver: opts.Resolver, Counter: new(int)}
-}
-
 func Analyze(
 	prog parser.IProgramContext,
 	opts Options,
 ) Result {
-	rootScope := newRootScope(opts)
+	rootScope := symbol.CreateRoot(opts.Resolver)
 	res := result.Result{Symbols: rootScope}
 	// First pass: collect declarations with empty type signatures
 	for _, item := range prog.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
-			_, err := rootScope.AddSymbol(name, symbol.KindFunction, types.NewFunction(), fn)
+			_, err := rootScope.Add(name, symbol.KindFunction, types.NewFunction(), fn)
 			if err != nil {
 				res.AddError(err, fn)
 				return res
 			}
 		} else if task := item.TaskDeclaration(); task != nil {
 			name := task.IDENTIFIER().GetText()
-			_, err := rootScope.AddSymbol(
+			_, err := rootScope.Add(
 				name,
 				symbol.KindTask,
 				types.NewTask(),
@@ -83,7 +79,7 @@ func AnalyzeStatement(
 	stmt parser.IStatementContext,
 	opts Options,
 ) Result {
-	scope := newRootScope(opts)
+	scope := symbol.CreateRoot(opts.Resolver)
 	res := result.Result{Symbols: scope}
 	statement.Analyze(scope, &res, stmt)
 	return res
@@ -93,7 +89,7 @@ func AnalyzeBlock(
 	block parser.IBlockContext,
 	opts Options,
 ) Result {
-	scope := newRootScope(opts)
+	scope := symbol.CreateRoot(opts.Resolver)
 	res := result.Result{Symbols: scope}
 	statement.AnalyzeBlock(scope, &res, block)
 	return res
@@ -106,12 +102,12 @@ func analyzeFunctionDeclaration(
 	fn parser.IFunctionDeclarationContext,
 ) bool {
 	name := fn.IDENTIFIER().GetText()
-	fnScope, err := parentScope.Get(name)
+	fnScope, err := parentScope.Resolve(name)
 	if err != nil {
 		result.AddError(err, fn)
 		return false
 	}
-	fnType := fnScope.Symbol.Type.(types.Function)
+	fnType := fnScope.Type.(types.Function)
 	if !analyzeParams(
 		fnScope,
 		result,
@@ -125,7 +121,7 @@ func analyzeFunctionDeclaration(
 			fnType.Return, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 	}
-	fnScope.Symbol.Type = fnType
+	fnScope.Type = fnType
 	if block := fn.Block(); block != nil {
 		if !statement.AnalyzeBlock(fnScope, result, block) {
 			return false
@@ -167,7 +163,7 @@ func analyzeParams(
 		}
 
 		// Also add to scope for use within task body
-		if _, err := scope.AddSymbol(
+		if _, err := scope.Add(
 			paramName,
 			symbol.KindParam,
 			paramType,
@@ -235,13 +231,13 @@ func analyzeTaskDeclaration(
 	task parser.ITaskDeclarationContext,
 ) bool {
 	name := task.IDENTIFIER().GetText()
-	taskScope, err := parentScope.Get(name)
+	taskScope, err := parentScope.Resolve(name)
 	if err != nil {
 		result.AddError(err, task)
 		return false
 	}
 
-	taskType := taskScope.Symbol.Type.(types.Task)
+	taskType := taskScope.Type.(types.Task)
 	if configBlock := task.ConfigBlock(); configBlock != nil {
 		for _, param := range configBlock.AllConfigParameter() {
 			paramName := param.IDENTIFIER().GetText()
@@ -252,7 +248,7 @@ func analyzeTaskDeclaration(
 			if !taskType.Config.Put(paramName, configType) {
 				result.AddError(errors.Newf("duplicate configuration parameter %s", param), task)
 			}
-			_, err := taskScope.AddSymbol(
+			_, err := taskScope.Add(
 				paramName,
 				symbol.KindConfigParam,
 				configType,
@@ -280,7 +276,7 @@ func analyzeTaskDeclaration(
 			taskType.Return, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 	}
-	taskScope.Symbol.Type = taskType
+	taskScope.Type = taskType
 	if block := task.Block(); block != nil {
 		if !statement.AnalyzeBlock(taskScope, result, block) {
 			return false

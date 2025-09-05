@@ -19,7 +19,7 @@ import (
 // compileIdentifier compiles variable references
 func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 	// First, look up the symbol in the symbol table to get its type
-	scope, err := ctx.Scope.Get(name)
+	scope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "identifier '%s' not found", name)
 	}

@@ -86,5 +86,21 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(42)))
 		})
+
+		It("Should execute a simple compiled addition task", func() {
+			wasmBytes := MustSucceed(compile(`
+			task add{
+				a i64
+			} (b i64) i64 {
+				return a + b
+			}
+			`))
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			add := mod.ExportedFunction("add")
+			Expect(add).ToNot(BeNil())
+			results := MustSucceed(add.Call(ctx, 10, 32))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
 	})
 })

@@ -31,11 +31,11 @@ func compileVariableDeclaration(ctx *core.Context, decl parser.IVariableDeclarat
 // compileLocalVariable handles local variable declarations (x := expr)
 func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) error {
 	name := decl.IDENTIFIER().GetText()
-	varScope, err := ctx.Scope.Get(name)
+	varScope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found in symbol table", name)
 	}
-	varType := varScope.Symbol.Type
+	varType := varScope.Type
 	exprType, err := expression.Compile(ctx, decl.Expression())
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
@@ -45,11 +45,11 @@ func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) 
 			return err
 		}
 	}
-	local, err := ctx.Scope.Get(name)
+	local, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "failed to lookup local variable '%s'", name)
 	}
-	ctx.Writer.WriteLocalSet(local.Symbol.ID)
+	ctx.Writer.WriteLocalSet(local.ID)
 	return nil
 }
 
@@ -58,15 +58,15 @@ func compileStatefulVariable(
 	ctx *core.Context,
 	decl parser.IStatefulVariableContext,
 ) error {
-	// Get the variable name
+	// Resolve the variable name
 	name := decl.IDENTIFIER().GetText()
 
 	// Look up the symbol to get its type
-	scope, err := ctx.Scope.Get(name)
+	scope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "stateful variable '%s' not found in symbol table", name)
 	}
-	varType := scope.Symbol.Type
+	varType := scope.Type
 	// Compile the initialization expression (analyzer guarantees type correctness)
 	_, err = expression.Compile(
 		ctx,
@@ -79,7 +79,7 @@ func compileStatefulVariable(
 	// Push task ID (0 for now - runtime will provide actual ID)
 	ctx.Writer.WriteI32Const(0)
 	// Push state key
-	ctx.Writer.WriteI32Const(int32(scope.Symbol.ID))
+	ctx.Writer.WriteI32Const(int32(scope.ID))
 	// Value is already on stack from expression compilation
 	// Call state store function
 	importIdx, err := ctx.Imports.GetStateStore(varType)
@@ -87,7 +87,7 @@ func compileStatefulVariable(
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
-	ctx.Writer.WriteLocalSet(scope.Symbol.ID)
+	ctx.Writer.WriteLocalSet(scope.ID)
 	return nil
 }
 
@@ -96,10 +96,10 @@ func compileAssignment(
 	ctx *core.Context,
 	assign parser.IAssignmentContext,
 ) error {
-	// Get the variable name
+	// Resolve the variable name
 	name := assign.IDENTIFIER().GetText()
 	// Look up the symbol
-	scope, err := ctx.Scope.Get(name)
+	scope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "variable '%s' not found", name)
 	}
@@ -119,18 +119,18 @@ func compileAssignment(
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindParam:
 		// Regular local variable or parameter
-		local, err := ctx.Scope.Get(name)
+		local, err := ctx.Scope.Resolve(name)
 		if err != nil {
 			return errors.Newf("local variable '%s' not allocated", name)
 		}
-		ctx.Writer.WriteLocalSet(local.Symbol.ID)
+		ctx.Writer.WriteLocalSet(local.ID)
 	case symbol.KindStatefulVariable:
-		stateIdx, err := ctx.Scope.Get(name)
+		stateIdx, err := ctx.Scope.Resolve(name)
 		if err != nil {
 			return errors.Newf("stateful variable '%s' not allocated", name)
 		}
 		ctx.Writer.WriteI32Const(0) // Task ID
-		ctx.Writer.WriteI32Const(int32(stateIdx.Symbol.ID))
+		ctx.Writer.WriteI32Const(int32(stateIdx.ID))
 		importIdx, err := ctx.Imports.GetStateStore(varType)
 		if err != nil {
 			return err

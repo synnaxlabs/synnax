@@ -90,7 +90,7 @@ func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContex
 		if err != nil {
 			return errors.Wrap(err, "failed to compile function declaration")
 		}
-		fType := functionScope.Symbol.Type.(types.Function)
+		fType := functionScope.Type.(types.Function)
 		if fType.Return != exprType {
 			expression.EmitCast(ctx, exprType, fType.Return)
 		}
@@ -141,18 +141,18 @@ func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) e
 	}
 
 	// Look up the channel to get its ID
-	_, err = ctx.Scope.Get(channelName)
+	_, err = ctx.Scope.Resolve(channelName)
 	if err != nil {
 		return errors.Wrapf(err, "channel '%s' not found", channelName)
 	}
 
-	// Get channel ID from local (channels are passed as parameters)
-	sym, err := ctx.Scope.Get(channelName)
+	// Resolve channel ID from local (channels are passed as parameters)
+	sym, err := ctx.Scope.Resolve(channelName)
 	if err != nil {
 		return errors.Newf("channel '%s' not in local context", channelName)
 	}
 	// Push channel ID
-	ctx.Writer.WriteLocalGet(sym.Symbol.ID)
+	ctx.Writer.WriteLocalGet(sym.ID)
 	// Value is already on stack from expression compilation
 	// Call channel write function
 	importIdx, err := ctx.Imports.GetChannelWrite(valueType)

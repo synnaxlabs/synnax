@@ -79,11 +79,11 @@ func (a *assembler) buildModule() *Module {
 
 func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) {
 	name := taskDecl.IDENTIFIER().GetText()
-	sym, _ := a.scope.Get(name)
+	sym, _ := a.scope.Resolve(name)
 	if sym == nil || sym.Symbol == nil {
 		return
 	}
-	taskType, ok := sym.Symbol.Type.(types.Task)
+	taskType, ok := sym.Type.(types.Task)
 	if !ok {
 		return
 	}
@@ -108,11 +108,11 @@ func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) {
 
 func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext) {
 	name := funcDecl.IDENTIFIER().GetText()
-	sym, _ := a.scope.Get(name)
+	sym, _ := a.scope.Resolve(name)
 	if sym == nil || sym.Symbol == nil {
 		return
 	}
-	funcType, ok := sym.Symbol.Type.(types.Function)
+	funcType, ok := sym.Type.(types.Function)
 	if !ok {
 		return
 	}
@@ -225,7 +225,7 @@ func getExpressionText(expr parser.IExpressionContext) string {
 	if expr == nil {
 		return ""
 	}
-	// Get the original text from the token stream
+	// Resolve the original text from the token stream
 	start := expr.GetStart()
 	stop := expr.GetStop()
 	if start != nil && stop != nil {

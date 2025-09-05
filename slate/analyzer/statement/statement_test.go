@@ -35,9 +35,9 @@ var _ = Describe("Statement", func() {
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
-				sym, err := scope.Get("x")
+				sym, err := scope.Resolve("x")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Symbol.Type).To(Equal(types.I32{}))
+				Expect(sym.Type).To(Equal(types.I32{}))
 			})
 
 			It("Should infer type from initializer", func() {
@@ -47,9 +47,9 @@ var _ = Describe("Statement", func() {
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
-				sym, err := scope.Get("x")
+				sym, err := scope.Resolve("x")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Symbol.Type).To(Equal(types.F64{}))
+				Expect(sym.Type).To(Equal(types.F64{}))
 			})
 
 			It("Should detect type mismatch", func() {
@@ -94,10 +94,10 @@ var _ = Describe("Statement", func() {
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
-				sym, err := scope.Get("counter")
+				sym, err := scope.Resolve("counter")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Symbol.Kind).To(Equal(symbol.KindStatefulVariable))
-				Expect(sym.Symbol.Type).To(Equal(types.I64{}))
+				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
+				Expect(sym.Type).To(Equal(types.I64{}))
 			})
 
 			It("Should analyze stateful variable with explicit type", func() {
@@ -107,9 +107,9 @@ var _ = Describe("Statement", func() {
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())
 				Expect(res.Diagnostics).To(HaveLen(0))
-				sym, err := scope.Get("total")
+				sym, err := scope.Resolve("total")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(sym.Symbol.Type).To(Equal(types.F32{}))
+				Expect(sym.Type).To(Equal(types.F32{}))
 			})
 		})
 	})
@@ -118,7 +118,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze assignment to existing variable", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = 42`))
 			scope := createScope()
-			_, _ = scope.AddSymbol("x", symbol.KindVariable, types.I64{}, nil)
+			_, _ = scope.Add("x", symbol.KindVariable, types.I64{}, nil)
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())
@@ -138,7 +138,7 @@ var _ = Describe("Statement", func() {
 		It("Should detect type mismatch in assignment", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = "hello"`))
 			scope := createScope()
-			_, _ = scope.AddSymbol("x", symbol.KindVariable, types.I32{}, nil)
+			_, _ = scope.Add("x", symbol.KindVariable, types.I32{}, nil)
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeFalse())
@@ -246,7 +246,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze standalone expression", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			scope := createScope()
-			_, _ = scope.AddSymbol("x", symbol.KindVariable, types.I64{}, nil)
+			_, _ = scope.Add("x", symbol.KindVariable, types.I64{}, nil)
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())

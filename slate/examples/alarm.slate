@@ -1,4 +1,5 @@
-ox_pt_1 > 100 -> stable_for{duration: 100ms} -> select{
-    case true -> set_status{message: "ox_pressure_exceeded"},
-    case false -> set_status{message: "ox_pressure_nominal"}
+task dog{
+    count i32
+} (c i32) f32 {
+    return f32(c)
 }

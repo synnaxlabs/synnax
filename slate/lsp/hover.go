@@ -34,7 +34,7 @@ func (s *Server) getWordAtPosition(content string, pos protocol.Position) string
 		return ""
 	}
 
-	// Find word boundaries
+	// FindChild word boundaries
 	start := int(pos.Character)
 	end := int(pos.Character)
 

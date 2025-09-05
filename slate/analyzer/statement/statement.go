@@ -25,7 +25,11 @@ func AnalyzeBlock(
 	result *result.Result,
 	block parser.IBlockContext,
 ) bool {
-	blockScope := parentScope.AddBlock(block)
+	blockScope, err := parentScope.Add("", symbol.KindBlock, nil, block)
+	if err != nil {
+		result.AddError(err, block)
+		return false
+	}
 	for _, stmt := range block.AllStatement() {
 		if !Analyze(blockScope, result, stmt) {
 			return false
@@ -169,7 +173,7 @@ func analyzeLocalVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.AddSymbol(name, symbol.KindVariable, varType, localVar)
+	_, err := blockScope.Add(name, symbol.KindVariable, varType, localVar)
 	if err != nil {
 		result.AddError(err, localVar)
 		return false
@@ -196,7 +200,7 @@ func analyzeStatefulVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.AddSymbol(name, symbol.KindStatefulVariable, varType, statefulVar)
+	_, err := blockScope.Add(name, symbol.KindStatefulVariable, varType, statefulVar)
 	if err != nil {
 		result.AddError(err, statefulVar)
 		return false
@@ -273,11 +277,11 @@ func analyzeReturnStatement(
 		}
 	}
 	var expectedReturnType types.Type
-	if enclosingScope.Symbol.Kind == symbol.KindFunction {
-		fnType := enclosingScope.Symbol.Type.(types.Function)
+	if enclosingScope.Kind == symbol.KindFunction {
+		fnType := enclosingScope.Type.(types.Function)
 		expectedReturnType = fnType.Return
-	} else if enclosingScope.Symbol.Kind == symbol.KindTask {
-		taskType := enclosingScope.Symbol.Type.(types.Task)
+	} else if enclosingScope.Kind == symbol.KindTask {
+		taskType := enclosingScope.Type.(types.Task)
 		expectedReturnType = taskType.Return
 	}
 	returnExpr := returnStmt.Expression()
@@ -336,28 +340,32 @@ func analyzeAssignment(
 	assignment parser.IAssignmentContext,
 ) bool {
 	name := assignment.IDENTIFIER().GetText()
-	varScope, err := parentScope.Get(name)
+	varScope, err := parentScope.Resolve(name)
 	if err != nil {
 		result.AddError(err, assignment)
 		return false
 	}
-	if expr := assignment.Expression(); expr != nil {
-		if !expression.Analyze(parentScope, result, expr) {
-			return false
-		}
-		if varScope.Symbol != nil && varScope.Symbol.Type != nil {
-			exprType := atypes.InferFromExpression(parentScope, expr, nil)
-			if exprType != nil {
-				varType := varScope.Symbol.Type.(types.Type)
-				if !atypes.Compatible(varType, exprType) {
-					result.AddError(
-						errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
-						assignment,
-					)
-					return false
-				}
-			}
-		}
+	expr := assignment.Expression()
+	if expr == nil {
+		return true
 	}
-	return true
+	if !expression.Analyze(parentScope, result, expr) {
+		return false
+	}
+	exprType := atypes.InferFromExpression(parentScope, expr, nil)
+	if exprType == nil {
+		return true
+	}
+	if varScope.Type == nil {
+		return true
+	}
+	varType := varScope.Type.(types.Type)
+	if atypes.Compatible(varType, exprType) {
+		return true
+	}
+	result.AddError(
+		errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
+		assignment,
+	)
+	return false
 }

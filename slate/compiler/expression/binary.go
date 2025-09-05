@@ -40,7 +40,7 @@ func compileBinaryAdditive(
 		} else {
 			op = "-"
 		}
-		// Get and emit opcode (analyzer already validated types match)
+		// Resolve and emit opcode (analyzer already validated types match)
 		opcode, err := GetBinaryOpcode(op, resultType)
 		if err != nil {
 			return nil, err
@@ -81,7 +81,7 @@ func compileBinaryMultiplicative(
 			op = "%"
 		}
 
-		// Get and emit opcode
+		// Resolve and emit opcode
 		opcode, err := GetBinaryOpcode(op, resultType)
 		if err != nil {
 			return nil, err
@@ -120,7 +120,7 @@ func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressio
 		op = ">="
 	}
 
-	// Get and emit opcode
+	// Resolve and emit opcode
 	opcode, err := GetBinaryOpcode(op, leftType)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func compileBinaryEquality(ctx *core.Context, expr parser.IEqualityExpressionCon
 		op = "!="
 	}
 
-	// Get and emit opcode
+	// Resolve and emit opcode
 	opcode, err := GetBinaryOpcode(op, leftType)
 	if err != nil {
 		return nil, err

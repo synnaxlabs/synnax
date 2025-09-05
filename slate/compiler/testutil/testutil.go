@@ -20,7 +20,7 @@ import (
 
 func FunctionScope(t types.Function) *symbol.Scope {
 	symbols := &symbol.Scope{}
-	s := MustSucceed(symbols.AddSymbol(
+	s := MustSucceed(symbols.Add(
 		"test",
 		symbol.KindFunction,
 		t,

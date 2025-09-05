@@ -39,7 +39,6 @@ func analyzeSource(
 	prevNode parser.IFlowNodeContext,
 	currNode parser.IFlowNodeContext,
 ) bool {
-	// Case 1: Source is a direct task invocation.
 	if taskInv := currNode.TaskInvocation(); taskInv != nil {
 		return parseTaskInvocation(
 			scope,
@@ -48,15 +47,12 @@ func analyzeSource(
 			taskInv,
 		)
 	}
-	// Case 2: Source is a channel identifier
 	if channelID := currNode.ChannelIdentifier(); channelID != nil {
 		return analyzeChannel(scope, res, channelID)
 	}
-	// Case 3: Source is an expression
 	if expr := currNode.Expression(); expr != nil {
-		return expression.Analyze(scope, res, expr)
+		return analyzeExpression(scope, res, expr)
 	}
-
 	res.AddError(errors.New("invalid flow source"), currNode)
 	return true
 }
@@ -69,19 +65,19 @@ func parseTaskInvocation(
 ) bool {
 	// Step 1: Check that a symbol for the task exists and it has the right type
 	name := task.IDENTIFIER().GetText()
-	sym, err := scope.Get(name)
+	sym, err := scope.Resolve(name)
 	if err != nil {
 		res.AddError(err, task)
 		return false
-	} else if sym.Symbol != nil && sym.Symbol.Kind != symbol.KindTask {
+	} else if sym.Kind != symbol.KindTask {
 		res.AddError(errors.Newf("%s is not a task", name), task)
 		return false
 	}
 
 	// Step 2: Validate configuration parameters
 	var taskType types.Task
-	if sym.Symbol != nil && sym.Symbol.Type != nil {
-		taskType, _ = sym.Symbol.Type.(types.Task)
+	if sym.Type != nil {
+		taskType, _ = sym.Type.(types.Task)
 	}
 	configParams := make(map[string]bool)
 	// Step 2A: Check for mismatch
@@ -138,15 +134,15 @@ func parseTaskInvocation(
 	if prevTaskNode := prevNode.TaskInvocation(); prevTaskNode != nil {
 		prevTaskName := prevTaskNode.IDENTIFIER().GetText()
 		// lookup task in symbol table
-		sym, err := scope.Get(prevTaskName)
+		sym, err := scope.Resolve(prevTaskName)
 		if err != nil {
 			res.AddError(err, prevTaskNode)
 			return false
 		}
 		var prevTaskType types.Task
-		if sym.Symbol != nil && sym.Symbol.Kind != symbol.KindTask {
+		if sym.Kind != symbol.KindTask {
 			res.AddError(errors.Newf("%s is not a task", prevTaskNode), prevTaskNode)
-			prevTaskType, _ = sym.Symbol.Type.(types.Task)
+			prevTaskType, _ = sym.Type.(types.Task)
 			return false
 		}
 		if taskType.Params.Count() > 1 {
@@ -170,7 +166,7 @@ func parseTaskInvocation(
 
 func analyzeChannel(scope *symbol.Scope, res *result.Result, ch parser.IChannelIdentifierContext) bool {
 	name := ch.IDENTIFIER().GetText()
-	_, err := scope.Get(name)
+	_, err := scope.Resolve(name)
 	if err != nil {
 		res.AddError(err, ch)
 		return false

@@ -174,7 +174,7 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, typ string) {
 		Results: []wasm.ValueType{},
 	})
 
-	// Get element (indexing)
+	// Resolve element (indexing)
 	funcName = fmt.Sprintf("series_index_%s", typ)
 	idx.SeriesIndex[typ] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series, index

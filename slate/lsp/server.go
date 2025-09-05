@@ -150,7 +150,7 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	}
 	s.mu.Unlock()
 
-	// Get the updated content
+	// Resolve the updated content
 	s.mu.RLock()
 	content := ""
 	if doc, ok := s.documents[uri]; ok {
@@ -202,7 +202,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 					var msg string
 					fmt.Sscanf(part, "line %d:%d %s", &line, &col, &msg)
 
-					// Get the rest of the message
+					// Resolve the rest of the message
 					msgStart := strings.Index(part, fmt.Sprintf("%d:%d ", line, col))
 					if msgStart >= 0 {
 						msg = part[msgStart+len(fmt.Sprintf("%d:%d ", line, col)):]

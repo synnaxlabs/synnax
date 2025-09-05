@@ -10,13 +10,13 @@
 package symbol
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/slate/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Kind int
@@ -33,20 +33,6 @@ const (
 	KindBlock
 )
 
-type Scope struct {
-	GlobalResolver Resolver
-	Symbol         *Symbol
-	Parent         *Scope
-	Children       []*Scope
-	Counter        *int
-}
-
-func (s *Scope) Blocks() []*Scope {
-	return lo.Filter(s.Children, func(item *Scope, _ int) bool {
-		return item.Symbol.Kind == KindBlock
-	})
-}
-
 type Symbol struct {
 	Name       string
 	Kind       Kind
@@ -55,11 +41,66 @@ type Symbol struct {
 	ID         int
 }
 
-func (s *Scope) checkForNameConflicts(name string) error {
-	for _, child := range s.Children {
-		if child.Symbol != nil && child.Symbol.Name == name {
-			tok := child.Symbol.ParserRule.GetStart()
-			return errors.Newf(
+// CreateRoot creates a new scope representing the root scope of a program.
+func CreateRoot(globalResolver Resolver) *Scope {
+	return &Scope{
+		GlobalResolver: globalResolver,
+		Symbol:         Symbol{Kind: KindBlock},
+		Counter:        new(int),
+	}
+}
+
+type Scope struct {
+	Symbol
+	GlobalResolver Resolver
+	Parent         *Scope
+	Children       []*Scope
+	Counter        *int
+	OnResolve      func(s *Scope) error
+}
+
+func (s *Scope) GetChildByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
+	res := s.FindChild(func(child *Scope) bool { return child.ParserRule == rule })
+	if res == nil {
+		return nil, errors.New("could not find symbol matching parser rule")
+	}
+	return res, nil
+}
+
+func (s *Scope) FindChildByName(name string) *Scope {
+	return s.FindChild(func(scope *Scope) bool { return scope.Name == name })
+}
+
+func (s *Scope) FindChild(predicate func(*Scope) bool) *Scope {
+	res, _ := lo.Find(s.Children, predicate)
+	return res
+}
+
+func (s *Scope) FilterChildren(predicate func(*Scope) bool) []*Scope {
+	return lo.Filter(s.Children, func(item *Scope, _ int) bool {
+		return predicate(item)
+	})
+}
+
+func (s *Scope) AutoName(prefix string) *Scope {
+	idx := s.Parent.addIndex()
+	s.Name = prefix + strconv.Itoa(idx)
+	return s
+}
+
+func (s *Scope) Add(
+	name string,
+	kind Kind,
+	t types.Type,
+	parserRule antlr.ParserRuleContext,
+) (*Scope, error) {
+	if name != "" {
+		if sym, err := s.Resolve(name); err == nil {
+			if sym.ParserRule == nil {
+				return nil, errors.Newf("name %s conflicts with existing symbol", name)
+			}
+			tok := sym.ParserRule.GetStart()
+			return nil, errors.Newf(
 				"name %s conflicts with existing symbol at line %d, col %d",
 				name,
 				tok.GetLine(),
@@ -67,48 +108,7 @@ func (s *Scope) checkForNameConflicts(name string) error {
 			)
 		}
 	}
-	if s.Parent == nil {
-		if s.GlobalResolver != nil {
-			_, err := s.GlobalResolver.Resolve(name)
-			if errors.Is(err, query.NotFound) {
-				return nil
-			}
-			return errors.Newf("name %s conflicts with global symbol", name)
-		}
-		return nil
-	}
-	return s.Parent.checkForNameConflicts(name)
-}
-
-func (s *Scope) AddBlock(rule antlr.ParserRuleContext) *Scope {
-	child := &Scope{
-		Parent: s,
-		Symbol: &Symbol{Kind: KindBlock, ParserRule: rule},
-	}
-	s.Children = append(s.Children, child)
-	return child
-}
-
-func (s *Scope) FindByParserRule(rule antlr.ParserRuleContext) (*Scope, error) {
-	r, ok := lo.Find(s.Children, func(item *Scope) bool {
-		return item.Symbol != nil && item.Symbol.ParserRule == rule
-	})
-	if !ok {
-		return nil, errors.Newf("could not find")
-	}
-	return r, nil
-}
-
-func (s *Scope) AddSymbol(
-	name string,
-	kind Kind,
-	t types.Type,
-	parserRule antlr.ParserRuleContext,
-) (*Scope, error) {
-	if err := s.checkForNameConflicts(name); err != nil {
-		return nil, err
-	}
-	child := &Scope{Parent: s, Symbol: &Symbol{
+	child := &Scope{Parent: s, Symbol: Symbol{
 		Name:       name,
 		Kind:       kind,
 		ParserRule: parserRule,
@@ -118,7 +118,7 @@ func (s *Scope) AddSymbol(
 		child.Counter = new(int)
 	}
 	if kind == KindVariable || kind == KindStatefulVariable || kind == KindParam {
-		child.Symbol.ID = s.addIndex()
+		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)
 	return child, nil
@@ -133,21 +133,40 @@ func (s *Scope) addIndex() int {
 	return s.Parent.addIndex()
 }
 
-func (s *Scope) Get(name string) (*Scope, error) {
-	for _, child := range s.Children {
-		if child.Symbol != nil && child.Symbol.Name == name {
-			return child, nil
-		}
-	}
+func (s *Scope) Root() *Scope {
 	if s.Parent == nil {
-		if s.GlobalResolver != nil {
-			if s, err := s.GlobalResolver.Resolve(name); err == nil {
-				return &Scope{Symbol: s}, nil
-			}
-		}
-		return nil, errors.Newf("undefined symbol: %s", name)
+		return s
 	}
-	return s.Parent.Get(name)
+	return s.Parent.Root()
+}
+
+func (s *Scope) Resolve(name string) (*Scope, error) {
+	if child := s.FindChildByName(name); child != nil {
+		if s.OnResolve != nil {
+			return child, s.OnResolve(child)
+		}
+		return child, nil
+	}
+	if s.GlobalResolver != nil {
+		if sym, err := s.GlobalResolver.Resolve(name); err == nil {
+			scope := &Scope{Symbol: sym}
+			if s.OnResolve != nil {
+				return scope, s.OnResolve(scope)
+			}
+			return scope, nil
+		}
+	}
+	if s.Parent != nil {
+		scope, err := s.Parent.Resolve(name)
+		if err != nil {
+			return nil, err
+		}
+		if s.OnResolve != nil {
+			return scope, s.OnResolve(scope)
+		}
+		return scope, nil
+	}
+	return nil, errors.Newf("undefined symbol: %s", name)
 }
 
 func (s *Scope) String() string {
@@ -158,7 +177,7 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 	if s.Parent == nil {
 		return nil, errors.Newf("undefined symbol")
 	}
-	if s.Symbol != nil && s.Symbol.Kind == kind {
+	if s.Kind == kind {
 		return s, nil
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
@@ -166,7 +185,7 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 
 func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 	for _, child := range s.Children {
-		if child.Symbol != nil && child.Symbol.Kind == kind {
+		if child.Kind == kind {
 			return child, nil
 		}
 	}
@@ -175,31 +194,33 @@ func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 
 func (s *Scope) stringWithIndent(indent string) string {
 	builder := strings.Builder{}
-
-	if s.Symbol != nil {
+	if s.Name != "" {
 		builder.WriteString(indent)
 		builder.WriteString("name: ")
-		builder.WriteString(s.Symbol.Name)
+		builder.WriteString(s.Name)
 		builder.WriteString("\n")
+	}
+	builder.WriteString(indent)
+	builder.WriteString("kind: ")
+	builder.WriteString(s.Kind.String())
+	builder.WriteString("\n")
+	if s.Type != nil {
 		builder.WriteString(indent)
-		builder.WriteString("kind: ")
-		builder.WriteString(s.Symbol.Kind.String())
+		builder.WriteString("type: ")
+		builder.WriteString(s.Type.String())
 		builder.WriteString("\n")
+	}
+	if len(s.Children) > 0 {
 		builder.WriteString(indent)
-		if s.Symbol.Type != nil {
-			builder.WriteString("type: ")
-			builder.WriteString(s.Symbol.Type.String())
+		builder.WriteString("children: ")
+		builder.WriteString("\n")
+		childIndent := indent + "  "
+		for _, child := range s.Children {
+			builder.WriteString(child.stringWithIndent(childIndent))
+			builder.WriteString(childIndent)
+			builder.WriteString("---")
 			builder.WriteString("\n")
 		}
-	} else {
-		builder.WriteString(indent)
-		builder.WriteString("block\n")
 	}
-
-	childIndent := indent + "  "
-	for _, child := range s.Children {
-		builder.WriteString(child.stringWithIndent(childIndent))
-	}
-
 	return builder.String()
 }

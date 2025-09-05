@@ -51,7 +51,7 @@ func CompileBlock(ctx *core.Context, block parser.IBlockContext) error {
 	if block == nil {
 		return nil
 	}
-	blockScope, err := ctx.Scope.FindByParserRule(block)
+	blockScope, err := ctx.Scope.GetChildByParserRule(block)
 	if err != nil {
 		panic(err)
 	}

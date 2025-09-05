@@ -26,6 +26,14 @@ type Config struct {
 	DisableHostImports bool
 }
 
+func paramsToWasm(params types.OrderedMap[string, types.Type]) []wasm.ValueType {
+	wasmParams := make([]wasm.ValueType, 0, params.Count())
+	for _, paramType := range params.Iter() {
+		wasmParams = append(wasmParams, typeToWASM(paramType))
+	}
+	return wasmParams
+}
+
 // Compile generates WASM module from the analyzed program and graph
 func Compile(cfg Config) ([]byte, error) {
 	ctx := core.NewContext(cfg.Analysis.Symbols, cfg.DisableHostImports)
@@ -79,44 +87,31 @@ func compileFunctionDeclaration(
 	funcDecl parser.IFunctionDeclarationContext,
 ) error {
 	name := funcDecl.IDENTIFIER().GetText()
-	funcScope, err := ctx.Scope.Get(name)
+	funcScope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "function '%s' not found in symbols", name)
 	}
-
-	// Get function type to determine parameters and return type
-	funcType, ok := funcScope.Symbol.Type.(types.Function)
+	funcType, ok := funcScope.Type.(types.Function)
 	if !ok {
 		return errors.Newf("expected function type for '%s'", name)
 	}
 
-	// Convert parameter and return types to WASM types
-	var params []wasm.ValueType
+	params := make([]wasm.ValueType, 0, funcType.Params.Count())
 	for _, paramType := range funcType.Params.Iter() {
 		wasmType := typeToWASM(paramType)
 		params = append(params, wasmType)
 	}
-
 	var results []wasm.ValueType
 	if funcType.Return != nil {
 		results = append(results, typeToWASM(funcType.Return))
 	}
-
-	// Create or get function type
-	typeIdx := ctx.Module.AddType(wasm.FunctionType{
-		Params:  params,
-		Results: results,
-	})
-
-	// Compile function body
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: params, Results: results})
 	blockScope, _ := funcScope.FirstChildOfKind(symbol.KindBlock)
 	blockCtx := ctx.WithScope(funcScope).WithNewWriter()
 	if err = statement.CompileBlock(blockCtx, funcDecl.Block()); err != nil {
 		return errors.Wrapf(err, "failed to compile function '%s' body", name)
 	}
-	// Add function to module
 	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(blockScope), blockCtx.Writer.Bytes())
-	// Export the function
 	ctx.Module.AddExport(name, wasm.ExportFunc, funcIdx)
 	return nil
 }
@@ -124,9 +119,9 @@ func compileFunctionDeclaration(
 func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
-		if child.Symbol != nil && child.Symbol.Kind == symbol.KindVariable {
-			locals = append(locals, typeToWASM(child.Symbol.Type))
-		} else if child.Symbol.Kind == symbol.KindBlock {
+		if child.Symbol != nil && child.Kind == symbol.KindVariable {
+			locals = append(locals, typeToWASM(child.Type))
+		} else if child.Kind == symbol.KindBlock {
 			locals = append(locals, collectLocals(child)...)
 		}
 	}
@@ -139,50 +134,26 @@ func compileTaskDeclaration(
 	taskDecl parser.ITaskDeclarationContext,
 ) error {
 	name := taskDecl.IDENTIFIER().GetText()
-	taskScope, err := ctx.Scope.Get(name)
+	taskScope, err := ctx.Scope.Resolve(name)
 	if err != nil {
 		return errors.Wrapf(err, "task '%s' not found in symbols", name)
 	}
-
-	// Get task type to determine parameters
-	taskType, ok := taskScope.Symbol.Type.(types.Task)
+	taskType, ok := taskScope.Type.(types.Task)
 	if !ok {
 		return errors.Newf("expected task type for '%s'", name)
 	}
-
-	// Convert parameter types to WASM types (tasks don't have return values)
-	var params []wasm.ValueType
-	for _, paramType := range taskType.Params.Iter() {
-		wasmType := typeToWASM(paramType)
-		params = append(params, wasmType)
+	wasmParams := append(paramsToWasm(taskType.Config), paramsToWasm(taskType.Params)...)
+	var results []wasm.ValueType
+	if taskType.Return != nil {
+		results = append(results, typeToWASM(taskType.Return))
 	}
-
-	// Create or get function type (tasks are functions with no return)
-	typeIdx := ctx.Module.AddType(wasm.FunctionType{
-		Params:  params,
-		Results: []wasm.ValueType{}, // Tasks don't return values
-	})
-
-	// Compile task body
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
 	blockScope, _ := taskScope.FirstChildOfKind(symbol.KindBlock)
 	blockCtx := ctx.WithScope(blockScope).WithNewWriter()
 	if err = statement.CompileBlock(blockCtx, taskDecl.Block()); err != nil {
 		return errors.Wrapf(err, "failed to compile task '%s' body", name)
 	}
-
-	// Collect locals (variables declared in the task, not parameters)
-	var locals []wasm.ValueType
-	for _, child := range blockScope.Children {
-		if child.Symbol != nil && child.Symbol.Kind == symbol.KindVariable {
-			locals = append(locals, typeToWASM(child.Symbol.Type))
-		}
-	}
-
-	// Add function to module (tasks are compiled as WASM functions)
-	funcIdx := ctx.Module.AddFunction(typeIdx, locals, blockCtx.Writer.Bytes())
-
-	// Export the task
+	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(blockScope), blockCtx.Writer.Bytes())
 	ctx.Module.AddExport(name, wasm.ExportFunc, funcIdx)
-
 	return nil
 }

@@ -221,3 +221,8 @@ func Is64Bit(t Type) bool {
 		return false
 	}
 }
+
+func IsChan(t Type) bool {
+	_, ok := t.(Chan)
+	return ok
+}

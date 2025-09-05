@@ -313,7 +313,7 @@ func analyzeUnary(
 	if blockingRead := ctx.BlockingReadExpr(); blockingRead != nil {
 		if id := blockingRead.IDENTIFIER(); id != nil {
 			name := id.GetText()
-			if _, err := parentScope.Get(name); err != nil {
+			if _, err := parentScope.Resolve(name); err != nil {
 				result.AddError(err, blockingRead)
 				return false
 			}
@@ -362,7 +362,7 @@ func analyzePrimary(
 ) bool {
 	if id := ctx.IDENTIFIER(); id != nil {
 		name := id.GetText()
-		if _, err := parentScope.Get(name); err != nil {
+		if _, err := parentScope.Resolve(name); err != nil {
 			result.AddError(err, ctx)
 			return false
 		}
