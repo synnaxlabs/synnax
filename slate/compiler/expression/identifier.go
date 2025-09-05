@@ -24,29 +24,23 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 		return nil, errors.Wrapf(err, "identifier '%s' not found", name)
 	}
 
-	if scope.Symbol == nil {
-		return nil, errors.Newf("identifier '%s' has no symbol information", name)
-	}
-
-	sym := scope.Symbol
-
-	switch sym.Kind {
-	case symbol.KindVariable, symbol.KindParam:
-		ctx.Writer.WriteLocalGet(sym.ID)
-		return sym.Type, nil
+	switch scope.Kind {
+	case symbol.KindVariable, symbol.KindParam, symbol.KindConfigParam:
+		ctx.Writer.WriteLocalGet(scope.ID)
+		return scope.Type, nil
 	case symbol.KindStatefulVariable:
-		if err = emitStatefulLoad(ctx, sym.ID, sym.Type); err != nil {
+		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
 			return nil, err
 		}
-		return sym.Type, nil
+		return scope.Type, nil
 	case symbol.KindChannel:
-		ctx.Writer.WriteLocalGet(sym.ID)
-		if err = emitChannelRead(ctx, sym.Type); err != nil {
+		ctx.Writer.WriteLocalGet(scope.ID)
+		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return nil, err
 		}
-		return sym.Type, nil
+		return scope.Type, nil
 	default:
-		return nil, errors.Newf("unsupported symbol kind: %v for '%s'", sym.Kind, name)
+		return nil, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
 	}
 }
 

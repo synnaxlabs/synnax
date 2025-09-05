@@ -79,25 +79,33 @@ func compileIfStatement(
 
 // compileReturnStatement compiles return statements
 func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContext) error {
-	// Check if we have a return expression
-	if expr := ret.Expression(); expr != nil {
-		// Compile the return expression
-		exprType, err := expression.Compile(ctx, expr)
+	expr := ret.Expression()
+	defer ctx.Writer.WriteReturn()
+	if expr == nil {
+		return nil
+	}
+	exprType, err := expression.Compile(ctx, expr)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile return expression")
+	}
+	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
+		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindTask)
 		if err != nil {
-			return errors.Wrap(err, "failed to compile return expression")
-		}
-		functionScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-		if err != nil {
-			return errors.Wrap(err, "failed to compile function declaration")
-		}
-		fType := functionScope.Type.(types.Function)
-		if fType.Return != exprType {
-			expression.EmitCast(ctx, exprType, fType.Return)
+			return errors.New("return statement not in function or task")
 		}
 	}
-	// If no expression, it's a void return
-	// Emit return instruction
-	ctx.Writer.WriteReturn()
+	var returnType types.Type
+	if enclosingScope.Kind == symbol.KindFunction {
+		fType := enclosingScope.Type.(types.Function)
+		returnType = fType.Return
+	} else if enclosingScope.Kind == symbol.KindTask {
+		fType := enclosingScope.Type.(types.Task)
+		returnType = fType.Return
+	}
+	if returnType != exprType {
+		return expression.EmitCast(ctx, exprType, returnType)
+	}
 	return nil
 }
 

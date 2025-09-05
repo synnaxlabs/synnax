@@ -15,13 +15,15 @@ import (
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/compiler"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(source string) ([]byte, error) {
+func compile(source string, resolver symbol.Resolver) ([]byte, error) {
 	prog := MustSucceed(parser.Parse(source))
-	analysis := analyzer.Analyze(prog, analyzer.Options{})
+	analysis := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+	Expect(analysis.Ok()).To(BeTrue())
 	return compiler.Compile(compiler.Config{
 		Program:            prog,
 		Analysis:           &analysis,
@@ -51,7 +53,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return b
 			}
-			`))
+			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
 			dog := mod.ExportedFunction("dog")
 			Expect(dog).ToNot(BeNil())
@@ -76,7 +78,7 @@ var _ = Describe("Compiler", func() {
 			func add(a i64, b i64) i64 {
 				return a + b
 			}
-			`))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
 			add := mod.ExportedFunction("add")
@@ -86,7 +88,9 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(42)))
 		})
+	})
 
+	Describe("Task Execution", func() {
 		It("Should execute a simple compiled addition task", func() {
 			wasmBytes := MustSucceed(compile(`
 			task add{
@@ -94,7 +98,7 @@ var _ = Describe("Compiler", func() {
 			} (b i64) i64 {
 				return a + b
 			}
-			`))
+			`, nil))
 			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())

@@ -263,9 +263,7 @@ func analyzeReturnStatement(
 	result *result.Result,
 	returnStmt parser.IReturnStatementContext,
 ) bool {
-	var enclosingScope *symbol.Scope
-	var err error
-	enclosingScope, err = scope.ClosestAncestorOfKind(symbol.KindFunction)
+	enclosingScope, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
 		enclosingScope, err = scope.ClosestAncestorOfKind(symbol.KindTask)
 		if err != nil {

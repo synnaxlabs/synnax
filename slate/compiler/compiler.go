@@ -12,6 +12,7 @@ package compiler
 import (
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/compiler/core"
+	"github.com/synnaxlabs/slate/compiler/expression"
 	"github.com/synnaxlabs/slate/compiler/statement"
 	"github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/parser"
@@ -54,7 +55,7 @@ func compileTopLevelItem(ctx *core.Context, item parser.ITopLevelItemContext) er
 		return compileTaskDeclaration(ctx, taskDecl)
 	}
 	if flowStmt := item.FlowStatement(); flowStmt != nil {
-		return nil
+		return compileFlowStatement(ctx, flowStmt)
 	}
 	return errors.New("unknown top-level item")
 }
@@ -119,7 +120,7 @@ func compileFunctionDeclaration(
 func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
-		if child.Symbol != nil && child.Kind == symbol.KindVariable {
+		if child.Kind == symbol.KindVariable {
 			locals = append(locals, typeToWASM(child.Type))
 		} else if child.Kind == symbol.KindBlock {
 			locals = append(locals, collectLocals(child)...)
@@ -149,11 +150,62 @@ func compileTaskDeclaration(
 	}
 	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
 	blockScope, _ := taskScope.FirstChildOfKind(symbol.KindBlock)
-	blockCtx := ctx.WithScope(blockScope).WithNewWriter()
+	blockCtx := ctx.WithScope(taskScope).WithNewWriter()
 	if err = statement.CompileBlock(blockCtx, taskDecl.Block()); err != nil {
 		return errors.Wrapf(err, "failed to compile task '%s' body", name)
 	}
 	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(blockScope), blockCtx.Writer.Bytes())
 	ctx.Module.AddExport(name, wasm.ExportFunc, funcIdx)
+	return nil
+}
+
+func compileFlowStatement(
+	ctx *core.Context,
+	stmt parser.IFlowStatementContext,
+) error {
+	for _, node := range stmt.AllFlowNode() {
+		// Only flow nodes that we need to compile are expressions turned into anonymous
+		// tasks.
+		if expr := node.Expression(); expr != nil {
+			if err := compileFlowExpression(ctx, expr); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func compileFlowExpression(
+	ctx *core.Context,
+	expr parser.IExpressionContext,
+) error {
+	scope, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return err
+	}
+	taskType, ok := scope.Type.(types.Task)
+	if !ok {
+		return errors.Newf("expected task type for flow expression")
+	}
+	wasmParams := paramsToWasm(taskType.Config)
+	var results []wasm.ValueType
+	if taskType.Return != nil {
+		results = append(results, typeToWASM(taskType.Return))
+	}
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
+	blockScope, _ := scope.FirstChildOfKind(symbol.KindBlock)
+	exprCtx := ctx.WithScope(blockScope).WithNewWriter()
+	exprType, err := expression.Compile(exprCtx, expr)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile flow expression")
+	}
+	if taskType.Return != nil && !types.Equal(exprType, taskType.Return) {
+		if err := expression.EmitCast(exprCtx, exprType, taskType.Return); err != nil {
+			return nil
+		}
+	}
+	exprCtx.Writer.WriteReturn()
+	funcIdx := ctx.Module.AddFunction(typeIdx, nil, exprCtx.Writer.Bytes())
+	ctx.Module.AddExport(scope.Name, wasm.ExportFunc, funcIdx)
 	return nil
 }

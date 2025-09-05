@@ -26,7 +26,7 @@ func FunctionScope(t types.Function) *symbol.Scope {
 		t,
 		nil,
 	))
-	return s.AddBlock(nil)
+	return MustSucceed(s.Add("", symbol.KindBlock, nil, nil))
 }
 
 func NewContext() *core.Context {

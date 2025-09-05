@@ -20,20 +20,20 @@ import (
 )
 
 // Analyze processes a flow statement and returns true if successful
-func Analyze(scope *symbol.Scope, res *result.Result, ctx parser.IFlowStatementContext) bool {
-	for i, flowNode := range ctx.AllFlowNode() {
-		var prevFlowNode parser.IFlowNodeContext
+func Analyze(scope *symbol.Scope, res *result.Result, stmt parser.IFlowStatementContext) bool {
+	for i, node := range stmt.AllFlowNode() {
+		var prevNode parser.IFlowNodeContext
 		if i != 0 {
-			prevFlowNode = ctx.FlowNode(i - 1)
+			prevNode = stmt.FlowNode(i - 1)
 		}
-		if !analyzeSource(scope, res, prevFlowNode, flowNode) {
+		if !analyzeNode(scope, res, prevNode, node) {
 			return false
 		}
 	}
 	return true
 }
 
-func analyzeSource(
+func analyzeNode(
 	scope *symbol.Scope,
 	res *result.Result,
 	prevNode parser.IFlowNodeContext,

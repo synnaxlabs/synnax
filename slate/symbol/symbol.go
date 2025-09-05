@@ -123,7 +123,7 @@ func (s *Scope) Add(
 	if kind == KindFunction || kind == KindTask {
 		child.Counter = new(int)
 	}
-	if kind == KindVariable || kind == KindStatefulVariable || kind == KindParam {
+	if kind == KindVariable || kind == KindStatefulVariable || kind == KindParam || kind == KindConfigParam {
 		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)
@@ -180,11 +180,11 @@ func (s *Scope) String() string {
 }
 
 func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
-	if s.Parent == nil {
-		return nil, errors.Newf("undefined symbol")
-	}
 	if s.Kind == kind {
 		return s, nil
+	}
+	if s.Parent == nil {
+		return nil, errors.Newf("undefined symbol")
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
 }

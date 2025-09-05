@@ -42,7 +42,7 @@ func analyzeExpression(
 		"",
 		symbol.KindBlock,
 		nil,
-		nil,
+		expr,
 	)
 	if err != nil {
 		res.AddError(err, expr)
