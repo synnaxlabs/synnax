@@ -146,7 +146,7 @@ class Plot(Playwright):
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
         self.page.get_by_text("Axes").click()
-        self.page.locator("div").filter(has_text=re.compile(rf"^{axis}$")).click()
+        self.page.locator(f"#{axis.lower()}").click()
 
         for key, value in config.items():
             try:

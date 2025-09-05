@@ -12,8 +12,8 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
-  SKIP_BUILD: false
-  REF_RUN_ID: "17444251433"
+  SKIP_BUILD: true
+  REF_RUN_ID: "17477639880"
 
 jobs:
   setup:
