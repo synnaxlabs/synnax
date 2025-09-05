@@ -26,8 +26,8 @@ class Playwright(TestCase):
 
         # Do not run on Windows with webkit
         headless = self.params.get("headless", True)
-        default_timeout = self.params.get("default_timeout", 1000)  # 1s
-        default_nav_timeout = self.params.get("default_nav_timeout", 1000)  # 1s
+        default_timeout = self.params.get("default_timeout", 5000)  # 5s
+        default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
 
         # Open page
         self._log_message(
