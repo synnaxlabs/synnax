@@ -86,13 +86,10 @@ var _ = Describe("Analyzer", func() {
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
-				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
 				varScope := MustSucceed(blockScope.Resolve("x"))
 				Expect(varScope.ID).To(Equal(0))
-				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(types.I64{}))
 			})
@@ -107,13 +104,10 @@ var _ = Describe("Analyzer", func() {
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
-				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
 				varScope := MustSucceed(blockScope.Resolve("x"))
 				Expect(varScope.ID).To(Equal(0))
-				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(types.F64{}))
 			})
@@ -128,12 +122,10 @@ var _ = Describe("Analyzer", func() {
 				Expect(result.Diagnostics).To(HaveLen(0))
 				funcScope := MustSucceed(result.Symbols.Resolve("testFunc"))
 				Expect(funcScope.ID).To(Equal(0))
-				Expect(funcScope.Symbol).ToNot(BeNil())
 				Expect(funcScope.Name).To(Equal("testFunc"))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
 				varScope := MustSucceed(blockScope.Resolve("x"))
 				Expect(varScope.ID).To(Equal(0))
-				Expect(varScope.Symbol).ToNot(BeNil())
 				Expect(varScope.Name).To(Equal("x"))
 				Expect(varScope.Type).To(Equal(types.F32{}))
 			})
@@ -211,18 +203,39 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Type Signatures", func() {
-		It("Should bind function parameter and return types to the function signature", func() {
-			prog := MustSucceed(parser.Parse(`
-				func add(x f64, y f64) f64 {
-					return x + y
-				}
-			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+		Describe("Functions", func() {
+			It("Should bind function parameter and return types to the function signature", func() {
+				prog := MustSucceed(parser.Parse(`
+					func add(x f64, y f64) f64 {
+						return x + y
+					}
+				`))
+				result := analyzer.Analyze(prog, analyzer.Options{})
+				Expect(result.Diagnostics).To(HaveLen(0))
+				funcScope := MustSucceed(result.Symbols.Resolve("add"))
+				Expect(funcScope.ID).To(Equal(0))
+				Expect(funcScope.Name).To(Equal("add"))
+				t, ok := funcScope.Type.(types.Function)
+				Expect(ok).To(BeTrue())
+				Expect(t.Return).To(Equal(types.F64{}))
+				Expect(t.Params.Count()).To(Equal(2))
+				Expect(t.Params.At(0)).To(Equal(types.F64{}))
+				Expect(t.Params.At(1)).To(Equal(types.F64{}))
+				Expect(funcScope.Children).To(HaveLen(3))
+				paramChildren := funcScope.FilterChildrenByKind(symbol.KindParam)
+				Expect(paramChildren).To(HaveLen(2))
+				Expect(paramChildren[0].Name).To(Equal("x"))
+				Expect(paramChildren[1].Type).To(Equal(types.F64{}))
+				Expect(paramChildren[1].Name).To(Equal("y"))
+				Expect(paramChildren[1].Type).To(Equal(types.F64{}))
+				blockChildren := funcScope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blockChildren).To(HaveLen(1))
+			})
 		})
 
-		It("Should bind task config, runtime params and return types to the task signature", func() {
-			prog := MustSucceed(parser.Parse(`
+		Describe("Tasks", func() {
+			It("Should bind task config, runtime params and return types to the task signature", func() {
+				prog := MustSucceed(parser.Parse(`
 				task controller{
 					setpoint f64
 					sensor <-chan f64
@@ -230,9 +243,22 @@ var _ = Describe("Analyzer", func() {
 				} (enable u8) f64 {
 					return 1.0
 				}
-			`))
-			result := analyzer.Analyze(prog, analyzer.Options{})
-			Expect(result.Diagnostics).To(HaveLen(0))
+				`))
+				result := analyzer.Analyze(prog, analyzer.Options{})
+				Expect(result.Diagnostics).To(HaveLen(0))
+				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
+				Expect(taskScope.ID).To(Equal(0))
+				Expect(taskScope.Name).To(Equal("controller"))
+				taskT, ok := taskScope.Type.(types.Task)
+				Expect(ok).To(BeTrue())
+				Expect(taskT.Return).To(Equal(types.F64{}))
+				Expect(taskT.Config.Count()).To(Equal(3))
+				Expect(taskT.Config.At(0)).To(Equal(types.F64{}))
+				Expect(taskT.Config.At(1)).To(Equal(types.Chan{ValueType: types.F64{}}))
+				Expect(taskT.Config.At(2)).To(Equal(types.Chan{ValueType: types.F64{}}))
+				Expect(taskT.Params.Count()).To(Equal(1))
+				Expect(taskT.Params.At(0)).To(Equal(types.U8{}))
+			})
 		})
 	})
 
@@ -356,10 +382,9 @@ var _ = Describe("Analyzer", func() {
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
-			Expect(funcScope.Symbol).ToNot(BeNil())
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			blocks := blockScope.Blocks()
+			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(2))
 			Expect(blocks[0].Children).To(BeEmpty())
 			Expect(blocks[1].Children).To(BeEmpty())
@@ -380,12 +405,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
-			Expect(funcScope.Symbol).ToNot(BeNil())
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			blocks := blockScope.Blocks()
+			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(1))
-			firstBlock := blockScope.Blocks()[0]
+			firstBlock := blocks[0]
 			Expect(firstBlock.Children).To(HaveLen(1))
 			firstChild := firstBlock.Children[0]
 			Expect(firstChild).ToNot(BeNil())
@@ -394,26 +418,25 @@ var _ = Describe("Analyzer", func() {
 
 		It("Should return the correct symbol table for variables declared in blocks", func() {
 			prog := MustSucceed(parser.Parse(`
-		func dog(b i64) i64 {
-				a i64 := 2
-			if b == a {
-				return 2
-			} else if a > b {
-				c i64 := 5
-				return c
-			} else {
-				return 3
-			}
-			}
+				func dog(b i64) i64 {
+					a i64 := 2
+					if b == a {
+						return 2
+					} else if a > b {
+						c i64 := 5
+						return c
+					} else {
+						return 3
+					}
+				}
 			`))
 			result := analyzer.Analyze(prog, analyzer.Options{})
 			Expect(result.Ok()).To(BeTrue(), result.String())
 			funcScope := MustSucceed(result.Symbols.Resolve("dog"))
 			Expect(funcScope.ID).To(Equal(0))
-			Expect(funcScope.Symbol).ToNot(BeNil())
 			Expect(funcScope.Name).To(Equal("dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			blocks := blockScope.Blocks()
+			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(3))
 			firstBlock := blocks[0]
 			Expect(firstBlock.Children).To(HaveLen(0))

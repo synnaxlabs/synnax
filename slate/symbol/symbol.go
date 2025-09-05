@@ -82,6 +82,12 @@ func (s *Scope) FilterChildren(predicate func(*Scope) bool) []*Scope {
 	})
 }
 
+func (s *Scope) FilterChildrenByKind(kind Kind) []*Scope {
+	return s.FilterChildren(func(scope *Scope) bool {
+		return scope.Kind == kind
+	})
+}
+
 func (s *Scope) AutoName(prefix string) *Scope {
 	idx := s.Parent.addIndex()
 	s.Name = prefix + strconv.Itoa(idx)

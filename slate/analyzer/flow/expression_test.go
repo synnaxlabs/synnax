@@ -85,7 +85,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			taskSymbol := MustSucceed(result.Symbols.Resolve("__expr_0"))
 			Expect(taskSymbol.Name).To(Equal("__expr_0"))
 			Expect(taskSymbol.Kind).To(Equal(symbol.KindTask))
-			taskType, ok := taskSymbol.Type.(*types.Task)
+			taskType, ok := taskSymbol.Type.(types.Task)
 			Expect(ok).To(BeTrue())
 			Expect(taskType.Config.Count()).To(Equal(1))
 			first := taskType.Config.At(0)
@@ -103,7 +103,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(*types.Task)
+			taskType := synthTask.Type.(types.Task)
 			// Should have both channels as config
 			Expect(taskType.Config.Count()).To(Equal(2))
 			_, hasOx1 := taskType.Config.Get("__ox_pt_1")
@@ -128,7 +128,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(*types.Task)
+			taskType := synthTask.Type.(types.Task)
 			// Should have both channels
 			Expect(taskType.Config.Count()).To(Equal(2))
 			_, hasOx := taskType.Config.Get("__ox_pt_1")
@@ -187,7 +187,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(*types.Task)
+			taskType := synthTask.Type.(types.Task)
 			// Should extract both channels despite nesting
 			Expect(taskType.Config.Count()).To(Equal(2))
 		})
@@ -205,7 +205,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(*types.Task)
+			taskType := synthTask.Type.(types.Task)
 			chanType, exists := taskType.Config.Get("__temp_sensor")
 			Expect(exists).To(BeTrue())
 

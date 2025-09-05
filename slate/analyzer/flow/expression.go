@@ -31,7 +31,7 @@ func analyzeExpression(
 	if chanType, ok := exprType.(types.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := &types.Task{Return: exprType}
+	t := types.Task{Return: exprType}
 	taskScope, err := scope.Root().Add("", symbol.KindTask, t, expr)
 	if err != nil {
 		res.AddError(err, expr)
@@ -62,5 +62,9 @@ func analyzeExpression(
 		t.Config.Put(name, c.ValueType)
 		return nil
 	}
-	return expression.Analyze(blockScope, res, expr)
+	if !expression.Analyze(blockScope, res, expr) {
+		return false
+	}
+	taskScope.Type = t
+	return true
 }
