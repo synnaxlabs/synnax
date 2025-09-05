@@ -145,35 +145,7 @@ class Plot(Playwright):
         self.set_axis("Y2", config)
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
-        # Try multiple ways to click the Axes tab
-        axes_selectors = [
-            "text=Axes",
-            "#axes",
-            "[id='axes']",
-            ".pluto-text:has-text('Axes')"
-        ]
-        
-        axes_clicked = False
-        for selector in axes_selectors:
-            try:
-                locator = self.page.locator(selector)
-                if locator.count() > 0:
-                    locator.click(timeout=5000)
-                    axes_clicked = True
-                    break
-            except:
-                continue
-        
-        if not axes_clicked:
-            # Fallback: try to find it by the exact text from debug output
-            try:
-                self.page.locator("p:has-text('Axes')").click(timeout=5000)
-                axes_clicked = True
-            except:
-                pass
-        
-        if not axes_clicked:
-            print("WARNING: Could not click Axes tab, proceeding anyway")
+        self.page.get_by_text("Axes").click(timeout=5000)
         
         # Wait longer for the tabs to be visible
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=10000)
@@ -223,22 +195,38 @@ class Plot(Playwright):
         for key, value in config.items():
             try:
                 if key in ["Lower Bound", "Upper Bound", "Tick Spacing", "Label"]:
-                    # For text input fields, find the input associated with the label
-                    input_field = self.page.locator(
-                        f"label:has-text('{key}') + div input"
-                    )
-                    input_field.clear()
-                    input_field.fill(str(value))
+                    # Try multiple selectors for text input fields
+                    input_selectors = [
+                        f"label:has-text('{key}') + div input",
+                        f"label:has-text('{key}') input", 
+                        f"input[aria-label*='{key}']",
+                        f"input[placeholder*='{key}']"
+                    ]
+                    
+                    input_found = False
+                    for selector in input_selectors:
+                        try:
+                            input_field = self.page.locator(selector)
+                            if input_field.count() > 0:
+                                input_field.clear(timeout=5000)
+                                input_field.fill(str(value), timeout=5000)
+                                input_found = True
+                                break
+                        except:
+                            continue
+                    
+                    if not input_found:
+                        print(f"WARNING: Could not find input field for {key}")
                 elif key == "Label Direction":
                     # For button groups, click the appropriate button
                     if str(value).lower() == "up":
                         self.page.locator(
                             "label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-up'])"
-                        ).click()
+                        ).click(timeout=5000)
                     else:  # right/left/horizontal
                         self.page.locator(
                             "label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--arrow-right'])"
-                        ).click()
+                        ).click(timeout=5000)
                 elif key == "Label Size":
                     # For size buttons, click the appropriate size
                     size_mapping = {
@@ -253,10 +241,10 @@ class Plot(Playwright):
                     )
                     self.page.locator(
                         f"label:has-text('Label Size') + div button:has-text('{button_text}')"
-                    ).click()
+                    ).click(timeout=5000)
                 else:
                     # Fallback for unknown keys
-                    self.page.locator(key).fill(str(value))
+                    self.page.locator(key).fill(str(value), timeout=5000)
             except Exception as e:
                 raise ValueError(
                     f'Warning: Failed to set axis property "{key}" to "{value}": {e}'
