@@ -18,7 +18,7 @@ set -euo pipefail
 echo "📦 Installing Playwright browsers on Unix..."
 
 # Change to the integration test directory
-cd integration/test/py
+cd integration
 
 # Ensure Poetry is in PATH
 export PATH="$HOME/.local/bin:$PATH"

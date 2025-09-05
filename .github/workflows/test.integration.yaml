@@ -52,25 +52,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: integration/test/py/pyproject.toml
+          python-version-file: integration/pyproject.toml
           cache: poetry
-          cache-dependency-path: integration/test/py/poetry.lock
+          cache-dependency-path: integration/poetry.lock
 
       - name: Install Dependencies
         run: poetry install
-        working-directory: integration/test/py
+        working-directory: integration
 
       - name: isort
         run: poetry run isort -c .
-        working-directory: integration/test/py
+        working-directory: integration
 
       - name: Format (Black)
         run: poetry run black --check --diff --color .
-        working-directory: integration/test/py
+        working-directory: integration
 
       - name: Type Check (mypy)
         run: poetry run mypy . --ignore-missing-imports
-        working-directory: integration/test/py
+        working-directory: integration
 
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
@@ -431,6 +431,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Force Quit Existing Synnax Processes (Windows)
+        # Exists so we can leave synnax running in the future
+        # and "tap in" to the test cases for debugging
         shell: cmd
         run: scripts/integration/kill-synnax-processes-windows.cmd
 
@@ -457,7 +459,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: integration/test/py/pyproject.toml
+          python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
         shell: cmd
@@ -488,9 +490,9 @@ jobs:
         with:
           name: test-results-windows
           path: |
-            integration/test/py/*.png
-            integration/test/py/*.log
-            integration/test/py/*.json
+            integration/*.png
+            integration/*.log
+            integration/*.json
           retention-days: 7
 
       - name: Debug Test Environment
@@ -510,6 +512,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Force Quit Existing Synnax Processes
+        # Exists so we can leave synnax running in the future
+        # and "tap in" to the test cases for debugging
         run: scripts/integration/kill-synnax-processes-macos.sh
 
       - name: Download and Setup macOS Artifacts
@@ -535,7 +539,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: integration/test/py/pyproject.toml
+          python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh
@@ -560,9 +564,9 @@ jobs:
         with:
           name: test-results-macos
           path: |
-            integration/test/py/*.png
-            integration/test/py/*.log
-            integration/test/py/*.json
+            integration/*.png
+            integration/*.log
+            integration/*.json
           retention-days: 7
 
       - name: Debug Test Environment
@@ -582,6 +586,8 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
+        # Exists so we can leave synnax running in the future
+        # and "tap in" to the test cases for debugging
         run: scripts/integration/kill-synnax-processes-linux.sh
 
       - name: Download and Setup Linux Artifacts
@@ -606,7 +612,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: integration/test/py/pyproject.toml
+          python-version-file: integration/pyproject.toml
 
       - name: Install Poetry & Dependencies
         run: scripts/integration/install-poetry-deps-unix.sh
@@ -631,9 +637,9 @@ jobs:
         with:
           name: test-results-linux
           path: |
-            integration/test/py/*.png
-            integration/test/py/*.log
-            integration/test/py/*.json
+            integration/*.png
+            integration/*.log
+            integration/*.json
           retention-days: 7
 
       - name: Debug Test Environment

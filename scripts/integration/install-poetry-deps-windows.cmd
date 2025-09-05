@@ -15,8 +15,8 @@ rem Used by GitHub Actions workflow: test.integration.yaml
 
 echo 📦 Installing Poetry and dependencies on Windows...
 
-rem Change to the integration test directory
-cd integration\test\py
+rem Change to the integration directory
+cd integration
 
 rem Install Poetry on Windows using PowerShell within CMD
 powershell -Command "(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -"

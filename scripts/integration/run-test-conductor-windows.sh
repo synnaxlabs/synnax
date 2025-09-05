@@ -21,9 +21,9 @@ echo "Running test conductor on Windows..."
 export PATH="$HOME/.local/bin:$PATH"
 
 # Change to test directory
-cd "integration/test/py"
+cd "integration"
 
 # Run test conductor
-poetry run test-conductor --name test-conductor-windows --sequence testcases/all_tests.json
+poetry run test-conductor --name test-conductor-windows --sequence test/all_tests.json
 
 echo "Test conductor completed"

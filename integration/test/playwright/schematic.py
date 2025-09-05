@@ -9,9 +9,8 @@
 
 import re
 import time
-from typing import Any, Dict, Optional
-
 from test.playwright.playwright import Playwright
+from typing import Any, Dict, Optional
 
 
 class Schematic(Playwright):

@@ -17,8 +17,8 @@ set -euo pipefail
 
 echo "Installing Poetry and dependencies..."
 
-# Change to the integration test directory
-cd integration/test/py
+# Change to the integration directory
+cd integration
 
 # Install Poetry and dependencies via pyproject.toml
 curl -sSL https://install.python-poetry.org | python3 -

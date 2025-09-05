@@ -35,6 +35,6 @@ echo "=== Service status ==="
 ps aux | grep -v grep | grep synnax || echo "No synnax processes found"
 
 echo "=== Test artifacts ==="
-find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10
+find integration -name "*.png" -o -name "*.log" -o -name "*.json" | head -10
 
 echo "Debug information collection completed"

@@ -9,9 +9,8 @@
 
 import re
 import time
-from typing import Any, Dict, List, Optional, Union
-
 from test.playwright.playwright import Playwright
+from typing import Any, Dict, List, Optional, Union
 
 
 class Plot(Playwright):

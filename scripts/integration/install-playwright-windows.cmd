@@ -15,8 +15,8 @@ rem Used by GitHub Actions workflow: test.integration.yaml
 
 echo 📦 Installing Playwright browsers on Windows...
 
-rem Change to the integration test directory
-cd integration\test\py
+rem Change to the integration directory
+cd integration
 
 rem Try to find Poetry executable
 set "POETRY_CMD=poetry"

@@ -18,11 +18,11 @@ echo 🧪 Running test conductor on Windows...
 rem Set Poetry PATH (try both common locations)
 set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
 
-rem Change to test directory
-cd integration\test\py
+rem Change to integration directory
+cd integration
 
 rem Run test conductor
-poetry run test-conductor --name test-conductor-win --sequence testcases\all_tests.json
+poetry run test-conductor --name test-conductor-win --sequence test\all_tests.json
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 echo ✅ Test conductor completed

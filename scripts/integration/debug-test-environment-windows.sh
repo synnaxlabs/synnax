@@ -32,6 +32,6 @@ tasklist | grep synnax || echo "No synnax processes found"
 
 echo "=== Test artifacts ==="
 # Find test artifacts
-find integration/test/py -name "*.png" -o -name "*.log" -o -name "*.json" | head -10 || echo "No test artifacts found"
+find integration -name "*.png" -o -name "*.log" -o -name "*.json" | head -10 || echo "No test artifacts found"
 
 echo "Debug information collection completed"

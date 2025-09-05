@@ -9,7 +9,6 @@
 
 import re
 import time
-
 from test.playwright.schematic import Schematic
 
 

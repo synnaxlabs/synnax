@@ -17,13 +17,13 @@ set -euo pipefail
 
 echo "Running integration test conductor..."
 
-# Change to the integration test directory
-cd integration/test/py
+# Change to the integration directory
+cd integration
 
 # Set up PATH for Poetry
 export PATH="$HOME/.local/bin:$PATH"
 
 # Run the test conductor
-poetry run test-conductor --name test-conductor-unix --sequence testcases/all_tests.json
+poetry run test-conductor --name test-conductor-unix --sequence test/all_tests.json
 
 echo "Integration test conductor completed successfully"
