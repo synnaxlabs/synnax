@@ -11,7 +11,7 @@ import re
 import time
 from typing import Any, Dict, Optional
 
-from testcases.playwright.playwright import Playwright
+from test.playwright.playwright import Playwright
 
 
 class Schematic(Playwright):

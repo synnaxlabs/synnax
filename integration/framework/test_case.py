@@ -649,7 +649,7 @@ class TestCase(ABC):
         raise TimeoutError("Channels failed to initialize")
 
     def wait_for_tlm_stale(self, buffer_size: int = 5) -> bool:
-        self._log_message("Waiting for all channels to be Stale (inactive)")
+        self._log_message("Waiting for all channels to be stale (inactive)")
 
         """
         Wait for all subscribed channels to be Stale (inactive).
@@ -671,7 +671,7 @@ class TestCase(ABC):
                 first_vals = vals_buffer[0]
                 if all(vals == first_vals for vals in vals_buffer):
                     self._log_message(
-                        f"All Channels are Stale (last {buffer_size} frames identical)"
+                        f"All channels are stale (last {buffer_size} frames identical)"
                     )
                     return True
 

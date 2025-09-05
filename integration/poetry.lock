@@ -2,7 +2,7 @@
 
 [[package]]
 name = "alamos"
-version = "0.44.0"
+version = "0.45.0"
 description = ""
 optional = false
 python-versions = ">=3.11,<4"
@@ -18,7 +18,7 @@ uptrace = ">=1.31.0,<2"
 
 [package.source]
 type = "directory"
-url = "../../../alamos/py"
+url = "../alamos/py"
 
 [[package]]
 name = "annotated-types"
@@ -2151,7 +2151,7 @@ files = [
 
 [[package]]
 name = "synnax"
-version = "0.44.2"
+version = "0.45.0"
 description = "Synnax Client Library"
 optional = false
 python-versions = ">=3.11,<4"
@@ -2174,11 +2174,11 @@ urllib3 = "^2.4.0"
 
 [package.source]
 type = "directory"
-url = "../../../client/py"
+url = "../client/py"
 
 [[package]]
 name = "synnax-freighter"
-version = "0.44.0"
+version = "0.45.0"
 description = ""
 optional = false
 python-versions = ">=3.11,<4.0"
@@ -2195,7 +2195,7 @@ websockets = "^15.0.1"
 
 [package.source]
 type = "directory"
-url = "../../../freighter/py"
+url = "../freighter/py"
 
 [[package]]
 name = "typing-extensions"
@@ -2465,4 +2465,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "e7638ba7b7be92ceec13a8a86927b97bf7bbee4bf49f9aa7130786ff9f877b9e"
+content-hash = "eaaa2771e3f322d13222df83b0663fa9e59a632282f75686d5d102611594d895"

@@ -72,32 +72,6 @@ jobs:
         run: poetry run mypy . --ignore-missing-imports
         working-directory: integration/test/py
 
-  lint-typescript:
-    name: Lint - TypeScript
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: TypeScript Type Check
-        run: pnpm --filter integration check-types
-
-      - name: Lint
-        run: pnpm --filter integration lint
-
   confirm-host-ubuntu-latest:
     name: Confirm Host (ubuntu-latest)
     runs-on:
@@ -160,7 +134,6 @@ jobs:
           disk-cache: true
           external-cache: true
           repository-cache: true
-
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}

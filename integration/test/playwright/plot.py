@@ -11,7 +11,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Union
 
-from testcases.playwright.playwright import Playwright
+from test.playwright.playwright import Playwright
 
 
 class Plot(Playwright):
@@ -147,14 +147,14 @@ class Plot(Playwright):
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
-        
+
         # Try direct ID selector first, then fallback to others
         selectors = [
-            f"#{axis.lower()}",   # Lowercase ID (most reliable)
-            f"#{axis}",           # Uppercase ID
-            f".pluto-tabs-selector__btn:has-text('{axis}')"  # Class + text fallback
+            f"#{axis.lower()}",  # Lowercase ID (most reliable)
+            f"#{axis}",  # Uppercase ID
+            f".pluto-tabs-selector__btn:has-text('{axis}')",  # Class + text fallback
         ]
-        
+
         for selector in selectors:
             try:
                 locator = self.page.locator(selector)
@@ -172,11 +172,11 @@ class Plot(Playwright):
                     # Try multiple selectors for text input fields
                     input_selectors = [
                         f"label:has-text('{key}') + div input",
-                        f"label:has-text('{key}') input", 
+                        f"label:has-text('{key}') input",
                         f"input[aria-label*='{key}']",
-                        f"input[placeholder*='{key}']"
+                        f"input[placeholder*='{key}']",
                     ]
-                    
+
                     input_found = False
                     for selector in input_selectors:
                         try:
@@ -188,7 +188,7 @@ class Plot(Playwright):
                                 break
                         except:
                             continue
-                    
+
                     if not input_found:
                         print(f"WARNING: Could not find input field for {key}")
                 elif key == "Label Direction":

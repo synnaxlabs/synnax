@@ -4,15 +4,14 @@ version = "0.1.0"
 description = "Integration test framework for Synnax Labs"
 authors = ["Synnax Labs <info@synnaxlabs.com>"]
 packages = [
-    { include = "framework" },
-    { include = "testcases" }
+    { include = "framework" }
 ]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-synnax-freighter = { path = "../../../freighter/py", develop = true }
-alamos = { path = "../../../alamos/py", develop = true }
-synnax = { path = "../../../client/py", develop = true }
+synnax-freighter = { path = "../freighter/py", develop = true }
+alamos = { path = "../alamos/py", develop = true }
+synnax = { path = "../client/py", develop = true }
 matplotlib = "^3.8.0"
 numpy = "^2.2.1"
 playwright = "^1.49.1"

@@ -10,7 +10,7 @@
 import re
 import time
 
-from testcases.playwright.schematic import Schematic
+from test.playwright.schematic import Schematic
 
 
 class Schematic_Edit_Value(Schematic):
