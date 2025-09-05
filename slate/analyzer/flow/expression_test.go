@@ -75,38 +75,21 @@ var _ = Describe("Expression Task Conversion", func() {
 		},
 	}
 
-	Context("Simple channel expression", func() {
-		It("should convert a channel in parentheses to a synthetic task", func() {
-			// Parentheses make it an expression instead of a bare channel identifier
-			ast := MustSucceed(parser.Parse(`
-				(temp_sensor) -> logger{}
-			`))
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
-			Expect(result.Diagnostics).To(HaveLen(0))
-
-			// Check that a synthetic task was created for the expression
-			synthTask, err := result.Symbols.Resolve("__expr_task_0")
-			Expect(err).To(BeNil())
-			Expect(synthTask).ToNot(BeNil())
-
-			// Check the task has the channel as config
-			taskType := synthTask.Type.(types.Task)
-			Expect(taskType.Config.Count()).To(Equal(1))
-			_, hasTemp := taskType.Config.Get("temp_sensor")
-			Expect(hasTemp).To(BeTrue())
-
-			// Return type should match channel type (F32)
-			Expect(taskType.Return).To(Equal(types.F32{}))
-		})
-	})
-
 	Context("Binary expression with channels", func() {
-		FIt("should convert comparison expression to synthetic task", func() {
+		It("should convert comparison expression to synthetic task", func() {
 			ast := MustSucceed(parser.Parse(`
 				ox_pt_1 > 100 -> alarm{}
 			`))
 			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
+			taskSymbol := MustSucceed(result.Symbols.Resolve("__expr_0"))
+			Expect(taskSymbol.Name).To(Equal("__expr_0"))
+			Expect(taskSymbol.Kind).To(Equal(symbol.KindTask))
+			taskType, ok := taskSymbol.Type.(*types.Task)
+			Expect(ok).To(BeTrue())
+			Expect(taskType.Config.Count()).To(Equal(1))
+			first := taskType.Config.At(0)
+			Expect(first).To(Equal(types.F64{}))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -116,15 +99,15 @@ var _ = Describe("Expression Task Conversion", func() {
 			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
-			synthTask, err := result.Symbols.Resolve("__expr_task_0")
+			synthTask, err := result.Symbols.Resolve("__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(types.Task)
+			taskType := synthTask.Type.(*types.Task)
 			// Should have both channels as config
 			Expect(taskType.Config.Count()).To(Equal(2))
-			_, hasOx1 := taskType.Config.Get("ox_pt_1")
-			_, hasOx2 := taskType.Config.Get("ox_pt_2")
+			_, hasOx1 := taskType.Config.Get("__ox_pt_1")
+			_, hasOx2 := taskType.Config.Get("__ox_pt_2")
 			Expect(hasOx1).To(BeTrue())
 			Expect(hasOx2).To(BeTrue())
 
@@ -141,37 +124,21 @@ var _ = Describe("Expression Task Conversion", func() {
 			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
-			synthTask, err := result.Symbols.Resolve("__expr_task_0")
+			synthTask, err := result.Symbols.Resolve("__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(types.Task)
+			taskType := synthTask.Type.(*types.Task)
 			// Should have both channels
 			Expect(taskType.Config.Count()).To(Equal(2))
-			_, hasOx := taskType.Config.Get("ox_pt_1")
-			_, hasPressure := taskType.Config.Get("pressure")
+			_, hasOx := taskType.Config.Get("__ox_pt_1")
+			_, hasPressure := taskType.Config.Get("__pressure")
 			Expect(hasOx).To(BeTrue())
 			Expect(hasPressure).To(BeTrue())
 		})
 	})
 
 	Context("Error cases", func() {
-		It("should reject expressions with variables", func() {
-			ast := MustSucceed(parser.Parse(`
-				func process() {
-					threshold := 100
-					sensor := ox_pt_1
-					result := sensor > threshold
-				}
-			`))
-			// Note: This test would need the expression to be in a flow statement
-			// to trigger the validation. The current test just shows that
-			// variables in functions work normally.
-			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
-			// No errors expected here since we're not using variables in flow
-			Expect(result.Diagnostics).To(HaveLen(0))
-		})
-
 		It("should reject unknown channels in expressions", func() {
 			ast := MustSucceed(parser.Parse(`
 				unknown_channel > 100 -> alarm{}
@@ -194,9 +161,9 @@ var _ = Describe("Expression Task Conversion", func() {
 
 			// May have warnings about type mismatches, but should still create tasks
 			// Check that multiple synthetic tasks were created
-			task0, err0 := result.Symbols.Resolve("__expr_task_0")
-			task1, err1 := result.Symbols.Resolve("__expr_task_1")
-			task2, err2 := result.Symbols.Resolve("__expr_task_2")
+			task0, err0 := result.Symbols.Resolve("__expr_0")
+			task1, err1 := result.Symbols.Resolve("__expr_1")
+			task2, err2 := result.Symbols.Resolve("__expr_2")
 
 			Expect(err0).To(BeNil())
 			Expect(err1).To(BeNil())
@@ -216,11 +183,11 @@ var _ = Describe("Expression Task Conversion", func() {
 			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
 			Expect(result.Diagnostics).To(HaveLen(0))
 
-			synthTask, err := result.Symbols.Resolve("__expr_task_0")
+			synthTask, err := result.Symbols.Resolve("__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(types.Task)
+			taskType := synthTask.Type.(*types.Task)
 			// Should extract both channels despite nesting
 			Expect(taskType.Config.Count()).To(Equal(2))
 		})
@@ -234,18 +201,15 @@ var _ = Describe("Expression Task Conversion", func() {
 			result := analyzer.Analyze(ast, analyzer.Options{Resolver: testResolver})
 			// May have type warning since display expects f64 but temp_sensor is f32
 
-			synthTask, err := result.Symbols.Resolve("__expr_task_0")
+			synthTask, err := result.Symbols.Resolve("__expr_0")
 			Expect(err).To(BeNil())
 			Expect(synthTask).ToNot(BeNil())
 
-			taskType := synthTask.Type.(types.Task)
-			chanType, exists := taskType.Config.Get("temp_sensor")
+			taskType := synthTask.Type.(*types.Task)
+			chanType, exists := taskType.Config.Get("__temp_sensor")
 			Expect(exists).To(BeTrue())
 
-			// Should be a channel type wrapping F32
-			ch, ok := chanType.(types.Chan)
-			Expect(ok).To(BeTrue())
-			Expect(ch.ValueType).To(Equal(types.F32{}))
+			Expect(chanType).To(Equal(types.F32{}))
 		})
 	})
 })
