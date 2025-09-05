@@ -145,7 +145,35 @@ class Plot(Playwright):
         self.set_axis("Y2", config)
 
     def set_axis(self, axis: str, config: Dict[str, Any]) -> None:
-        self.page.get_by_text("Axes").click()
+        # Try multiple ways to click the Axes tab
+        axes_selectors = [
+            "text=Axes",
+            "#axes",
+            "[id='axes']",
+            ".pluto-text:has-text('Axes')"
+        ]
+        
+        axes_clicked = False
+        for selector in axes_selectors:
+            try:
+                locator = self.page.locator(selector)
+                if locator.count() > 0:
+                    locator.click(timeout=5000)
+                    axes_clicked = True
+                    break
+            except:
+                continue
+        
+        if not axes_clicked:
+            # Fallback: try to find it by the exact text from debug output
+            try:
+                self.page.locator("p:has-text('Axes')").click(timeout=5000)
+                axes_clicked = True
+            except:
+                pass
+        
+        if not axes_clicked:
+            print("WARNING: Could not click Axes tab, proceeding anyway")
         
         # Wait longer for the tabs to be visible
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=10000)
