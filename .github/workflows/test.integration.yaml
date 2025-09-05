@@ -1,11 +1,18 @@
 name: Test - Integration
 
+run-name: ${{ github.event.inputs.RUN_NAME || format('Test - Integration {0}', github.ref_name) }}
+
 on:
   pull_request:
     branches:
       - main
   workflow_dispatch:
     inputs:
+      RUN_NAME:
+        description: 'Custom name for this workflow run'
+        required: false
+        default: ''
+        type: string
       SKIP_BUILD:
         description: 'Skip build process and use artifacts from another run'
         required: false
