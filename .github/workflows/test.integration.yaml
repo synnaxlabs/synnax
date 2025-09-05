@@ -511,9 +511,7 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
-        if:
-          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
-          'failure'
+        if: true
         with:
           name: test-results-windows
           path: |
@@ -585,6 +583,7 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
+        if: true
         with:
           name: test-results-macos
           path: |
@@ -655,9 +654,7 @@ jobs:
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
-        if:
-          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
-          'failure'
+        if: true
         with:
           name: test-results-linux
           path: |
