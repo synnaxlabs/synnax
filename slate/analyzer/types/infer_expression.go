@@ -157,18 +157,15 @@ func inferPrimaryType(
 	if literal := ctx.Literal(); literal != nil {
 		return inferLiteralType(literal, hint)
 	}
-
 	if expr := ctx.Expression(); expr != nil {
 		return InferFromExpression(scope, expr, hint)
 	}
-
 	if typeCast := ctx.TypeCast(); typeCast != nil {
 		if typeCtx := typeCast.Type_(); typeCtx != nil {
 			t, _ := InferFromTypeContext(typeCtx)
 			return t
 		}
 	}
-
 	return nil
 }
 
