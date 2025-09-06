@@ -218,6 +218,19 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
+      - name: Download relic for Windows signing
+        if: matrix.os == 'windows-latest'
+        run:
+          curl -L -o relic.exe
+          https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir relic-bin
+          mv relic.exe relic-bin\
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
+
       - name: Build (Push)
         if: github.event_name != 'pull_request'
         env:
@@ -227,6 +240,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         working-directory: console
         run: pnpm build
 
@@ -241,28 +257,6 @@ jobs:
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
-
-      - name: Download relic for Windows signing
-        if: matrix.os == 'windows-latest'
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-
-      - name: Add relic to PATH
-        if: matrix.os == 'windows-latest'
-        run: |
-          mkdir relic-bin
-          mv relic.exe relic-bin\
-          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
-
-      - name: Sign Windows Release Asset
-        if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi --key azure --config relic.conf
-          relic sign --file ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe --key azure --config relic.conf
 
       - name: Upload Windows Release Asset
         if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
