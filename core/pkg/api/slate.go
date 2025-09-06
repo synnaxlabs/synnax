@@ -15,27 +15,27 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/slate"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type SlateService struct {
 	dbProvider
 	accessProvider
-	internal *slate.Service
+	internal *arc.Service
 }
 
 func NewSlateService(p Provider) *SlateService {
 	return &SlateService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Service.Slate,
+		internal:       p.Service.arc,
 	}
 }
 
 type (
 	SlateCreateRequest struct {
-		Slates []slate.Slate `json:"slates" msgpack:"slates"`
+		Slates []arc.arc `json:"slates" msgpack:"slates"`
 	}
 	SlateCreateResponse = SlateCreateRequest
 )
@@ -44,7 +44,7 @@ func (s *SlateService) Create(ctx context.Context, req SlateCreateRequest) (res 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: slate.OntologyIDsFromSlates(req.Slates),
+		Objects: arc.OntologyIDsFromSlates(req.Slates),
 	}); err != nil {
 		return res, err
 	}
@@ -69,7 +69,7 @@ func (s *SlateService) Delete(ctx context.Context, req SlateDeleteRequest) (res 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Objects: slate.OntologyIDs(req.Keys),
+		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -83,7 +83,7 @@ type (
 		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	SlateRetrieveResponse struct {
-		Slates []slate.Slate `json:"slates" msgpack:"slates"`
+		Slates []arc.arc `json:"slates" msgpack:"slates"`
 	}
 )
 
@@ -94,7 +94,7 @@ func (s *SlateService) Retrieve(ctx context.Context, req SlateRetrieveRequest) (
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: slate.OntologyIDsFromSlates(res.Slates),
+		Objects: arc.OntologyIDsFromSlates(res.Slates),
 	}); err != nil {
 		return SlateRetrieveResponse{}, err
 	}

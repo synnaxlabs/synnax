@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/spec"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/slate"
-	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -43,7 +43,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Ontology   *ontology.Ontology
 	Framer     *framer.Service
-	Slate      *slate.Service
+	arc        *arc.Service
 	Channel    channel.Service
 	Annotation *annotation.Service
 	Ranger     *ranger.Service
@@ -65,7 +65,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Slate = override.Nil(c.Slate, other.Slate)
+	c.arc = override.Nil(c.arc, other.arc)
 	c.Annotation = override.Nil(c.Annotation, other.Annotation)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Label = override.Nil(c.Label, other.Label)
@@ -79,7 +79,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "slate", c.Slate)
+	validate.NotNil(v, "arc", c.arc)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "annotation", c.Annotation)
 	validate.NotNil(v, "ranger", c.Ranger)

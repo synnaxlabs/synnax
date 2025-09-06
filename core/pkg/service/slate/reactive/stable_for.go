@@ -12,7 +12,7 @@ package reactive
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/spec"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"

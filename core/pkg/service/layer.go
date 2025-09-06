@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/console"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -116,10 +116,10 @@ type Layer struct {
 	// across the cluster.
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
-	Console *console.Service
+	Console    *console.Service
 	Annotation *annotation.Service
 	Effect     *effect.Service
-	Slate      *slate.Service
+	arc        *arc.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -245,13 +245,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Annotation) {
 		return nil, err
 	}
-	if l.Slate, err = slate.OpenService(
+	if l.arc, err = arc.OpenService(
 		ctx,
-		slate.ServiceConfig{
+		arc.ServiceConfig{
 			DB:       cfg.Distribution.DB,
 			Ontology: cfg.Distribution.Ontology,
 		},
-	); !ok(err, l.Slate) {
+	); !ok(err, l.arc) {
 		return nil, err
 	}
 	if l.Effect, err = effect.OpenService(
@@ -261,7 +261,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Ontology:        cfg.Distribution.Ontology,
 			Framer:          cfg.Distribution.Framer,
 			Ranger:          l.Ranger,
-			Slate:           l.Slate,
+			arc:             l.arc,
 			Channel:         cfg.Distribution.Channel,
 			Annotation:      l.Annotation,
 			Label:           l.Label,

@@ -28,19 +28,16 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-replace github.com/synnaxlabs/slate => ../slate
-
-replace github.com/synnaxlabs/aspen => ../aspen
-
-replace github.com/synnaxlabs/cesium => ../cesium
-
-replace github.com/synnaxlabs/freighter => ../freighter/go
-
-replace github.com/synnaxlabs/x => ../x/go
-
-replace github.com/synnaxlabs/alamos => ../alamos/go
-
-replace github.com/synnaxlabs/computron => ../computron
+replace (
+	github.com/synnaxlabs/arc => ../arc
+	github.com/synnaxlabs/aspen => ../aspen
+	github.com/synnaxlabs/cesium => ../cesium
+	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/x => ../x/go
+	github.com/synnaxlabs/alamos => ../alamos/go
+	github.com/synnaxlabs/computron => ../computron
+	github.com/synnaxlabs/arc => ../arc
+)
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
@@ -120,7 +117,7 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/synnaxlabs/slate v0.0.0-00010101000000-000000000000 // indirect
+	github.com/synnaxlabs/arc v0.0.0-00010101000000-000000000000 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.65.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect

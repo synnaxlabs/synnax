@@ -112,7 +112,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.EffectDelete = fnoop.UnaryServer[api.EffectDeleteRequest, types.Nil]{}
 	a.EffectRetrieve = fnoop.UnaryServer[api.EffectRetrieveRequest, api.EffectRetrieveResponse]{}
 
-	// SLATE
+	// arc
 	a.SlateCreate = fnoop.UnaryServer[api.SlateCreateRequest, api.SlateCreateResponse]{}
 	a.SlateDelete = fnoop.UnaryServer[api.SlateDeleteRequest, types.Nil]{}
 	a.SlateRetrieve = fnoop.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse]{}

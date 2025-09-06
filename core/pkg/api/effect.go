@@ -15,8 +15,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/spec"
 	"github.com/synnaxlabs/synnax/pkg/service/effect"
-	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/gorp"
 )
 

@@ -16,9 +16,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/slate"
-	"github.com/synnaxlabs/synnax/pkg/service/slate/reactive"
-	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/reactive"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/spec"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
@@ -86,9 +86,9 @@ func (s *Service) handleChange(
 		if e.Variant == changex.Delete {
 			return
 		}
-		var slt slate.Slate
-		if err := s.cfg.Slate.NewRetrieve().
-			WhereKeys(e.Value.Slate).
+		var slt arc.arc
+		if err := s.cfg.arc.NewRetrieve().
+			WhereKeys(e.Value.arc).
 			Entry(&slt).
 			Exec(ctx, nil); err != nil {
 			return

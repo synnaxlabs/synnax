@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package slate
+package arc
 
 import (
 	"context"
@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "slate"
+const ontologyType ontology.Type = "arc"
 
-// OntologyID returns unique identifier for the slate within the ontology.
+// OntologyID returns unique identifier for the arc within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
@@ -50,8 +50,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 }
 
 // OntologyIDsFromSlates returns the ontology IDs of the slates.
-func OntologyIDsFromSlates(slates []Slate) []ontology.ID {
-	return lo.Map(slates, func(c Slate, _ int) ontology.ID {
+func OntologyIDsFromSlates(slates []arc) []ontology.ID {
+	return lo.Map(slates, func(c arc, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
 }
@@ -60,13 +60,13 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key": zyn.UUID(),
 })
 
-func newResource(c Slate) core.Resource {
+func newResource(c arc) core.Resource {
 	return core.NewResource(schema, OntologyID(c.Key), c.Key.String(), c)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Slate]
+type change = changex.Change[uuid.UUID, arc]
 
 func (s *Service) Type() ontology.Type { return ontologyType }
 
@@ -76,9 +76,9 @@ func (s *Service) Schema() zyn.Schema { return schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {
 	k := uuid.MustParse(key)
-	var slate Slate
-	err := s.NewRetrieve().WhereKeys(k).Entry(&slate).Exec(ctx, tx)
-	return newResource(slate), err
+	var arc arc
+	err := s.NewRetrieve().WhereKeys(k).Entry(&arc).Exec(ctx, tx)
+	return newResource(arc), err
 }
 
 func translateChange(c change) core.Change {
@@ -91,16 +91,16 @@ func translateChange(c change) core.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Slate]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, arc]) {
 		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
 	}
-	return gorp.Observe[uuid.UUID, Slate](s.cfg.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, arc](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Slate](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Slate, core.Resource]{
+	n, err := gorp.WrapReader[uuid.UUID, arc](s.cfg.DB).OpenNexter()
+	return iter.NexterCloserTranslator[arc, core.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

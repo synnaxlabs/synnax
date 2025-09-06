@@ -8,6 +8,6 @@ use (
 	./freighter/go
 	./freighter/integration
 	./integration
-	./slate
+	./arc
 	./x/go
 )

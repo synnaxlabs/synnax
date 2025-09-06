@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// Node is a node in the slate graph. Nodes can be thought of as functions/expressions
+// Node is a node in the arc graph. Nodes can be thought of as functions/expressions
 // that receive inputs and produce outputs.
 type Node struct {
 	// Key is a unique key for the node.

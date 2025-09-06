@@ -29,7 +29,7 @@ type Effect struct {
 	// will be generated.
 	Key     uuid.UUID     `json:"key" msgpack:"key"`
 	Name    string        `json:"name" msgpack:"name"`
-	Slate   uuid.UUID     `json:"slate" msgpack:"slate"`
+	arc     uuid.UUID     `json:"arc" msgpack:"arc"`
 	Enabled bool          `json:"enabled" msgpack:"enabled"`
 	Labels  []label.Label `json:"labels" msgpack:"labels"`
 	Status  *Status       `json:"status,omitempty" msgpack:"status,omitempty"`
