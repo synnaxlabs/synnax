@@ -471,7 +471,7 @@ var _ = Describe("Expressions", func() {
 				},
 				"ox_pt_2": symbol.Symbol{
 					Kind: symbol.KindChannel,
-					Name: "ox_pt_1",
+					Name: "ox_pt_2",
 					Type: types.Chan{ValueType: types.I32{}},
 				},
 			}
@@ -502,6 +502,23 @@ var _ = Describe("Expressions", func() {
 			Expect(result.Diagnostics).To(HaveLen(1))
 			firstDiag := result.Diagnostics[0]
 			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
+		})
+
+		It("Should not return an error when adding a channel to a variable of the same type", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() i32 {
+					return ox_pt_1 + 2
+				}
+			`))
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.I32{}},
+				},
+			}
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			Expect(result.Ok()).To(BeTrue())
 		})
 	})
 })

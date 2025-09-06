@@ -38,7 +38,12 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return nil, err
 		}
-		return scope.Type, nil
+		// After reading from a channel, we get the value type, not the channel type
+		chanType, ok := scope.Type.(types.Chan)
+		if !ok {
+			return nil, errors.Newf("expected channel type, got %T", scope.Type)
+		}
+		return chanType.ValueType, nil
 	default:
 		return nil, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
 	}

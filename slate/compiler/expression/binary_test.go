@@ -9,7 +9,10 @@ package expression_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/slate/compiler/testutil"
 	. "github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
 )
 
@@ -374,4 +377,19 @@ var _ = Describe("Binary Operations", func() {
 			OpI32GtS,
 		),
 	)
+
+	Describe("Literal Coercion", func() {
+		It("Should coerce a literal type", func() {
+			ctx := NewContext()
+			ctx.Scope.Add("x", symbol.KindVariable, types.F32{}, nil)
+			compiled, t := compileWithCtx(ctx, "x + 1")
+			Expect(t).To(Equal(types.F32{}))
+			Expect(compiled).To(Equal(WASM(
+				OpLocalGet, 0,
+				OpF32Const,
+				float32(1),
+				OpF32Add,
+			)))
+		})
+	})
 })

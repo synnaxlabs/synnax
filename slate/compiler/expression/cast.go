@@ -26,7 +26,7 @@ func compileTypeCast(
 		return nil, errors.New("unknown cast target type")
 	}
 
-	sourceType, err := Compile(ctx, cast.Expression())
+	sourceType, err := Compile(ctx, cast.Expression(), nil)
 	if err != nil {
 		return nil, err
 	}

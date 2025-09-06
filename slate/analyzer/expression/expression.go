@@ -362,9 +362,19 @@ func analyzePrimary(
 ) bool {
 	if id := ctx.IDENTIFIER(); id != nil {
 		name := id.GetText()
-		if _, err := parentScope.Resolve(name); err != nil {
+		sym, err := parentScope.Resolve(name)
+		if err != nil {
 			result.AddError(err, ctx)
 			return false
+		}
+		if sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindConfigParam || sym.Kind == symbol.KindParam {
+			_, isChan := sym.Type.(types.Chan)
+			if isChan {
+				if taskScope, err := parentScope.ClosestAncestorOfKind(symbol.KindTask); err == nil {
+					t := taskScope.Type.(types.Task)
+					t.Channels.Read.Add(name)
+				}
+			}
 		}
 		return true
 	}

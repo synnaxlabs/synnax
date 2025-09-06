@@ -18,9 +18,9 @@ import (
 )
 
 // compileUnary handles unary -, !, and blocking read operations
-func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext) (types.Type, error) {
+func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext, hint types.Type) (types.Type, error) {
 	if expr.MINUS() != nil {
-		innerType, err := compileUnary(ctx, expr.UnaryExpression())
+		innerType, err := compileUnary(ctx, expr.UnaryExpression(), hint)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +44,7 @@ func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext) (types
 
 	if expr.NOT() != nil {
 		// Compile the inner expression
-		_, err := compileUnary(ctx, expr.UnaryExpression())
+		_, err := compileUnary(ctx, expr.UnaryExpression(), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,7 @@ func compileUnary(ctx *core.Context, expr parser.IUnaryExpressionContext) (types
 		return types.F64{}, nil // Placeholder
 	}
 	if postfix := expr.PostfixExpression(); postfix != nil {
-		return compilePostfix(ctx, postfix)
+		return compilePostfix(ctx, postfix, hint)
 	}
 	return nil, errors.New("unknown unary expression")
 }

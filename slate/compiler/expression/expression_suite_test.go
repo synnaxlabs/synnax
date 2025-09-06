@@ -36,7 +36,7 @@ func compileExpression(source string) ([]byte, types.Type) {
 func compileWithCtx(ctx *core.Context, source string) ([]byte, types.Type) {
 	var (
 		expr     = MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
-		exprType = MustSucceedWithOffset[types.Type](2)(expression.Compile(ctx, expr))
+		exprType = MustSucceedWithOffset[types.Type](2)(expression.Compile(ctx, expr, nil))
 	)
 	return ctx.Writer.Bytes(), exprType
 }

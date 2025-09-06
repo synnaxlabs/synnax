@@ -36,7 +36,7 @@ func compileLocalVariable(ctx *core.Context, decl parser.ILocalVariableContext) 
 		return errors.Wrapf(err, "variable '%s' not found in symbol table", name)
 	}
 	varType := varScope.Type
-	exprType, err := expression.Compile(ctx, decl.Expression())
+	exprType, err := expression.Compile(ctx, decl.Expression(), varType)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
 	}
@@ -71,6 +71,7 @@ func compileStatefulVariable(
 	_, err = expression.Compile(
 		ctx,
 		decl.Expression(),
+		varType,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
@@ -106,7 +107,7 @@ func compileAssignment(
 	sym := scope.Symbol
 	varType := sym.Type
 	// Compile the expression (analyzer guarantees type correctness)
-	exprType, err := expression.Compile(ctx, assign.Expression())
+	exprType, err := expression.Compile(ctx, assign.Expression(), varType)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
 	}

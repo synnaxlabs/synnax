@@ -107,4 +107,6 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(42)))
 		})
 	})
+
+	Describe("Channel Read")
 })

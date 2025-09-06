@@ -25,7 +25,7 @@ func compileIfStatement(
 	ifStmt parser.IIfStatementContext,
 ) error {
 	// Compile the condition expression
-	if _, err := expression.Compile(ctx, ifStmt.Expression()); err != nil {
+	if _, err := expression.Compile(ctx, ifStmt.Expression(), nil); err != nil {
 		return errors.Wrap(err, "failed to compile if condition")
 	}
 	// Check if we have an else clause to determine block type
@@ -41,7 +41,7 @@ func compileIfStatement(
 		// Handle else-if clauses
 		for i, elseIfClause := range ifStmt.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-			_, err := expression.Compile(ctx, elseIfClause.Expression())
+			_, err := expression.Compile(ctx, elseIfClause.Expression(), nil)
 			if err != nil {
 				return errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
 			}
@@ -84,7 +84,7 @@ func compileReturnStatement(ctx *core.Context, ret parser.IReturnStatementContex
 	if expr == nil {
 		return nil
 	}
-	exprType, err := expression.Compile(ctx, expr)
+	exprType, err := expression.Compile(ctx, expr, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile return expression")
 	}
@@ -119,11 +119,6 @@ func compileChannelOperation(ctx *core.Context, chanOp parser.IChannelOperationC
 		return compileChannelRead(ctx, chanRead)
 	}
 
-	// Channel piping not yet supported in parser
-	// if chanPipe := chanOp.ChannelPipe(); chanPipe != nil {
-	//	return c.compileChannelPipe(chanPipe)
-	// }
-
 	return errors.New("unknown channel operation")
 }
 
@@ -143,7 +138,7 @@ func compileChannelWrite(ctx *core.Context, write parser.IChannelWriteContext) e
 	}
 
 	// Compile the value expression
-	valueType, err := expression.Compile(ctx, valueExpr)
+	valueType, err := expression.Compile(ctx, valueExpr, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile channel write value")
 	}

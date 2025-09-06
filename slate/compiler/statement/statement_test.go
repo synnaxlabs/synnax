@@ -46,8 +46,7 @@ var _ = Describe("Statement Compiler", func() {
 		Entry(
 			"integer variable declaration with explicit type",
 			"x i32 := 42",
-			OpI64Const, int64(42),
-			OpI32WrapI64,
+			OpI32Const, int32(42),
 			OpLocalSet, 0,
 		),
 		Entry(
