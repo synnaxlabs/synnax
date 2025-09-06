@@ -263,6 +263,100 @@ var _ = Describe("Statement", func() {
 		})
 	})
 
+	Describe("Channel Operations", func() {
+		var scope *symbol.Scope
+
+		BeforeEach(func() {
+			resolver := symbol.MapResolver{
+				"sensor":      symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.F64{}}},
+				"output":      symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.F64{}}},
+				"int_chan":    symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.I32{}}},
+				"string_chan": symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan{ValueType: types.String{}}},
+			}
+			scope = symbol.CreateRoot(resolver)
+		})
+
+		Describe("Channel Writes", func() {
+			It("Should analyze basic channel write with arrow", func() {
+				stmt := MustSucceed(parser.ParseStatement(`42.0 -> output`))
+				res := result.Result{Symbols: scope}
+				Expect(statement.Analyze(scope, &res, stmt)).To(BeTrue())
+				Expect(res.Diagnostics).To(HaveLen(0))
+			})
+
+			It("Should analyze channel write with recv operator", func() {
+				stmt := MustSucceed(parser.ParseStatement(`output <- 42.0`))
+				res := result.Result{Symbols: scope}
+				Expect(statement.Analyze(scope, &res, stmt)).To(BeTrue())
+				Expect(res.Diagnostics).To(HaveLen(0))
+			})
+
+			It("Should detect type mismatch in channel write", func() {
+				stmt := MustSucceed(parser.ParseStatement(`"hello" -> output`))
+				res := result.Result{Symbols: scope}
+				Expect(statement.Analyze(scope, &res, stmt)).To(BeFalse())
+				Expect(res.Diagnostics).To(HaveLen(1))
+				Expect(res.Diagnostics[0].Message).To(ContainSubstring("type mismatch: cannot write string to channel of type f64"))
+			})
+
+			It("Should analyze channel write with variable", func() {
+				stmt := MustSucceed(parser.ParseStatement(`value -> output`))
+				_, _ = scope.Add("value", symbol.KindVariable, types.F64{}, nil)
+				res := result.Result{Symbols: scope}
+				ok := statement.Analyze(scope, &res, stmt)
+				Expect(ok).To(BeTrue())
+				Expect(res.Diagnostics).To(HaveLen(0))
+			})
+
+			It("Should detect undefined channel in write", func() {
+				stmt := MustSucceed(parser.ParseStatement(`42.0 -> undefined_channel`))
+				res := result.Result{Symbols: scope}
+				ok := statement.Analyze(scope, &res, stmt)
+				Expect(ok).To(BeFalse())
+				Expect(res.Diagnostics).To(HaveLen(1))
+				Expect(res.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: undefined_channel"))
+			})
+		})
+
+		Describe("Channel Reads", func() {
+			It("Should analyze blocking channel read", func() {
+				stmt := MustSucceed(parser.ParseStatement(`value := <-sensor`))
+				res := result.Result{Symbols: scope}
+				ok := statement.Analyze(scope, &res, stmt)
+				Expect(ok).To(BeTrue())
+				Expect(res.Diagnostics).To(HaveLen(0))
+
+				// Verify the variable has the correct type
+				varScope, err := scope.Resolve("value")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(varScope.Type).To(Equal(types.F64{}))
+			})
+
+			It("Should analyze non-blocking channel read", func() {
+				stmt := MustSucceed(parser.ParseStatement(`current := sensor`))
+				res := result.Result{Symbols: scope}
+				ok := statement.Analyze(scope, &res, stmt)
+				Expect(ok).To(BeTrue())
+				Expect(res.Diagnostics).To(HaveLen(0))
+
+				// Verify the variable has the correct type
+				varScope, err := scope.Resolve("current")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(varScope.Type).To(Equal(types.F64{}))
+			})
+
+			It("Should detect undefined channel in read", func() {
+				stmt := MustSucceed(parser.ParseStatement(`value := <-undefined_channel`))
+				res := result.Result{Symbols: scope}
+				ok := statement.Analyze(scope, &res, stmt)
+				Expect(ok).To(BeFalse())
+				Expect(res.Diagnostics).To(HaveLen(1))
+				Expect(res.Diagnostics[0].Message).To(ContainSubstring("undefined"))
+			})
+		})
+
+	})
+
 	Describe("Mixed Type Scenarios", func() {
 		It("Should handle complex nested structures", func() {
 			stmt := MustSucceed(parser.ParseStatement(`if 1 {

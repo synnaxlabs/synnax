@@ -9,5 +9,5 @@ import (
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Expression Suite")
+	RunSpecs(t, "Expression Analyzer Suite")
 }

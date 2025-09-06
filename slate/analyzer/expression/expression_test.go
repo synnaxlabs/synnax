@@ -15,12 +15,14 @@ import (
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/analyzer/result"
 	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
+	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Expressions", func() {
 	Describe("Binary Expressions", func() {
-		It("Should validate arithmetic operations on numeric types", func() {
+		It("Should validate add expressions on numeric types", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
@@ -451,6 +453,55 @@ var _ = Describe("Expressions", func() {
 				`))
 			result := analyzer.Analyze(ast, analyzer.Options{})
 			Expect(result.Diagnostics).To(HaveLen(0))
+		})
+	})
+
+	Describe("Channels in Expressions", func() {
+		It("Should correctly resolve an instantaneous channel read an an expression", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() i32 {
+					return (ox_pt_1 + ox_pt_2) / 2
+				}
+			`))
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.I32{}},
+				},
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.I32{}},
+				},
+			}
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			Expect(result.Ok()).To(BeTrue())
+		})
+
+		It("Should return an error when channels with mismatched types are used in arithmetic operations", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() i32 {
+					return (ox_pt_1 + ox_pt_2) / 2
+				}
+			`))
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.I32{}},
+				},
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.F32{}},
+				},
+			}
+			result := analyzer.Analyze(ast, analyzer.Options{Resolver: resolver})
+			Expect(result.Ok()).To(BeFalse())
+			Expect(result.Diagnostics).To(HaveLen(1))
+			firstDiag := result.Diagnostics[0]
+			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
 		})
 	})
 })

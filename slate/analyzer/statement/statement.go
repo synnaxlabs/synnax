@@ -157,6 +157,25 @@ func analyzeLocalVariable(
 ) bool {
 	name := localVar.IDENTIFIER().GetText()
 	expr := localVar.Expression()
+
+	// Check if this is actually a non-blocking channel read
+	// (i.e., the expression is a simple identifier that refers to a channel)
+	if expr != nil && localVar.Type_() == nil {
+		if isChannelIdentifier(blockScope, expr) {
+			// This is a non-blocking channel read: varName := channelName
+			chanType := getChannelType(blockScope, expr)
+			if chanType != nil {
+				// Add variable with the channel's value type
+				_, err := blockScope.Add(name, symbol.KindVariable, chanType.ValueType, localVar)
+				if err != nil {
+					result.AddError(err, localVar)
+					return false
+				}
+				return true
+			}
+		}
+	}
+
 	// Also validate the expression for undefined variables
 	if expr != nil {
 		if !expression.Analyze(blockScope, result, expr) {
@@ -180,6 +199,73 @@ func analyzeLocalVariable(
 	}
 
 	return true
+}
+
+// isChannelIdentifier checks if an expression is a simple identifier that refers to a channel
+func isChannelIdentifier(scope *symbol.Scope, expr parser.IExpressionContext) bool {
+	// Navigate through the expression tree to find an identifier
+	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
+			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
+				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
+					if additives := relationals[0].AllAdditiveExpression(); len(additives) == 1 {
+						if multiplicatives := additives[0].AllMultiplicativeExpression(); len(multiplicatives) == 1 {
+							if powers := multiplicatives[0].AllPowerExpression(); len(powers) == 1 {
+								if unary := powers[0].UnaryExpression(); unary != nil {
+									if postfix := unary.PostfixExpression(); postfix != nil {
+										if primary := postfix.PrimaryExpression(); primary != nil {
+											if id := primary.IDENTIFIER(); id != nil {
+												// Check if this identifier refers to a channel
+												if sym, err := scope.Resolve(id.GetText()); err == nil {
+													if _, ok := sym.Type.(types.Chan); ok {
+														return true
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// getChannelType retrieves the channel type from an expression that is a channel identifier
+func getChannelType(scope *symbol.Scope, expr parser.IExpressionContext) *types.Chan {
+	// Navigate through the expression tree to find the identifier and get its type
+	if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+		if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
+			if equalities := ands[0].AllEqualityExpression(); len(equalities) == 1 {
+				if relationals := equalities[0].AllRelationalExpression(); len(relationals) == 1 {
+					if additives := relationals[0].AllAdditiveExpression(); len(additives) == 1 {
+						if multiplicatives := additives[0].AllMultiplicativeExpression(); len(multiplicatives) == 1 {
+							if powers := multiplicatives[0].AllPowerExpression(); len(powers) == 1 {
+								if unary := powers[0].UnaryExpression(); unary != nil {
+									if postfix := unary.PostfixExpression(); postfix != nil {
+										if primary := postfix.PrimaryExpression(); primary != nil {
+											if id := primary.IDENTIFIER(); id != nil {
+												if sym, err := scope.Resolve(id.GetText()); err == nil {
+													if chanType, ok := sym.Type.(types.Chan); ok {
+														return &chanType
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // analyzeStatefulVariable analyzes a stateful variable declaration
@@ -325,10 +411,157 @@ func analyzeReturnStatement(
 }
 
 func analyzeChannelOperation(
-	*symbol.Scope,
-	*result.Result,
-	parser.IChannelOperationContext,
+	scope *symbol.Scope,
+	res *result.Result,
+	ctx parser.IChannelOperationContext,
 ) bool {
+	if write := ctx.ChannelWrite(); write != nil {
+		return analyzeChannelWrite(scope, res, write)
+	} else if read := ctx.ChannelRead(); read != nil {
+		return analyzeChannelRead(scope, res, read)
+	}
+	return true
+}
+
+func analyzeChannelWrite(
+	scope *symbol.Scope,
+	res *result.Result,
+	ctx parser.IChannelWriteContext,
+) bool {
+	// Get the channel name
+	var channelName string
+	if ctx.IDENTIFIER() != nil {
+		channelName = ctx.IDENTIFIER().GetText()
+	} else {
+		return false
+	}
+
+	// Resolve the channel
+	channelSym, err := scope.Resolve(channelName)
+	if err != nil {
+		res.AddError(err, ctx)
+		return false
+	}
+
+	// Check it's a channel type
+	chanType, ok := channelSym.Type.(types.Chan)
+	if !ok {
+		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		return false
+	}
+
+	// Analyze the expression being written
+	expr := ctx.Expression()
+	if expr == nil {
+		return true
+	}
+
+	if !expression.Analyze(scope, res, expr) {
+		return false
+	}
+
+	// Check type compatibility
+	exprType := atypes.InferFromExpression(scope, expr, nil)
+	if exprType != nil && chanType.ValueType != nil {
+		if !atypes.Compatible(chanType.ValueType, exprType) {
+			res.AddError(
+				errors.Newf("type mismatch: cannot write %s to channel of type %s",
+					exprType, chanType.ValueType),
+				ctx,
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
+func analyzeChannelRead(
+	scope *symbol.Scope,
+	res *result.Result,
+	ctx parser.IChannelReadContext,
+) bool {
+	if blocking := ctx.BlockingRead(); blocking != nil {
+		return analyzeBlockingRead(scope, res, blocking)
+	} else if nonBlocking := ctx.NonBlockingRead(); nonBlocking != nil {
+		return analyzeNonBlockingRead(scope, res, nonBlocking)
+	}
+	return true
+}
+
+func analyzeBlockingRead(
+	scope *symbol.Scope,
+	res *result.Result,
+	ctx parser.IBlockingReadContext,
+) bool {
+	// Format: varName := <-channelName
+	ids := ctx.AllIDENTIFIER()
+	if len(ids) != 2 {
+		return false
+	}
+
+	varName := ids[0].GetText()
+	channelName := ids[1].GetText()
+
+	// Resolve the channel
+	channelSym, err := scope.Resolve(channelName)
+	if err != nil {
+		res.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx)
+		return false
+	}
+
+	// Check it's a channel type
+	chanType, ok := channelSym.Type.(types.Chan)
+	if !ok {
+		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		return false
+	}
+
+	// Add the variable with the channel's value type
+	_, err = scope.Add(varName, symbol.KindVariable, chanType.ValueType, ctx)
+	if err != nil {
+		res.AddError(err, ctx)
+		return false
+	}
+
+	return true
+}
+
+func analyzeNonBlockingRead(
+	scope *symbol.Scope,
+	res *result.Result,
+	ctx parser.INonBlockingReadContext,
+) bool {
+	// Format: varName := channelName
+	ids := ctx.AllIDENTIFIER()
+	if len(ids) != 2 {
+		return false
+	}
+
+	varName := ids[0].GetText()
+	channelName := ids[1].GetText()
+
+	// Resolve the channel
+	channelSym, err := scope.Resolve(channelName)
+	if err != nil {
+		res.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx)
+		return false
+	}
+
+	// Check it's a channel type
+	chanType, ok := channelSym.Type.(types.Chan)
+	if !ok {
+		res.AddError(errors.Newf("%s is not a channel", channelName), ctx)
+		return false
+	}
+
+	// Add the variable with the channel's value type
+	_, err = scope.Add(varName, symbol.KindVariable, chanType.ValueType, ctx)
+	if err != nil {
+		res.AddError(err, ctx)
+		return false
+	}
+
 	return true
 }
 

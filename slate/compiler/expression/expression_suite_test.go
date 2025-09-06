@@ -43,5 +43,5 @@ func compileWithCtx(ctx *core.Context, source string) ([]byte, types.Type) {
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Expression Suite")
+	RunSpecs(t, "Expression Compiler Suite")
 }

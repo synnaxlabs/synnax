@@ -9,5 +9,5 @@ import (
 
 func TestWasm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Wasm Suite")
+	RunSpecs(t, "WASM Compiler Suite")
 }

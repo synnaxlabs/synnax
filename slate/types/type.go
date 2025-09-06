@@ -137,8 +137,12 @@ func (m *OrderedMap[K, V]) Put(key K, value V) bool {
 }
 
 type Task struct {
-	Config OrderedMap[string, Type]
-	Params OrderedMap[string, Type]
+	Config   OrderedMap[string, Type]
+	Params   OrderedMap[string, Type]
+	Channels struct {
+		Read  []string
+		Write []string
+	}
 	Return Type
 }
 
