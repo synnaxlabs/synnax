@@ -31,7 +31,6 @@ import (
 // Range (short for time range) is an interesting, user defined region of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
-	// TODO: remove tx, otg, and label
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
@@ -271,6 +270,8 @@ func (r Range) listAliases(
 	p, pErr := r.RetrieveParent(ctx)
 	if errors.Is(pErr, query.NotFound) {
 		return nil
+	} else if pErr != nil {
+		return pErr
 	}
 	return p.listAliases(ctx, accumulated)
 }

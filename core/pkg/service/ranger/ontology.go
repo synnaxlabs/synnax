@@ -61,7 +61,6 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
 	"color":      zyn.String(),
-	"stage":      zyn.String(),
 	"time_range": telem.TimeRangeSchema,
 })
 
@@ -89,8 +88,10 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var r Range
-	err = s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx)
-	return newResource(r), err
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(r), nil
 }
 
 func translateChange(c change) ontology.Change {

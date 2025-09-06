@@ -140,7 +140,7 @@ func (w Writer) CreateManyWithParent(
 	ranges *[]Range,
 	parent ontology.ID,
 ) error {
-	if len(*ranges) == 0 {
+	if ranges == nil {
 		return nil
 	}
 	for i, r := range *ranges {
@@ -157,10 +157,8 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 	return gorp.
 		NewUpdate[uuid.UUID, Range]().
 		WhereKeys(key).
-		Change(func(r Range) Range {
-			r.Name = name
-			return r
-		}).Exec(ctx, w.tx)
+		Change(func(r Range) Range { r.Name = name; return r }).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children of
