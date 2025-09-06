@@ -3,17 +3,20 @@ name: Test - Protobuf
 on:
   pull_request:
     paths:
+      - "**/*.proto"
+      - .github/workflows/test.protobuf.yaml
       - buf.yaml
       - buf.gen.yaml
-      - **/*.proto
   push:
     branches:
       - main
       - rc
     paths:
+      - "**/*.proto"
+      - .github/workflows/test.protobuf.yaml
       - buf.yaml
       - buf.gen.yaml
-      - **/*.proto
+  workflow_dispatch:
 
 jobs:
   test:
