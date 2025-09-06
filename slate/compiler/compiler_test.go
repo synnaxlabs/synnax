@@ -153,8 +153,7 @@ var _ = Describe("Compiler", func() {
 			// Compile with host imports enabled
 			wasmBytes := MustSucceed(compileWithHostImports(`
 			func readAndDouble() i32 {
-				value := sensor
-				return value * 2
+				return sensor * 2
 			}
 			`, resolver))
 
@@ -165,6 +164,55 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(readAndDouble.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(84))) // 42 * 2
+		})
+	})
+
+	Describe("Flow Expression", func() {
+		It("Should correctly compile and execute a flow expression", func() {
+
+			// Create mock runtime with channel implementations
+			mockRuntime := mock.New()
+
+			// Setup channel data
+			channelData := map[uint32]int32{12: 32}
+
+			// Define channel read implementation
+			mockRuntime.ChannelRead["i32"] = func(ctx context.Context, channelID uint32) int32 {
+				if val, ok := channelData[channelID]; ok {
+					return val
+				}
+				return 0
+			}
+
+			// Bind the mock runtime
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+			printType := types.NewTask()
+			printType.Config.Put("message", types.String{})
+
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Name: "ox_pt_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan{ValueType: types.I32{}},
+					ID:   12,
+				},
+				"print": symbol.Symbol{
+					Name: "print",
+					Kind: symbol.KindTask,
+					Type: printType,
+				},
+			}
+
+			// Compile with host imports enabled
+			wasmBytes := MustSucceed(compileWithHostImports(`ox_pt_1 > 10 -> print{message: "dog"}`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			readAndDouble := mod.ExportedFunction("__expr_0")
+			Expect(readAndDouble).ToNot(BeNil())
+
+			results := MustSucceed(readAndDouble.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // 42 * 2
 		})
 	})
 })

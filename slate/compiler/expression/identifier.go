@@ -34,7 +34,7 @@ func compileIdentifier(ctx *core.Context, name string) (types.Type, error) {
 		}
 		return scope.Type, nil
 	case symbol.KindChannel:
-		ctx.Writer.WriteLocalGet(scope.ID)
+		ctx.Writer.WriteI32Const(int32(scope.ID))
 		if err = emitChannelRead(ctx, scope.Type); err != nil {
 			return nil, err
 		}

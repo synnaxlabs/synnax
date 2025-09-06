@@ -94,36 +94,29 @@ func (s *Scope) AutoName(prefix string) *Scope {
 	return s
 }
 
-func (s *Scope) Add(
-	name string,
-	kind Kind,
-	t types.Type,
-	parserRule antlr.ParserRuleContext,
-) (*Scope, error) {
-	if name != "" {
-		if sym, err := s.Resolve(name); err == nil {
-			if sym.ParserRule == nil {
-				return nil, errors.Newf("name %s conflicts with existing symbol", name)
+func (s *Scope) Add(sym Symbol) (*Scope, error) {
+	if sym.Name != "" {
+		if existing, err := s.Resolve(sym.Name); err == nil {
+			if existing.ParserRule == nil {
+				return nil, errors.Newf("name %s conflicts with existing symbol", sym.Name)
 			}
-			tok := sym.ParserRule.GetStart()
+			tok := existing.ParserRule.GetStart()
 			return nil, errors.Newf(
 				"name %s conflicts with existing symbol at line %d, col %d",
-				name,
+				sym.Name,
 				tok.GetLine(),
 				tok.GetColumn(),
 			)
 		}
 	}
-	child := &Scope{Parent: s, Symbol: Symbol{
-		Name:       name,
-		Kind:       kind,
-		ParserRule: parserRule,
-		Type:       t,
-	}}
-	if kind == KindFunction || kind == KindTask {
+	child := &Scope{Parent: s, Symbol: sym}
+	if sym.Kind == KindFunction || sym.Kind == KindTask {
 		child.Counter = new(int)
 	}
-	if kind == KindVariable || kind == KindStatefulVariable || kind == KindParam || kind == KindConfigParam {
+	if sym.Kind == KindVariable ||
+		sym.Kind == KindStatefulVariable ||
+		sym.Kind == KindParam ||
+		sym.Kind == KindConfigParam {
 		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)

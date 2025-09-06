@@ -20,13 +20,8 @@ import (
 
 func FunctionScope(t types.Function) *symbol.Scope {
 	symbols := &symbol.Scope{}
-	s := MustSucceed(symbols.Add(
-		"test",
-		symbol.KindFunction,
-		t,
-		nil,
-	))
-	return MustSucceed(s.Add("", symbol.KindBlock, nil, nil))
+	s := MustSucceed(symbols.Add(symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: types.I32{}}))
+	return MustSucceed(s.Add(symbol.Symbol{Kind: symbol.KindBlock}))
 }
 
 func NewContext() *core.Context {

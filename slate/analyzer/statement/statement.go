@@ -25,7 +25,10 @@ func AnalyzeBlock(
 	result *result.Result,
 	block parser.IBlockContext,
 ) bool {
-	blockScope, err := parentScope.Add("", symbol.KindBlock, nil, block)
+	blockScope, err := parentScope.Add(symbol.Symbol{
+		Kind:       symbol.KindBlock,
+		ParserRule: block,
+	})
 	if err != nil {
 		result.AddError(err, block)
 		return false
@@ -166,7 +169,12 @@ func analyzeLocalVariable(
 			chanType := getChannelType(blockScope, expr)
 			if chanType != nil {
 				// Add variable with the channel's value type
-				_, err := blockScope.Add(name, symbol.KindVariable, chanType.ValueType, localVar)
+				_, err := blockScope.Add(symbol.Symbol{
+					Name:       name,
+					Kind:       symbol.KindChannel,
+					Type:       chanType.ValueType,
+					ParserRule: localVar,
+				})
 				if err != nil {
 					result.AddError(err, localVar)
 					return false
@@ -192,12 +200,15 @@ func analyzeLocalVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.Add(name, symbol.KindVariable, varType, localVar)
+	_, err := blockScope.Add(symbol.Symbol{
+		Name:       name,
+		Type:       varType,
+		ParserRule: localVar,
+	})
 	if err != nil {
 		result.AddError(err, localVar)
 		return false
 	}
-
 	return true
 }
 
@@ -286,7 +297,12 @@ func analyzeStatefulVariable(
 	if !ok {
 		return false
 	}
-	_, err := blockScope.Add(name, symbol.KindStatefulVariable, varType, statefulVar)
+	_, err := blockScope.Add(symbol.Symbol{
+		Name:       name,
+		Kind:       symbol.KindStatefulVariable,
+		Type:       varType,
+		ParserRule: statefulVar,
+	})
 	if err != nil {
 		result.AddError(err, statefulVar)
 		return false
@@ -522,7 +538,12 @@ func analyzeBlockingRead(
 	}
 
 	// Add the variable with the channel's value type
-	_, err = scope.Add(varName, symbol.KindVariable, chanType.ValueType, ctx)
+	_, err = scope.Add(symbol.Symbol{
+		Name:       varName,
+		Kind:       symbol.KindVariable,
+		Type:       chanType.ValueType,
+		ParserRule: ctx,
+	})
 	if err != nil {
 		res.AddError(err, ctx)
 		return false
@@ -560,7 +581,12 @@ func analyzeNonBlockingRead(
 	}
 
 	// Add the variable with the channel's value type
-	_, err = scope.Add(varName, symbol.KindVariable, chanType.ValueType, ctx)
+	_, err = scope.Add(symbol.Symbol{
+		Name:       varName,
+		Kind:       symbol.KindVariable,
+		Type:       chanType.ValueType,
+		ParserRule: ctx,
+	})
 	if err != nil {
 		res.AddError(err, ctx)
 		return false

@@ -36,19 +36,24 @@ func Analyze(
 	for _, item := range prog.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
-			_, err := rootScope.Add(name, symbol.KindFunction, types.NewFunction(), fn)
+			_, err := rootScope.Add(symbol.Symbol{
+				Name:       name,
+				Kind:       symbol.KindFunction,
+				Type:       types.NewFunction(),
+				ParserRule: fn,
+			})
 			if err != nil {
 				res.AddError(err, fn)
 				return res
 			}
 		} else if task := item.TaskDeclaration(); task != nil {
 			name := task.IDENTIFIER().GetText()
-			_, err := rootScope.Add(
-				name,
-				symbol.KindTask,
-				types.NewTask(),
-				task,
-			)
+			_, err := rootScope.Add(symbol.Symbol{
+				Name:       name,
+				Kind:       symbol.KindTask,
+				Type:       types.NewTask(),
+				ParserRule: task,
+			})
 			if err != nil {
 				res.AddError(err, task)
 				return res
@@ -163,12 +168,12 @@ func analyzeParams(
 		}
 
 		// Also add to scope for use within task body
-		if _, err := scope.Add(
-			paramName,
-			symbol.KindParam,
-			paramType,
-			param,
-		); err != nil {
+		if _, err := scope.Add(symbol.Symbol{
+			Name:       paramName,
+			Kind:       symbol.KindParam,
+			Type:       paramType,
+			ParserRule: param,
+		}); err != nil {
 			result.AddError(err, param)
 			return false
 		}
@@ -247,12 +252,12 @@ func analyzeTaskDeclaration(
 			if !taskType.Config.Put(paramName, configType) {
 				result.AddError(errors.Newf("duplicate configuration parameter %s", param), task)
 			}
-			_, err := taskScope.Add(
-				paramName,
-				symbol.KindConfigParam,
-				configType,
-				param,
-			)
+			_, err := taskScope.Add(symbol.Symbol{
+				Name:       paramName,
+				Kind:       symbol.KindConfigParam,
+				Type:       configType,
+				ParserRule: param,
+			})
 			if err != nil {
 				result.AddError(err, param)
 				return false

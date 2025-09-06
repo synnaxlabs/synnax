@@ -118,7 +118,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze assignment to existing variable", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = 42`))
 			scope := createScope()
-			_, _ = scope.Add("x", symbol.KindVariable, types.I64{}, nil)
+			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())
@@ -138,7 +138,7 @@ var _ = Describe("Statement", func() {
 		It("Should detect type mismatch in assignment", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x = "hello"`))
 			scope := createScope()
-			_, _ = scope.Add("x", symbol.KindVariable, types.I32{}, nil)
+			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeFalse())
@@ -246,7 +246,7 @@ var _ = Describe("Statement", func() {
 		It("Should analyze standalone expression", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			scope := createScope()
-			_, _ = scope.Add("x", symbol.KindVariable, types.I64{}, nil)
+			_, _ = scope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
 			res := result.Result{Symbols: scope}
 			ok := statement.Analyze(scope, &res, stmt)
 			Expect(ok).To(BeTrue())
@@ -301,7 +301,7 @@ var _ = Describe("Statement", func() {
 
 			It("Should analyze channel write with variable", func() {
 				stmt := MustSucceed(parser.ParseStatement(`value -> output`))
-				_, _ = scope.Add("value", symbol.KindVariable, types.F64{}, nil)
+				_, _ = scope.Add(symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.F64{}})
 				res := result.Result{Symbols: scope}
 				ok := statement.Analyze(scope, &res, stmt)
 				Expect(ok).To(BeTrue())

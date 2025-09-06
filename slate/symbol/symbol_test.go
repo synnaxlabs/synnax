@@ -28,12 +28,7 @@ var _ = Describe("Scope", func() {
 	Describe("Add", func() {
 		It("Should add a new variable scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			varScope := MustSucceed(rootScope.Add(
-				"x",
-				symbol.KindVariable,
-				types.I32{},
-				nil,
-			))
+			varScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			Expect(varScope.Name).To(Equal("x"))
 			Expect(varScope.Type).To(Equal(types.I32{}))
 			By("Not creating a counter for variables")
@@ -46,12 +41,7 @@ var _ = Describe("Scope", func() {
 
 		It("Should add a new function scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add(
-				"my_func",
-				symbol.KindFunction,
-				types.Function{},
-				nil,
-			))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "my_func", Kind: symbol.KindFunction, Type: types.Function{}}))
 			Expect(funcScope.Name).To(Equal("my_func"))
 			Expect(funcScope.Type).To(Equal(types.Function{}))
 			By("Creating a counter for functions")
@@ -61,12 +51,7 @@ var _ = Describe("Scope", func() {
 
 		It("Should add a new task scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			taskScope := MustSucceed(rootScope.Add(
-				"my_task",
-				symbol.KindTask,
-				types.Function{},
-				nil,
-			))
+			taskScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "my_task", Kind: symbol.KindTask, Type: types.Function{}}))
 			Expect(taskScope.Name).To(Equal("my_task"))
 			By("Creating a counter for tasks")
 			Expect(taskScope.Counter).ToNot(BeNil())
@@ -76,8 +61,8 @@ var _ = Describe("Scope", func() {
 		DescribeTable("Should assign IDs to variable kinds",
 			func(kind symbol.Kind) {
 				rootScope := symbol.CreateRoot(nil)
-				scope1 := MustSucceed(rootScope.Add("var1", kind, types.I32{}, nil))
-				scope2 := MustSucceed(rootScope.Add("var2", kind, types.I32{}, nil))
+				scope1 := MustSucceed(rootScope.Add(symbol.Symbol{Name: "var1", Kind: kind, Type: types.I32{}}))
+				scope2 := MustSucceed(rootScope.Add(symbol.Symbol{Name: "var2", Kind: kind, Type: types.I32{}}))
 				Expect(scope1.ID).To(Equal(0))
 				Expect(scope2.ID).To(Equal(1))
 			},
@@ -88,28 +73,13 @@ var _ = Describe("Scope", func() {
 
 		It("Should correctly increment IDs for variables within function scopes", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add(
-				"my_func",
-				symbol.KindFunction,
-				types.Function{},
-				nil,
-			))
-			firstVarScope := MustSucceed(funcScope.Add(
-				"x",
-				symbol.KindVariable,
-				types.I32{},
-				nil,
-			))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "my_func", Kind: symbol.KindFunction, Type: types.Function{}}))
+			firstVarScope := MustSucceed(funcScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			Expect(firstVarScope.ID).To(Equal(0))
 			Expect(firstVarScope.Counter).To(BeNil())
 			Expect(firstVarScope.Parent).ToNot(BeNil())
 			Expect(firstVarScope.Parent).To(Equal(funcScope))
-			secondVarScope := MustSucceed(funcScope.Add(
-				"y",
-				symbol.KindVariable,
-				types.I32{},
-				nil,
-			))
+			secondVarScope := MustSucceed(funcScope.Add(symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.I32{}}))
 			Expect(secondVarScope.ID).To(Equal(1))
 			Expect(secondVarScope.Counter).To(BeNil())
 			Expect(secondVarScope.Parent).ToNot(BeNil())
@@ -118,8 +88,8 @@ var _ = Describe("Scope", func() {
 
 		It("Should return error when adding duplicate symbol", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
-			_, err := rootScope.Add("x", symbol.KindVariable, types.I64{}, nil)
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			_, err := rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64{}})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("conflicts with existing symbol"))
 		})
@@ -129,14 +99,14 @@ var _ = Describe("Scope", func() {
 		It("Should find child by parser rule", func() {
 			rootScope := symbol.CreateRoot(nil)
 			rule := antlr.NewBaseParserRuleContext(nil, 0)
-			child := MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, rule))
+			child := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}, ParserRule: rule}))
 			found := MustSucceed(rootScope.GetChildByParserRule(rule))
 			Expect(found).To(Equal(child))
 		})
 
 		It("Should return error when parser rule not found", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			_, err := rootScope.GetChildByParserRule(antlr.NewBaseParserRuleContext(nil, 0))
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("could not find symbol matching parser rule"))
@@ -146,7 +116,7 @@ var _ = Describe("Scope", func() {
 	Describe("FindChildByName", func() {
 		It("Should find child by name", func() {
 			rootScope := symbol.CreateRoot(nil)
-			child := MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			child := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			found := rootScope.FindChildByName("x")
 			Expect(found).To(Equal(child))
 		})
@@ -161,8 +131,8 @@ var _ = Describe("Scope", func() {
 	Describe("FindChild", func() {
 		It("Should find child matching predicate", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
-			child := MustSucceed(rootScope.Add("y", symbol.KindParam, types.I64{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			child := MustSucceed(rootScope.Add(symbol.Symbol{Name: "y", Kind: symbol.KindParam, Type: types.I64{}}))
 			found := rootScope.FindChild(func(s *symbol.Scope) bool {
 				return s.Kind == symbol.KindParam
 			})
@@ -171,7 +141,7 @@ var _ = Describe("Scope", func() {
 
 		It("Should return nil when no match", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			found := rootScope.FindChild(func(s *symbol.Scope) bool {
 				return s.Kind == symbol.KindFunction
 			})
@@ -182,9 +152,9 @@ var _ = Describe("Scope", func() {
 	Describe("FilterChildren", func() {
 		It("Should filter children by predicate", func() {
 			rootScope := symbol.CreateRoot(nil)
-			var1 := MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
-			MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
-			var2 := MustSucceed(rootScope.Add("y", symbol.KindVariable, types.I64{}, nil))
+			var1 := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
+			var2 := MustSucceed(rootScope.Add(symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.I64{}}))
 			filtered := rootScope.FilterChildren(func(s *symbol.Scope) bool {
 				return s.Kind == symbol.KindVariable
 			})
@@ -194,7 +164,7 @@ var _ = Describe("Scope", func() {
 
 		It("Should return empty when no matches", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			filtered := rootScope.FilterChildren(func(s *symbol.Scope) bool {
 				return s.Kind == symbol.KindTask
 			})
@@ -205,8 +175,8 @@ var _ = Describe("Scope", func() {
 	Describe("Root", func() {
 		It("Should return root scope from any depth", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
-			varScope := MustSucceed(funcScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
+			varScope := MustSucceed(funcScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			Expect(varScope.Root()).To(Equal(rootScope))
 			Expect(funcScope.Root()).To(Equal(rootScope))
 			Expect(rootScope.Root()).To(Equal(rootScope))
@@ -216,15 +186,15 @@ var _ = Describe("Scope", func() {
 	Describe("Resolve", func() {
 		It("Should resolve symbol in current scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			child := MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			child := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			resolved := MustSucceed(rootScope.Resolve("x"))
 			Expect(resolved).To(Equal(child))
 		})
 
 		It("Should resolve symbol from parent scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			global := MustSucceed(rootScope.Add("global", symbol.KindVariable, types.I32{}, nil))
-			funcScope := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
+			global := MustSucceed(rootScope.Add(symbol.Symbol{Name: "global", Kind: symbol.KindVariable, Type: types.I32{}}))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
 			resolved := MustSucceed(funcScope.Resolve("global"))
 			Expect(resolved).To(Equal(global))
 		})
@@ -241,8 +211,8 @@ var _ = Describe("Scope", func() {
 
 		It("Should prioritize local over parent scope", func() {
 			rootScope := symbol.CreateRoot(nil)
-			rootX := MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
-			funcScope := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
+			rootX := MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
 			resolvedFromFunc := MustSucceed(funcScope.Resolve("x"))
 			Expect(resolvedFromFunc).To(Equal(rootX))
 		})
@@ -258,16 +228,16 @@ var _ = Describe("Scope", func() {
 	Describe("ClosestAncestorOfKind", func() {
 		It("Should find closest ancestor of kind", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
-			blockScope := MustSucceed(funcScope.Add("block", symbol.KindBlock, nil, nil))
-			varScope := MustSucceed(blockScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
+			blockScope := MustSucceed(funcScope.Add(symbol.Symbol{Name: "block", Kind: symbol.KindBlock}))
+			varScope := MustSucceed(blockScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			ancestor := MustSucceed(varScope.ClosestAncestorOfKind(symbol.KindFunction))
 			Expect(ancestor).To(Equal(funcScope))
 		})
 
 		It("Should return self if matching kind", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
 			ancestor := MustSucceed(funcScope.ClosestAncestorOfKind(symbol.KindFunction))
 			Expect(ancestor).To(Equal(funcScope))
 		})
@@ -283,16 +253,16 @@ var _ = Describe("Scope", func() {
 	Describe("FirstChildOfKind", func() {
 		It("Should find first child of kind", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
-			funcChild := MustSucceed(rootScope.Add("f", symbol.KindFunction, types.Function{}, nil))
-			MustSucceed(rootScope.Add("g", symbol.KindFunction, types.Function{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
+			funcChild := MustSucceed(rootScope.Add(symbol.Symbol{Name: "f", Kind: symbol.KindFunction, Type: types.Function{}}))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "g", Kind: symbol.KindFunction, Type: types.Function{}}))
 			first := MustSucceed(rootScope.FirstChildOfKind(symbol.KindFunction))
 			Expect(first).To(Equal(funcChild))
 		})
 
 		It("Should return error when no child of kind", func() {
 			rootScope := symbol.CreateRoot(nil)
-			MustSucceed(rootScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			MustSucceed(rootScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			_, err := rootScope.FirstChildOfKind(symbol.KindTask)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("undefined symbol"))
@@ -302,8 +272,8 @@ var _ = Describe("Scope", func() {
 	Describe("String", func() {
 		It("Should format scope as string", func() {
 			rootScope := symbol.CreateRoot(nil)
-			funcScope := MustSucceed(rootScope.Add("myFunc", symbol.KindFunction, types.Function{}, nil))
-			MustSucceed(funcScope.Add("x", symbol.KindVariable, types.I32{}, nil))
+			funcScope := MustSucceed(rootScope.Add(symbol.Symbol{Name: "myFunc", Kind: symbol.KindFunction, Type: types.Function{}}))
+			MustSucceed(funcScope.Add(symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32{}}))
 			str := funcScope.String()
 			Expect(str).To(ContainSubstring("name: myFunc"))
 			Expect(str).To(ContainSubstring("kind: KindFunction"))

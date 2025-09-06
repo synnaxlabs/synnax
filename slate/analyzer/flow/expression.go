@@ -33,18 +33,23 @@ func analyzeExpression(
 	}
 	t := types.NewTask()
 	t.Return = exprType
-	taskScope, err := scope.Root().Add("", symbol.KindTask, t, expr)
+	taskScope, err := scope.Root().Add(symbol.Symbol{
+		Name:       "",
+		Kind:       symbol.KindTask,
+		Type:       t,
+		ParserRule: expr,
+	})
 	if err != nil {
 		res.AddError(err, expr)
 		return false
 	}
 	taskScope = taskScope.AutoName("__expr_")
-	blockScope, err := taskScope.Add(
-		"",
-		symbol.KindBlock,
-		nil,
-		expr,
-	)
+	blockScope, err := taskScope.Add(symbol.Symbol{
+		Name:       "",
+		Kind:       symbol.KindBlock,
+		Type:       t,
+		ParserRule: expr,
+	})
 	if err != nil {
 		res.AddError(err, expr)
 		return false

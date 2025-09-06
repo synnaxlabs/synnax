@@ -1,1 +1,1 @@
-ox_pt_1 -> ox_pt_1 > 100 -> change_status{ox_pt_1, daq_time} -> write{report.txt}
+ox_pt_1 > 100 -> print{"ox value high"}

@@ -14,6 +14,7 @@ import (
 	. "github.com/synnaxlabs/slate/compiler/wasm"
 	"github.com/synnaxlabs/slate/symbol"
 	"github.com/synnaxlabs/slate/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -381,7 +382,11 @@ var _ = Describe("Binary Operations", func() {
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func() {
 			ctx := NewContext()
-			ctx.Scope.Add("x", symbol.KindVariable, types.F32{}, nil)
+			MustSucceed(ctx.Scope.Add(symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.F32{},
+			}))
 			compiled, t := compileWithCtx(ctx, "x + 1")
 			Expect(t).To(Equal(types.F32{}))
 			Expect(compiled).To(Equal(WASM(
