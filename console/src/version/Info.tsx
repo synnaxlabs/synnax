@@ -47,21 +47,22 @@ export const Info: Layout.Renderer = () => {
   const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
 
   const updateMutation = useMutation({
+    onError: (e) => console.error(e),
     mutationFn: async () => {
       if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
       if (update == null) return;
       await update.downloadAndInstall((progress) => {
-        if (progress.event === "Started")
+        if (progress.event === "Started") {
           setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
+          setAmountDownloaded(Size.bytes(0));
+        }
         else if (progress.event === "Progress")
           setAmountDownloaded((prev) =>
             prev.add(Size.bytes(progress.data.chunkLength)),
           );
+        else if (progress.event === "Finished") setAmountDownloaded(updateSize);
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      setAmountDownloaded(updateSize);
-      await new Promise((resolve) => setTimeout(resolve, 750));
       if (Runtime.ENGINE === "tauri") await relaunch();
     },
   });
