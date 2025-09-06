@@ -1,0 +1,23 @@
+name: Test - Protobuf
+
+on:
+  pull_request:
+    paths:
+      - buf.yaml
+      - buf.gen.yaml
+      - "**/*.proto"
+  push:
+    branches:
+      - main
+      - rc
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Check Formatting
+        run: buf format -d --exit-code

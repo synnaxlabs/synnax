@@ -15,8 +15,6 @@ build:
     - "freighter/cpp"
     - "freighter/py"
     - "vendor"
-    - "freighter/py"
-    - "client/py"
 breaking:
   use:
     - FILE
