@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -34,6 +35,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	var (
 		db     *gorp.DB
 		svc    *ranger.Service
+		ctx    context.Context
 		w      ranger.Writer
 		otg    *ontology.Ontology
 		tx     gorp.Tx
@@ -41,6 +43,7 @@ var _ = Describe("Ranger", Ordered, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
+		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: config.True(),
