@@ -151,14 +151,17 @@ func parseTaskInvocation(
 		}
 		// Validate that the return type of the previous task matches the arg type
 		// of the ntext task.
-		if taskType.Params.Count() > 0 && !types.Equal(prevTaskType.Return, taskType.Params.At(0)) {
-			res.AddError(errors.Newf(
-				"return type %s of %s is not equal to argument type %s of %s",
-				prevTaskType.Return,
-				prevTaskName,
-				name,
-				taskType.Params.At(0),
-			), task)
+		if taskType.Params.Count() > 0 {
+			_, t := taskType.Params.At(0)
+			if !types.Equal(prevTaskType.Return, t) {
+				res.AddError(errors.Newf(
+					"return type %s of %s is not equal to argument type %s of %s",
+					prevTaskType.Return,
+					prevTaskName,
+					t,
+					name,
+				), task)
+			}
 		}
 	}
 	return true

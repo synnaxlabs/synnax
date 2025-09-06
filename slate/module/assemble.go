@@ -12,6 +12,7 @@ package module
 import (
 	"fmt"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/symbol"
@@ -47,7 +48,9 @@ func Assemble(
 	// First pass: collect task and function definitions
 	for _, item := range program.AllTopLevelItem() {
 		if taskDecl := item.TaskDeclaration(); taskDecl != nil {
-			a.extractTask(taskDecl)
+			if err := a.extractTask(taskDecl); err != nil {
+				return nil, err
+			}
 		} else if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
 			a.extractFunction(funcDecl)
 		}
@@ -56,7 +59,9 @@ func Assemble(
 	// Second pass: process flow statements to build nodes and edges
 	for _, item := range program.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			a.processFlow(flow)
+			if err := a.processFlow(flow); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -77,22 +82,33 @@ func (a *assembler) buildModule() *Module {
 	}
 }
 
-func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) {
+func (a *assembler) resolveTaskType(name string) (types.Task, error) {
+	sym, err := a.scope.Resolve(name)
+	if err != nil {
+		return types.Task{}, err
+	}
+	return types.Assert[types.Task](sym.Type)
+}
+
+func (a *assembler) resolveTaskTypeByParserRule(rule antlr.ParserRuleContext) (types.Task, error) {
+	sym, err := a.scope.Root().GetChildByParserRule(rule)
+	if err != nil {
+		return types.Task{}, err
+	}
+	return types.Assert[types.Task](sym.Type)
+}
+
+func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) error {
 	name := taskDecl.IDENTIFIER().GetText()
-	sym, _ := a.scope.Resolve(name)
-	if sym == nil || sym.Symbol == nil {
-		return
+	taskType, err := a.resolveTaskType(name)
+	if err != nil {
+		return err
 	}
-	taskType, ok := sym.Type.(types.Task)
-	if !ok {
-		return
-	}
-	// Convert types.Task to graph.Task
 	task := Task{
 		Key:      name,
 		Config:   make(map[string]string),
 		Params:   make(map[string]string),
-		Stateful: make(map[string]Variable),
+		Stateful: make(map[string]StatefulVariable),
 	}
 	for key, item := range taskType.Config.Iter() {
 		task.Config[key] = item.String()
@@ -104,12 +120,13 @@ func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) {
 		task.Returns = taskType.Return.String()
 	}
 	a.tasks = append(a.tasks, task)
+	return nil
 }
 
 func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext) {
 	name := funcDecl.IDENTIFIER().GetText()
 	sym, _ := a.scope.Resolve(name)
-	if sym == nil || sym.Symbol == nil {
+	if sym == nil {
 		return
 	}
 	funcType, ok := sym.Type.(types.Function)
@@ -126,10 +143,13 @@ func (a *assembler) extractFunction(funcDecl parser.IFunctionDeclarationContext)
 	a.functions = append(a.functions, function)
 }
 
-func (a *assembler) processFlow(flow parser.IFlowStatementContext) {
+func (a *assembler) processFlow(flow parser.IFlowStatementContext) error {
 	var prevHandle *Handle
 	for i, flowNode := range flow.AllFlowNode() {
-		handle := a.processFlowNode(flowNode)
+		handle, err := a.processFlowNode(flowNode)
+		if err != nil {
+			return err
+		}
 		if i > 0 && prevHandle != nil && handle != nil {
 			a.edges = append(a.edges, Edge{
 				Source: *prevHandle,
@@ -138,9 +158,10 @@ func (a *assembler) processFlow(flow parser.IFlowStatementContext) {
 		}
 		prevHandle = handle
 	}
+	return nil
 }
 
-func (a *assembler) processFlowNode(node parser.IFlowNodeContext) *Handle {
+func (a *assembler) processFlowNode(node parser.IFlowNodeContext) (*Handle, error) {
 	if channel := node.ChannelIdentifier(); channel != nil {
 		return a.processChannel(channel)
 	}
@@ -150,38 +171,49 @@ func (a *assembler) processFlowNode(node parser.IFlowNodeContext) *Handle {
 	if expr := node.Expression(); expr != nil {
 		return a.processExpression(expr)
 	}
-	return nil
+	return nil, nil
 }
 
-func (a *assembler) processChannel(channel parser.IChannelIdentifierContext) *Handle {
+func (a *assembler) processChannel(channel parser.IChannelIdentifierContext) (*Handle, error) {
 	name := channel.IDENTIFIER().GetText()
 	nodeKey := a.generateKey("on")
 	a.nodes[nodeKey] = &Node{
-		Key:  nodeKey,
-		Type: "on",
-		Config: map[string]any{
-			"channel": name,
-		},
+		Key:    nodeKey,
+		Type:   "on",
+		Config: map[string]any{"channel": name},
 	}
-	return &Handle{Node: nodeKey, Param: "output"}
+	return &Handle{Node: nodeKey, Param: "output"}, nil
 }
 
-func (a *assembler) processTask(task parser.ITaskInvocationContext) *Handle {
-	name := task.IDENTIFIER().GetText()
-	nodeKey := a.generateKey(name)
+func extractConfigValues(values parser.IConfigValuesContext, taskType types.Task) map[string]any {
 	config := make(map[string]any)
-	if configValues := task.ConfigValues(); configValues != nil {
-		if named := configValues.NamedConfigValues(); named != nil {
-			for _, cv := range named.AllNamedConfigValue() {
-				key := cv.IDENTIFIER().GetText()
-				config[key] = getExpressionText(cv.Expression())
-			}
-		} else if anon := configValues.AnonymousConfigValues(); anon != nil {
-			for i, expr := range anon.AllExpression() {
-				config[fmt.Sprintf("_arg%d", i)] = getExpressionText(expr)
-			}
+	if values == nil {
+		return config
+	}
+	if named := values.NamedConfigValues(); named != nil {
+		for _, cv := range named.AllNamedConfigValue() {
+			key := cv.IDENTIFIER().GetText()
+			config[key] = getExpressionText(cv.Expression())
+		}
+	} else if anon := values.AnonymousConfigValues(); anon != nil {
+		for i, expr := range anon.AllExpression() {
+			key, _ := taskType.Params.At(i)
+			config[key] = getExpressionText(expr)
 		}
 	}
+	return config
+}
+
+func (a *assembler) processTask(task parser.ITaskInvocationContext) (*Handle, error) {
+	var (
+		name    = task.IDENTIFIER().GetText()
+		nodeKey = a.generateKey(name)
+	)
+	taskType, err := a.resolveTaskType(name)
+	if err != nil {
+		return nil, err
+	}
+	config := extractConfigValues(task.ConfigValues(), taskType)
 	if args := task.Arguments(); args != nil {
 		if argList := args.ArgumentList(); argList != nil {
 			for i, expr := range argList.AllExpression() {
@@ -189,29 +221,32 @@ func (a *assembler) processTask(task parser.ITaskInvocationContext) *Handle {
 			}
 		}
 	}
-	a.nodes[nodeKey] = &Node{
-		Key:    nodeKey,
-		Type:   name,
-		Config: config,
-	}
-
-	return &Handle{
-		Node:  nodeKey,
-		Param: "output",
-	}
+	a.nodes[nodeKey] = &Node{Key: nodeKey, Type: name, Config: config}
+	return &Handle{Node: nodeKey, Param: "output"}, nil
 }
 
-func (a *assembler) processExpression(expr parser.IExpressionContext) *Handle {
-	// Create anonymous filter/guard task
-	nodeKey := a.generateKey("filter")
-	a.nodes[nodeKey] = &Node{
-		Key:  nodeKey,
-		Type: "filter", // Built-in expression filter
+func (a *assembler) processExpression(expr parser.IExpressionContext) (*Handle, error) {
+	sym, err := a.scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return nil, err
+	}
+	taskType, err := types.Assert[types.Task](sym.Type)
+	if err != nil {
+		return nil, err
+	}
+	task := Task{Key: sym.Name, Params: make(map[string]string)}
+	for key, item := range taskType.Params.Iter() {
+		task.Params[key] = item.String()
+	}
+	a.nodes[sym.Name] = &Node{
+		Key:  sym.Name,
+		Type: sym.Name,
 		Config: map[string]any{
 			"expression": getExpressionText(expr),
 		},
 	}
-	return &Handle{Node: nodeKey, Param: "output"}
+	a.tasks = append(a.tasks, task)
+	return &Handle{Node: sym.Name, Param: "output"}, nil
 }
 
 func (a *assembler) generateKey(prefix string) string {

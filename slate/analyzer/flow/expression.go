@@ -59,7 +59,7 @@ func analyzeExpression(
 		}
 		name := "__" + s.Name
 		_, _ = taskScope.Add(name, symbol.KindConfigParam, c.ValueType, s.ParserRule)
-		t.Config.Put(name, c.ValueType)
+		t.Params.Put(name, c.ValueType)
 		return nil
 	}
 	if !expression.Analyze(blockScope, res, expr) {

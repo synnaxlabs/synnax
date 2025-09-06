@@ -3,6 +3,7 @@
   "displayName": "Slate Language Support",
   "description": "Language support for Slate programming language",
   "version": "0.44.4",
+  "repository": "github.com/synnaxlabs/synnax",
   "publisher": "synnaxlabs",
   "engines": {
     "vscode": "^1.103.0"

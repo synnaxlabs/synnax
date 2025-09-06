@@ -87,8 +87,8 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(taskSymbol.Kind).To(Equal(symbol.KindTask))
 			taskType, ok := taskSymbol.Type.(types.Task)
 			Expect(ok).To(BeTrue())
-			Expect(taskType.Config.Count()).To(Equal(1))
-			first := taskType.Config.At(0)
+			Expect(taskType.Params.Count()).To(Equal(1))
+			_, first := taskType.Params.At(0)
 			Expect(first).To(Equal(types.F64{}))
 		})
 
@@ -105,9 +105,9 @@ var _ = Describe("Expression Task Conversion", func() {
 
 			taskType := synthTask.Type.(types.Task)
 			// Should have both channels as config
-			Expect(taskType.Config.Count()).To(Equal(2))
-			_, hasOx1 := taskType.Config.Get("__ox_pt_1")
-			_, hasOx2 := taskType.Config.Get("__ox_pt_2")
+			Expect(taskType.Params.Count()).To(Equal(2))
+			_, hasOx1 := taskType.Params.Get("__ox_pt_1")
+			_, hasOx2 := taskType.Params.Get("__ox_pt_2")
 			Expect(hasOx1).To(BeTrue())
 			Expect(hasOx2).To(BeTrue())
 
@@ -130,9 +130,9 @@ var _ = Describe("Expression Task Conversion", func() {
 
 			taskType := synthTask.Type.(types.Task)
 			// Should have both channels
-			Expect(taskType.Config.Count()).To(Equal(2))
-			_, hasOx := taskType.Config.Get("__ox_pt_1")
-			_, hasPressure := taskType.Config.Get("__pressure")
+			Expect(taskType.Params.Count()).To(Equal(2))
+			_, hasOx := taskType.Params.Get("__ox_pt_1")
+			_, hasPressure := taskType.Params.Get("__pressure")
 			Expect(hasOx).To(BeTrue())
 			Expect(hasPressure).To(BeTrue())
 		})
@@ -189,7 +189,7 @@ var _ = Describe("Expression Task Conversion", func() {
 
 			taskType := synthTask.Type.(types.Task)
 			// Should extract both channels despite nesting
-			Expect(taskType.Config.Count()).To(Equal(2))
+			Expect(taskType.Params.Count()).To(Equal(2))
 		})
 	})
 
@@ -206,7 +206,7 @@ var _ = Describe("Expression Task Conversion", func() {
 			Expect(synthTask).ToNot(BeNil())
 
 			taskType := synthTask.Type.(types.Task)
-			chanType, exists := taskType.Config.Get("__temp_sensor")
+			chanType, exists := taskType.Params.Get("__temp_sensor")
 			Expect(exists).To(BeTrue())
 
 			Expect(chanType).To(Equal(types.F32{}))

@@ -12,6 +12,8 @@ package types
 import (
 	"fmt"
 	"iter"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Type interface {
@@ -99,8 +101,8 @@ func (m *OrderedMap[K, V]) Count() int {
 	return len(m.keys)
 }
 
-func (m *OrderedMap[K, V]) At(i int) V {
-	return m.values[i]
+func (m *OrderedMap[K, V]) At(i int) (K, V) {
+	return m.keys[i], m.values[i]
 }
 
 func (m *OrderedMap[K, V]) Iter() iter.Seq2[K, V] {
@@ -220,4 +222,12 @@ func Is64Bit(t Type) bool {
 	default:
 		return false
 	}
+}
+
+func Assert[T Type](in Type) (T, error) {
+	casted, ok := in.(T)
+	if !ok {
+		return casted, errors.Newf("type mismatch: expected %T, got %T", casted.String(), in)
+	}
+	return casted, nil
 }

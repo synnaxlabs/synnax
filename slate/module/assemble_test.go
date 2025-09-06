@@ -10,56 +10,56 @@
 package module_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/slate/analyzer"
+	"github.com/synnaxlabs/slate/compiler"
+	"github.com/synnaxlabs/slate/module"
+	"github.com/synnaxlabs/slate/parser"
+	"github.com/synnaxlabs/slate/symbol"
+	"github.com/synnaxlabs/slate/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestGraph(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Graph Suite")
+func assemble(source string, resolver symbol.Resolver) (*module.Module, error) {
+	prog, err := parser.Parse(source)
+	Expect(err).To(BeNil())
+	result := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+	Expect(result.Diagnostics).To(BeEmpty())
+	wasmCode := MustSucceed(compiler.Compile(compiler.Config{Program: prog, Analysis: &result}))
+	return module.Assemble(prog, result, wasmCode)
 }
 
-//var _ = Describe("Graph Assembly", func() {
-//	parseAndAnalyze := func(code string) (parser.IProgramContext, analyzer.Result) {
-//		prog, err := parser.Parse(code)
-//		Expect(err).To(BeNil())
-//		result := analyzer.Analyze(prog, analyzer.Options{})
-//		Expect(result.Diagnostics).To(BeEmpty())
-//		return prog, result
-//	}
-//
-//	//Describe("Basic Flow Assembly", func() {
-//	//	It("Should assemble a basic task to task flow", func() {
-//	//		code := `
-//	//		task first{
-//	//			value f64
-//	//		} () f64 {}
-//	//		task second{
-//	//			value f64
-//	//		} () {
-//	//		}
-//	//		first{value: 10.0} -> second{value: 20.0}
-//	//		`
-//	//		prog, scope := parseAndAnalyze(code)
-//	//		g, err := module.Assemble(prog, scope)
-//	//		Expect(err).To(BeNil())
-//	//		Expect(g).NotTo(BeNil())
-//	//		Expect(g.Nodes).To(HaveLen(2))
-//	//		Expect(g.Edges).To(HaveLen(1))
-//	//		for _, node := range g.Nodes {
-//	//			if node.Type == "first" {
-//	//				Expect(node.Key).To(Equal("first_1"))
-//	//			} else if node.Type == "second" {
-//	//				Expect(node.Key).To(Equal("second_2"))
-//	//			}
-//	//		}
-//	//		edge := g.Edges[0]
-//	//		Expect(edge.Target.Node).To(Equal("second_2"))
-//	//		Expect(edge.Target.Param).To(Equal("output"))
-//	//		Expect(edge.Source.Node).To(Equal("first_1"))
-//	//		Expect(edge.Source.Param).To(Equal("output"))
-//	//	})
-//	//})
-//})
+var _ = Describe("Graph Assembly", func() {
+	Describe("Basic Flow Assembly", func() {
+		It("Should assemble a basic task to task flow", func() {
+			source := `
+			task first{
+				value f64
+			} () f64 {
+				return 1.0
+			}
+			task second{
+				value f64
+			} () {
+			}
+			first{value: 10.0} -> second{value: 20.0}
+			`
+			mod := MustSucceed(assemble(source, nil))
+			Expect(mod.Tasks).To(HaveLen(2))
+			Expect(mod.Edges).To(HaveLen(1))
+		})
+
+		It("Should assemble a basic channel to expression flow", func() {
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Name: "ox_pt_1",
+					Type: types.Chan{ValueType: types.F64{}},
+				},
+			}
+			source := `ox_pt_1 -> ox_pt_1 > 0`
+			mod := MustSucceed(assemble(source, resolver))
+			Expect(mod.Tasks).To(HaveLen(1))
+		})
+	})
+})
