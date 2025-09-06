@@ -181,7 +181,7 @@ Mosaic.displayName = "Mosaic";
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore<RootState>();
-  const activeTab = Layout.useSelectActiveMosaicTabKey();
+  const activeTab = Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
@@ -318,7 +318,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         emptyContent={<EmptyContent />}
         onRename={handleRename}
         onCreate={handleCreate}
-        activeTab={activeTab ?? undefined}
+        activeTab={activeTab.layoutKey ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"
         className={CSS.B("mosaic")}

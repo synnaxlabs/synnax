@@ -21,7 +21,9 @@
       "icons/icon.ico"
     ],
     "createUpdaterArtifacts": true,
-    "windows": {},
+    "windows": {
+      "signCommand": "powershell -File scripts\\sign-windows.ps1 %1"
+    },
     "longDescription": "",
     "macOS": {
       "entitlements": null,

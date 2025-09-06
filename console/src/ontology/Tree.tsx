@@ -31,6 +31,7 @@ import {
   createContext,
   type DragEvent,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useMemo,
   useRef,
@@ -53,6 +54,7 @@ import { type RootAction, type RootState } from "@/store";
 
 interface InternalProps {
   root: ontology.ID;
+  emptyContent?: ReactNode;
 }
 
 interface ContextValue {
@@ -156,7 +158,7 @@ const itemRenderProp = Component.renderProp(
   },
 );
 
-const Internal = ({ root }: InternalProps): ReactElement => {
+const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const services = useServices();
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
@@ -599,6 +601,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         shape={deep.copy(shape)}
         subscribe={resourceStore.subscribe}
         getItem={resourceStore.getItem}
+        emptyContent={emptyContent}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
@@ -609,9 +612,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
 
 export interface TreeProps {
   root?: ontology.ID | null;
+  emptyContent?: ReactNode;
 }
 
-export const Tree = ({ root }: TreeProps): ReactElement | null => {
+export const Tree = ({ root, ...rest }: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} />;
+  return <Internal root={root} {...rest} />;
 };

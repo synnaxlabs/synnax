@@ -5,15 +5,81 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.core.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pluto/**
+      - relic.conf
+      - turbo.json
+      - vendor/mbedtls/**
+      - vendor/open62541/**
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   pull_request:
     branches:
       - main
       - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.core.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pluto/**
+      - relic.conf
+      - turbo.json
+      - vendor/mbedtls/**
+      - vendor/open62541/**
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
 
 env:
   CACHE_SCOPE: deploy-synnax
@@ -23,10 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get Version
         id: version
@@ -38,29 +103,12 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/deploy.synnax.yaml
-              - alamos/go/**
-              - aspen/**
-              - cesium/**
-              - client/cpp/**
-              - driver/**
-              - freighter/go/**
-              - synnax/**
-              - x/cpp/**
-              - x/go/**
-              - WORKSPACE
-
   create-release:
     runs-on: ubuntu-latest
     needs: setup
-    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
     steps:
       - name: Create Release
         uses: actions/github-script@v7
@@ -82,25 +130,22 @@ jobs:
             });
 
   build:
-    needs: setup
+    needs: [setup, create-release]
     name: Build (${{ matrix.os }})
-    if: needs.setup.outputs.changed == 'true'
+    permissions:
+      contents: write
+      packages: write
     env:
       GH_TOKEN: ${{ github.token }}
       NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: matrix.os == 'windows-latest'
-        with:
-          sdk-version: 22000
+        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -150,7 +195,7 @@ jobs:
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-15" ]; then
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
@@ -171,7 +216,7 @@ jobs:
           fi
 
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -181,11 +226,13 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          # Prevent the keychain from getting locked during the build process
+          security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: Sign macOS Driver Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         run: |
           # Create entitlements file to disable library validation for LabJack support
           cat > driver-entitlements.plist << 'EOF'
@@ -308,7 +355,7 @@ jobs:
           go build -tags driver,console -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
-        if: matrix.os == 'macos-15' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && github.event_name == 'push'
         working-directory: core
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
@@ -341,7 +388,7 @@ jobs:
           Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
 
           # Prepare the binary for packaging
-          Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+          Copy-Item -Force .\core\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
 
           # Build the installer
           & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi

@@ -33,6 +33,9 @@ const BaseItems = <
   emptyContent,
   displayItems = 10,
   style,
+  direction,
+  x,
+  y,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
@@ -54,6 +57,8 @@ const BaseItems = <
   let minHeight: number | undefined;
   if (itemHeight != null && isFinite(displayItems) && hasItems)
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
+
+  const parsedDirection = Flex.parseDirection(direction, x, y);
   return (
     <Flex.Box
       gap={0}
@@ -64,7 +69,8 @@ const BaseItems = <
         !hasItems && CSS.BEM("list", "items", "empty"),
       )}
       style={{ height: minHeight, ...style }}
-      full="y"
+      full={parsedDirection}
+      direction={parsedDirection}
       {...rest}
     >
       {content}

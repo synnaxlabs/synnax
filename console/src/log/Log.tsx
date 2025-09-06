@@ -96,7 +96,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               ? "No channel configured for this log."
               : "No data received yet."
           }
-          action={zeroChannel ? "Configure here." : ""}
+          action={zeroChannel ? "Configure channel" : ""}
           onClick={handleDoubleClick}
         />
       }

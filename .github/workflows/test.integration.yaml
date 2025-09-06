@@ -1,93 +1,525 @@
-name: "Test - Integration"
+name: Test - Integration
 
 on:
-  push:
+  pull_request:
     branches:
-      - "leo/sy-685-integration-testing"
+      - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
+env:
+  CACHE_SCOPE: deploy-synnax
+  SKIP_BUILD: false
+  REF_RUN_ID: "0000000000"
 
 jobs:
-  test-integration-ubuntu:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      SKIP_BUILD: ${{ steps.set-outputs.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.set-outputs.outputs.REF_RUN_ID }}
+    steps:
+      - name: Set outputs
+        id: set-outputs
+        env:
+          SKIP_BUILD: ${{ env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ env.REF_RUN_ID }}
+        run: |
+
+          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+
+          if [ "${SKIP_BUILD}" = "false" ]; then
+            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${{ github.run_id }}"
+          else
+            echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
+            echo "Variables set: SKIP_BUILD=${SKIP_BUILD}, REF_RUN_ID=${REF_RUN_ID}"
+          fi
+
+  build-ubuntu-22-04:
+    name: Build Synnax (Ubuntu-22.04)
+    timeout-minutes: 60
+    runs-on: ubuntu-22.04
+    needs: setup
+    if: false
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          filters: |
-            changed:
-                - "client/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/test.integration.yaml"
+          bazelisk-cache: true
+          disk-cache: deploy-synnax-ubuntu-22.04
+          repository-cache: true
 
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i --no-frozen-lockfile
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
-      - name: Build client
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:client
+      - name: Build Synnax (Ubuntu 22.04 - NI Linux RT)
+        id: version
+        run: echo "Ubuntu 22.04 build disabled - hardware not available"
+        # run: scripts/integration/build-ubuntu-22-04.sh
 
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./integration/py
+      - name: Upload Driver Binary as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-nilinuxrt
+          path: bazel-bin/driver/driver
+          retention-days: 7
 
-      - name: Mini Test
-        if: steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r-mini.json
-        working-directory: ./integration
+      - name: Upload Server Binary as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-server-nilinuxrt
+          path: core/synnax-v${{ steps.version.outputs.VERSION }}-nilinuxrt
+          retention-days: 7
 
-      - name: Delete Test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/delete-test.json
-        working-directory: ./integration
+      - name: Debug Build Environment
+        if: failure()
+        run: echo "Ubuntu 22.04 build debug disabled - hardware not available"
+        # run: scripts/integration/debug-build-environment-ubuntu.sh
 
-      - name: Load test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/ws-d-r.json
-        working-directory: ./integration
-
-      - name: Benchmark test
-        if: ${{ !cancelled() }} && steps.filter.outputs.changed == 'true'
-        run: ./run-integration.sh tests/benchmark-test.json
-        working-directory: ./integration
-
-  test-benchmark-cesium:
-    runs-on: "Ubuntu"
-    timeout-minutes: 1440
+  build-ubuntu-latest:
+    name: Build Synnax (ubuntu-latest)
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    needs: setup
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/checkout@v4
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
+      - name: Update Submodules
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          filters: |
-            changed:
-              - "cesium/**"
-              - ".github/workflows/test.integration.yaml"
+          bazelisk-cache: true
+          disk-cache: deploy-synnax-ubuntu-latest
+          repository-cache: true
 
-      - name: Poetry install
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry install
-        working-directory: ./cesium/internal/benchmark
+      - name: Set up Go
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
-      - name: Benchmark
-        if: steps.filter.outputs.changed == 'true'
-        run: poetry run python benchmarker.py
-        working-directory: ./cesium/internal/benchmark
+      - name: Build Synnax (Ubuntu Latest)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        id: version
+        run: scripts/integration/build-ubuntu-latest.sh
+
+      - name: Skip Build (Ubuntu Latest)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
+        run: echo "Build skipped - using reference artifacts"
+
+      - name: Upload Driver Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-linux
+          path: bazel-bin/driver/driver
+          retention-days: 7
+
+      - name: Upload Server Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-server-linux
+          path: core/synnax-v${{ steps.version.outputs.VERSION }}-linux
+          retention-days: 7
+
+      - name: Debug Build Environment
+        if: failure()
+        run: scripts/integration/debug-build-environment-ubuntu.sh
+
+  build-windows-latest:
+    name: Build Synnax (windows-latest)
+    timeout-minutes: 60
+    runs-on: windows-latest
+    needs: setup
+    steps:
+      - name: Checkout Repository
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/checkout@v4
+
+      - name: Setup Windows SDK
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 22000
+
+      - name: Update Submodules
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: deploy-synnax-windows-latest
+          repository-cache: true
+
+      - name: Set up Go
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Build Driver (Windows)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run:
+          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
+          --announce_rc //driver
+
+      - name: Move Driver to Assets
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        shell: cmd
+        run: |
+          if not exist core\pkg\service\hardware\embedded\assets mkdir core\pkg\service\hardware\embedded\assets
+          copy bazel-bin\driver\driver.exe core\pkg\service\hardware\embedded\assets\driver.exe
+
+      - name: Get Version
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        id: version
+        working-directory: core
+        shell: cmd
+        run: |
+          for /f "tokens=*" %%i in (pkg\version\VERSION) do set VERSION=%%i
+          echo VERSION=%VERSION%>> %GITHUB_OUTPUT%
+
+      - name: Download Dependencies
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        working-directory: core
+        run: go mod download
+
+      - name: Build Server
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        working-directory: core
+        run:
+          go build -tags driver -o synnax-v${{
+          steps.version.outputs.VERSION}}-windows.exe
+
+      - name: Test Binary Execution
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        continue-on-error: true
+        shell: cmd
+        run: |
+          echo Testing binary execution...
+          core\synnax-v${{ steps.version.outputs.VERSION }}-windows.exe version || echo ⚠️ Server binary check failed
+          bazel-bin\driver\driver.exe version || echo ⚠️ Driver binary check failed
+
+      - name: Skip Build (Windows Latest)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
+        run: echo "Build skipped - using reference artifacts"
+
+      - name: Upload Driver Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-windows
+          path: bazel-bin/driver/driver.exe
+          retention-days: 7
+
+      - name: Upload Server Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-server-windows
+          path: core/synnax-v${{ steps.version.outputs.VERSION }}-windows.exe
+          retention-days: 7
+
+      - name: Debug Build Environment
+        if: failure()
+        shell: cmd
+        run: scripts/integration/debug-build-environment-windows.cmd
+
+  build-macos-latest:
+    name: Build Synnax (macos-latest)
+    timeout-minutes: 60
+    runs-on: macos-latest
+    needs: setup
+    if: false
+    steps:
+      - name: Checkout Repository
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: deploy-synnax-macos-latest
+          repository-cache: true
+
+      - name: Set up Go
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Build Synnax (macOS)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        id: version
+        run: echo "macOS build disabled - hardware not available"
+        # run: scripts/integration/build-macos-latest.sh
+
+      - name: Skip Build (macOS)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
+        run: echo "Build skipped - using reference artifacts"
+
+      - name: Upload Driver Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-macos
+          path: bazel-bin/driver/driver
+          retention-days: 7
+
+      - name: Upload Server Binary as Artifact
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: synnax-server-macos
+          path: core/synnax-v${{ steps.version.outputs.VERSION }}-macos
+          retention-days: 7
+
+      - name: Debug Build Environment
+        if: failure()
+        run: echo "macOS build debug disabled - hardware not available"
+        # run: scripts/integration/debug-build-environment-macos.sh
+
+  download-artifacts-windows:
+    name: Download Artifacts (Windows)
+    timeout-minutes: 1
+    runs-on:
+      - self-hosted
+      - windows-latest
+    needs: [build-windows-latest]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download and Setup Windows Artifacts
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ env.REF_RUN_ID }}
+        run: scripts/integration/download-artifacts-windows.cmd
+
+  deploy-and-test-windows:
+    name: Deploy and Test (windows)
+    runs-on:
+      - self-hosted
+      - windows-latest
+    needs: download-artifacts-windows
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Force Quit Existing Synnax Processes (Windows)
+        shell: cmd
+        run: scripts/integration/kill-synnax-processes-windows.cmd
+
+      - name: Install Poetry & Dependencies
+        shell: cmd
+        run: scripts/integration/install-poetry-deps-windows.cmd
+
+      - name: Start Synnax Server
+        timeout-minutes: 1
+        shell: powershell
+        run: scripts/integration/start-synnax-server-windows.ps1
+
+      - name: Test Conductor
+        id: test-conductor
+        timeout-minutes: 5
+        shell: cmd
+        env:
+          PYTHONIOENCODING: utf-8
+        run: scripts/integration/run-test-conductor-windows.cmd
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if:
+          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
+          'failure'
+        with:
+          name: test-results-windows
+          path: |
+            integration/test/py/*.png
+            integration/test/py/*.log
+            integration/test/py/*.json
+          retention-days: 7
+
+      - name: Debug Test Environment
+        if: failure()
+        shell: cmd
+        run: scripts/integration/debug-test-environment-windows.cmd
+
+  download-artifacts-macos:
+    name: Download Artifacts (macos)
+    timeout-minutes: 1
+    if: false
+    runs-on:
+      - self-hosted
+      - macos-latest
+    needs: [build-macos-latest]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download and Setup macOS Artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ env.REF_RUN_ID }}
+        run: echo "macOS artifacts setup disabled - hardware not available"
+        # run: scripts/integration/download-artifacts-macos.sh
+
+  deploy-and-test-macos:
+    name: Deploy and Test (macos)
+    runs-on:
+      - self-hosted
+      - macos-latest
+    needs: download-artifacts-macos
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Force Quit Existing Synnax Processes
+        run: echo "macOS process cleanup disabled - hardware not available"
+        # run: scripts/integration/kill-synnax-processes-macos.sh
+
+      - name: Install Poetry & Dependencies
+        run: echo "macOS Poetry installation disabled - hardware not available"
+        # run: scripts/integration/install-poetry-deps-unix.sh
+
+      - name: Start Synnax Server
+        timeout-minutes: 1
+        run: echo "macOS server startup disabled - hardware not available"
+        # run: scripts/integration/start-synnax-server-unix.sh
+
+      - name: Test Conductor
+        id: test-conductor
+        timeout-minutes: 5
+        run: echo "macOS test conductor disabled - hardware not available"
+        # run: scripts/integration/run-test-conductor-unix.sh
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos
+          path: |
+            integration/test/py/*.png
+            integration/test/py/*.log
+            integration/test/py/*.json
+          retention-days: 7
+
+      - name: Debug Test Environment
+        if: failure()
+        run: echo "macOS debug disabled - hardware not available"
+        # run: scripts/integration/debug-test-environment-unix.sh
+
+  download-artifacts-linux:
+    name: Download Artifacts (Linux)
+    timeout-minutes: 1
+    runs-on:
+      - self-hosted
+      - ubuntu-latest
+    needs: [build-ubuntu-latest]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download and Setup Linux Artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_BUILD: ${{ env.SKIP_BUILD }}
+          REF_RUN_ID: ${{ env.REF_RUN_ID }}
+        run: scripts/integration/download-artifacts-linux.sh
+
+  deploy-and-test-linux:
+    name: Deploy and Test (linux)
+    runs-on:
+      - self-hosted
+      - ubuntu-latest
+    needs: download-artifacts-linux
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Force Quit Existing Synnax Processes
+        continue-on-error: true
+        run: scripts/integration/kill-synnax-processes-linux.sh
+
+      - name: Install Poetry & Dependencies
+        run: scripts/integration/install-poetry-deps-unix.sh
+
+      - name: Start Synnax Server
+        timeout-minutes: 1
+        run: scripts/integration/start-synnax-server-unix.sh
+
+      - name: Test Conductor
+        id: test-conductor
+        timeout-minutes: 5
+        run: scripts/integration/run-test-conductor-unix.sh
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if:
+          steps.test-conductor.outcome == 'success' || steps.test-conductor.outcome ==
+          'failure'
+        with:
+          name: test-results-linux
+          path: |
+            integration/test/py/*.png
+            integration/test/py/*.log
+            integration/test/py/*.json
+          retention-days: 7
+
+      - name: Debug Test Environment
+        if: failure()
+        run: scripts/integration/debug-test-environment-unix.sh

@@ -12,6 +12,7 @@ import {
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useState,
 } from "react";
@@ -33,6 +34,7 @@ export interface SelectorProps
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
+  actions?: ReactNode;
 }
 
 const CLS = "tabs-selector";
@@ -44,6 +46,7 @@ export const Selector = ({
   direction = "x",
   contextMenu,
   addTooltip,
+  actions,
   ...rest
 }: SelectorProps): ReactElement | null => {
   const {
@@ -112,17 +115,20 @@ export const Selector = ({
           )}
         </Flex.Box>
 
-        {onCreate != null && (
+        {(actions != null || onCreate != null) && (
           <Flex.Box className={CSS.BE(CLS, "actions")}>
-            <Button.Button
-              size={size}
-              sharp
-              onClick={onCreate}
-              tooltip={addTooltip}
-              variant="text"
-            >
-              <Icon.Add />
-            </Button.Button>
+            {onCreate != null && (
+              <Button.Button
+                size={size}
+                sharp
+                onClick={onCreate}
+                tooltip={addTooltip}
+                variant="text"
+              >
+                <Icon.Add />
+              </Button.Button>
+            )}
+            {actions}
           </Flex.Box>
         )}
       </Flex.Box>
@@ -146,10 +152,11 @@ const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement =
   return closeIcon;
 };
 
+const TABS_SELECTOR_BUTTON_CLASS = CSS.BE("tabs-selector", "btn");
+
 const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
-  const b = box.construct(
-    (e.target as HTMLElement).closest(".pluto-tabs-selector__btn"),
-  );
+  if (!(e.target instanceof HTMLElement)) return "right";
+  const b = box.construct(e.target.closest(`.${TABS_SELECTOR_BUTTON_CLASS}`));
   const cursor = xy.construct(e);
   const s = scale.Scale.scale(box.left(b), box.right(b)).scale(0, 1).pos(cursor.x);
   if (s < 0.5) return "left";
@@ -241,6 +248,7 @@ const SelectorButton = ({
       sharp
       className={CSS(
         Menu.CONTEXT_TARGET,
+        TABS_SELECTOR_BUTTON_CLASS,
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
         CSS.altColor(altColor),

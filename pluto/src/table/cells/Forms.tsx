@@ -91,7 +91,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     }
   }, []);
   const tabsProps = Tabs.useStatic({ tabs: valueTabs, content });
-  return <Tabs.Tabs {...tabsProps} size="small" />;
+  return <Tabs.Tabs {...tabsProps} />;
 };
 
 const textFormStyle = { padding: "2rem" };

@@ -282,6 +282,78 @@ const rgbaToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, 
 const hexToRgba = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
 const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 
+const NAMED: Record<string, string> = {
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ff0000",
+  green: "#008000",
+  blue: "#0000ff",
+  yellow: "#ffff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  silver: "#c0c0c0",
+  gray: "#808080",
+  grey: "#808080",
+  maroon: "#800000",
+  olive: "#808000",
+  lime: "#00ff00",
+  aqua: "#00ffff",
+  teal: "#008080",
+  navy: "#000080",
+  fuchsia: "#ff00ff",
+  purple: "#800080",
+  orange: "#ffa500",
+  brown: "#a52a2a",
+  tan: "#d2b48c",
+  gold: "#ffd700",
+  indigo: "#4b0082",
+  violet: "#ee82ee",
+  pink: "#ffc0cb",
+  coral: "#ff7f50",
+  salmon: "#fa8072",
+  khaki: "#f0e68c",
+  crimson: "#dc143c",
+  transparent: "transparent",
+};
+
+/**
+ * Parses a CSS color string into a Color.
+ * Supports hex colors, rgb/rgba functions, and named colors.
+ * @param cssColor - The CSS color string to parse
+ * @returns The parsed color or undefined if invalid
+ */
+export const fromCSS = (cssColor: string): Color | undefined => {
+  if (!cssColor) return undefined;
+  const trimmed = cssColor.trim().toLowerCase();
+  if (trimmed === "transparent" || trimmed === "none") return undefined;
+  if (trimmed.startsWith("#")) {
+    if (trimmed.length === 4) {
+      const r = trimmed[1];
+      const g = trimmed[2];
+      const b = trimmed[3];
+      const expanded = `#${r}${r}${g}${g}${b}${b}`;
+      if (hexZ.safeParse(expanded).success) return fromHex(expanded);
+    }
+    if (
+      (trimmed.length === 7 || trimmed.length === 9) &&
+      hexZ.safeParse(trimmed).success
+    )
+      return fromHex(trimmed);
+    return undefined;
+  }
+  if (trimmed.startsWith("rgb")) {
+    const match = trimmed.match(
+      /rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)/,
+    );
+    if (match) {
+      const [, r, g, b, a] = match;
+      return [parseInt(r), parseInt(g), parseInt(b), a ? parseFloat(a) : 1];
+    }
+  }
+  if (NAMED[trimmed]) return fromHex(NAMED[trimmed]);
+  return undefined;
+};
+
 /** @returns parse a color from an HSLA tuple. */
 export const fromHSLA = (hsla: HSLA): RGBA => {
   hsla = hslaZ.parse(hsla);

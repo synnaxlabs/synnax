@@ -37,7 +37,11 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<SubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-const singleRetrieve = async (key: group.Key, client: Synnax, subStore: SubStore) => {
+export const singleRetrieve = async (
+  key: group.Key,
+  client: Synnax,
+  subStore: SubStore,
+) => {
   const cached = subStore.groups.get(key);
   if (cached != null) return cached;
   const res = await client.ontology.retrieve(group.ontologyID(key));
@@ -72,13 +76,34 @@ export interface ListParams {
 
 export const useList = Flux.createList<ListParams, group.Key, group.Payload, SubStore>({
   name: "Group",
-  retrieve: async ({ client, params }) => {
+  retrieveCached: ({ store, params }) => {
     if (params.parent == null) return [];
-    const res = await client.ontology.retrieveChildren(params.parent, {
+    const rels = store.relationships.get((r) =>
+      ontology.matchRelationship(r, {
+        from: params.parent,
+        type: "parent",
+      }),
+    );
+    return store.groups.get(rels.map((r) => r.to.key));
+  },
+  retrieve: async ({ client, params, store }) => {
+    const { parent } = params;
+    if (parent == null) return [];
+    const res = await client.ontology.retrieveChildren(parent, {
       ...params,
       types: ["group"],
     });
-    return res.map((r) => group.groupZ.parse(r.data));
+    const groups = res.map((r) => group.groupZ.parse(r.data));
+    store.groups.set(groups);
+    groups.forEach((g) => {
+      const rel = {
+        from: parent,
+        type: "parent",
+        to: group.ontologyID(g.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+    return groups;
   },
   retrieveByKey: async ({ client, key, store }) =>
     await singleRetrieve(key, client, store),

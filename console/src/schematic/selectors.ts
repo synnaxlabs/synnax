@@ -198,10 +198,12 @@ export const useSelectRequiredNodeProps = (layoutKey: string, key: string): Node
     [layoutKey, key],
   );
 
-export const selectRequiredToolbar = (state: StoreState, key: string): ToolbarState =>
-  selectRequired(state, key).toolbar;
+export const selectRequiredToolbar = (
+  state: StoreState,
+  key: string,
+): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectRequiredToolbar = (key: string): ToolbarState =>
+export const useSelectRequiredToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectRequiredToolbar(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
@@ -260,3 +262,9 @@ export const selectAuthority = (state: StoreState, key: string): number | undefi
 
 export const useSelectAuthority = (key: string): number | undefined =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
+
+export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
+  selectRequired(state, key).toolbar.selectedSymbolGroup;
+
+export const useSelectSelectedSymbolGroup = (key: string): string =>
+  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);

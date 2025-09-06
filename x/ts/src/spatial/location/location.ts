@@ -20,6 +20,7 @@ import {
   DIRECTIONS,
   type Location,
   location,
+  OUTER_LOCATIONS,
   type OuterLocation,
   outerLocation,
   X_LOCATIONS,
@@ -35,6 +36,7 @@ export {
   type Location,
   location,
   outerLocation as outer,
+  OUTER_LOCATIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
 };

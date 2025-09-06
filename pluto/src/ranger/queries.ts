@@ -14,10 +14,10 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
+import { type List } from "@/list";
 import { type Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
-import { List } from "@/list";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.KVPair> {}
 export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias> {}
@@ -60,8 +60,13 @@ const multiCachedRetrieve = async (
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = Flux.useStore();
   useEffect(() => store.ranges.onSet((c) => onSet(c.payload)), [store]);
+};
+
+export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void => {
+  const store = Flux.useStore();
+  useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
 export interface ChildrenParams extends List.PagerParams {

@@ -19,6 +19,7 @@ export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   bordered?: boolean;
+  padded?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
   padded?: boolean;
 }
@@ -48,6 +49,7 @@ export const Header = ({
   divided = false,
   padded,
   bordered = true,
+  padded = false,
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
@@ -61,6 +63,7 @@ export const Header = ({
         padded && CSS.M(`padded-${Text.LEVEL_COMPONENT_SIZES[level]}`),
         bordered && CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
+        padded && CSS.BM("header", "padded"),
         className,
       )}
       {...rest}
