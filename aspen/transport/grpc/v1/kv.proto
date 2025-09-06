@@ -20,7 +20,7 @@ message OperationDigest {
   uint32 leaseholder = 2;
   bytes key = 3;
 }
- 
+
 service TxService {
   rpc Exec(TxRequest) returns (TxRequest);
 }
