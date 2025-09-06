@@ -181,15 +181,8 @@ const getIndex = (part: string): number | null => {
  * @param path the path to set the value at.
  * @param value the value to set.
  */
-export const set = <V>(
-  obj: V,
-  path: string,
-  value: unknown,
-  opts: GetOptions = { optional: false, separator: "." },
-): void => {
-  opts.separator ??= ".";
-  const { optional, getter = defaultGetter } = opts;
-  const parts = path.split(opts.separator);
+export const set = <V>(obj: V, path: string, value: unknown): void => {
+  const parts = path.split(".");
   let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];

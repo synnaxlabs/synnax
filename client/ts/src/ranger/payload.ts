@@ -20,16 +20,10 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
-export const STAGES = ["to_do", "in_progress", "completed"];
-export const stageZ = z.enum(STAGES);
-
-export type Stage = z.infer<typeof stageZ>;
-
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
   timeRange: TimeRange.z,
-  stage: stageZ.optional().default("to_do"),
   color: z.string().optional(),
   labels: label.labelZ
     .array()

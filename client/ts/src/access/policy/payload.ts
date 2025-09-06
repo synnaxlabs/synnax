@@ -13,12 +13,6 @@ import { actionZ } from "@/access/payload";
 import { ontology } from "@/ontology";
 import { nullableArrayZ } from "@/util/zod";
 
-export const ONTOLOGY_TYPE = "policy";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
-export const ALLOW_ALL_ONTOLOGY_TYPE = "allow_all";
-export type AllowAllOntologyType = typeof ALLOW_ALL_ONTOLOGY_TYPE;
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
