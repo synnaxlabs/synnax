@@ -12,6 +12,7 @@ package types
 import (
 	"fmt"
 	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -236,3 +237,10 @@ func Assert[T Type](in Type) (T, error) {
 	}
 	return casted, nil
 }
+
+var (
+	UnsignedIntegers = []Type{U8{}, U16{}, U32{}, U64{}}
+	SignedIntegers   = []Type{I8{}, I16{}, I32{}, I64{}}
+	Floats           = []Type{F32{}, F64{}}
+	Numerics         = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
+)

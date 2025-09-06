@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/slate/compiler/wasm"
+	"github.com/synnaxlabs/slate/types"
 )
 
 // ImportIndex tracks the indices of all host functions that the runtime must provide.
@@ -101,95 +102,79 @@ func NewImportIndex() *ImportIndex {
 // This defines the complete host interface that runtimes must implement.
 func SetupImports(m *wasm.Module) *ImportIndex {
 	idx := NewImportIndex()
-
-	// Define the types we support
-	intTypes := []string{"i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64"}
-	floatTypes := []string{"f32", "f64"}
-	allNumericTypes := append(intTypes, floatTypes...)
-
 	// Register channel operations for each type
-	for _, typ := range allNumericTypes {
+	for _, typ := range types.Numerics {
 		setupChannelOps(m, idx, typ)
 	}
-	setupChannelOps(m, idx, "string")
-
-	// Register series operations for each type
-	for _, typ := range allNumericTypes {
+	setupChannelOps(m, idx, types.String{})
+	for _, typ := range types.Numerics {
 		setupSeriesOps(m, idx, typ)
 	}
-
-	// Register state operations for each type
-	for _, typ := range allNumericTypes {
+	for _, typ := range types.Numerics {
 		setupStateOps(m, idx, typ)
 	}
-	setupStateOps(m, idx, "string")
-
-	// Register type-agnostic operations
+	setupStateOps(m, idx, types.String{})
 	setupGenericOps(m, idx)
-
 	return idx
 }
 
 // setupChannelOps registers channel operations for a specific type
-func setupChannelOps(m *wasm.Module, idx *ImportIndex, typ string) {
-	wasmType := typeToWASM(typ)
-
+func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+	wasmType := wasm.ConvertType(t)
 	// Non-blocking read
-	funcName := fmt.Sprintf("channel_read_%s", typ)
-	idx.ChannelRead[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName := fmt.Sprintf("channel_read_%s", t)
+	idx.ChannelRead[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32}, // channel ID
 		Results: []wasm.ValueType{wasmType}, // value or handle
 	})
 
-	// Write
-	funcName = fmt.Sprintf("channel_write_%s", typ)
-	idx.ChannelWrite[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName = fmt.Sprintf("channel_write_%s", t)
+	idx.ChannelWrite[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasmType}, // channel ID, value
 		Results: []wasm.ValueType{},
 	})
 
-	// Blocking read
-	funcName = fmt.Sprintf("channel_blocking_read_%s", typ)
-	idx.ChannelBlockingRead[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName = fmt.Sprintf("channel_blocking_read_%s", t)
+	idx.ChannelBlockingRead[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32}, // channel ID
 		Results: []wasm.ValueType{wasmType}, // value or handle
 	})
 }
 
 // setupSeriesOps registers series operations for a specific type
-func setupSeriesOps(m *wasm.Module, idx *ImportIndex, typ string) {
-	wasmType := typeToWASM(typ)
+func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+	wasmType := wasm.ConvertType(t)
 
 	// Create empty series
-	funcName := fmt.Sprintf("series_create_empty_%s", typ)
-	idx.SeriesCreateEmpty[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName := fmt.Sprintf("series_create_empty_%s", t)
+	idx.SeriesCreateEmpty[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32}, // length
 		Results: []wasm.ValueType{wasm.I32}, // series handle
 	})
 
 	// Set element
-	funcName = fmt.Sprintf("series_set_element_%s", typ)
-	idx.SeriesSetElement[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName = fmt.Sprintf("series_set_element_%s", t)
+	idx.SeriesSetElement[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // series, index, value
 		Results: []wasm.ValueType{},
 	})
 
 	// Resolve element (indexing)
-	funcName = fmt.Sprintf("series_index_%s", typ)
-	idx.SeriesIndex[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName = fmt.Sprintf("series_index_%s", t)
+	idx.SeriesIndex[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series, index
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Arithmetic operations
-	setupSeriesArithmetic(m, idx, typ, wasmType)
+	setupSeriesArithmetic(m, idx, t, wasmType)
 
 	// Comparison operations (only for numeric types)
-	setupSeriesComparison(m, idx, typ)
+	setupSeriesComparison(m, idx, t)
 }
 
 // setupSeriesArithmetic registers arithmetic operations for series
-func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ string, wasmType wasm.ValueType) {
+func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
 	// Scalar operations
 	ops := []struct {
 		name string
@@ -203,7 +188,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ string, wasmTyp
 
 	for _, op := range ops {
 		funcName := fmt.Sprintf("series_element_%s_%s", op.name, typ)
-		(*op.idx)[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 			Params:  []wasm.ValueType{wasm.I32, wasmType}, // series, scalar
 			Results: []wasm.ValueType{wasm.I32},           // new series
 		})
@@ -222,7 +207,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ string, wasmTyp
 
 	for _, op := range seriesOps {
 		funcName := fmt.Sprintf("series_series_%s_%s", op.name, typ)
-		(*op.idx)[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2
 			Results: []wasm.ValueType{wasm.I32},           // new series
 		})
@@ -230,7 +215,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ string, wasmTyp
 }
 
 // setupSeriesComparison registers comparison operations for series
-func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ string) {
+func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 	ops := []struct {
 		name string
 		idx  *map[string]uint32
@@ -245,7 +230,7 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ string) {
 
 	for _, op := range ops {
 		funcName := fmt.Sprintf("series_compare_%s_%s", op.name, typ)
-		(*op.idx)[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2 or series, scalar
 			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
 		})
@@ -253,19 +238,19 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ string) {
 }
 
 // setupStateOps registers state persistence operations
-func setupStateOps(m *wasm.Module, idx *ImportIndex, typ string) {
-	wasmType := typeToWASM(typ)
+func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+	wasmType := wasm.ConvertType(t)
 
 	// Load state
-	funcName := fmt.Sprintf("state_load_%s", typ)
-	idx.StateLoad[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName := fmt.Sprintf("state_load_%s", t)
+	idx.StateLoad[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // task ID, var ID
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Store state
-	funcName = fmt.Sprintf("state_store_%s", typ)
-	idx.StateStore[typ] = m.AddImport("env", funcName, wasm.FunctionType{
+	funcName = fmt.Sprintf("state_store_%s", t)
+	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // task ID, var ID, value
 		Results: []wasm.ValueType{},
 	})
@@ -327,22 +312,4 @@ func setupGenericOps(m *wasm.Module, idx *ImportIndex) {
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // ptr, len
 		Results: []wasm.ValueType{},
 	})
-}
-
-// typeToWASM converts a Slate type suffix to a WASM value type
-func typeToWASM(typeSuffix string) wasm.ValueType {
-	switch typeSuffix {
-	case "i8", "i16", "i32", "u8", "u16", "u32":
-		return wasm.I32 // WASM uses i32 for all <32-bit integers
-	case "i64", "u64":
-		return wasm.I64
-	case "f32":
-		return wasm.F32
-	case "f64":
-		return wasm.F64
-	case "string":
-		return wasm.I32 // String handle
-	default:
-		return wasm.I32 // Default for handles
-	}
 }

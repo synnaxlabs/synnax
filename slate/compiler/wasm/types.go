@@ -9,6 +9,8 @@
 
 package wasm
 
+import "github.com/synnaxlabs/slate/types"
+
 // WASM binary format constants
 const (
 	Version       = 0x00000001 // version 1 (little endian)
@@ -42,3 +44,18 @@ const (
 )
 
 var MagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
+
+func ConvertType(t types.Type) ValueType {
+	switch t {
+	case types.I8{}, types.I16{}, types.I32{}, types.U8{}, types.U16{}, types.U32{}:
+		return I32
+	case types.I64{}, types.U64{}:
+		return I64
+	case types.F32{}:
+		return F32
+	case types.F64{}:
+		return F64
+	default:
+		return I32
+	}
+}

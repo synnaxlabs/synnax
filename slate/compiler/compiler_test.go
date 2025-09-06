@@ -10,12 +10,16 @@
 package compiler_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/slate/analyzer"
 	"github.com/synnaxlabs/slate/compiler"
+	"github.com/synnaxlabs/slate/compiler/runtime/mock"
 	"github.com/synnaxlabs/slate/parser"
 	"github.com/synnaxlabs/slate/symbol"
+	"github.com/synnaxlabs/slate/types"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
@@ -28,6 +32,17 @@ func compile(source string, resolver symbol.Resolver) ([]byte, error) {
 		Program:            prog,
 		Analysis:           &analysis,
 		DisableHostImports: true,
+	})
+}
+
+func compileWithHostImports(source string, resolver symbol.Resolver) ([]byte, error) {
+	prog := MustSucceed(parser.Parse(source))
+	analysis := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+	Expect(analysis.Ok()).To(BeTrue())
+	return compiler.Compile(compiler.Config{
+		Program:            prog,
+		Analysis:           &analysis,
+		DisableHostImports: false,
 	})
 }
 
@@ -108,5 +123,48 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Channel Read")
+	Describe("Channel Operations", func() {
+		It("Should execute a function with channel read operations", func() {
+			// Create mock runtime with channel implementations
+			mockRuntime := mock.New()
+
+			// Setup channel data
+			channelData := map[uint32]int32{0: 42}
+
+			// Define channel read implementation
+			mockRuntime.ChannelRead["i32"] = func(ctx context.Context, channelID uint32) int32 {
+				if val, ok := channelData[channelID]; ok {
+					return val
+				}
+				return 0
+			}
+
+			// Bind the mock runtime
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"sensor": {
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan{ValueType: types.I32{}},
+				},
+			})
+
+			// Compile with host imports enabled
+			wasmBytes := MustSucceed(compileWithHostImports(`
+			func readAndDouble() i32 {
+				value := sensor
+				return value * 2
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, wasmBytes))
+			readAndDouble := mod.ExportedFunction("readAndDouble")
+			Expect(readAndDouble).ToNot(BeNil())
+
+			results := MustSucceed(readAndDouble.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(84))) // 42 * 2
+		})
+	})
 })

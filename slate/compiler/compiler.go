@@ -30,7 +30,7 @@ type Config struct {
 func paramsToWasm(params types.OrderedMap[string, types.Type]) []wasm.ValueType {
 	wasmParams := make([]wasm.ValueType, 0, params.Count())
 	for _, paramType := range params.Iter() {
-		wasmParams = append(wasmParams, typeToWASM(paramType))
+		wasmParams = append(wasmParams, wasm.ConvertType(paramType))
 	}
 	return wasmParams
 }
@@ -60,28 +60,6 @@ func compileTopLevelItem(ctx *core.Context, item parser.ITopLevelItemContext) er
 	return errors.New("unknown top-level item")
 }
 
-// typeToWASM converts a Slate type to a WASM value type
-func typeToWASM(t types.Type) wasm.ValueType {
-	switch t.(type) {
-	case types.I32:
-		return wasm.I32
-	case types.I64, types.TimeStamp, types.TimeSpan:
-		return wasm.I64
-	case types.F32:
-		return wasm.F32
-	case types.F64:
-		return wasm.F64
-	case types.U8, types.U16, types.U32, types.I8, types.I16:
-		// All smaller integers are represented as i32 in WASM
-		return wasm.I32
-	case types.U64:
-		return wasm.I64
-	default:
-		// Default to i32 for unknown types (bool, etc)
-		return wasm.I32
-	}
-}
-
 // compileFunctionDeclaration compiles a function definition
 func compileFunctionDeclaration(
 	ctx *core.Context,
@@ -99,12 +77,11 @@ func compileFunctionDeclaration(
 
 	params := make([]wasm.ValueType, 0, funcType.Params.Count())
 	for _, paramType := range funcType.Params.Iter() {
-		wasmType := typeToWASM(paramType)
-		params = append(params, wasmType)
+		params = append(params, wasm.ConvertType(paramType))
 	}
 	var results []wasm.ValueType
 	if funcType.Return != nil {
-		results = append(results, typeToWASM(funcType.Return))
+		results = append(results, wasm.ConvertType(funcType.Return))
 	}
 	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: params, Results: results})
 	blockScope, _ := funcScope.FirstChildOfKind(symbol.KindBlock)
@@ -121,7 +98,7 @@ func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
 		if child.Kind == symbol.KindVariable {
-			locals = append(locals, typeToWASM(child.Type))
+			locals = append(locals, wasm.ConvertType(child.Type))
 		} else if child.Kind == symbol.KindBlock {
 			locals = append(locals, collectLocals(child)...)
 		}
@@ -146,7 +123,7 @@ func compileTaskDeclaration(
 	wasmParams := append(paramsToWasm(taskType.Config), paramsToWasm(taskType.Params)...)
 	var results []wasm.ValueType
 	if taskType.Return != nil {
-		results = append(results, typeToWASM(taskType.Return))
+		results = append(results, wasm.ConvertType(taskType.Return))
 	}
 	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
 	blockScope, _ := taskScope.FirstChildOfKind(symbol.KindBlock)
@@ -190,7 +167,7 @@ func compileFlowExpression(
 	wasmParams := paramsToWasm(taskType.Config)
 	var results []wasm.ValueType
 	if taskType.Return != nil {
-		results = append(results, typeToWASM(taskType.Return))
+		results = append(results, wasm.ConvertType(taskType.Return))
 	}
 	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
 	blockScope, _ := scope.FirstChildOfKind(symbol.KindBlock)
