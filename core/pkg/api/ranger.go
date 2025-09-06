@@ -36,13 +36,11 @@ type (
 )
 
 func translateRangesToService(ranges []Range) []ranger.Range {
-	return lo.Map(ranges, func(item Range, _ int) ranger.Range { return item.Range })
+	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
 }
 
 func translateRangesFromService(ranges []ranger.Range) []Range {
-	return lo.Map(ranges, func(item ranger.Range, _ int) Range {
-		return Range{Range: item}
-	})
+	return lo.Map(ranges, func(r ranger.Range, _ int) Range { return Range{Range: r} })
 }
 
 type RangeService struct {
@@ -69,15 +67,19 @@ type (
 	}
 )
 
-func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res RangeCreateResponse, _ error) {
+func (s *RangeService) Create(
+	ctx context.Context,
+	req RangeCreateRequest,
+) (RangeCreateResponse, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: []ontology.ID{{Type: ranger.OntologyType}},
 	}); err != nil {
-		return res, err
+		return RangeCreateResponse{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	var res RangeCreateResponse
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		svcRanges := translateRangesToService(req.Ranges)
 		if err := s.
 			internal.
@@ -87,7 +89,10 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 		}
 		res = RangeCreateResponse{Ranges: translateRangesFromService(svcRanges)}
 		return nil
-	})
+	}); err != nil {
+		return RangeCreateResponse{}, err
+	}
+	return res, nil
 }
 
 type (
@@ -108,7 +113,10 @@ type (
 	}
 )
 
-func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (res RangeRetrieveResponse, _ error) {
+func (s *RangeService) Retrieve(
+	ctx context.Context,
+	req RangeRetrieveRequest,
+) (RangeRetrieveResponse, error) {
 	var (
 		svcRanges       []ranger.Range
 		q               = s.internal.NewRetrieve().Entries(&svcRanges)
@@ -139,11 +147,11 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	err := q.Exec(ctx, nil)
-	if err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RangeRetrieveResponse{}, err
 	}
 	apiRanges := translateRangesFromService(svcRanges)
+	var err error
 	if req.IncludeLabels {
 		for i, rng := range apiRanges {
 			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
@@ -172,7 +180,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}); err != nil {
 		return RangeRetrieveResponse{}, err
 	}
-	return RangeRetrieveResponse{Ranges: apiRanges}, err
+	return RangeRetrieveResponse{Ranges: apiRanges}, nil
 }
 
 type RangeRenameRequest struct {
@@ -232,18 +240,30 @@ type (
 	}
 )
 
-func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res RangeKVGetResponse, err error) {
+func (s *RangeService) KVGet(
+	ctx context.Context,
+	req RangeKVGetRequest,
+) (RangeKVGetResponse, error) {
 	var r ranger.Range
-	if err = s.internal.NewRetrieve().Entry(&r).WhereKeys(req.Range).Exec(ctx, nil); err != nil {
+	if err := s.
+		internal.
+		NewRetrieve().
+		Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil); err != nil {
 		return RangeKVGetResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return RangeKVGetResponse{}, err
 	}
+	var (
+		res RangeKVGetResponse
+		err error
+	)
 	if len(req.Keys) == 0 {
 		res.Pairs, err = r.ListKV()
 		if err != nil {
@@ -304,7 +324,10 @@ func (s *RangeService) KVDelete(
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		var rng ranger.Range
-		if err := s.internal.NewRetrieve().Entry(&rng).
+		if err := s.
+			internal.
+			NewRetrieve().
+			Entry(&rng).
 			WhereKeys(req.Range).
 			Exec(ctx, tx); err != nil {
 			return err
@@ -366,19 +389,22 @@ type (
 	}
 )
 
-func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRequest) (res RangeAliasResolveResponse, _ error) {
+func (s *RangeService) AliasResolve(
+	ctx context.Context,
+	req RangeAliasResolveRequest,
+) (RangeAliasResolveResponse, error) {
 	var r ranger.Range
 	if err := s.internal.NewRetrieve().Entry(&r).
 		WhereKeys(req.Range).
 		Exec(ctx, nil); err != nil {
-		return res, err
+		return RangeAliasResolveResponse{}, err
 	}
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 
 	for _, alias := range req.Aliases {
 		ch, err := r.ResolveAlias(ctx, alias)
 		if err != nil && !errors.Is(err, query.NotFound) {
-			return res, err
+			return RangeAliasResolveResponse{}, err
 		}
 		if ch != 0 {
 			aliases[alias] = ch
@@ -395,7 +421,7 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 		Action:  access.Retrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
 	}); err != nil {
-		return res, err
+		return RangeAliasResolveResponse{}, err
 	}
 
 	return RangeAliasResolveResponse{Aliases: aliases}, nil
@@ -443,16 +469,19 @@ type (
 	}
 )
 
-func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest) (res RangeAliasListResponse, _ error) {
+func (s *RangeService) AliasList(
+	ctx context.Context,
+	req RangeAliasListRequest,
+) (RangeAliasListResponse, error) {
 	var r ranger.Range
 	if err := s.internal.NewRetrieve().Entry(&r).
 		WhereKeys(req.Range).
 		Exec(ctx, nil); err != nil {
-		return res, err
+		return RangeAliasListResponse{}, err
 	}
 	aliases, err := r.RetrieveAliases(ctx)
 	if err != nil {
-		return res, err
+		return RangeAliasListResponse{}, err
 	}
 
 	keys := make([]channel.Key, 0, len(aliases))
@@ -464,10 +493,10 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 		Action:  access.Retrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
 	}); err != nil {
-		return res, err
+		return RangeAliasListResponse{}, err
 	}
 
-	return RangeAliasListResponse{Aliases: aliases}, err
+	return RangeAliasListResponse{Aliases: aliases}, nil
 }
 
 type (
@@ -480,12 +509,15 @@ type (
 	}
 )
 
-func (s *RangeService) AliasRetrieve(ctx context.Context, req RangeAliasRetrieveRequest) (res RangeAliasRetrieveResponse, _ error) {
+func (s *RangeService) AliasRetrieve(
+	ctx context.Context,
+	req RangeAliasRetrieveRequest,
+) (RangeAliasRetrieveResponse, error) {
 	var r ranger.Range
 	if err := s.internal.NewRetrieve().Entry(&r).
 		WhereKeys(req.Range).
 		Exec(ctx, nil); err != nil {
-		return res, err
+		return RangeAliasRetrieveResponse{}, err
 	}
 
 	if err := s.access.Enforce(ctx, access.Request{
@@ -493,14 +525,14 @@ func (s *RangeService) AliasRetrieve(ctx context.Context, req RangeAliasRetrieve
 		Action:  access.Retrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
 	}); err != nil {
-		return res, err
+		return RangeAliasRetrieveResponse{}, err
 	}
 
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		alias, err := r.RetrieveAlias(ctx, ch)
 		if err != nil && !errors.Is(err, query.NotFound) {
-			return res, err
+			return RangeAliasRetrieveResponse{}, err
 		}
 		if alias != "" {
 			aliases[ch] = alias

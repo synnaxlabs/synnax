@@ -28,22 +28,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Stage is a string that represents whether a range is happening in the past, present,
-// or future.
-type Stage string
-
-const (
-	// ToDo indicates that a range has not yet been started.
-	ToDo Stage = "to_do"
-	// InProgress indicates that a range is currently ongoing..
-	InProgress Stage = "in_progress"
-	// Completed indicates that a range has occurred in the past.
-	Completed Stage = "completed"
-)
-
 // Range (short for time range) is an interesting, user defined region of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
+	// TODO: remove tx, otg, and label
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
@@ -57,10 +45,6 @@ type Range struct {
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
-	// Stage
-	Stage  Stage         `json:"stage" msgpack:"stage"`
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	Parent *Range        `json:"parent" msgpack:"parent"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
@@ -295,6 +279,6 @@ func (r Range) RetrieveLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
-// OntologyID returns the semantic ID for this range to look it up from within
-// the ontology.
+// OntologyID returns the semantic ID for this range to look it up from within the
+// ontology.
 func (r Range) OntologyID() ontology.ID { return OntologyID(r.Key) }
