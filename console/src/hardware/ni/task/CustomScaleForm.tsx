@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { FS } from "@/fs";
 import {
@@ -26,13 +26,9 @@ import {
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
 
-const NAMED_KEY_COLS: List.ColumnSpec<string, record.KeyedNamed>[] = [
-  { key: "name", name: "Name" },
-];
-
-const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
+const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
-  record.KeyedNamed<ScaleType>
+  Select.StaticEntry<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -50,63 +46,56 @@ const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
     },
   },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
+    resourceName: "Scale Type",
     data: [
-      { key: LINEAR_SCALE_TYPE, name: "Linear" },
-      { key: MAP_SCALE_TYPE, name: "Map" },
-      { key: TABLE_SCALE_TYPE, name: "Table" },
-      { key: NO_SCALE_TYPE, name: "None" },
+      { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
+      { key: MAP_SCALE_TYPE, name: "Map", icon: <Icon.Map /> },
+      { key: TABLE_SCALE_TYPE, name: "Table", icon: <Icon.Table /> },
+      { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
     ],
   },
 });
 
-interface UnitsInfo {
-  name: string;
-  symbol: string;
-}
-
-const UNITS_STUFF: Record<Units, UnitsInfo> = {
-  Volts: { name: "Volts", symbol: "V" },
-  Amps: { name: "Amps", symbol: "A" },
-  DegF: { name: "Degrees Fahrenheit", symbol: "°F" },
-  DegC: { name: "Degrees Celsius", symbol: "°C" },
-  DegR: { name: "Degrees Rankine", symbol: "R" },
-  Kelvins: { name: "Kelvin", symbol: "K" },
-  Strain: { name: "Strain", symbol: "" },
-  Ohms: { name: "Ohms", symbol: "Ω" },
-  Hz: { name: "Hertz", symbol: "Hz" },
-  Seconds: { name: "Seconds", symbol: "s" },
-  Meters: { name: "Meters", symbol: "m" },
-  Inches: { name: "Inches", symbol: "in" },
-  Degrees: { name: "Degrees", symbol: "°" },
-  Radians: { name: "Radians", symbol: "rad" },
-  g: { name: "Standard Gravity", symbol: "g" },
-  MetersPerSecondSquared: { name: "Meters per Second Squared", symbol: "m/s^2" },
-  Newtons: { name: "Newtons", symbol: "N" },
-  Pounds: { name: "Pounds", symbol: "lb" },
-  KilogramForce: { name: "Kilograms-Force", symbol: "kgf" },
-  PoundsPerSquareInch: { name: "Pounds per Square Inch", symbol: "psi" },
-  Bar: { name: "Bars", symbol: "bar" },
-  Pascals: { name: "Pascals", symbol: "Pa" },
-  VoltsPerVolt: { name: "Volts per Volt", symbol: "V/V" },
-  mVoltsPerVolt: { name: "Millivolts per Volt", symbol: "mV/V" },
-  NewtonMeters: { name: "Newton-Meters", symbol: "N·m" },
-  InchOunces: { name: "Inch-Ounces", symbol: "in·oz" },
-  InchPounds: { name: "Inch-Pounds", symbol: "in·lb" },
-  FootPounds: { name: "Foot-Pounds", symbol: "ft·lb" },
+const UNIT_SYMBOLS: Record<Units, string> = {
+  Volts: "V",
+  Amps: "A",
+  DegF: "°F",
+  DegC: "°C",
+  DegR: "R",
+  Kelvins: "K",
+  Strain: "strain",
+  Ohms: "Ω",
+  Hz: "Hz",
+  Seconds: "s",
+  Meters: "m",
+  Inches: "in",
+  Degrees: "°",
+  Radians: "rad",
+  g: "g",
+  MetersPerSecondSquared: "m/s^2",
+  Newtons: "N",
+  Pounds: "lb",
+  KilogramForce: "kgf",
+  PoundsPerSquareInch: "psi",
+  Bar: "bar",
+  Pascals: "Pa",
+  VoltsPerVolt: "V/V",
+  mVoltsPerVolt: "mV/V",
+  NewtonMeters: "N·m",
+  InchOunces: "in·oz",
+  InchPounds: "in·lb",
+  FootPounds: "ft·lb",
 };
 
-const unitsData = (Object.entries(UNITS_STUFF) as [Units, UnitsInfo][]).map(
-  ([key, { name }]) => ({ key, name }),
+const unitsData = (Object.entries(UNIT_SYMBOLS) as [Units, string][]).map(
+  ([key, name]) => ({ key, name }),
 );
 
-const UnitsField = Form.buildSelectSingleField<Units, record.KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
-  fieldProps: { label: "Units" },
+  fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
+    resourceName: "Unit",
     allowNone: false,
     data: unitsData,
   },
@@ -118,24 +107,18 @@ export interface CustomScaleFormProps {
   prefix: string;
 }
 
+const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
+  <Flex.Box x>
+    <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} grow />
+    <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} grow />
+  </Flex.Box>
+);
+
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <Align.Space x>
-        <UnitsField
-          fieldKey="preScaledUnits"
-          label="Prescaled Units"
-          path={prefix}
-          grow
-        />
-        <Form.TextField
-          fieldKey="scaledUnits"
-          label="Scaled Units"
-          path={prefix}
-          grow
-        />
-      </Align.Space>
-      <Align.Space x>
+      <CustomScaleUnitsFields prefix={prefix} />
+      <Flex.Box x>
         <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
         <Form.NumericField
           fieldKey="yIntercept"
@@ -143,13 +126,13 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           path={prefix}
           grow
         />
-      </Align.Space>
+      </Flex.Box>
     </>
   ),
   [MAP_SCALE_TYPE]: ({ prefix }) => (
     <>
-      <UnitsField fieldKey="preScaledUnits" path={prefix} />
-      <Align.Space x>
+      <CustomScaleUnitsFields prefix={prefix} />
+      <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
           label="Pre-Scaled Min"
@@ -161,11 +144,11 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           label="Pre-Scaled Max"
           path={prefix}
         />
-      </Align.Space>
-      <Align.Space x>
+      </Flex.Box>
+      <Flex.Box x>
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
-      </Align.Space>
+      </Flex.Box>
     </>
   ),
   [TABLE_SCALE_TYPE]: ({ prefix }) => {
@@ -181,8 +164,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableSchema = z.record(z.string(), z.array(z.unknown()));
-    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
-    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
+    const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
+    const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
     const currValueRef = useRef<Record<string, unknown[]>>({});
 
     const updateValue = () => {
@@ -229,7 +212,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
 
     return (
       <>
-        <UnitsField fieldKey="preScaledUnits" path={prefix} />
+        <CustomScaleUnitsFields prefix={prefix} />
         <Input.Item label="Table CSV" padHelpText>
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}
@@ -238,24 +221,24 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
-        <Align.Space x>
+        <Flex.Box x>
           <Input.Item label="Raw Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
+            <Select.Static
+              resourceName="Raw Column"
               value={rawCol}
               onChange={handleRawColChange}
               data={colOptions}
             />
           </Input.Item>
           <Input.Item label="Scaled Column" padHelpText grow>
-            <Select.Single
-              columns={NAMED_KEY_COLS}
+            <Select.Static
+              resourceName="Scaled Column"
               value={scaledCol}
               onChange={handleScaledColChange}
               data={colOptions}
             />
           </Input.Item>
-        </Align.Space>
+        </Flex.Box>
       </>
     );
   },

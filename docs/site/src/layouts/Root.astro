@@ -64,9 +64,8 @@ const {
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors = document.querySelectorAll(".heading-anchor");
             anchors.forEach((anchor) => {
-                if (anchor.previousElementSibling?.classList.contains("no-link")) {
+                if (anchor.previousElementSibling?.classList.contains("no-link"))
                     anchor.style.display = "none";
-                }
                 anchor.addEventListener("click", () => {
                     const url = window.location.href;
                     const newUrl = url.split("#")[0];
@@ -118,17 +117,17 @@ const {
             --pluto-h4-size: 3rem;
             --pluto-h4-weight: 550;
             --pluto-h4-line-height: 150%;
-            --pluto-h5-size: 2.666rem;
+            --pluto-h5-size: round(2.666rem, 1px);
             --pluto-h5-weight: 450;
             --pluto-h5-line-height: 150%;
             --pluto-h5-text-transform: none;
-            --pluto-p-size: 2.666rem;
+            --pluto-p-size: round(2.666rem, 1px);
             --pluto-p-weight: 350;
             --pluto-p-line-height: 175%;
-            --pluto-small-size: 2.333rem;
+            --pluto-small-size: round(2.333rem, 1px);
             --pluto-small-weight: 350;
             --pluto-small-line-height: 150%;
-            --pluto-tiny-size: 2.166rem;
+            --pluto-tiny-size: round(2.166rem, 1px);
             --pluto-tiny-weight: 350;
             --pluto-tiny-line-height: 150%;
             --pluto-height-large: 5.75rem !important;
@@ -433,17 +432,13 @@ const {
 
             overflow-x: hidden;
 
-            .pluto-btn {
+            .pluto-list__item {
                 padding-top: 1rem;
                 padding-bottom: 1rem;
                 border-radius: 0 !important;
                 height: auto;
                 background: none !important;
                 width: unset !important;
-
-                &:not(.pluto--has-children) {
-                    padding-left: 4.25rem !important;
-                }
 
                 &:hover:not(.pluto--selected) {
                     &:not(.pluto--has-children) {
@@ -481,7 +476,7 @@ const {
         }
 
         .page-nav-mobile-content {
-            & div:first-child {
+            & > div:first-child {
                 display: none;
             }
             padding-top: 2rem;
@@ -491,12 +486,13 @@ const {
             border-radius: 1rem !important;
         }
 
-        .pluto-dropdown__bg {
-            backdrop-filter: blur(0.5rem);
-            -webkit-backdrop-filter: blur(0.5rem);
+        .pluto-dialog__bg {
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
+            background: var(--pluto-gray-l0);
         }
         @media (max-width: 600px) and (hover: none) {
-            .pluto-dropdown__dialog {
+            .pluto-dialog__dialog {
                 top: 5rem !important;
                 transform: none !important;
             }

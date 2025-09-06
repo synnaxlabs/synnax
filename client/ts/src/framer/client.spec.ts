@@ -10,9 +10,9 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { newClient } from "@/setupspecs";
+import { createTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Client", () => {
   describe("read + write", () => {
@@ -58,6 +58,129 @@ describe("Client", () => {
     it("should correctly retrieve the main channel group", async () => {
       const group = await client.channels.retrieveGroup();
       expect(group.name).toEqual("Channels");
+    });
+  });
+  describe("readLatestN", () => {
+    it("should correctly read the latest N samples from a single channel", async () => {
+      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
+      const time = await client.channels.create({
+        name: `time-${rand}`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `data-${rand}`,
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      const timeData = [
+        start,
+        start.add(TimeSpan.seconds(1)),
+        start.add(TimeSpan.seconds(2)),
+        start.add(TimeSpan.seconds(3)),
+        start.add(TimeSpan.seconds(4)),
+        start.add(TimeSpan.seconds(5)),
+        start.add(TimeSpan.seconds(6)),
+        start.add(TimeSpan.seconds(7)),
+        start.add(TimeSpan.seconds(8)),
+        start.add(TimeSpan.seconds(9)),
+      ];
+      const dataValues = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      await client.write(start, { [time.key]: timeData, [data.key]: dataValues });
+
+      const result = await client.readLatest(data.key, 3);
+      expect(Array.from(result)).toEqual([8, 9, 10]);
+    });
+
+    it("should correctly read the latest N samples from multiple channels", async () => {
+      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
+      const time = await client.channels.create({
+        name: `time-${rand}`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data1 = await client.channels.create({
+        name: `data1-${rand}`,
+        dataType: "float32",
+        index: time.key,
+      });
+      const data2 = await client.channels.create({
+        name: `data2-${rand}`,
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      const timeData = [
+        start,
+        start.add(TimeSpan.seconds(1)),
+        start.add(TimeSpan.seconds(2)),
+        start.add(TimeSpan.seconds(3)),
+        start.add(TimeSpan.seconds(4)),
+        start.add(TimeSpan.seconds(5)),
+        start.add(TimeSpan.seconds(6)),
+        start.add(TimeSpan.seconds(7)),
+        start.add(TimeSpan.seconds(8)),
+        start.add(TimeSpan.seconds(9)),
+      ];
+      const data1Values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const data2Values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+      await client.write(start, {
+        [time.key]: timeData,
+        [data1.key]: data1Values,
+        [data2.key]: data2Values,
+      });
+
+      const frame = await client.readLatest([time.key, data1.key, data2.key], 3);
+      expect(Array.from(frame.get(data1.key))).toEqual([8, 9, 10]);
+      expect(Array.from(frame.get(data2.key))).toEqual([80, 90, 100]);
+      expect(Array.from(frame.get(time.key))).toEqual([
+        timeData[7].valueOf(),
+        timeData[8].valueOf(),
+        timeData[9].valueOf(),
+      ]);
+    });
+
+    it("should return empty series when no data exists", async () => {
+      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
+      const time = await client.channels.create({
+        name: `time-${rand}`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `data-${rand}`,
+        dataType: "float32",
+        index: time.key,
+      });
+
+      const result = await client.readLatest(data.key, 5);
+      expect(Array.from(result)).toEqual([]);
+    });
+
+    it("should correctly handle N larger than available data", async () => {
+      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
+      const time = await client.channels.create({
+        name: `time-${rand}`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `data-${rand}`,
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      const timeData = [
+        start,
+        start.add(TimeSpan.seconds(1)),
+        start.add(TimeSpan.seconds(2)),
+      ];
+      const dataValues = [1, 2, 3];
+      await client.write(start, { [time.key]: timeData, [data.key]: dataValues });
+
+      const result = await client.readLatest(data.key, 10);
+      expect(Array.from(result)).toEqual([1, 2, 3]);
     });
   });
 });

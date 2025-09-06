@@ -7,25 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { type ontology } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, type Tree } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { canGroupSelection } from "@/group/canGroupSelection";
-import { type Ontology } from "@/ontology";
 
 export interface MenuItemProps {
-  selection: Ontology.TreeContextMenuProps["selection"];
+  resourceIDs: ontology.ID[];
+  rootID: ontology.ID;
+  shape: Tree.Shape;
   showBottomDivider?: boolean;
 }
 
 export const MenuItem = ({
-  selection,
+  resourceIDs,
+  shape,
   showBottomDivider = false,
+  rootID,
 }: MenuItemProps): ReactElement | null =>
-  canGroupSelection(selection) ? (
+  canGroupSelection(resourceIDs, shape, rootID) ? (
     <>
-      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
+      <PMenu.Item itemKey="group">
+        <Icon.Group />
         Group
       </PMenu.Item>
       {showBottomDivider && <PMenu.Divider />}

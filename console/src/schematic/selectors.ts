@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
@@ -155,7 +155,8 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node") return element.props.label?.label ?? null;
+    if (element.type === "node" && element.props.label?.label != null)
+      return element.props.label.label;
     return null;
   });
 };
@@ -197,10 +198,13 @@ export const useSelectRequiredNodeProps = (layoutKey: string, key: string): Node
     [layoutKey, key],
   );
 
-export const selectToolbar = (state: StoreState): ToolbarState =>
-  selectSliceState(state).toolbar;
+export const selectRequiredToolbar = (
+  state: StoreState,
+  key: string,
+): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
+export const useSelectRequiredToolbar = (key: string): ToolbarState | undefined =>
+  useMemoSelect((state: StoreState) => selectRequiredToolbar(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
   selectOptional(state, key)?.editable;
@@ -208,11 +212,13 @@ export const selectEditable = (state: StoreState, key: string): boolean | undefi
 export const useSelectEditable = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
-export const selectViewportMode = (state: StoreState): Viewport.Mode =>
-  selectSliceState(state).mode;
+export const selectRequiredViewportMode = (
+  state: StoreState,
+  key: string,
+): Viewport.Mode => selectRequired(state, key).mode;
 
-export const useSelectViewportMode = (): Viewport.Mode =>
-  useMemoSelect(selectViewportMode, []);
+export const useSelectRequiredViewportMode = (key: string): Viewport.Mode =>
+  useMemoSelect((state: StoreState) => selectRequiredViewportMode(state, key), [key]);
 
 export const selectViewport = (
   state: StoreState,
@@ -234,7 +240,7 @@ export const useSelectControlStatus = (layoutKey: string): Control.Status | unde
   );
 
 export const selectHasPermission = (state: Permissions.StoreState): boolean =>
-  Permissions.selectCanUseType(state, schematic.ONTOLOGY_TYPE);
+  Permissions.selectCanUseType(state, "schematic");
 
 export const useSelectHasPermission = (): boolean =>
   useMemoSelect(selectHasPermission, []);
@@ -256,3 +262,9 @@ export const selectAuthority = (state: StoreState, key: string): number | undefi
 
 export const useSelectAuthority = (key: string): number | undefined =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
+
+export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
+  selectRequired(state, key).toolbar.selectedSymbolGroup;
+
+export const useSelectSelectedSymbolGroup = (key: string): string =>
+  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);

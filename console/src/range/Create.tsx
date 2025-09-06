@@ -9,44 +9,32 @@
 
 import "@/range/Create.css";
 
-import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
+  Flex,
   Form,
-  Icon as PIcon,
+  Icon,
   Input,
   Nav,
   Ranger,
-  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitive, uuid } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useRef } from "react";
+import { TimeRange, uuid } from "@synnaxlabs/x";
+import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { fromClientRange } from "@/range/ContextMenu";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
-const formSchema = z.object({
-  key: z.string().optional(),
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
-  labels: z.string().array(),
-  parent: z.string().optional(),
-});
-
-export type FormProps = z.infer<typeof formSchema>;
-
-export type CreateLayoutArgs = Partial<FormProps>;
+export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
@@ -70,176 +58,144 @@ export const createCreateLayout = (
   args: initial,
 });
 
-const parentRangeIcon = (
-  <PIcon.Icon bottomRight={<Icon.Arrow.Up />}>
-    <Icon.Range />
-  </PIcon.Icon>
-);
+export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
+  bottomRight: Icon.Arrow.Up,
+});
 
 export const Create: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
+  const { layoutKey, onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
-  const initialValues: FormProps = {
-    name: "",
-    labels: [],
-    timeRange: { start: now, end: now },
-    parent: "",
-    ...args,
-  };
-
-  return <CreateLayoutForm initialValues={initialValues} {...props} />;
-};
-
-interface CreateLayoutFormProps extends Layout.RendererProps {
-  initialValues: FormProps;
-  onClose: () => void;
-}
-
-const CreateLayoutForm = ({
-  initialValues,
-  onClose,
-}: CreateLayoutFormProps): ReactElement => {
-  const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
   const dispatch = useDispatch();
+
   const client = Synnax.use();
   const clientExists = client != null;
-  const handleError = Status.useErrorHandler();
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (persisted: boolean) => {
-      if (!methods.validate()) return;
-      const values = methods.value();
-      const { timeRange: tr, parent } = values;
-      const timeRange = new TimeRange(tr);
-      const name = values.name.trim();
-      const key = initialValues.key ?? uuid.create();
-      const parentID = primitive.isZero(parent)
-        ? undefined
-        : ranger.ontologyID(parent as string);
-      const otgID = ranger.ontologyID(key);
-      if (persisted && clientExists) {
-        await client.ranges.create({ key, name, timeRange }, { parent: parentID });
-        await client.labels.label(otgID, values.labels, { replace: true });
-      }
+  const { form, save, variant } = Ranger.useForm({
+    params: { key: args?.key },
+    autoSave: false,
+    initialValues: {
+      key: uuid.create(),
+      name: "",
+      labels: [],
+      timeRange: { start: now, end: now },
+      parent: "",
+      ...args,
+    },
+    afterSave: () => {
+      onClose();
+      const value = form.value();
+      if (value.key == null) return;
       dispatch(
         add({
-          ranges: [
-            { variant: "static", name, timeRange: timeRange.numeric, key, persisted },
-          ],
+          ranges: fromClientRange({
+            ...value,
+            key: value.key ?? "",
+            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end),
+            labels: [],
+            parent: null,
+          }),
         }),
       );
-      onClose();
     },
-    onError: (e) => handleError(e, "Failed to create range"),
   });
+
+  const saveLocal = useCallback(() => {
+    if (!form.validate()) return;
+    const value = form.value();
+    if (value.key == null) return;
+    dispatch(
+      add({
+        ranges: [
+          {
+            persisted: false,
+            ...value,
+            key: value.key ?? "",
+            variant: "static",
+            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
+              .numeric,
+          },
+        ],
+      }),
+    );
+    onClose();
+  }, [form, dispatch]);
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== initialValues.key),
-    [initialValues.key],
+    (data: ranger.Payload) => data.key !== args?.key,
+    [args?.key],
   );
 
   return (
-    <Align.Space className={CSS.B("range-create-layout")} grow empty>
-      <Align.Space
+    <Flex.Box className={CSS.B("range-create-layout")} grow empty>
+      <Flex.Box
         className="console-form"
         justify="center"
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof Ranger.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
-                variant="natural"
+                variant="text"
                 placeholder="Range Name"
                 {...p}
               />
             )}
           </Form.Field>
-          <Align.Space x size="large">
+          <Flex.Box x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
+            <Text.Text level="h4">
+              <Icon.Arrow.Right />
+            </Text.Text>
             <Form.Field<number> path="timeRange.end" label="To">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
-          </Align.Space>
-          <Align.Space x>
+          </Flex.Box>
+          <Flex.Box x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
-              {({ onChange, ...p }) => (
+              {({ onChange, value }) => (
                 <Ranger.SelectSingle
-                  dropdownVariant="modal"
                   style={{ width: "fit-content" }}
-                  zIndex={100}
+                  zIndex={-1}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e) => (
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={parentRangeIcon}
-                      size="small"
-                    >
-                      {e.name}
-                    </Text.WithIcon>
-                  )}
-                  inputPlaceholder="Search Ranges"
-                  triggerTooltip="Select Parent Range"
-                  placeholder={
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={parentRangeIcon}
-                      size="small"
-                    >
-                      Parent Range
-                    </Text.WithIcon>
-                  }
-                  onChange={(v: string) => onChange(v ?? "")}
-                  {...p}
+                  value={value}
+                  onChange={onChange}
+                  icon={<ParentRangeIcon />}
+                  allowNone
                 />
               )}
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => (
-                <Label.SelectMultiple
-                  entryRenderKey="name"
-                  dropdownVariant="floating"
-                  zIndex={100}
-                  location="bottom"
-                  {...p}
-                />
-              )}
+              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
-          </Align.Space>
+          </Flex.Box>
         </Form.Form>
-      </Align.Space>
+      </Flex.Box>
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            variant="outlined"
-            onClick={() => mutate(false)}
-            disabled={isPending}
-          >
+          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
-            onClick={() => mutate(true)}
-            disabled={!clientExists || isPending}
+            variant="filled"
+            onClick={() => save()}
+            disabled={!clientExists}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={isPending}
-            triggers={Triggers.SAVE}
+            status={variant}
+            trigger={Triggers.SAVE}
           >
             Save to Synnax
           </Button.Button>
         </Nav.Bar.End>
       </Modals.BottomNavBar>
-    </Align.Space>
+    </Flex.Box>
   );
 };

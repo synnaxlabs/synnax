@@ -14,7 +14,7 @@
     cursor: grabbing;
     z-index: 4;
     backdrop-filter: blur(4rem);
-    padding: 1rem;
+    padding: 0.5rem 1rem;
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;
     max-height: 50%;
@@ -24,17 +24,28 @@
     .pluto-text {
         user-select: none;
     }
+
     .pluto-visible-toggle {
-        width: 0;
-        transition: width 0.2s ease-in-out;
-    }
-    &.pluto--with-visible-toggle {
-        padding: 0.5rem 0.5rem 0.5rem 1rem;
+        transition:
+            min-width 0.1s ease-out,
+            opacity 0.1s ease-out;
     }
 
-    &:hover {
-        .pluto-visible-toggle {
-            width: var(--pluto-height-tiny);
+    &:not(:hover) .pluto-visible-toggle {
+        min-width: 0;
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition:
+            min-width 0.1s ease-in,
+            opacity 0.1s ease-in;
+        & svg {
+            transform: scale(0.9);
         }
+    }
+
+    .pluto-legend-entry {
+        height: round(3.25rem, 1px);
+        cursor: pointer;
     }
 }

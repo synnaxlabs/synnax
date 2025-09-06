@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { schematic } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
   Color,
   Diagram,
+  Flex,
   Form,
+  Icon,
   Input,
   Schematic,
   Status,
+  Text,
 } from "@synnaxlabs/pluto";
-import { box, color, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { box, color, deep, location, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Layout } from "@/layout";
 import {
   type ElementInfo,
   selectViewport,
@@ -31,6 +34,7 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
+import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
@@ -44,9 +48,9 @@ export const PropertiesControls = memo(
     const digests = useSelectSelectedElementDigests(layoutKey);
     if (digests.length === 0)
       return (
-        <Status.Text.Centered variant="disabled" hideIcon>
+        <Text.Text status="disabled" center>
           Select a Schematic element to configure its properties.
-        </Status.Text.Centered>
+        </Text.Text>
       );
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
@@ -76,7 +80,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.SYMBOLS[props.key];
+  const C = Schematic.Symbol.REGISTRY[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {
@@ -84,17 +88,41 @@ const IndividualProperties = ({
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
-    values: structuredClone(props),
+    values: deep.copy(props),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, values),
+    onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
+  const specKey = Form.useFieldValue<string, string, typeof nodePropsZ>("specKey", {
+    ctx: formMethods,
+    optional: true,
+  });
+  const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
+  let actions: ReactNode = null;
+  const placeLayout = Layout.usePlacer();
+  if (isRemote && specKey != null)
+    actions = (
+      <Button.Button
+        variant="filled"
+        size="tiny"
+        style={{ marginRight: "1rem" }}
+        onClick={() => {
+          placeLayout(
+            createEditLayout({
+              args: { key: specKey },
+            }),
+          );
+        }}
+      >
+        <Icon.Edit />
+      </Button.Button>
+    );
 
   return (
-    <Align.Space style={{ height: "100%" }} y>
+    <Flex.Box style={{ height: "100%" }} y>
       <Form.Form<typeof nodePropsZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} />
+        <C.Form {...formMethods} key={nodeKey} actions={actions} />
       </Form.Form>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -113,7 +141,7 @@ const EdgeProperties = ({
     dispatch(setElementProps({ layoutKey, key, props }));
   };
   return (
-    <Align.Space style={{ padding: "2rem" }} align="start" x>
+    <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.color ?? color.ZERO}
@@ -128,7 +156,7 @@ const EdgeProperties = ({
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };
 
@@ -195,9 +223,9 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Align.Space align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x style={{ padding: "2rem" }}>
       <Input.Item label="Selection Colors" align="start">
-        <Align.Space y>
+        <Flex.Box y>
           {Object.entries(colorGroups).map(([hex, elements]) => (
             <Color.Swatch
               key={elements[0].key}
@@ -207,11 +235,11 @@ const MultiElementProperties = ({
               }}
             />
           ))}
-        </Align.Space>
+        </Flex.Box>
       </Input.Item>
       <Input.Item label="Align">
-        <Align.Space x>
-          <Button.Icon
+        <Flex.Box x>
+          <Button.Button
             tooltip="Align nodes vertically"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "x");
@@ -226,8 +254,8 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.YCenter />
-          </Button.Icon>
-          <Button.Icon
+          </Button.Button>
+          <Button.Button
             tooltip="Align nodes horizontally"
             onClick={() => {
               const newPositions = Diagram.alignNodes(getLayouts(), "y");
@@ -242,9 +270,9 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.XCenter />
-          </Button.Icon>
-        </Align.Space>
+          </Button.Button>
+        </Flex.Box>
       </Input.Item>
-    </Align.Space>
+    </Flex.Box>
   );
 };

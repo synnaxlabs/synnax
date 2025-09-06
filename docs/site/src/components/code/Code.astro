@@ -1,6 +1,5 @@
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
 const { tabindex, variant, wrap = false, ...rest } = Astro.props;
@@ -10,11 +9,11 @@ if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    <Button.Icon variant="outlined" size="medium">
+    <Button.Button variant="outlined" size="medium" square>
         <Fragment>
             <Icon.Copy className="copy" /><Icon.Check className="check" />
         </Fragment>
-    </Button.Icon>
+    </Button.Button>
     <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 
@@ -65,6 +64,10 @@ if (wrap) className += " wrap";
             top: 2.3rem;
             transition: opacity 0.2s ease-in-out;
             z-index: 2;
+            & .pluto-icon {
+                width: 1em !important;
+                height: 1em !important;
+            }
 
             .check {
                 display: none;

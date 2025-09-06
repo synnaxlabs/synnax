@@ -9,10 +9,8 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { framer } from "@/framer";
 import {
   type Device,
   deviceZ,
@@ -20,136 +18,95 @@ import {
   keyZ,
   type New,
   newZ,
-  ONTOLOGY_TYPE,
-  type State,
-  stateZ,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
-import { ontology } from "@/ontology";
-import { signals } from "@/signals";
+import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const SET_CHANNEL_NAME = "sy_device_set";
-const DELETE_CHANNEL_NAME = "sy_device_delete";
-const STATE_CHANNEL_NAME = "sy_device_state";
+export const SET_CHANNEL_NAME = "sy_device_set";
+export const DELETE_CHANNEL_NAME = "sy_device_delete";
+export const STATUS_CHANNEL_NAME = "sy_device_status";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
 const DELETE_ENDPOINT = "/hardware/device/delete";
 
 const createReqZ = z.object({ devices: newZ.array() });
-
 const createResZ = z.object({ devices: deviceZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
-
 const deleteResZ = z.object({});
 
-const retrieveReqZ = z.object({
+const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
   models: z.string().array().optional(),
   locations: z.string().array().optional(),
   racks: rackKeyZ.array().optional(),
-  search: z.string().optional(),
+  searchTerm: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  ignoreNotFound: z.boolean().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
 });
-
-interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
-
-export interface RetrieveOptions
-  extends Pick<
-    RetrieveRequest,
-    "limit" | "offset" | "makes" | "ignoreNotFound" | "includeState"
-  > {}
-
-interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
-
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export class Client implements AsyncTermSearcher<string, Key, Device> {
-  readonly type = ONTOLOGY_TYPE;
-  private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
+const singleRetrieveArgsZ = z
+  .object({
+    key: keyZ,
+    includeStatus: z.boolean().optional(),
+  })
+  .transform(({ key, includeStatus }) => ({
+    keys: [key],
+    includeStatus,
+  }));
 
-  constructor(client: UnaryClient, frameClient: framer.Client) {
+export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+
+const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
+export class Client {
+  readonly type = "device";
+  private readonly client: UnaryClient;
+
+  constructor(client: UnaryClient) {
     this.client = client;
-    this.frameClient = frameClient;
   }
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = record.Unknown,
-  >(
-    key: string,
-    options?: RetrieveOptions,
-  ): Promise<Device<Properties, Make, Model, StateDetails>>;
+  >(args: SingleRetrieveArgs): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = record.Unknown,
-  >(
-    keys: string[],
-    options?: RetrieveOptions,
-  ): Promise<Array<Device<Properties, Make, Model, StateDetails>>>;
+  >(args: MultiRetrieveArgs): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = record.Unknown,
   >(
-    keys: string | string[],
-    options?: RetrieveOptions,
-  ): Promise<
-    | Device<Properties, Make, Model, StateDetails>
-    | Array<Device<Properties, Make, Model, StateDetails>>
-  > {
-    const isSingle = !Array.isArray(keys);
+    args: RetrieveArgs,
+  ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
+    const isSingle = typeof args === "object" && "key" in args;
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys), ...options },
-      retrieveReqZ,
+      args,
+      retrieveArgsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
-    return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model, StateDetails>)
-      : (res.devices as Array<Device<Properties, Make, Model, StateDetails>>);
-  }
-
-  async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
-    return (
-      await sendRequired(
-        this.client,
-        RETRIEVE_ENDPOINT,
-        { search: term, ...options },
-        retrieveReqZ,
-        retrieveResZ,
-      )
-    ).devices;
-  }
-
-  async page(offset: number, limit: number, options?: PageOptions): Promise<Device[]> {
-    return (
-      await sendRequired(
-        this.client,
-        RETRIEVE_ENDPOINT,
-        { offset, limit, ...options },
-        retrieveReqZ,
-        retrieveResZ,
-      )
-    ).devices;
+    checkForMultipleOrNoResults("Device", args, res.devices, isSingle);
+    const devices = res.devices as Device<Properties, Make, Model>[];
+    return isSingle ? devices[0] : devices;
   }
 
   async create<
@@ -177,9 +134,8 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       createReqZ,
       createResZ,
     );
-    return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model>)
-      : (res.devices as Device<Properties, Make, Model>[]);
+    const created = res.devices as Device<Properties, Make, Model>[];
+    return isSingle ? created[0] : created;
   }
 
   async delete(keys: string | string[]): Promise<void> {
@@ -191,48 +147,6 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       deleteResZ,
     );
   }
-
-  async openDeviceTracker(): Promise<signals.Observable<string, Device>> {
-    return await signals.openObservable<string, Device>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      decodeDeviceChanges,
-    );
-  }
-
-  async openStateObserver<Details extends {} = record.Unknown>(): Promise<
-    framer.ObservableStreamer<State<Details>[]>
-  > {
-    return new framer.ObservableStreamer<State<Details>[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const states = s.parseJSON(stateZ);
-        return [states as State<Details>[], true];
-      },
-    );
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Device> {
-    return {
-      type: this.type,
-      search: async (term: string) => await this.search(term, options),
-      retrieve: async (keys: string[]) => await this.retrieve(keys, options),
-      page: async (offset: number, limit: number) =>
-        await this.page(offset, limit, options),
-    };
-  }
 }
 
-const decodeDeviceChanges: signals.Decoder<string, Device> = (variant, data) => {
-  if (variant === "delete")
-    return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
-  return data.parseJSON(deviceZ).map((d) => ({ variant, key: d.key, value: d }));
-};
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "device", key });

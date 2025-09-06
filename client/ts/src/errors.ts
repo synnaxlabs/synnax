@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
-import { errors } from "@synnaxlabs/x";
+import { array, errors } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export class SynnaxError extends errors.createTyped("sy") {}
 
@@ -17,14 +18,24 @@ export class SynnaxError extends errors.createTyped("sy") {}
  */
 export class ValidationError extends SynnaxError.sub("validation") {}
 
-export class FieldError extends ValidationError.sub("field") {
-  readonly field: string;
-  readonly message: string;
+export class PathError extends ValidationError.sub("path") {
+  readonly path: string[];
+  readonly error: Error;
+  static readonly encodedSchema = z.object({
+    path: z.string().array(),
+    error: errors.payloadZ,
+  });
 
-  constructor(field: string, message: string) {
-    super(`${field}: ${message}`);
-    this.field = field;
-    this.message = message;
+  constructor(path: string | string[], error: Error) {
+    const arrPath = array.toArray(path);
+    super(`${arrPath.join(".")}: ${error.message}`);
+    this.path = arrPath.flatMap((p) => p.split("."));
+    this.error = error;
+  }
+
+  static decode(payload: errors.Payload): PathError {
+    const decoded = PathError.encodedSchema.parse(JSON.parse(payload.data));
+    return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
 }
 
@@ -80,6 +91,12 @@ export class ControlError extends SynnaxError.sub("control") {}
 
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
+export class DisconnectedError extends SynnaxError.sub("disconnected") {
+  constructor(message: string = "Operation failed because no cluster is connected.") {
+    super(message);
+  }
+}
+
 /**
  * Raised when time-series data is not contiguous.
  */
@@ -88,11 +105,7 @@ export class ContiguityError extends SynnaxError.sub("contiguity") {}
 const decode = (payload: errors.Payload): Error | null => {
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
-    if (payload.type === FieldError.TYPE) {
-      const values = payload.data.split(": ");
-      if (values.length < 2) return new ValidationError(payload.data);
-      return new FieldError(values[0], values[1]);
-    }
+    if (payload.type === PathError.TYPE) return PathError.decode(payload);
     return new ValidationError(payload.data);
   }
 
@@ -128,7 +141,7 @@ const decode = (payload: errors.Payload): Error | null => {
 };
 
 const encode = (): errors.Payload => {
-  throw new Error("Not implemented");
+  throw new errors.NotImplemented();
 };
 
 errors.register({ encode, decode });
@@ -138,7 +151,7 @@ export const validateFieldNotNull = (
   value: unknown,
   message: string = "must be provided",
 ): void => {
-  if (value == null) throw new FieldError(key, message);
+  if (value == null) throw new PathError(key, new ValidationError(message));
 };
 
 export const errorsMiddleware: Middleware = async (ctx, next) => {

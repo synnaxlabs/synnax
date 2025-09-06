@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, notation, scale, status as xstatus } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { UnexpectedError } from "@synnaxlabs/client";
+import {
+  bounds,
+  color,
+  id,
+  MultiSeries,
+  notation,
+  scale,
+  Series,
+  status,
+} from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
@@ -20,6 +29,7 @@ import {
   type ColorSourceSpec,
   MultiSourceTransformer,
   type NumberSourceSpec,
+  type SeriesSourceSpec,
   type Spec,
   type StringSourceSpec,
   type Telem,
@@ -133,11 +143,11 @@ export const mean = (props: z.input<typeof meanProps>): BooleanSourceSpec => ({
 });
 
 export const booleanStatusProps = z.object({
-  trueVariant: xstatus.variantZ.optional().default("success"),
+  trueVariant: status.variantZ.optional().default("success"),
 });
 
 export class BooleanStatus extends UnarySourceTransformer<
-  status.Spec,
+  status.Status,
   boolean,
   typeof booleanStatusProps
 > {
@@ -145,7 +155,7 @@ export class BooleanStatus extends UnarySourceTransformer<
   static readonly propsZ = booleanStatusProps;
   schema = BooleanStatus.propsZ;
 
-  protected transform(value: status.Spec): boolean {
+  protected transform(value: status.Status): boolean {
     return value.variant === this.props.trueVariant;
   }
 }
@@ -176,6 +186,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
+    if (isNaN(value)) return "";
     const { precision, prefix, suffix, notation: pNotation } = this.props;
     return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
   }
@@ -205,7 +216,7 @@ export class RollingAverage extends UnarySourceTransformer<
   private values: number[] = [];
 
   protected transform(value: number): number {
-    if (this.props.windowSize < 2) return value;
+    if (this.props.windowSize < 2 || isNaN(value)) return value;
     return this.values.reduce((a, b) => a + b, 0) / this.values.length;
   }
 
@@ -267,6 +278,7 @@ export class ScaleNumber extends UnarySourceTransformer<
   schema = ScaleNumber.propsZ;
 
   protected transform(value: number): number {
+    if (isNaN(value)) return value;
     const { offset, scale } = this.props.scale;
     return value * scale + offset;
   }
@@ -279,4 +291,132 @@ export const scaleNumber = (
   type: ScaleNumber.TYPE,
   variant: "source",
   valueType: "number",
+});
+
+export const downsampleModeZ = z.enum(["average", "decimate"]);
+
+export type DownsampleMode = z.infer<typeof downsampleModeZ>;
+
+export const downsampleModeProps = z.object({
+  mode: downsampleModeZ,
+  windowSize: z.number().optional().default(5),
+});
+
+export type DownsampleModeProps = z.infer<typeof downsampleModeProps>;
+
+export const downsampleMode = (props: DownsampleModeProps): NumberSourceSpec => ({
+  props,
+  type: SeriesDownsampler.TYPE,
+  variant: "source",
+  valueType: "number",
+});
+
+interface DownsampleFunction {
+  (source: Series, downsampled: Series, windowSize: number): void;
+}
+
+const decimate: DownsampleFunction = (source, downsampled, windowSize) => {
+  const startIdx = downsampled.length * windowSize;
+
+  for (let i = startIdx; i < source.length; i += windowSize) {
+    const sample = source.sub(i, i + 1);
+    if (sample !== undefined) downsampled.write(sample);
+  }
+};
+
+const average: DownsampleFunction = (source, downsampled, windowSize) => {
+  const startIdx = downsampled.length * windowSize;
+
+  for (let i = startIdx; i < source.length; i += windowSize) {
+    if (i + windowSize > source.length) break;
+    const endIdx = Math.min(i + windowSize, source.length);
+    let sum = 0;
+    let count = 0;
+
+    for (let j = i; j < endIdx; j++) {
+      const val = source.at(j);
+      if (val !== undefined && typeof val === "number") {
+        sum += val;
+        count++;
+      }
+    }
+
+    if (count > 0)
+      downsampled.write(
+        new Series({
+          data: [sum / count],
+          dataType: source.dataType,
+        }),
+      );
+  }
+};
+
+const DOWNSAMPLE_FUNCTIONS: Record<DownsampleMode, DownsampleFunction> = {
+  decimate,
+  average,
+};
+
+export class SeriesDownsampler {
+  static readonly TYPE = "series-downsampler";
+  private _downsample: DownsampleFunction | null = null;
+  private readonly cache: MultiSeries = new MultiSeries();
+  readonly props: DownsampleModeProps;
+
+  constructor(props: DownsampleModeProps) {
+    this.props = props;
+  }
+
+  private downsample(source: MultiSeries): DownsampleFunction {
+    if (this._downsample == null)
+      if (source.series[0].sampleOffset !== 0) this._downsample = decimate;
+      else this._downsample = DOWNSAMPLE_FUNCTIONS[this.props.mode];
+    return this._downsample;
+  }
+
+  transform(source: MultiSeries): MultiSeries {
+    if (this.props.mode === "decimate" || this.props.windowSize <= 1) return source;
+    if (source.series.length === 0) return this.cache;
+
+    // Step 1: Evict Removed Series from Cache. We know we have an old entry if
+    // the key of the first series in the source is not equal to the key of the
+    // first series in the cache.
+    while (
+      this.cache.series.length > 0 &&
+      !this.cache.series[0].key.startsWith(source.series[0].key)
+    )
+      this.cache.series.shift();
+
+    // Step 2: Update the downsampled series in the cache.
+    source.series.forEach((ser, i) => {
+      let downsampledSeries = this.cache.series.at(i);
+      // Step 2A: If the series is not in the cache, allocate a new series.
+      if (downsampledSeries == null) {
+        const capacity = Math.ceil(ser.capacity / this.props.windowSize);
+        downsampledSeries = Series.alloc({
+          key: ser.key + id.create(),
+          dataType: ser.dataType,
+          capacity,
+          alignment: ser.alignment,
+          alignmentMultiple: BigInt(this.props.windowSize),
+          sampleOffset: ser.sampleOffset,
+          timeRange: ser.timeRange,
+        });
+        this.cache.push(downsampledSeries);
+      } else if (!downsampledSeries.key.startsWith(ser.key))
+        throw new UnexpectedError(
+          `[SeriesDownsampler] - expected series with key ${ser.key} to be in cache, but found ${downsampledSeries.key}`,
+        );
+      this.downsample(source)(ser, downsampledSeries, this.props.windowSize);
+    });
+    return this.cache;
+  }
+}
+
+export const seriesDownsampler = (
+  props: z.input<typeof downsampleModeProps>,
+): SeriesSourceSpec => ({
+  props,
+  type: SeriesDownsampler.TYPE,
+  variant: "source",
+  valueType: "series",
 });

@@ -10,11 +10,12 @@
 import { Header, type Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 export interface TitleProps extends Pick<Header.TitleProps, "children"> {
-  icon: Icon.Element;
+  icon: Icon.ReactElement;
 }
 
 export const Title = ({ icon, children }: TitleProps): ReactElement => (
-  <Header.Title shade={10} startIcon={icon} weight={500}>
+  <Header.Title color={10} weight={500}>
+    {icon}
     {children}
   </Header.Title>
 );

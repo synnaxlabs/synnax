@@ -7,100 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { type color, type Optional } from "@synnaxlabs/x";
-import { memo, type ReactElement, useState } from "react";
+import { type Optional } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
-import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Text } from "@/text";
+import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
+import { Entries, type EntryData } from "@/vis/legend/Entries";
 
-interface SimpleEntry {
-  key: string;
-  label: string;
-  color: color.Crude;
-  visible: boolean;
-}
-
-export interface SimpleProps extends Omit<ContainerProps, "value" | "onChange"> {
-  data?: Optional<SimpleEntry, "visible">[];
-  onEntryChange?: (value: SimpleEntry) => void;
+export interface SimpleProps
+  extends Omit<
+    ContainerProps,
+    "value" | "onChange" | "background" | "draggable" | "gap"
+  > {
+  data?: Optional<EntryData, "visible">[];
+  onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
   allowVisibleChange?: boolean;
+  background?: Theming.Shade;
 }
-
-interface LegendSwatchesProps {
-  data: Optional<SimpleEntry, "visible">[];
-  onEntryChange: SimpleProps["onEntryChange"];
-  onVisibleChange?: (visible: boolean) => void;
-  allowVisibleChange?: boolean;
-  shade?: Text.Shade;
-}
-
-export const LegendSwatches = memo(
-  ({
-    data,
-    onEntryChange,
-    onVisibleChange,
-    allowVisibleChange = true,
-    shade = 1,
-  }: LegendSwatchesProps): ReactElement => (
-    <>
-      {data
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map(({ key, color, label, visible = true }) => (
-          <Align.Space
-            key={key}
-            style={{ cursor: "pointer" }}
-            x
-            align="center"
-            size="small"
-            justify="spaceBetween"
-            grow
-          >
-            <Align.Space direction="x" align="center" size="small">
-              <Color.Swatch
-                value={color}
-                onChange={(c) => onEntryChange?.({ key, color: c, label, visible })}
-                onVisibleChange={onVisibleChange}
-                allowChange={onEntryChange != null}
-                draggable={false}
-                size="tiny"
-              />
-              <Text.MaybeEditable
-                level="small"
-                value={label}
-                onChange={(l) => onEntryChange?.({ key, color, label: l, visible })}
-                noWrap
-                shade={visible ? 10 : 7}
-                onDoubleClick={(e) => e.stopPropagation()}
-              />
-            </Align.Space>
-            {allowVisibleChange && (
-              <Button.Icon
-                className={CSS.B("visible-toggle")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEntryChange?.({ key, color, label, visible: !visible });
-                }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                size="tiny"
-                shade={shade}
-              >
-                {visible ? <Icon.Visible /> : <Icon.Hidden />}
-              </Button.Icon>
-            )}
-          </Align.Space>
-        ))}
-    </>
-  ),
-);
-
-LegendSwatches.displayName = "LegendSwatches";
 
 export const Simple = ({
   data = [],
@@ -108,27 +33,31 @@ export const Simple = ({
   position,
   onPositionChange,
   allowVisibleChange = true,
+  background = 1,
   ...rest
 }: SimpleProps): ReactElement | null => {
-  const [pickerVisible, setPickerVisible] = useState<boolean>(false);
-
+  const [pickerVisible, setPickerVisible] = useState(false);
   if (data.length === 0) return null;
-
   return (
     <Container
       {...rest}
-      className={allowVisibleChange ? CSS.M("with-visible-toggle") : undefined}
       draggable={!pickerVisible}
       value={position}
       onChange={onPositionChange}
-      size={allowVisibleChange ? 0 : "tiny"}
+      background={background}
+      empty
     >
-      <LegendSwatches
+      <Entries
         data={data}
         onEntryChange={onEntryChange}
-        onVisibleChange={setPickerVisible}
+        colorPickerVisible={pickerVisible}
+        onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowVisibleChange}
+        background={background}
+        entryProps={entryProps}
       />
     </Container>
   );
 };
+
+const entryProps = { justify: "between", grow: true } as const;

@@ -7,22 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { color, status } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+
+export const indicatorStatusDetailsZ = z
+  .object({ color: color.colorZ.optional() })
+  .default({ color: undefined });
+
+export type IndicatorStatusDetails = z.infer<typeof indicatorStatusDetailsZ>;
 
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
-  status: status.specZ,
+  status: status.statusZ(indicatorStatusDetailsZ),
   color: color.colorZ.optional(),
 });
 
 interface InternalState {
-  statusSource: telem.StatusSource;
+  statusSource: telem.StatusSource<IndicatorStatusDetails>;
   colorSource: telem.ColorSource;
 }
 
@@ -40,12 +45,8 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     this.updateState();
     this.stopListeningStatus?.();
     this.stopListeningColor?.();
-    this.stopListeningStatus = i.statusSource.onChange(() => {
-      this.updateState();
-    });
-    this.stopListeningColor = i.colorSource.onChange(() => {
-      this.updateState();
-    });
+    this.stopListeningStatus = i.statusSource.onChange(this.updateState.bind(this));
+    this.stopListeningColor = i.colorSource.onChange(this.updateState.bind(this));
   }
 
   afterDelete(): void {

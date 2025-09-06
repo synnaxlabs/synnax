@@ -7,31 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { runtime } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { type Generic } from "@/generic";
+import { Icon } from "@/icon";
 import { Text as Core } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
 
-export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
+export type TextProps<E extends Generic.ElementType = "p"> = Core.TextProps<E> & {
   trigger: Trigger;
 };
 
-const CUSTOM_TEXT: Partial<Record<Key, (() => ReactElement) | string>> = {
-  Control: () => <Core.Symbols.Meta key="control" />,
-  Alt: () => <Core.Symbols.Alt key="alt" />,
-  Shift: () => <Icon.Keyboard.Shift key="shift" />,
-  MouseLeft: "Click",
-  MouseRight: "Click",
-  MouseMiddle: "Click",
-  Enter: () => <Icon.Keyboard.Return key="enter" />,
+const isWindows = runtime.getOS() == "Windows";
+
+const Control = isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command;
+const Alt = isWindows ? () => "Alt" : Icon.Keyboard.Option;
+
+const CUSTOM_TEXT: Partial<Record<Key, ReactElement>> = {
+  Control: <Control key="control" />,
+  Alt: <Alt key="alt" />,
+  Shift: <Icon.Keyboard.Shift key="shift" />,
+  MouseLeft: <Icon.Click key="mouse" />,
+  MouseRight: <Icon.Click key="mouse" />,
+  MouseMiddle: <Icon.Click key="mouse" />,
+  Enter: <Icon.Keyboard.Return key="enter" />,
 };
 
-const getCustomText = (trigger: Key): ReactElement | string => {
-  const t = CUSTOM_TEXT[trigger];
-  if (t != null) return typeof t === "function" ? t() : t;
-  return trigger;
-};
+const getCustomText = (trigger: Key): ReactElement | string =>
+  CUSTOM_TEXT[trigger] ?? trigger;
 
 const isMouseTrigger = (trigger: Key): boolean =>
   trigger === "MouseLeft" || trigger === "MouseRight" || trigger === "MouseMiddle";
@@ -48,19 +52,20 @@ const sortTriggers = (trigger: Trigger): Trigger =>
 export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   trigger.map((t) => getCustomText(t));
 
-export const Text = <L extends Core.Level>({
-  className,
-  style,
+export const Text = <E extends Generic.ElementType = "p">({
   trigger,
   children,
+  level,
   ...rest
-}: TextProps<L>): ReactElement => (
-  <>
-    {sortTriggers(trigger).map((t) => (
-      // @ts-expect-error - issues with generic element types
-      <Core.Keyboard<L> key={t} {...rest}>
-        {getCustomText(t)}
-      </Core.Keyboard>
-    ))}
-  </>
+}: TextProps<E>): ReactElement => (
+  <Core.Text level={level} gap="small" {...rest}>
+    <Core.Text level={level} gap="tiny" el="span">
+      {sortTriggers(trigger).map((t) => (
+        <Core.Text key={t} el="span" variant="keyboard" level={level}>
+          {getCustomText(t)}
+        </Core.Text>
+      ))}
+    </Core.Text>
+    {children}
+  </Core.Text>
 );

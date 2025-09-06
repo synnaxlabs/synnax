@@ -1,14 +1,35 @@
 {
-  "version": "2.0.0",
   "tasks": [
     {
-      "label": "dev:console-vite",
-      "type": "shell",
+      "label": "console: start dev server",
+      "type": "npm",
+      "script": "dev-vite",
+      "path": "console",
       "isBackground": true,
-      "command": "pnpm",
-      "args": [
-        "dev:console-vite"
-      ],
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
+          "file": 1,
+          "location": 2,
+          "severity": 3,
+          "code": 4,
+          "message": 5
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*dev server running at.*$",
+          "endsPattern": "^.*Local:.*http://localhost:5173.*$"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
     },
   ]
 }

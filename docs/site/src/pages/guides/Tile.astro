@@ -1,8 +1,8 @@
 ---
-import { Align, Text } from "@synnaxlabs/pluto";
+import { Flex, Text } from "@synnaxlabs/pluto";
 ---
 
-<Align.Space
+<Flex.Box
     className="tile animated-background"
     el="a"
     href="/guides/ni-acquire-data"
@@ -10,7 +10,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
     bordered
     grow
 >
-    <Align.Space sName="thumbnail" direction="x" justify="center" align="center" grow>
+    <Flex.Box sName="thumbnail" direction="x" justify="center" align="center" grow>
         <svg
             xmlns="http://www.w3.org/2000/svg"
             width="78"
@@ -35,14 +35,14 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 </linearGradient>
             </path>
         </svg>
-    </Align.Space>
-    <Align.Space direction="y" className="content" justify="start" empty>
+    </Flex.Box>
+    <Flex.Box direction="y" className="content" justify="start" empty>
         <Text.Text level="h3">Acquire data from NI devices </Text.Text>
-        <Text.Text level="small" shade={8} weight={400}>
+        <Text.Text level="small" color={8} weight={400}>
             Learn how to acquire data from National Instruments devices using Synnax.
         </Text.Text>
-    </Align.Space>
-</Align.Space>
+    </Flex.Box>
+</Flex.Box>
 
 <style is:global>
     .tile {

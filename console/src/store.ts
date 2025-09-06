@@ -15,20 +15,18 @@ import {
   type Store,
   Tuple,
 } from "@reduxjs/toolkit";
-import { Drift, NoopRuntime } from "@synnaxlabs/drift";
-import { TauriRuntime } from "@synnaxlabs/drift/tauri";
+import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { isMainWindow } from "@/isMainWindow";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 import { Version } from "@/version";
@@ -40,62 +38,63 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 ];
 
 const ZERO_STATE: RootState = {
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
-  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
-  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
-  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
-  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
+  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
-  [Drift.SLICE_NAME]: Drift.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
-  [Range.SLICE_NAME]: Range.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
+  [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
-  [Permissions.SLICE_NAME]: Permissions.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Range.SLICE_NAME]: Range.reducer,
+  [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
+  [Version.SLICE_NAME]: Version.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
-  [Drift.SLICE_NAME]: Drift.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
-  [Range.SLICE_NAME]: Range.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Drift.SLICE_NAME]: Drift.SliceState;
+  [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Range.SLICE_NAME]: Range.SliceState;
+  [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [Version.SLICE_NAME]: Version.SliceState;
+  [Workspace.SLICE_NAME]: Workspace.SliceState;
 }
 
 export type RootAction =
+  | Cluster.Action
+  | Docs.Action
   | Drift.Action
   | Layout.Action
-  | Range.Action
-  | Docs.Action
-  | Cluster.Action
   | LinePlot.Action
-  | Schematic.Action
+  | Log.Action
   | Permissions.Action
+  | Range.Action
+  | Schematic.Action
+  | Table.Action
   | Version.Action
-  | Workspace.Action
-  | Log.Action;
+  | Workspace.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -138,7 +137,7 @@ interface OpenPersistReturn {
 }
 
 const openPersist = async (): Promise<OpenPersistReturn> => {
-  if (!isMainWindow())
+  if (!Runtime.isMainWindow())
     return {
       initialState: undefined,
       persistMiddleware: () => (next) => (action) => next(action),
@@ -155,17 +154,15 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 };
 
 const BASE_MIDDLEWARE = [
-  ...LinePlot.MIDDLEWARE,
   ...Layout.MIDDLEWARE,
+  ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
 ];
 
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
-  const runtime: Drift.Runtime<RootState, RootAction> =
-    RUNTIME === "tauri" ? new TauriRuntime() : new NoopRuntime();
   return await Drift.configureStore<RootState, RootAction>({
-    runtime,
+    runtime: new Runtime.Drift(),
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,

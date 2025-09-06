@@ -9,7 +9,6 @@
 
 import "@/input/DragButton.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { box, type direction, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
@@ -17,6 +16,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
+import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
@@ -30,7 +30,7 @@ export interface DragButtonExtraProps {
 
 export interface DragButtonProps
   extends Omit<
-      Button.IconProps,
+      Button.ButtonProps,
       | "direction"
       | "onChange"
       | "onDragStart"
@@ -74,7 +74,6 @@ export const DragButton = ({
   dragDirection,
   onChange,
   value,
-  size,
   resetValue,
   onDragEnd,
   ...rest
@@ -146,16 +145,22 @@ export const DragButton = ({
   }, [onChange, resetValue]);
 
   return (
-    <Button.Icon
+    <Button.Button
       ref={elRef}
       variant="outlined"
-      className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
+      className={CSS(
+        CSS.BE("input", "drag-btn"),
+        direction != null && CSS.BEM("input", "drag-btn", "direction", direction),
+        className,
+      )}
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}
       onClick={preventDefault}
+      contrast={0}
+      textColor={9}
       {...rest}
     >
       <Icon.Drag />
-    </Button.Icon>
+    </Button.Button>
   );
 };

@@ -29,7 +29,7 @@
 #include "driver/labjack/labjack.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/rack/state/state.h"
+#include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
@@ -214,6 +214,9 @@ class Rack {
     void run(xargs::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief destructor ensures thread is properly joined
+    ~Rack();
+
     /// @brief starts the rack.
     /// @param args Parser containing command line arguments
     /// @param on_shutdown Optional callback that will be called if the rack shuts

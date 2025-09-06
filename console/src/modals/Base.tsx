@@ -26,7 +26,7 @@ export interface BaseProps<R, A extends BaseArgs<R>> {
 }
 
 export interface LayoutOverrides
-  extends Omit<Partial<Layout.BaseState>, "key" | "type" | "location"> {}
+  extends Omit<Partial<Layout.BaseState>, "type" | "location"> {}
 
 export interface Prompt<R, A extends BaseArgs<R>> {
   (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;
@@ -53,12 +53,9 @@ export const createBase = <R, A extends BaseArgs<R>>(
   const useModal = (): Prompt<R, A> => {
     const placeLayout = usePlacer();
     const store = useStore<Layout.StoreState>();
-    return async (
-      args: A,
-      layoutOverrides?: Omit<Partial<Layout.State>, "key" | "type">,
-    ) => {
+    return async (args: A, layoutOverrides?: LayoutOverrides) => {
       let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
-      const key = id.create();
+      const key = layoutOverrides?.key ?? id.create();
       return await new Promise((resolve) => {
         const layout = configureLayout(key, args, layoutOverrides);
         placeLayout(layout);

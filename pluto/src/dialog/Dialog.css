@@ -1,0 +1,112 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-dialog__dialog {
+    position: fixed;
+    overflow: hidden;
+
+    & > .pluto-pack.pluto--rounded {
+        --pluto-pack-br: 6px;
+    }
+
+    &.pluto--modal {
+        position: relative;
+        &.pluto--hidden {
+            background: none;
+            border: none;
+        }
+        &.pluto--visible {
+            top: 15%;
+            border-color: var(--pluto-gray-l6);
+            min-width: 400px;
+            overflow: hidden;
+            box-shadow: var(--pluto-shadow-v1);
+            border-radius: 1rem;
+            &.pluto-dialog--modal-position-shifted {
+                top: 8%;
+            }
+            &.pluto-dialog--modal-position-slammed {
+                top: 0;
+            }
+            &:not(.pluto-dialog--passthrough) {
+                transition: top 0.15s ease-in-out;
+                animation: var(--pluto-modal-animation);
+            }
+        }
+    }
+
+    &:not(.pluto--modal) {
+        animation: var(--pluto-dialog-animation);
+        box-shadow: var(--pluto-shadow-v1);
+        max-height: 360px;
+        z-index: 6;
+        &.pluto-height-small {
+            max-height: 200px;
+        }
+
+        &.pluto-height-large {
+            max-height: 480px;
+        }
+    }
+
+    &.pluto--hidden:not(.pluto-dialog--passthrough) {
+        opacity: 0;
+        z-index: -1;
+        pointer-events: none;
+    }
+    &.pluto--visible {
+        z-index: 5;
+        opacity: 1;
+    }
+}
+
+.pluto-dialog__bg {
+    width: 100%;
+    height: 100%;
+
+    background: transparent;
+    &:not(.pluto--visible) > div {
+        width: 100%;
+        height: 100%;
+        & > div {
+            width: 100%;
+            height: 100%;
+        }
+    }
+    &.pluto--visible {
+        -webkit-user-select: none;
+        user-select: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 4;
+        padding: 3rem 5rem 3rem 5rem;
+        transition: background 0.15s ease-in-out;
+        background: var(--pluto-gray-l8-40);
+        @media (max-height: 800px) {
+            .pluto-dialog__dialog {
+                top: 10%;
+            }
+        }
+    }
+}
+
+.pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
+    background: var(--pluto-gray-l1-60);
+}
+
+@media (prefers-color-scheme: dark) {
+    .pluto-dialog__bg.pluto--visible {
+        background: var(--pluto-gray-l1-60);
+    }
+}

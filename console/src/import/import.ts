@@ -8,83 +8,89 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
-import { Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type FileIngestor } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
+import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export interface ImportArgs {
   handleError: Status.ErrorHandler;
-  client: Synnax | null;
+  client: Client | null;
   placeLayout: Layout.Placer;
   store: Store;
   workspaceKey?: string;
 }
 
 export interface Importer {
-  (args: ImportArgs): Promise<void>;
+  (args: ImportArgs): void;
 }
 
 export interface ImporterCreator {
-  (ingest: FileIngestor, type?: string): Importer;
+  (ingest: FileIngestor, type: string): Importer;
 }
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
 export const createImporter: ImporterCreator =
-  (ingest, type = "visualization") =>
-  async ({ store, client, placeLayout, handleError, workspaceKey }) => {
-    const paths = await open({
-      title: `Import ${type}`,
-      filters: FILTERS,
-      multiple: true,
-      directory: false,
-    });
-    if (paths == null) return;
-    const storeState = store.getState();
-    const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
-    if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-      let ws = Workspace.select(storeState, workspaceKey);
-      if (ws == null) {
-        if (client == null) throw NULL_CLIENT_ERROR;
-        ws = await client.workspaces.retrieve(workspaceKey);
-      }
-      store.dispatch(Workspace.add(ws));
-      store.dispatch(
-        Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
-      );
-    }
-    await Promise.allSettled(
-      paths.map(async (path) => {
-        try {
-          const data = await readTextFile(path);
-          let name = path.split(sep()).pop();
-          if (name == null) throw new Error(`Cannot read file located at ${path}`);
-          name = trimFileName(name);
-          ingest(data, { layout: { name }, placeLayout, store });
-        } catch (e) {
-          handleError(e, `Failed to import ${type} at ${path}`);
+  (ingest, type) =>
+  ({ store, client, placeLayout, handleError, workspaceKey }) => {
+    handleError(async () => {
+      if (Runtime.ENGINE !== "tauri")
+        throw new Error(
+          "Cannot import items from a dialog when running Synnax in the browser.",
+        );
+      const paths = await open({
+        title: `Import ${type}`,
+        filters: FILTERS,
+        multiple: true,
+        directory: false,
+      });
+      if (paths == null) return;
+      const storeState = store.getState();
+      const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
+      if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
+        let ws = Workspace.select(storeState, workspaceKey);
+        if (ws == null) {
+          if (client == null) throw new DisconnectedError();
+          ws = await client.workspaces.retrieve(workspaceKey);
         }
-      }),
-    );
+        store.dispatch(Workspace.add(ws));
+        store.dispatch(
+          Layout.setWorkspace({
+            slice: ws.layout as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
+      }
+      paths.forEach((path) =>
+        handleError(async () => {
+          const data = await readTextFile(path);
+          const fileName = path.split(sep()).pop();
+          if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
+          const name = trimFileName(fileName);
+          ingest(data, { layout: { name }, placeLayout, store });
+        }, `Failed to import ${type} at ${path}`),
+      );
+    });
   };
 
-export const use = (
-  import_: Importer,
-  workspaceKey?: string,
-): (() => Promise<void>) => {
+export const use = (import_: Importer, workspaceKey?: string): (() => void) => {
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  return () => import_({ store, placeLayout, client, handleError, workspaceKey });
+  return useCallback(
+    () => import_({ store, placeLayout, client, handleError, workspaceKey }),
+    [import_, store, placeLayout, client, handleError, workspaceKey],
+  );
 };

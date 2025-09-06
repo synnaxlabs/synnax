@@ -116,6 +116,26 @@ export const transformPath = (
   return result.join(separator);
 };
 
+const defaultGetter = (obj: record.Unknown, key: string): unknown => {
+  if (!Array.isArray(obj)) return obj[key];
+  const res = obj[key];
+  if (res != null || obj.length == 0) return res;
+  const first = obj[0];
+  if (typeof first === "object" && "key" in first)
+    return obj.find((o) => o.key === key);
+  return undefined;
+};
+
+export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
+  const parts = path.split(".");
+  parts.forEach((part, i) => {
+    obj = defaultGetter(obj as record.Unknown, part) as T;
+    if (obj != null && typeof obj === "object" && "key" in obj)
+      parts[i] = obj.key as string;
+  });
+  return parts.join(".");
+};
+
 /**
  * Gets the value at the given path on the object. If the path does not exist
  * and the optional flag is set to true, null will be returned. If the path does
@@ -133,7 +153,7 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
   opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
   opts.separator ??= ".";
-  const { optional, getter = (obj, key) => obj[key] } = opts;
+  const { optional, getter = defaultGetter } = opts;
   const parts = path.split(opts.separator);
   if (parts.length === 1 && parts[0] === "") return obj as record.Unknown as V;
   let result: record.Unknown = obj as record.Unknown;
@@ -148,6 +168,12 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
   return result as V;
 }) as Get;
 
+const getIndex = (part: string): number | null => {
+  // in order to be considered an index, all characters must be numbers
+  for (const char of part) if (isNaN(parseInt(char))) return null;
+  return parseInt(part);
+};
+
 /**
  * Sets the value at the given path on the object. If the parents of the deep path
  * do not exist, new objects will be created.
@@ -160,11 +186,30 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
   let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    result[part] ??= {};
-    result = result[part] as record.Unknown;
+    const v = defaultGetter(result, part);
+    if (v == null) throw new Error(`Path ${path} does not exist. ${part} is null`);
+    result = v as record.Unknown;
   }
   try {
-    result[parts[parts.length - 1]] = value;
+    if (!Array.isArray(result)) {
+      result[parts[parts.length - 1]] = value;
+      return;
+    }
+    if (result.length === 0) return;
+    const index = getIndex(parts[parts.length - 1]);
+    // If we can't parse an index, try to interpret it as an object key.
+    if (index == null) {
+      const first = result[0];
+      if (typeof first === "object" && "key" in first) {
+        const objIndex = result.findIndex((o) => o.key === parts[parts.length - 1]);
+        if (objIndex !== -1) {
+          result[objIndex] = value;
+          return;
+        }
+      }
+      return;
+    }
+    result[index] = value;
   } catch (e) {
     console.error("failed to set value", value, "at path", path, "on object", obj);
     throw e;

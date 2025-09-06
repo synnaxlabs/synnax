@@ -9,16 +9,17 @@
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
-import { Menu, Mosaic, Text } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Text } from "@synnaxlabs/pluto";
 import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { Menu } from "@/components/menu";
 import { useSelectMosaic } from "@/layout/selectors";
 import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { useRemover } from "@/layout/useRemover";
+import { Runtime } from "@/runtime";
 
 interface MenuItemProps {
   layoutKey: string;
@@ -28,14 +29,14 @@ const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   const dispatch = useDispatch();
   const windowKey = useSelectWindowKey() as string;
   return (
-    <Menu.Item
+    <PMenu.Item
       itemKey="focus"
-      startIcon={<Icon.Focus />}
       onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
       trigger={["Control", "L"]}
     >
+      <Icon.Focus />
       Focus
-    </Menu.Item>
+    </PMenu.Item>
   );
 };
 
@@ -53,14 +54,15 @@ const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | n
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
   return (
-    <Menu.Item
+    <PMenu.Item
       itemKey="openInNewWindow"
-      startIcon={<Icon.OpenInNewWindow />}
       onClick={() => openInNewWindow(layoutKey)}
       trigger={["Control", "O"]}
+      triggerIndicator
     >
+      <Icon.OpenInNewWindow />
       Open in New Window
-    </Menu.Item>
+    </PMenu.Item>
   );
 };
 
@@ -71,39 +73,41 @@ const MoveToMainWindowMenuItem = ({
   const windowKey = useSelectWindowKey();
   if (windowKey === MAIN_WINDOW) return null;
   return (
-    <Menu.Item
+    <PMenu.Item
       itemKey="moveIntoMainWindow"
-      startIcon={<Icon.OpenInNewWindow />}
       onClick={() => moveIntoMainWindow(layoutKey)}
     >
+      <Icon.OpenInNewWindow />
       Move to Main Window
-    </Menu.Item>
+    </PMenu.Item>
   );
 };
 
 const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   const remove = useRemover();
   return (
-    <Menu.Item
+    <PMenu.Item
       itemKey="close"
-      startIcon={<Icon.Close />}
       onClick={() => remove(layoutKey)}
       trigger={["Control", "W"]}
+      triggerIndicator
     >
+      <Icon.Close />
       Close
-    </Menu.Item>
+    </PMenu.Item>
   );
 };
 
 const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
-  <Menu.Item
+  <PMenu.Item
     itemKey="rename"
-    startIcon={<Icon.Rename />}
     onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
     trigger={["Control", "E"]}
+    triggerIndicator
   >
+    <Icon.Rename />
     Rename
-  </Menu.Item>
+  </PMenu.Item>
 );
 
 interface SplitMenuItemProps extends MenuItemProps {
@@ -122,15 +126,15 @@ const splitMenuItemFactory = (
     return (
       <>
         {children}
-        <Menu.Item
+        <PMenu.Item
           itemKey={`split${direction}`}
-          startIcon={direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
           onClick={() =>
             dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
           }
         >
+          {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
           Split {direction === "x" ? "Horizontally" : "Vertically"}
-        </Menu.Item>
+        </PMenu.Item>
       </>
     );
   };
@@ -148,13 +152,15 @@ export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
   <>
     <RenameMenuItem layoutKey={layoutKey} />
     <CloseMenuItem layoutKey={layoutKey} />
-    <Menu.Divider />
+    <PMenu.Divider />
     <FocusMenuItem layoutKey={layoutKey} />
-    <OpenInNewWindowMenuItem layoutKey={layoutKey} />
+    {Runtime.ENGINE === "tauri" && <OpenInNewWindowMenuItem layoutKey={layoutKey} />}
     <MoveToMainWindowMenuItem layoutKey={layoutKey} />
     <SplitXMenuItem layoutKey={layoutKey}>
-      <Menu.Divider />
+      <PMenu.Divider />
     </SplitXMenuItem>
     <SplitYMenuItem layoutKey={layoutKey} />
+    <PMenu.Divider />
+    <Menu.HardReloadItem />
   </>
 );

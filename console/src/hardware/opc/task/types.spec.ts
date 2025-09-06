@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type WriteChannel, writeConfigZ } from "@/hardware/opc/task/types";
 
@@ -27,7 +27,6 @@ describe("OPC Write Task Types", () => {
           nodeName: "test",
         } as WriteChannel,
       ],
-      dataSaving: true,
       device: "1",
     };
     const result = writeConfigZ.safeParse(config);

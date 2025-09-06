@@ -14,13 +14,13 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
-import { type UseProps } from "@/dropdown/Dropdown";
+import { Dialog } from "@/dialog";
+import { state } from "@/state";
 import { Text } from "@/text";
 
 export interface SwatchProps
   extends BaseSwatchProps,
-    UseProps,
+    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
 }
@@ -28,18 +28,23 @@ export interface SwatchProps
 export const Swatch = ({
   onChange,
   onVisibleChange,
-  initialVisible,
+  initialVisible = false,
   allowChange = true,
   style,
   onClick,
   value,
+  visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
-  const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
+  const [visible, setVisible] = state.usePassthrough({
+    initial: initialVisible,
+    value: propsVisible,
+    onChange: onVisibleChange,
+  });
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
-    (e) => (canPick ? open() : onClick?.(e)),
-    [canPick, open, onClick],
+    (e) => (canPick ? setVisible(true) : onClick?.(e)),
+    [canPick, setVisible, onClick],
   );
   const tooltip = useMemo(
     () =>
@@ -59,17 +64,17 @@ export const Swatch = ({
   );
   if (!canPick) return swatch;
   return (
-    <Dropdown.Dialog
-      close={close}
+    <Dialog.Frame
       visible={visible}
+      initialVisible={initialVisible}
+      onVisibleChange={setVisible}
       className={CSS.BE("color-swatch", "dropdown")}
-      keepMounted={false}
       variant="floating"
-      zIndex={100}
-      style={style}
     >
       {swatch}
-      <Picker value={value} onChange={onChange} />
-    </Dropdown.Dialog>
+      <Dialog.Dialog rounded={1}>
+        <Picker value={value} onChange={onChange} />
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

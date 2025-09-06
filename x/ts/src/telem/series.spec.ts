@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it, test } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
@@ -20,6 +20,16 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@/telem/telem";
+
+// Valid UUID v4 bytes (version 4, variant 1)
+const SAMPLE_UUID_BYTES = new Uint8Array([
+  // First UUID: "123e4567-e89b-40d3-8056-426614174000",
+  0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14, 0x17,
+  0x40, 0x00,
+  // Second UUID: "7f3e4567-e89b-40d3-8056-426614174000",
+  0x7f, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x40, 0xd3, 0x80, 0x56, 0x42, 0x66, 0x14, 0x17,
+  0x40, 0x00,
+]);
 
 describe("Series", () => {
   describe("construction", () => {
@@ -49,7 +59,7 @@ describe("Series", () => {
         const a = new Series({
           data: [{ value: 1 }, { value: 2, red: "blue" }, { value: 3, dog: "14" }],
         });
-        expect(a.dataType.equals(DataType.JSON)).toBeTruthy();
+        expect(a.dataType.equals(DataType.JSON)).toBe(true);
         expect(a.length).toEqual(3);
         const buf = a.data.buffer;
         const c = new Series({ data: buf, dataType: DataType.JSON });
@@ -74,10 +84,10 @@ describe("Series", () => {
       expect(a.byteLength).toEqual(Size.bytes(12));
       expect(a.byteCapacity).toEqual(Size.bytes(12));
       expect(a.capacity).toEqual(3);
-      const b = new Series({ data: new BigInt64Array([BigInt(1)]) });
+      const b = new Series({ data: new BigInt64Array([1n]) });
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       const c = new Series({
-        data: new BigInt64Array([BigInt(1)]),
+        data: new BigInt64Array([1n]),
         dataType: DataType.TIMESTAMP,
       });
       expect(c.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
@@ -105,7 +115,7 @@ describe("Series", () => {
 
     it("should assume float64 when a single number is passed in", () => {
       const s = new Series(1);
-      expect(s.dataType.equals(DataType.FLOAT64)).toBeTruthy();
+      expect(s.dataType.equals(DataType.FLOAT64)).toBe(true);
     });
 
     it("should assume string when JS strings are passed as data", () => {
@@ -116,14 +126,14 @@ describe("Series", () => {
 
     it("should construct a series from an int32 array", () => {
       const s = new Series(new Int32Array([1, 2, 3]));
-      expect(s.dataType.equals(DataType.INT32)).toBeTruthy();
+      expect(s.dataType.equals(DataType.INT32)).toBe(true);
       expect(s.length).toEqual(3);
       expect(Array.from(s)).toEqual([1, 2, 3]);
     });
 
     it("should assume string when a single string is passed as data", () => {
       const s = new Series("abc");
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(1);
     });
 
@@ -136,7 +146,7 @@ describe("Series", () => {
 
     it("should correctly interpret a bigint as an int64", () => {
       const s = new Series(1n);
-      expect(s.dataType.equals(DataType.INT64)).toBeTruthy();
+      expect(s.dataType.equals(DataType.INT64)).toBe(true);
       expect(s.length).toEqual(1);
     });
 
@@ -163,25 +173,25 @@ describe("Series", () => {
     it("should convert a numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: 12, dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(12)]));
+      expect(a.data).toEqual(new BigInt64Array([12n]));
       const b = new Series({ data: 12, dataType: DataType.TIMESTAMP });
       expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(12)]));
+      expect(b.data).toEqual(new BigInt64Array([12n]));
       const c = new Series({ data: 12, dataType: DataType.UINT64 });
       expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
-      expect(c.data).toEqual(new BigUint64Array([BigInt(12)]));
+      expect(c.data).toEqual(new BigUint64Array([12n]));
     });
 
     it("should convert an array of numeric values to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: [12, 13, 14], dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(a.data).toEqual(new BigInt64Array([12n, 13n, 14n]));
       const b = new Series({ data: [12, 13, 14], dataType: DataType.TIMESTAMP });
       expect(b.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(b.data).toEqual(new BigInt64Array([12n, 13n, 14n]));
       const c = new Series({ data: [12, 13, 14], dataType: DataType.UINT64 });
       expect(c.dataType.toString()).toBe(DataType.UINT64.toString());
-      expect(c.data).toEqual(new BigUint64Array([BigInt(12), BigInt(13), BigInt(14)]));
+      expect(c.data).toEqual(new BigUint64Array([12n, 13n, 14n]));
     });
 
     it("should convert bigints to numbers when data type does not use bigints", () => {
@@ -199,7 +209,7 @@ describe("Series", () => {
     it("should convert a floating point numeric value to a BigInt when data type is int64, timestamp, or uint64", () => {
       const a = new Series({ data: 12.5, dataType: DataType.INT64 });
       expect(a.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(a.data).toEqual(new BigInt64Array([BigInt(13)]));
+      expect(a.data).toEqual(new BigInt64Array([13n]));
     });
 
     it("should convert encoded keys to snake_case", () => {
@@ -260,7 +270,7 @@ describe("Series", () => {
         expect(series.length).toEqual(0);
         expect(series.byteLength).toEqual(Size.bytes(0));
       });
-      it("should throw an error when attempting to allocate an array of lenght 0", () => {
+      it("should throw an error when attempting to allocate an array of length 0", () => {
         expect(() => {
           Series.alloc({ capacity: 0, dataType: DataType.FLOAT32 });
         }).toThrow();
@@ -279,6 +289,7 @@ describe("Series", () => {
       expect(series.at(1)).toEqual(4);
       expect(series.at(2)).toEqual(5);
     });
+
     it("should return undefined when the index is out of bounds", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -286,6 +297,7 @@ describe("Series", () => {
       });
       expect(series.at(3)).toBeUndefined();
     });
+
     it("should allow the index to be negative", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -293,6 +305,7 @@ describe("Series", () => {
       });
       expect(series.at(-1)).toEqual(3);
     });
+
     it("should throw an error when the index is out of bounds and require is set to true", () => {
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -302,6 +315,7 @@ describe("Series", () => {
         series.at(3, true);
       }).toThrow();
     });
+
     it("should return the correct value for a string series", () => {
       const series = new Series({
         data: ["apple", "banana", "carrot"],
@@ -312,6 +326,13 @@ describe("Series", () => {
       expect(series.at(2)).toEqual("carrot");
       expect(series.at(-1)).toEqual("carrot");
     });
+
+    it("should return the correct value for a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
     it("should return the correct value for a JSON series", () => {
       const series = new Series({
         data: [
@@ -323,6 +344,7 @@ describe("Series", () => {
       expect(series.at(0)).toEqual({ a: 1, b: "apple" });
       expect(series.at(1)).toEqual({ a: 2, b: "banana" });
     });
+
     it("should throw an error if the index is out of bounds for a string series", () => {
       const series = new Series({
         data: ["apple", "banana", "carrot"],
@@ -332,6 +354,7 @@ describe("Series", () => {
         series.at(3, true);
       }).toThrow();
     });
+
     it("should throw an error if the index is out of bounds for a JSON series", () => {
       const series = new Series({
         data: [
@@ -433,7 +456,7 @@ describe("Series", () => {
 
     test("from int64 to int32", () => {
       const a = new Series({
-        data: new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]),
+        data: new BigInt64Array([1n, 2n, 3n]),
       });
       const b = a.convert(DataType.INT32);
       expect(b.dataType.toString()).toBe(DataType.INT32.toString());
@@ -447,7 +470,7 @@ describe("Series", () => {
       });
       const b = a.convert(DataType.INT64);
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
-      expect(b.data).toEqual(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
+      expect(b.data).toEqual(new BigInt64Array([1n, 2n, 3n]));
     });
   });
 
@@ -702,6 +725,15 @@ describe("Series", () => {
         { a: 3, b: "carrot" },
       ]);
     });
+
+    it("should construct a JS array from a UUID series", () => {
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      const arr = Array.from(s);
+      expect(arr).toEqual([
+        "123e4567-e89b-40d3-8056-426614174000",
+        "7f3e4567-e89b-40d3-8056-426614174000",
+      ]);
+    });
   });
 
   describe("as", () => {
@@ -718,30 +750,180 @@ describe("Series", () => {
         }).toThrow();
       });
     });
+
     describe("string", () => {
       it("should correctly interpret the series as a string", () => {
         const s = new Series(["apple", "banana", "carrot"]);
         const s2 = s.as("string");
         expect(s2.at(0)).toEqual("apple");
       });
-      it("should throw an error if the series is not a string", () => {
-        const s = new Series([1, 2, 3]);
-        expect(() => {
-          s.as("string");
-        }).toThrow();
+
+      it("should allow the caller to convert a UUID series to a string series", () => {
+        const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+        const s2 = s.as("string");
+        expect(s2.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+        expect(s2.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
       });
     });
     describe("bigint", () => {
       it("should correctly interpret the series as a bigint", () => {
-        const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
+        const s = new Series([1n, 2n, 3n]);
         const s2 = s.as("bigint");
-        expect(s2.at(0)).toEqual(BigInt(1));
+        expect(s2.at(0)).toEqual(1n);
       });
       it("should throw an error if the series is not a bigint", () => {
         const s = new Series([1, 2, 3]);
         expect(() => {
           s.as("bigint");
         }).toThrow();
+      });
+    });
+
+    describe("property preservation during conversion", () => {
+      it("should preserve all properties when converting a series with .as()", () => {
+        // Create a series with all possible properties set
+        const timeRange = new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200));
+        const original = new Series({
+          data: new Float32Array([1, 2, 3, 4, 5]),
+          dataType: DataType.FLOAT32,
+          timeRange,
+          sampleOffset: 10,
+          alignment: 100n,
+          alignmentMultiple: 5n,
+          key: "test-series-key",
+        });
+
+        // Convert to number type using .as()
+        const converted = original.as("number");
+
+        // Verify all properties are preserved
+        expect(converted.dataType).toEqual(original.dataType);
+        expect(converted.timeRange).toBe(original.timeRange);
+        expect(converted.sampleOffset).toBe(10);
+        expect(converted.alignment).toBe(100n);
+        expect(converted.alignmentMultiple).toBe(5n);
+        expect(converted.key).toBe("test-series-key");
+        expect(converted.length).toBe(5);
+        expect(converted.alignmentBounds).toEqual({ lower: 100n, upper: 125n });
+
+        // Verify data is still accessible and correct with offset applied
+        expect(converted.at(0)).toBe(11); // 1 + sampleOffset(10)
+        expect(converted.at(1)).toBe(12); // 2 + sampleOffset(10)
+        expect(converted.at(4)).toBe(15); // 5 + sampleOffset(10)
+
+        // Verify alignment access still works
+        expect(converted.atAlignment(100n)).toBe(11);
+        expect(converted.atAlignment(105n)).toBe(12);
+        expect(converted.atAlignment(120n)).toBe(15);
+
+        // Verify buffer is the same (no copy)
+        expect(converted.buffer).toBe(original.buffer);
+      });
+
+      it("should preserve properties when converting between different JS types", () => {
+        const timeRange = new TimeRange(TimeStamp.seconds(50), TimeStamp.seconds(150));
+
+        // Test with bigint series
+        const bigintSeries = new Series({
+          data: [100n, 200n, 300n],
+          dataType: DataType.INT64,
+          timeRange,
+          sampleOffset: 1000n,
+          alignment: 50n,
+          alignmentMultiple: 10n,
+          key: "bigint-series",
+        });
+
+        const bigintConverted = bigintSeries.as("bigint");
+        expect(bigintConverted.timeRange).toBe(timeRange);
+        expect(bigintConverted.sampleOffset).toBe(1000n);
+        expect(bigintConverted.alignment).toBe(50n);
+        expect(bigintConverted.alignmentMultiple).toBe(10n);
+        expect(bigintConverted.key).toBe("bigint-series");
+        expect(bigintConverted.at(0)).toBe(1100n); // 100n + 1000n
+        expect(bigintConverted.alignmentBounds).toEqual({ lower: 50n, upper: 80n });
+
+        // Test with string series
+        const stringSeries = new Series({
+          data: ["apple", "banana", "cherry"],
+          dataType: DataType.STRING,
+          timeRange,
+          alignment: 200n,
+          alignmentMultiple: 3n,
+          key: "string-series",
+        });
+
+        const stringConverted = stringSeries.as("string");
+        expect(stringConverted.timeRange).toBe(timeRange);
+        expect(stringConverted.alignment).toBe(200n);
+        expect(stringConverted.alignmentMultiple).toBe(3n);
+        expect(stringConverted.key).toBe("string-series");
+        expect(stringConverted.at(0)).toBe("apple");
+        expect(stringConverted.alignmentBounds).toEqual({ lower: 200n, upper: 209n });
+      });
+
+      it("should preserve properties when converting UUID series to string", () => {
+        const timeRange = new TimeRange(TimeStamp.seconds(10), TimeStamp.seconds(20));
+        const uuidSeries = new Series({
+          data: SAMPLE_UUID_BYTES,
+          dataType: DataType.UUID,
+          timeRange,
+          alignment: 1000n,
+          alignmentMultiple: 100n,
+          key: "uuid-series-key",
+        });
+
+        const stringConverted = uuidSeries.as("string");
+
+        // All non-data properties should be preserved
+        expect(stringConverted.dataType).toEqual(DataType.UUID);
+        expect(stringConverted.timeRange).toBe(timeRange);
+        expect(stringConverted.alignment).toBe(1000n);
+        expect(stringConverted.alignmentMultiple).toBe(100n);
+        expect(stringConverted.key).toBe("uuid-series-key");
+        expect(stringConverted.length).toBe(2);
+        expect(stringConverted.alignmentBounds).toEqual({ lower: 1000n, upper: 1200n });
+
+        // Verify data access still works
+        expect(stringConverted.at(0)).toBe("123e4567-e89b-40d3-8056-426614174000");
+        expect(stringConverted.atAlignment(1000n)).toBe(
+          "123e4567-e89b-40d3-8056-426614174000",
+        );
+        expect(stringConverted.atAlignment(1100n)).toBe(
+          "7f3e4567-e89b-40d3-8056-426614174000",
+        );
+      });
+
+      it("should preserve properties when creating a new series from an existing one", () => {
+        const timeRange = new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(10));
+        const original = new Series({
+          data: [1.5, 2.5, 3.5],
+          dataType: DataType.FLOAT64,
+          timeRange,
+          sampleOffset: 0.5,
+          alignment: 15n,
+          alignmentMultiple: 2n,
+          key: "original-key",
+        });
+
+        // Create new series from existing one
+        const copy = new Series(original);
+
+        // All properties should be preserved
+        expect(copy.dataType).toEqual(original.dataType);
+        expect(copy.timeRange).toBe(original.timeRange);
+        expect(copy.sampleOffset).toBe(0.5);
+        expect(copy.alignment).toBe(15n);
+        expect(copy.alignmentMultiple).toBe(2n);
+        expect(copy.key).toBe("original-key"); // Key is preserved when creating from existing series
+        expect(copy.length).toBe(3);
+        expect(copy.alignmentBounds).toEqual({ lower: 15n, upper: 21n });
+        expect(copy.buffer).toBe(original.buffer); // Should share buffer
+
+        // Data access with offset
+        expect(copy.at(0)).toBe(2); // 1.5 + 0.5
+        expect(copy.at(1)).toBe(3); // 2.5 + 0.5
+        expect(copy.at(2)).toBe(4); // 3.5 + 0.5
       });
     });
   });
@@ -754,6 +936,204 @@ describe("Series", () => {
         alignment: 1n,
       });
       expect(a.alignmentBounds).toEqual({ lower: 1n, upper: 4n });
+    });
+  });
+
+  describe("alignmentMultiple", () => {
+    it("should default to 1n when not specified", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+      });
+      expect(series.alignmentMultiple).toBe(1n);
+    });
+
+    it("should be set correctly when specified in constructor", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 5n,
+      });
+      expect(series.alignmentMultiple).toBe(5n);
+    });
+
+    it("should correctly calculate alignment bounds with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 5n,
+      });
+      // lower: 10n (alignment)
+      // upper: 10n + 3n * 5n = 25n
+      expect(series.alignmentBounds).toEqual({ lower: 10n, upper: 25n });
+    });
+
+    it("should correctly calculate alignment bounds with alignmentMultiple = 1", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 10n,
+        alignmentMultiple: 1n,
+      });
+      // lower: 10n (alignment)
+      // upper: 10n + 3n * 1n = 13n
+      expect(series.alignmentBounds).toEqual({ lower: 10n, upper: 13n });
+    });
+
+    it("should work with atAlignment when alignmentMultiple > 1", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30, 40, 50]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      expect(series.atAlignment(100n)).toBe(10);
+      expect(series.atAlignment(110n)).toBe(20);
+      expect(series.atAlignment(120n)).toBe(30);
+      expect(series.atAlignment(130n)).toBe(40);
+      expect(series.atAlignment(140n)).toBe(50);
+    });
+
+    it("should return undefined for alignments not on the multiple grid", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      // These alignments are not on the 10n grid starting from 100n
+      expect(series.atAlignment(105n)).toBe(10);
+      expect(series.atAlignment(115n)).toBe(20);
+      expect(series.atAlignment(125n)).toBe(30);
+      expect(series.atAlignment(135n)).toBeUndefined();
+    });
+
+    it("should handle alignmentMultiple with decimation scenario", () => {
+      const series = new Series({
+        data: new Float32Array([1, 5, 9, 13, 17]),
+        alignment: 0n,
+        alignmentMultiple: 4n,
+      });
+
+      expect(series.alignmentBounds).toEqual({ lower: 0n, upper: 20n });
+      expect(series.atAlignment(0n)).toBe(1);
+      expect(series.atAlignment(4n)).toBe(5);
+      expect(series.atAlignment(8n)).toBe(9);
+      expect(series.atAlignment(12n)).toBe(13);
+      expect(series.atAlignment(16n)).toBe(17);
+
+      expect(series.atAlignment(1n)).toBe(1);
+      expect(series.atAlignment(2n)).toBe(1);
+      expect(series.atAlignment(3n)).toBe(1);
+    });
+
+    it("should handle alignmentMultiple with averaging scenario", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 1000n,
+        alignmentMultiple: 10n,
+      });
+
+      expect(series.alignmentBounds).toEqual({ lower: 1000n, upper: 1030n });
+
+      expect(series.atAlignment(1000n)).toBe(10);
+      expect(series.atAlignment(1010n)).toBe(20);
+      expect(series.atAlignment(1020n)).toBe(30);
+    });
+
+    it("should preserve alignmentMultiple when creating from another series", () => {
+      const original = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 100n,
+        alignmentMultiple: 5n,
+      });
+
+      const copy = new Series(original);
+      expect(copy.alignmentMultiple).toBe(5n);
+      expect(copy.alignment).toBe(100n);
+      expect(copy.alignmentBounds).toEqual(original.alignmentBounds);
+    });
+
+    it("should handle negative alignment indices correctly with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 50n,
+        alignmentMultiple: 3n,
+      });
+
+      expect(series.atAlignment(45n)).toBeUndefined();
+      expect(series.atAlignment(47n)).toBeUndefined();
+    });
+
+    it("should handle alignment beyond series end with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20]),
+        alignment: 0n,
+        alignmentMultiple: 5n,
+      });
+
+      expect(series.atAlignment(0n)).toBe(10);
+      expect(series.atAlignment(5n)).toBe(20);
+      expect(series.atAlignment(10n)).toBeUndefined();
+    });
+
+    it("should throw error when required=true and alignment not found with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+
+      expect(() => series.atAlignment(150n, true)).toThrow();
+      expect(() => series.atAlignment(90n, true)).toThrow();
+    });
+
+    it("should work with very large alignmentMultiple values", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2]),
+        alignment: 1000000000n,
+        alignmentMultiple: 1000000n,
+      });
+
+      expect(series.atAlignment(1000000000n)).toBe(1);
+      expect(series.atAlignment(1001000000n)).toBe(2);
+      expect(series.alignmentBounds).toEqual({
+        lower: 1000000000n,
+        upper: 1002000000n,
+      });
+    });
+
+    it("should handle alignmentMultiple with different data types", () => {
+      const stringSeries = new Series({
+        data: ["a", "b", "c"],
+        alignment: 10n,
+        alignmentMultiple: 2n,
+      });
+
+      expect(stringSeries.atAlignment(10n)).toBe("a");
+      expect(stringSeries.atAlignment(12n)).toBe("b");
+      expect(stringSeries.atAlignment(14n)).toBe("c");
+
+      const jsonSeries = new Series({
+        data: [{ x: 1 }, { x: 2 }],
+        alignment: 5n,
+        alignmentMultiple: 3n,
+      });
+
+      expect(jsonSeries.atAlignment(5n)).toEqual({ x: 1 });
+      expect(jsonSeries.atAlignment(8n)).toEqual({ x: 2 });
+    });
+
+    it("should correctly calculate index from alignment with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([100, 200, 300, 400]),
+        alignment: 50n,
+        alignmentMultiple: 25n,
+      });
+
+      expect(series.atAlignment(50n)).toBe(100);
+      expect(series.atAlignment(75n)).toBe(200);
+      expect(series.atAlignment(100n)).toBe(300);
+      expect(series.atAlignment(125n)).toBe(400);
     });
   });
 
@@ -785,7 +1165,7 @@ describe("Series", () => {
         dataType: "json",
       },
       {
-        name: "number",
+        name: "integer number",
         values: [1, 2, 3],
         expected: ["1", "2", "3"],
       },
@@ -794,22 +1174,36 @@ describe("Series", () => {
         values: [BigInt(1), BigInt(2), BigInt(3)],
         expected: ["1", "2", "3"],
       },
+      {
+        name: "uuid",
+        values: SAMPLE_UUID_BYTES,
+        expected: [
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+        ],
+        dataType: "uuid",
+      },
+      {
+        name: "float number",
+        values: [1.1, 2.2, 3.3],
+        expected: ["1.1", "2.2", "3.3"],
+      },
     ];
-    SPECS.forEach(({ name, values, expected }) => {
+    SPECS.forEach(({ name, values, expected, dataType }) => {
       it(`should correctly convert a ${name} series to strings`, () => {
-        const s = new Series({ data: values });
+        const s = new Series({ data: values, dataType });
         expect(s.toStrings()).toEqual(expected);
       });
     });
 
     it("should return an series of length 0 if the series is empty", () => {
-      const s = new Series({ data: new Float32Array([]), dataType: DataType.STRING });
+      const s = new Series({ data: [], dataType: DataType.STRING });
       const outStrings = s.toStrings();
       expect(outStrings).toEqual([]);
     });
   });
 
-  describe("toUUIDs", () => {
+  describe("converting to a JS array", () => {
     it("should convert a UUID series to an array of UUID strings", () => {
       // Valid UUID v4 bytes (version 4, variant 1)
       const bytes = new Uint8Array([
@@ -821,20 +1215,15 @@ describe("Series", () => {
         0x17, 0x40, 0x00,
       ]);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(2);
       expect(uuids[0]).toBe("123e4567-e89b-40d3-8056-426614174000");
       expect(uuids[1]).toBe("7f3e4567-e89b-40d3-8056-426614174000");
     });
 
-    it("should throw an error when converting non-UUID series", () => {
-      const series = new Series({ data: [1, 2, 3], dataType: DataType.INT32 });
-      expect(() => series.toUUIDs()).toThrow("cannot convert non-uuid series to uuids");
-    });
-
     it("should handle empty UUID series", () => {
       const series = new Series({ data: new Uint8Array(), dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(0);
     });
 
@@ -842,7 +1231,7 @@ describe("Series", () => {
       // Nil UUID: 00000000-0000-0000-0000-000000000000
       const bytes = new Uint8Array(16).fill(0);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("00000000-0000-0000-0000-000000000000");
     });
@@ -851,7 +1240,7 @@ describe("Series", () => {
       // Max UUID: ffffffff-ffff-ffff-ffff-ffffffffffff
       const bytes = new Uint8Array(16).fill(0xff);
       const series = new Series({ data: bytes, dataType: DataType.UUID });
-      const uuids = series.toUUIDs();
+      const uuids = Array.from(series);
       expect(uuids).toHaveLength(1);
       expect(uuids[0]).toBe("ffffffff-ffff-ffff-ffff-ffffffffffff");
     });
@@ -874,17 +1263,17 @@ describe("Series", () => {
   describe("parse", () => {
     it("should correctly parse a minimum series", () => {
       const s = Series.z.parse({ dataType: "uint8" });
-      expect(s.dataType.equals(DataType.UINT8)).toBeTruthy();
+      expect(s.dataType.equals(DataType.UINT8)).toBe(true);
       expect(s.length).toEqual(0);
     });
     it("should correctly parse a string buffer for data", () => {
       const s = Series.z.parse({ data: "", dataType: "string" });
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(0);
     });
     it("should correctly parse a series with null data", () => {
       const s = Series.z.parse({ data: null, dataType: "string" });
-      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(0);
     });
   });
@@ -932,9 +1321,20 @@ describe("Series", () => {
       expect(iter.next().value).toEqual(3);
       expect(iter.next().value).toEqual(4);
     });
+
+    it("should iterate over the whole series", () => {
+      const s = new Series(new Float32Array([1, 2, 3, 4, 5]));
+      const iter = s.subIterator(0, 6);
+      expect(iter.next().value).toEqual(1);
+      expect(iter.next().value).toEqual(2);
+      expect(iter.next().value).toEqual(3);
+      expect(iter.next().value).toEqual(4);
+      expect(iter.next().value).toEqual(5);
+      expect(iter.next().done).toBe(true);
+    });
   });
 
-  describe("subIterAlignment", () => {
+  describe("subAlignmentIterator", () => {
     it("should return an iterator over a sub-series", () => {
       const s = new Series({
         data: new Float32Array([1, 2, 3, 4, 5]),
@@ -943,18 +1343,115 @@ describe("Series", () => {
       const iter = s.subAlignmentIterator(3n, 5n);
       expect(iter.next().value).toEqual(2);
       expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
+
     it("should clamp the bounds to the alignment", () => {
       const s = new Series({
-        data: new Float32Array([1, 2, 3, 4, 5]),
+        data: new Float32Array([1, 2, 3, 4, 5]), // 2n, 3n, 4n, 5n,
         alignment: 2n,
       });
       const iter = s.subAlignmentIterator(1n, 5n);
       expect(iter.next().value).toEqual(1);
       expect(iter.next().value).toEqual(2);
       expect(iter.next().value).toEqual(3);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should handle series with alignment multiple", () => {
+      const s = new Series({
+        // 2n, 4n, 6n, 8n, 10n,
+        data: new Float32Array([1, 2, 3, 4, 5]),
+        alignment: 2n,
+        alignmentMultiple: 2n,
+      });
+      const iter = s.subAlignmentIterator(1n, 5n);
+      // (1n - 2n) / 2n = 0
+      // (5n - 2n) / 2n = 1
+      expect(iter.next().value).toEqual(1);
+      expect(iter.next().value).toEqual(2);
+      expect(iter.next().value).toBeUndefined();
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should correctly iterate over a series with alignmentMultiple > 1", () => {
+      const series = new Series({
+        data: new Float32Array([10, 20, 30, 40, 50]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+      const iter = series.subAlignmentIterator(110n, 140n);
+      expect(iter.next().value).toBe(20);
+      expect(iter.next().value).toBe(30);
+      expect(iter.next().value).toBe(40);
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should handle partial ranges with alignmentMultiple", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3, 4]),
+        alignment: 0n,
+        alignmentMultiple: 5n,
+      });
+      // Series covers alignments 0, 5, 10, 15
+      const iter = series.subAlignmentIterator(3n, 12n);
+      expect(iter.next().value).toBe(2); // alignment 5
+      expect(iter.next().value).toBe(3); // alignment 10
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should handle when start alignment doesn't align with the multiple grid", () => {
+      const series = new Series({
+        data: new Float32Array([100, 200, 300]),
+        alignment: 50n,
+        alignmentMultiple: 25n,
+      });
+      // Series covers alignments 50, 75, 100
+      const iter = series.subAlignmentIterator(60n, 95n);
+      expect(iter.next().value).toBe(200); // alignment 75
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should return empty iterator when range is outside series bounds", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        alignment: 100n,
+        alignmentMultiple: 10n,
+      });
+      // Series covers alignments 100, 110, 120
+      const iter = series.subAlignmentIterator(200n, 300n);
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should handle decimation scenario with alignmentMultiple", () => {
+      // Simulating decimated data where every 4th sample is kept
+      const series = new Series({
+        data: new Float32Array([1, 5, 9, 13, 17]),
+        alignment: 0n,
+        alignmentMultiple: 4n,
+      });
+      // Series covers alignments 0, 4, 8, 12, 16
+      const iter = series.subAlignmentIterator(2n, 14n);
+      expect(iter.next().value).toBe(5); // alignment 4
+      expect(iter.next().value).toBe(9); // alignment 8
+      expect(iter.next().value).toBe(13); // alignment 12
+      expect(iter.next().done).toBe(true);
+    });
+
+    it("should handle averaging scenario with alignmentMultiple", () => {
+      // Simulating averaged data where each value represents 10 samples
+      const series = new Series({
+        data: new Float32Array([10, 20, 30]),
+        alignment: 1000n,
+        alignmentMultiple: 10n,
+      });
+      // Series covers alignments 1000-1009, 1010-1019, 1020-1029
+      const iter = series.subAlignmentIterator(1005n, 1025n);
+      // Math.ceil((1005 - 1000) / 10) = 1
+      // Math.ceil((1025 - 1000) / 10) = 3
+      expect(iter.next().value).toBe(20); // alignment 1010
+      expect(iter.next().value).toBe(30); // alignment 1020
+      expect(iter.next().done).toBe(true);
     });
   });
 
@@ -1097,6 +1594,7 @@ describe("MultiSeries", () => {
       expect(multi.at(4)).toEqual(5);
       expect(multi.at(5)).toEqual(6);
     });
+
     it("should correctly return a value via negative indexing", () => {
       const a = new Series(new Float32Array([1, 2, 3]));
       const b = new Series(new Float32Array([4, 5, 6]));
@@ -1175,7 +1673,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
       expect(iter.next().value).toEqual(8);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
   });
 
@@ -1196,7 +1694,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(4);
       expect(iter.next().value).toEqual(5);
       expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("Should work correctly when starting at an alignment before the first series", () => {
@@ -1216,7 +1714,7 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(4);
       expect(iter.next().value).toEqual(5);
       expect(iter.next().value).toEqual(6);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("should work correctly when staring at an alignment equal to the upper bound of the first series", () => {
@@ -1232,7 +1730,7 @@ describe("MultiSeries", () => {
       const iter = multi.subAlignmentIterator(7n, 10n);
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("should work correctly when the starting alignment is between two series", () => {
@@ -1248,7 +1746,7 @@ describe("MultiSeries", () => {
       const iter = multi.subAlignmentIterator(7n, 12n);
       expect(iter.next().value).toEqual(6);
       expect(iter.next().value).toEqual(7);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
     });
 
     it("Should work correctly when ending at an alignment after the last series", () => {
@@ -1271,7 +1769,94 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(8);
       expect(iter.next().value).toEqual(9);
       expect(iter.next().value).toEqual(10);
-      expect(iter.next().done).toBeTruthy();
+      expect(iter.next().done).toBe(true);
+    });
+
+    describe("with alignmentMultiple", () => {
+      it("should work with MultiSeries having different alignmentMultiples", () => {
+        const s1 = new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 0n,
+          alignmentMultiple: 2n,
+        });
+        // s1 covers alignments 0, 2, 4
+
+        const s2 = new Series({
+          data: new Float32Array([10, 20, 30]),
+          alignment: 10n,
+          alignmentMultiple: 5n,
+        });
+        // s2 covers alignments 10, 15, 20
+
+        const multi = new MultiSeries([s1, s2]);
+        const iter = multi.subAlignmentIterator(3n, 18n);
+        expect(iter.next().value).toBe(3); // alignment 4 from s1
+        expect(iter.next().value).toBe(10); // alignment 10 from s2
+        expect(iter.next().value).toBe(20); // alignment 15 from s2
+        expect(iter.next().done).toBe(true);
+      });
+
+      it("should handle MultiSeries with gaps between series when using alignmentMultiple", () => {
+        const s1 = new Series({
+          data: new Float32Array([1, 2]),
+          alignment: 0n,
+          alignmentMultiple: 3n,
+        });
+        const s2 = new Series({
+          data: new Float32Array([100, 200]),
+          alignment: 100n,
+          alignmentMultiple: 50n,
+        });
+        const multi = new MultiSeries([s1, s2]);
+        const iter = multi.subAlignmentIterator(2n, 120n);
+        expect(iter.next().value).toBe(2);
+        expect(iter.next().value).toBe(100);
+        expect(iter.next().done).toBe(true);
+      });
+
+      it("should correctly calculate indices with very large alignmentMultiple values", () => {
+        const series = new Series({
+          data: new Float32Array([1, 2]),
+          alignment: 1000000000n,
+          alignmentMultiple: 1000000n,
+        });
+        const iter = series.subAlignmentIterator(1000500000n, 1001500000n);
+        expect(iter.next().value).toBe(2);
+        expect(iter.next().done).toBe(true);
+      });
+
+      it("should handle edge case where start equals end with alignmentMultiple", () => {
+        const series = new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 10n,
+          alignmentMultiple: 5n,
+        });
+        const iter = series.subAlignmentIterator(15n, 15n);
+        expect(iter.next().done).toBe(true);
+      });
+
+      it("should work correctly when iterating exactly one sample with alignmentMultiple", () => {
+        const series = new Series({
+          data: new Float32Array([10, 20, 30]),
+          alignment: 100n,
+          alignmentMultiple: 10n,
+        });
+        const iter = series.subAlignmentIterator(110n, 120n);
+        expect(iter.next().value).toBe(20);
+        expect(iter.next().done).toBe(true);
+      });
+
+      it("should handle negative start indices correctly with alignmentMultiple", () => {
+        const series = new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 50n,
+          alignmentMultiple: 10n,
+        });
+        const iter = series.subAlignmentIterator(40n, 65n);
+        expect(iter.next().value).toBe(1);
+        expect(iter.next().value).toBe(2);
+        expect(iter.next().done).toBe(true);
+      });
     });
   });
 
@@ -1397,10 +1982,10 @@ describe("MultiSeries", () => {
     });
 
     it("should throw an error when trying to cast to an incompatible type", () => {
-      const a = new Series(new Float32Array([1, 2, 3]));
-      const b = new Series(new Float32Array([4, 5, 6]));
+      const a = new Series(["cat", "dog"]);
+      const b = new Series(["impala", "zebra"]);
       const multi = new MultiSeries([a, b]);
-      expect(() => multi.as("string")).toThrow();
+      expect(() => multi.as("bigint")).toThrow();
     });
   });
 
@@ -1800,6 +2385,102 @@ describe("MultiSeries", () => {
       expect(() => multiSeries1.push(multiSeries2)).toThrow(
         "cannot push a int64 series to a float32 multi-series",
       );
+    });
+  });
+
+  describe("toStrings", () => {
+    interface Spec {
+      name: string;
+      series: Array<CrudeSeries>;
+      expected: string[];
+      dataType?: CrudeDataType;
+    }
+    const SPECS: Spec[] = [
+      {
+        name: "string",
+        series: [
+          ["apple", "banana"],
+          ["carrot", "date"],
+        ],
+        expected: ["apple", "banana", "carrot", "date"],
+      },
+      {
+        name: "json",
+        series: [
+          [
+            { a: 1, b: "apple" },
+            { a: 2, b: "banana" },
+          ],
+          [
+            { a: 3, b: "carrot" },
+            { a: 4, b: "date" },
+          ],
+        ],
+        expected: [
+          '{"a":1,"b":"apple"}',
+          '{"a":2,"b":"banana"}',
+          '{"a":3,"b":"carrot"}',
+          '{"a":4,"b":"date"}',
+        ],
+        dataType: "json",
+      },
+      {
+        name: "integer number",
+        series: [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+        expected: ["1", "2", "3", "4", "5", "6"],
+      },
+      {
+        name: "bigint",
+        series: [
+          [BigInt(1), BigInt(2)],
+          [BigInt(3), BigInt(4)],
+        ],
+        expected: ["1", "2", "3", "4"],
+      },
+      {
+        name: "uuid",
+        series: [SAMPLE_UUID_BYTES, SAMPLE_UUID_BYTES],
+        expected: [
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+          "123e4567-e89b-40d3-8056-426614174000",
+          "7f3e4567-e89b-40d3-8056-426614174000",
+        ],
+        dataType: "uuid",
+      },
+      {
+        name: "float number",
+        series: [
+          [1.1, 2.2, 3.3],
+          [4.4, 5.5, 6.6],
+        ],
+        expected: ["1.1", "2.2", "3.3", "4.4", "5.5", "6.6"],
+      },
+    ];
+    SPECS.forEach(({ name, series, expected, dataType }) => {
+      it(`should correctly convert a ${name} multi-series to strings`, () => {
+        const multiSeries = new MultiSeries(
+          series.map((s) => new Series({ data: s, dataType })),
+        );
+        expect(multiSeries.toStrings()).toEqual(expected);
+      });
+    });
+
+    it("should return an empty array if the multi-series is empty", () => {
+      const multiSeries = new MultiSeries();
+      const outStrings = multiSeries.toStrings();
+      expect(outStrings).toEqual([]);
+    });
+
+    it("should handle multi-series with empty series", () => {
+      const series1 = new Series({ data: ["apple", "banana"] });
+      const series2 = new Series({ data: [], dataType: DataType.STRING });
+      const series3 = new Series({ data: ["carrot"] });
+      const multiSeries = new MultiSeries([series1, series2, series3]);
+      expect(multiSeries.toStrings()).toEqual(["apple", "banana", "carrot"]);
     });
   });
 });

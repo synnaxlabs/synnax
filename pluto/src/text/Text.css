@@ -9,7 +9,75 @@
  * included in the file licenses/APL.txt.
  */
 
+a.pluto-text {
+    text-decoration: none;
+    color: var(--pluto-primary-p1);
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
 .pluto-text {
-    width: fit-content;
     margin: 0;
+    &.pluto--direction-x {
+        align-items: center;
+    }
+
+    &.pluto-text--code {
+        font-family: var(--pluto-code-font-family);
+    }
+
+    &.pluto-text--keyboard {
+        line-height: 1;
+        aspect-ratio: 1;
+        background: var(--pluto-gray-l2);
+        border: var(--pluto-border);
+        border-radius: var(--pluto-border-radius);
+        &.pluto-text--p {
+            height: var(--pluto-p-line-height);
+            font-size: calc(var(--pluto-p-size) - 1px);
+        }
+        &.pluto-text--h1 {
+            height: var(--pluto-h1-line-height);
+            font-size: calc(var(--pluto-h1-size) - 1px);
+        }
+        &.pluto-text--h2 {
+            height: var(--pluto-h2-line-height);
+            font-size: calc(var(--pluto-h2-size) - 1px);
+        }
+        &.pluto-text--h3 {
+            height: var(--pluto-h3-line-height);
+            font-size: calc(var(--pluto-h3-size) - 1px);
+        }
+        &.pluto-text--h4 {
+            height: var(--pluto-h4-line-height);
+            font-size: calc(var(--pluto-h4-size) - 1px);
+        }
+        &.pluto-text--h5 {
+            height: var(--pluto-h5-line-height);
+            font-size: calc(var(--pluto-h5-size) - 1px);
+        }
+        &.pluto-text--small {
+            height: calc(var(--pluto-small-line-height) + 1px);
+            font-size: calc(var(--pluto-small-size) - 2px);
+        }
+    }
+
+    &.pluto-text--overflow-ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+    }
+
+    &.pluto-text--overflow-clip {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+    }
+
+    &.pluto-text--overflow-nowrap {
+        white-space: nowrap;
+    }
 }

@@ -9,9 +9,9 @@
 
 import "@/table/cells/Cells.css";
 
-import { bounds, type box, color, location, type record, scale } from "@synnaxlabs/x";
+import { type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
@@ -83,13 +83,12 @@ export const VALUE_TYPE = "value";
 export type ValueType = typeof VALUE_TYPE;
 export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
-  redline: z.object({
-    bounds: bounds.bounds,
-    gradient: color.gradientZ,
-  }),
+  redline: CoreValue.redlineZ,
   level: CoreText.levelZ,
   color: z.string(),
   units: z.string(),
+  stalenessTimeout: z.number().optional().default(5),
+  stalenessColor: color.colorZ.optional().default(color.ZERO),
 });
 export type ValueProps = z.infer<typeof valuePropsZ>;
 
@@ -102,6 +101,8 @@ export const Value = ({
   selected,
   box: b,
   onSelect,
+  stalenessTimeout,
+  stalenessColor,
 }: CellProps<ValueProps>) => {
   const { width } = CoreValue.use({
     aetherKey: cellKey,
@@ -109,6 +110,8 @@ export const Value = ({
     telem: t,
     level,
     color,
+    stalenessTimeout,
+    stalenessColor,
     backgroundTelem: telem.sourcePipeline("color", {
       connections: [
         { from: "source", to: "scale" },

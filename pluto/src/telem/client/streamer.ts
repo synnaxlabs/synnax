@@ -16,7 +16,6 @@ import {
   type Destructor,
   MultiSeries,
   type Replace,
-  type Required,
   type Series,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -136,7 +135,10 @@ export class Streamer {
       // Update or create the streamer.
       if (this.streamer == null) {
         ins.L.info("creating new streamer", { keys: arrKeys });
-        this.streamer = await this.props.openStreamer(arrKeys);
+        this.streamer = await this.props.openStreamer({
+          channels: arrKeys,
+          useHighPerformanceCodec: false,
+        });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }
 

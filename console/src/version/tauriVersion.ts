@@ -11,15 +11,18 @@ import { useAsyncEffect } from "@synnaxlabs/pluto";
 import { getVersion } from "@tauri-apps/api/app";
 import { useDispatch } from "react-redux";
 
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 import { set } from "@/version/slice";
-
-const tauriVersion = async (): Promise<string> => await getVersion();
 
 export const useLoadTauri = (): void => {
   const dispatch = useDispatch();
-  useAsyncEffect(async () => {
-    if (RUNTIME !== "tauri") return;
-    dispatch(set(await tauriVersion()));
-  }, []);
+  useAsyncEffect(
+    async (signal) => {
+      if (Runtime.ENGINE !== "tauri") return;
+      const version = await getVersion();
+      if (signal.aborted) return;
+      dispatch(set(version));
+    },
+    [dispatch],
+  );
 };

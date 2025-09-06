@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
-import { z } from "zod/v4";
+import { describe, expect, it, test } from "vitest";
+import { z } from "zod";
 
 import { binary } from "@/binary";
 import { primitive } from "@/primitive";
+import { testutil } from "@/testutil";
 
 class ExampleStringer implements primitive.Stringer {
   readonly value: string;
@@ -25,7 +26,7 @@ class ExampleStringer implements primitive.Stringer {
 }
 
 describe("primitive", () => {
-  describe("isZero", () => {
+  describe("isZero and isNonZero", () => {
     interface Spec {
       value: primitive.Value;
       expected: boolean;
@@ -42,9 +43,11 @@ describe("primitive", () => {
       { value: new ExampleStringer("cat"), expected: false },
     ];
     SPECS.forEach(({ value, expected }) => {
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      it(`should return ${expected} for ${value} ${typeof value}`, () => {
+      test(`isZero should return ${expected} for ${testutil.toString(value)}`, () => {
         expect(primitive.isZero(value)).toEqual(expected);
+      });
+      test(`isNonZero should return ${!expected} for ${testutil.toString(value)}`, () => {
+        expect(primitive.isNonZero(value)).toEqual(!expected);
       });
     });
   });
@@ -120,6 +123,15 @@ describe("primitive", () => {
           myDog: new MyValueExtension(12n),
         });
         expect(decoded.myDog).toBeInstanceOf(MyValueExtension);
+      });
+
+      describe("isCrudeValueExtension", () => {
+        it("should return true for a CrudeValueExtension", () => {
+          expect(primitive.isCrudeValueExtension({ value: 12n })).toEqual(true);
+        });
+        it("should return false for a non-CrudeValueExtension", () => {
+          expect(primitive.isCrudeValueExtension(12n)).toEqual(false);
+        });
       });
     });
   });

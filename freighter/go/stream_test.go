@@ -215,7 +215,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 							defer close(serverClosed)
 							defer GinkgoRecover()
 							_, err := server.Receive()
-							Expect(err).To(Equal(context.Canceled))
+							Expect(err).To(HaveOccurredAs(context.Canceled))
 							return nil
 						})
 						ctx, cancel := context.WithCancel(context.TODO())

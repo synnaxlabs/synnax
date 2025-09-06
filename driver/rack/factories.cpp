@@ -55,7 +55,7 @@ void configure_labjack(const rack::Config &config, FactoryList &factories) {
 }
 
 void configure_state(FactoryList &factories) {
-    factories.push_back(std::make_unique<rack::state::Factory>());
+    factories.push_back(std::make_unique<rack::status::Factory>());
 }
 
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {

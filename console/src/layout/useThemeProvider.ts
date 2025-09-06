@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type UnknownAction } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
-import { type AsyncDestructor, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type Destructor } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
-import { RUNTIME } from "@/runtime";
+import { Runtime } from "@/runtime";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
@@ -29,12 +29,15 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
-  useAsyncEffect(async () => {
-    if (RUNTIME !== "tauri") return;
-    if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
-    await setInitialTheme(dispatch);
-    return await synchronizeWithOS(dispatch);
-  }, []);
+  useAsyncEffect(
+    async (signal) => {
+      if (!Runtime.isMainWindow()) return;
+      await setInitialTheme(dispatch);
+      if (signal.aborted) return;
+      return await synchronizeWithOS(dispatch);
+    },
+    [dispatch],
+  );
 
   return {
     theme: Theming.themeZ.parse(theme),
@@ -48,10 +51,26 @@ const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THE
 
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
-): Promise<AsyncDestructor> =>
-  await getCurrentWindow().onThemeChanged(({ payload }) =>
+): Promise<Destructor> => {
+  if (Runtime.ENGINE !== "tauri") {
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) =>
+      dispatch(setActiveTheme(matchThemeChange(e.matches ? "dark" : "light")));
+    query.addEventListener("change", handler);
+    return () => query.removeEventListener("change", handler);
+  }
+  return await getCurrentWindow().onThemeChanged(({ payload }) =>
     dispatch(setActiveTheme(matchThemeChange(payload))),
   );
+};
 
-const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
+const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> => {
+  if (Runtime.ENGINE !== "tauri") {
+    const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+    dispatch(setActiveTheme(matchThemeChange(theme)));
+    return;
+  }
   dispatch(setActiveTheme(matchThemeChange(await getCurrentWindow().theme())));
+};

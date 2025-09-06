@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as CSynnax } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { Runtime } from "@/runtime";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { select, selectActiveKey } from "@/workspace/selectors";
@@ -25,19 +25,22 @@ import { select, selectActiveKey } from "@/workspace/selectors";
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
 export interface ExportContext {
-  client: CSynnax | null;
+  client: Client | null;
   store: RootStore;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
-  extractors: Record<string, Export.Extractor>;
+  extractors: Export.Extractors;
+  addStatus: Status.Adder;
 }
 
-export const export_ = async (
+export const export_ = (
   key: string | null,
-  { client, store, confirm, handleError, extractors }: ExportContext,
-): Promise<void> => {
+  { client, store, confirm, handleError, extractors, addStatus }: ExportContext,
+): void => {
   let name: string = "workspace"; // default name for error message
-  try {
+  handleError(async () => {
+    if (Runtime.ENGINE !== "tauri")
+      throw new Error("Cannot export workspaces when running Synnax in the browser.");
     const storeState = store.getState();
     const activeKey = selectActiveKey(storeState);
     let toExport: Layout.SliceState;
@@ -51,7 +54,7 @@ export const export_ = async (
         toExport = existingWorkspace.layout as Layout.SliceState;
         name = existingWorkspace.name;
       } else {
-        if (client == null) throw NULL_CLIENT_ERROR;
+        if (client == null) throw new DisconnectedError();
         const ws = await client.workspaces.retrieve(key);
         toExport = ws.layout as Layout.SliceState;
         name = ws.name;
@@ -94,20 +97,21 @@ export const export_ = async (
         await writeTextFile(await join(directory, name), data);
       }),
     );
-  } catch (e) {
-    handleError(e, `Failed to export ${name}`);
-  }
+    addStatus({
+      variant: "success",
+      message: `Exported ${name} to ${directory}`,
+    });
+  }, `Failed to export ${name}`);
 };
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
-export const useExport = (
-  extractors: Record<string, Export.Extractor>,
-): ((key: string) => Promise<void>) => {
+export const useExport = (extractors: Export.Extractors): ((key: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
   const confirm = Modals.useConfirm();
   return (key: string) =>
-    export_(key, { client, store, confirm, handleError, extractors });
+    export_(key, { client, store, confirm, handleError, extractors, addStatus });
 };

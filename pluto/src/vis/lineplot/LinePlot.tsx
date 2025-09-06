@@ -32,12 +32,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
@@ -62,7 +62,7 @@ const Context = createContext<ContextValue | null>(null);
 export const useContext = (component: string) => {
   const ctx = use(Context);
   if (ctx == null)
-    throw new Error(`Cannot to use ${component} as a non-child of LinePlot.`);
+    throw new Error(`Cannot use ${component} as a non-child of LinePlot.`);
   return ctx;
 };
 
@@ -93,6 +93,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
 
 export interface LineSpec {
   key: string;
+  legendGroup: string;
   color: color.Crude;
   label: string;
   visible: boolean;
@@ -127,7 +128,7 @@ export const LinePlot = ({
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
-  const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
   const [{ path }, { grid }, setState] = Aether.use({
     aetherKey,

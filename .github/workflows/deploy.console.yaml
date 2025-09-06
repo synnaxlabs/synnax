@@ -5,14 +5,45 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/deploy.console.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pluto/**
+      - turbo.json
+      - vendor/lua-language-server/**
+      - x/media/**
+      - x/ts/**
   pull_request:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/deploy.console.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pluto/**
+      - turbo.json
+      - vendor/lua-language-server/**
+      - x/media/**
+      - x/ts/**
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -25,13 +56,9 @@ jobs:
     outputs:
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Get Version
         id: version
@@ -45,32 +72,13 @@ jobs:
             echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/deploy.console.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - configs/ts/**
-              - configs/vite/**
-              - console/**
-              - drift/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
-
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    if:
-      (github.event_name == 'push' && needs.setup.outputs.changed == 'true') ||
-      github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: setup
+    permissions:
+      contents: write
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
     outputs:
@@ -108,13 +116,11 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: setup
-    if:
-      needs.setup.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
       NODE_OPTIONS: "--max_old_space_size=4096"
     strategy:
       fail-fast: false
@@ -125,10 +131,10 @@ jobs:
       - name: Import Apple Developer Certificate
         # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
-        if:
-          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch')
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -145,9 +151,7 @@ jobs:
 
       - name: Verify Apple Developer Certificate
         # Same as above - only notarize on macOS and on push events, not on PRs
-        if:
-          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch')
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -157,15 +161,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Update Submodules on Push
-        if: github.event_name == 'push'
+      - name: Update Submodules
         run: git submodule update --init --recursive
-
-      - name: Mock Resources on Pull Request
-        if: github.event_name == 'pull_request'
-        run: |
-          mkdir -p vendor/lua-language-server
-          touch vendor/lua-language-server/placeholder.txt
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -177,19 +174,15 @@ jobs:
           cache: pnpm
 
       - name: Adjust Auto Updater URL for Release Candidate
-        if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          github.ref == 'refs/heads/rc'
+        if: (github.event_name != 'pull_request') && github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
           rm tauri.conf.json
           mv temp.json tauri.conf.json
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Install Rust
+        run: rustup update
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -208,18 +201,14 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build (TypeScript)
+      - name: Build TypeScript
         run: pnpm build:console-vite
 
-      # We need to build the console separately WITHOUT turbo repo because of strange
-      # incompatibility issues with rust builds.
-
       - name: Pre-sign Embedded lua-language-server (Before Build)
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && (github.event_name != 'pull_request')
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
-          # Adjust this path to point to the embedded binary in your repository.
           EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
           if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
             echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
@@ -229,7 +218,8 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
-      - name: Build
+      - name: Build (Push)
+        if: github.event_name != 'pull_request'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -240,19 +230,42 @@ jobs:
         working-directory: console
         run: pnpm build
 
+      - name: Build (PR)
+        if: github.event_name == 'pull_request'
+        working-directory: console
+        run: pnpm build
+
       - name: Upload macOS Release Asset
-        if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          matrix.os == 'macos-latest'
+        if: (github.event_name != 'pull_request') && matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
+
+      - name: Download relic for Windows signing
+        if: matrix.os == 'windows-latest'
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir relic-bin
+          mv relic.exe relic-bin\
+          echo "${{ github.workspace }}\\relic-bin" >> $env:GITHUB_PATH
+
+      - name: Sign Windows Release Asset
+        if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi --key azure --config relic.conf
+          relic sign --file ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe --key azure --config relic.conf
 
       - name: Upload Windows Release Asset
-        if:
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          matrix.os == 'windows-latest'
+        if: (github.event_name != 'pull_request') && matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
@@ -262,9 +275,11 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if:
-      (needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id
-      != '') || github.event_name == 'workflow_dispatch'
+      needs.create-release.outputs.release_id != '' && github.event_name !=
+      'pull_request'
     needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
@@ -347,7 +362,7 @@ jobs:
               },
             };
 
-            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
+            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
 
       - name: Commit & Push Auto Update JSON File on Main
         if: github.ref == 'refs/heads/main'

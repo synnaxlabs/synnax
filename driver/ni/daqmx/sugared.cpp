@@ -1427,7 +1427,8 @@ xerrors::Error SugaredAPI::SetTrigAttributeDoubleArray(
     const float64 value[],
     uInt32 size
 ) {
-    return process_error(dmx->SetTrigAttributeDoubleArray(task, attribute, value, size)
+    return process_error(
+        dmx->SetTrigAttributeDoubleArray(task, attribute, value, size)
     );
 }
 
@@ -1481,7 +1482,8 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeDouble(
     int32 attribute,
     float64 value
 ) {
-    return process_error(dmx->SetWatchdogAttributeDouble(task, lines, attribute, value)
+    return process_error(
+        dmx->SetWatchdogAttributeDouble(task, lines, attribute, value)
     );
 }
 
@@ -1500,7 +1502,8 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeString(
     int32 attribute,
     const char value[]
 ) {
-    return process_error(dmx->SetWatchdogAttributeString(task, lines, attribute, value)
+    return process_error(
+        dmx->SetWatchdogAttributeString(task, lines, attribute, value)
     );
 }
 
@@ -2634,7 +2637,8 @@ xerrors::Error SugaredAPI::GetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 *logicFamily
 ) {
-    return process_error(dmx->GetDigitalLogicFamilyPowerUpState(deviceName, logicFamily)
+    return process_error(
+        dmx->GetDigitalLogicFamilyPowerUpState(deviceName, logicFamily)
     );
 }
 
@@ -2784,7 +2788,8 @@ xerrors::Error SugaredAPI::GetPersistedTaskAttributeBool(
     int32 attribute,
     bool32 *value
 ) {
-    return process_error(dmx->GetPersistedTaskAttributeBool(taskName, attribute, value)
+    return process_error(
+        dmx->GetPersistedTaskAttributeBool(taskName, attribute, value)
     );
 }
 
@@ -2982,7 +2987,8 @@ xerrors::Error SugaredAPI::GetScaleAttributeString(
     char value[],
     uInt32 size
 ) {
-    return process_error(dmx->GetScaleAttributeString(scaleName, attribute, value, size)
+    return process_error(
+        dmx->GetScaleAttributeString(scaleName, attribute, value, size)
     );
 }
 
@@ -3179,7 +3185,8 @@ xerrors::Error SugaredAPI::GetTrigAttributeDoubleArray(
     float64 value[],
     uInt32 size
 ) {
-    return process_error(dmx->GetTrigAttributeDoubleArray(task, attribute, value, size)
+    return process_error(
+        dmx->GetTrigAttributeDoubleArray(task, attribute, value, size)
     );
 }
 
@@ -3234,7 +3241,8 @@ xerrors::Error SugaredAPI::GetWatchdogAttributeDouble(
     int32 attribute,
     float64 *value
 ) {
-    return process_error(dmx->GetWatchdogAttributeDouble(task, lines, attribute, value)
+    return process_error(
+        dmx->GetWatchdogAttributeDouble(task, lines, attribute, value)
     );
 }
 
@@ -3975,7 +3983,8 @@ xerrors::Error SugaredAPI::SaveGlobalChan(
     const char author[],
     uInt32 options
 ) {
-    return process_error(dmx->SaveGlobalChan(task, channelName, saveAs, author, options)
+    return process_error(
+        dmx->SaveGlobalChan(task, channelName, saveAs, author, options)
     );
 }
 
@@ -4141,7 +4150,8 @@ xerrors::Error SugaredAPI::SetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 logicFamily
 ) {
-    return process_error(dmx->SetDigitalLogicFamilyPowerUpState(deviceName, logicFamily)
+    return process_error(
+        dmx->SetDigitalLogicFamilyPowerUpState(deviceName, logicFamily)
     );
 }
 

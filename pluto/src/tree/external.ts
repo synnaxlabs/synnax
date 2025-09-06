@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/tree/core";
+export * from "@/tree/Item";
 export * from "@/tree/Tree";

@@ -11,12 +11,13 @@ import "@/input/Switch.css";
 
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { type BaseProps } from "@/input/types";
+import { type Button } from "@/button";
+import { Boolean } from "@/input/Boolean";
+import { type InputProps } from "@/input/types";
 
-export interface SwitchProps extends Omit<BaseProps<boolean>, "placeholder"> {}
-
-const CLS = "input-switch";
+export interface SwitchProps
+  extends InputProps<boolean>,
+    Omit<Button.ExtensionProps, "variant"> {}
 
 /**
  * A controlled boolean Switch input component.
@@ -28,34 +29,6 @@ const CLS = "input-switch";
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  */
-export const Switch = ({
-  ref,
-  className,
-  value,
-  disabled,
-  onChange,
-  size = "medium",
-  variant,
-  ...rest
-}: SwitchProps): ReactElement => {
-  if (variant === "preview") disabled = true;
-  return (
-    <div
-      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
-    >
-      <label className={CSS(CSS.BE(CLS, "track"), className)}>
-        <input
-          className={CSS.BE(CLS, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onChange={(e) => onChange(e.target.checked)}
-          value=""
-          disabled={disabled}
-          {...rest}
-        />
-        <span className="pluto-input-switch__slider" />
-      </label>
-    </div>
-  );
-};
+export const Switch = (props: SwitchProps): ReactElement => (
+  <Boolean {...props} inputType="switch" />
+);

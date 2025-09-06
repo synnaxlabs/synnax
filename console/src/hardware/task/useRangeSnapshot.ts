@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { DisconnectedError, type ontology, ranger } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useStore } from "react-redux";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Range } from "@/range";
 import { type RootState } from "@/store";
 
@@ -29,7 +28,7 @@ export const useRangeSnapshot = () => {
     mutationFn: async (resources) => {
       const activeRange = Range.selectActiveKey(store.getState());
       if (activeRange === null) throw new Error("No active range");
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const tasks = await Promise.all(
         resources.map(({ id, name }) =>
           client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),

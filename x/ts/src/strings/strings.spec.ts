@@ -9,56 +9,97 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createShortIdentifiers, naturalLanguageJoin } from "@/strings/strings";
+import { strings } from "@/strings";
 
 describe("naturalLanguageJoin", () => {
   it("should return an empty string for an empty array", () =>
-    expect(naturalLanguageJoin([])).toBe(""));
+    expect(strings.naturalLanguageJoin([])).toBe(""));
+
+  it("should return the string for a single string", () =>
+    expect(strings.naturalLanguageJoin("apple")).toBe("apple"));
 
   it("should return the zeroLength string for an empty array if provided", () =>
-    expect(naturalLanguageJoin([], "No items")).toBe("No items"));
+    expect(strings.naturalLanguageJoin([], "No items")).toBe("No items"));
 
   it("should return the single element for an array with one element", () =>
-    expect(naturalLanguageJoin(["apple"])).toBe("apple"));
+    expect(strings.naturalLanguageJoin(["apple"])).toBe("apple"));
 
   it('should join two elements with "and"', () =>
-    expect(naturalLanguageJoin(["apple", "banana"])).toBe("apple and banana"));
+    expect(strings.naturalLanguageJoin(["apple", "banana"])).toBe("apple and banana"));
 
   it('should join multiple elements with commas and "and"', () =>
-    expect(naturalLanguageJoin(["apple", "banana", "cherry"])).toBe(
+    expect(strings.naturalLanguageJoin(["apple", "banana", "cherry"])).toBe(
       "apple, banana, and cherry",
     ));
 
   it("should handle an array with more than three elements correctly", () =>
-    expect(naturalLanguageJoin(["apple", "banana", "cherry", "date"])).toBe(
+    expect(strings.naturalLanguageJoin(["apple", "banana", "cherry", "date"])).toBe(
       "apple, banana, cherry, and date",
     ));
 });
 
 describe("createShortIdentifiers", () => {
   it("should create identifiers for a single word", () =>
-    expect(createShortIdentifiers("Bob")).toEqual(expect.arrayContaining(["bob"])));
+    expect(strings.createShortIdentifiers("Bob")).toEqual(
+      expect.arrayContaining(["bob"]),
+    ));
 
   it("should create identifiers for multiple words", () =>
-    expect(createShortIdentifiers("John Doe")).toEqual(
+    expect(strings.createShortIdentifiers("John Doe")).toEqual(
       expect.arrayContaining(["jd", "j_d", "johdoe", "joh_doe"]),
     ));
 
   it("should create identifiers for words containing numbers", () =>
-    expect(createShortIdentifiers("Alice 123")).toEqual(
+    expect(strings.createShortIdentifiers("Alice 123")).toEqual(
       expect.arrayContaining(["a1", "a_1", "ali123", "ali_123"]),
     ));
 
   it("should create identifiers for words longer than three characters", () =>
-    expect(createShortIdentifiers("Jonathan")).toEqual(
+    expect(strings.createShortIdentifiers("Jonathan")).toEqual(
       expect.arrayContaining(["jon"]),
     ));
 
   it("should create identifiers for words shorter than three characters", () =>
-    expect(createShortIdentifiers("Al")).toEqual(expect.arrayContaining(["al"])));
+    expect(strings.createShortIdentifiers("Al")).toEqual(
+      expect.arrayContaining(["al"]),
+    ));
 
   it("should create identifiers for mixed cases", () =>
-    expect(createShortIdentifiers("Alice Bob")).toEqual(
+    expect(strings.createShortIdentifiers("Alice Bob")).toEqual(
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
+});
+
+describe("trimPrefix", () => {
+  it("should remove a prefix when it exists", () =>
+    expect(strings.trimPrefix("hello world", "hello ")).toBe("world"));
+
+  it("should return the original string when prefix does not exist", () =>
+    expect(strings.trimPrefix("hello world", "goodbye ")).toBe("hello world"));
+
+  it("should return the original string when prefix is empty", () =>
+    expect(strings.trimPrefix("hello world", "")).toBe("hello world"));
+
+  it("should return empty string when prefix equals the entire string", () =>
+    expect(strings.trimPrefix("hello world", "hello world")).toBe(""));
+
+  it("should handle case-sensitive matching", () =>
+    expect(strings.trimPrefix("Hello World", "hello ")).toBe("Hello World"));
+
+  it("should handle partial prefix matches", () =>
+    expect(strings.trimPrefix("hello world", "hello")).toBe(" world"));
+
+  it("should handle prefix longer than string", () =>
+    expect(strings.trimPrefix("hello", "hello world")).toBe("hello"));
+
+  it("should handle special characters in prefix", () =>
+    expect(strings.trimPrefix("file:///path/to/file", "file://")).toBe(
+      "/path/to/file",
+    ));
+
+  it("should handle unicode characters", () =>
+    expect(strings.trimPrefix("café au lait", "café ")).toBe("au lait"));
+
+  it("should handle numbers in prefix", () =>
+    expect(strings.trimPrefix("123abc", "123")).toBe("abc"));
 });

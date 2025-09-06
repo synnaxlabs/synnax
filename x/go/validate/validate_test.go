@@ -12,7 +12,6 @@ package validate_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,7 +53,7 @@ var _ = Describe("Validate", func() {
 
 		It("Should include the field name in the error", func() {
 			v.Ternaryf("myField", true, "invalid value")
-			Expect(v.Error().Error()).To(ContainSubstring("myField"))
+			Expect(v.Error().Error()).To(ContainSubstring("my_field"))
 		})
 	})
 
@@ -181,16 +180,6 @@ var _ = Describe("Validate", func() {
 				Expect(validate.NonZeroable(v, "field", z)).To(BeTrue())
 				Expect(v.Error()).To(HaveOccurred())
 			})
-		})
-	})
-
-	Describe("Error Handling", func() {
-		It("Should implement proper error interfaces", func() {
-			v.Ternary("field", true, "error")
-			var fieldErr validate.FieldError
-			Expect(errors.As(v.Error(), &fieldErr)).To(BeTrue())
-			Expect(fieldErr.Field).To(Equal("field"))
-			Expect(fieldErr.Error()).To(ContainSubstring("error"))
 		})
 	})
 })

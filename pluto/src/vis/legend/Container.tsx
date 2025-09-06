@@ -18,34 +18,31 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
-export const completeStickyXYz = xy.xy.extend({
+const completeStickyXYz = xy.xy.extend({
   root: location.corner,
   units: z.object({
     x: z.enum(["px", "decimal"]),
     y: z.enum(["px", "decimal"]),
   }),
 });
-export type CompleteStickyXY = z.infer<typeof completeStickyXYz>;
-export const stickyXYz = completeStickyXYz.partial({
-  root: true,
-  units: true,
-});
+interface CompleteStickyXY extends z.infer<typeof completeStickyXYz> {}
 
+export const stickyXYz = completeStickyXYz.partial({ root: true, units: true });
 // StickyXY is a special coordinate system that allows for an element to 'stick' to an
 // edge of its parent container. This makes for intuitive positioning behavior for
-// components like legends. When the parent resizes, the legend will remain in
-// a natural position.
-export type StickyXY = z.infer<typeof stickyXYz>;
+// components like legends. When the parent resizes, the legend will remain in a natural
+// position.
+export interface StickyXY extends z.infer<typeof stickyXYz> {}
 
 const stickyToCSS = (pos: StickyXY): CSSProperties => {
   const ret: CSSProperties = {};
@@ -59,8 +56,8 @@ const stickyToCSS = (pos: StickyXY): CSSProperties => {
  * Converts a StickyXY position to a decimal position relative to the parent container
  * and correctly offset based on the dimensions of the child.
  * @param pos - The StickyXY position to convert
- * @param ref - The ref of the element being positioned. The parent will be inferred from
- * the parentElement of the ref.
+ * @param ref - The ref of the element being positioned. The parent will be inferred
+ * from the parentElement of the ref.
  */
 const stickyToDecimalXY = (
   pos: StickyXY,
@@ -83,7 +80,7 @@ const stickyToDecimalXY = (
   return ret;
 };
 
-export const calcStickyPos = (
+const calcStickyPos = (
   pos: xy.XY,
   ref: RefObject<HTMLDivElement | null>,
 ): StickyXY | null => {
@@ -111,7 +108,7 @@ export const calcStickyPos = (
 };
 
 export interface ContainerProps
-  extends Omit<Align.SpaceProps, "onChange">,
+  extends Omit<Flex.BoxProps, "onChange">,
     Partial<OptionalControl<StickyXY>> {
   dragEnabled?: boolean;
   initial?: StickyXY;
@@ -190,18 +187,18 @@ export const Container = memo(
     });
 
     return (
-      <Align.Space
+      <Flex.Box
         className={CSS(className, CSS.B("legend"))}
         bordered
-        rounded
         style={style}
         onDragStart={handleCursorDragStart}
         draggable={draggable}
-        borderShade={5}
+        borderColor={5}
         ref={ref}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
         background={1}
+        rounded={1}
         {...rest}
       />
     );

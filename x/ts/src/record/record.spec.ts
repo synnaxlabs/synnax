@@ -316,4 +316,35 @@ describe("record", () => {
       });
     });
   });
+
+  describe("omit", () => {
+    type Object = { [key: string]: number };
+    it("should return the object if no keys are provided", () =>
+      expect(record.omit({ a: 1, b: 2, c: 3 })).toEqual({ a: 1, b: 2, c: 3 }));
+
+    it("should return the object for a single key", () =>
+      expect(record.omit({ a: 1, b: 2, c: 3 }, "a")).toEqual({ b: 2, c: 3 }));
+
+    it("should return the object for multiple keys", () =>
+      expect(record.omit({ a: 1, b: 2, c: 3 }, "a", "b")).toEqual({ c: 3 }));
+
+    it("should not mutate the original object", () => {
+      const obj = { a: 1, b: 2, c: 3 };
+      const result = record.omit(obj, "a", "b");
+      expect(result).toEqual({ c: 3 });
+      expect(obj).toEqual({ a: 1, b: 2, c: 3 });
+    });
+
+    it("should be a no-op if the keys are not present", () => {
+      const obj: Object = { a: 1, b: 2, c: 3 };
+      const result = record.omit(obj, "d", "e");
+      expect(result).toEqual({ a: 1, b: 2, c: 3 });
+    });
+
+    it("should handle empty objects", () => {
+      const obj: Object = {};
+      const result = record.omit(obj, "a", "b", "c");
+      expect(result).toEqual({});
+    });
+  });
 });

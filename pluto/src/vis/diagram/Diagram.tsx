@@ -10,7 +10,6 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { box, color, location, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
@@ -49,18 +48,20 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
 import { Button } from "@/button";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
-import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
+import { Icon } from "@/icon";
+import { useMemoCompare, useMemoDeepEqual } from "@/memo";
+import { Select } from "@/select";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
-import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -102,6 +103,7 @@ export const use = ({
   initialViewport = { position: xy.ZERO, zoom: 1 },
 }: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
+  const [viewportMode, onViewportModeChange] = useState<CoreViewport.Mode>("select");
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
   const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
   const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
@@ -118,6 +120,8 @@ export const use = ({
     onEditableChange,
     fitViewOnResize,
     setFitViewOnResize,
+    viewportMode,
+    onViewportModeChange,
   };
 };
 
@@ -134,6 +138,8 @@ export interface UseReturn {
   viewport: Viewport;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
 }
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -185,6 +191,8 @@ interface ContextValue {
   editable: boolean;
   visible: boolean;
   onEditableChange: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
@@ -193,6 +201,8 @@ interface ContextValue {
 const Context = createContext<ContextValue>({
   editable: true,
   visible: true,
+  viewportMode: "select",
+  onViewportModeChange: () => {},
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
   fitViewOnResize: false,
@@ -216,6 +226,20 @@ NodeRenderer.displayName = "NodeRenderer";
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
+const PAN_PROPS: Partial<ReactFlowProps> = {
+  panOnDrag: [Triggers.MOUSE_LEFT_NUMBER, Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
+const SELECT_PROPS: Partial<ReactFlowProps> = {
+  selectionOnDrag: true,
+  panOnDrag: [Triggers.MOUSE_MIDDLE_NUMBER],
+};
+
+const viewPortModeToRFProps = (mode: CoreViewport.Mode): Partial<ReactFlowProps> => {
+  if (mode === "pan") return PAN_PROPS;
+  return SELECT_PROPS;
+};
+
 const Core = ({
   aetherKey,
   onNodesChange,
@@ -231,9 +255,11 @@ const Core = ({
   setFitViewOnResize,
   visible,
   dragHandleSelector,
+  viewportMode,
+  onViewportModeChange,
   ...rest
 }: DiagramProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ visible });
+  const memoProps = useMemoDeepEqual({ visible });
   const [{ path }, , setState] = Aether.use({
     aetherKey,
     type: diagram.Diagram.TYPE,
@@ -433,8 +459,18 @@ const Core = ({
       registerNodeRenderer,
       fitViewOnResize,
       setFitViewOnResize,
+      viewportMode,
+      onViewportModeChange,
     }),
-    [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
+    [
+      editable,
+      visible,
+      onEditableChange,
+      registerNodeRenderer,
+      fitViewOnResize,
+      viewportMode,
+      onViewportModeChange,
+    ],
   );
 
   return (
@@ -473,6 +509,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
+            {...viewPortModeToRFProps(viewportMode)}
             nodesDraggable={editable}
           />
         )}
@@ -486,14 +523,16 @@ export const Background = (): ReactElement | null => {
   return editable ? <RFBackground /> : null;
 };
 
-export interface ControlsProps extends Align.PackProps {}
+export interface ControlsProps extends Flex.BoxProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
+  <Flex.Box x className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
-  extends Omit<Button.ToggleIconProps, "value" | "onChange" | "children"> {}
+  extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
+
+const CONTROL_TOOLTIP_LOCATION = location.BOTTOM_LEFT;
 
 export const ToggleEditControl = ({
   onClick,
@@ -501,23 +540,23 @@ export const ToggleEditControl = ({
 }: ToggleEditControlProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onChange={() => onEditableChange(!editable)}
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.BOTTOM_LEFT}
+      tooltipLocation={CONTROL_TOOLTIP_LOCATION}
       size="small"
       tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
-    </Button.ToggleIcon>
+    </Button.Toggle>
   );
 };
 
 export interface FitViewControlProps
-  extends Omit<Button.IconProps, "children" | "onChange"> {}
+  extends Omit<Button.ToggleProps, "children" | "onChange" | "value"> {}
 
 export const FitViewControl = ({
   onClick,
@@ -526,23 +565,53 @@ export const FitViewControl = ({
   const { fitView } = useReactFlow();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
-    <Button.ToggleIcon
+    <Button.Toggle
       onClick={(e) => {
         void fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      // @ts-expect-error - toggle icon issues
       value={fitViewOnResize}
-      onChange={(v: boolean) => setFitViewOnResize(v)}
+      onChange={setFitViewOnResize}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.BOTTOM_LEFT}
-      variant="outlined"
       size="small"
       {...rest}
     >
       <Icon.Expand />
-    </Button.ToggleIcon>
+    </Button.Toggle>
+  );
+};
+
+export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
+const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
+const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
+
+export const SelectViewportModeControl = (): ReactElement => {
+  const { viewportMode, onViewportModeChange } = useContext();
+  return (
+    <Select.Buttons
+      keys={VIEWPORT_MODES}
+      value={viewportMode}
+      onChange={onViewportModeChange}
+    >
+      <Select.Button
+        itemKey="pan"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
+        <Icon.Pan />
+      </Select.Button>
+      <Select.Button
+        itemKey="select"
+        size="small"
+        tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
+        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      >
+        <Icon.Selection />
+      </Select.Button>
+    </Select.Buttons>
   );
 };
 

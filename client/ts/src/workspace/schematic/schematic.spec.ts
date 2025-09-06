@@ -11,9 +11,9 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { ValidationError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { createTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = createTestClient();
 
 describe("Schematic", () => {
   describe("create", () => {
