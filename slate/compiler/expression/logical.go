@@ -20,11 +20,12 @@ import (
 func compileLogicalOrImpl(
 	ctx *core.Context,
 	expr parser.ILogicalOrExpressionContext,
+	hint types.Type,
 ) (types.Type, error) {
 	ands := expr.AllLogicalAndExpression()
 
 	// Compile first operand
-	_, err := compileLogicalAnd(ctx, ands[0])
+	_, err := compileLogicalAnd(ctx, ands[0], nil)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func compileLogicalOrImpl(
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 
 		// False case: evaluate right operand
-		_, err := compileLogicalAnd(ctx, ands[i])
+		_, err := compileLogicalAnd(ctx, ands[i], nil)
 		if err != nil {
 			return nil, err
 		}
@@ -61,11 +62,11 @@ func compileLogicalOrImpl(
 }
 
 // compileLogicalAndImpl handles && operations with short-circuit evaluation
-func compileLogicalAndImpl(ctx *core.Context, expr parser.ILogicalAndExpressionContext) (types.Type, error) {
+func compileLogicalAndImpl(ctx *core.Context, expr parser.ILogicalAndExpressionContext, hint types.Type) (types.Type, error) {
 	eqs := expr.AllEqualityExpression()
 
 	// Compile first operand
-	_, err := compileEquality(ctx, eqs[0])
+	_, err := compileEquality(ctx, eqs[0], nil)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func compileLogicalAndImpl(ctx *core.Context, expr parser.ILogicalAndExpressionC
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 
 		// False case (was non-zero): evaluate right operand
-		_, err := compileEquality(ctx, eqs[i])
+		_, err := compileEquality(ctx, eqs[i], nil)
 		if err != nil {
 			return nil, err
 		}

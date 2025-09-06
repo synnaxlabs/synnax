@@ -195,7 +195,7 @@ func compileFlowExpression(
 	typeIdx := ctx.Module.AddType(wasm.FunctionType{Params: wasmParams, Results: results})
 	blockScope, _ := scope.FirstChildOfKind(symbol.KindBlock)
 	exprCtx := ctx.WithScope(blockScope).WithNewWriter()
-	exprType, err := expression.Compile(exprCtx, expr)
+	exprType, err := expression.Compile(exprCtx, expr, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to compile flow expression")
 	}

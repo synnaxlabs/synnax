@@ -22,9 +22,10 @@ import (
 func compileLiteral(
 	ctx *core.Context,
 	lit parser.ILiteralContext,
+	hint types.Type,
 ) (types.Type, error) {
 	if num := lit.NumericLiteral(); num != nil {
-		return compileNumericLiteral(ctx, num)
+		return compileNumericLiteral(ctx, num, hint)
 	}
 	if temp := lit.TemporalLiteral(); temp != nil {
 		return types.TimeSpan{}, nil
@@ -38,15 +39,37 @@ func compileLiteral(
 	return nil, errors.New("unknown literal type")
 }
 
-func compileNumericLiteral(ctx *core.Context, num parser.INumericLiteralContext) (types.Type, error) {
+func compileNumericLiteral(
+	ctx *core.Context,
+	num parser.INumericLiteralContext,
+	hint types.Type,
+) (types.Type, error) {
 	if intLit := num.INTEGER_LITERAL(); intLit != nil {
 		text := intLit.GetText()
 		value, err := strconv.ParseInt(text, 10, 64)
 		if err != nil {
 			return nil, errors.Newf("invalid integer literal: %s", text)
 		}
-		ctx.Writer.WriteI64Const(value)
-		return types.I64{}, nil
+		
+		// Check if we have a hint that suggests a float type
+		switch hint.(type) {
+		case types.F32:
+			// Coerce integer literal to f32
+			ctx.Writer.WriteF32Const(float32(value))
+			return types.F32{}, nil
+		case types.F64:
+			// Coerce integer literal to f64
+			ctx.Writer.WriteF64Const(float64(value))
+			return types.F64{}, nil
+		case types.I32:
+			// Coerce to i32
+			ctx.Writer.WriteI32Const(int32(value))
+			return types.I32{}, nil
+		default:
+			// Default to i64
+			ctx.Writer.WriteI64Const(value)
+			return types.I64{}, nil
+		}
 	}
 	if floatLit := num.FLOAT_LITERAL(); floatLit != nil {
 		text := floatLit.GetText()
@@ -54,8 +77,18 @@ func compileNumericLiteral(ctx *core.Context, num parser.INumericLiteralContext)
 		if err != nil {
 			return nil, errors.Newf("invalid float literal: %s", text)
 		}
-		ctx.Writer.WriteF64Const(value)
-		return types.F64{}, nil
+		
+		// Check if we have a hint that suggests f32
+		switch hint.(type) {
+		case types.F32:
+			// Coerce to f32
+			ctx.Writer.WriteF32Const(float32(value))
+			return types.F32{}, nil
+		default:
+			// Default to f64
+			ctx.Writer.WriteF64Const(value)
+			return types.F64{}, nil
+		}
 	}
 	return nil, errors.New("unknown numeric literal")
 }

@@ -19,16 +19,17 @@ import (
 func compileBinaryAdditive(
 	ctx *core.Context,
 	expr parser.IAdditiveExpressionContext,
+	hint types.Type,
 ) (types.Type, error) {
 	muls := expr.AllMultiplicativeExpression()
-	resultType, err := compileMultiplicative(ctx, muls[0])
+	resultType, err := compileMultiplicative(ctx, muls[0], hint)
 	if err != nil {
 		return nil, err
 	}
 	// Process remaining operands
 	for i := 1; i < len(muls); i++ {
-		// Compile next operand
-		_, err := compileMultiplicative(ctx, muls[i])
+		// Compile next operand with the left operand's type as hint
+		_, err := compileMultiplicative(ctx, muls[i], resultType)
 		if err != nil {
 			return nil, err
 		}
@@ -55,18 +56,19 @@ func compileBinaryAdditive(
 func compileBinaryMultiplicative(
 	ctx *core.Context,
 	expr parser.IMultiplicativeExpressionContext,
+	hint types.Type,
 ) (types.Type, error) {
 	pows := expr.AllPowerExpression()
 	// Compile first operand
-	resultType, err := compilePower(ctx, pows[0])
+	resultType, err := compilePower(ctx, pows[0], hint)
 	if err != nil {
 		return nil, err
 	}
 
 	// Process remaining operands
 	for i := 1; i < len(pows); i++ {
-		// Compile next operand
-		_, err := compilePower(ctx, pows[i])
+		// Compile next operand with the left operand's type as hint
+		_, err := compilePower(ctx, pows[i], resultType)
 		if err != nil {
 			return nil, err
 		}
@@ -93,17 +95,17 @@ func compileBinaryMultiplicative(
 }
 
 // compileBinaryRelational handles <, >, <=, >= operations
-func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressionContext) (types.Type, error) {
+func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressionContext, hint types.Type) (types.Type, error) {
 	adds := expr.AllAdditiveExpression()
 
 	// Compile left operand
-	leftType, err := compileAdditive(ctx, adds[0])
+	leftType, err := compileAdditive(ctx, adds[0], hint)
 	if err != nil {
 		return nil, err
 	}
 
-	// Compile right operand
-	_, err = compileAdditive(ctx, adds[1])
+	// Compile right operand with the left operand's type as hint
+	_, err = compileAdditive(ctx, adds[1], leftType)
 	if err != nil {
 		return nil, err
 	}
@@ -132,17 +134,17 @@ func compileBinaryRelational(ctx *core.Context, expr parser.IRelationalExpressio
 }
 
 // compileBinaryEquality handles == and != operations
-func compileBinaryEquality(ctx *core.Context, expr parser.IEqualityExpressionContext) (types.Type, error) {
+func compileBinaryEquality(ctx *core.Context, expr parser.IEqualityExpressionContext, hint types.Type) (types.Type, error) {
 	rels := expr.AllRelationalExpression()
 
 	// Compile left operand
-	leftType, err := compileRelational(ctx, rels[0])
+	leftType, err := compileRelational(ctx, rels[0], hint)
 	if err != nil {
 		return nil, err
 	}
 
-	// Compile right operand
-	_, err = compileRelational(ctx, rels[1])
+	// Compile right operand with the left operand's type as hint
+	_, err = compileRelational(ctx, rels[1], leftType)
 	if err != nil {
 		return nil, err
 	}

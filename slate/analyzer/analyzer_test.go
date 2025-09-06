@@ -284,6 +284,44 @@ var _ = Describe("Analyzer", func() {
 				Expect(configScopeParamScopes[1].Name).To(Equal("sensor"))
 				Expect(configScopeParamScopes[1].ID).To(Equal(1))
 			})
+
+			It("Should correctly add read channels to the task", func() {
+				prog := MustSucceed(parser.Parse(`
+				task controller{
+					setpoint f64
+				} (enable u8) u8 {
+					return ox_pt_1 > setpoint
+				}
+				`))
+				resolver := symbol.MapResolver{
+					"ox_pt_1": symbol.Symbol{
+						Name: "ox_pt_1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan{ValueType: types.F64{}},
+					},
+				}
+				result := analyzer.Analyze(prog, analyzer.Options{Resolver: resolver})
+				Expect(result.Ok()).To(BeTrue())
+				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
+				t := taskScope.Type.(types.Task)
+				Expect(t.Channels.Read.Contains("ox_pt_1")).To(BeTrue())
+			})
+
+			It("Should correctly bind channels passed as config parameters", func() {
+				prog := MustSucceed(parser.Parse(`
+				task controller{
+					setpoint f64
+					ox_pressure chan f64
+				} (enable u8) u8 {
+					return ox_pressure > setpoint
+				}
+				`))
+				result := analyzer.Analyze(prog, analyzer.Options{})
+				Expect(result.Ok()).To(BeTrue())
+				taskScope := MustSucceed(result.Symbols.Resolve("controller"))
+				t := taskScope.Type.(types.Task)
+				Expect(t.Channels.Read.Contains("ox_pressure")).To(BeTrue())
+			})
 		})
 	})
 

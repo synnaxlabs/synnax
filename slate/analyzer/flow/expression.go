@@ -31,7 +31,8 @@ func analyzeExpression(
 	if chanType, ok := exprType.(types.Chan); ok {
 		exprType = chanType.ValueType
 	}
-	t := types.Task{Return: exprType}
+	t := types.NewTask()
+	t.Return = exprType
 	taskScope, err := scope.Root().Add("", symbol.KindTask, t, expr)
 	if err != nil {
 		res.AddError(err, expr)
@@ -48,8 +49,8 @@ func analyzeExpression(
 		res.AddError(err, expr)
 		return false
 	}
-	blockScope.OnResolve = func(s *symbol.Scope) error {
-		c, ok := s.Type.(types.Chan)
+	taskScope.OnResolve = func(s *symbol.Scope) error {
+		_, ok := s.Type.(types.Chan)
 		if !ok {
 			res.AddError(errors.Newf(
 				"type mismatch: only channels can be used in flow expressions, encountered symbol %s with type %s",
@@ -57,9 +58,6 @@ func analyzeExpression(
 				s.Type.String(),
 			), s.ParserRule)
 		}
-		name := "__" + s.Name
-		_, _ = taskScope.Add(name, symbol.KindConfigParam, c.ValueType, s.ParserRule)
-		t.Params.Put(name, c.ValueType)
 		return nil
 	}
 	if !expression.Analyze(blockScope, res, expr) {

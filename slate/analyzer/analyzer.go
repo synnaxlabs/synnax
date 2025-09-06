@@ -236,7 +236,6 @@ func analyzeTaskDeclaration(
 		result.AddError(err, task)
 		return false
 	}
-
 	taskType := taskScope.Type.(types.Task)
 	if configBlock := task.ConfigBlock(); configBlock != nil {
 		for _, param := range configBlock.AllConfigParameter() {

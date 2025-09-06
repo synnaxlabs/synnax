@@ -14,6 +14,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Type interface {
@@ -91,10 +92,10 @@ func NewOrderedMap[K comparable, V any](keys []K, values []V) OrderedMap[K, V] {
 }
 
 func NewTask() Task {
-	return Task{
-		Params: OrderedMap[string, Type]{},
-		Config: OrderedMap[string, Type]{},
-	}
+	t := Task{Params: OrderedMap[string, Type]{}, Config: OrderedMap[string, Type]{}}
+	t.Channels.Read = make(set.Set[string])
+	t.Channels.Write = make(set.Set[string])
+	return t
 }
 
 func (m *OrderedMap[K, V]) Count() int {
@@ -140,8 +141,8 @@ type Task struct {
 	Config   OrderedMap[string, Type]
 	Params   OrderedMap[string, Type]
 	Channels struct {
-		Read  []string
-		Write []string
+		Read  set.Set[string]
+		Write set.Set[string]
 	}
 	Return Type
 }

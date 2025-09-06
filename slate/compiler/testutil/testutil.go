@@ -73,6 +73,17 @@ func WASM(instructions ...any) []byte {
 			case wasm.OpLocalSet:
 				encoder.WriteLocalSet(instructions[i+1].(int))
 				i++ // Skip the operand
+			case wasm.OpCall:
+				// Handle both uint32 and uint64 for compatibility
+				switch v := instructions[i+1].(type) {
+				case uint32:
+					encoder.WriteCall(v)
+				case uint64:
+					encoder.WriteCall(uint32(v))
+				case int:
+					encoder.WriteCall(uint32(v))
+				}
+				i++ // Skip the operand
 			case wasm.OpIf:
 				// Check if there's a block type following
 				if i+1 < len(instructions) {

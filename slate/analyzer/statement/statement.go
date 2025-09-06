@@ -442,6 +442,10 @@ func analyzeChannelWrite(
 		res.AddError(err, ctx)
 		return false
 	}
+	if taskScope, err := scope.ClosestAncestorOfKind(symbol.KindTask); err == nil {
+		t := taskScope.Type.(types.Task)
+		t.Channels.Write.Add(channelSym.Name)
+	}
 
 	// Check it's a channel type
 	chanType, ok := channelSym.Type.(types.Chan)
