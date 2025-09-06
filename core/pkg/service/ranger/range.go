@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package ranger implements a service for managing ranges in a Synnax cluster. A range
+// is a user defined region of time in a Synnax cluster. They act as a method for
+// labeling and categorizing data.
 package ranger
 
 import (
@@ -23,32 +26,24 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/zyn"
 )
 
+// Stage is a string that represents whether a range is happening in the past, present,
+// or future.
 type Stage string
 
-func (s Stage) EarlierThan(other Stage) bool {
-	sIdx := lo.IndexOf(stages, s)
-	otherIdx := lo.IndexOf(stages, other)
-	return sIdx < otherIdx
-}
-
 const (
-	ToDo       Stage = "to_do"
+	// ToDo indicates that a range has not yet been started.
+	ToDo Stage = "to_do"
+	// InProgress indicates that a range is currently ongoing..
 	InProgress Stage = "in_progress"
-	Completed  Stage = "completed"
-)
-
-var (
-	stages      = []Stage{ToDo, InProgress, Completed}
-	stageSchema = zyn.Enum(stages...)
+	// Completed indicates that a range has occurred in the past.
+	Completed Stage = "completed"
 )
 
 // Range (short for time range) is an interesting, user defined region of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
-	// tx is the transaction used to execute KV operations specific to this range
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
@@ -67,14 +62,6 @@ type Range struct {
 	Labels []label.Label `json:"labels" msgpack:"labels"`
 	Parent *Range        `json:"parent" msgpack:"parent"`
 }
-
-var RangeZ = zyn.Object(map[string]zyn.Schema{
-	"key":        zyn.UUID(),
-	"name":       zyn.String(),
-	"time_range": telem.TimeRangeSchema,
-	"color":      zyn.String(),
-	"status":     stageSchema,
-})
 
 var _ gorp.Entry[uuid.UUID] = Range{}
 
@@ -268,7 +255,8 @@ func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, e
 // DeleteAlias deletes the Alias for the given channel on the range. DeleteAlias is
 // idempotent, and will not return an error if the Alias does not exist.
 func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
-	return gorp.NewDelete[string, Alias]().
+	return gorp.
+		NewDelete[string, Alias]().
 		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Exec(ctx, r.tx)
 }
