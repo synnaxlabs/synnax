@@ -238,13 +238,7 @@ func (a *assembler) processExpression(expr parser.IExpressionContext) (*Handle, 
 	for key, item := range taskType.Params.Iter() {
 		task.Params[key] = item.String()
 	}
-	a.nodes[sym.Name] = &Node{
-		Key:  sym.Name,
-		Type: sym.Name,
-		Config: map[string]any{
-			"expression": getExpressionText(expr),
-		},
-	}
+	a.nodes[sym.Name] = &Node{Key: sym.Name, Type: sym.Name}
 	a.tasks = append(a.tasks, task)
 	return &Handle{Node: sym.Name, Param: "output"}, nil
 }
