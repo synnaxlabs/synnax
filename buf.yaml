@@ -14,9 +14,3 @@ lint:
     - RPC_RESPONSE_STANDARD_NAME
     - PACKAGE_DIRECTORY_MATCH
     - PACKAGE_VERSION_SUFFIX
-breaking:
-  use:
-    - FILE
-  except:
-    - EXTENSION_NO_DELETE
-    - FIELD_SAME_DEFAULT
