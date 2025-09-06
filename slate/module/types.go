@@ -21,6 +21,10 @@ type Task struct {
 	Params   map[string]string           `json:"params"`   // Runtime parameter names -> types
 	Returns  string                      `json:"returns"`  // Return type (empty if void)
 	Stateful map[string]StatefulVariable `json:"stateful"` // Stateful variables
+	Channels struct {
+		Read  []string `json:"read"`
+		Write []string `json:"write"`
+	} `json:"channels"`
 }
 
 // Function represents a function definition with its signature

@@ -116,6 +116,8 @@ func (a *assembler) extractTask(taskDecl parser.ITaskDeclarationContext) error {
 	for key, item := range taskType.Params.Iter() {
 		task.Params[key] = item.String()
 	}
+	task.Channels.Read = taskType.Channels.Read.Keys()
+	task.Channels.Write = taskType.Channels.Write.Keys()
 	if taskType.Return != nil {
 		task.Returns = taskType.Return.String()
 	}
