@@ -5,11 +5,15 @@ on:
     paths:
       - buf.yaml
       - buf.gen.yaml
-      - "**/*.proto"
+      - **/*.proto
   push:
     branches:
       - main
       - rc
+    paths:
+      - buf.yaml
+      - buf.gen.yaml
+      - **/*.proto
 
 jobs:
   test:
@@ -19,5 +23,5 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Check Formatting
-        run: buf format -d --exit-code
+      - name: Buf CI
+        uses: bufbuild/buf-action@v1
