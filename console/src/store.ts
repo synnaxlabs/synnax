@@ -29,7 +29,6 @@ import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { User } from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -49,7 +48,6 @@ const ZERO_STATE: RootState = {
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
 };
@@ -65,7 +63,6 @@ const reducer = combineReducers({
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [User.SLICE_NAME]: User.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
@@ -81,7 +78,6 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [User.SLICE_NAME]: User.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
 }
@@ -97,7 +93,6 @@ export type RootAction =
   | Range.Action
   | Schematic.Action
   | Table.Action
-  | User.Action
   | Version.Action
   | Workspace.Action;
 
@@ -120,7 +115,6 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  const user = User.migrateSlice(prev.user);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -134,7 +128,6 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
-    user,
   };
 };
 
@@ -173,7 +166,7 @@ const createStore = async (): Promise<RootStore> => {
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
-    enablePrerender: false,
+    enablePrerender: true,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

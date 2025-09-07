@@ -66,7 +66,6 @@ export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
-export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";

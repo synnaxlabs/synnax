@@ -31,7 +31,6 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
-  BsStars,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -50,14 +49,7 @@ import {
   FaWind,
   FaWindows,
 } from "react-icons/fa";
-import {
-  FaBridge,
-  FaCheck,
-  FaGaugeHigh,
-  FaGear,
-  FaHelmetSafety,
-  FaXmark,
-} from "react-icons/fa6";
+import { FaBridge, FaGaugeHigh, FaGear, FaHelmetSafety } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -68,7 +60,6 @@ import { IoMdColorFill, IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
-  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTerminal,
@@ -88,7 +79,6 @@ import {
   MdBook,
   MdBorderColor,
   MdCalendarToday,
-  MdComment,
   MdCommit,
   MdDarkMode,
   MdDataArray,
@@ -117,7 +107,6 @@ import {
   MdLabel,
   MdLightMode,
   MdLink,
-  MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
   MdOutlineDeviceHub,
@@ -154,7 +143,6 @@ import {
   PiCaretUpBold,
   PiDownloadSimple,
   PiFileCsv,
-  PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -171,7 +159,7 @@ import {
   RiSettings3Fill as RiSettingsFill,
   RiWeightFill,
 } from "react-icons/ri";
-import { RxComponentBoolean, RxReset } from "react-icons/rx";
+import { RxReset } from "react-icons/rx";
 import {
   SiGooglenearby,
   SiNpm,
@@ -186,7 +174,6 @@ import {
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
-  TbArrowsSplit,
   TbArrowUp,
   TbCircleDashed,
   TbCircleLetterAFilled,
@@ -409,25 +396,16 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
-export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
-export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
-export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const Effect = wrapSVGIcon(BsStars, "effect");
-export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
-export const Select = wrapSVGIcon(TbArrowsSplit, "select");
-export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
-export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
-export const True = wrapSVGIcon(FaCheck, "true");
-export const False = wrapSVGIcon(FaXmark, "false");
-export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
-export const Annotation = wrapSVGIcon(MdComment, "annotation");
+export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
+export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
+export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
@@ -571,15 +549,10 @@ const icons = {
   None,
   Constant,
   Terminal,
-  Effect,
-  Slate,
   Select,
-  Notification,
   InProgress,
   Completed,
   ToDo,
-  Boolean,
-  Annotation,
   CSV,
   Valve,
   Safety,
