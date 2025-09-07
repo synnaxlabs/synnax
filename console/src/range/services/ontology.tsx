@@ -32,10 +32,10 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import {
-  createChildRangeMenuItem,
   addToActivePlotMenuItem,
   addToNewPlotMenuItem,
   clearActiveMenuItem,
+  createChildRangeMenuItem,
   deleteMenuItem,
   fromClientRange,
   setAsActiveMenuItem,

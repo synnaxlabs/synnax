@@ -123,7 +123,6 @@ const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
   python: "Failed to copy Python time range",
   typescript: "Failed to copy TypeScript time range",
   range: "Failed to create range from selection",
-  annotation: "Failed to create annotation from selection",
   download: "Failed to download region as CSV",
 };
 
@@ -310,11 +309,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
       else
         syncDispatch(
-          storeViewport({
-            key: layoutKey,
-            pan: box.bottomLeft(b),
-            zoom: box.dims(b),
-          }),
+          storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
     100,
