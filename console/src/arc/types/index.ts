@@ -17,6 +17,7 @@ export type State = v0.State;
 export type SliceState = v0.SliceState;
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
+export type GraphState = v0.GraphState;
 export type CopyBuffer = v0.CopyBuffer;
 export type AnyState = v0.State;
 export type AnySliceState = v0.SliceState;

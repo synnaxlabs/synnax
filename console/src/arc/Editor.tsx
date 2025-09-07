@@ -8,19 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { type arc } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Arc as Core,
   Diagram,
   Haul,
+  Icon,
   Menu as PMenu,
   Theming,
   Triggers,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, id, xy } from "@synnaxlabs/x";
+import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -37,7 +38,7 @@ import {
   calculatePos,
   clearSelection,
   copySelection,
-  create,
+  internalCreate,
   pasteSelection,
   selectAll,
   setEdges,
@@ -50,10 +51,12 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import { translateSlateForward } from "@/arc/types/translate";
+import { raiseGraph } from "@/arc/types/translate";
+import { TYPE } from "@/arc/types/v0";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
 
 export const HAUL_TYPE = "arc-element";
@@ -123,15 +126,15 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
-    create,
+    internalCreate,
     30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
   );
 
   const theme = Theming.use();
-  const viewportRef = useSyncedRef(arc.viewport);
+  const viewportRef = useSyncedRef(arc.graph.viewport);
 
   const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && arc.editable)
+  if (!canBeEditable && arc.graph.editable)
     dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
@@ -254,11 +257,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   });
 
   const handleDoubleClick = useCallback(() => {
-    if (!arc.editable) return;
+    if (!arc.graph.editable) return;
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [windowKey, arc.editable, dispatch]);
+  }, [windowKey, arc.graph.editable, dispatch]);
 
   const canEditSlate = useSelectHasPermission();
 
@@ -279,19 +282,19 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
-        edges={arc.edges}
-        nodes={arc.nodes}
+        edges={arc.graph.edges}
+        nodes={arc.graph.nodes}
         // Turns out that setting the zoom value to 1 here doesn't have any negative
         // effects on the arc sizing and ensures that we position all the lines
         // in the correct place.
-        viewport={{ ...arc.viewport, zoom: 1 }}
+        viewport={{ ...arc.graph.viewport, zoom: 1 }}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={arc.editable}
+        editable={arc.graph.editable}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        fitViewOnResize={arc.fitViewOnResize}
+        fitViewOnResize={arc.graph.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
         {...dropProps}
@@ -307,11 +310,36 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export interface SlateProps extends Layout.RendererProps {
-  validate?: (graph: arc.Graph) => Promise<Error | null>;
-}
+export const EDIT_LAYOUT_TYPE = "arc_editor";
+export type LayoutType = typeof EDIT_LAYOUT_TYPE;
 
-export const Arc = (({ layoutKey, validate, ...rest }: SlateProps) => {
+export const SELECTABLE: Selector.Selectable = {
+  key: EDIT_LAYOUT_TYPE,
+  title: "Arc Editor",
+  icon: <Icon.Arc />,
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
+};
+
+export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
+
+export const create =
+  (initial: CreateArg = {}): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Arc Editor", location = "mosaic", window, tab, ...rest } = initial;
+    const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
+    return {
+      key,
+      location,
+      name,
+      icon: "Arc",
+      type: EDIT_LAYOUT_TYPE,
+      window: { navTop: true, showTitle: true },
+      tab,
+    };
+  };
+
+export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
   const loaded = useLoadRemote({
     name: "arc",
     targetVersion: ZERO_STATE.version,
@@ -319,14 +347,21 @@ export const Arc = (({ layoutKey, validate, ...rest }: SlateProps) => {
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
       try {
-        const { key, graph } = await client.arcs.retrieve({ key: layoutKey });
-        return translateSlateForward({ key, graph });
+        const arc = await client.arcs.retrieve({ key: layoutKey });
+        const state: State = {
+          version: "0.0.0",
+          key: arc.key,
+          type: TYPE,
+          remoteCreated: false,
+          graph: raiseGraph(arc.module),
+        };
+        return state;
       } catch (__) {
         return { ...ZERO_STATE, key: layoutKey };
       }
     },
-    actionCreator: create,
+    actionCreator: internalCreate,
   });
   if (!loaded) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
-}) satisfies Layout.Renderer;
+};

@@ -1,34 +1,38 @@
-import { type effect } from "@synnaxlabs/client";
-import { Effect, Form, Icon, type List, Menu as PMenu } from "@synnaxlabs/pluto";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type arc } from "@synnaxlabs/client";
+import { Arc, Form, Icon, type List, Menu as PMenu } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
-  getItem: List.GetItem<string, effect.Effect>;
+  getItem: List.GetItem<string, arc.Arc>;
 }
 
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
-  const effects = getItem(keys);
-  const isEmpty = effects.length === 0;
-  const isSingle = effects.length === 1;
+  const arcs = getItem(keys);
+  const isEmpty = arcs.length === 0;
+  const isSingle = arcs.length === 1;
   const ctx = Form.useContext();
   const rename = Modals.useRename();
   const confirm = useConfirmDelete({
-    type: "Effect",
-    description: "Deleting this effect will permanently remove it.",
+    type: "Arc",
+    description: "Deleting this arc will permanently remove it.",
   });
-  const { update: del } = Effect.useDelete.useDirect({
-    params: { keys },
-  });
+  const { update: del } = Arc.useDelete.useDirect({ params: undefined });
 
   const handleSelect: PMenu.MenuProps["onChange"] = {
     rename: () => {
-      rename(
-        { initialValue: effects[0].name },
-        { icon: "Effect", name: "Effect.Rename" },
-      )
+      rename({ initialValue: arcs[0].name }, { icon: "Arc", name: "Arc.Rename" })
         .then((renamed) => {
           if (renamed == null) return;
           ctx.set("name", renamed);
@@ -36,9 +40,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
         .catch(console.error);
     },
     delete: () => {
-      confirm(effects)
+      confirm(arcs)
         .then((confirmed) => {
-          if (confirmed) del();
+          if (confirmed) del({ keys: arcs.map((a) => a.key) });
         })
         .catch(console.error);
     },

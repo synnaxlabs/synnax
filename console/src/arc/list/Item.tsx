@@ -1,6 +1,6 @@
-import { type effect } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import {
-  Effect,
+  Arc,
   Flex,
   Form,
   Input,
@@ -14,39 +14,36 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { ContextMenu } from "@/effect/list/ContextMenu";
+import { ContextMenu } from "@/arc/list/ContextMenu";
 
-export interface ItemProps extends List.ItemProps<effect.Key> {
+export interface ItemProps extends List.ItemProps<arc.Key> {
   showLabels?: boolean;
   showStatus?: boolean;
 }
 
 export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemProps) => {
   const { itemKey } = props;
-  const { getItem } = List.useUtilContext<effect.Key, effect.Effect>();
+  const { getItem } = List.useUtilContext<arc.Key, arc.Arc>();
   if (getItem == null) throw new Error("getItem is null");
-  const effect = List.useItem<effect.Key, effect.Effect>(itemKey);
+  const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
-    if (effect == null) return null;
+    if (arc == null) return null;
     return {
-      key: effect.key,
-      name: effect.name,
-      enabled: effect.enabled,
-      arc: effect.arc,
-      labels: effect.labels?.map((l) => l.key) ?? [],
+      key: arc.key,
+      name: arc.name,
     };
-  }, [effect]);
+  }, [arc]);
 
-  if (initialValues == null || effect == null) return null;
+  if (initialValues == null || arc == null) return null;
 
-  const { form } = Effect.useForm({
+  const { form } = Arc.useForm({
     params: { key: itemKey },
     initialValues,
     sync: true,
     autoSave: true,
   });
-  const { name, labels, status } = effect;
+  const { name, labels, status } = arc;
 
   const menuProps = Menu.useContextMenu();
 
@@ -61,7 +58,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
       justify="between"
       align="center"
     >
-      <Form.Form<typeof Effect.formSchema> {...form}>
+      <Form.Form<typeof Arc.formSchema> {...form}>
         <Menu.ContextMenu
           menu={(p) => <ContextMenu {...p} getItem={getItem} />}
           onClick={stopPropagation}

@@ -29,7 +29,12 @@ const RETRIEVE_ENDPOINT = "/arc/retrieve";
 const CREATE_ENDPOINT = "/arc/create";
 const DELETE_ENDPOINT = "/arc/delete";
 
-const retrieveReqZ = z.object({ keys: keyZ.array() });
+const retrieveReqZ = z.object({
+  keys: keyZ.array().optional(),
+  searchTerm: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+});
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 

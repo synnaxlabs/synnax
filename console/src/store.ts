@@ -18,9 +18,9 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
+import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { Effect } from "@/effect";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -29,7 +29,6 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
-import { Arc } from "@/arc";
 import { Table } from "@/table";
 import { User } from "@/user";
 import { Version } from "@/version";
@@ -54,7 +53,6 @@ const ZERO_STATE: RootState = {
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
   [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
-  [Effect.SLICE_NAME]: Effect.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
@@ -72,7 +70,6 @@ const reducer = combineReducers({
   [Version.SLICE_NAME]: Version.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [User.SLICE_NAME]: User.reducer,
-  [Effect.SLICE_NAME]: Effect.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
@@ -90,7 +87,6 @@ export interface RootState {
   [User.SLICE_NAME]: User.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Effect.SLICE_NAME]: Effect.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
@@ -108,7 +104,7 @@ export type RootAction =
   | User.Action
   | Version.Action
   | Workspace.Action
-  | Effect.Action;
+  | Arc.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -130,7 +126,6 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
   const user = User.migrateSlice(prev.user);
-  const effect = Effect.migrateSlice(prev.effect);
   const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
@@ -146,7 +141,6 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     permissions,
     user,
-    effect,
     arc,
   };
 };

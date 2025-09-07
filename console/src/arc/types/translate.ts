@@ -1,17 +1,25 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type arc } from "@synnaxlabs/client";
 import { color, xy } from "@synnaxlabs/x";
 
-import { type State } from "@/arc/types";
+import { type GraphState } from "@/arc/types";
 
-export const translateSlateForward = (arc: arc.Arc): State => ({
-  key: arc.key,
-  nodes: arc.graph.nodes.map((n) => ({
+export const raiseGraph = (module: arc.Module): GraphState => ({
+  nodes: module.nodes.map((n) => ({
     key: n.key,
-    position: (n.data.position as xy.XY) ?? xy.ZERO,
+    position: (n.config.position as xy.XY) ?? xy.ZERO,
     selected: false,
     zIndex: 1,
   })),
-  edges: arc.graph.edges.map((e) => ({
+  edges: module.edges.map((e) => ({
     id: `${e.source.key}-${e.sink.key}`,
     key: `${e.source.key}-${e.sink.key}`,
     source: e.source.node,
@@ -23,35 +31,24 @@ export const translateSlateForward = (arc: arc.Arc): State => ({
     selected: false,
   })),
   props: Object.fromEntries(
-    arc.graph.nodes.map((n) => [
-      n.key,
-      {
-        key: n.key,
-        ...n.data,
-      },
-    ]),
+    module.nodes.map((n) => [n.key, { key: n.key, ...n.config }]),
   ),
   viewport: {
     position: xy.ZERO,
     zoom: 1,
   },
-  fitViewOnResize: false,
-  remoteCreated: false,
   editable: true,
-  version: "0.0.0",
+  fitViewOnResize: false,
 });
 
-export const translateSlateBackward = (arc: State): arc.Arc => ({
-  key: arc.key,
-  graph: {
-    nodes: arc.nodes.map((n) => ({
-      key: n.key,
-      type: arc.props[n.key].key,
-      config: arc.props[n.key],
-    })),
-    edges: arc.edges.map((e) => ({
-      source: { key: e.sourceHandle as string, node: e.source },
-      sink: { key: e.targetHandle as string, node: e.target },
-    })),
-  },
+export const lowerGraph = (arc: GraphState): arc.Module => ({
+  nodes: arc.nodes.map((n) => ({
+    key: n.key,
+    type: arc.props[n.key].key,
+    config: arc.props[n.key],
+  })),
+  edges: arc.edges.map((e) => ({
+    source: { key: e.sourceHandle as string, node: e.source },
+    sink: { key: e.targetHandle as string, node: e.target },
+  })),
 });

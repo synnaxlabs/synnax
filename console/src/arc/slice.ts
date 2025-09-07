@@ -356,7 +356,7 @@ export const {
   remove,
   clearSelection,
   setFitViewOnResize,
-  create,
+  create: internalCreate,
   setElementProps,
   setActiveToolbarTab,
   setViewport,

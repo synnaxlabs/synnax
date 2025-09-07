@@ -415,7 +415,6 @@ export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
-export const Effect = wrapSVGIcon(BsStars, "effect");
 export const Arc = wrapSVGIcon(PiFlowArrowBold, "arc");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
@@ -572,7 +571,7 @@ const icons = {
   None,
   Constant,
   Terminal,
-  Effect,
+  Effect: Arc,
   Arc,
   Select,
   Notification,

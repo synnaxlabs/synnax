@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { xy } from "@synnaxlabs/x";
 import { record } from "@synnaxlabs/x/record";
 import { z } from "zod/v4";
 
+import { labelZ } from "@/label/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const nodeZ = z.object({
   key: z.string(),
   type: z.string(),
+  position: xy.xy,
   config: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
 });
 
@@ -42,6 +45,8 @@ export type Params = Key | Key[];
 export const arcZ = z.object({
   key: keyZ,
   name: z.string(),
+  version: z.string(),
+  labels: labelZ.array().optional(),
   module: moduleZ,
 });
 export interface Arc extends z.infer<typeof arcZ> {}
