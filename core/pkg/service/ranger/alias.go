@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
@@ -69,11 +70,9 @@ func AliasOntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
 }
 
 func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
-	ids := make([]ontology.ID, len(chs))
-	for i, ch := range chs {
-		ids[i] = AliasOntologyID(r, ch)
-	}
-	return ids
+	return lo.Map(chs, func(ch channel.Key, _ int) ontology.ID {
+		return AliasOntologyID(r, ch)
+	})
 }
 
 var aliasSchema = zyn.Object(map[string]zyn.Schema{
