@@ -361,7 +361,7 @@ export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
 export const Text = wrapSVGIcon(MdTextFields, "text");
-export const Number = wrapSVGIcon(GoNumber, "value");
+export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
@@ -520,7 +520,7 @@ const icons = {
   Tare,
   Rotate,
   Text,
-  Value: Number,
+  Value,
   Calendar,
   Release,
   OpenExternal,
@@ -549,7 +549,6 @@ const icons = {
   None,
   Constant,
   Terminal,
-  Select,
   InProgress,
   Completed,
   ToDo,
