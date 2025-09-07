@@ -10,12 +10,12 @@
 export { access } from "@/access";
 export { policy } from "@/access/policy";
 export { annotation } from "@/annotation";
+export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
-export { effect } from "@/effect";
 export {
   AuthError,
   ContiguityError,
@@ -37,7 +37,6 @@ export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
-export { slate } from "@/slate";
 export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
