@@ -141,6 +141,7 @@ describe("Ontology Queries", () => {
         () =>
           Ontology.useResourceList({
             filter: (r) => groupIDStrings.includes(ontology.idToString(r.id)),
+            useCachedList: false,
           }),
         {
           wrapper,
