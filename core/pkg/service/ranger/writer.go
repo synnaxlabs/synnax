@@ -205,9 +205,14 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 
 func (w Writer) validate(r Range) error {
 	v := validate.New("ranger.Range")
-	validate.NotNil(v, "Task", r.Key)
-	validate.NotEmptyString(v, "Name", r.Name)
-	validate.NonZero(v, "TimeRange.Start", r.TimeRange.Start)
-	validate.NonZero(v, "TimeRange.end", r.TimeRange.End)
+	validate.NotNil(v, "key", r.Key)
+	validate.NotEmptyString(v, "name", r.Name)
+	validate.NonZero(v, "time_range.start", r.TimeRange.Start)
+	validate.NonZero(v, "time_range.end", r.TimeRange.End)
+	v.Ternary(
+		"time_range",
+		r.TimeRange.Start.After(r.TimeRange.End),
+		"time_range.start cannot be after time_range.end",
+	)
 	return v.Error()
 }

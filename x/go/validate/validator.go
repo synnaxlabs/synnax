@@ -64,7 +64,7 @@ func NotNil(v *Validator, field string, value any) bool {
 }
 
 func Positive[T types.Numeric](v *Validator, field string, value T) bool {
-	return v.Ternaryf(field, value <= 0, "must be positive")
+	return v.Ternary(field, value <= 0, "must be positive")
 }
 
 func GreaterThan[T types.Numeric](
@@ -85,7 +85,8 @@ func GreaterThanEq[T types.Numeric](
 	return v.Ternaryf(
 		field,
 		value < threshold,
-		"must be greater than or equal to %v", threshold,
+		"must be greater than or equal to %v",
+		threshold,
 	)
 }
 
@@ -108,7 +109,7 @@ func LessThanEq[T types.Numeric](
 }
 
 func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
-	return v.Ternaryf(field, value == 0, "must be non-zero")
+	return v.Ternary(field, value == 0, "must be non-zero")
 }
 
 func NonZeroable(v *Validator, field string, value override.Zeroable) bool {

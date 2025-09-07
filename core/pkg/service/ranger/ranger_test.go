@@ -81,6 +81,30 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("should return an error if the time range is invalid", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(10 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).
+				To(MatchError(
+					ContainSubstring("time_range.start cannot be after time_range.end"),
+				))
+		})
+		It("should create a range with start equal to end", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(5 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(r.Key).ToNot(Equal(uuid.Nil))
+		})
 		It("Should not override the UUID if it is already set", func() {
 			k := uuid.New()
 			r := &ranger.Range{
