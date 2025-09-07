@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { slate } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -15,16 +15,16 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
-import { useExport } from "@/slate/export";
+import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
   useSelectHasPermission,
   useSelectSelectedElementNames,
   useSelectToolbar,
-} from "@/slate/selectors";
-import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/slate/slice";
-import { PropertiesControls } from "@/slate/toolbar/Properties";
-import { Symbols } from "@/slate/toolbar/Symbols";
+} from "@/arc/selectors";
+import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
+import { PropertiesControls } from "@/arc/toolbar/Properties";
+import { Symbols } from "@/arc/toolbar/Symbols";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
@@ -105,7 +105,7 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
       <Core.Header>
         <Breadcrumb.Breadcrumb level="h5">
           <Breadcrumb.Segment weight={500} color={10} level="h5">
-            <Icon.Slate />
+            <Icon.Arc />
             {name}
           </Breadcrumb.Segment>
           {selectedNames.length === 1 && selectedNames[0] !== null && (
@@ -119,7 +119,7 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
             <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
-              ontologyID={slate.ontologyID(layoutKey)}
+              ontologyID={arc.ontologyID(layoutKey)}
             />
           </Flex.Box>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}

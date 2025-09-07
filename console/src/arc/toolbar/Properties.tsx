@@ -15,7 +15,7 @@ import {
   Form,
   Icon,
   Input,
-  Slate,
+  Arc,
   Status,
 } from "@synnaxlabs/pluto";
 import { box, color, location, xy } from "@synnaxlabs/x";
@@ -28,8 +28,8 @@ import {
   useSelectRequiredNodeProps,
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
-} from "@/slate/selectors";
-import { setElementProps, setNodePositions } from "@/slate/slice";
+} from "@/arc/selectors";
+import { setElementProps, setNodePositions } from "@/arc/slice";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
@@ -42,7 +42,7 @@ export const PropertiesControls = memo(
     if (digests.length === 0)
       return (
         <Status.Summary center variant="disabled" hideIcon>
-          Select a slate element to configure its properties.
+          Select a arc element to configure its properties.
         </Status.Summary>
       );
 
@@ -73,7 +73,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Slate.SYMBOLS[props.key];
+  const C = Arc.SYMBOLS[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: any): void => {
@@ -146,7 +146,7 @@ const MultiElementProperties = ({
             );
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
-              throw new Error(`[slate] - cannot find handle orientation`);
+              throw new Error(`[arc] - cannot find handle orientation`);
             const orientation = location.construct(match[1]) as location.Outer;
             return new Diagram.HandleLayout(dist, orientation);
           });

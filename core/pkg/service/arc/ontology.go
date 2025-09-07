@@ -30,14 +30,14 @@ func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the slates within the ontology.
+// OntologyIDs returns unique identifiers for the arcs within the ontology.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the slates from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the arcs from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,9 +49,9 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromSlates returns the ontology IDs of the slates.
-func OntologyIDsFromSlates(slates []arc) []ontology.ID {
-	return lo.Map(slates, func(c arc, _ int) ontology.ID {
+// OntologyIDsFromSlates returns the ontology IDs of the arcs.
+func OntologyIDsFromSlates(arcs []arc) []ontology.ID {
+	return lo.Map(arcs, func(c arc, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Writer is used to create, update, and delete slates within Synnax. The writer
+// Writer is used to create, update, and delete arcs within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
@@ -52,7 +52,7 @@ func (w Writer) Create(
 	return w.otgWriter.DefineResource(ctx, otgID)
 }
 
-// Delete deletes the slates with the given keys.
+// Delete deletes the arcs with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,

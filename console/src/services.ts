@@ -52,6 +52,6 @@ export const SERVICES: Ontology.Services = {
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   annotation: createEmptyService("annotation"),
-  slate: createEmptyService("slate"),
+  arc: createEmptyService("arc"),
   effect: EffectServices.ONTOLOGY_SERVICE,
 };

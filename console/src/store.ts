@@ -29,7 +29,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
-import { Slate } from "@/slate";
+import { Arc } from "@/arc";
 import { Table } from "@/table";
 import { User } from "@/user";
 import { Version } from "@/version";
@@ -55,7 +55,7 @@ const ZERO_STATE: RootState = {
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
   [User.SLICE_NAME]: User.ZERO_SLICE_STATE,
   [Effect.SLICE_NAME]: Effect.ZERO_SLICE_STATE,
-  [Slate.SLICE_NAME]: Slate.ZERO_SLICE_STATE,
+  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -73,7 +73,7 @@ const reducer = combineReducers({
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [User.SLICE_NAME]: User.reducer,
   [Effect.SLICE_NAME]: Effect.reducer,
-  [Slate.SLICE_NAME]: Slate.reducer,
+  [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -91,7 +91,7 @@ export interface RootState {
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Effect.SLICE_NAME]: Effect.SliceState;
-  [Slate.SLICE_NAME]: Slate.SliceState;
+  [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
 export type RootAction =
@@ -131,7 +131,7 @@ export const migrateState = (prev: RootState): RootState => {
   const permissions = Permissions.migrateSlice(prev.permissions);
   const user = User.migrateSlice(prev.user);
   const effect = Effect.migrateSlice(prev.effect);
-  const slate = Slate.migrateSlice(prev.slate);
+  const arc = Arc.migrateSlice(prev.arc);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -147,7 +147,7 @@ export const migrateState = (prev: RootState): RootState => {
     permissions,
     user,
     effect,
-    slate,
+    arc,
   };
 };
 
@@ -177,7 +177,7 @@ const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
-  ...Slate.MIDDLEWARE,
+  ...Arc.MIDDLEWARE,
 ];
 
 const createStore = async (): Promise<RootStore> => {

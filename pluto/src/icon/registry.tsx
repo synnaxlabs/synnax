@@ -416,7 +416,7 @@ export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Effect = wrapSVGIcon(BsStars, "effect");
-export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
+export const Arc = wrapSVGIcon(PiFlowArrowBold, "arc");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
@@ -573,7 +573,7 @@ const icons = {
   Constant,
   Terminal,
   Effect,
-  Slate,
+  Arc,
   Select,
   Notification,
   InProgress,

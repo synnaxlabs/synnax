@@ -22,10 +22,10 @@ import (
 
 // ServiceConfig is the configuration for opening a arc service.
 type ServiceConfig struct {
-	// DB is the database that the arc service will store slates in.
+	// DB is the database that the arc service will store arcs in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between slates and other entities in
+	// Ontology is used to define relationships between arcs and other entities in
 	// the Synnax resource graph.
 	Ontology *ontology.Ontology
 }
@@ -51,7 +51,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service is the primary service for retrieving and modifying slates from Synnax.
+// Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	cfg ServiceConfig
 }
@@ -71,7 +71,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting slates in Synnax. If
+// NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
@@ -82,7 +82,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// NewRetrieve opens a new query builder for retrieving slates from Synnax.
+// NewRetrieve opens a new query builder for retrieving arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, arc](), baseTX: s.cfg.DB}
 }

@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { type slate } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Arc as Core,
   Diagram,
   Haul,
   Menu as PMenu,
-  Slate as Core,
   Theming,
   Triggers,
   useSyncedRef,
@@ -24,9 +24,6 @@ import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { useLoadRemote } from "@/hooks/useLoadRemote";
-import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
-import { Layout } from "@/layout";
 import {
   select,
   useSelect,
@@ -34,7 +31,7 @@ import {
   useSelectNodeProps,
   useSelectVersion,
   useSelectViewportMode,
-} from "@/slate/selectors";
+} from "@/arc/selectors";
 import {
   addElement,
   calculatePos,
@@ -52,11 +49,14 @@ import {
   setViewportMode,
   type State,
   ZERO_STATE,
-} from "@/slate/slice";
-import { translateSlateForward } from "@/slate/types/translate";
+} from "@/arc/slice";
+import { translateSlateForward } from "@/arc/types/translate";
+import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
+import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
-export const HAUL_TYPE = "slate-element";
+export const HAUL_TYPE = "arc-element";
 
 interface SymbolRendererProps extends Diagram.SymbolProps {
   layoutKey: string;
@@ -114,7 +114,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const slate = useSelect(layoutKey);
+  const arc = useSelect(layoutKey);
 
   const dispatch = useDispatch();
   const selector = useCallback(
@@ -128,10 +128,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const theme = Theming.use();
-  const viewportRef = useSyncedRef(slate.viewport);
+  const viewportRef = useSyncedRef(arc.viewport);
 
   const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && slate.editable)
+  if (!canBeEditable && arc.editable)
     dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
@@ -206,7 +206,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const dropProps = Haul.useDrop({
-    type: "slate",
+    type: "arc",
     key: layoutKey,
     canDrop: Haul.canDropOfType(HAUL_TYPE),
     onDrop: handleDrop,
@@ -254,11 +254,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   });
 
   const handleDoubleClick = useCallback(() => {
-    if (!slate.editable) return;
+    if (!arc.editable) return;
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [windowKey, slate.editable, dispatch]);
+  }, [windowKey, arc.editable, dispatch]);
 
   const canEditSlate = useSelectHasPermission();
 
@@ -275,23 +275,23 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Core.Slate
+      <Core.Arc
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
-        edges={slate.edges}
-        nodes={slate.nodes}
+        edges={arc.edges}
+        nodes={arc.nodes}
         // Turns out that setting the zoom value to 1 here doesn't have any negative
-        // effects on the slate sizing and ensures that we position all the lines
+        // effects on the arc sizing and ensures that we position all the lines
         // in the correct place.
-        viewport={{ ...slate.viewport, zoom: 1 }}
+        viewport={{ ...arc.viewport, zoom: 1 }}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={slate.editable}
+        editable={arc.editable}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        fitViewOnResize={slate.fitViewOnResize}
+        fitViewOnResize={arc.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
         {...dropProps}
@@ -302,24 +302,24 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {canEditSlate && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
         </Diagram.Controls>
-      </Core.Slate>
+      </Core.Arc>
     </div>
   );
 };
 
 export interface SlateProps extends Layout.RendererProps {
-  validate?: (graph: slate.Graph) => Promise<Error | null>;
+  validate?: (graph: arc.Graph) => Promise<Error | null>;
 }
 
-export const Slate = (({ layoutKey, validate, ...rest }: SlateProps) => {
+export const Arc = (({ layoutKey, validate, ...rest }: SlateProps) => {
   const loaded = useLoadRemote({
-    name: "slate",
+    name: "arc",
     targetVersion: ZERO_STATE.version,
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
       try {
-        const { key, graph } = await client.slates.retrieve({ key: layoutKey });
+        const { key, graph } = await client.arcs.retrieve({ key: layoutKey });
         return translateSlateForward({ key, graph });
       } catch (__) {
         return { ...ZERO_STATE, key: layoutKey };

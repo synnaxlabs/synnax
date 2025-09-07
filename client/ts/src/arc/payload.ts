@@ -49,5 +49,5 @@ export interface Arc extends z.infer<typeof arcZ> {}
 export const newZ = arcZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
-export const ONTOLOGY_TYPE = "slate";
+export const ONTOLOGY_TYPE = "arc";
 export type OntologyType = typeof ONTOLOGY_TYPE;

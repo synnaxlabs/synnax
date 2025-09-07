@@ -44,7 +44,7 @@ export const resourceTypeZ = z.enum([
   "table",
   "annotation",
   "effect",
-  "slate",
+  "arc",
   "schematic_symbol",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

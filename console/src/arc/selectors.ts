@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { slate, UnexpectedError } from "@synnaxlabs/client";
-import { type Diagram, Slate, type Viewport } from "@synnaxlabs/pluto";
+import { arc, UnexpectedError } from "@synnaxlabs/client";
+import { Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
-import { useMemoSelect } from "@/hooks";
-import { Permissions } from "@/permissions";
 import {
   type NodeProps,
   SLICE_NAME,
@@ -19,12 +17,14 @@ import {
   type State,
   type StoreState,
   type ToolbarState,
-} from "@/slate/slice";
+} from "@/arc/slice";
+import { useMemoSelect } from "@/hooks";
+import { Permissions } from "@/permissions";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const select = (state: StoreState, key: string): State =>
-  selectSliceState(state).slates[key];
+  selectSliceState(state).arcs[key];
 
 export const selectOptional = select as (
   state: StoreState,
@@ -51,8 +51,8 @@ export const selectSelectedElementDigests = (
   state: StoreState,
   layoutKey: string,
 ): ElementDigest[] => {
-  const slate = select(state, layoutKey);
-  return slate.nodes
+  const arc = select(state, layoutKey);
+  return arc.graph.nodes
     .filter((node) => node.selected)
     .map((node) => ({ key: node.key, type: "node" }));
 };
@@ -82,17 +82,17 @@ export const selectSelectedElementsProps = (
   state: StoreState,
   layoutKey: string,
 ): ElementInfo[] => {
-  const slate = select(state, layoutKey);
-  if (slate == null) return [];
-  const nodes: ElementInfo[] = slate.nodes
+  const arc = select(state, layoutKey);
+  if (arc == null) return [];
+  const nodes: ElementInfo[] = arc.graph.nodes
     .filter((node) => node.selected)
     .map((node) => ({
       key: node.key,
       type: "node",
       node,
-      props: slate.props[node.key],
+      props: arc.graph.props[node.key],
     }));
-  const edges: ElementInfo[] = slate.edges
+  const edges: ElementInfo[] = arc.graph.edges
     .filter((edge) => edge.selected)
     .map((edge) => ({ key: edge.key, type: "edge", edge }));
   return [...nodes, ...edges];
@@ -103,7 +103,7 @@ export const selectEdge = (
   layoutKey: string,
   key: string,
 ): Diagram.Edge | undefined =>
-  select(state, layoutKey).edges.find((edge) => edge.key === key);
+  select(state, layoutKey).graph.edges.find((edge) => edge.key === key);
 
 export const useSelectEdge = (
   layoutKey: string,
@@ -142,7 +142,7 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node") return Slate.REGISTRY[element.props.key]?.name ?? null;
+    if (element.type === "node") return Arc.REGISTRY[element.props.key]?.name ?? null;
     return null;
   });
 };
@@ -157,7 +157,7 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps | undefined => select(state, layoutKey).props[key];
+): NodeProps | undefined => select(state, layoutKey).graph.props[key];
 
 export const selectRequiredNodeProps = (
   state: StoreState,
@@ -190,7 +190,7 @@ export const selectToolbar = (state: StoreState): ToolbarState =>
 export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
-  select(state, key).editable;
+  select(state, key).graph.editable;
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
@@ -202,13 +202,13 @@ export const useSelectViewportMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
 
 export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
-  select(state, key).viewport;
+  select(state, key).graph.viewport;
 
 export const useSelectViewport = (key: string): Diagram.Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
 export const selectHasPermission = (state: Permissions.StoreState): boolean =>
-  Permissions.selectCanUseType(state, slate.ONTOLOGY_TYPE);
+  Permissions.selectCanUseType(state, arc.ONTOLOGY_TYPE);
 
 export const useSelectHasPermission = (): boolean =>
   useMemoSelect(selectHasPermission, []);

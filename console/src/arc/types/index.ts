@@ -10,7 +10,7 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import * as v0 from "@/slate/types/v0";
+import * as v0 from "@/arc/types/v0";
 
 export type NodeProps = v0.NodeProps;
 export type State = v0.State;
@@ -29,13 +29,13 @@ const STATE_MIGRATIONS: migrate.Migrations = {};
 const SLICE_MIGRATIONS: migrate.Migrations = {};
 
 export const migrateState = migrate.migrator<AnyState, State>({
-  name: "slate.state",
+  name: "arc.state",
   migrations: STATE_MIGRATIONS,
   def: ZERO_STATE,
 });
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
-  name: "slate.slice",
+  name: "arc.slice",
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });

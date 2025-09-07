@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/slate/Slate.css";
+import "@/arc/Arc.css";
 
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Diagram } from "@/vis/diagram";
 
-export interface SlateProps extends Diagram.DiagramProps {}
+export interface ArcProps extends Diagram.DiagramProps {}
 
 const FIT_VIEW_OPTIONS: Diagram.FitViewOptions = {
   minZoom: 0.5,
@@ -22,9 +22,9 @@ const FIT_VIEW_OPTIONS: Diagram.FitViewOptions = {
   padding: 0.1,
 };
 
-export const Slate = ({ className, ...props }: SlateProps): ReactElement => (
+export const Arc = ({ className, ...props }: ArcProps): ReactElement => (
   <Diagram.Diagram
-    className={CSS(className, CSS.B("slate"))}
+    className={CSS(className, CSS.B("arc"))}
     fitViewOptions={FIT_VIEW_OPTIONS}
     snapGrid={[2, 2]}
     snapToGrid

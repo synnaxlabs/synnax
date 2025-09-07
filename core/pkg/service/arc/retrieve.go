@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Retrieve is a query builder for retrieving slates. It should not be instantiated
+// Retrieve is a query builder for retrieving arcs. It should not be instantiated
 // directly, and should instead be instantiated via the NewRetrieve method on
 // arc.Service.
 type Retrieve struct {
@@ -24,7 +24,7 @@ type Retrieve struct {
 	gorp   gorp.Retrieve[uuid.UUID, arc]
 }
 
-// WhereKeys filters the slates by the given keys.
+// WhereKeys filters the arcs by the given keys.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
@@ -37,10 +37,10 @@ func (r Retrieve) Entry(arc *arc) Retrieve {
 	return r
 }
 
-// Entries binds the given slice of slates to the query. This pointer is where the results
+// Entries binds the given slice of arcs to the query. This pointer is where the results
 // of the query will be stored after Exec is called.
-func (r Retrieve) Entries(slates *[]arc) Retrieve {
-	r.gorp = r.gorp.Entries(slates)
+func (r Retrieve) Entries(arcs *[]arc) Retrieve {
+	r.gorp = r.gorp.Entries(arcs)
 	return r
 }
 

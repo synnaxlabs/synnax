@@ -24,7 +24,7 @@ export const Core = ({ location, className, ...props }: CoreProps) => {
   const position = locationToRFPosition(location);
   return (
     <Handle
-      className={CSS(CSS.BE("slate", "handle"), className)}
+      className={CSS(CSS.BE("arc", "handle"), className)}
       position={position}
       {...props}
     />

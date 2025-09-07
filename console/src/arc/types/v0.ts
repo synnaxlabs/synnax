@@ -9,26 +9,24 @@
 
 import { Diagram, Viewport } from "@synnaxlabs/pluto";
 import { type migrate, xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const VERSION = "0.0.0";
 export type Version = typeof VERSION;
-export const TYPE = "slate";
+export const TYPE = "arc";
 export type Type = typeof TYPE;
 
 export type NodeProps = object & {
   key: string;
 };
 
-export const nodePropsZ = z.object({}).and(z.object({ key: z.string() }).loose());
-
-export const stateZ = z.object({
+export const nodePropsZ = z.looseObject({
   key: z.string(),
-  type: z.literal(TYPE),
-  version: z.literal(VERSION),
+});
+
+const graphStateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
-  remoteCreated: z.boolean(),
   viewport: Diagram.viewportZ,
   nodes: z
     .array(z.any())
@@ -41,16 +39,19 @@ export const stateZ = z.object({
   props: z.record(z.string(), nodePropsZ),
 });
 
-export interface State extends migrate.Migratable<Version> {
-  key: string;
-  editable: boolean;
-  fitViewOnResize: boolean;
-  remoteCreated: boolean;
-  viewport: Diagram.Viewport;
-  nodes: Diagram.Node[];
-  edges: Diagram.Edge[];
-  props: Record<string, NodeProps>;
-}
+export interface GraphState extends z.infer<typeof graphStateZ> {}
+
+export const stateZ = z.object({
+  key: z.string(),
+  type: z.literal(TYPE),
+  version: z.literal(VERSION),
+  remoteCreated: z.boolean(),
+  graph: graphStateZ,
+});
+
+export interface GraphState extends z.infer<typeof graphStateZ> {}
+
+export interface State extends z.infer<typeof stateZ> {}
 
 export const copyBufferZ = z.object({
   pos: xy.xy,
@@ -82,26 +83,31 @@ export const sliceStateZ = z.object({
   mode: Viewport.modeZ,
   copy: copyBufferZ,
   toolbar: toolbarStateZ,
-  slates: z.record(z.string(), stateZ),
+  arcs: z.record(z.string(), stateZ),
 });
 
 export interface SliceState extends migrate.Migratable<Version> {
   mode: Viewport.Mode;
   copy: CopyBuffer;
   toolbar: ToolbarState;
-  slates: Record<string, State>;
+  arcs: Record<string, State>;
 }
 
-export const ZERO_STATE: State = {
-  key: "",
-  version: VERSION,
+export const ZERO_GRAPH_STATE: GraphState = {
+  editable: true,
+  fitViewOnResize: false,
+  viewport: { position: xy.ZERO, zoom: 1 },
   nodes: [],
   edges: [],
   props: {},
+};
+
+export const ZERO_STATE: State = {
+  key: "",
+  type: TYPE,
+  version: VERSION,
+  graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
-  viewport: { position: xy.ZERO, zoom: 1 },
-  editable: true,
-  fitViewOnResize: false,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -109,5 +115,5 @@ export const ZERO_SLICE_STATE: SliceState = {
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
   toolbar: { activeTab: "symbols" },
-  slates: {},
+  arcs: {},
 };

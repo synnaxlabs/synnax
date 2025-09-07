@@ -1,18 +1,18 @@
-import { DisconnectedError, NotFoundError } from "@synnaxlabs/client";
+import { type arc, DisconnectedError, NotFoundError } from "@synnaxlabs/client";
 import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { useStore } from "react-redux";
 
+import { Arc } from "@/arc";
+import { translateSlateBackward } from "@/arc/types/translate";
 import { useSelect } from "@/effect/selectors";
 import { Layout } from "@/layout";
-import { Slate } from "@/slate";
-import { translateSlateBackward } from "@/slate/types/translate";
 import { type RootState } from "@/store";
 
 export interface LoadedProps {
-  effect: effect.Effect;
+  effect: arc.Effect;
   layoutKey: string;
 }
 
@@ -25,8 +25,8 @@ const Loaded = ({ effect, layoutKey }: LoadedProps): ReactElement => {
     mutationFn: async () => {
       try {
         if (client == null) throw new DisconnectedError();
-        const slate = Slate.select(store.getState(), effect.slate);
-        await client.slates.create(translateSlateBackward(slate));
+        const arc = Arc.select(store.getState(), effect.arc);
+        await client.arcs.create(translateSlateBackward(arc));
         await client.effects.create({
           ...effect,
           name: layout?.name ?? "",
@@ -39,7 +39,7 @@ const Loaded = ({ effect, layoutKey }: LoadedProps): ReactElement => {
   });
 
   const validate = useCallback(
-    async (graph: slate.Graph) => {
+    async (graph: arc.Graph) => {
       if (client == null) return null;
       try {
         await client.effects.validate(graph);
@@ -52,8 +52,8 @@ const Loaded = ({ effect, layoutKey }: LoadedProps): ReactElement => {
   );
   return (
     <Flex.Box y grow style={{ height: "100%" }}>
-      <Slate.Slate
-        layoutKey={effect.slate}
+      <Arc.Arc
+        layoutKey={effect.arc}
         visible
         validate={validate}
         focused={false}

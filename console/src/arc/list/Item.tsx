@@ -33,7 +33,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
       key: effect.key,
       name: effect.name,
       enabled: effect.enabled,
-      slate: effect.slate,
+      arc: effect.arc,
       labels: effect.labels?.map((l) => l.key) ?? [],
     };
   }, [effect]);

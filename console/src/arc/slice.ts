@@ -11,7 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Diagram, type Theming, type Viewport } from "@synnaxlabs/pluto";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/slate/types";
+import * as latest from "@/arc/types";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
@@ -25,7 +25,7 @@ export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
 
-export const SLICE_NAME = "slate";
+export const SLICE_NAME = "arc";
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
@@ -136,18 +136,18 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
-      // for each slate, find the keys of the selected nodes and edges
+      // for each arc, find the keys of the selected nodes and edges
       // and add them to the copy buffer. Then get the props of each
       // selected node and edge and add them to the copy buffer.
-      const { slates } = state;
+      const { arcs } = state;
       const copyBuffer: latest.CopyBuffer = {
         nodes: [],
         edges: [],
         props: {},
         pos: xy.ZERO,
       };
-      Object.values(slates).forEach((slate) => {
-        const { nodes, edges, props } = slate;
+      Object.values(arcs).forEach((arc) => {
+        const { nodes, edges, props } = arc.graph;
         const selectedNodes = nodes.filter((node) => node.selected);
         const selectedEdges = edges.filter((edge) => edge.selected);
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
@@ -168,11 +168,11 @@ export const { actions, reducer } = createSlice({
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
       const { pos, key: layoutKey } = payload;
       const console = xy.translation(state.copy.pos, pos);
-      const slate = state.slates[layoutKey];
+      const arc = state.arcs[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
         const key: string = id.create();
-        slate.props[key] = state.copy.props[node.key];
+        arc.graph.props[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
           ...node,
@@ -191,27 +191,27 @@ export const { actions, reducer } = createSlice({
           selected: true,
         };
       });
-      slate.edges = [
-        ...slate.edges.map((edge) => ({ ...edge, selected: false })),
+      arc.graph.edges = [
+        ...arc.graph.edges.map((edge) => ({ ...edge, selected: false })),
         ...nextEdges,
       ];
-      slate.nodes = [
-        ...slate.nodes.map((node) => ({ ...node, selected: false })),
+      arc.graph.nodes = [
+        ...arc.graph.nodes.map((node) => ({ ...node, selected: false })),
         ...nextNodes,
       ];
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      state.slates[layoutKey] = latest.migrateState(payload);
+      state.arcs[layoutKey] = latest.migrateState(payload);
       state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { key: layoutKey } = payload;
-      const slate = state.slates[layoutKey];
-      slate.nodes.forEach((node) => {
+      const arc = state.arcs[layoutKey];
+      arc.graph.nodes.forEach((node) => {
         node.selected = false;
       });
-      slate.edges.forEach((edge) => {
+      arc.graph.edges.forEach((edge) => {
         edge.selected = false;
       });
       state.toolbar.activeTab = "symbols";
@@ -219,46 +219,47 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { keys: layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
-        const slate = state.slates[layoutKey];
-        if (slate == null) return;
-        delete state.slates[layoutKey];
+        const arc = state.arcs[layoutKey];
+        if (arc == null) return;
+        delete state.arcs[layoutKey];
       });
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
       const { key: layoutKey, elKey: key, props, node } = payload;
-      const slate = state.slates[layoutKey];
-      if (!slate.editable) return;
-      slate.nodes.push({
+      const arc = state.arcs[layoutKey];
+      if (!arc.graph.editable) return;
+      arc.graph.nodes.push({
         key,
         selected: false,
         position: xy.ZERO,
         ...node,
       });
-      slate.props[key] = props;
+      arc.graph.props[key] = props;
     },
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
-      const slate = state.slates[layoutKey];
-      if (key in slate.props) slate.props[key] = { ...slate.props[key], ...props };
+      const arc = state.arcs[layoutKey];
+      if (key in arc.graph.props)
+        arc.graph.props[key] = { ...arc.graph.props[key], ...props };
       else {
-        const edge = slate.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1) slate.edges[edge] = { ...slate.edges[edge], ...props };
+        const edge = arc.graph.edges.findIndex((edge) => edge.key === key);
+        if (edge !== -1) arc.graph.edges[edge] = { ...arc.graph.edges[edge], ...props };
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
-      const slate = state.slates[layoutKey];
-      if (mode === "replace") slate.nodes = nodes;
+      const arc = state.arcs[layoutKey];
+      if (mode === "replace") arc.graph.nodes = nodes;
       else {
         const keys = nodes.map((node) => node.key);
-        slate.nodes = [
-          ...slate.nodes.filter((node) => !keys.includes(node.key)),
+        arc.graph.nodes = [
+          ...arc.graph.nodes.filter((node) => !keys.includes(node.key)),
           ...nodes,
         ];
       }
       const anySelected =
         nodes.some((node) => node.selected) ||
-        slate.edges.some((edge) => edge.selected);
+        arc.graph.edges.some((edge) => edge.selected);
       if (anySelected) {
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
@@ -267,20 +268,20 @@ export const { actions, reducer } = createSlice({
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
-      const slate = state.slates[layoutKey];
+      const arc = state.arcs[layoutKey];
       Object.entries(positions).forEach(([key, position]) => {
-        const node = slate.nodes.find((node) => node.key === key);
+        const node = arc.graph.nodes.find((node) => node.key === key);
         if (node == null) return;
         node.position = position;
       });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { key: layoutKey, edges } = payload;
-      const slate = state.slates[layoutKey];
-      slate.edges = edges;
+      const arc = state.arcs[layoutKey];
+      arc.graph.edges = edges;
       const anySelected =
         edges.some((edge) => edge.selected) ||
-        slate.nodes.some((node) => node.selected);
+        arc.graph.nodes.some((node) => node.selected);
       if (anySelected) {
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
@@ -296,22 +297,22 @@ export const { actions, reducer } = createSlice({
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       const { key: layoutKey, viewport } = payload;
-      const slate = state.slates[layoutKey];
-      slate.viewport = viewport;
+      const arc = state.arcs[layoutKey];
+      arc.graph.viewport = viewport;
     },
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { key: layoutKey, editable } = payload;
-      const slate = state.slates[layoutKey];
-      clearSelections(slate);
-      slate.editable = editable;
+      const arc = state.arcs[layoutKey];
+      clearSelections(arc);
+      arc.graph.editable = editable;
     },
     setFitViewOnResize: (
       state,
       { payload }: PayloadAction<SetFitViewOnResizePayload>,
     ) => {
       const { key: layoutKey, fitViewOnResize } = payload;
-      const slate = state.slates[layoutKey];
-      slate.fitViewOnResize = fitViewOnResize;
+      const arc = state.arcs[layoutKey];
+      arc.graph.fitViewOnResize = fitViewOnResize;
     },
     setViewportMode: (
       state,
@@ -321,29 +322,29 @@ export const { actions, reducer } = createSlice({
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       const { key: layoutKey } = payload;
-      const slate = state.slates[layoutKey];
-      slate.remoteCreated = true;
+      const arc = state.arcs[layoutKey];
+      arc.remoteCreated = true;
     },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
-      const slate = state.slates[layoutKey];
-      slate.nodes.forEach((node) => (node.selected = true));
-      slate.edges.forEach((edge) => (edge.selected = true));
+      const arc = state.arcs[layoutKey];
+      arc.graph.nodes.forEach((node) => (node.selected = true));
+      arc.graph.edges.forEach((edge) => (edge.selected = true));
     },
   },
 });
 
 const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
-  Object.keys(state.slates).forEach((key) => {
+  Object.keys(state.arcs).forEach((key) => {
     // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;
-    clearSelections(state.slates[key]);
+    clearSelections(state.arcs[key]);
   });
 };
 
 const clearSelections = (state: State): void => {
-  state.nodes.forEach((node) => (node.selected = false));
-  state.edges.forEach((edge) => (edge.selected = false));
+  state.graph.nodes.forEach((node) => (node.selected = false));
+  state.graph.edges.forEach((edge) => (edge.selected = false));
 };
 
 export const {

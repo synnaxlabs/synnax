@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/slate/toolbar/Symbols.css";
+import "@/arc/toolbar/Symbols.css";
 
 import {
   Component,
@@ -17,7 +17,7 @@ import {
   Haul,
   List,
   Select,
-  Slate,
+  Arc,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -32,7 +32,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { addElement } from "@/slate/slice";
+import { addElement } from "@/arc/slice";
 
 export interface SymbolsProps {
   group: string;
@@ -43,7 +43,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
-  const groupRegistry = useMemo(() => Slate.REGISTRY[group], [group]);
+  const groupRegistry = useMemo(() => Arc.REGISTRY[group], [group]);
   const symbols = useMemo(() => Object.values(groupRegistry.symbols), [groupRegistry]);
 
   const handleAddElement = useCallback(
@@ -74,7 +74,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
 
   const handleDragStart = useCallback(
     (key: string) => {
-      startDrag([{ type: "slate-element", key }]);
+      startDrag([{ type: "arc-element", key }]);
     },
     [startDrag],
   );
@@ -83,7 +83,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
     <Flex.Box
       x
       className={CSS(
-        CSS.B("slate-symbols"),
+        CSS.B("arc-symbols"),
         PCSS.BE("symbol", "container"),
         PCSS.M("editable"),
       )}
@@ -106,7 +106,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
 };
 
 interface SymbolsButtonProps extends PropsWithChildren, Flex.BoxProps {
-  symbolSpec: Slate.Spec<any>;
+  symbolSpec: Arc.Spec<any>;
   theme: Theming.Theme;
   startDrag: (key: string) => void;
 }
@@ -123,7 +123,7 @@ const SymbolsButton = ({
 
   return (
     <Flex.Box
-      className={CSS(CSS.BE("slate-symbols", "button"))}
+      className={CSS(CSS.BE("arc-symbols", "button"))}
       justify="between"
       align="center"
       gap="tiny"
@@ -140,10 +140,10 @@ const SymbolsButton = ({
   );
 };
 
-const GROUP_LIST_DATA = Object.keys(Slate.REGISTRY);
+const GROUP_LIST_DATA = Object.keys(Arc.REGISTRY);
 
 const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const group = useMemo(() => Slate.REGISTRY[props.itemKey], [props.itemKey]);
+  const group = useMemo(() => Arc.REGISTRY[props.itemKey], [props.itemKey]);
   const selectProps = Select.useItemState(props.itemKey);
   return (
     <List.Item
@@ -163,12 +163,12 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   return (
     <Flex.Box x empty full>
-      <Select.Frame<string, Slate.Group>
+      <Select.Frame<string, Arc.Group>
         data={GROUP_LIST_DATA}
         value={selectedGroup}
         onChange={setSelectedGroup}
       >
-        <List.Items<string, Slate.Group>>{groupListItem}</List.Items>
+        <List.Items<string, Arc.Group>>{groupListItem}</List.Items>
       </Select.Frame>
       <Divider.Divider y />
       <Group group={selectedGroup} layoutKey={layoutKey} />

@@ -1,17 +1,17 @@
-import { type slate } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { color, xy } from "@synnaxlabs/x";
 
-import { type State } from "@/slate/types";
+import { type State } from "@/arc/types";
 
-export const translateSlateForward = (slate: slate.Slate): State => ({
-  key: slate.key,
-  nodes: slate.graph.nodes.map((n) => ({
+export const translateSlateForward = (arc: arc.Arc): State => ({
+  key: arc.key,
+  nodes: arc.graph.nodes.map((n) => ({
     key: n.key,
     position: (n.data.position as xy.XY) ?? xy.ZERO,
     selected: false,
     zIndex: 1,
   })),
-  edges: slate.graph.edges.map((e) => ({
+  edges: arc.graph.edges.map((e) => ({
     id: `${e.source.key}-${e.sink.key}`,
     key: `${e.source.key}-${e.sink.key}`,
     source: e.source.node,
@@ -23,7 +23,7 @@ export const translateSlateForward = (slate: slate.Slate): State => ({
     selected: false,
   })),
   props: Object.fromEntries(
-    slate.graph.nodes.map((n) => [
+    arc.graph.nodes.map((n) => [
       n.key,
       {
         key: n.key,
@@ -41,15 +41,15 @@ export const translateSlateForward = (slate: slate.Slate): State => ({
   version: "0.0.0",
 });
 
-export const translateSlateBackward = (slate: State): slate.Slate => ({
-  key: slate.key,
+export const translateSlateBackward = (arc: State): arc.Arc => ({
+  key: arc.key,
   graph: {
-    nodes: slate.nodes.map((n) => ({
+    nodes: arc.nodes.map((n) => ({
       key: n.key,
-      type: slate.props[n.key].key,
-      config: slate.props[n.key],
+      type: arc.props[n.key].key,
+      config: arc.props[n.key],
     })),
-    edges: slate.edges.map((e) => ({
+    edges: arc.edges.map((e) => ({
       source: { key: e.sourceHandle as string, node: e.source },
       sink: { key: e.targetHandle as string, node: e.target },
     })),

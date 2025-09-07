@@ -35,7 +35,7 @@ func NewSlateService(p Provider) *SlateService {
 
 type (
 	SlateCreateRequest struct {
-		Slates []arc.arc `json:"slates" msgpack:"slates"`
+		Arcs []arc.arc `json:"arcs" msgpack:"arcs"`
 	}
 	SlateCreateResponse = SlateCreateRequest
 )
@@ -44,19 +44,19 @@ func (s *SlateService) Create(ctx context.Context, req SlateCreateRequest) (res 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: arc.OntologyIDsFromSlates(req.Slates),
+		Objects: arc.OntologyIDsFromSlates(req.Arcs),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, slate_ := range req.Slates {
+		for i, slate_ := range req.Arcs {
 			if err = w.Create(ctx, &slate_); err != nil {
 				return err
 			}
-			req.Slates[i] = slate_
+			req.Arcs[i] = slate_
 		}
-		res.Slates = req.Slates
+		res.Arcs = req.Arcs
 		return nil
 	})
 }
@@ -83,18 +83,18 @@ type (
 		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	SlateRetrieveResponse struct {
-		Slates []arc.arc `json:"slates" msgpack:"slates"`
+		Arcs []arc.arc `json:"arcs" msgpack:"arcs"`
 	}
 )
 
 func (s *SlateService) Retrieve(ctx context.Context, req SlateRetrieveRequest) (res SlateRetrieveResponse, err error) {
-	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Slates).Exec(ctx, nil); err != nil {
+	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Arcs).Exec(ctx, nil); err != nil {
 		return SlateRetrieveResponse{}, err
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: arc.OntologyIDsFromSlates(res.Slates),
+		Objects: arc.OntologyIDsFromSlates(res.Arcs),
 	}); err != nil {
 		return SlateRetrieveResponse{}, err
 	}
