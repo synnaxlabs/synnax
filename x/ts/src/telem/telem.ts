@@ -1536,7 +1536,7 @@ export class TimeRange implements primitive.Stringer {
       .map((r) => r.makeValid())
       .sort((a, b) => TimeRange.sort(a, b))
       .reduce<TimeRange[]>((simplified, range) => {
-        if (range.isZero) return simplified;
+        if (range.span.isZero) return simplified;
         if (simplified.length === 0) {
           simplified.push(range);
           return simplified;
