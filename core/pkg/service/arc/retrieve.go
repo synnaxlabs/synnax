@@ -21,7 +21,7 @@ import (
 // arc.Service.
 type Retrieve struct {
 	baseTX gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, arc]
+	gorp   gorp.Retrieve[uuid.UUID, Arc]
 }
 
 // WhereKeys filters the arcs by the given keys.
@@ -30,16 +30,16 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 	return r
 }
 
-// Entry binds the given arc to the query. This pointer is where the results of the
+// Entry binds the given Arc to the query. This pointer is where the results of the
 // query will be stored after Exec is called.
-func (r Retrieve) Entry(arc *arc) Retrieve {
+func (r Retrieve) Entry(arc *Arc) Retrieve {
 	r.gorp = r.gorp.Entry(arc)
 	return r
 }
 
 // Entries binds the given slice of arcs to the query. This pointer is where the results
 // of the query will be stored after Exec is called.
-func (r Retrieve) Entries(arcs *[]arc) Retrieve {
+func (r Retrieve) Entries(arcs *[]Arc) Retrieve {
 	r.gorp = r.gorp.Entries(arcs)
 	return r
 }
@@ -47,7 +47,7 @@ func (r Retrieve) Entries(arcs *[]arc) Retrieve {
 // Exec executes the query against the given transslate. The results of the query
 // will be stored in the pointer given to the Entry or Entries method. If tx is nil,
 // the query will be executed directly against the underlying gorp.DB provided to the
-// arc service.
+// Arc service.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

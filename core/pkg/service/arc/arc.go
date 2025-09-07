@@ -11,19 +11,18 @@ package arc
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/spec"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type arc struct {
+type Arc struct {
 	Key   uuid.UUID  `json:"key" msgpack:"key"`
 	Graph spec.Graph `json:"graph" msgpack:"graph"`
 }
 
-var _ gorp.Entry[uuid.UUID] = arc{}
+var _ gorp.Entry[uuid.UUID] = Arc{}
 
 // GorpKey implements gorp.Entry.
-func (s arc) GorpKey() uuid.UUID { return s.Key }
+func (s Arc) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s arc) SetOptions() []any { return nil }
+func (s Arc) SetOptions() []any { return nil }

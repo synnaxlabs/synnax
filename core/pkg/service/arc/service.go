@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening a arc service.
+// ServiceConfig is the configuration for opening a Arc service.
 type ServiceConfig struct {
-	// DB is the database that the arc service will store arcs in.
+	// DB is the database that the Arc service will store arcs in.
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between arcs and other entities in
@@ -32,7 +32,7 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a arc service.
+	// DefaultConfig is the default configuration for opening a Arc service.
 	DefaultConfig = ServiceConfig{}
 )
 
@@ -45,7 +45,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("arc")
+	v := validate.New("Arc")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
@@ -58,7 +58,7 @@ type Service struct {
 
 func (s Service) Close() error { return nil }
 
-// OpenService instantiates a new arc service using the provided configurations. Each
+// OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -84,5 +84,5 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, arc](), baseTX: s.cfg.DB}
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Arc](), baseTX: s.cfg.DB}
 }

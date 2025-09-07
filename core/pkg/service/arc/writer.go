@@ -27,22 +27,22 @@ type Writer struct {
 	otg       *ontology.Ontology
 }
 
-// Create creates the given arc. If the arc does not have a key,
+// Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	c *arc,
+	c *Arc,
 ) (err error) {
 	var exists bool
 	if c.Key == uuid.Nil {
 		c.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, arc]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(c.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, arc]().Entry(c).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(c).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
@@ -57,7 +57,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {
