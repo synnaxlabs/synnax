@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { type FrameProps } from "@/list/Frame";
+import { type FrameProps, type GetItem } from "@/list/Frame";
 
 export interface UseCombinedDataArgs<
   K extends record.Key,
@@ -46,5 +46,5 @@ export const useCombinedData = <
     },
     [first.subscribe, second.subscribe],
   );
-  return { data, getItem, subscribe };
+  return { data, getItem: getItem as GetItem<K, E>, subscribe };
 };

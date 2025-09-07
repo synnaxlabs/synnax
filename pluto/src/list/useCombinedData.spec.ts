@@ -10,7 +10,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type FrameProps } from "@/list/Frame";
+import { type FrameProps, type GetItem } from "@/list/Frame";
 import { useCombinedData } from "@/list/useCombinedData";
 
 interface TestItem {
@@ -81,12 +81,16 @@ describe("useCombinedData", () => {
 
       const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn((key) => (key === "1" ? item1 : undefined)),
+        getItem: vi.fn((key) =>
+          key === "1" ? item1 : undefined,
+        ) as unknown as GetItem<string, TestItem>,
       };
 
       const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["2"],
-        getItem: vi.fn((key) => (key === "2" ? item2 : undefined)),
+        getItem: vi.fn((key) =>
+          key === "2" ? item2 : undefined,
+        ) as unknown as GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
@@ -107,12 +111,12 @@ describe("useCombinedData", () => {
 
       const first: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn(() => firstItem),
+        getItem: vi.fn(() => firstItem) as unknown as GetItem<string, TestItem>,
       };
 
       const second: Pick<FrameProps<string, TestItem>, "data" | "getItem"> = {
         data: ["1"],
-        getItem: vi.fn(() => secondItem),
+        getItem: vi.fn(() => secondItem) as unknown as GetItem<string, TestItem>,
       };
 
       const { result } = renderHook(() =>
@@ -264,7 +268,10 @@ describe("useCombinedData", () => {
         keys: string[],
       ): Pick<FrameProps<string, TestItem>, "data" | "getItem" | "subscribe"> => ({
         data: keys,
-        getItem: (key) => items.get(key),
+        getItem: ((key: string) => items.get(key)) as unknown as GetItem<
+          string,
+          TestItem
+        >,
         subscribe: (callback, key) => {
           if (!subscribers.has(key)) subscribers.set(key, new Set());
 
