@@ -316,7 +316,6 @@ export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   labels: [],
-  stage: "to_do",
   parent: "",
   timeRange: { start: 0, end: 0 },
 };
