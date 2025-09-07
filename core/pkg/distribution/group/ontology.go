@@ -43,7 +43,11 @@ func (s *Service) Type() ontology.Type { return OntologyType }
 
 func (s *Service) Schema() zyn.Schema { return schema }
 
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err

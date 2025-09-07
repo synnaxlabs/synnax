@@ -130,7 +130,11 @@ func (s *Service) migrate(ctx context.Context) error {
 					return err
 				}
 				var r Range
-				if err := s.NewRetrieve().WhereKeys(rKey).Entry(&r).Exec(ctx, tx); err != nil {
+				if err := s.
+					NewRetrieve().
+					WhereKeys(rKey).
+					Entry(&r).
+					Exec(ctx, tx); err != nil {
 					return err
 				}
 				if r.TimeRange.Start.Before(tr.Start) {
