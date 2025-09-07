@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -27,6 +28,8 @@ import (
 
 // Config is the configuration for opening the ranger.Service.
 type Config struct {
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Ranges.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
@@ -61,6 +64,7 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -75,7 +79,6 @@ func (c Config) Override(other Config) Config {
 // metadata on a range.
 type Service struct {
 	Config
-	group           group.Group
 	shutdownSignals io.Closer
 }
 
@@ -87,13 +90,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Ranges", ontology.RootID)
-	if err != nil {
-		return nil, err
-	}
-	s := &Service{Config: cfg, group: g}
+	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
+	if err := s.migrate(ctx); err != nil {
+		return nil, err
+	}
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -141,7 +143,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.DB, tx),
 		otg:       s.Ontology,
 		otgWriter: s.Ontology.NewWriter(tx),
-		group:     s.group,
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -27,7 +26,6 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	group     group.Group
 }
 
 // Create creates a new range within the DB, assigning it a unique key if it does not
@@ -49,10 +47,6 @@ func (w Writer) CreateWithParent(
 	r *Range,
 	parent ontology.ID,
 ) error {
-	hasParent := !parent.IsZero()
-	if !hasParent {
-		parent = w.group.OntologyID()
-	}
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
@@ -63,7 +57,7 @@ func (w Writer) CreateWithParent(
 		NewRetrieve[uuid.UUID, Range]().
 		WhereKeys(r.Key).
 		Exists(ctx, w.tx)
-	if err != nil {
+	if err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
@@ -73,37 +67,32 @@ func (w Writer) CreateWithParent(
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	// Range already exists and parent provided  = delete incoming relationships and
-	// define new parent
-	//
-	// Range already exists and no parent provided = do nothing
-	//
-	// Range does not exist = define parent
-	if exists && hasParent {
-		if hasPar, err := w.otgWriter.HasRelationship(
+	// If parent is not provided, don't define a parent relationship. If it is provided,
+	// delete the previous parent (if it exists) and define a new parent relationship.
+	if !parent.IsZero() {
+		if exists {
+			if relAlreadyExists, err := w.otgWriter.HasRelationship(
+				ctx,
+				parent,
+				ontology.ParentOf,
+				otgID,
+			); relAlreadyExists || err != nil {
+				if err == nil {
+					r.tx = w.tx
+					r.otg = w.otg
+				}
+				return err
+			}
+			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+				ctx,
+				otgID,
+				ontology.ParentOf,
+			); err != nil {
+				return err
+			}
+		}
+		if err = w.otgWriter.DefineRelationship(
 			ctx,
-			parent,
-			ontology.ParentOf,
-			otgID,
-		); hasPar || err != nil {
-			return err
-		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
-			ctx,
-			otgID,
-			ontology.ParentOf,
-		); err != nil {
-			return err
-		}
-		if err = w.otgWriter.DefineRelationship(ctx,
-			parent,
-			ontology.ParentOf,
-			otgID,
-		); err != nil {
-			return err
-		}
-	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx,
 			parent,
 			ontology.ParentOf,
 			otgID,
@@ -159,6 +148,13 @@ func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 		WhereKeys(key).
 		Change(func(r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
+}
+
+func (w Writer) swapRanges(ctx context.Context) error {
+	return gorp.NewUpdate[uuid.UUID, Range]().Change(func(r Range) Range {
+		r.TimeRange = r.TimeRange.MakeValid()
+		return r
+	}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children of
