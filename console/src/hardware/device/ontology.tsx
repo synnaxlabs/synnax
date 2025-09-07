@@ -189,8 +189,7 @@ const Item = ({
   ...rest
 }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.retrieve().useDirect({ params: { key: id.key } }).data
-    ?.status;
+  const devStatus = Device.useRetrieve({ key: id.key }).data?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>

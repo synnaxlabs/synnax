@@ -212,10 +212,7 @@ describe("queries", () => {
       ]);
 
       const { result } = renderHook(
-        () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
-          }),
+        () => Label.useRetrieveLabelsOf({ id: label.ontologyID(targetLabel.key) }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -233,8 +230,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -269,8 +266,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -302,8 +299,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
@@ -340,8 +337,8 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.retrieveLabelsOf.useDirect({
-            params: { id: label.ontologyID(targetLabel.key) },
+          Label.useRetrieveLabelsOf({
+            id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );

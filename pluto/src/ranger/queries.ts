@@ -190,7 +190,7 @@ export const useChildren = Flux.createList<
   ],
 });
 
-export const retrieveParent = Flux.createRetrieve<
+export const useRetrieveParent = Flux.createRetrieve<
   { id: ontology.ID },
   ranger.Range | null,
   SubStore
@@ -251,7 +251,7 @@ export interface RetrieveParams {
   key: ranger.Key;
 }
 
-export const retrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
+export const useRetrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubStore>({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) =>
     await cachedRetrieve(client, store, key),
@@ -290,8 +290,6 @@ export const retrieve = Flux.createRetrieve<RetrieveParams, ranger.Range, SubSto
     }, key),
   ],
 });
-
-export const useRetrieve = retrieve.useDirect;
 
 export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
@@ -413,7 +411,7 @@ export const useForm = Flux.createForm<UseFormQueryParams, typeof formSchema, Su
 export const useLabels = (
   key: ranger.Key,
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
+  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
 
 export interface ListParams
   extends Pick<

@@ -60,7 +60,7 @@ const retrieveByKey = async (client: Synnax, key: string, store: SubStore) => {
   return symbol;
 };
 
-export const retrieve = Flux.createRetrieve<
+export const useRetrieve = Flux.createRetrieve<
   RetrieveParams,
   schematic.symbol.Symbol,
   SubStore
@@ -239,7 +239,7 @@ export const useDelete = Flux.createUpdate<DeleteParams, void>({
     await client.workspaces.schematic.symbols.delete(key),
 }).useDirect;
 
-export const retrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
+export const useRetrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
   name: "SchematicSymbols",
   retrieve: async ({ client }) =>
     await client.workspaces.schematic.symbols.retrieveGroup(),

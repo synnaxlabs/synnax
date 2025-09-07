@@ -609,7 +609,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   );
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.retrieveGroup.useDirect({ params: {} });
+  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ params: {} });
   const searchMode = searchTerm.length > 0;
   let symbolList = (
     <StaticSymbolList key={groupKey} groupKey={groupKey} onSelect={handleAddElement} />

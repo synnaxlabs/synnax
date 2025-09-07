@@ -220,38 +220,40 @@ const formRetrieveFn = async ({
   reset(channelToFormValues(res));
 };
 
-export const retrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>({
-  name: "Channel",
-  retrieve: retrieveSingleFn,
-  mountListeners: ({ store, onChange, params: { key, rangeKey }, client }) => {
-    const ch = store.channels.onSet((channel) => {
-      if (rangeKey != null) {
-        const alias = store.rangeAliases.get(
-          ranger.aliasKey({ range: rangeKey, channel: key }),
-        );
-        if (alias != null) channel.alias = alias.alias;
-      }
-      onChange(channel);
-    }, key);
-    if (rangeKey == null) return ch;
-    const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
-    const onSetAlias = store.rangeAliases.onSet((alias) => {
-      if (alias == null) return;
-      onChange((p) => client.channels.sugar({ ...p, alias: alias.alias }));
-    }, aliasKey);
-    const onDeleteAlias = store.rangeAliases.onDelete(
-      () => onChange((p) => client.channels.sugar({ ...p, alias: undefined })),
-      aliasKey,
-    );
-    return [ch, onSetAlias, onDeleteAlias];
+export const useRetrieve = Flux.createRetrieve<RetrieveArgs, channel.Channel, SubStore>(
+  {
+    name: "Channel",
+    retrieve: retrieveSingleFn,
+    mountListeners: ({ store, onChange, params: { key, rangeKey }, client }) => {
+      const ch = store.channels.onSet((channel) => {
+        if (rangeKey != null) {
+          const alias = store.rangeAliases.get(
+            ranger.aliasKey({ range: rangeKey, channel: key }),
+          );
+          if (alias != null) channel.alias = alias.alias;
+        }
+        onChange(channel);
+      }, key);
+      if (rangeKey == null) return ch;
+      const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
+      const onSetAlias = store.rangeAliases.onSet((alias) => {
+        if (alias == null) return;
+        onChange((p) => client.channels.sugar({ ...p, alias: alias.alias }));
+      }, aliasKey);
+      const onDeleteAlias = store.rangeAliases.onDelete(
+        () => onChange((p) => client.channels.sugar({ ...p, alias: undefined })),
+        aliasKey,
+      );
+      return [ch, onSetAlias, onDeleteAlias];
+    },
   },
-});
+);
 
 export interface RetrieveManyArgs extends channel.RetrieveOptions {
   keys: channel.Keys;
 }
 
-export const retrieveMany = Flux.createRetrieve<
+export const useRetrieveMany = Flux.createRetrieve<
   RetrieveManyArgs,
   channel.Channel[],
   SubStore

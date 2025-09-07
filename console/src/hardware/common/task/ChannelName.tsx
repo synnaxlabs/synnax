@@ -27,8 +27,9 @@ export const ChannelName = ({
   ...rest
 }: ChannelNameProps) => {
   const range = useSelectActiveRangeKey();
-  const { data } = Channel.retrieve.useDirect({
-    params: { key: channel, rangeKey: range ?? undefined },
+  const { data } = Channel.useRetrieve({
+    key: channel,
+    rangeKey: range ?? undefined,
   });
   const { update: rename } = Channel.rename.useDirect({ params: { key: channel } });
   const name = data?.name ?? defaultName;

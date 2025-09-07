@@ -241,10 +241,9 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.retrieve.useDirect({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Symbol.useRetrieve({ key: symbol.key }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -410,12 +409,9 @@ describe("Symbol queries", () => {
 
   describe("useGroup", () => {
     it("should retrieve the symbol group", async () => {
-      const { result } = renderHook(
-        () => Symbol.retrieveGroup.useDirect({ params: {} }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = renderHook(() => Symbol.useRetrieveGroup({ params: {} }), {
+        wrapper,
+      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toBeDefined();

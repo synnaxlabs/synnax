@@ -50,7 +50,7 @@ interface SubStore extends Flux.Store {
   relationships: Flux.UnaryStore<string, ontology.Relationship>;
 }
 
-export const retrieveLabelsOf = Flux.createRetrieve<
+export const useRetrieveLabelsOf = Flux.createRetrieve<
   UseLabelsOfQueryParams,
   label.Label[],
   SubStore

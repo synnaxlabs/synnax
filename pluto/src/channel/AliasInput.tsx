@@ -35,9 +35,7 @@ export const AliasInput = ({
   const { update } = Channel.updateAlias.useDirect({
     params: { rangeKey, channelKey },
   });
-  const { data } = Channel.retrieve.useDirect({
-    params: { key: channelKey, rangeKey },
-  });
+  const { data } = Channel.useRetrieve({ key: channelKey, rangeKey });
   const setAlias = async (value: string) => {
     update(value);
   };
