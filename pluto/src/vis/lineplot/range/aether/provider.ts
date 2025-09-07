@@ -144,7 +144,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           key: r.key,
           parent: r.parent,
           name: r.name,
-          stage: r.stage,
           color: r.color,
           labels: r.labels,
           timeRange: r.timeRange,
