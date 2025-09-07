@@ -130,7 +130,7 @@ const Line = ({
   return (
     <List.Item itemKey={itemKey} index={0} key={itemKey} gap="large">
       <Channel.AliasInput
-        channelKey={yChannel}
+        channel={yChannel}
         variant="shadow"
         value={line.label ?? ""}
         onChange={handleLabelChange}

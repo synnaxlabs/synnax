@@ -350,13 +350,10 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.useRename({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(Symbol.useRename, { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync("new-name");
+        await result.current.updateAsync({ key: symbol.key, name: "new-name" });
       });
 
       await waitFor(() => {
@@ -386,13 +383,10 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () => Symbol.useDelete({ params: { key: symbol.key } }),
-        { wrapper },
-      );
+      const { result } = renderHook(Symbol.useDelete, { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync();
+        await result.current.updateAsync({ key: symbol.key });
       });
 
       await waitFor(() => {

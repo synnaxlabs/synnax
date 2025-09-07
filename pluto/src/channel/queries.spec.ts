@@ -646,7 +646,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () => {
           const form = Channel.useForm({ params: { key: testChannel.key } });
-          const rename = Channel.rename.useDirect({ params: { key: testChannel.key } });
+          const rename = Channel.useRename();
           return { form, rename };
         },
         { wrapper },
@@ -655,7 +655,10 @@ describe("queries", () => {
       expect(result.current.form.form.value().name).toEqual("externalUpdate");
 
       await act(async () => {
-        await result.current.rename.updateAsync("externallyUpdated");
+        await result.current.rename.updateAsync({
+          key: testChannel.key,
+          name: "externallyUpdated",
+        });
       });
 
       await waitFor(() => {
@@ -882,9 +885,7 @@ describe("queries", () => {
           const form = Channel.useCalculatedForm({
             params: { key: testCalculated.key },
           });
-          const rename = Channel.rename.useDirect({
-            params: { key: testCalculated.key },
-          });
+          const rename = Channel.useRename();
           return { form, rename };
         },
         { wrapper },
@@ -895,7 +896,10 @@ describe("queries", () => {
       expect(result.current.form.form.value().name).toEqual("updateCalculated");
 
       await act(async () => {
-        await result.current.rename.updateAsync("externallyUpdatedCalculated");
+        await result.current.rename.updateAsync({
+          key: testCalculated.key,
+          name: "externallyUpdatedCalculated",
+        });
       });
 
       await waitFor(() => {

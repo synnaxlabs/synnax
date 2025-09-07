@@ -193,10 +193,11 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
       parent,
     });
   },
-  update: async ({ client, value, reset, params }) => {
-    const parent = params.parent ?? value().parent ?? ontology.ROOT_ID;
+  update: async ({ client, value, reset }) => {
+    const payload = value();
+    const parent = payload.parent ?? ontology.ROOT_ID;
     const created = await client.workspaces.schematic.symbols.create({
-      ...value(),
+      ...payload,
       parent,
     });
     reset({ ...created, parent });
@@ -219,25 +220,33 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, SubStor
   },
 });
 
-export interface RenameParams {
+export interface RenameArgs {
+  key: string;
+  name: string;
+}
+
+export const useRename = Flux.createUpdate<RenameArgs, SubStore>({
+  name: "SchematicSymbols",
+  update: async ({ client, value, store }) => {
+    await client.workspaces.schematic.symbols.rename(value.key, value.name);
+    store.schematicSymbols.set(value.key, (p) => {
+      if (p == null) return p;
+      return { ...p, name: value.name };
+    });
+  },
+});
+
+export interface DeleteArgs {
   key: string;
 }
 
-export const useRename = Flux.createUpdate<RenameParams, string>({
+export const useDelete = Flux.createUpdate<DeleteArgs, SubStore>({
   name: "SchematicSymbols",
-  update: async ({ client, value, params }) =>
-    await client.workspaces.schematic.symbols.rename(params.key, value),
-}).useDirect;
-
-export interface DeleteParams {
-  key: string;
-}
-
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
-  name: "SchematicSymbols",
-  update: async ({ client, params: { key } }) =>
-    await client.workspaces.schematic.symbols.delete(key),
-}).useDirect;
+  update: async ({ client, value, store }) => {
+    await client.workspaces.schematic.symbols.delete(value.key);
+    store.schematicSymbols.delete(value.key);
+  },
+});
 
 export const useRetrieveGroup = Flux.createRetrieve<{}, group.Payload, SubStore>({
   name: "SchematicSymbols",

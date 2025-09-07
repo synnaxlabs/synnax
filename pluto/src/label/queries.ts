@@ -131,11 +131,11 @@ export const useForm = Flux.createForm<FormParams, typeof formSchema, SubStore>(
   ],
 });
 
-export interface DeleteParams {
+export interface UseDeleteArgs {
   key: label.Key;
 }
 
-export const useDelete = Flux.createUpdate<DeleteParams, void>({
+export const useDelete = Flux.createUpdate<UseDeleteArgs>({
   name: "Label",
-  update: async ({ client, params: { key } }) => await client.labels.delete(key),
-}).useDirect;
+  update: async ({ client, value }) => await client.labels.delete(value.key),
+});

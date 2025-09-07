@@ -554,15 +554,22 @@ export const useKVPairForm = Flux.createForm<
   },
 });
 
-export const useDeleteKV = Flux.createUpdate<ListKVParams, string>({
+export interface UseDeleteKVArgs extends ListKVParams {
+  key: string;
+}
+
+export const useDeleteKV = Flux.createUpdate<UseDeleteKVArgs>({
   name: "Range Meta Data",
-  update: async ({ client, value, params: { rangeKey } }) => {
+  update: async ({ client, value }) => {
+    const { key, rangeKey } = value;
     const kv = client.ranges.getKV(rangeKey);
-    await kv.delete(value);
+    await kv.delete(key);
   },
 });
 
-export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
+export interface UseUpdateKVArgs extends ListKVParams, ranger.KVPair {}
+
+export const useUpdateKV = Flux.createUpdate<UseUpdateKVArgs>({
   name: "Range Meta Data",
   update: async ({ client, value, onChange }) => {
     const kv = client.ranges.getKV(value.range);
@@ -571,9 +578,7 @@ export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
   },
 });
 
-export interface UpdateParams {}
-
-export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload, SubStore>({
+export const useUpdate = Flux.createUpdate<ranger.Payload, SubStore>({
   name: "Range",
   update: async ({ client, value, onChange, store }) => {
     const rng = await client.ranges.create(value);
@@ -582,11 +587,7 @@ export const useUpdate = Flux.createUpdate<UpdateParams, ranger.Payload, SubStor
   },
 });
 
-export const useDelete = Flux.createUpdate<
-  UpdateParams,
-  ranger.Key | ranger.Keys,
-  SubStore
->({
+export const useDelete = Flux.createUpdate<ranger.Key | ranger.Keys, SubStore>({
   name: "Range",
   update: async ({ client, value, store }) => {
     await client.ranges.delete(value);

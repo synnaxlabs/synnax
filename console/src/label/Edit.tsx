@@ -60,7 +60,7 @@ const LabelListItem = ({
     sync: true,
   });
   const inputRef = useRef<HTMLInputElement>(null);
-  const { update: handleDelete } = Label.useDelete({ params: { key: itemKey } });
+  const { update: handleDelete } = Label.useDelete();
   useEffect(() => {
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
@@ -134,7 +134,7 @@ const LabelListItem = ({
         <Button.Button
           variant="outlined"
           size="small"
-          onClick={() => handleDelete()}
+          onClick={() => handleDelete({ key: itemKey })}
           className={CSS.BE("label", "delete")}
         >
           <Icon.Delete />
