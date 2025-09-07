@@ -1,10 +1,10 @@
-# Slate Language Support for VSCode
+# Arc Language Support for VSCode
 
-This extension provides language support for the Slate programming language, including syntax highlighting, code completion, hover information, and error diagnostics.
+This extension provides language support for the Arc programming language, including syntax highlighting, code completion, hover information, and error diagnostics.
 
 ## Features
 
-- **Syntax Highlighting**: Full syntax highlighting for Slate language constructs
+- **Syntax Highlighting**: Full syntax highlighting for Arc language constructs
 - **Code Completion**: Context-aware code completion for keywords, types, and built-in functions
 - **Hover Information**: Documentation on hover for language elements
 - **Error Diagnostics**: Real-time syntax error reporting
@@ -13,22 +13,22 @@ This extension provides language support for the Slate programming language, inc
 
 ## Requirements
 
-The Slate Language Server (`slate-lsp`) must be installed and available in your PATH, or you can configure the path in the extension settings.
+The Arc Language Server (`arc-lsp`) must be installed and available in your PATH, or you can configure the path in the extension settings.
 
 ### Building the Language Server
 
 ```bash
-cd slate/lsp
-go build -o slate-lsp
+cd arc/lsp
+go build -o arc-lsp
 ```
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
-* `slate.lsp.path`: Path to the Slate LSP executable (default: `slate-lsp`)
-* `slate.lsp.debug`: Enable debug logging for the Slate LSP (default: `false`)
-* `slate.lsp.logFile`: Path to the LSP log file, empty for stderr (default: `""`)
+* `arc.lsp.path`: Path to the Arc LSP executable (default: `arc-lsp`)
+* `arc.lsp.debug`: Enable debug logging for the Arc LSP (default: `false`)
+* `arc.lsp.logFile`: Path to the LSP log file, empty for stderr (default: `""`)
 
 ## Installation
 
@@ -36,13 +36,13 @@ This extension contributes the following settings:
 
 1. Build the LSP server:
    ```bash
-   cd slate/lsp
-   go build -o slate-lsp
+   cd arc/lsp
+   go build -o arc-lsp
    ```
 
 2. Install extension dependencies:
    ```bash
-   cd slate/lsp/extensions/vscode
+   cd arc/lsp/extensions/vscode
    npm install
    ```
 
@@ -67,10 +67,10 @@ This extension contributes the following settings:
 
 To develop the extension:
 
-1. Open the `slate/lsp/extensions/vscode` folder in VSCode
+1. Open the `arc/lsp/extensions/vscode` folder in VSCode
 2. Run `npm install` to install dependencies
 3. Press F5 to launch a new VSCode window with the extension loaded
-4. Open a `.slate` file to test the extension
+4. Open a `.arc` file to test the extension
 
 ## Known Issues
 

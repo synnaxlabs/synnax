@@ -145,7 +145,7 @@ func New(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		} else if node.Type == "print" {
 			t := &printTask{}
 			t.input = make(chan struct{}, 10)
-			t.node = &node
+			t.node = &noe
 			t.OnOutput(createOnOutput(node.Key))
 			tasks[node.Key] = t
 		}

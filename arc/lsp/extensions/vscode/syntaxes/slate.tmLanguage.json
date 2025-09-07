@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Slate",
+  "name": "Arc",
   "patterns": [
     {
       "include": "#comments"
@@ -40,11 +40,11 @@
     "comments": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.slate",
+          "name": "comment.line.double-slash.arc",
           "match": "//.*$"
         },
         {
-          "name": "comment.block.slate",
+          "name": "comment.block.arc",
           "begin": "/\\*",
           "end": "\\*/"
         }
@@ -53,19 +53,19 @@
     "keywords": {
       "patterns": [
         {
-          "name": "keyword.control.slate",
+          "name": "keyword.control.arc",
           "match": "\\b(if|else|return)\\b"
         },
         {
-          "name": "keyword.other.slate",
+          "name": "keyword.other.arc",
           "match": "\\b(func|task)\\b"
         },
         {
-          "name": "constant.language.boolean.slate",
+          "name": "constant.language.boolean.arc",
           "match": "\\b(true|false)\\b"
         },
         {
-          "name": "constant.language.null.slate",
+          "name": "constant.language.null.arc",
           "match": "\\bnull\\b"
         }
       ]
@@ -73,23 +73,23 @@
     "strings": {
       "patterns": [
         {
-          "name": "string.quoted.double.slate",
+          "name": "string.quoted.double.arc",
           "begin": "\"",
           "end": "\"",
           "patterns": [
             {
-              "name": "constant.character.escape.slate",
+              "name": "constant.character.escape.arc",
               "match": "\\\\([\\\\\"/bfnrt]|u[0-9a-fA-F]{4})"
             }
           ]
         },
         {
-          "name": "string.quoted.single.slate",
+          "name": "string.quoted.single.arc",
           "begin": "'",
           "end": "'",
           "patterns": [
             {
-              "name": "constant.character.escape.slate",
+              "name": "constant.character.escape.arc",
               "match": "\\\\([\\\\'bfnrt]|u[0-9a-fA-F]{4})"
             }
           ]
@@ -99,31 +99,31 @@
     "numbers": {
       "patterns": [
         {
-          "name": "constant.numeric.temporal.slate",
+          "name": "constant.numeric.temporal.arc",
           "match": "\\b(\\d+(_\\d+)*(\\.\\d+(_\\d+)*)?([eE][+-]?\\d+(_\\d+)*)?)(ns|us|ms|s|m|h|hz|khz|mhz)\\b",
           "captures": {
             "1": {
-              "name": "constant.numeric.float.slate"
+              "name": "constant.numeric.float.arc"
             },
             "6": {
-              "name": "keyword.other.unit.slate"
+              "name": "keyword.other.unit.arc"
             }
           }
         },
         {
-          "name": "constant.numeric.hex.slate",
+          "name": "constant.numeric.hex.arc",
           "match": "\\b0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*\\b"
         },
         {
-          "name": "constant.numeric.binary.slate",
+          "name": "constant.numeric.binary.arc",
           "match": "\\b0[bB][01]+(_[01]+)*\\b"
         },
         {
-          "name": "constant.numeric.float.slate",
+          "name": "constant.numeric.float.arc",
           "match": "\\b\\d+(_\\d+)*\\.\\d+(_\\d+)*([eE][+-]?\\d+(_\\d+)*)?\\b"
         },
         {
-          "name": "constant.numeric.integer.slate",
+          "name": "constant.numeric.integer.arc",
           "match": "\\b\\d+(_\\d+)*\\b"
         }
       ]
@@ -131,11 +131,11 @@
     "types": {
       "patterns": [
         {
-          "name": "support.type.primitive.slate",
+          "name": "support.type.primitive.arc",
           "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|string|timestamp|timespan|bool)\\b"
         },
         {
-          "name": "support.type.composite.slate",
+          "name": "support.type.composite.arc",
           "match": "\\b(series|chan)\\b"
         }
       ]
@@ -143,31 +143,31 @@
     "operators": {
       "patterns": [
         {
-          "name": "keyword.operator.arithmetic.slate",
+          "name": "keyword.operator.arithmetic.arc",
           "match": "[+\\-*/%]|\\*\\*|\\^"
         },
         {
-          "name": "keyword.operator.comparison.slate",
+          "name": "keyword.operator.comparison.arc",
           "match": "==|!=|<=?|>=?"
         },
         {
-          "name": "keyword.operator.logical.slate",
+          "name": "keyword.operator.logical.arc",
           "match": "&&|\\|\\||!"
         },
         {
-          "name": "keyword.operator.assignment.declare.slate",
+          "name": "keyword.operator.assignment.declare.arc",
           "match": ":="
         },
         {
-          "name": "keyword.operator.assignment.stateful.slate",
+          "name": "keyword.operator.assignment.stateful.arc",
           "match": "\\$="
         },
         {
-          "name": "keyword.operator.assignment.slate",
+          "name": "keyword.operator.assignment.arc",
           "match": "="
         },
         {
-          "name": "keyword.operator.channel.slate",
+          "name": "keyword.operator.channel.arc",
           "match": "<-"
         }
       ]
@@ -175,7 +175,7 @@
     "flow-operators": {
       "patterns": [
         {
-          "name": "keyword.operator.flow.slate",
+          "name": "keyword.operator.flow.arc",
           "match": "->"
         }
       ]
@@ -183,14 +183,14 @@
     "functions": {
       "patterns": [
         {
-          "name": "meta.function.slate",
+          "name": "meta.function.arc",
           "begin": "\\b(func)\\s+(\\w+)\\s*\\(",
           "beginCaptures": {
             "1": {
-              "name": "keyword.other.slate"
+              "name": "keyword.other.arc"
             },
             "2": {
-              "name": "entity.name.function.slate"
+              "name": "entity.name.function.arc"
             }
           },
           "end": "\\)",
@@ -201,11 +201,11 @@
           ]
         },
         {
-          "name": "support.function.builtin.slate",
+          "name": "support.function.builtin.arc",
           "match": "\\b(len|now)\\b(?=\\s*\\()"
         },
         {
-          "name": "entity.name.function.slate",
+          "name": "entity.name.function.arc",
           "match": "\\b\\w+\\b(?=\\s*\\()"
         }
       ]
@@ -213,14 +213,14 @@
     "tasks": {
       "patterns": [
         {
-          "name": "meta.task.definition.slate",
+          "name": "meta.task.definition.arc",
           "begin": "\\b(task)\\s+(\\w+)\\s*\\{",
           "beginCaptures": {
             "1": {
-              "name": "keyword.other.slate"
+              "name": "keyword.other.arc"
             },
             "2": {
-              "name": "entity.name.type.task.slate"
+              "name": "entity.name.type.task.arc"
             }
           },
           "end": "\\}",
@@ -231,20 +231,20 @@
           ]
         },
         {
-          "name": "meta.task.invocation.slate",
+          "name": "meta.task.invocation.arc",
           "match": "\\b(\\w+)\\s*\\{[^}]*\\}",
           "captures": {
             "1": {
-              "name": "entity.name.function.task-invocation.slate"
+              "name": "entity.name.function.task-invocation.arc"
             }
           }
         },
         {
-          "name": "meta.stdlib.task.slate",
+          "name": "meta.stdlib.task.arc",
           "match": "\\b(interval|all|once|any|throttle|merge|tee)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
-              "name": "support.function.builtin.task.slate"
+              "name": "support.function.builtin.task.arc"
             }
           }
         }
@@ -253,14 +253,14 @@
     "channels": {
       "patterns": [
         {
-          "name": "support.type.channel.slate",
+          "name": "support.type.channel.arc",
           "match": "(<-)?chan|chan(<-)?",
           "captures": {
             "1": {
-              "name": "keyword.operator.channel.slate"
+              "name": "keyword.operator.channel.arc"
             },
             "2": {
-              "name": "keyword.operator.channel.slate"
+              "name": "keyword.operator.channel.arc"
             }
           }
         }
@@ -269,7 +269,7 @@
     "identifiers": {
       "patterns": [
         {
-          "name": "variable.other.slate",
+          "name": "variable.other.arc",
           "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
         }
       ]
@@ -283,11 +283,11 @@
           "include": "#identifiers"
         },
         {
-          "name": "punctuation.separator.slate",
+          "name": "punctuation.separator.arc",
           "match": ","
         }
       ]
     }
   },
-  "scopeName": "source.slate"
+  "scopeName": "source.arc"
 }

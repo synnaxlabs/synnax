@@ -1,7 +1,7 @@
 {
-  "name": "synnax-slate",
-  "displayName": "Slate Language Support",
-  "description": "Language support for Slate programming language",
+  "name": "synnax-arc",
+  "displayName": "Arc Language Support",
+  "description": "Language support for Arc programming language",
   "version": "0.44.4",
   "repository": "github.com/synnaxlabs/synnax",
   "publisher": "synnaxlabs",
@@ -12,8 +12,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:slate",
-    "workspaceContains:**/*.slate"
+    "onLanguage:arc",
+    "workspaceContains:**/*.arc"
   ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -24,37 +24,37 @@
   "contributes": {
     "languages": [
       {
-        "id": "slate",
+        "id": "arc",
         "aliases": [
-          "Slate",
-          "slate"
+          "Arc",
+          "arc"
         ],
         "extensions": [
-          ".slate"
+          ".arc"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "slate",
-        "scopeName": "source.slate",
-        "path": "./syntaxes/slate.tmLanguage.json"
+        "language": "arc",
+        "scopeName": "source.arc",
+        "path": "./syntaxes/arc.tmLanguage.json"
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "Slate",
+      "title": "Arc",
       "properties": {
-        "slate.lsp.path": {
+        "arc.lsp.path": {
           "type": "string",
-          "default": "slate",
-          "description": "Path to the Slate CLI executable"
+          "default": "arc",
+          "description": "Path to the Arc CLI executable"
         },
-        "slate.lsp.verbose": {
+        "arc.lsp.verbose": {
           "type": "boolean",
           "default": false,
-          "description": "Enable verbose logging for the Slate LSP"
+          "description": "Enable verbose logging for the Arc LSP"
         }
       }
     }

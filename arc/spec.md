@@ -1,4 +1,4 @@
-# Slate Language Specification
+# Arc Language Specification
 
 ## Comments
 
@@ -10,7 +10,7 @@ SingleLineComment ::= '//' [^\n]*
 MultiLineComment ::= '/*' .*? '*/'
 ```
 
-```slate
+```arc
 // This is a single-line comment
 
 /* This is a
@@ -66,7 +66,7 @@ Series are homogeneous arrays of primitive types with full array operations.
 
 #### Series Operations
 
-```slate
+```arc
 // Literals
 data := [1.0, 2.0, 3.0, 4.0]  // series f64 inferred
 empty series i32 := []         // Empty series
@@ -177,7 +177,7 @@ FrequencyUnit ::= 'hz' | 'khz' | 'mhz'
 **Unit Disambiguation**:
 - `m` always means minutes in temporal contexts (never meters or milliseconds)
 - `ms` always means milliseconds
-- Slate has no spatial units - all units are temporal or frequency
+- Arc has no spatial units - all units are temporal or frequency
 
 Frequency literals are automatically converted to timespan by inverting the period.
 **Case**: Frequency units are case-insensitive (`hz`, `kHz`, `MHz` all valid). The canonical form is lowercase in this spec.
@@ -190,7 +190,7 @@ Frequency literals are automatically converted to timespan by inverting the peri
 
 ### String Semantics
 
-Strings in Slate are immutable UTF-8 encoded sequences:
+Strings in Arc are immutable UTF-8 encoded sequences:
 
 - **Encoding**: UTF-8
 - **Immutability**: All strings are immutable (cannot be modified after creation)
@@ -199,7 +199,7 @@ Strings in Slate are immutable UTF-8 encoded sequences:
 - **Literals only**: Strings can only be created from literals
 - **Operations**: Strings have no operations beyond equality - no length function, no indexing, no slicing
 
-```slate
+```arc
 msg := "Hello"           // String literal
 equal := msg == "Hello"  // Returns 1 (true)
 different := msg != "Hi" // Returns 1 (true)
@@ -211,13 +211,13 @@ different := msg != "Hi" // Returns 1 (true)
 
 ### Value Semantics
 
-Variables in Slate can be reassigned, but compound values cannot be mutated in-place:
+Variables in Arc can be reassigned, but compound values cannot be mutated in-place:
 
 - **Variables are reassignable**: Variables can be assigned new values
 - **No in-place mutation**: Cannot modify parts of strings or series
 - **Series reassignment**: Can create new series with modified values
 
-```slate
+```arc
 // Variables can be reassigned using =
 x := 5          // Declare x
 x = 10          // OK: reassignment
@@ -238,14 +238,14 @@ data = [5, data[1], data[2]]  // Create new series with modified first element
 
 ### Boolean Semantics
 
-The u8 type serves as Slate's boolean type with the following behavior:
+The u8 type serves as Arc's boolean type with the following behavior:
 
 - **Truth values**: 0 is false, any non-zero value is true
 - **Logical operators return u8**: `&&` and `||` return 0 or 1 (normalized)
 - **Short-circuit evaluation**: `&&` and `||` use short-circuit evaluation
 - **Normalization**: Logical operations normalize to 0 or 1
 
-```slate
+```arc
 // Logical operations return normalized u8 (0 or 1)
 result := 2 && 3          // Returns 1 (both truthy)
 result := 5 || 0          // Returns 1 (5 is truthy)
@@ -266,7 +266,7 @@ negated := !0             // Returns 1 (0 is false, negated to true)
 
 All types have a default zero value used for initialization:
 
-```slate
+```arc
 // Numeric zero values
 i8, i16, i32, i64: 0
 u8, u16, u32, u64: 0
@@ -292,7 +292,7 @@ TypeCast ::= Type '(' Expression ')'
 #### Casting Rules
 
 **Integer Widening** (always safe):
-```slate
+```arc
 // Zero-extend unsigned, sign-extend signed
 u16_val := u16(u8_val)    // Zero extends
 i16_val := i16(i8_val)    // Sign extends
@@ -300,14 +300,14 @@ i64_val := i64(i32_val)   // Sign extends
 ```
 
 **Integer Narrowing** (truncates):
-```slate
+```arc
 // Keeps low bits only
 u8_val := u8(u16_val)     // Keeps low 8 bits
 i8_val := i8(i64_val)     // Keeps low 8 bits
 ```
 
 **Signed ↔ Unsigned** (saturates):
-```slate
+```arc
 // Same width: saturate at bounds
 u32_val := u32(i32_val)   // Negative → 0, positive unchanged
 i32_val := i32(u32_val)   // > i32::MAX → i32::MAX
@@ -318,13 +318,13 @@ i8_val := i8(u32(200))    // Saturates to 127 (i8::MAX)
 ```
 
 **Float ↔ Float**:
-```slate
+```arc
 f64_val := f64(f32_val)   // Exact promotion
 f32_val := f32(f64_val)   // Rounds to nearest even (IEEE default)
 ```
 
 **Float → Integer**:
-```slate
+```arc
 // Truncates toward zero, saturates on overflow
 i32_val := i32(3.7_f64)   // 3
 i32_val := i32(-3.7_f64)  // -3
@@ -332,7 +332,7 @@ u32_val := u32(-1.0_f64)  // 0 (saturates)
 ```
 
 **Integer → Float**:
-```slate
+```arc
 // Exact for small integers, rounds for large
 f32_val := f32(i32_val)   // Exact within ±16M range
 f64_val := f64(i64_val)   // Exact within ±2^53 range
@@ -364,7 +364,7 @@ ChannelPipe ::= Identifier '->' Identifier
 
 Write values to channels using arrow notation:
 
-```slate
+```arc
 42 -> output_chan        // Write 42 to output_chan
 output_chan <- 42        // Equivalent syntax
 sensor_value -> log      // Write sensor value to log channel
@@ -381,14 +381,14 @@ Two types of read operations are supported:
 #### Blocking Read
 Waits for the next value to be written to the channel:
 
-```slate
+```arc
 value := <-input_chan    // Block until next value arrives
 ```
 
 #### Non-Blocking Read
 Gets the current/latest value immediately:
 
-```slate
+```arc
 current := sensor_chan   // Get current value without blocking
 ```
 
@@ -396,7 +396,7 @@ current := sensor_chan   // Get current value without blocking
 
 Channel-to-channel operations copy values:
 
-```slate
+```arc
 sensor -> display        // Read current value from sensor, write to display
 display <- sensor        // Equivalent syntax
 
@@ -428,7 +428,7 @@ Channels are unbounded FIFO queues with the following behavior:
 
 This unified model simplifies runtime implementation and naturally supports streaming telemetry where sensors often produce batches of samples.
 
-```slate
+```arc
 // Blocking read - waits for value, removes from queue
 value := <-sensor
 
@@ -441,7 +441,7 @@ temp := uninitialized_chan  // Returns 0.0 for f64 channel - can mask wiring bug
 
 **⚠️ Potential Gotcha**: Non-blocking reads return the zero value if a channel has never been written to. This can mask wiring bugs where channels aren't properly connected. Consider using explicit checks or the future `??` operator when implemented:
 
-```slate
+```arc
 // Current behavior (can mask bugs)
 value := sensor_chan  // Returns 0.0 if never written
 
@@ -486,7 +486,7 @@ Identifier ::= Letter (Letter | Digit | '_')*
 
 Local variables are scoped to the current function or task execution and reset on each invocation. They are declared with `:=`:
 
-```slate
+```arc
 count := 0                    // Type inferred local declaration
 voltage f32 := 3.3           // Explicit type local declaration
 sensor_val := <-input        // Read from channel into new local
@@ -500,7 +500,7 @@ voltage = 5.0                // Reassign with new value
 
 Stateful variables persist across reactive task executions. They are declared with `$=`:
 
-```slate
+```arc
 total $= 0                   // Stateful variable declaration
 last_state u8 $= 0          // State tracking with explicit type
 previous_time timestamp $= now()  // Time tracking
@@ -516,7 +516,7 @@ last_state = new_state      // Reassign state
 - **`$=`** - Declares a new stateful variable (compile error if variable already exists)
 - **`=`** - Assigns to an existing variable (compile error if variable doesn't exist)
 
-```slate
+```arc
 // Examples
 x := 5          // Declare local x
 x = 10          // OK: reassign x
@@ -574,7 +574,7 @@ Operators are evaluated in the following precedence order (highest to lowest):
 
 ### Associativity Examples
 
-```slate
+```arc
 // Exponentiation is right-associative (matches mathematical notation)
 2 ^ 3 ^ 2  // equals 2 ^ (3 ^ 2) = 2 ^ 9 = 512
 
@@ -589,7 +589,7 @@ Operators are evaluated in the following precedence order (highest to lowest):
 
 ### Operator Examples
 
-```slate
+```arc
 // Arithmetic
 result := 2 + 3 * 4      // 14
 power := 2 ^ 8           // 256
@@ -624,7 +624,7 @@ safe := !alarm && system_ready
 
 ### No Bitwise Operations
 
-Slate does not support bitwise operations. The `^` operator is used for exponentiation, not XOR. Bitwise operations (`&`, `|`, `^`, `~`, `<<`, `>>`) are not available. For hardware register manipulation, use dedicated driver tasks or external functions.
+Arc does not support bitwise operations. The `^` operator is used for exponentiation, not XOR. Bitwise operations (`&`, `|`, `^`, `~`, `<<`, `>>`) are not available. For hardware register manipulation, use dedicated driver tasks or external functions.
 
 ### Evaluation Order
 - Binary operators evaluate their left operand before the right operand.
@@ -662,7 +662,7 @@ ArgumentList ::= Expression (',' Expression)*
 
 ### Function Examples
 
-```slate
+```arc
 // Function with return type
 func calculate_pid(error f64, kp f64, ki f64) f64 {
     return (error * kp) + (error * ki)
@@ -738,7 +738,7 @@ Arguments ::= '(' ArgumentList? ')'
 
 Tasks are isolated units of reactive computation:
 
-```slate
+```arc
 // Task with config and runtime parameters
 task controller{
     setpoint f64         // Config: static at instantiation
@@ -784,7 +784,7 @@ task alarm{
 
 Tasks are invoked with configuration values and arguments:
 
-```slate
+```arc
 // Invoke with config and runtime argument
 controller{
     setpoint: 100,
@@ -812,7 +812,7 @@ Tasks are purely event-driven - they execute when they receive input values:
   - **First execution**: When ALL input channels have received at least one value
   - **Subsequent executions**: When ANY input channel receives a new value (uses stale values for other channels)
 
-```slate
+```arc
 // Tasks execute when they receive input
 sensor -> controller{}  // controller runs when sensor sends value
 
@@ -853,7 +853,7 @@ task combiner{
 
 When a task has a return type, it creates an anonymous output channel that other tasks can consume:
 
-```slate
+```arc
 // Task with return value
 task multiplier{
     factor f64
@@ -904,9 +904,9 @@ Block ::= '{' Statement* '}'
 
 ### Conditional Statements
 
-Slate supports only conditional statements for decision-making:
+Arc supports only conditional statements for decision-making:
 
-```slate
+```arc
 // Simple if statement
 if pressure > 100 {
     true -> alarm
@@ -938,7 +938,7 @@ if sensor_enabled && value > threshold {
 
 ### Design Rationale
 
-The absence of explicit loops is intentional - Slate's reactive model means:
+The absence of explicit loops is intentional - Arc's reactive model means:
 - Tasks re-execute based on events or intervals
 - State persistence via `$=` variables enables iteration across executions
 - This design ensures predictable real-time behavior
@@ -962,7 +962,7 @@ TaskInvocation ::= Identifier ConfigValues? Arguments?
 
 The inter-task layer connects tasks and channels to create reactive automation pipelines:
 
-```slate
+```arc
 // Simple pipeline
 sensor -> filter{threshold: 50} -> controller{} -> actuator
 
@@ -977,7 +977,7 @@ startup{} -> pressurize{} -> ignition{} -> shutdown{}
 
 Expressions can act as implicit tasks in the inter-task layer, but can only reference channels (not variables):
 
-```slate
+```arc
 // Channel pass-through - trigger task on any channel change
 ox_pt_1 -> logger{}                   // Log every ox_pt_1 value
 temperature -> controller{}           // Run controller on each temperature update
@@ -1014,7 +1014,7 @@ These inline expressions:
 
 Common flow patterns are implemented as standard library tasks with specific behavioral contracts:
 
-```slate
+```arc
 // all: Wait for all inputs before proceeding
 all{ox_pressure, fuel_pressure, control_power} -> ignition{}
 
@@ -1050,7 +1050,7 @@ sensor -> tee{logger{}, display{}, storage{}}
 
 ### Complex Flow Examples
 
-```slate
+```arc
 // Multi-stage process with synchronization
 start_button -> once{start_button} -> startup{}
 startup{} -> all{ox_ready, fuel_ready} -> ignition{duration: 10s}
@@ -1085,7 +1085,7 @@ Cycles in the task graph are detected at compile time through static analysis:
 - All cycles are forbidden (no feedback loops)
 - Compile error reports the tasks involved in the cycle
 
-```slate
+```arc
 // Error: cycle detected
 task_a{} -> task_b{} -> task_c{} -> task_a{}  // Compile error
 
@@ -1102,9 +1102,9 @@ sensor -> tee{path_a{}, path_b{}} -> merger{}  // No cycle
 All items at the global scope must have unique names:
 - Tasks
 - Functions
-- External channels (defined outside Slate)
+- External channels (defined outside Arc)
 
-```slate
+```arc
 // Error: duplicate names at global scope
 task pump{} { }
 func pump() { }     // Error: name already used by task
@@ -1114,7 +1114,7 @@ func pump() { }     // Error: name already used by task
 ### Variable Scoping
 Variables within functions/tasks cannot shadow global names:
 
-```slate
+```arc
 task controller{} { }
 
 func process() {
@@ -1124,9 +1124,9 @@ func process() {
 ```
 
 ### Channel Declaration
-Channels are defined externally to Slate and referenced by name:
+Channels are defined externally to Arc and referenced by name:
 
-```slate
+```arc
 // In inter-task layer
 temperature -> controller{}  // temperature is external channel
 pressure -> logger{}         // pressure is external channel
@@ -1142,7 +1142,7 @@ task monitor{
 ### Task Return Values
 Tasks with return types create anonymous output channels:
 
-```slate
+```arc
 task doubler{
     input <-chan f64
 } () f64 {
@@ -1160,7 +1160,7 @@ These restrictions simplify implementation while maintaining expressiveness:
 
 ### No Mixed Type Arithmetic
 Type conversions must be explicit:
-```slate
+```arc
 // Error: type mismatch
 result := sensor_f32 + counter_u32
 
@@ -1170,7 +1170,7 @@ result := sensor_f32 + f32(counter_u32)
 
 ### No Nested Function Calls
 Function calls cannot be nested in expressions:
-```slate
+```arc
 // Disallowed
 result := calculate(process(sensor), transform(data))
 
@@ -1182,7 +1182,7 @@ result := calculate(processed, transformed)
 
 ### No Dynamic Task Creation
 Tasks can only be instantiated at compile time:
-```slate
+```arc
 // All task invocations must be statically defined
 controller{setpoint: 100}  // OK: compile-time instantiation
 
@@ -1194,7 +1194,7 @@ if condition {
 
 ### No Assignment in Expressions
 Assignments cannot appear within expressions:
-```slate
+```arc
 // Disallowed
 if (value := <-sensor) > 100 {
     // ...
@@ -1209,7 +1209,7 @@ if value > 100 {
 
 ### No Partial Function Application
 Functions must be called with all arguments:
-```slate
+```arc
 func add(x f64, y f64) f64 {
     return x + y
 }
@@ -1220,7 +1220,7 @@ result := add(1.0, 2.0)  // OK: all arguments provided
 
 ### Task Config Must Be Compile-Time Constants
 Task configuration values must be literals or channel identifiers:
-```slate
+```arc
 // Valid: literals and channel names
 controller{
     setpoint: 100,        // OK: literal
@@ -1291,7 +1291,7 @@ The following cause runtime errors:
 
 ### Error Examples
 
-```slate
+```arc
 // Compile-time type error
 value f32 := 10 + "hello"  // Error: cannot add f32 and string
 
@@ -1312,7 +1312,7 @@ value := data[10]  // Runtime error: index out of bounds
 
 ## Compilation Target
 
-Slate compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module along with metadata describing the reactive task graph and channel connections.
+Arc compiles exclusively to WebAssembly (WASM). The compiler generates a WASM module along with metadata describing the reactive task graph and channel connections.
 
 ### WASM Module Structure
 
@@ -1335,7 +1335,7 @@ Module {
     "env"."channel_read_f32": [i32] -> [f32]
     "env"."channel_read_f64": [i32] -> [f64]
     "env"."channel_read_string": [i32] -> [i32] // Returns handle
-    
+
     "env"."channel_write_i8": [i32, i32] -> []  // i8 passed as i32
     "env"."channel_write_i16": [i32, i32] -> [] // i16 passed as i32
     "env"."channel_write_i32": [i32, i32] -> []
@@ -1347,26 +1347,26 @@ Module {
     "env"."channel_write_f32": [i32, f32] -> []
     "env"."channel_write_f64": [i32, f64] -> []
     "env"."channel_write_string": [i32, i32] -> [] // Write handle
-    
+
     // ... blocking reads follow same pattern
-    
+
     // Series operations (type-agnostic)
     "env"."series_len": [i32] -> [i64]
     "env"."series_slice": [i32, i32, i32] -> [i32]
-    
+
     // Series operations (per-type)
     "env"."series_create_empty_i32": [i32] -> [i32]
     "env"."series_create_empty_i64": [i32] -> [i32]
     "env"."series_create_empty_f32": [i32] -> [i32]
     "env"."series_create_empty_f64": [i32] -> [i32]
     // ... etc for all types
-    
+
     "env"."series_index_i32": [i32, i32] -> [i32]
     "env"."series_index_i64": [i32, i32] -> [i64]
     "env"."series_index_f32": [i32, i32] -> [f32]
     "env"."series_index_f64": [i32, i32] -> [f64]
     // ... etc for all types
-    
+
     // State persistence (per-type)
     "env"."state_load_i32": [i32, i32] -> [i32]
     "env"."state_load_i64": [i32, i32] -> [i64]
@@ -1374,24 +1374,24 @@ Module {
     "env"."state_load_f64": [i32, i32] -> [f64]
     "env"."state_load_string": [i32, i32] -> [i32]
     // ... etc
-    
+
     // String operations
     "env"."string_from_literal": [i32, i32] -> [i32]
-    
+
     // Built-in functions
     "env"."now": [] -> [i64]
-    
+
     // Error handling
     "env"."panic": [i32, i32] -> []  // ptr, len to error message
   ]
-  
+
   // Exported functions (one per task/function)
   exports: [
     "func_add": function
     "task_controller": function
     "task_alarm": function
   ]
-  
+
   // Linear memory for data
   memory: (initial: 1 page)
 }
@@ -1680,8 +1680,8 @@ String operations return handles (i32) to host-managed strings.
 #### Task Functions
 Tasks are compiled to WASM functions with this signature:
 ```wasm
-;; task_name(config_channels..., runtime_params...) 
-(func $task_controller 
+;; task_name(config_channels..., runtime_params...)
+(func $task_controller
   (param $sensor_chan i32)      ;; Channel IDs passed as i32
   (param $actuator_chan i32)
   (param $setpoint f64)          ;; Config values by type
@@ -1752,11 +1752,11 @@ type GlobalResolver interface {
     // ResolveChannel returns the ID and type for a channel name
     // Returns error if channel doesn't exist
     ResolveChannel(name string) (uint32, string, error)
-    
+
     // ResolveStdTask checks if a task is a standard library task
     // Returns task signature if it exists, error otherwise
     ResolveStdTask(name string) (*StdTaskSignature, error)
-    
+
     // ResolveStdFunction checks if a function is a standard library function
     // Returns function signature if it exists, error otherwise
     ResolveStdFunction(name string) (*StdFunctionSignature, error)
@@ -1857,11 +1857,11 @@ The compiler:
 
 ### Compilation Pipeline
 
-The Slate compilation pipeline consists of three distinct phases:
+The Arc compilation pipeline consists of three distinct phases:
 
 #### Phase 1: Parser (1 pass)
-**Input:** Source text  
-**Output:** Abstract Syntax Tree (AST)  
+**Input:** Source text
+**Output:** Abstract Syntax Tree (AST)
 **Responsibilities:**
 - Lexical analysis (tokenization)
 - Syntactic analysis (grammar validation)
@@ -1874,8 +1874,8 @@ The parser does NOT:
 - Understand semantics
 
 #### Phase 2: Analyzer (2 passes)
-**Input:** AST + GlobalResolver  
-**Output:** Validated AST + Symbol Table + Diagnostics  
+**Input:** AST + GlobalResolver
+**Output:** Validated AST + Symbol Table + Diagnostics
 
 **Pass 1: Symbol Collection**
 - Build symbol table for all declarations:
@@ -1905,8 +1905,8 @@ The analyzer does NOT:
 - Assign instance IDs
 
 #### Phase 3: Compiler (2 passes)
-**Input:** Validated AST + Symbol Table + GlobalResolver  
-**Output:** WASM module + Metadata (JSON)  
+**Input:** Validated AST + Symbol Table + GlobalResolver
+**Output:** WASM module + Metadata (JSON)
 
 **Pass 1: Collection & Graph Building**
 - Extract specifications:
@@ -1922,7 +1922,7 @@ The analyzer does NOT:
 - Generate WASM functions:
   - One per user-defined task/function
   - One per inline expression
-  - Map Slate types to WASM types
+  - Map Arc types to WASM types
 - Emit host function calls for:
   - Channel operations
   - Series operations
