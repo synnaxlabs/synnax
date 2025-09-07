@@ -121,11 +121,6 @@ export const TimeRangeChip = ({
     arrow = null;
   }
 
-  if (collapseZero && isZero) {
-    endTime = null;
-    arrow = null;
-  }
-
   let offset: ReactElement | null = null;
   if (offsetFrom != null) {
     let offsetSpan = offsetFrom.span(startTS);

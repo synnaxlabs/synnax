@@ -19,7 +19,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
@@ -28,7 +28,6 @@ import { CSV } from "@/csv";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
-import { rename } from "@/layout/slice";
 import { FavoriteButton } from "@/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
@@ -45,7 +44,7 @@ const ParentRangeButton = ({
   const placeLayout = Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
-  const Icon = Ranger.STAGE_ICONS[parent.stage];
+  const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
   return (
     <Flex.Box x gap="small" align="center">
       <Text.Text weight={450} color={9}>
@@ -73,17 +72,13 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const layoutName = Layout.useSelect(rangeKey)?.name;
-  const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
   const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
   const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
-      stage: "to_do",
       name: "",
-      timeRange: { start: 0, end: 0 },
+      timeRange: { start: TimeStamp.MAX.nanoseconds, end: TimeStamp.MAX.nanoseconds },
       labels: [],
     },
     autoSave: true,
@@ -220,7 +215,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Flex.Box x>
-          <Form.Field<ranger.Stage> path="stage" required={false}>
+          <Form.Field<Ranger.Stage> path="stage" required={false}>
             {({ onChange, value }) => (
               <Ranger.SelectStage
                 onChange={onChange}

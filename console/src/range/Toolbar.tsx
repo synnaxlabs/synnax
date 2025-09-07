@@ -11,7 +11,6 @@ import "@/range/Toolbar.css";
 
 import { DisconnectedError } from "@synnaxlabs/client";
 import {
-  Button,
   Component,
   Flex,
   Haul,
@@ -145,9 +144,9 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
       {labels.length > 0 && (
         <Flex.Box
           x
+          gap="small"
           wrap
           style={{ overflowX: "auto", height: "fit-content" }}
-          gap="small"
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>

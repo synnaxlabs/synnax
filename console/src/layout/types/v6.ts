@@ -16,12 +16,6 @@ import * as v5 from "@/layout/types/v5";
 
 const VERSION = "6.0.0";
 
-export const sliceStateZ = v5.sliceStateZ.omit({ version: true }).extend({
-  version: z.literal(VERSION),
-});
-
-export type SliceState = z.infer<typeof sliceStateZ>;
-
 const ZERO_NAV_STATE: NavState = {
   main: {
     drawers: {
@@ -35,6 +29,12 @@ const ZERO_NAV_STATE: NavState = {
   },
 };
 
+export const sliceStateZ = v5.sliceStateZ
+  .omit({ version: true })
+  .extend({ version: z.literal(VERSION) });
+
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
+
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   ...v5.ZERO_SLICE_STATE,
   version: VERSION,
@@ -44,9 +44,5 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
 export const sliceMigration: migrate.Migration<v5.SliceState, SliceState> =
   migrate.createMigration({
     name: v1.SLICE_MIGRATION_NAME,
-    migrate: (s) => ({
-      ...s,
-      version: VERSION,
-      nav: ZERO_NAV_STATE,
-    }),
+    migrate: (s) => ({ ...s, version: VERSION, nav: ZERO_NAV_STATE }),
   });

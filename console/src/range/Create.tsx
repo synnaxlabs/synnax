@@ -76,7 +76,6 @@ export const Create: Layout.Renderer = (props) => {
       key: uuid.create(),
       name: "",
       labels: [],
-      stage: "to_do",
       timeRange: { start: now, end: now },
       parent: "",
       ...args,
@@ -148,7 +147,7 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<ranger.Stage> path="stage" required={false}>
+          <Form.Field<Ranger.Stage> path="stage" required={false}>
             {({ value, onChange }) => (
               <Ranger.SelectStage
                 value={value}

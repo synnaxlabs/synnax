@@ -17,7 +17,6 @@ import { Triggers } from "@/triggers";
 export interface PromptRenameLayoutArgs extends BaseArgs<string> {
   allowEmpty?: boolean;
   initialValue?: string;
-  selectOnOpen?: boolean;
   label?: string;
 }
 
@@ -29,13 +28,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
   "Name",
   RENAME_LAYOUT_TYPE,
   ({
-    value: {
-      result,
-      allowEmpty = false,
-      label = "Name",
-      initialValue,
-      selectOnOpen = false,
-    },
+    value: { result, allowEmpty = false, label = "Name", initialValue },
     onFinish,
   }) => {
     const [name, setName] = useState(result ?? initialValue ?? "");
@@ -73,7 +66,6 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
         >
           <Input.Text
             autoFocus
-            selectOnFocus
             placeholder={label}
             level="h2"
             variant="text"

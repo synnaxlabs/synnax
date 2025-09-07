@@ -16,6 +16,7 @@ import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { SelectStage } from "@/ranger/Select";
 import { TimeRangeChip, type TimeRangeChipProps } from "@/ranger/TimeRangeChip";
+import { getStage, type Stage } from "@/ranger/types";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 
@@ -25,7 +26,7 @@ interface ListItemProps
   showParent?: boolean;
   showLabels?: boolean;
   onStar?: (starred: boolean) => void;
-  onStageChange?: (stage: ranger.Stage) => void;
+  onStageChange?: (stage: Stage) => void;
 }
 
 export const ListItem = ({
@@ -40,7 +41,7 @@ export const ListItem = ({
 }: ListItemProps): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
   if (item == null) return null;
-  const { name, timeRange, parent, labels, stage } = item;
+  const { name, timeRange, parent, labels } = item;
   return (
     <Select.ListItem
       className={CSS(CSS.BE("range", "list-item"))}
@@ -50,9 +51,9 @@ export const ListItem = ({
     >
       <Flex.Box x align="center" empty>
         <SelectStage
-          value={stage}
+          value={getStage(timeRange)}
           allowNone={false}
-          onChange={(v: ranger.Stage | null) => v != null && onStageChange?.(v)}
+          onChange={(v: Stage | null) => v != null && onStageChange?.(v)}
           onClick={(e) => e.stopPropagation()}
           variant="floating"
           location="bottom"
