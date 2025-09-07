@@ -46,8 +46,8 @@ export const Header = ({
   className,
   level = "p",
   divided = false,
-  padded,
   bordered = true,
+  padded = false,
   ...rest
 }: HeaderProps): ReactElement => (
   <Context value={{ level, divided }}>
@@ -61,6 +61,7 @@ export const Header = ({
         padded && CSS.M(`padded-${Text.LEVEL_COMPONENT_SIZES[level]}`),
         bordered && CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
+        padded && CSS.BM("header", "padded"),
         className,
       )}
       {...rest}

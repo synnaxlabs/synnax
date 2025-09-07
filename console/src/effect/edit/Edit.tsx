@@ -1,9 +1,4 @@
-import {
-  DisconnectedError,
-  type effect,
-  NotFoundError,
-  type slate,
-} from "@synnaxlabs/client";
+import { DisconnectedError, NotFoundError } from "@synnaxlabs/client";
 import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";

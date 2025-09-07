@@ -21,7 +21,7 @@ export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel>
 
 interface SubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Ranger.ALIAS_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
 }
 
 const SET_CHANNEL_LISTENER: Flux.ChannelListener<SubStore, typeof channel.keyZ> = {

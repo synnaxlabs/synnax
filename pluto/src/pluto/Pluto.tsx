@@ -14,7 +14,6 @@ import { Alamos } from "@/alamos";
 import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
-import { Effect } from "@/effect";
 import { Flux } from "@/flux";
 import { Group } from "@/group";
 import { Device } from "@/hardware/device";
@@ -22,10 +21,11 @@ import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
 import { Label } from "@/label";
-import { ontology as aetherOntology } from "@/ontology/aether";
+import { type ontology as aetherOntology, ontology } from "@/ontology/aether";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
+import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
@@ -61,12 +61,12 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
   [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]: aetherOntology.RelationshipFluxStore;
-  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
+  [Ranger.KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
   [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.ResourceFluxStore;
   [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Ranger.ALIAS_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
-  [Effect.FLUX_STORE_KEY]: Effect.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
@@ -75,13 +75,12 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
   [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
   [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
-  [aetherOntology.RELATIONSHIPS_FLUX_STORE_KEY]:
-    aetherOntology.RELATIONSHIP_STORE_CONFIG,
-  [aetherOntology.RESOURCES_FLUX_STORE_KEY]: aetherOntology.RESOURCE_STORE_CONFIG,
-  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_STORE_CONFIG,
-  [Channel.FLUX_STORE_KEY]: Channel.STORE_CONFIG,
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_STORE_CONFIG,
-  [Effect.FLUX_STORE_KEY]: Effect.STORE_CONFIG,
+  [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
+  [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
+  [Ranger.KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
+  [Channel.FLUX_STORE_KEY]: Channel.FLUX_STORE_CONFIG,
+  [Ranger.ALIAS_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
+  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
   [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
 };
 

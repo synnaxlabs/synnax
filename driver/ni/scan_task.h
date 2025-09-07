@@ -82,8 +82,7 @@ struct Device : synnax::Device {
 /// @brief the default rate for scanning for devices.
 const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
 /// @brief the default pattern for ignoring certain models.
-const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^O.*", "^cRIO.*", "^nown.*"};
-
+const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^cRIO.*", "^nown.*"};
 /// @brief configuration for opening a scan task.
 struct ScanTaskConfig {
     /// @brief the rate at which we'll can for devices.

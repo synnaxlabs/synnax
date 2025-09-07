@@ -20,7 +20,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
+import { useSelect } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -49,7 +49,6 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar(layoutKey);
   const state = useSelect(layoutKey);
   const handleExport = useExport();
   const content = useCallback(
@@ -82,7 +81,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <Tabs.Provider
         value={{
           tabs: TABS,
-          selected: toolbar.activeTab,
+          selected: state.toolbar.activeTab,
           content,
           onSelect: handleTabSelect,
         }}

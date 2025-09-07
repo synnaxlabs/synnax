@@ -57,7 +57,7 @@ const ChannelListItem = <C extends Channel>({
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Flex.Box direction="y" gap="small">
-        <ChannelName weight={500} color={10} channel={channel} id={id} />
+        <ChannelName weight={500} color={10} level="p" channel={channel} id={id} />
         <Text.Text level="small" weight={350} color={opcNodeColor ?? 9} gap="small">
           <Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />
           {nodeName} {opcNode}

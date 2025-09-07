@@ -44,8 +44,8 @@ const NoRanges = (): ReactElement => {
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
-      message="No ranges loaded"
-      action="Create a Range"
+      message="No ranges loaded."
+      action="Create a range"
       onClick={handleLinkClick}
     />
   );
@@ -89,6 +89,7 @@ const List = (): ReactElement => {
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <CoreList.Items
+        full="y"
         emptyContent={<NoRanges />}
         {...dropProps}
         onContextMenu={menuProps.open}

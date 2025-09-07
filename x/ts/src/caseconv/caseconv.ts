@@ -165,3 +165,49 @@ const toKebabStr = (str: string): string =>
  * @returns The converted string in kebab-case
  */
 export const toKebab = createConverter(toKebabStr);
+
+/**
+ * Converts a string to proper noun format.
+ * Handles snake_case, kebab-case, camelCase, and PascalCase.
+ * Capitalizes the first letter of each word.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in proper noun format
+ */
+const toProperNounStr = (str: string): string => {
+  if (str.length === 0) return str;
+  
+  // Replace underscores and hyphens with spaces
+  let result = str.replace(/[_-]/g, " ");
+  
+  // Insert spaces before capital letters (for camelCase/PascalCase)
+  // but not at the start or when there are consecutive capitals
+  result = result.replace(
+    /([a-z0-9])([A-Z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`
+  );
+  
+  // Handle consecutive capitals (e.g., "XMLParser" -> "XML Parser")
+  result = result.replace(
+    /([A-Z]+)([A-Z][a-z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`
+  );
+  
+  // Clean up multiple spaces
+  result = result.replace(/\s+/g, " ").trim();
+  
+  // Capitalize first letter of each word (proper noun format)
+  result = result.replace(/\b\w/g, (char) => char.toUpperCase());
+  
+  return result;
+};
+
+/**
+ * Converts a string to proper noun format.
+ * Handles snake_case, kebab-case, camelCase, and PascalCase.
+ * Each word is capitalized.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in proper noun format
+ */
+export const toProperNoun = createConverter(toProperNounStr);

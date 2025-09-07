@@ -137,6 +137,8 @@ export interface CreateListArgs<
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[], ScopedStore>, "mountListeners"> {
+  /** Function to sort the list */
+  sort?: compare.Comparator<E>;
   /** Function to retrieve a single item by key for lazy loading */
   retrieveByKey: (
     args: RetrieveByKeyArgs<RetrieveParams, K, ScopedStore>,
@@ -347,6 +349,7 @@ export const createList =
     retrieve,
     retrieveByKey,
     retrieveCached,
+    sort: defaultSort,
   }: CreateListArgs<P, K, E, ScopedStore>): UseList<P, K, E> =>
   (args: UseListArgs<P, K, E> = {}) => {
     const {
@@ -356,7 +359,7 @@ export const createList =
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
     } = args;
     const filterRef = useSyncedRef(filter);
-    const sortRef = useSyncedRef(sort);
+    const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<K, E | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, K>>(() => new Map());

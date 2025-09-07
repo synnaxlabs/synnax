@@ -17,20 +17,19 @@ import { Label } from "@/label";
 import { type Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { type state } from "@/state";
-import { List } from "@/list";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.KVPair> {}
 export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias> {}
 
-export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
-export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
+export const KV_FLUX_STORE_KEY = "rangeKV";
+export const ALIAS_FLUX_STORE_KEY = "rangeAliases";
 
 interface SubStore extends Flux.Store {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
-  [RANGE_KV_FLUX_STORE_KEY]: KVFluxStore;
-  [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
+  [KV_FLUX_STORE_KEY]: KVFluxStore;
+  [ALIAS_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
 const cachedRetrieve = async (client: Synnax, store: SubStore, key: ranger.Key) => {
@@ -60,12 +59,17 @@ const multiCachedRetrieve = async (
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {
-  const store = Flux.useStore<SubStore>();
+  const store = Flux.useStore();
   useEffect(() => store.ranges.onSet((c) => onSet(c.payload)), [store]);
 };
 
-export interface ChildrenParams extends List.PagerParams {
-  key?: ranger.Key;
+export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void => {
+  const store = Flux.useStore();
+  useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
+};
+
+export interface ChildrenParams {
+  key: ranger.Key;
 }
 
 const handleListLabelRelationshipSet = async (
@@ -124,7 +128,6 @@ export const useChildren = Flux.createList<
 >({
   name: "Range",
   retrieve: async ({ client, params: { key }, store }) => {
-    if (key == null) return [];
     const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key), {
       types: ["range"],
     });
@@ -310,8 +313,8 @@ export interface UseFormQueryParams extends Optional<RetrieveParams, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  labels: [],
   stage: "to_do",
+  labels: [],
   parent: "",
   timeRange: { start: 0, end: 0 },
 };

@@ -35,7 +35,7 @@ const RELATIONSHIP_DELETE_LISTENER: flux.ChannelListener<
     store.relationships.delete(ontology.relationshipToString(changed)),
 };
 
-export const RELATIONSHIP_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
+export const RELATIONSHIP_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
@@ -52,6 +52,6 @@ const RESOURCE_DELETE_LISTENER: flux.ChannelListener<SubStore, typeof ontology.i
   onChange: ({ store, changed }) => store.resources.delete(changed.key),
 };
 
-export const RESOURCE_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
+export const RESOURCE_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<SubStore> = {
   listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
 };

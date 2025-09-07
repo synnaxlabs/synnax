@@ -25,7 +25,6 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Auth } from "@/auth";
-import { Annotation } from "@/annotation";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
@@ -75,7 +74,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
-  ...Annotation.LAYOUTS,
   ...Effect.LAYOUTS,
 };
 

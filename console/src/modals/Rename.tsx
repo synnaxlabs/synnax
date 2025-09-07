@@ -73,7 +73,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
         >
           <Input.Text
             autoFocus
-            selectOnFocus
+            selectOnFocus={selectOnOpen}
             placeholder={label}
             level="h2"
             variant="text"

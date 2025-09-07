@@ -109,6 +109,7 @@ export class TimeStamp
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
+      if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
       super(BigInt(value.valueOf()) + offset);
     }
   }
@@ -444,13 +445,30 @@ export class TimeStamp
   }
 
   /**
+   * @returns the integer hour that the timestamp corresponds to within its day in local time.
+   */
+  get localHour(): number {
+    return this.date().getHours();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the hour changed.
+   * @param hour the value to set the hour to.
+   */
+  setLocalHour(hour: number): TimeStamp {
+    const d = this.date();
+    d.setHours(hour);
+    return new TimeStamp(d);
+  }
+
+  /**
    * @returns a copy of the timestamp with the hour changed.
    * @param hour the value to set the hour to.
    */
   setHour(hour: number): TimeStamp {
     const d = this.date();
     d.setUTCHours(hour);
-    return new TimeStamp(d, "UTC");
+    return new TimeStamp(d);
   }
 
   /** @returns the integer minute that the timestamp corresponds to within its hour. */
@@ -680,6 +698,7 @@ export class TimeSpan
 {
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
+    if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
     super(BigInt(value.valueOf()));
   }
 
@@ -693,6 +712,7 @@ export class TimeSpan
     if (span instanceof TimeSpan) return span;
     if (span instanceof Rate) return span.period;
     if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (primitive.isCrudeValueExtension<bigint>(span)) span = span.value;
     if (["number", "bigint"].includes(typeof span)) return TimeSpan.seconds(span);
     return new TimeSpan(span);
   }
@@ -707,6 +727,7 @@ export class TimeSpan
     if (span instanceof TimeSpan) return span;
     if (span instanceof Rate) return span.period;
     if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (primitive.isCrudeValueExtension<bigint>(span)) span = span.value;
     if (["number", "bigint"].includes(typeof span)) return TimeSpan.milliseconds(span);
     return new TimeSpan(span);
   }
@@ -1022,6 +1043,7 @@ export class Rate
   implements primitive.Stringer
 {
   constructor(value: CrudeRate) {
+    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
     super(value.valueOf());
   }
 
@@ -1083,7 +1105,7 @@ export class Rate
    * @returns A TimeSpan that corresponds to the given number of bytes.
    */
   byteSpan(size: Size, density: CrudeDensity): TimeSpan {
-    return this.span(size.valueOf() / density.valueOf());
+    return this.span(size.valueOf() / new Density(density).valueOf());
   }
 
   /**
@@ -1093,7 +1115,7 @@ export class Rate
    * @returns A new Rate representing the sum of the two rates.
    */
   add(other: CrudeRate): Rate {
-    return new Rate(math.add(this.valueOf(), other.valueOf()));
+    return new Rate(math.add(this.valueOf(), new Rate(other).valueOf()));
   }
 
   /**
@@ -1103,7 +1125,7 @@ export class Rate
    * @returns A new Rate representing the difference of the two rates.
    */
   sub(other: CrudeRate): Rate {
-    return new Rate(math.sub(this.valueOf(), other.valueOf()));
+    return new Rate(math.sub(this.valueOf(), new Rate(other).valueOf()));
   }
 
   /**
@@ -1166,6 +1188,7 @@ export class Density
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: CrudeDensity) {
+    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
     super(value.valueOf());
   }
 
@@ -1196,7 +1219,7 @@ export class Density
    * @returns A new Density representing the sum of the two densities.
    */
   add(other: CrudeDensity): Density {
-    return new Density(math.add(this.valueOf(), other.valueOf()));
+    return new Density(math.add(this.valueOf(), new Density(other).valueOf()));
   }
 
   /**
@@ -1206,7 +1229,7 @@ export class Density
    * @returns A new Density representing the difference of the two densities.
    */
   sub(other: CrudeDensity): Density {
-    return new Density(math.sub(this.valueOf(), other.valueOf()));
+    return new Density(math.sub(this.valueOf(), new Density(other).valueOf()));
   }
 
   /**
@@ -1533,6 +1556,7 @@ export class DataType
   implements primitive.Stringer
 {
   constructor(value: CrudeDataType) {
+    if (primitive.isCrudeValueExtension<string>(value)) value = value.value;
     if (
       value instanceof DataType ||
       typeof value === "string" ||
@@ -1815,26 +1839,31 @@ export class Size
   implements primitive.Stringer
 {
   constructor(value: CrudeSize) {
+    if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
     super(value.valueOf());
   }
 
   /** @returns true if the Size is larger than the other size. */
   largerThan(other: CrudeSize): boolean {
+    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
     return this.valueOf() > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other size. */
   smallerThan(other: CrudeSize): boolean {
+    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
     return this.valueOf() < other.valueOf();
   }
 
   /** @returns a new Size representing the sum of the two Sizes. */
   add(other: CrudeSize): Size {
+    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
     return new Size(math.add(this.valueOf(), other.valueOf()));
   }
 
   /** @returns a new Size representing the difference of the two Sizes. */
   sub(other: CrudeSize): Size {
+    if (primitive.isCrudeValueExtension<number>(other)) other = other.value;
     return new Size(math.sub(this.valueOf(), other.valueOf()));
   }
 
@@ -1860,12 +1889,14 @@ export class Size
 
   /** @returns a new Size representing the truncated value of the Size. */
   truncate(span: CrudeSize): Size {
-    return new Size(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+    return new Size(
+      Math.trunc(this.valueOf() / new Size(span).valueOf()) * new Size(span).valueOf(),
+    );
   }
 
   /** @returns a new Size representing the remainder of the Size. */
   remainder(span: CrudeSize): Size {
-    return Size.bytes(this.valueOf() % span.valueOf());
+    return Size.bytes(this.valueOf() % new Size(span).valueOf());
   }
 
   /** @returns the number of gigabytes in the Size. */
@@ -1929,7 +1960,7 @@ export class Size
    * @returns A Size representing the given number of kilobytes.
    */
   static kilobytes(value: CrudeSize = 1): Size {
-    return Size.bytes(value.valueOf() * 1e3);
+    return Size.bytes(new Size(value).valueOf() * 1e3);
   }
 
   /** A kilobyte */
@@ -1942,7 +1973,7 @@ export class Size
    * @returns A Size representing the given number of megabytes.
    */
   static megabytes(value: CrudeSize = 1): Size {
-    return Size.kilobytes(value.valueOf() * 1e3);
+    return Size.kilobytes(new Size(value).valueOf() * 1e3);
   }
 
   /** A megabyte */
@@ -1955,7 +1986,7 @@ export class Size
    * @returns A Size representing the given number of gigabytes.
    */
   static gigabytes(value: CrudeSize = 1): Size {
-    return Size.megabytes(value.valueOf() * 1e3);
+    return Size.megabytes(new Size(value).valueOf() * 1e3);
   }
 
   /** A gigabyte */
@@ -1968,7 +1999,7 @@ export class Size
    * @returns  A Size representing the given number of terabytes.
    */
   static terabytes(value: CrudeSize): Size {
-    return Size.gigabytes(value.valueOf() * 1e3);
+    return Size.gigabytes(new Size(value).valueOf() * 1e3);
   }
 
   /** A terabyte. */
@@ -1996,17 +2027,28 @@ export type CrudeTimeStamp =
   | number
   | Date
   | string
-  | DateComponents;
+  | DateComponents
+  | primitive.CrudeValueExtension<bigint>;
 export type TimeStampT = number;
-export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
+export type CrudeTimeSpan =
+  | bigint
+  | TimeSpan
+  | TimeStamp
+  | number
+  | Rate
+  | primitive.CrudeValueExtension<bigint>;
 export type TimeSpanT = number;
-export type CrudeRate = Rate | number;
+export type CrudeRate = Rate | number | primitive.CrudeValueExtension<number>;
 export type RateT = number;
-export type CrudeDensity = Density | number;
+export type CrudeDensity = Density | number | primitive.CrudeValueExtension<number>;
 export type DensityT = number;
-export type CrudeDataType = DataType | string | TypedArray;
+export type CrudeDataType =
+  | DataType
+  | string
+  | TypedArray
+  | primitive.CrudeValueExtension<string>;
 export type DataTypeT = string;
-export type CrudeSize = Size | number;
+export type CrudeSize = Size | number | primitive.CrudeValueExtension<number>;
 export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
