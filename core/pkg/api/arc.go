@@ -19,28 +19,28 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type SlateService struct {
+type ArcService struct {
 	dbProvider
 	accessProvider
 	internal *arc.Service
 }
 
-func NewSlateService(p Provider) *SlateService {
-	return &SlateService{
+func NewArcService(p Provider) *ArcService {
+	return &ArcService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Service.arc,
+		internal:       p.Service.Arc,
 	}
 }
 
 type (
-	SlateCreateRequest struct {
-		Arcs []arc.arc `json:"arcs" msgpack:"arcs"`
+	ArcCreateRequest struct {
+		Arcs []arc.Arc `json:"arcs" msgpack:"arcs"`
 	}
-	SlateCreateResponse = SlateCreateRequest
+	SlateCreateResponse = ArcCreateRequest
 )
 
-func (s *SlateService) Create(ctx context.Context, req SlateCreateRequest) (res SlateCreateResponse, err error) {
+func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res SlateCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
@@ -65,7 +65,7 @@ type SlateDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *SlateService) Delete(ctx context.Context, req SlateDeleteRequest) (res types.Nil, err error) {
+func (s *ArcService) Delete(ctx context.Context, req SlateDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
@@ -83,11 +83,11 @@ type (
 		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	SlateRetrieveResponse struct {
-		Arcs []arc.arc `json:"arcs" msgpack:"arcs"`
+		Arcs []arc.Arc `json:"arcs" msgpack:"arcs"`
 	}
 )
 
-func (s *SlateService) Retrieve(ctx context.Context, req SlateRetrieveRequest) (res SlateRetrieveResponse, err error) {
+func (s *ArcService) Retrieve(ctx context.Context, req SlateRetrieveRequest) (res SlateRetrieveResponse, err error) {
 	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Arcs).Exec(ctx, nil); err != nil {
 		return SlateRetrieveResponse{}, err
 	}

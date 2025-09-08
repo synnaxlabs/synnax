@@ -164,9 +164,9 @@ type Transport struct {
 	EffectDelete   freighter.UnaryServer[EffectDeleteRequest, types.Nil]
 	EffectRetrieve freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
 	// arc
-	SlateCreate   freighter.UnaryServer[SlateCreateRequest, SlateCreateResponse]
-	SlateDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
-	SlateRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
+	ArcCreate   freighter.UnaryServer[ArcCreateRequest, SlateCreateResponse]
+	ArcDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
+	ArcRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
 	// ANNOTATION
 	AnnotationCreate   freighter.UnaryServer[AnnotationCreateRequest, AnnotationCreateResponse]
 	AnnotationRetrieve freighter.UnaryServer[AnnotationRetrieveRequest, AnnotationRetrieveResponse]
@@ -194,7 +194,7 @@ type Layer struct {
 	Hardware     *HardwareService
 	Access       *AccessService
 	Effect       *EffectService
-	arc          *SlateService
+	arc          *ArcService
 	Annotation   *AnnotationService
 }
 
@@ -339,9 +339,9 @@ func (a *Layer) BindTo(t Transport) {
 		t.EffectRetrieve,
 
 		// arc
-		t.SlateCreate,
-		t.SlateDelete,
-		t.SlateRetrieve,
+		t.ArcCreate,
+		t.ArcDelete,
+		t.ArcRetrieve,
 
 		// ANNOTATION
 		t.AnnotationCreate,
@@ -471,9 +471,9 @@ func (a *Layer) BindTo(t Transport) {
 	t.EffectRetrieve.BindHandler(a.Effect.RetrieveEffect)
 
 	// arc
-	t.SlateCreate.BindHandler(a.arc.Create)
-	t.SlateDelete.BindHandler(a.arc.Delete)
-	t.SlateRetrieve.BindHandler(a.arc.Retrieve)
+	t.ArcCreate.BindHandler(a.arc.Create)
+	t.ArcDelete.BindHandler(a.arc.Delete)
+	t.ArcRetrieve.BindHandler(a.arc.Retrieve)
 
 	// ANNOTATION
 	t.AnnotationCreate.BindHandler(a.Annotation.Create)
@@ -505,7 +505,7 @@ func New(configs ...Config) (*Layer, error) {
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
 	api.Effect = NewEffectService(api.provider)
-	api.arc = NewSlateService(api.provider)
+	api.arc = NewArcService(api.provider)
 	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

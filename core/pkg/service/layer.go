@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
@@ -116,10 +115,9 @@ type Layer struct {
 	// across the cluster.
 	Framer *framer.Service
 	// Console is for serving the web-based console UI.
-	Console    *console.Service
-	Annotation *annotation.Service
-	Effect     *effect.Service
-	arc        *arc.Service
+	Console *console.Service
+	// Arc is used for validating, saving, and executing arc automations.
+	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
 	Metrics *metrics.Service
 	// closer is for properly shutting down the service layer.
@@ -249,39 +247,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	if l.Annotation, err = annotation.OpenService(
-		ctx,
-		annotation.ServiceConfig{
-			DB:       cfg.Distribution.DB,
-			Ontology: cfg.Distribution.Ontology,
-			Signals:  cfg.Distribution.Signals,
-		},
-	); !ok(err, l.Annotation) {
-		return nil, err
-	}
-	if l.arc, err = arc.OpenService(
+	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{
 			DB:       cfg.Distribution.DB,
 			Ontology: cfg.Distribution.Ontology,
 		},
-	); !ok(err, l.arc) {
-		return nil, err
-	}
-	if l.Effect, err = effect.OpenService(
-		ctx,
-		effect.ServiceConfig{
-			DB:              cfg.Distribution.DB,
-			Ontology:        cfg.Distribution.Ontology,
-			Framer:          cfg.Distribution.Framer,
-			Ranger:          l.Ranger,
-			arc:             l.arc,
-			Channel:         cfg.Distribution.Channel,
-			Annotation:      l.Annotation,
-			Label:           l.Label,
-			Signals:         cfg.Distribution.Signals,
-			Instrumentation: cfg.Instrumentation.Child("effect"),
-		}); !ok(err, l.Effect) {
+	); !ok(err, l.Arc) {
 		return nil, err
 	}
 	return l, nil
