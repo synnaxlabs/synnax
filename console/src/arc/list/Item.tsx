@@ -7,7 +7,6 @@ import {
   List,
   Menu,
   Select,
-  Status,
   stopPropagation,
   Tag,
   Text,
@@ -21,7 +20,7 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
   showStatus?: boolean;
 }
 
-export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemProps) => {
+export const Item = ({ showLabels = true, showStatus: _, ...props }: ItemProps) => {
   const { itemKey } = props;
   const { getItem } = List.useUtilContext<arc.Key, arc.Arc>();
   if (getItem == null) throw new Error("getItem is null");
@@ -32,6 +31,9 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
     return {
       key: arc.key,
       name: arc.name,
+      version: arc.version,
+      graph: arc.graph,
+      text: arc.text,
     };
   }, [arc]);
 
@@ -43,7 +45,7 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
     sync: true,
     autoSave: true,
   });
-  const { name, labels, status } = arc;
+  const { name, labels } = arc;
 
   const menuProps = Menu.useContextMenu();
 
@@ -81,13 +83,6 @@ export const Item = ({ showLabels = true, showStatus = true, ...props }: ItemPro
                 </Tag.Tag>
               ))}
           </Tag.Tags>
-          {showStatus && status != null && (
-            <Status.Summary
-              variant={status.variant}
-              key={status.key}
-              message={status.message}
-            />
-          )}
         </Flex.Box>
       </Form.Form>
     </List.Item>

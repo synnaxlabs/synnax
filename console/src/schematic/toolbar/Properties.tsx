@@ -144,7 +144,7 @@ const EdgeProperties = ({
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edge.data?.color ?? color.ZERO}
+          value={(edge.data?.color ?? color.ZERO) as color.Crude}
           onChange={(v: color.Color) => {
             onChange(edge.key, { color: color.hex(v) });
           }}

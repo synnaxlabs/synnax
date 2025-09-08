@@ -7,7 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/edge";
-export * from "@/schematic/Schematic";
-export * from "@/schematic/symbol";
-export { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
+export * as connector from "@/schematic/edge/connector/connector";
