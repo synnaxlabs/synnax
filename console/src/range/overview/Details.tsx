@@ -73,12 +73,13 @@ export interface DetailsProps {
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const { data: range } = Ranger.useRetrieve({ params: { key: rangeKey } });
+  const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
       name: "",
-      timeRange: { start: TimeStamp.MAX.nanoseconds, end: TimeStamp.MAX.nanoseconds },
+      timeRange: { start: now, end: now },
       labels: [],
     },
     autoSave: true,

@@ -29,9 +29,7 @@ const sortByStage = (a: ranger.Range, b: ranger.Range) =>
   Ranger.STAGES.indexOf(Ranger.getStage(a.timeRange));
 
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({
-    sort: sortByStage,
-  });
+  const { data, getItem, subscribe, retrieve } = Ranger.useList({ sort: sortByStage });
   return (
     <List
       data={data}

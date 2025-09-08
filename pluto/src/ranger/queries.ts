@@ -299,7 +299,11 @@ export const formSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z.object({ start: z.number(), end: z.number() }),
+  timeRange: z
+    .object({ start: z.number(), end: z.number() })
+    .refine((v) => v.start < v.end, {
+      error: "Start time must be before end time",
+    }),
 });
 
 export const toFormValues = async (
