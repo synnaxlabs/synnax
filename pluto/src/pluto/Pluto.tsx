@@ -11,7 +11,6 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
-import { annotation as aetherAnnotation } from "@/annotation/aether";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Flux } from "@/flux";
@@ -54,7 +53,6 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
 
 export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
-  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.FluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
   [Device.FLUX_STORE_KEY]: Device.FluxStore;
@@ -69,7 +67,6 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
-  [aetherAnnotation.FLUX_STORE_KEY]: aetherAnnotation.STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
   [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
   [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,

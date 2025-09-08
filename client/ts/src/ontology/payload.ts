@@ -42,8 +42,6 @@ export const resourceTypeZ = z.enum([
   "task",
   "policy",
   "table",
-  "annotation",
-  "effect",
   "arc",
   "schematic_symbol",
 ]);

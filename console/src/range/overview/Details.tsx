@@ -75,6 +75,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       name: "",
       timeRange: { start: 0, end: 0 },
       labels: [],
+      stage: "to_do",
     },
     autoSave: true,
   });

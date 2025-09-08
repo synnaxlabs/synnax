@@ -9,22 +9,21 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Effect } from "@/effect";
-import { createEditLayout } from "@/effect/edit/layout";
+import { Arc } from "@/arc";
 import { type Palette } from "@/palette";
 
 const CREATE_COMMAND: Palette.Command = {
-  key: "create_effect",
-  name: "Create an Effect",
-  icon: <Icon.Effect />,
-  onSelect: ({ placeLayout }) => placeLayout(createEditLayout()),
+  key: "create_arc",
+  name: "Create an Arc",
+  icon: <Icon.Arc />,
+  onSelect: ({ placeLayout }) => placeLayout(Arc.createEditor()),
 };
 
 const OPEN_EXPLORER_COMMAND: Palette.Command = {
-  key: "open_effect_explorer",
-  name: "Open Effect Explorer",
+  key: "open_arc_explorer",
+  name: "Open Arc Explorer",
   icon: <Icon.Explore />,
-  onSelect: ({ placeLayout }) => placeLayout(Effect.EXPLORER_LAYOUT),
+  onSelect: ({ placeLayout }) => placeLayout(Arc.EXPLORER_LAYOUT),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

@@ -13,7 +13,6 @@ import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { access } from "@/access";
-import { annotation } from "@/annotation";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
@@ -70,7 +69,6 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
-  readonly annotations: annotation.Client;
   readonly arcs: arc.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
@@ -157,7 +155,6 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
-    this.annotations = new annotation.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary);
   }
 

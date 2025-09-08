@@ -12,7 +12,7 @@ import { color, xy } from "@synnaxlabs/x";
 
 import { type GraphState } from "@/arc/types";
 
-export const raiseGraph = (module: arc.Module): GraphState => ({
+export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
   nodes: module.nodes.map((n) => ({
     key: n.key,
     position: (n.config.position as xy.XY) ?? xy.ZERO,
@@ -41,11 +41,12 @@ export const raiseGraph = (module: arc.Module): GraphState => ({
   fitViewOnResize: false,
 });
 
-export const lowerGraph = (arc: GraphState): arc.Module => ({
+export const translateGraphToServer = (arc: GraphState): arc.Graph => ({
   nodes: arc.nodes.map((n) => ({
     key: n.key,
     type: arc.props[n.key].key,
     config: arc.props[n.key],
+    position: n.position,
   })),
   edges: arc.edges.map((e) => ({
     source: { key: e.sourceHandle as string, node: e.source },

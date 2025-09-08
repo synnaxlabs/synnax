@@ -1,12 +1,12 @@
-import { type effect } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { Flex, type Flux, Icon, Input, List as PList, Select } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { Item, type ItemProps } from "@/effect/list/Item";
+import { Item, type ItemProps } from "@/arc/list/Item";
 
 export interface ListProps
   extends Pick<
-      Flux.UseListReturn<PList.PagerParams, effect.Key, effect.Effect>,
+      Flux.UseListReturn<PList.PagerParams, arc.Key, arc.Arc>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,
     Pick<ItemProps, "showLabels" | "showStatus"> {
@@ -23,10 +23,10 @@ export const List = ({
   showStatus = true,
 }: ListProps) => {
   const { fetchMore, search } = PList.usePager({ retrieve });
-  const [value, setValue] = useState<effect.Key[]>([]);
+  const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Select.Frame<effect.Key, effect.Effect>
+    <Select.Frame<arc.Key, arc.Arc>
       multiple
       data={data}
       getItem={getItem}
@@ -46,7 +46,7 @@ export const List = ({
               <>
                 {" "}
                 <Icon.Search />
-                Search Effects...
+                Search Arcs...
               </>
             }
             onChange={(value) => {
@@ -56,7 +56,7 @@ export const List = ({
           />
         </Flex.Box>
       )}
-      <PList.Items<string>>
+      <PList.Items<arc.Key>>
         {({ key, ...rest }) => (
           <Item key={key} {...rest} showLabels={showLabels} showStatus={showStatus} />
         )}

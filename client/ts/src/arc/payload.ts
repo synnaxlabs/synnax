@@ -14,29 +14,36 @@ import { z } from "zod/v4";
 import { labelZ } from "@/label/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
-export const nodeZ = z.object({
+export const irNodeZ = z.object({
   key: z.string(),
   type: z.string(),
-  position: xy.xy,
   config: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
+  source: z.string().optional(),
 });
 
-export const handleZ = z.object({
-  key: z.string(),
-  node: z.string(),
+export const graphNodeZ = irNodeZ.extend({
+  position: xy.xy,
 });
 
-export const edgeZ = z.object({
-  source: handleZ,
-  sink: handleZ,
-});
+export const handleZ = z.object({ key: z.string(), node: z.string() });
 
-export const moduleZ = z.object({
-  nodes: nodeZ.array(),
+export const edgeZ = z.object({ source: handleZ, sink: handleZ });
+
+export const irZ = z.object({
+  nodes: irNodeZ.array(),
   edges: edgeZ.array(),
 });
 
-export interface Module extends z.infer<typeof moduleZ> {}
+export const graphZ = z.object({
+  nodes: graphNodeZ.array(),
+  edges: edgeZ.array(),
+});
+
+export const textZ = z.object({ contents: z.string() });
+
+export interface IR extends z.infer<typeof irZ> {}
+export interface Graph extends z.infer<typeof graphZ> {}
+export interface Text extends z.infer<typeof textZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -47,7 +54,8 @@ export const arcZ = z.object({
   name: z.string(),
   version: z.string(),
   labels: labelZ.array().optional(),
-  module: moduleZ,
+  graph: graphZ,
+  text: textZ,
 });
 export interface Arc extends z.infer<typeof arcZ> {}
 

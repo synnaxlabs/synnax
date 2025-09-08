@@ -9,10 +9,10 @@
 
 import { ontology } from "@synnaxlabs/client";
 
+import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
-import { EffectServices } from "@/effect/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
@@ -51,7 +51,5 @@ export const SERVICES: Ontology.Services = {
   allow_all: createEmptyService("allow_all"),
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
-  annotation: createEmptyService("annotation"),
-  arc: createEmptyService("arc"),
-  effect: EffectServices.ONTOLOGY_SERVICE,
+  arc: ArcServices.ONTOLOGY_SERVICE,
 };

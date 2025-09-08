@@ -51,7 +51,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import { raiseGraph } from "@/arc/types/translate";
+import { translateGraphToconsole } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
@@ -317,12 +317,12 @@ export const SELECTABLE: Selector.Selectable = {
   key: EDIT_LAYOUT_TYPE,
   title: "Arc Editor",
   icon: <Icon.Arc />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => createEditor({ key: layoutKey }),
 };
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
-export const create =
+export const createEditor =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Arc Editor", location = "mosaic", window, tab, ...rest } = initial;
@@ -353,7 +353,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, ...rest }) => {
           key: arc.key,
           type: TYPE,
           remoteCreated: false,
-          graph: raiseGraph(arc.module),
+          graph: translateGraphToconsole(arc.graph),
         };
         return state;
       } catch (__) {
