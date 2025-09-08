@@ -697,7 +697,9 @@ describe("queries", () => {
         timeRange,
       });
 
-      await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      await act(async () => {
+        await client.labels.label(existingRange.ontologyID, [label1.key, label2.key]);
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ params: { key: existingRange.key } }),
