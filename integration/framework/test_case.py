@@ -381,8 +381,6 @@ class TestCase(ABC):
         # Start streamer thread (reads data on demand)
         self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
         self.streamer_thread.start()
-
-        time.sleep(self.CLIENT_THREAD_START_DELAY)  # Allow threads to start
         self._log_message("Streamer and Writer threads started")
 
     def _stop_client(self) -> None:
