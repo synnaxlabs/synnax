@@ -311,7 +311,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 };
 
 export const EDIT_LAYOUT_TYPE = "arc_editor";
-export type LayoutType = typeof EDIT_LAYOUT_TYPE;
+export type EditLayoutType = typeof EDIT_LAYOUT_TYPE;
 
 export const SELECTABLE: Selector.Selectable = {
   key: EDIT_LAYOUT_TYPE,

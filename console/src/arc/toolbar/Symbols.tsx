@@ -10,6 +10,7 @@
 import "@/arc/toolbar/Symbols.css";
 
 import {
+  Arc,
   Component,
   CSS as PCSS,
   Divider,
@@ -17,7 +18,6 @@ import {
   Haul,
   List,
   Select,
-  Arc,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -31,8 +31,8 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { CSS } from "@/css";
 import { addElement } from "@/arc/slice";
+import { CSS } from "@/css";
 
 export interface SymbolsProps {
   group: string;

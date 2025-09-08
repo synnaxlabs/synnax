@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { ConnectionLine, Edge, type EdgeData } from "@/schematic/edge/Edge";
-export { type EdgeType, SelectEdgeType } from "@/schematic/edge/paths";
+export { type EdgeType, edgeTypeZ, SelectEdgeType } from "@/schematic/edge/paths";
