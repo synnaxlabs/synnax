@@ -119,11 +119,3 @@ class Ranges_Basic(TestCase):
             )
             self.fail()
             return
-
-    def teardown(self) -> None:
-        """
-        Teardown the test case.
-        """
-
-        # Always call super() last
-        super().teardown()

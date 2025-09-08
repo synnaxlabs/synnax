@@ -127,6 +127,7 @@ class TestConductor:
         )
 
         # Initialize state and collections
+        self.start_time = datetime.now()
         self.state = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
         self.test_results: List[TestResult] = []
@@ -491,18 +492,23 @@ class TestConductor:
 
             # Get test result
             if result_container:
-                result = result_container[0]
+                test_result = result_container[0]
             else:
-                result = TestResult(
+                test_result = TestResult(
                     test_name=test_def.case,
                     name=test_def.name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(result)
+            self.test_results.append(test_result)
             self.current_test_thread = None
             self.tlm[f"{self.name}_test_cases_ran"] += 1
+
+            if test_result.start_time is not None:
+                self._create_range(
+                    test_result.test_name, test_result.start_time, test_result.end_time
+                )
 
     def _execute_sequence_asynchronously(
         self, sequence: Dict[str, Any], tests_to_execute: List[TestDefinition]
@@ -545,17 +551,22 @@ class TestConductor:
 
             # Get test result
             if result_containers[i]:
-                result = result_containers[i][0]
+                test_result = result_containers[i][0]
             else:
-                result = TestResult(
+                test_result = TestResult(
                     test_name=tests_to_execute[i].case,
                     name=tests_to_execute[i].name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(result)
+            self.test_results.append(test_result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
+
+            if test_result.start_time is not None:
+                self._create_range(
+                    test_result.test_name, test_result.start_time, test_result.end_time
+                )
 
     def wait_for_completion(self) -> None:
         """
@@ -578,6 +589,9 @@ class TestConductor:
             self.log_message("Test Thread has stopped")
 
         self.state = STATE.COMPLETED
+
+        # Create range for the test_conductor's entire execution
+        self._create_range(self.name, self.start_time)
 
     def shutdown(self) -> None:
         """
@@ -758,6 +772,33 @@ class TestConductor:
             self._notify_status_change(result)
 
         return result
+
+    def _create_range(
+        self, name: str, start_time: datetime, end_time: Optional[datetime] = None
+    ) -> None:
+        """Create a range in Synnax with the given name and time span."""
+        try:
+            if start_time is None:
+                self.log_message(
+                    f"Skipping range creation for {name}: missing start time"
+                )
+                return
+
+            # Use current time as end_time if not provided
+            if end_time is None:
+                end_time = datetime.now()
+
+            self.client.ranges.create(
+                name=name,
+                time_range=sy.TimeRange(
+                    start=start_time,
+                    end=end_time,
+                ),
+            )
+            self.log_message(f"Created range '{name}'")
+
+        except Exception as e:
+            self.log_message(f"Failed to create range for {name}: {e}")
 
     def _test_runner_thread(
         self, test_def: TestDefinition, result_container: List[TestResult]
