@@ -21,14 +21,14 @@ import {
 } from "@/arc/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
 import { PropertiesControls } from "@/arc/toolbar/Properties";
-import { Symbols } from "@/arc/toolbar/Symbols";
+import { Stages } from "@/arc/toolbar/Stages";
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 
 const TABS = [
-  { tabKey: "symbols", name: "Symbols" },
+  { tabKey: "stages", name: "Stages" },
   { tabKey: "properties", name: "Properties" },
 ];
 
@@ -81,8 +81,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     ({ tabKey }: Tabs.Tab) => {
       if (!editable) return <NotEditableContent layoutKey={layoutKey} name={name} />;
       switch (tabKey) {
-        case "symbols":
-          return <Symbols layoutKey={layoutKey} />;
+        case "stages":
+          return <Stages layoutKey={layoutKey} />;
         default:
           return <PropertiesControls layoutKey={layoutKey} />;
       }
