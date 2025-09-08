@@ -8,12 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import time
-
-import synnax as sy
 from datetime import datetime
 
-from framework.test_case import TestCase
+import synnax as sy
 
+from framework.test_case import TestCase
 
 time_format = "%Y-%m-%d %H:%M:%S.%f"
 
@@ -31,26 +30,24 @@ class Ranges_Basic(TestCase):
         super().setup()
 
     def run(self) -> None:
-           
+
         time.sleep(RANGE_SPAN_S)
         self.range_end = datetime.now()
-        
-        
-        range_name = f"{self.name}_parent"    
+
+        range_name = f"{self.name}_parent"
         self._log_message(f"Creating parent range: {range_name}")
-        
 
         parent_range = self.client.ranges.create(
             name=range_name,
             time_range=sy.TimeRange(
-                start = self.range_start,
-                end = self.range_end,
+                start=self.range_start,
+                end=self.range_end,
             ),
         )
 
         # Assume the latest one is the one we just created.
         my_ranges = self.client.ranges.retrieve(names=[range_name])
-        my_range = my_ranges[0] # Initialize target range to the first one.
+        my_range = my_ranges[0]  # Initialize target range to the first one.
 
         for r in my_ranges:
             if r.time_range.start >= my_range.time_range.start:
@@ -66,8 +63,8 @@ class Ranges_Basic(TestCase):
         parent_range.create_sub_range(
             name=child_range_1_name,
             time_range=sy.TimeRange(
-                start = self.range_start,
-                end = self.range_end,
+                start=self.range_start,
+                end=self.range_end,
             ),
         )
 
@@ -78,8 +75,8 @@ class Ranges_Basic(TestCase):
             parent=sy.ontology.ID(type="range", key=str(parent_range.key)),
             name=child_range_2_name,
             time_range=sy.TimeRange(
-                start = self.range_start,
-                end = self.range_end,
+                start=self.range_start,
+                end=self.range_end,
             ),
         )
 
@@ -88,35 +85,42 @@ class Ranges_Basic(TestCase):
         """
         # Check we have the correct span
         if time_span_s < RANGE_SPAN_S and abs(time_span_s - RANGE_SPAN_S) < 0.01:
-            self._log_message(f"Parent range span is {time_span_s} seconds, expected {RANGE_SPAN_S} seconds")
+            self._log_message(
+                f"Parent range span is {time_span_s} seconds, expected {RANGE_SPAN_S} seconds"
+            )
             self.fail()
-            return False
-        
+            return
+
         # Check we have the correct start and end times (convert to timestamps for comparison)
         expected_start = sy.TimeStamp(self.range_start)
         expected_end = sy.TimeStamp(self.range_end)
         if start_time != expected_start or end_time != expected_end:
-            self._log_message(f"Parent range start time is {start_time}, expected {expected_start}")
-            self._log_message(f"Parent range end time is {end_time}, expected {expected_end}")
+            self._log_message(
+                f"Parent range start time is {start_time}, expected {expected_start}"
+            )
+            self._log_message(
+                f"Parent range end time is {end_time}, expected {expected_end}"
+            )
             self.fail()
-            return False
-        
+            return
+
         # Get child ranges using ontology
         children = self.client.ontology.retrieve_children(my_range.ontology_id)
         if len(children) != 2:
             self._log_message(f"Expected 2 children, got {len(children)}")
             self.fail()
-            return False
+            return
 
         child_names = []
         for child in children:
             child_names.append(child.name)
-        
-        if child_names != [child_range_1_name, child_range_2_name]:
-            self._log_message(f"Expected child names {child_range_1_name} and {child_range_2_name}, got {child_names}")
-            self.fail()
-            return False
 
+        if child_names != [child_range_1_name, child_range_2_name]:
+            self._log_message(
+                f"Expected child names {child_range_1_name} and {child_range_2_name}, got {child_names}"
+            )
+            self.fail()
+            return
 
     def teardown(self) -> None:
         """

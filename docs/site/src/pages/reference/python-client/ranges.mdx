@@ -135,6 +135,14 @@ my_ranges = client.ranges.retrieve(names=["My Range", my_other_range.key])
 In these examples, Synnax will not raise an error if a range cannot be found. Instead,
 the missing range will be omitted from the returned list.
 
+### Retrieving Child Ranges
+
+We can retrieve child ranges using the `client.ontology.retrieve_children` method.
+
+```python
+child_ranges = client.ontology.retrieve_children(my_range.ontology_id)
+```
+
 <Divider.Divider x />
 
 ## Working with Channels
