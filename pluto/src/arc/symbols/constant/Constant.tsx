@@ -1,9 +1,9 @@
 import z from "zod/v4";
 
-import { Icon } from "@/icon";
-import { Text } from "@/text";
 import { Base } from "@/arc/symbols/Base";
 import { type types } from "@/arc/symbols/types";
+import { Icon } from "@/icon";
+import { Text } from "@/text";
 
 const stringConstant = z.object({
   type: z.literal("string"),
@@ -23,13 +23,14 @@ export type Config = z.infer<typeof configZ>;
 
 export type SymbolProps = types.SymbolProps<Config>;
 
-export const Constant = ({ value, units }: SymbolProps) => (
+export const Constant = ({ value, units, scale }: SymbolProps) => (
   <Base
     type="Constant"
     Icon={<Icon.Constant />}
     color="var(--pluto-success-z-20)"
     textColor="var(--pluto-success-z)"
     sources={[{ key: "value", Icon: Icon.Number }]}
+    scale={scale}
   >
     <Text.Text level="h4" weight={500} variant="code">
       {value.toString()} {units}

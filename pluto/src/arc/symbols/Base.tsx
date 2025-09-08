@@ -1,10 +1,11 @@
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type FC } from "react";
 
+import { Handle } from "@/arc/handle";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Icon } from "@/icon";
 import { Text } from "@/text";
-import { Handle } from "@/arc/handle";
 
 interface HandleSpec {
   key: string;
@@ -141,8 +142,9 @@ export const Base = ({
   color,
   textColor,
   children,
+  scale,
 }: BaseProps) => (
-  <Minimal sources={sources} sinks={sinks} style={{ padding: "1rem" }}>
+  <Minimal sources={sources} sinks={sinks} style={{ padding: "1rem" }} scale={scale}>
     <Configuration
       type={type}
       icon={icon}
@@ -163,6 +165,7 @@ interface MinimalProps {
   centerSinks?: boolean;
   children: React.ReactNode;
   style?: CSSProperties;
+  scale?: number;
 }
 
 export const Minimal = ({
@@ -184,7 +187,7 @@ export const Minimal = ({
     adjustedStyle.borderBottomRightRadius = "1rem";
 
   return (
-    <Flex.Box x empty>
+    <Flex.Box x empty className={CSS.BE("arc", "symbol")}>
       <SinkHandles handles={sinks} center={centerSinks} />
       <Flex.Box
         y

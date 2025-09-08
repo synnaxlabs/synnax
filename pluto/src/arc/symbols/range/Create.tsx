@@ -1,12 +1,12 @@
 import { ranger } from "@synnaxlabs/client";
 import z from "zod/v4";
 
-import { Flex } from "@/flex";
-import { Color } from "@/color";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
 import { Base } from "@/arc/symbols/Base";
 import { type types } from "@/arc/symbols/types";
+import { Color } from "@/color";
+import { Flex } from "@/flex";
+import { Icon } from "@/icon";
+import { Text } from "@/text";
 
 export const configZ = z.object({
   range: ranger.payloadZ.partial(),

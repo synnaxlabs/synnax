@@ -8,23 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import {
+  Arc,
   Button,
-  Color,
   Diagram,
   Flex,
   Form,
   Icon,
   Input,
-  Arc,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import {
   selectViewport,
-  useSelectRequiredEdge,
   useSelectRequiredNodeProps,
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
@@ -73,7 +71,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Arc.SYMBOLS[props.key];
+  const C = Arc.REGISTRY[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: any): void => {
@@ -100,17 +98,9 @@ interface EdgePropertiesProps {
   edgeKey: string;
 }
 
-const EdgeProperties = ({
-  layoutKey,
-  edgeKey,
-}: EdgePropertiesProps): ReactElement | null => {
-  const edge = useSelectRequiredEdge(layoutKey, edgeKey);
-  const dispatch = useDispatch();
-  const onChange = (key: string, props: any): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
-  };
-  return <Flex.Box style={{ padding: "2rem" }} align="start" x></Flex.Box>;
-};
+const EdgeProperties = (): ReactElement | null => (
+  <Flex.Box style={{ padding: "2rem" }} align="start" x></Flex.Box>
+);
 
 interface MultiElementPropertiesProps {
   layoutKey: string;

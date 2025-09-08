@@ -159,11 +159,7 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
-	// EFFECT
-	EffectCreate   freighter.UnaryServer[EffectCreateRequest, EffectCreateResponse]
-	EffectDelete   freighter.UnaryServer[EffectDeleteRequest, types.Nil]
-	EffectRetrieve freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
-	// arc
+	// Arc
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, SlateCreateResponse]
 	ArcDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
@@ -193,8 +189,7 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
-	Effect       *EffectService
-	arc          *ArcService
+	Arc          *ArcService
 	Annotation   *AnnotationService
 }
 
@@ -333,12 +328,7 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
 
-		// EFFECT
-		t.EffectCreate,
-		t.EffectDelete,
-		t.EffectRetrieve,
-
-		// arc
+		// Arc
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
@@ -465,15 +455,10 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 
-	// EFFECT
-	t.EffectCreate.BindHandler(a.Effect.CreateEffect)
-	t.EffectDelete.BindHandler(a.Effect.DeleteEffect)
-	t.EffectRetrieve.BindHandler(a.Effect.RetrieveEffect)
-
-	// arc
-	t.ArcCreate.BindHandler(a.arc.Create)
-	t.ArcDelete.BindHandler(a.arc.Delete)
-	t.ArcRetrieve.BindHandler(a.arc.Retrieve)
+	// Arc
+	t.ArcCreate.BindHandler(a.Arc.Create)
+	t.ArcDelete.BindHandler(a.Arc.Delete)
+	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
 
 	// ANNOTATION
 	t.AnnotationCreate.BindHandler(a.Annotation.Create)
@@ -504,8 +489,7 @@ func New(configs ...Config) (*Layer, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
-	api.Effect = NewEffectService(api.provider)
-	api.arc = NewArcService(api.provider)
+	api.Arc = NewArcService(api.provider)
 	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

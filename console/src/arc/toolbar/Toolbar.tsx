@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
-import { Export } from "@/export";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
@@ -25,13 +22,19 @@ import {
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
 import { PropertiesControls } from "@/arc/toolbar/Properties";
 import { Symbols } from "@/arc/toolbar/Symbols";
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
+import { Export } from "@/export";
+import { Layout } from "@/layout";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
   { tabKey: "properties", name: "Properties" },
 ];
 
-interface NotEditableContentProps extends ToolbarProps {}
+interface NotEditableContentProps extends ToolbarProps {
+  name: string;
+}
 
 const NotEditableContent = ({
   layoutKey,
@@ -65,11 +68,11 @@ const NotEditableContent = ({
 
 export interface ToolbarProps {
   layoutKey: string;
-  name: string;
 }
 
-export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
+  const { name } = Layout.useSelectRequired(layoutKey);
   const toolbar = useSelectToolbar();
   const editable = useSelectEditable(layoutKey);
   const handleExport = useExport();

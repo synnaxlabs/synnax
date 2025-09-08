@@ -9,34 +9,47 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-slate-symbols {
-    padding: 1rem 2rem;
-    overflow: auto;
-}
+.console-arc__symbols {
+    height: 100%;
 
-.console-slate-symbols__button {
-    background: none;
-    border: none;
-    width: fit-content;
-    padding: 1rem 0;
-    cursor: pointer;
-    border-radius: var(--pluto-border-radius);
-    min-width: 80px;
-    max-width: 175px;
-    max-height: 100px;
-    margin: 1rem 0.5rem;
+    .console-arc__symbols-group-list {
+        padding: 1rem;
+        border-bottom: var(--pluto-border);
 
-    & > small {
-        color: var(--pluto-gray-l9) !important;
-        text-align: center;
+        & .pluto-input {
+            margin: 0 calc(-1 * var(--pluto-border-width));
+        }
     }
 
-    & .preview-wrapper {
+    .console-arc__symbols-group {
+        overflow: auto;
         height: 100%;
-        transform: scale(0.8);
+        & > .pluto-list__virtualizer {
+            height: fit-content;
+        }
     }
-}
 
-.console-slate-symbols__button:hover {
-    background: var(--pluto-gray-l3);
+    .console-arc-symbols__button {
+        padding: 2rem 1rem;
+        align-items: stretch;
+        & > small {
+            height: calc(var(--pluto-small-line-height) * 2);
+            display: block;
+            color: var(--pluto-gray-l9) !important;
+            font-weight: 450;
+            text-align: center;
+            white-space: wrap;
+        }
+        &.pluto-list__item {
+            width: 90px;
+            min-height: 100px;
+            max-height: 100px;
+            min-width: 130px;
+            max-width: 130px;
+        }
+
+        .pluto-arc__symbol {
+            transform: scale(0.8);
+        }
+    }
 }
