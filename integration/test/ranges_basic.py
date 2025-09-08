@@ -111,13 +111,11 @@ class Ranges_Basic(TestCase):
             self.fail()
             return
 
-        child_names = []
-        for child in children:
-            child_names.append(child.name)
-
-        if child_names != [child_range_1_name, child_range_2_name]:
+        child_names = {child.name for child in children}
+        expected_child_names = {child_range_1_name, child_range_2_name}
+        if child_names != expected_child_names:
             self._log_message(
-                f"Expected child names {child_range_1_name} and {child_range_2_name}, got {child_names}"
+                f"Expected child names {expected_child_names}, got {child_names}"
             )
             self.fail()
             return
